@@ -2,7 +2,7 @@ import { useState } from "hono/jsx/dom";
 
 export function Party() {
     return (
-        <div class="window" style="width: 320px">
+        <div class="window" style="width: 640px">
             <div class="title-bar">
                 <div class="title-bar-text">A lively chat...</div>
             </div>

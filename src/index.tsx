@@ -24,6 +24,7 @@ const Layout = (props: SiteData) =>
                 <title>${props.title}</title>
                 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
+                <script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>
                 <link rel="stylesheet" href="https://unpkg.com/xp.css" >
             </head>
             <body hx-ext="sse">
@@ -59,8 +60,20 @@ app.post("/:room/message", async (c) => {
             sse-connect={`${room}/prompt`}
             sse-swap="message"
             hx-swap="beforeend"
+            hx-target="find script"
             sse-close="finished"
-        ></article>,
+        >
+            <zero-md>
+                <template>
+                    <style>
+                        {`h1 {
+                      color: red;
+                    }`}
+                    </style>
+                </template>
+                <script type="text/markdown"></script>
+            </zero-md>
+        </article>,
     );
 });
 
@@ -83,7 +96,7 @@ app.get("/:room/prompt", async (c) => {
 
             if (value) {
                 await stream.writeSSE({
-                    data: `<span>${value}</span>`,
+                    data: value, //`<span>${value}</span>`,
                     event: "message",
                 });
             }
