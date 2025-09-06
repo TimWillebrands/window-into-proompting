@@ -2,10 +2,14 @@ import { DurableObject } from "cloudflare:workers";
 import { GoogleGenAI } from "@google/genai";
 import { Env } from "hono";
 
-async function* dataSource(ai: GoogleGenAI, signal: AbortSignal) {
+async function* dataSource(
+    ai: GoogleGenAI,
+    signal: AbortSignal,
+    prompt: string,
+) {
     const response = await ai.models.generateContentStream({
         model: "gemini-2.0-flash",
-        contents: "Explain how AI works in a few words",
+        contents: prompt,
         config: {
             abortSignal: signal,
         },
@@ -17,8 +21,9 @@ async function* dataSource(ai: GoogleGenAI, signal: AbortSignal) {
 }
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
-    private sessions: Map<string, WebSocket>;
-    private ai: GoogleGenAI;
+    private readonly sessions: Map<string, WebSocket>;
+    private readonly ai: GoogleGenAI;
+    private prompt?: string;
 
     // biome-ignore lint: because
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
@@ -35,9 +40,19 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return result.greeting?.toString();
     }
 
+    prepare(prompt: string) {
+        this.prompt = prompt;
+    }
+
     async fetch(request: Request): Promise<Response> {
         const abortController = new AbortController();
         const ai = this.ai;
+
+        if (!this.prompt) {
+            throw new Error("Prompt not set");
+        }
+
+        const prompt = this.prompt;
 
         const stream = new ReadableStream({
             async start(controller) {
@@ -47,7 +62,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     return;
                 }
 
-                const data = dataSource(ai, abortController.signal);
+                const data = dataSource(ai, abortController.signal, prompt);
                 for await (const value of data) {
                     controller.enqueue(new TextEncoder().encode(String(value)));
                 }

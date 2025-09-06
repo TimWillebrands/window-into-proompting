@@ -7,7 +7,11 @@ export function Party() {
                 <div class="title-bar-text">A lively chat...</div>
             </div>
             <div class="window-body" id="chat">
-                <form hx-post="/message" hx-target="#chat" hx-swap="afterbegin">
+                <form
+                    hx-post="/test/message"
+                    hx-target="#chat"
+                    hx-swap="afterbegin"
+                >
                     <div class="field-row-stacked" style="width: 200px">
                         <label for="text24">Prompt:</label>
                         <textarea name="prompt" id="text24" rows={8}></textarea>

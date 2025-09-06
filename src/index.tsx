@@ -39,22 +39,34 @@ app.get("/", (c) => {
     );
 });
 
-app.post("/message", async (c) => {
+app.post("/:room/message", async (c) => {
+    const room = c.req.param("room");
+    const stub = c.env.MY_DURABLE_OBJECT.getByName(room);
+
     const body = await c.req.parseBody();
     const prompt = body.prompt;
+
+    if (typeof prompt !== "string") {
+        return new Response("Invalid prompt", { status: 400 });
+    }
+
+    stub.prepare(prompt);
+
     return c.html(
-        <div
+        <article
+            role="tabpanel"
             hx-ext="sse"
-            sse-connect="/sse"
+            sse-connect={`${room}/prompt`}
             sse-swap="message"
             hx-swap="beforeend"
             sse-close="finished"
-        ></div>,
+        ></article>,
     );
 });
 
-app.get("/sse", async (c) => {
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(new URL(c.req.url).pathname);
+app.get("/:room/prompt", async (c) => {
+    const room = c.req.param("room");
+    const stub = c.env.MY_DURABLE_OBJECT.getByName(room);
     const response = await stub.fetch(c.req.raw);
 
     if (!response.ok || !response.body) {
@@ -71,7 +83,7 @@ app.get("/sse", async (c) => {
 
             if (value) {
                 await stream.writeSSE({
-                    data: `<p>${value}</p>`,
+                    data: `<span>${value}</span>`,
                     event: "message",
                 });
             }
@@ -80,35 +92,6 @@ app.get("/sse", async (c) => {
                     data: "it is finished",
                     event: "finished",
                 });
-                await stream.close();
-                break;
-            }
-        }
-    });
-});
-
-app.get("/streamText", async (c) => {
-    c.header("Content-Encoding", "Identity");
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(new URL(c.req.url).pathname);
-    const response = await stub.fetch(c.req.raw);
-    if (!response.ok || !response.body) {
-        return new Response("Invalid response", { status: 500 });
-    }
-
-    const reader = response.body
-        .pipeThrough(new TextDecoderStream())
-        .getReader();
-
-    return streamText(c, async (stream) => {
-        while (true) {
-            const { value, done } = await reader.read();
-
-            console.log(value, done);
-
-            if (value) {
-                await stream.write(value);
-            }
-            if (done) {
                 await stream.close();
                 break;
             }
