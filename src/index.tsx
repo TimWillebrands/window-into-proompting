@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { html } from "hono/html";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { streamSSE, streamText } from "hono/streaming";
-import { Party } from "./components/party";
+import { Message, Party } from "./components/party";
 import type { MyDurableObject } from "./party";
 
 type Bindings = {
@@ -26,6 +26,7 @@ const Layout = (props: SiteData) =>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
                 <script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>
                 <link rel="stylesheet" href="https://unpkg.com/xp.css" >
+                <link rel="stylesheet" href="output.css" >
             </head>
             <body hx-ext="sse">
                 ${props.children}
@@ -53,28 +54,7 @@ app.post("/:room/message", async (c) => {
 
     stub.prepare(prompt);
 
-    return c.html(
-        <article
-            role="tabpanel"
-            hx-ext="sse"
-            sse-connect={`${room}/prompt`}
-            sse-swap="message"
-            hx-swap="beforeend"
-            hx-target="find script"
-            sse-close="finished"
-        >
-            <zero-md>
-                <template>
-                    <style>
-                        {`h1 {
-                      color: red;
-                    }`}
-                    </style>
-                </template>
-                <script type="text/markdown"></script>
-            </zero-md>
-        </article>,
-    );
+    return c.html(<Message room={room} />);
 });
 
 app.get("/:room/prompt", async (c) => {

@@ -2,8 +2,8 @@
     "name": "proompting",
     "type": "module",
     "scripts": {
-        "dev": "wrangler dev",
-        "deploy": "wrangler deploy --minify",
+        "dev": "concurrently \"wrangler dev\" \"tailwindcss -i ./public/input.css -o ./public/output.css --watch\"",
+        "deploy": "tailwindcss -i ./public/input.css -o ./public/output.css && wrangler deploy --minify",
         "cf-typegen": "wrangler types --env-interface CloudflareBindings"
     },
     "dependencies": {
@@ -12,6 +12,8 @@
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.3",
-        "wrangler": "^4.34.0"
+        "concurrently": "^9.2.1",
+        "wrangler": "^4.34.0",
+        "tailwindcss": "^4.1.13"
     }
 }
