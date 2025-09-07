@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
-import { jsxRenderer } from "hono/jsx-renderer";
-import { streamSSE, streamText } from "hono/streaming";
+import { streamSSE } from "hono/streaming";
 import { Message, Party } from "./components/party";
 import type { MyDurableObject } from "./party";
 
