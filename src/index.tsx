@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
+import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
-import { Message, Party } from "./components/party";
+import { Message, PartiesZone, Party } from "./components/party";
 import type { MyDurableObject } from "./party";
 
 type Bindings = {
@@ -13,10 +14,9 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 interface SiteData {
     title: string;
-    children?: any;
 }
 
-const Layout = (props: SiteData) =>
+const Layout = (props: PropsWithChildren<SiteData>) =>
     html`<!doctype html>
         <html>
             <head>
@@ -24,10 +24,11 @@ const Layout = (props: SiteData) =>
                 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
                 <script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>
+                <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/xp.css" >
                 <link rel="stylesheet" href="output.css" >
             </head>
-            <body hx-ext="sse">
+            <body hx-ext="sse" >
                 ${props.children}
             </body>
         </html>`;
@@ -35,7 +36,9 @@ const Layout = (props: SiteData) =>
 app.get("/", (c) => {
     return c.html(
         <Layout title="My Party">
-            <Party />
+            <PartiesZone>
+                <Party room="First" />
+            </PartiesZone>
         </Layout>,
     );
 });
@@ -59,7 +62,7 @@ app.post("/:room/message", async (c) => {
 app.get("/:room/prompt", async (c) => {
     const room = c.req.param("room");
     const stub = c.env.MY_DURABLE_OBJECT.getByName(room);
-    const response = await stub.fetch(c.req.raw);
+    const response = await stub.runPrompt(c.req.raw);
 
     if (!response.ok || !response.body) {
         return new Response("Invalid response", { status: 500 });

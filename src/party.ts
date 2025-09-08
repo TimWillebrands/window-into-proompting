@@ -41,10 +41,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     }
 
     prepare(prompt: string) {
+        console.log("Party.ts - prepare", prompt);
         this.prompt = prompt;
     }
 
-    async fetch(request: Request): Promise<Response> {
+    async runPrompt(request: Request): Promise<Response> {
+        console.log("Party.ts - runPrompt", this.prompt);
         const abortController = new AbortController();
         const ai = this.ai;
 
