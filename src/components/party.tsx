@@ -1,12 +1,10 @@
-// Separate components for better organization and reusability
-
-import type { PropsWithChildren } from "hono/jsx";
+import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
 
 interface ChatMessageProps {
     isUser: boolean;
     timestamp?: string;
     className?: string;
-    [key: string]: unknown; // For HTMX attributes
+    [hxAttr: string]: unknown; // For HTMX attributes
 }
 
 function ChatMessage({
@@ -64,10 +62,11 @@ function TypingIndicator() {
 }
 
 function ChatInput() {
+    const { room } = useContext(PartyContext);
     return (
         <div className="p-2 border-t border-gray-300">
             <form
-                hx-post="/test/message"
+                hx-post={`/${room}/message`}
                 hx-target="#chat-messages"
                 hx-swap="beforeend"
                 hx-include="[name='prompt']"
@@ -112,7 +111,7 @@ function ChatInput() {
                         placeholder="Type your message here... (Ctrl+Enter to send)"
                         className="w-full resize-y font-sans text-[11px]"
                         hx-trigger="keydown[ctrlKey&&key=='Enter']"
-                        hx-post="/test/message"
+                        hx-post={`/${room}/message`}
                         hx-target="#chat-messages"
                         hx-swap="beforeend"
                         hx-include="closest form"
@@ -150,18 +149,29 @@ function StatusBar() {
     );
 }
 
-interface WindowContainerProps {
-    title: string;
-}
-
-function WindowContainer({
-    children,
-    title,
-}: PropsWithChildren<WindowContainerProps>) {
+function WindowContainer({ children }: PropsWithChildren<unknown>) {
+    const { room } = useContext(PartyContext);
     return (
-        <div className="window w-[clamp(600px,80vw,1000px)] h-[clamp(400px,70vh,700px)] flex flex-col resize overflow-hidden min-w-[500px] min-h-[350px]">
-            <div className="title-bar box-content">
-                <div className="title-bar-text">{title}</div>
+        <div
+            id={room}
+            className="
+                window absolute w-[clamp(600px,80vw,1000px)] h-[clamp(400px,70vh,700px)]
+                flex flex-col resize overflow-hidden min-w-[500px] min-h-[350px]"
+            style="left: calc(50% - clamp(600px,80vw,1000px) / 2); top: calc(50% - clamp(400px,70vh,700px) / 2)"
+        >
+            <div
+                className="title-bar box-content"
+                x-on:pointerdown="
+                    dragTarget = document.querySelector('#'+room);
+                    const rect = dragTarget.getBoundingClientRect();
+                    dragTarget.offsetX = $event.clientX - rect.left;
+                    dragTarget.offsetY = $event.clientY - rect.top;
+                    $event.preventDefault(); "
+            >
+                <div className="title-bar-text">
+                    🎉 Party Chat - {room}{" "}
+                    <strong x-text="dragTarget != null"></strong>
+                </div>
                 <div className="title-bar-controls">
                     <button type="button" aria-label="Minimize"></button>
                     <button type="button" aria-label="Maximize"></button>
@@ -187,19 +197,53 @@ function ChatMessagesArea() {
     );
 }
 
-// Main Party component with cleaner structure
-export function Party() {
+interface PartyProps {
+    room: string;
+}
+
+const PartyContext = createContext({ room: "" });
+
+/**
+ * Container for all parties, which manages the layout and behavior of party windows.
+ */
+export function PartiesZone({ children }: PropsWithChildren<unknown>) {
     return (
-        <div className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300">
-            <WindowContainer title="🎉 Party Chat - LLM Conversation">
-                <ChatMessagesArea />
-                <StatusBar />
-            </WindowContainer>
-        </div>
+        <section
+            x-data="{ dragTarget: null }"
+            x-on:pointerup="dragTarget = null"
+            x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
+                const newX = event.clientX - dragTarget.offsetX;
+                const newY = event.clientY - dragTarget.offsetY;
+                dragTarget.style.left = newX + 'px';
+                dragTarget.style.top = newY + 'px';
+                dragTarget.style.zIndex = '1000';
+            }"
+            className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300"
+        >
+            {children}
+        </section>
     );
 }
 
-// Simplified Message component using the new ChatMessage component
+/**
+ * Container for a single party, which manages the layout and behavior of the party window.
+ */
+export function Party({ room }: PartyProps) {
+    return (
+        <PartyContext.Provider value={{ room }}>
+            <div x-data={`{ room: "${room}" }`}>
+                <WindowContainer>
+                    <ChatMessagesArea />
+                    <StatusBar />
+                </WindowContainer>
+            </div>
+        </PartyContext.Provider>
+    );
+}
+
+/**
+ * Container for a single message, loads in a response and renders that markdown using a web-component.
+ */
 export function Message({
     room,
     content,
