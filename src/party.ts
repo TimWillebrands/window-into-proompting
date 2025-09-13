@@ -1,6 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
 import { GoogleGenAI } from "@google/genai";
-import { Env } from "hono";
 
 async function* dataSource(
     ai: GoogleGenAI,
@@ -25,7 +24,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly ai: GoogleGenAI;
     private prompt?: string;
 
-    // biome-ignore lint: because
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
         super(ctx, env);
@@ -40,9 +38,10 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return result.greeting?.toString();
     }
 
-    prepare(prompt: string) {
+    async prepare(prompt: string) {
         console.log("Party.ts - prepare", prompt);
         this.prompt = prompt;
+        return new Response();
     }
 
     async runPrompt(request: Request): Promise<Response> {

@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
-import { Message, PartiesZone, Party } from "./components/party";
+import { Desktop } from "./components/desktop";
+import { Message, UserMessage } from "./components/message";
+import { OpenParty } from "./components/openParty";
+import { Party } from "./components/party";
 import type { MyDurableObject } from "./party";
 
 type Bindings = {
@@ -36,32 +39,51 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
 app.get("/", (c) => {
     return c.html(
         <Layout title="My Party">
-            <PartiesZone>
-                <Party room="First" />
-            </PartiesZone>
+            <Desktop></Desktop>
         </Layout>,
     );
 });
 
-app.post("/:room/message", async (c) => {
-    const room = c.req.param("room");
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(room);
+app.get("/party", (c) => {
+    return c.html(<OpenParty previousParties={[]} />);
+});
 
-    const body = await c.req.parseBody();
-    const prompt = body.prompt;
+app.post("/party/create", async (c) => {
+    const body = await c.req.formData();
+    const partyName = body.get("partyName") ?? crypto.randomUUID();
+
+    return c.redirect(`/party/${partyName}`);
+});
+
+app.get("/party/:id", (c) => {
+    const id = c.req.param("id");
+    return c.html(<Party room={id} />);
+});
+
+app.post("/party/:id/message", async (c) => {
+    const id = c.req.param("id");
+    const stub = c.env.MY_DURABLE_OBJECT.getByName(id);
+
+    const body = await c.req.formData();
+    const prompt = body.get("prompt");
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
     }
 
-    stub.prepare(prompt);
+    await stub.prepare(prompt);
 
-    return c.html(<Message room={room} />);
+    return c.html(
+        <>
+            <UserMessage content={prompt} />
+            <Message room={id} />
+        </>,
+    );
 });
 
-app.get("/:room/prompt", async (c) => {
-    const room = c.req.param("room");
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(room);
+app.get("/party/:id/prompt", async (c) => {
+    const id = c.req.param("id");
+    const stub = c.env.MY_DURABLE_OBJECT.getByName(id);
     const response = await stub.runPrompt(c.req.raw);
 
     if (!response.ok || !response.body) {
