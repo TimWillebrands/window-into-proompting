@@ -6,7 +6,7 @@ Greetings, fellow carbon-based life forms! Microsoft Sam here, and boy oh boy, d
 
 ## What The Heck Is This Thing?
 
-Picture this: It's 2001. You've got your Windows XP machine humming along, Limewire is downloading your "totally legal" MP3s, and your 56k modem is screaming into the void. But WAIT! What if I told you that you could chat with an ARTIFICIAL INTELLIGENCE right from your desktop? That's right, folks - we've taken the best parts of Windows XP and SUPERCHARGED them with Google's fancy new AI brain!
+Picture this: It's 2001. You've got your Windows XP machine humming along, Limewire is downloading your "totally legal" MP3s, and your 56k modem is screaming into the void. But WAIT! What if I told you that you could chat with an ARTIFICIAL INTELLIGENCE right from your desktop? That's right, folks - we've taken the best parts of Windows XP and SUPERCHARGED them with ✨AI✨!
 
 ```
 ┌─────────────────────────────────────┐
