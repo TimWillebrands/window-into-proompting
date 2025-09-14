@@ -11,8 +11,8 @@ Picture this: It's 2001. You've got your Windows XP machine humming along, Limew
 ```
 ┌─────────────────────────────────────┐
 │ 🖥️ AUTHENTIC XP DESKTOP EXPERIENCE  │
-│ 🤖 REAL AI THAT ACTUALLY WORKS     │
-│ 💬 CHAT ROOMS (LIKE MSN BUT BETTER)│
+│ 🤖 REAL AI THAT ACTUALLY WORKS      │
+│ 💬 CHAT ROOMS (LIKE MSN BUT BETTER) │
 │ ⚡ FASTER THAN DIALUP (THANKFULLY)  │
 └─────────────────────────────────────┘
 ```
