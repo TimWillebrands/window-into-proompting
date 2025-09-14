@@ -7,7 +7,21 @@ import { Taskbar } from "./taskbar";
 export function Desktop({ children }: PropsWithChildren<unknown>) {
     return (
         <main
-            x-data="{ dragTarget: null }"
+            x-data="{
+                dragTarget: null,
+                windows: {
+                    henk: {
+                        id: 'henk',
+                        title: 'Henk',
+                        get url() { return '/party/' + this.id; },
+                        x: 0,
+                        y: 0,
+                        width: 500,
+                        height: 350,
+                        zIndex: 10,
+                    }
+                }
+            }"
             x-on:pointerup="dragTarget = null"
             x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
                 const newX = event.clientX - dragTarget.offsetX;
@@ -33,6 +47,13 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
             </section>
 
             <section id="windows" class="w-full h-full pb-10">
+                <template x-for="(window, index) in windows">
+                    <div
+                        hx-trigger="load"
+                        x-bind:hx-get="window.url"
+                        x-text="window.title"
+                    />
+                </template>
                 {children}
             </section>
 

@@ -24,10 +24,14 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
         <html>
             <head>
                 <title>${props.title}</title>
+                <script src="script.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
                 <script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>
+
+                <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
                 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
                 <link rel="stylesheet" href="https://unpkg.com/xp.css" >
                 <link rel="stylesheet" href="output.css" >
             </head>
