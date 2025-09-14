@@ -11,7 +11,7 @@ export function OpenParty({
     }[];
 }) {
     return (
-        <WindowContainer id="open-party" title="🎉 Open Party">
+        <WindowContainer id="open-party" title="🎉 Open Party" url="/party">
             <div className="window-body flex flex-col h-full">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-300">

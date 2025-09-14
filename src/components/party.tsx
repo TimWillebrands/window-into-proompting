@@ -102,7 +102,11 @@ export function Party({ room }: PartyProps) {
     return (
         <PartyContext.Provider value={{ room }}>
             <div x-data={`{ room: "${room}" }`}>
-                <WindowContainer id={room} title={`🎉 Party Chat - ${room}`}>
+                <WindowContainer
+                    id={room}
+                    title={`🎉 Party Chat - ${room}`}
+                    url={`/party/${room}`}
+                >
                     <ChatMessagesArea />
                     <StatusBar />
                 </WindowContainer>
