@@ -14,19 +14,19 @@ export function WindowContainer({
     return (
         <div
             id={id}
-            x-data={`{ url: '${url}', title: '${title}', id: '${id}'}`}
+            x-data={`{ url: '${url}', title: '${title}', windowId: '${id}'}`}
             className="
                 window absolute w-[clamp(600px,80vw,1000px)] h-[clamp(400px,70vh,700px)]
                 flex flex-col resize overflow-hidden min-w-[500px] min-h-[350px]"
             x-init="
-                const windowData = windows[id];
+                const windowData = windows[windowId];
                 $el.style.left = windowData?.x ?? 'calc(50% - clamp(600px,80vw,1000px) / 2)';
                 $el.style.top = windowData?.y ?? 'calc(50% - clamp(400px,70vh,700px) / 2)';
                 $el.style.width = windowData?.width ?? null;
                 $el.style.height = windowData?.height ?? null;
-                if($el.id && url){
-                    windows[$el.id] = {
-                        id: $el.id,
+                if(windowId && url){
+                    windows[windowId] = {
+                        id: windowId,
                         title: title,
                         url: url,
                         x: $el.style.left,
@@ -64,7 +64,7 @@ export function WindowContainer({
                         type="button"
                         aria-label="Close"
                         x-on:click="
-                            windows[$root.id] = undefined;
+                            windows[windowId] = undefined;
                             $event.target.closest('.window').remove(); "
                     ></button>
                 </div>
