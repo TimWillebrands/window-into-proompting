@@ -103,6 +103,11 @@ export function OpenParty({
                                 btn.disabled = true;
                                 btn.textContent = '⏳ Creating...';
                             "
+                            {...{
+                                "x-on:htmx:after-request.camel": `
+                                windows[windowId] = undefined;
+                                $event.target.closest('.window').remove(); `,
+                            }}
                         >
                             <div className="field-row-stacked">
                                 <label
