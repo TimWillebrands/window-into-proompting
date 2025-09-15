@@ -36,6 +36,14 @@ export function WindowContainer({
                     };
                 }
             "
+            x-resize="
+                const windowData = windows[windowId];
+                if(windowData){
+                    windowData.width = $el.style.width;
+                    windowData.height = $el.style.height;
+                }
+                console.log('Window resized', windowData);
+            "
         >
             <div
                 className="title-bar box-content cursor-grab"
