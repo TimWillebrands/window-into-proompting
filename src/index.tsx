@@ -6,7 +6,7 @@ import { Desktop } from "./components/desktop";
 import { Message, UserMessage } from "./components/message";
 import { OpenParty } from "./components/openParty";
 import { Party } from "./components/party";
-import type { MyDurableObject } from "./party";
+import type { MyDurableObject } from "./durable_objects/party";
 
 type Bindings = {
     MY_DURABLE_OBJECT: DurableObjectNamespace<MyDurableObject>;
@@ -122,4 +122,4 @@ app.get("/party/:id/prompt", async (c) => {
 });
 
 export default app;
-export { MyDurableObject } from "@/party";
+export { MyDurableObject } from "@/durable_objects/party";
