@@ -31,7 +31,7 @@ function ChatInput() {
                         placeholder="Type your message here... (Ctrl+Enter to send)"
                         className="w-full resize-y font-sans text-[11px]"
                         hx-trigger="keydown[ctrlKey&&key=='Enter']"
-                        hx-post={`/party/${room}/message`}
+                        hx-post={`/party/${room}/prompt`}
                         hx-target="#chat-messages"
                         hx-swap="beforeend"
                         hx-include="closest form"
@@ -106,7 +106,7 @@ function ChatMessagesArea({ room }: { room: string }) {
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 border-2
                     border-inset border-gray-300 m-2 bg-white font-sans
                     text-[11px] h-0 min-h-[200px] chat-messages"
-                hx-on_htmx_sseBeforeMessage="console.log('message received')"
+                hx-on-htmx-sseBeforeMessage="console.log('message received')"
             >
                 <WelcomeMessage />
             </div>

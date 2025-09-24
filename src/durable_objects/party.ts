@@ -1,14 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources";
 
-async function* promptLlm(ai: GoogleGenAI, prompt: string) {
-    const response = await ai.models.generateContentStream({
-        model: "gemini-2.0-flash",
-        contents: prompt,
+async function* promptLlm(ai: OpenAI, messages: ChatCompletionMessageParam[]) {
+    const completion = await ai.chat.completions.create({
+        model: "x-ai/grok-4-fast:free",
+        messages: messages,
+        stream: true,
     });
 
-    for await (const chunk of response) {
-        yield chunk.text;
+    for await (const chunk of completion) {
+        yield chunk.choices[0].delta.content;
     }
 }
 
@@ -27,7 +29,7 @@ export type SubscriptionMessage =
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
 class Generation {
-    private readonly ai: GoogleGenAI;
+    private readonly ai: OpenAI;
     private readonly messageId: number;
     private readonly observers = new Set<Observer>();
     private readonly textEncoder = new TextEncoder();
@@ -35,7 +37,7 @@ class Generation {
     private message = "";
     private done = false;
 
-    constructor(ai: GoogleGenAI, messageId: number) {
+    constructor(ai: OpenAI, messageId: number) {
         this.ai = ai;
         this.messageId = messageId;
     }
@@ -46,8 +48,20 @@ class Generation {
         observer(chunk, this.done);
     }
 
-    async generate(prompt: string) {
-        const data = promptLlm(this.ai, prompt);
+    async generate(history: MessageType[], prompt: string) {
+        const messages: ChatCompletionMessageParam[] = [
+            { role: "system", content: "You are a helpful assistant." },
+            ...history.map(
+                (message) =>
+                    ({
+                        role: message.sender === "user" ? "user" : "assistant",
+                        content: message.message ?? "",
+                        name: undefined,
+                    }) as ChatCompletionMessageParam,
+            ),
+            { role: "user", content: prompt },
+        ];
+        const data = promptLlm(this.ai, messages);
 
         for await (const value of data) {
             if (typeof value !== "string") {
@@ -72,13 +86,20 @@ class Generation {
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
 
-    private readonly ai: GoogleGenAI;
+    private readonly ai: OpenAI;
     private readonly sql: SqlStorage;
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
         super(ctx, env);
-        this.ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+        this.ai = new OpenAI({
+            baseURL: "https://openrouter.ai/api/v1",
+            apiKey: env.GEMINI_API_KEY,
+            defaultHeaders: {
+                "HTTP-Referer": "https://proomting.party", // Optional. Site URL for rankings on openrouter.ai.
+                "X-Title": "Proompting Party", // Optional. Site title for rankings on openrouter.ai.
+            },
+        });
         this.sql = ctx.storage.sql;
 
         this.sql.exec(`CREATE TABLE IF NOT EXISTS messages(
@@ -111,7 +132,11 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         this.generations.set(newMessageIds[1], generation);
 
         // Fire and forget the generation
-        generation.generate(prompt).then((g) => {
+        const messages = this.sql
+            .exec<MessageType>("SELECT * FROM messages")
+            .toArray();
+
+        generation.generate(messages, prompt).then((g) => {
             console.log("Generation finished", g.message, g.messageId);
             this.sql.exec(
                 `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,

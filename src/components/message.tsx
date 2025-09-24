@@ -93,17 +93,3 @@ export function Message({
         </article>
     );
 }
-
-// Simplified UserMessage component
-function UserMessage({ content }: { content: string }) {
-    return (
-        <ChatMessage
-            isUser={true}
-            timestamp={new Date().toLocaleTimeString()}
-            className="message user-message"
-            x-init="$el.closest('.chat-messages').querySelector('.welcome-message').remove()"
-        >
-            {content}
-        </ChatMessage>
-    );
-}
