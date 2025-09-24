@@ -3,10 +3,15 @@ import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
 import { Desktop } from "./components/desktop";
-import { Message, UserMessage } from "./components/message";
+import { Message } from "./components/message";
 import { OpenParty } from "./components/openParty";
 import { Party } from "./components/party";
-import type { MyDurableObject } from "./party";
+import {
+    MessageType,
+    type MyDurableObject,
+    type SubscriptionMessage,
+} from "./durable_objects/party";
+import { Subscription } from "./subscription";
 
 type Bindings = {
     MY_DURABLE_OBJECT: DurableObjectNamespace<MyDurableObject>;
@@ -60,14 +65,15 @@ app.post("/party/create", async (c) => {
     return c.redirect(`/party/${partyName}`);
 });
 
-app.get("/party/:id", (c) => {
+app.get("/party/:id", async (c) => {
     const id = c.req.param("id");
+
     return c.html(<Party room={id} />);
 });
 
-app.post("/party/:id/message", async (c) => {
+app.post("/party/:id/prompt", async (c) => {
     const id = c.req.param("id");
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
 
     const body = await c.req.formData();
     const prompt = body.get("prompt");
@@ -76,20 +82,92 @@ app.post("/party/:id/message", async (c) => {
         return new Response("Invalid prompt", { status: 400 });
     }
 
-    await stub.prepare(prompt);
+    await party.sendPrompt(prompt, "user");
 
-    return c.html(
-        <>
-            <UserMessage content={prompt} />
-            <Message room={id} />
-        </>,
-    );
+    return c.text("Proompt accepted", 202);
 });
 
-app.get("/party/:id/prompt", async (c) => {
+app.get("/party/:id/messages", async (c) => {
     const id = c.req.param("id");
-    const stub = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await stub.runPrompt(c.req.raw);
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const request = new Request(c.req.url, {
+        method: "GET",
+        headers: { Upgrade: "websocket" },
+    });
+    const handle = await party.fetch(request); //.subscribe();
+
+    if (handle.webSocket === null) {
+        throw new Error("Subscription failed, no WebSocket in response");
+    }
+
+    const socket = handle.webSocket;
+    socket.accept();
+
+    return streamSSE(c, async (stream) => {
+        await stream.writeSSE({ event: "started", data: "started" });
+        const startTime = performance.now();
+        const keepAlive = setInterval(() => {
+            stream.writeSSE({
+                event: "keepalive",
+                data: performance.now() - startTime + "ms",
+            });
+        }, 5_000);
+
+        const subscription = new Subscription<SubscriptionMessage>(socket);
+
+        for await (const message of subscription.messages()) {
+            console.log("subscription message received", message.type);
+            switch (message.type) {
+                case "join":
+                    await stream.writeSSE({
+                        data: (
+                            <>
+                                {message.messages.map((message) => (
+                                    <Message roomId={id} message={message} />
+                                ))}
+                            </>
+                        ),
+                        event: "message",
+                    });
+                    break;
+                case "message":
+                    await stream.writeSSE({
+                        data: <Message roomId={id} message={message.message} />,
+                        event: "message",
+                    });
+                    break;
+                case "messageStream":
+                    await stream.writeSSE({
+                        data: (
+                            <Message roomId={id} message={message.messageId} />
+                        ),
+                        event: "message",
+                    });
+                    break;
+            }
+        }
+
+        console.log("subscription closed");
+        await stream.writeSSE({
+            data: "it is finished",
+            event: "finished",
+        });
+        await stream.close();
+        clearInterval(keepAlive);
+    });
+});
+
+app.get("/party/:id/messages/:messageid", async (c) => {
+    const id = c.req.param("id");
+    const messageid = Number(c.req.param("messageid"));
+    if (isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const response = await party.streamMessage(c.req.raw, messageid);
 
     if (!response.ok || !response.body) {
         return new Response("Invalid response", { status: 500 });
@@ -122,4 +200,4 @@ app.get("/party/:id/prompt", async (c) => {
 });
 
 export default app;
-export { MyDurableObject } from "@/party";
+export { MyDurableObject } from "@/durable_objects/party";

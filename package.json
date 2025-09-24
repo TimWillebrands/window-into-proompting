@@ -7,13 +7,14 @@
         "cf-typegen": "wrangler types --env-interface CloudflareBindings"
     },
     "dependencies": {
-        "@google/genai": "^1.17.0",
-        "hono": "^4.9.6"
+        "hono": "^4.9.6",
+        "openai": "^5.23.0"
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.3",
+        "@types/bun": "^1.2.22",
         "concurrently": "^9.2.1",
-        "wrangler": "^4.34.0",
-        "tailwindcss": "^4.1.13"
+        "tailwindcss": "^4.1.13",
+        "wrangler": "^4.34.0"
     }
 }

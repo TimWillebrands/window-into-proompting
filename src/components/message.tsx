@@ -1,20 +1,11 @@
 import type { PropsWithChildren } from "hono/jsx";
+import type { MessageType } from "@/durable_objects/party";
 
 interface ChatMessageProps {
     isUser: boolean;
     timestamp?: string;
     className?: string;
     [hxAttr: string]: unknown; // For HTMX attributes
-}
-
-function TypingIndicator() {
-    return (
-        <span className="typing-indicator htmx-indicator opacity-60">
-            <span className="animate-pulse">●</span>
-            <span className="animate-pulse [animation-delay:0.2s]">●</span>
-            <span className="animate-pulse [animation-delay:0.4s]">●</span>
-        </span>
-    );
 }
 
 function ChatMessage({
@@ -35,7 +26,7 @@ function ChatMessage({
             {...hxAttributes}
         >
             <div className="font-bold mb-1 text-blue-800">
-                {isUser ? "👤 You" : "🤖 AI Assistant"}
+                {isUser ? "👤 Human" : "🤖 AI Assistant"}
                 {timestamp && (
                     <span className="float-right font-normal text-[10px] text-gray-500">
                         {timestamp}
@@ -53,24 +44,21 @@ function ChatMessage({
  * Container for a single message, loads in a response and renders that markdown using a web-component.
  */
 export function Message({
-    room,
-    content,
-    isUser = false,
+    message,
+    roomId,
 }: {
-    room: string;
-    content?: string;
-    isUser?: boolean;
+    message: MessageType | number;
+    roomId: string;
 }) {
-    if (content) {
+    if (typeof message === "object") {
         // Static message display
         return (
             <ChatMessage
-                isUser={isUser}
-                timestamp={new Date().toLocaleTimeString()}
+                isUser={message.sender === "user"}
+                timestamp={new Date(message.sendAt ?? 0).toISOString()}
                 className="message"
-                hx-swap-oob="afterbegin:#message-count"
             >
-                {content}
+                {message.message}
             </ChatMessage>
         );
     }
@@ -80,7 +68,7 @@ export function Message({
         <article
             role="tabpanel"
             hx-ext="sse"
-            sse-connect={`/party/${room}/prompt`}
+            sse-connect={`/party/${roomId}/messages/${message}`}
             sse-swap="message"
             hx-swap="beforeend"
             hx-target="find .message-content"
@@ -103,19 +91,5 @@ export function Message({
                 <script class="message-content" type="text/markdown"></script>
             </zero-md>
         </article>
-    );
-}
-
-// Simplified UserMessage component
-export function UserMessage({ content }: { content: string }) {
-    return (
-        <ChatMessage
-            isUser={true}
-            timestamp={new Date().toLocaleTimeString()}
-            className="message user-message"
-            x-init="$el.closest('.chat-messages').querySelector('.welcome-message').remove()"
-        >
-            {content}
-        </ChatMessage>
     );
 }
