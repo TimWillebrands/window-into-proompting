@@ -19,6 +19,11 @@ export type MessageType = {
     sendAt?: number;
 };
 
+export type SubscriptionMessage =
+    | { type: "join"; messages: MessageType[] }
+    | { type: "message"; message: MessageType }
+    | { type: "messageStream"; messageId: number };
+
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
 class Generation {
@@ -65,7 +70,6 @@ class Generation {
 }
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
-    private readonly subscriptions = new Set<WebSocket>();
     private readonly generations = new Map<number, Generation>();
 
     private readonly ai: GoogleGenAI;
@@ -90,24 +94,30 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
-        const newMessages = this.sql
+        const newMessageIds = this.sql
             .exec<{ messageid: number }>(
                 `INSERT INTO messages(message, sender)
-                VALUES (?, ?)
+                VALUES (?, ?), (?, ?)
                 RETURNING messageid`,
-                [prompt, sender],
-                [null, "model"],
+                prompt,
+                sender,
+                null,
+                "model",
             )
             .toArray()
             .map((row) => row.messageid);
 
-        const generation = new Generation(this.ai, newMessages[1]);
-        this.generations.set(newMessages[1], generation);
+        const generation = new Generation(this.ai, newMessageIds[1]);
+        this.generations.set(newMessageIds[1], generation);
 
+        // Fire and forget the generation
         generation.generate(prompt).then((g) => {
+            console.log("Generation finished", g.message, g.messageId);
             this.sql.exec(
                 `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                [g.message, new Date().toISOString(), g.messageId],
+                g.message,
+                new Date().toISOString(),
+                g.messageId,
             );
             // Don't delete immediately from the cache after generation
             // finished since there can be a `sub` request incoming.
@@ -116,16 +126,33 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             setTimeout(() => this.generations.delete(g.messageId), 1000);
         });
 
-        for (const socket of this.subscriptions) {
-            console.log("user message", newMessages);
-            socket.send(`user-message-id:${newMessages[0]}`);
+        for (const socket of this.ctx.getWebSockets()) {
+            console.log("user message", newMessageIds);
+            socket.send(
+                JSON.stringify({
+                    type: "message",
+                    message: {
+                        messageid: newMessageIds[0],
+                        message: prompt,
+                        sender: sender,
+                        sendAt: new Date().getMilliseconds(),
+                    },
+                } as SubscriptionMessage),
+            );
+
+            socket.send(
+                JSON.stringify({
+                    type: "messageStream",
+                    messageId: newMessageIds[1],
+                } as SubscriptionMessage),
+            );
         }
 
         return new Response();
     }
 
     async fetch(request: Request): Promise<Response> {
-        console.log("fetch");
+        console.log("subscribe");
         // Creates two ends of a WebSocket connection.
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
@@ -148,33 +175,19 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         // This is necessary to restore the state of the connection when the Durable Object wakes up.
         server.serializeAttachment({ id });
 
-        // Add the WebSocket connection to the map of active sessions.
-        this.subscriptions.add(server);
+        // Send chat history to the client
+        const messages = this.sql
+            .exec<MessageType>("SELECT * FROM Messages")
+            .toArray();
+        server.send(
+            JSON.stringify({ type: "join", messages } as SubscriptionMessage),
+        );
 
         return new Response(null, {
             status: 101,
             webSocket: client,
         });
     }
-
-    // async subscribe(): Promise<Response> {
-    //     console.log("Party.ts - subscribe");
-
-    //     const webSocketPair = new WebSocketPair();
-    //     const [client, server] = Object.values(webSocketPair);
-
-    //     // Calling `acceptWebSocket()` connects the WebSocket to the Durable Object, allowing the WebSocket to send and receive messages.
-    //     // Unlike `ws.accept()`, `state.acceptWebSocket(ws)` allows the Durable Object to be hibernated
-    //     // When the Durable Object receives a message during Hibernation, it will run the `constructor` to be re-initialized
-    //     this.ctx.acceptWebSocket(server);
-
-    //     this.subscriptions.add(client);
-
-    //     return new Response(null, {
-    //         status: 101,
-    //         webSocket: client,
-    //     });
-    // }
 
     async getMessage(messageId: number): Promise<MessageType | null> {
         // If the message is complete in SQL we just send it

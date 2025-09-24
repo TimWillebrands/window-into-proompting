@@ -102,9 +102,11 @@ function ChatMessagesArea({ room }: { room: string }) {
                 hx-ext="sse"
                 sse-connect={`/party/${room}/messages`}
                 sse-swap="message"
+                hx-swap="beforeend"
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 border-2
                     border-inset border-gray-300 m-2 bg-white font-sans
                     text-[11px] h-0 min-h-[200px] chat-messages"
+                hx-on_htmx_sseBeforeMessage="console.log('message received')"
             >
                 <WelcomeMessage />
             </div>
@@ -116,6 +118,7 @@ function ChatMessagesArea({ room }: { room: string }) {
 function WelcomeMessage() {
     return (
         <div
+            id="welcome-message"
             className="text-center text-gray-500 my-5 p-5 border border-dashed
             border-gray-300 welcome-message"
         >

@@ -26,7 +26,7 @@ function ChatMessage({
             {...hxAttributes}
         >
             <div className="font-bold mb-1 text-blue-800">
-                {isUser ? "👤 You" : "🤖 AI Assistant"}
+                {isUser ? "👤 Human" : "🤖 AI Assistant"}
                 {timestamp && (
                     <span className="float-right font-normal text-[10px] text-gray-500">
                         {timestamp}
@@ -47,17 +47,16 @@ export function Message({
     message,
     roomId,
 }: {
-    message: MessageType | null;
+    message: MessageType | number;
     roomId: string;
 }) {
-    if (message) {
+    if (typeof message === "object") {
         // Static message display
         return (
             <ChatMessage
                 isUser={message.sender === "user"}
                 timestamp={new Date(message.sendAt ?? 0).toISOString()}
                 className="message"
-                hx-swap-oob="afterbegin:#message-count"
             >
                 {message.message}
             </ChatMessage>
@@ -69,7 +68,7 @@ export function Message({
         <article
             role="tabpanel"
             hx-ext="sse"
-            sse-connect={`/party/${roomId}/prompt`}
+            sse-connect={`/party/${roomId}/messages/${message}`}
             sse-swap="message"
             hx-swap="beforeend"
             hx-target="find .message-content"
