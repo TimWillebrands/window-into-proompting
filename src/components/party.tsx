@@ -6,39 +6,19 @@ function ChatInput() {
     return (
         <div className="p-2 border-t border-gray-300">
             <form
-                hx-post={`/party/${room}/message`}
-                hx-target="#chat-messages"
-                hx-swap="beforeend"
+                hx-post={`/party/${room}/prompt`}
+                hx-swap="none"
                 hx-include="[name='prompt']"
                 hx-on:before-request="
                     event.target.querySelector('[type=submit]').disabled = true;
-                    event.target.querySelector('[type=submit]').textContent = '⏳ Sending...';
-                "
+                    event.target.querySelector('[type=submit]').textContent = '⏳ Sending...'; "
                 hx-on:after-request="
                     event.target.querySelector('[type=submit]').disabled = false;
                     event.target.querySelector('[type=submit]').textContent = '🚀 Send';
                     event.target.reset();
-                    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-                "
+                    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; "
                 className="flex flex-col gap-2"
             >
-                {/* Hidden div that gets submitted and creates user message */}
-                <div hx-swap-oob="beforeend:#chat-messages">
-                    <template>
-                        <div className="user-message mb-4 ml-5 p-3 border border-gray-300 bg-blue-50 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0]">
-                            <div className="font-bold mb-1 text-blue-800">
-                                👤 You
-                                <span className="float-right font-normal text-[10px] text-gray-500">
-                                    {/* Timestamp will be added by server */}
-                                </span>
-                            </div>
-                            <div className="leading-relaxed whitespace-pre-wrap">
-                                {/* Message content will be added by server */}
-                            </div>
-                        </div>
-                    </template>
-                </div>
-
                 <div className="field-row-stacked">
                     <label htmlFor="prompt-input" className="font-bold">
                         💬 Your Message:
@@ -107,18 +87,21 @@ export function Party({ room }: PartyProps) {
                     title={`🎉 Party Chat - ${room}`}
                     url={`/party/${room}`}
                 >
-                    <ChatMessagesArea />
+                    <ChatMessagesArea room={room} />
                     <StatusBar />
                 </WindowContainer>
             </div>
         </PartyContext.Provider>
     );
 }
-function ChatMessagesArea() {
+function ChatMessagesArea({ room }: { room: string }) {
     return (
         <div className="window-body overflow-y-auto flex-1 flex flex-col p-0">
             <div
                 id="chat-messages"
+                hx-ext="sse"
+                sse-connect={`/party/${room}/messages`}
+                sse-swap="message"
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 border-2
                     border-inset border-gray-300 m-2 bg-white font-sans
                     text-[11px] h-0 min-h-[200px] chat-messages"

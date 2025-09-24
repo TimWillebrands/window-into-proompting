@@ -12,8 +12,9 @@
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.3",
+        "@types/bun": "^1.2.22",
         "concurrently": "^9.2.1",
-        "wrangler": "^4.34.0",
-        "tailwindcss": "^4.1.13"
+        "tailwindcss": "^4.1.13",
+        "wrangler": "^4.34.0"
     }
 }

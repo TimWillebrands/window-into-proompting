@@ -1,20 +1,11 @@
 import type { PropsWithChildren } from "hono/jsx";
+import type { MessageType } from "@/durable_objects/party";
 
 interface ChatMessageProps {
     isUser: boolean;
     timestamp?: string;
     className?: string;
     [hxAttr: string]: unknown; // For HTMX attributes
-}
-
-function TypingIndicator() {
-    return (
-        <span className="typing-indicator htmx-indicator opacity-60">
-            <span className="animate-pulse">●</span>
-            <span className="animate-pulse [animation-delay:0.2s]">●</span>
-            <span className="animate-pulse [animation-delay:0.4s]">●</span>
-        </span>
-    );
 }
 
 function ChatMessage({
@@ -53,24 +44,22 @@ function ChatMessage({
  * Container for a single message, loads in a response and renders that markdown using a web-component.
  */
 export function Message({
-    room,
-    content,
-    isUser = false,
+    message,
+    roomId,
 }: {
-    room: string;
-    content?: string;
-    isUser?: boolean;
+    message: MessageType | null;
+    roomId: string;
 }) {
-    if (content) {
+    if (message) {
         // Static message display
         return (
             <ChatMessage
-                isUser={isUser}
-                timestamp={new Date().toLocaleTimeString()}
+                isUser={message.sender === "user"}
+                timestamp={new Date(message.sendAt ?? 0).toISOString()}
                 className="message"
                 hx-swap-oob="afterbegin:#message-count"
             >
-                {content}
+                {message.message}
             </ChatMessage>
         );
     }
@@ -80,7 +69,7 @@ export function Message({
         <article
             role="tabpanel"
             hx-ext="sse"
-            sse-connect={`/party/${room}/prompt`}
+            sse-connect={`/party/${roomId}/prompt`}
             sse-swap="message"
             hx-swap="beforeend"
             hx-target="find .message-content"
@@ -107,7 +96,7 @@ export function Message({
 }
 
 // Simplified UserMessage component
-export function UserMessage({ content }: { content: string }) {
+function UserMessage({ content }: { content: string }) {
     return (
         <ChatMessage
             isUser={true}
