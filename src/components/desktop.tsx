@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "hono/jsx";
+import { Icon } from "./icon";
 import { Taskbar } from "./taskbar";
 
 /**
@@ -12,12 +13,24 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 windows: $persist({ })
             }"
             x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
-                const newX = event.clientX - dragTarget.offsetX;
-                const newY = event.clientY - dragTarget.offsetY;
+                const newX = $event.clientX - dragTarget.offsetX;
+                const newY = $event.clientY - dragTarget.offsetY;
                 dragTarget.style.left = newX + 'px';
                 dragTarget.style.top = newY + 'px';
                 dragTarget.style.zIndex = '1000';
             }"
+            x-on:pointerup="if(dragTarget) {
+                const grid = 100;
+                const left = parseInt(dragTarget.style.left || '0', 10);
+                const top = parseInt(dragTarget.style.top || '0', 10);
+                const snappedLeft = Math.round(left / grid) * grid;
+                const snappedTop = Math.round(top / grid) * grid;
+                dragTarget.style.left = snappedLeft + 'px';
+                dragTarget.style.top = snappedTop + 'px';
+                dragTarget.style.zIndex = '';
+                dragTarget = null;
+            }"
+            x-on:mouseleave="if(dragTarget) { dragTarget.style.zIndex = ''; dragTarget = null }"
             className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300"
         >
             <section id="appIcons" class="w-full h-full">
@@ -26,7 +39,7 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     icon="842"
                     label="Open Chat"
                     x={0}
-                    y={84}
+                    y={100}
                     hx-get="/party"
                     hx-target="#windows"
                     hx-swap="beforeend"
@@ -49,37 +62,5 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
 
             <Taskbar />
         </main>
-    );
-}
-
-function Icon({
-    icon,
-    label,
-    x,
-    y,
-    ...hxAttributes
-}: {
-    icon: string;
-    label: string;
-    x: number;
-    y: number;
-    [hxAttr: string]: unknown;
-}) {
-    return (
-        <button
-            type="button"
-            id={label}
-            class="m-1 absolute h-20 w-20"
-            style={{ top: y, left: x }}
-            draggable
-            x-on:dragend="
-                const btn = $event.target.closest('button')
-                btn.style.left = $event.clientX + 'px';
-                btn.style.top = $event.clientY + 'px';"
-            {...hxAttributes}
-        >
-            <img src={`img/${icon}.ico`} alt={`Icon to open ${label} app`} />
-            {label}
-        </button>
     );
 }
