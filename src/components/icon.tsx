@@ -16,8 +16,9 @@ export function Icon({
             type="button"
             id={label}
             x-data="{ selected: false }"
-            class="absolute m-1 w-24 cursor-default select-none outline-none"
-            style={{ top: y, left: x, transform: 'translate(-50%, -50%)' }}
+            class="absolute m-1 w-24 h-24 cursor-default select-none
+                outline-none"
+            style={{ top: y, left: x, background: "none" }}
             x-on:pointerdown="
                 $event.preventDefault();
                 $event.stopPropagation();
@@ -30,7 +31,6 @@ export function Icon({
             "
             x-on:keydown="if ($event.key === 'Enter') { $event.preventDefault(); $event.stopPropagation(); $event.currentTarget.click() }"
             tabIndex={0}
-            role="button"
             {...hxAttributes}
         >
             <div class="flex flex-col items-center">
@@ -40,12 +40,10 @@ export function Icon({
                     alt={`Icon to open ${label} app`}
                     draggable={false}
                 />
-                <div
-                    class="mt-1 text-center leading-tight text-[13px]"
-                >
+                <div class="mt-1 text-center leading-tight text-white text-sm">
                     <span
-                        x-bind:class="selected ? 'bg-blue-600/80 text-white px-1 rounded-[2px]' : 'text-white'"
-                        class="[text-shadow:0_1px_1px_rgba(0,0,0,0.6)]"
+                        x-bind:class="selected ? 'bg-blue-600/80 px-1 rounded-[2px]' : ''"
+                        class="[text-shadow:1px_1px_1px_rgba(0,0,0)]"
                     >
                         {label}
                     </span>
