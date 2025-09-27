@@ -19,18 +19,6 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 dragTarget.style.top = newY + 'px';
                 dragTarget.style.zIndex = '1000';
             }"
-            x-on:pointerup="if(dragTarget) {
-                const grid = 100;
-                const left = parseInt(dragTarget.style.left || '0', 10);
-                const top = parseInt(dragTarget.style.top || '0', 10);
-                const snappedLeft = Math.round(left / grid) * grid;
-                const snappedTop = Math.round(top / grid) * grid;
-                dragTarget.style.left = snappedLeft + 'px';
-                dragTarget.style.top = snappedTop + 'px';
-                dragTarget.style.zIndex = '';
-                dragTarget = null;
-            }"
-            x-on:mouseleave="if(dragTarget) { dragTarget.style.zIndex = ''; dragTarget = null }"
             className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300"
         >
             <section id="appIcons" class="w-full h-full">
