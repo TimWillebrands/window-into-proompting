@@ -36,8 +36,8 @@ export function Icon({
                 $el.style.zIndex = '1000';
             }"
             x-on:pointerup="
+                dragging = false;
                 const grid = 100;
-                console.log($el, $el.style)
                 const left = parseInt($el.style.left || '0', 10);
                 const top = parseInt($el.style.top || '0', 10);
                 const snappedLeft = Math.round(left / grid) * grid;
@@ -46,13 +46,7 @@ export function Icon({
                 $el.style.top = snappedTop + 'px';
                 $el.style.zIndex = '';
                 $el = null;
-                dragging = false;
             "
-            x-on:keydown="if ($event.key === 'Enter') {
-                $event.preventDefault();
-                $event.stopPropagation();
-                $event.currentTarget.click()
-            }"
             tabIndex={0}
             {...hxAttributes}
         >

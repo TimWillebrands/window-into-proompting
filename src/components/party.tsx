@@ -32,9 +32,8 @@ function ChatInput() {
                         className="w-full resize-y font-sans text-[11px]"
                         hx-trigger="keydown[ctrlKey&&key=='Enter']"
                         hx-post={`/party/${room}/prompt`}
-                        hx-target="#chat-messages"
-                        hx-swap="beforeend"
-                        hx-include="closest form"
+                        hx-target="none"
+                        hx-include="[name='prompt'"
                     ></textarea>
                 </div>
 

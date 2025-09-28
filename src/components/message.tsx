@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "hono/jsx";
 import type { MessageType } from "@/durable_objects/party";
 
 interface ChatMessageProps {
+    id: string;
     isUser: boolean;
     timestamp?: string;
     className?: string;
@@ -9,6 +10,7 @@ interface ChatMessageProps {
 }
 
 function ChatMessage({
+    id,
     isUser,
     children,
     timestamp,
@@ -22,6 +24,7 @@ function ChatMessage({
 
     return (
         <div
+            id={id}
             className={`${baseClasses} ${isUser ? userClasses : aiClasses} ${className}`}
             {...hxAttributes}
         >
@@ -54,6 +57,7 @@ export function Message({
         // Static message display
         return (
             <ChatMessage
+                id={`message_${message.messageid}_${roomId}`}
                 isUser={message.sender === "user"}
                 timestamp={new Date(message.sendAt ?? 0).toISOString()}
                 className="message"
@@ -66,6 +70,7 @@ export function Message({
     // Streaming AI response message
     return (
         <article
+            id={`message_${message}_${roomId}`}
             role="tabpanel"
             hx-ext="sse"
             sse-connect={`/party/${roomId}/messages/${message}`}

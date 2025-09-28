@@ -4,21 +4,12 @@ import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
 import { Desktop } from "./components/desktop";
 import { Message } from "./components/message";
-import { OpenParty } from "./components/openParty";
+import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
-import {
-    MessageType,
-    type MyDurableObject,
-    type SubscriptionMessage,
-} from "./durable_objects/party";
+import type { SubscriptionMessage } from "./durable_objects/party";
 import { Subscription } from "./subscription";
 
-type Bindings = {
-    MY_DURABLE_OBJECT: DurableObjectNamespace<MyDurableObject>;
-    GEMINI_API_KEY: string;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<{ Bindings: Cloudflare.Env }>();
 
 interface SiteData {
     title: string;
@@ -54,19 +45,46 @@ app.get("/", (c) => {
     );
 });
 
-app.get("/party", (c) => {
-    return c.html(<OpenParty previousParties={[]} />);
+// OpenParty application
+app.get("/party", async (c) => {
+    const partyData = await c.env.DESKTOP_DATA.list<PartyType>({
+        prefix: "party:",
+    });
+    const parties = partyData.keys
+        .map((key) => key.metadata)
+        .filter((party) => party !== undefined);
+
+    console.log(partyData.keys);
+
+    return c.html(<OpenParty previousParties={parties} />);
 });
 
 app.post("/party/create", async (c) => {
     const body = await c.req.formData();
-    const partyName = body.get("partyName") ?? crypto.randomUUID();
+    const partyName = body.get("partyName")?.toString();
+    if (!partyName) return new Response("Invalid party name", { status: 400 });
+    const partyId = crypto.randomUUID();
 
-    return c.redirect(`/party/${partyName}`);
+    const desktopData = c.env.DESKTOP_DATA;
+    const party = {
+        id: partyId,
+        name: partyName,
+    };
+
+    await desktopData.put(`party:${partyId}`, JSON.stringify(party), {
+        metadata: party,
+    });
+
+    return c.redirect(`/party/${partyId}`);
 });
 
 app.get("/party/:id", async (c) => {
     const id = c.req.param("id");
+    const party = await c.env.DESKTOP_DATA.get<PartyType>(`party:${id}`, {
+        type: "json",
+    });
+
+    if (!party) return new Response("Party not found", { status: 404 });
 
     return c.html(<Party room={id} />);
 });
@@ -161,7 +179,7 @@ app.get("/party/:id/messages", async (c) => {
 app.get("/party/:id/messages/:messageid", async (c) => {
     const id = c.req.param("id");
     const messageid = Number(c.req.param("messageid"));
-    if (isNaN(messageid) || messageid < 0) {
+    if (Number.isNaN(messageid) || messageid < 0) {
         return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
             status: 400,
         });
