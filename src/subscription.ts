@@ -39,6 +39,7 @@ export class Subscription<T> {
 
     private async waitForMessage(): Promise<T | null> {
         if (this.messageQueue.length > 0) {
+            // biome-ignore lint/style/noNonNullAssertion:Impossible
             return this.messageQueue.shift()!;
         }
 

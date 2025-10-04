@@ -1,15 +1,13 @@
 import { WindowContainer } from "./window";
 
-export function OpenParty({
-    previousParties,
-}: {
-    previousParties: {
-        id: string;
-        name: string;
-        lastActivity?: string;
-        messageCount?: number;
-    }[];
-}) {
+export type Party = {
+    id: string;
+    name: string;
+    lastActivity?: string;
+    messageCount?: number;
+};
+
+export function OpenParty({ previousParties }: { previousParties: Party[] }) {
     return (
         <WindowContainer id="open-party" title="🎉 Open Party" url="/party">
             <div className="window-body flex flex-col h-full">
@@ -46,14 +44,17 @@ export function OpenParty({
                                             key={party.id}
                                             className="group border border-gray-300 p-3 hover:bg-gray-50 cursor-pointer transition-colors shadow-sm rounded"
                                             hx-get={`/party/${party.id}`}
-                                            hx-target="body"
-                                            hx-push-url="true"
+                                            hx-target="#open-party"
+                                            hx-swap="outerHTML"
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex-1">
                                                     <div className="font-semibold text-blue-800 group-hover:text-blue-900">
                                                         🎉{" "}
                                                         {party.name || party.id}
+                                                        <span className="ml-2 text-gray-500">
+                                                            ({party.id})
+                                                        </span>
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-1">
                                                         {party.lastActivity && (

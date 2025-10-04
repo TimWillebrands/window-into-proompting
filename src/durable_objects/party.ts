@@ -2,9 +2,24 @@ import { DurableObject } from "cloudflare:workers";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources";
 
-async function* promptLlm(ai: OpenAI, messages: ChatCompletionMessageParam[]) {
+export const models = [
+    "z-ai/glm-4.5-air:free",
+    "deepseek/deepseek-chat-v3.1:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b:free",
+    "qwen/qwen3-coder:free",
+    "moonshotai/kimi-k2:free",
+] as const;
+
+type Model = (typeof models)[number];
+
+async function* promptLlm(
+    ai: OpenAI,
+    messages: ChatCompletionMessageParam[],
+    model: Model,
+) {
     const completion = await ai.chat.completions.create({
-        model: "x-ai/grok-4-fast:free",
+        model: model,
         messages: messages,
         stream: true,
     });
@@ -19,6 +34,7 @@ export type MessageType = {
     message?: string;
     sender: string;
     sendAt?: number;
+    model?: string;
 };
 
 export type SubscriptionMessage =
@@ -48,7 +64,11 @@ class Generation {
         observer(chunk, this.done);
     }
 
-    async generate(history: MessageType[], prompt: string) {
+    async generate(
+        history: MessageType[],
+        prompt: string,
+        model: Model = models[0],
+    ) {
         const messages: ChatCompletionMessageParam[] = [
             { role: "system", content: "You are a helpful assistant." },
             ...history.map(
@@ -61,7 +81,7 @@ class Generation {
             ),
             { role: "user", content: prompt },
         ];
-        const data = promptLlm(this.ai, messages);
+        const data = promptLlm(this.ai, messages, model);
 
         for await (const value of data) {
             if (typeof value !== "string") {
@@ -102,15 +122,14 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         });
         this.sql = ctx.storage.sql;
 
-        this.sql.exec(`CREATE TABLE IF NOT EXISTS messages(
-          messageid    INTEGER PRIMARY KEY AUTOINCREMENT,
-          message      TEXT,
-          sender       VARCHAR(255) NOT NULL,
-          sendAt       DATETIME
-        );`);
+        ctx.blockConcurrencyWhile(async () => {
+            for (const migrate of SqlMigrations) {
+                migrate(this.sql);
+            }
+        });
     }
 
-    async sendPrompt(prompt: string, sender: string) {
+    async sendPrompt(prompt: string, sender: string, model: Model) {
         console.log("Party.ts - sendPrompt", prompt);
 
         // Add the user's prompt to the database as a message from the user
@@ -136,8 +155,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             .exec<MessageType>("SELECT * FROM messages")
             .toArray();
 
-        generation.generate(messages, prompt).then((g) => {
-            console.log("Generation finished", g.message, g.messageId);
+        generation.generate(messages, prompt, model).then((g) => {
+            console.log("Generation finished", g.messageId);
             this.sql.exec(
                 `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
                 g.message,
@@ -177,7 +196,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     }
 
     async fetch(request: Request): Promise<Response> {
-        console.log("subscribe");
         // Creates two ends of a WebSocket connection.
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
@@ -239,7 +257,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         if (!generation) {
             return new Response("Message not found", { status: 404 });
         }
-
         const stream = new ReadableStream({
             async start(controller) {
                 if (request.signal.aborted) {
@@ -255,7 +272,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 });
             },
             cancel() {
-                console.log("Subscription cancelled");
+                console.error(`Subscription to message ${messageId} cancelled`);
             },
         });
 
@@ -266,3 +283,31 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response(stream, { headers });
     }
 }
+
+const SqlMigrations = [
+    (sql: SqlStorage) => {
+        sql.exec(`
+        CREATE TABLE IF NOT EXISTS messages(
+            messageid    INTEGER PRIMARY KEY AUTOINCREMENT,
+            message      TEXT,
+            sender       VARCHAR(255) NOT NULL,
+            sendAt       DATETIME
+        );`);
+
+        console.log("Table created if it didn't exist yet");
+    },
+    (sql: SqlStorage) => {
+        // Check if the model column already exists
+        const columnExists = sql
+            .exec(`PRAGMA table_info(messages)`)
+            .toArray()
+            .some((row: any) => row.name === "model");
+
+        if (!columnExists) {
+            sql.exec(`ALTER TABLE messages ADD COLUMN model TEXT;`);
+            console.log("Column 'model' added to table 'messages'");
+        } else {
+            console.log("Column 'model' already exists in table 'messages'");
+        }
+    },
+];

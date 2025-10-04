@@ -1,10 +1,11 @@
 import { createContext, useContext } from "hono/jsx";
+import { models } from "@/durable_objects/party";
 import { WindowContainer } from "./window";
 
 function ChatInput() {
     const { room } = useContext(PartyContext);
     return (
-        <div className="p-2 border-t border-gray-300">
+        <div className="p-3 border-t-2 border-inset border-gray-300">
             <form
                 hx-post={`/party/${room}/prompt`}
                 hx-swap="none"
@@ -17,10 +18,10 @@ function ChatInput() {
                     event.target.querySelector('[type=submit]').textContent = '🚀 Send';
                     event.target.reset();
                     document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; "
-                className="flex flex-col gap-2"
+                className="flex flex-col gap-3"
             >
                 <div className="field-row-stacked">
-                    <label htmlFor="prompt-input" className="font-bold">
+                    <label htmlFor="prompt-input" className="font-bold text-sm">
                         💬 Your Message:
                     </label>
                     <textarea
@@ -32,25 +33,40 @@ function ChatInput() {
                         className="w-full resize-y font-sans text-[11px]"
                         hx-trigger="keydown[ctrlKey&&key=='Enter']"
                         hx-post={`/party/${room}/prompt`}
-                        hx-target="#chat-messages"
-                        hx-swap="beforeend"
-                        hx-include="closest form"
+                        hx-target="none"
+                        hx-include="[name='prompt']"
                     ></textarea>
                 </div>
 
-                <div className="field-row justify-end gap-2">
-                    <button
-                        type="button"
-                        hx-on:click="
-                            document.getElementById('prompt-input').value = '';
-                            document.getElementById('prompt-input').focus();
-                        "
-                    >
-                        🗑 Clear
-                    </button>
-                    <button type="submit" className="min-w-[75px]">
-                        🚀 Send
-                    </button>
+                <div className="flex flex-row gap-3 items-end justify-between">
+                    <div className="field-row items-center">
+                        <label
+                            htmlFor="model"
+                            className="font-bold text-sm mr-2"
+                        >
+                            🤖 Model:
+                        </label>
+                        <select name="model" id="model" className="flex-1">
+                            {models.map((model) => (
+                                <option value={model}>{model}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="field-row gap-2">
+                        <button
+                            type="button"
+                            hx-on:click="
+                                document.getElementById('prompt-input').value = '';
+                                document.getElementById('prompt-input').focus();
+                            "
+                        >
+                            🗑 Clear
+                        </button>
+                        <button type="submit" className="min-w-[80px]">
+                            🚀 Send
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -106,7 +122,9 @@ function ChatMessagesArea({ room }: { room: string }) {
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 border-2
                     border-inset border-gray-300 m-2 bg-white font-sans
                     text-[11px] h-0 min-h-[200px] chat-messages"
-                hx-on-htmx-sseBeforeMessage="console.log('message received')"
+                hx-on-htmx-sse-before-message="console.log('receiving message')"
+                hx-on--sse-after-message="console.log('message received', this)"
+                hx-on--after-swap="console.log('message swapped')"
             >
                 <WelcomeMessage />
             </div>

@@ -15,7 +15,7 @@ export function Icon({
         <button
             type="button"
             id={label}
-            x-data="{ selected: false }"
+            x-data="{ selected: false, dragging: false }"
             class="absolute m-1 w-24 h-24 cursor-default select-none
                 outline-none"
             style={{ top: y, left: x, background: "none" }}
@@ -23,13 +23,30 @@ export function Icon({
                 $event.preventDefault();
                 $event.stopPropagation();
                 selected = true;
-                const btn = $event.currentTarget;
-                const rect = btn.getBoundingClientRect();
-                dragTarget = btn;
-                dragTarget.offsetX = $event.clientX - rect.left;
-                dragTarget.offsetY = $event.clientY - rect.top;
+                dragging = true;
+                const rect = $el.getBoundingClientRect();
+                $el.offsetX = $event.clientX - rect.left;
+                $el.offsetY = $event.clientY - rect.top;
             "
-            x-on:keydown="if ($event.key === 'Enter') { $event.preventDefault(); $event.stopPropagation(); $event.currentTarget.click() }"
+            x-on:pointermove="if($el && $el.offsetX !== undefined && dragging) {
+                const newX = $event.clientX - $el.offsetX;
+                const newY = $event.clientY - $el.offsetY;
+                $el.style.left = newX + 'px';
+                $el.style.top = newY + 'px';
+                $el.style.zIndex = '1000';
+            }"
+            x-on:pointerup="
+                dragging = false;
+                const grid = 100;
+                const left = parseInt($el.style.left || '0', 10);
+                const top = parseInt($el.style.top || '0', 10);
+                const snappedLeft = Math.round(left / grid) * grid;
+                const snappedTop = Math.round(top / grid) * grid;
+                $el.style.left = snappedLeft + 'px';
+                $el.style.top = snappedTop + 'px';
+                $el.style.zIndex = '';
+                $el = null;
+            "
             tabIndex={0}
             {...hxAttributes}
         >
