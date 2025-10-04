@@ -2,13 +2,15 @@
     "name": "proompting",
     "type": "module",
     "scripts": {
-        "dev": "concurrently \"wrangler dev\" \"tailwindcss -i ./public/input.css -o ./public/output.css --watch\"",
-        "deploy": "tailwindcss -i ./public/input.css -o ./public/output.css && wrangler deploy --minify",
+        "copy-assets": "cp node_modules/streaming-markdown-component/dist/index.js public/vendor",
+        "dev": "bun run copy-assets && concurrently \"wrangler dev\" \"tailwindcss -i ./public/input.css -o ./public/output.css --watch\"",
+        "deploy": "bun run copy-assets && tailwindcss -i ./public/input.css -o ./public/output.css && wrangler deploy --minify",
         "cf-typegen": "wrangler types --env-interface CloudflareBindings"
     },
     "dependencies": {
         "hono": "^4.9.6",
-        "openai": "^5.23.0"
+        "openai": "^5.23.0",
+        "streaming-markdown-component": "^0.1.5"
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.3",

@@ -38,12 +38,7 @@ function ChatMessage({
                 )}
             </div>
             <div className="leading-relaxed">
-                <zero-md>
-                    <template></template>
-                    <script class="message-content" type="text/markdown">
-                        {children}
-                    </script>
-                </zero-md>
+                <streaming-md id="md">{children}</streaming-md>
             </div>
         </div>
     );
@@ -104,10 +99,11 @@ export function Message({
                 <progress></progress>
             </div>
 
-            <zero-md>
+            <streaming-md className="message-content"></streaming-md>
+            {/*<zero-md>
                 <template></template>
                 <script class="message-content" type="text/markdown"></script>
-            </zero-md>
+            </zero-md>*/}
         </article>
     );
 }
