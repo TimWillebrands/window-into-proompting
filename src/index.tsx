@@ -6,7 +6,7 @@ import { Desktop } from "./components/desktop";
 import { Message } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
-import type { SubscriptionMessage } from "./durable_objects/party";
+import { models, type SubscriptionMessage } from "./durable_objects/party";
 import { Subscription } from "./subscription";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
@@ -95,12 +95,14 @@ app.post("/party/:id/prompt", async (c) => {
 
     const body = await c.req.formData();
     const prompt = body.get("prompt");
+    const model = body.get("model");
+    const finalModel = models.find((m) => m === model) ?? models[0];
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
     }
 
-    await party.sendPrompt(prompt, "user");
+    await party.sendPrompt(prompt, "user", finalModel);
 
     return c.text("Proompt accepted", 202);
 });

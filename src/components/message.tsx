@@ -26,6 +26,7 @@ function ChatMessage({
         <div
             id={id}
             className={`${baseClasses} ${isUser ? userClasses : aiClasses} ${className}`}
+            x-init="$el.scrollIntoView()"
             {...hxAttributes}
         >
             <div className="font-bold mb-1 text-blue-800">
@@ -36,8 +37,13 @@ function ChatMessage({
                     </span>
                 )}
             </div>
-            <div className="leading-relaxed whitespace-pre-wrap">
-                {children}
+            <div className="leading-relaxed">
+                <zero-md>
+                    <template></template>
+                    <script class="message-content" type="text/markdown">
+                        {children}
+                    </script>
+                </zero-md>
             </div>
         </div>
     );
@@ -78,6 +84,8 @@ export function Message({
             hx-swap="beforeend"
             hx-target="find .message-content"
             sse-close="finished"
+            hx-on--after-swap="this.querySelector('.thinking')?.remove()"
+            x-init="$el.scrollIntoView()"
             className="mb-4 mr-5 p-3 border border-gray-300 bg-green-50 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0]"
         >
             <div className="font-bold mb-2 text-blue-800">
@@ -87,9 +95,14 @@ export function Message({
                 </span>
             </div>
 
-            {/*<div className="font-sans text-[11px] leading-relaxed min-h-4">
-                <TypingIndicator />
-            </div>*/}
+            <div
+                className="thinking"
+                x-data="{time: 0}"
+                x-init="setInterval(() => time++, 1000)"
+            >
+                Thinking <span x-text="time"> </span> seconds...
+                <progress></progress>
+            </div>
 
             <zero-md>
                 <template></template>
