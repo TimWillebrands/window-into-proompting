@@ -23,8 +23,7 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                 <script src="script.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
-                <!--<script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>-->
-                <script type="module" src="vendor/index.js"></script>
+                <script type="module" src="vendor/streaming-md.js"></script>
 
                 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/resize@3.x.x/dist/cdn.min.js"></script>
                 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
