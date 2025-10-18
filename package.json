@@ -2,7 +2,7 @@
     "name": "proompting",
     "type": "module",
     "scripts": {
-        "copy-assets": "cp node_modules/streaming-markdown-component/dist/index.js public/vendor",
+        "copy-assets": "cp node_modules/streaming-markdown-component/dist/index.js public/vendor/streaming-md.js",
         "dev": "bun run copy-assets && concurrently \"wrangler dev\" \"tailwindcss -i ./public/input.css -o ./public/output.css --watch\"",
         "deploy": "bun run copy-assets && tailwindcss -i ./public/input.css -o ./public/output.css && wrangler deploy --minify",
         "cf-typegen": "wrangler types --env-interface CloudflareBindings"

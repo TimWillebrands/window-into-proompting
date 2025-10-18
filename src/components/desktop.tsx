@@ -10,8 +10,15 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
         <main
             x-data="{
                 dragTarget: null,
-                windows: $persist({ })
+                windows: $persist({ }),
+                hasSeenWelcome: $persist(false)
             }"
+            x-init="
+                if (!hasSeenWelcome) {
+                    htmx.ajax('GET', '/welcome', {target: '#windows', swap: 'beforeend'});
+                    hasSeenWelcome = true;
+                }
+            "
             x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
                 const newX = $event.clientX - dragTarget.offsetX;
                 const newY = $event.clientY - dragTarget.offsetY;
@@ -22,12 +29,33 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
             className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300"
         >
             <section id="appIcons" class="w-full h-full">
-                <Icon icon="1012" label="Personas" x={0} y={0} />
                 <Icon
                     icon="842"
-                    label="Open Chat"
+                    label="Welcome"
+                    x={0}
+                    y={0}
+                    hx-get="/welcome"
+                    hx-target="#windows"
+                    hx-swap="beforeend"
+                    // Only open if not already open
+                    hx-trigger="click[!window.document.getElementById('welcome')]"
+                />
+                <Icon
+                    icon="1012"
+                    label="Personas"
                     x={0}
                     y={100}
+                    hx-get="/personas"
+                    hx-target="#windows"
+                    hx-swap="beforeend"
+                    // Only open if not already open
+                    hx-trigger="click[!window.document.getElementById('personas')]"
+                />
+                <Icon
+                    icon="1012"
+                    label="Open Chat"
+                    x={0}
+                    y={200}
                     hx-get="/party"
                     hx-target="#windows"
                     hx-swap="beforeend"

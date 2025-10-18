@@ -1,0 +1,74 @@
+---
+globs: *.ts,*.tsx,*.html
+description: Backend architecture patterns for Hono, Durable Objects, and htmx integration
+---
+
+# Backend Architecture Guidelines
+
+## Architecture Overview
+- **Hono**: HTTP router and request handling with Cloudflare Workers
+- **Durable Objects**: Stateful coordination with SQLite storage and WebSockets
+- **htmx**: Hypermedia-driven frontend with Server-Sent Events for real-time updates
+
+## Request Flow Pattern
+1. htmx sends HTTP request from browser
+2. Hono routes to handler, accesses Durable Object if needed
+3. Durable Object manages state, WebSockets, and persistence
+4. Hono streams HTML/SSE response back to htmx
+5. htmx swaps content into DOM
+
+## Hono Routes
+- Initialize: `new Hono<{ Bindings: Cloudflare.Env }>()`
+- Access bindings: `c.env.MY_DURABLE_OBJECT`, `c.env.KV_NAMESPACE`
+- Parse forms: `await c.req.formData()`
+- Respond: `c.html()`, `c.text()`, `c.redirect()`, `streamSSE()`
+- Validate input, return proper status codes (400, 404, 500)
+
+## Durable Objects
+- Extend `DurableObject<CloudflareBindings>`
+- Use `ctx.storage.sql` for SQLite persistence
+- Run migrations in `ctx.blockConcurrencyWhile()`
+- WebSockets: `ctx.acceptWebSocket(server)` for hibernatable connections
+- Send JSON messages with type discrimination
+
+## htmx Integration
+- **Requests**: `hx-get`, `hx-post` with `hx-target` and `hx-swap`
+- **Forms**: `hx-include` for data, `hx-on:after-request` for state management
+- **SSE**: `hx-ext="sse"`, `sse-connect`, `sse-swap`, `sse-close`
+- **Events**: `hx-on:before-request`, `hx-on:after-request` for UI feedback
+- **Conditionals**: `hx-trigger="click[!condition]"` to prevent duplicates
+
+## Real-time Streaming Pattern
+```typescript
+// Hono: Stream SSE to htmx
+app.get("/party/:id/messages", async (c) => {
+    const party = c.env.MY_DURABLE_OBJECT.getByName(c.req.param("id"));
+    const socket = await party.fetch(upgradeRequest);
+    
+    return streamSSE(c, async (stream) => {
+        for await (const message of subscription.messages()) {
+            await stream.writeSSE({ data: <Component />, event: "message" });
+        }
+        await stream.close();
+    });
+});
+
+// Durable Object: WebSocket pub/sub
+async fetch(request: Request): Promise<Response> {
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server);
+    server.send(JSON.stringify({ type: "join", data }));
+    return new Response(null, { status: 101, webSocket: client });
+}
+
+// htmx: Connect and render
+<div hx-ext="sse" sse-connect="/party/123/messages" 
+     sse-swap="message" hx-swap="beforeend" />
+```
+
+## Key Principles
+- **Validate early**: Check inputs at route level
+- **Type safety**: Use TypeScript, structured messages
+- **Graceful cleanup**: Close streams, clear timeouts
+- **Parameterized queries**: Prevent SQL injection
+- **Semantic responses**: Return HTML fragments, not JSON

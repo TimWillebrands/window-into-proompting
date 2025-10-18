@@ -6,10 +6,13 @@ import { Desktop } from "./components/desktop";
 import { Message } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
+import { Welcome } from "./components/welcome";
 import { models, type SubscriptionMessage } from "./durable_objects/party";
+import { addPersonaRoutes } from "./personaRoutes";
 import { Subscription } from "./subscription";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
+export type AppType = typeof app;
 
 interface SiteData {
     title: string;
@@ -23,8 +26,7 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                 <script src="script.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2"></script>
-                <!--<script type="module" src="https://cdn.jsdelivr.net/npm/zero-md@3?register"></script>-->
-                <script type="module" src="vendor/index.js"></script>
+                <script type="module" src="vendor/streaming-md.js"></script>
 
                 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/resize@3.x.x/dist/cdn.min.js"></script>
                 <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
@@ -44,6 +46,11 @@ app.get("/", (c) => {
             <Desktop></Desktop>
         </Layout>,
     );
+});
+
+// Welcome tour application
+app.get("/welcome", (c) => {
+    return c.html(<Welcome />);
 });
 
 // OpenParty application
@@ -219,6 +226,8 @@ app.get("/party/:id/messages/:messageid", async (c) => {
         }
     });
 });
+
+addPersonaRoutes(app);
 
 export default app;
 export { MyDurableObject } from "@/durable_objects/party";

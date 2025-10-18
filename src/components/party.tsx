@@ -5,7 +5,7 @@ import { WindowContainer } from "./window";
 function ChatInput() {
     const { room } = useContext(PartyContext);
     return (
-        <div className="p-3 border-t-2 border-inset border-gray-300">
+        <div className="p-3 border-t-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
             <form
                 hx-post={`/party/${room}/prompt`}
                 hx-swap="none"
@@ -30,7 +30,7 @@ function ChatInput() {
                         rows={3}
                         required
                         placeholder="Type your message here... (Ctrl+Enter to send)"
-                        className="w-full resize-y font-sans text-[11px]"
+                        className="w-full resize-y font-sans text-sm"
                         hx-trigger="keydown[ctrlKey&&key=='Enter']"
                         hx-post={`/party/${room}/prompt`}
                         hx-target="none"
@@ -61,7 +61,7 @@ function ChatInput() {
                                 document.getElementById('prompt-input').focus();
                             "
                         >
-                            🗑 Clear
+                            🗑️ Clear
                         </button>
                         <button type="submit" className="min-w-[80px]">
                             🚀 Send
@@ -76,11 +76,11 @@ function ChatInput() {
 function StatusBar() {
     return (
         <div className="status-bar">
-            <p className="status-bar-field">🟢 Ready to chat</p>
+            <p className="status-bar-field">🟢 Connected</p>
             <p className="status-bar-field" id="message-count">
-                Messages: 0
+                💬 0 messages
             </p>
-            <p className="status-bar-field">🤖 AI Assistant Online</p>
+            <p className="status-bar-field">🤖 AI Online</p>
         </div>
     );
 }
@@ -120,8 +120,9 @@ function ChatMessagesArea({ room }: { room: string }) {
                 sse-swap="message"
                 hx-swap="beforeend"
                 className="flex-1 overflow-y-auto overflow-x-hidden p-4 border-2
-                    border-inset border-gray-300 m-2 bg-white font-sans
-                    text-[11px] h-0 min-h-[200px] chat-messages"
+                    border-gray-300 m-2 bg-gradient-to-b from-white to-gray-50 font-sans
+                    text-sm h-0 min-h-[200px] chat-messages
+                    shadow-[inset_-1px_-1px_#ffffff,inset_1px_1px_#808080]"
                 hx-on-htmx-sse-before-message="console.log('receiving message')"
                 hx-on--sse-after-message="console.log('message received', this)"
                 hx-on--after-swap="console.log('message swapped')"
@@ -137,13 +138,13 @@ function WelcomeMessage() {
     return (
         <div
             id="welcome-message"
-            className="text-center text-gray-500 my-5 p-5 border border-dashed
-            border-gray-300 welcome-message"
+            className="text-center text-gray-600 my-6 p-6 border-2 border-dashed
+            border-gray-300 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 welcome-message"
         >
-            <div className="text-base mb-2">💭</div>
-            <div>Welcome to Party Chat!</div>
-            <div className="text-[10px] mt-1">
-                Start a conversation with the AI...
+            <div className="text-4xl mb-3">💭</div>
+            <div className="font-bold text-base">Welcome to Party Chat!</div>
+            <div className="text-sm mt-2 text-gray-500">
+                Start a conversation with the AI assistant...
             </div>
         </div>
     );
