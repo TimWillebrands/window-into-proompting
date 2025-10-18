@@ -9,6 +9,7 @@ export function Taskbar({ children }: PropsWithChildren<unknown>) {
             items-center z-50 shadow-lg"
         >
             <StartButton />
+            <UserButton />
             <div className="flex-1 flex items-center px-1 space-x-1 h-full">
                 {children}
             </div>
@@ -29,6 +30,23 @@ function StartButton() {
             <span className="text-xs">🪟</span>
             <span>start</span>
         </div>
+    );
+}
+
+function UserButton() {
+    return (
+        <button
+            type="button"
+            className="h-full m-0 px-3 bg-gradient-to-b from-blue-400 to-blue-600
+            border border-blue-700 hover:from-blue-300 hover:to-blue-500
+            active:from-blue-600 active:to-blue-400 flex items-center space-x-1
+            text-black font-bold text-sm rounded-sm shadow-sm"
+            style="font-family: 'MS Sans Serif', sans-serif;"
+            x-on:click="if(Clerk.isSignedIn) { Clerk.openUserProfile() } else { Clerk.openSignIn() }"
+        >
+            <span className="text-xs">👤</span>
+            <span>user</span>
+        </button>
     );
 }
 

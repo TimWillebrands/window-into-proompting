@@ -50,6 +50,7 @@ export function PersonasList({
                                 hx-get={`/personas/${persona.id}`}
                                 hx-target="#persona-editor"
                                 hx-swap="innerHTML"
+                                hx-on:click={`analytics.trackPersonaSelected('${persona.id}', '${persona.name}')`}
                             >
                                 <div className="flex items-center space-x-3">
                                     <img

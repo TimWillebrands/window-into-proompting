@@ -12,42 +12,33 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 dragTarget: null,
                 windows: $persist({ }),
                 hasSeenWelcome: $persist(false),
-                focusedApp: null
+                focusedApp: $persist(null),
+                user: null
             }"
-            x-init="
-                // Check URL for app parameter and auto-open window
-                const urlParams = new URLSearchParams(window.location.search);
-                const appParam = urlParams.get('app');
-                if (appParam) {
-                    if (appParam.startsWith('party-')) {
-                        const partyId = appParam.replace('party-', '');
-                        htmx.ajax('GET', `/party/${partyId}`, {target: '#windows', swap: 'beforeend'});
-                        focusedApp = partyId; // Use the actual room ID, not the URL format
-                    } else if (['welcome', 'personas', 'open-party'].includes(appParam)) {
-                        htmx.ajax('GET', `/${appParam}`, {target: '#windows', swap: 'beforeend'});
-                        focusedApp = appParam;
-                    }
-                } else if (!hasSeenWelcome) {
+            x-init="(() => {
+                // Track app opened
+                analytics.trackAppOpened({
+                    app_name: 'proompting-party',
+                    source: document.referrer ? 'referral' : 'direct'
+                });
+                
+                // Track session started
+                analytics.trackSessionStarted();
+                
+                // Only show welcome on first visit
+                if (!hasSeenWelcome) {
                     htmx.ajax('GET', '/welcome', {target: '#windows', swap: 'beforeend'});
-                    hasSeenWelcome = true;
                     focusedApp = 'welcome';
+                    analytics.trackWindowOpened({
+                        window_id: 'welcome',
+                        window_title: 'Welcome to Proompt.party',
+                        window_type: 'welcome',
+                        source: 'auto'
+                    });
+                    hasSeenWelcome = true;
                 }
-            "
-            x-effect="
-                // Update URL when focusedApp changes
-                if (focusedApp) {
-                    const url = new URL(window.location);
-                    // For party windows (UUID format), use party-{id} format in URL
-                    const isPartyId = focusedApp.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-                    const appParam = isPartyId ? `party-${focusedApp}` : focusedApp;
-                    url.searchParams.set('app', appParam);
-                    window.history.replaceState({}, '', url);
-                } else {
-                    const url = new URL(window.location);
-                    url.searchParams.delete('app');
-                    window.history.replaceState({}, '', url);
-                }
-            "
+            })()"
+            {...{"x-on:clerkified.window":"user = Clerk.user; window.posthog.identify(user.id, { email: user.emailAddresses[0].emailAddress, name: user.fullName })"}}
             x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
                 // For icons, check if we've moved enough to start dragging
                 if(dragTarget.startX !== undefined && !dragTarget.isDragging) {
@@ -109,6 +100,7 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     hx-swap="beforeend"
                     // Only open if not already open
                     hx-trigger="click[!window.document.getElementById('welcome')]"
+                    hx-on:click="analytics.trackIconClicked('welcome', 'Welcome')"
                 />
                 <Icon
                     icon="1012"
@@ -120,6 +112,7 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     hx-swap="beforeend"
                     // Only open if not already open
                     hx-trigger="click[!window.document.getElementById('personas')]"
+                    hx-on:click="analytics.trackIconClicked('personas', 'Personas')"
                 />
                 <Icon
                     icon="1012"
@@ -131,15 +124,16 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     hx-swap="beforeend"
                     // Only open if not already open
                     hx-trigger="click[!window.document.getElementById('open-party')]"
+                    hx-on:click="analytics.trackIconClicked('open-party', 'Open Chat')"
                 />
             </section>
 
             <section id="windows" class="w-full h-full pb-10">
-                <template x-for="(windowData, index) in windows">
+                <template x-for="(windowData, index) in Object.values(windows)">
                     <div
                         hx-trigger="load"
-                        x-bind:hx-get="windowData.url"
-                        x-text="windowData.title"
+                        x-bind:hx-get="windowData?.url"
+                        x-text="windowData?.title"
                         hx-swap="outerHTML"
                     />
                 </template>
