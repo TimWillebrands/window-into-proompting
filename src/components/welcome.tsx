@@ -1,12 +1,12 @@
 import { WindowContainer } from "./window";
-import { defaultPersonas } from "@/default_personas";
+import { defaultPersonas } from "@/defaultPersonas";
 
 export function Welcome() {
     return (
         <WindowContainer id="welcome" title="Welcome to Proompt.party" url="/welcome">
             <div 
                 className="window-body flex flex-col flex-1 min-h-0 p-0 bg-[#ECE9D8]"
-                x-data="{ currentStep: 1 }"
+                x-data="{ currentStep: $persist(1) }"
             >
                 {/* Content Area */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-6">
@@ -21,7 +21,7 @@ export function Welcome() {
                                     Welcome
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    A playground for LLM experiments. Not too vibecode'y but an 
+                                    Proompt.party is a playground for LLM experiments. Not too vibecode'y but an 
                                     exploration of multiplayer-first architectures using cheap models.
                                 </p>
                             </div>
@@ -103,7 +103,7 @@ export function Welcome() {
                                         rows={3} 
                                         className="text-xs" 
                                         readonly
-                                    >{defaultPersonas[0].systemPrompt.toString()}</textarea>
+                                    >{defaultPersonas[Math.floor(Math.random() * defaultPersonas.length)].systemPrompt}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -236,8 +236,7 @@ export function Welcome() {
                                     Who did this?
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Tim Willebrands. Lead Engineer at Florinco. Hired as a software engineer 
-                                    based on portfolio, before formal training. Pragmatic craftsman approach.
+                                    Tim Willebrands. Builder of Maintainable Systems | Tech Lead & Architect
                                 </p>
                             </div>
                         </div>
@@ -368,6 +367,15 @@ export function Welcome() {
                                 x-cloak
                             >
                                 Next &gt;
+                            </button>
+
+                            <button
+                                type="button"
+                                className="px-4 py-1 min-w-[80px] font-bold"
+                                x-show="currentStep === 4"
+                                x-on:click="$event.target.closest('.window').querySelector('[aria-label=Close]').click()"
+                            >
+                                Finish
                             </button>
                         </div>
                     </div>

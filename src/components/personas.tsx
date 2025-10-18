@@ -1,3 +1,4 @@
+import { defaultPersonas } from "@/defaultPersonas";
 import { WindowContainer } from "./window";
 
 export type PersonaMetadata = {
@@ -8,35 +9,6 @@ export type PersonaMetadata = {
 export type Persona = PersonaMetadata & {
     systemPrompt: string;
 };
-
-// Simple persona templates for quick creation
-export const PERSONA_TEMPLATES = [
-    {
-        name: "Creative Writer",
-        systemPrompt:
-            "You are a creative writing assistant. You help users craft compelling stories, develop characters, and improve their writing style. You provide constructive feedback and inspire creativity through thoughtful suggestions and prompts.",
-    },
-    {
-        name: "Code Reviewer",
-        systemPrompt:
-            "You are an expert code reviewer. You analyze code for bugs, performance issues, security vulnerabilities, and adherence to best practices. You provide clear, actionable feedback to help improve code quality.",
-    },
-    {
-        name: "Research Assistant",
-        systemPrompt:
-            "You are a thorough research assistant. You help users find reliable information, analyze data, and synthesize findings from multiple sources. You always cite sources and distinguish between facts and opinions.",
-    },
-    {
-        name: "Tutor",
-        systemPrompt:
-            "You are a patient and encouraging tutor. You explain complex topics in simple terms, provide examples, and adapt your teaching style to the student's learning pace. You ask questions to check understanding.",
-    },
-    {
-        name: "Business Analyst",
-        systemPrompt:
-            "You are a strategic business analyst. You help analyze market trends, evaluate business opportunities, and provide data-driven insights for decision making. You think systematically about problems and solutions.",
-    },
-];
 
 // Component for just the personas list content (for OOB swaps)
 export function PersonasList({ 
@@ -193,7 +165,7 @@ export function PersonaTemplateMenu() {
                 📋 Quick Templates
             </h4>
             <div className="space-y-1.5">
-                {PERSONA_TEMPLATES.map((template) => (
+                {defaultPersonas.map((template) => (
                     <button
                         key={template.name}
                         type="button"

@@ -96,7 +96,7 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 delete dragTarget.isDragging;
                 dragTarget = null;
             }"
-            className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300"
+            className="fixed inset-0 w-screen h-screen flex justify-center items-center bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300 bg-[url('/img/blissful_penger.webp')] bg-cover bg-center bg-no-repeat"
         >
             <section id="appIcons" class="w-full h-full">
                 <Icon
