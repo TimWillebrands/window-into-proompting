@@ -59,7 +59,6 @@ export function WindowContainer({
                     windowData.width = $el.style.width;
                     windowData.height = $el.style.height;
                 }
-                console.log('Window resized', windowData);
             })()"
         >
             <div
