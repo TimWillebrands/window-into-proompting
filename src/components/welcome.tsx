@@ -40,15 +40,22 @@ export function Welcome() {
                                 <div className="flex items-start gap-2">
                                     <span className="text-blue-600 font-bold text-sm">→</span>
                                     <p className="text-sm text-gray-800">
-                                        Tech choices driven by vibes, engineering constraints and desire to understand hypetech: <strong>Cloudflare Workers</strong> for zero-latency edge deployment, 
-                                        <strong>Durable Objects</strong> for coordinating state, <strong>htmx</strong> because https://grugbrain.dev/ is funny and true.
+                                        Here I want to explore real-time multiplayer group chat with LLM and human agents. Where the LLM agents
+                                        have their own personalities and at some point memories.  
+                                    </p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <p className="text-sm text-gray-800">
+                                        Tech choices driven by desire to understand hypetech, engineering constraints and vibes: <strong>Cloudflare Workers</strong> for checking out wahat serverless is all about, 
+                                        <strong>Durable Objects</strong> for coordinating state across multiple clients, <strong>htmx</strong> to pay respects to https://grugbrain.dev/.
                                     </p>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <span className="text-blue-600 font-bold text-sm">→</span>
                                     <p className="text-sm text-gray-800">
                                         Serves as a portfolio (yes, this whole XP aesthetic is deliberate), but more importantly as an exploration space 
-                                        for real-time collaboration patterns with LLMs
+                                        for real-time collab with LLM agents (yes, the bots that pretend to think).
                                     </p>
                                 </div>
                             </div>
@@ -61,8 +68,6 @@ export function Welcome() {
                                     <p className="font-bold text-sm text-gray-900 mb-1">Why Windows XP?</p>
                                     <p className="text-xs text-gray-700 leading-relaxed">
                                         Because nostalgia, and I can just follow set patterns without having to think too much. 
-                                        Also <code className="bg-white px-1 border border-gray-400">xp.css</code> is surprisingly well-architected. 
-                                        Grug approve of constraint-based design.
                                     </p>
                                 </div>
                             </div>
@@ -80,8 +85,8 @@ export function Welcome() {
                                     Personas
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Manage reusable system prompts. Nothing fancy—just a CRUD interface 
-                                    for storing prompt templates you want to reuse across conversations.
+                                    Manage reusable system prompts. Nothing fancy, just a CRUD interface 
+                                    for managing systemprompts of the various LLM agents.
                                 </p>
                             </div>
                         </div>
@@ -100,10 +105,6 @@ export function Welcome() {
                                         value="You are a helpful assistant who explains complex topics using simple analogies."
                                     ></textarea>
                                 </div>
-                                <p className="text-xs text-gray-700 leading-relaxed">
-                                    Store prompts like these. Give them names. The implementation uses KV storage—simple, boring, works. 
-                                    Grug like simple CRUD. Complexity demon stay away.
-                                </p>
                             </div>
                         </div>
 
