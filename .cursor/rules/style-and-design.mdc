@@ -3,9 +3,130 @@ globs: *.tsx,*.html,*.css
 description: Windows XP styling patterns with xp.css and Tailwind CSS integration
 ---
 
-# Windows XP UI Design Guidelines
+# Windows XP LLM Playground Design System
 
-## Core Principles
+## 🎯 Core Concept
+This is a **whimsical Windows XP-style LLM playground** that simulates a classic desktop operating system. Each distinct functionality (persona management, chat rooms, future features) is implemented as a separate **desktop application** that opens in its own window. Users interact with a nostalgic XP-era desktop complete with:
+- **Desktop icons** that launch applications
+- **Draggable, resizable windows** for each app
+- **Taskbar** with Start button and system tray
+- **Persistent window state** across sessions
+
+## 🏗️ Architecture Components
+
+### Desktop (`desktop.tsx`)
+The main container that manages the entire desktop environment:
+- Renders the desktop background gradient
+- Manages global drag state (`dragTarget`) via Alpine.js
+- Persists window positions/sizes to localStorage (`windows: $persist({})`)
+- Contains three main sections:
+  - `#appIcons` - Desktop icons for launching apps
+  - `#windows` - Container where app windows are rendered
+  - `<Taskbar />` - Bottom taskbar
+
+**Key pattern**: Icons use htmx to load apps into `#windows` with `hx-target="#windows"` and `hx-swap="beforeend"`
+
+### Icon (`icon.tsx`)
+Desktop icons that launch applications:
+- Absolute positioned with `x` and `y` props
+- **Draggable** with grid snapping (100px grid)
+- Alpine.js state: `{ selected: false, dragging: false }`
+- Visual: icon image + label with selection highlight
+- Accept htmx attributes (`hx-get`, `hx-target`, etc.) to launch apps
+- **Duplicate prevention**: `hx-trigger="click[!document.getElementById('app-id')]"`
+
+**Usage example**:
+```tsx
+<Icon
+    icon="1012"
+    label="Personas"
+    x={0}
+    y={0}
+    hx-get="/personas"
+    hx-target="#windows"
+    hx-swap="beforeend"
+    hx-trigger="click[!document.getElementById('personas')]"
+/>
+```
+
+### WindowContainer (`window.tsx`)
+Reusable XP-styled window component that wraps app content:
+- Props: `id` (unique), `title`, `url` (optional for persistence)
+- **Draggable** via title bar
+- **Resizable** with CSS `resize` class
+- **Closeable** - removes from DOM and clears from persisted state
+- **Persists** position/size to `windows[id]` in Alpine.js
+- Uses `x-init` to restore saved position/size on load
+- Structure:
+  - Title bar with controls (minimize, maximize, close)
+  - Flexible content area (`children`)
+  - Optional status bar
+
+**Usage example**:
+```tsx
+<WindowContainer id="my-app" title="My App" url="/my-app">
+    <div className="window-body">
+        {/* Your app content */}
+    </div>
+</WindowContainer>
+```
+
+### Taskbar (`taskbar.tsx`)
+Bottom taskbar component:
+- Start button with classic XP styling
+- Task buttons area (for open windows)
+- System tray with icons and clock
+- Fixed positioning: `fixed bottom-0 left-0 right-0`
+
+### App Components
+Each feature is a complete app (e.g., `Personas`, `Party`, `OpenParty`):
+- Wrapped in `<WindowContainer>`
+- Contains full functionality and UI
+- Loaded via htmx when icon is clicked
+- Can have complex layouts (split panes, forms, lists)
+- Uses htmx for dynamic content updates within the window
+
+## 🎨 Creating New Apps
+
+To add a new application:
+
+1. **Create app component** (e.g., `myapp.tsx`):
+```tsx
+import { WindowContainer } from "./window";
+
+export function MyApp() {
+    return (
+        <WindowContainer id="my-app" title="My App" url="/my-app">
+            <div className="window-body">
+                {/* Your content */}
+            </div>
+        </WindowContainer>
+    );
+}
+```
+
+2. **Add desktop icon** in `desktop.tsx`:
+```tsx
+<Icon
+    icon="icon-number"
+    label="My App"
+    x={0}
+    y={200}
+    hx-get="/my-app"
+    hx-target="#windows"
+    hx-swap="beforeend"
+    hx-trigger="click[!document.getElementById('my-app')]"
+/>
+```
+
+3. **Create route** in your router:
+```tsx
+app.get("/my-app", (c) => {
+    return c.html(<MyApp />);
+});
+```
+
+## 🎨 XP Styling Principles
 - **Semantic HTML First**: Use `<button>`, `<input>`, `<label>` with proper accessibility attributes
 - **XP.css for authenticity**: Provides Windows XP component styling (window, title-bar, window-body, field-row)
 - **Tailwind for layout**: Use for spacing, positioning, responsive design (`clamp()`, flexbox, grid)
@@ -46,20 +167,112 @@ description: Windows XP styling patterns with xp.css and Tailwind CSS integratio
 - Typography: `text-[11px]` for system text, `font-bold` for headers
 - Desktop gradient: `bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300`
 
-## Example
+## 🔧 Key Interaction Patterns
+
+### Window Management
+- **Opening apps**: htmx loads complete WindowContainer via `hx-get` targeting `#windows`
+- **Preventing duplicates**: `hx-trigger="click[!document.getElementById('app-id')]"`
+- **Closing windows**: Removes from DOM and clears `windows[id]` from Alpine.js state
+- **Dragging**: Desktop-level `dragTarget` managed at root, title bars trigger drag
+- **Resizing**: CSS `resize` class on window + Alpine.js to persist size
+- **Persistence**: Alpine.js `$persist()` stores window positions/sizes in localStorage
+
+### Multi-Section Layouts
+Many apps use split-pane layouts for rich UIs:
 ```tsx
-<div className="window absolute w-[clamp(600px,80vw,1000px)]">
-    <div className="title-bar">
-        <div className="title-bar-text">My App</div>
-    </div>
-    <div className="window-body">
-        <div className="field-row">
-            <input type="checkbox" id="check1" />
-            <label htmlFor="check1">Enable feature</label>
+<WindowContainer id="my-app" title="My App">
+    <div className="window-body flex flex-col h-full">
+        {/* Header section */}
+        <div className="p-4 border-b border-gray-300 bg-gray-50">
+            <h2>Header</h2>
+        </div>
+        
+        {/* Main content area with split */}
+        <div className="flex h-full">
+            {/* Sidebar/List */}
+            <div className="w-1/3 border-r border-gray-300 overflow-y-auto">
+                {/* List items */}
+            </div>
+            
+            {/* Detail/Editor */}
+            <div className="flex-1 overflow-y-auto" id="detail-area">
+                {/* Detail content, updated via htmx */}
+            </div>
         </div>
     </div>
-    <div className="status-bar">
-        <p className="status-bar-field">Ready</p>
-    </div>
-</div>
+</WindowContainer>
+```
+
+### Dynamic Content Updates
+Apps use htmx for partial updates within windows:
+- **Pattern**: Clickable list items use `hx-get` targeting specific div within window
+- **Example**: Persona list items target `#persona-editor` for detail view
+- **Out-of-band swaps**: Use `hx-swap-oob` to update multiple sections simultaneously
+
+## 📝 Complete App Example
+
+A full-featured app following all patterns:
+
+```tsx
+import { WindowContainer } from "./window";
+
+type Item = { id: string; name: string; };
+
+export function MyApp({ items }: { items: Item[] }) {
+    return (
+        <WindowContainer id="my-app" title="📋 My App" url="/my-app">
+            <div className="window-body flex flex-col h-full">
+                {/* Header with actions */}
+                <div className="p-4 border-b border-gray-300 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-bold text-blue-800">
+                            My App Title
+                        </h2>
+                        <button
+                            type="button"
+                            hx-post="/my-app/new"
+                            hx-target="#detail-area"
+                            hx-swap="innerHTML"
+                        >
+                            + Create New
+                        </button>
+                    </div>
+                </div>
+
+                {/* Split layout */}
+                <div className="flex h-full">
+                    {/* List sidebar */}
+                    <div className="w-1/3 border-r border-gray-300 overflow-y-auto bg-white">
+                        <div className="p-4 space-y-2">
+                            {items.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="border border-gray-300 p-3 hover:bg-blue-50 cursor-pointer"
+                                    hx-get={`/my-app/${item.id}`}
+                                    hx-target="#detail-area"
+                                    hx-swap="innerHTML"
+                                >
+                                    {item.name}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Detail area */}
+                    <div className="flex-1 overflow-y-auto bg-gray-50" id="detail-area">
+                        <div className="p-8 text-center text-gray-500">
+                            Select an item to view details
+                        </div>
+                    </div>
+                </div>
+
+                {/* Optional status bar */}
+                <div className="status-bar">
+                    <p className="status-bar-field">Ready</p>
+                    <p className="status-bar-field">{items.length} items</p>
+                </div>
+            </div>
+        </WindowContainer>
+    );
+}
 ```
