@@ -1,0 +1,65 @@
+---
+globs: *.tsx,*.html,*.css
+description: Windows XP styling patterns with xp.css and Tailwind CSS integration
+---
+
+# Windows XP UI Design Guidelines
+
+## Core Principles
+- **Semantic HTML First**: Use `<button>`, `<input>`, `<label>` with proper accessibility attributes
+- **XP.css for authenticity**: Provides Windows XP component styling (window, title-bar, window-body, field-row)
+- **Tailwind for layout**: Use for spacing, positioning, responsive design (`clamp()`, flexbox, grid)
+- **No custom styling on XP components**: Let xp.css handle the Windows XP look
+
+## Essential XP.css Classes
+- `window` - Main window container
+- `title-bar` / `title-bar-text` - Window headers
+- `window-body` - Content area
+- `field-row` / `field-row-stacked` - Form element grouping
+- `status-bar` / `status-bar-field` - Bottom status information
+- `tree-view` - Hierarchical lists
+- Standard HTML: `<button>`, `<input>`, `<progress>`, `<label>`
+
+## Windows XP Design Patterns
+
+### Window Structure
+- Title bar with draggable area
+- Resizable windows with `resize` class
+- Status bar for contextual information
+- Absolute positioning with centered placement
+
+### Application Layout
+- Menu bar: File, Edit, View, Tools, Help
+- Toolbar with icon buttons for common actions
+- Split panes for multi-section content
+- Tabs for grouped related content
+
+### Interaction Design
+- Raised borders on buttons, sunken on inputs
+- Dotted focus indicators
+- Standard button order: OK, Cancel, Apply (bottom right), Help (bottom left)
+- Keyboard shortcuts: Ctrl+C/V, F1 for help, Escape for cancel
+- Right-click context menus
+
+### Visual Style
+- Inset shadow effect: `shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0]`
+- Typography: `text-[11px]` for system text, `font-bold` for headers
+- Desktop gradient: `bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300`
+
+## Example
+```tsx
+<div className="window absolute w-[clamp(600px,80vw,1000px)]">
+    <div className="title-bar">
+        <div className="title-bar-text">My App</div>
+    </div>
+    <div className="window-body">
+        <div className="field-row">
+            <input type="checkbox" id="check1" />
+            <label htmlFor="check1">Enable feature</label>
+        </div>
+    </div>
+    <div className="status-bar">
+        <p className="status-bar-field">Ready</p>
+    </div>
+</div>
+```

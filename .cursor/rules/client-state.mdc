@@ -1,0 +1,105 @@
+---
+globs: *.tsx,*.html
+description: Alpine.js client-side state management and interaction patterns
+---
+
+# Client-Side State Management
+
+## Architecture
+- **Alpine.js**: Reactive UI state and interactions (drag, resize, timers)
+- **htmx**: Server communication and HTML updates
+- **Separation**: Alpine manages UI state, htmx handles data fetching
+
+## State Patterns
+
+### Local Component State
+Use `x-data` for component-scoped state:
+```tsx
+x-data="{ selected: false, dragging: false }"
+```
+
+### Persistent State
+Use `$persist()` for localStorage persistence:
+```tsx
+x-data="{ windows: $persist({}) }"
+```
+
+### Global State
+Desktop-level state at root element:
+- `dragTarget` - Currently dragging element
+- `windows` - Persistent window positions/sizes
+
+## Interaction Patterns
+
+### Drag and Drop
+```tsx
+x-on:pointerdown="
+    $event.preventDefault();
+    dragging = true;
+    $el.offsetX = $event.clientX - $el.getBoundingClientRect().left;
+"
+x-on:pointermove="if(dragging) {
+    $el.style.left = ($event.clientX - $el.offsetX) + 'px';
+}"
+x-on:pointerup="
+    dragging = false;
+    // Grid snapping
+    const snapped = Math.round(parseInt($el.style.left) / 100) * 100;
+    $el.style.left = snapped + 'px';
+"
+```
+
+### Reactive UI Updates
+```tsx
+// Auto-scroll
+x-init="$el.scrollIntoView()"
+
+// Timers
+x-data="{time: 0}"
+x-init="setInterval(() => time++, 1000)"
+x-text="time"
+
+// Conditional styling
+x-bind:class="selected ? 'bg-blue-600' : ''"
+```
+
+## Integration with htmx
+
+### htmx Events
+Listen to htmx lifecycle events:
+```tsx
+x-on:htmx:before-request="loading = true"
+x-on:htmx:after-request="loading = false; form.reset()"
+```
+
+### State Coordination
+```tsx
+// Alpine manages UI state
+x-data="{ windowId: 'personas' }"
+
+// htmx fetches content
+hx-get="/personas"
+hx-target="#windows"
+hx-trigger="click[!document.getElementById('personas')]"
+
+// Alpine updates state after htmx loads
+x-on:htmx:after-request="windows[windowId] = { ... }"
+```
+
+## Key Directives
+- `x-data` - Initialize component state
+- `x-init` - Run code on initialization
+- `x-on:event` - Event handlers
+- `x-bind:attr` - Reactive attribute binding
+- `x-text` - Reactive text content
+- `x-for` - List rendering
+- `$el` - Reference to current element
+- `$event` - Event object
+- `$persist()` - localStorage persistence
+
+## Principles
+- Keep state minimal and scoped
+- Use `$persist()` for user preferences
+- Let htmx handle server state
+- Use Alpine for UI interactions only
+- Avoid complex logic in templates
