@@ -46,6 +46,12 @@ export function OpenParty({ previousParties }: { previousParties: Party[] }) {
                                             hx-get={`/party/${party.id}`}
                                             hx-target="#open-party"
                                             hx-swap="outerHTML"
+                                            hx-on:click={`analytics.trackPartyJoined({
+                                                party_id: '${party.id}',
+                                                party_name: '${party.name || party.id}',
+                                                is_new_party: false,
+                                                source: 'previous_parties'
+                                            })`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex-1">
@@ -107,6 +113,16 @@ export function OpenParty({ previousParties }: { previousParties: Party[] }) {
                                 btn.disabled = true;
                                 btn.textContent = '⏳ Creating...';
                             "
+                            hx-on:after-request="
+                                const formData = new FormData(event.target);
+                                const partyName = formData.get('partyName')?.toString() || '';
+                                analytics.trackPartyCreated({
+                                    party_id: 'generated',
+                                    party_name: partyName || undefined,
+                                    has_custom_name: !!partyName,
+                                    source: 'form'
+                                });
+                            "
                             {...{
                                 "x-on:htmx:after-request.camel": `
                                 windows[windowId] = undefined;
@@ -156,6 +172,12 @@ export function OpenParty({ previousParties }: { previousParties: Party[] }) {
                                     hx-vals='{"partyName": "Random Chat"}'
                                     hx-target="body"
                                     hx-push-url="true"
+                                    hx-on:click="analytics.trackPartyCreated({
+                                        party_id: 'generated',
+                                        party_name: 'Random Chat',
+                                        has_custom_name: true,
+                                        source: 'quick_action'
+                                    })"
                                 >
                                     🎲 Random
                                 </button>

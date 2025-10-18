@@ -6,7 +6,38 @@ export function Welcome() {
         <WindowContainer id="welcome" title="Welcome to Proompt.party" url="/welcome">
             <div 
                 className="window-body flex flex-col flex-1 min-h-0 p-0 bg-[#ECE9D8]"
-                x-data="{ currentStep: $persist(1) }"
+                x-data="{ 
+                    currentStep: $persist(1),
+                    stepStartTime: Date.now(),
+                    tourStarted: false
+                }"
+                x-init="
+                    if (!tourStarted) {
+                        analytics.trackWelcomeTourStarted();
+                        tourStarted = true;
+                    }
+                "
+                x-effect="
+                    if (currentStep !== 1) {
+                        const timeSpent = Date.now() - stepStartTime;
+                        analytics.trackWelcomeStepCompleted({
+                            step_number: currentStep - 1,
+                            step_name: getStepName(currentStep - 1),
+                            time_spent: timeSpent
+                        });
+                        stepStartTime = Date.now();
+                    }
+                    
+                    function getStepName(step) {
+                        const names = {
+                            1: 'Introduction',
+                            2: 'Personas',
+                            3: 'Party Chat',
+                            4: 'Getting Started'
+                        };
+                        return names[step] || 'Unknown';
+                    }
+                "
             >
                 {/* Content Area */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-6">

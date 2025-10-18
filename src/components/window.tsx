@@ -17,18 +17,20 @@ export function WindowContainer({
         <div
             id={id}
             x-data={`{ url: '${url}', title: '${title}', windowId: '${id}'}`}
-            x-on:click="
-                // Set this window as focused when clicked
+            x-on:click="(() => {
+                // Set this window as focused when clicked and bring to front
                 const desktopData = Alpine.$data(document.querySelector('main'));
                 if (desktopData) {
                     desktopData.focusedApp = windowId;
+                    const z = ++desktopData.zCounter;
+                    $el.style.zIndex = z;
                 }
-            "
+            })()"
             className="
                 window absolute w-[clamp(600px,80vw,1000px)] h-[clamp(400px,70vh,700px)]
                 flex flex-col resize overflow-hidden min-w-[500px] min-h-[350px]
                 shadow-[4px_4px_8px_rgba(0,0,0,0.3)]"
-            x-init="
+            x-init="(() => {
                 const windowData = windows[windowId];
                 $el.style.left = windowData?.x ?? 'calc(50% - clamp(600px,80vw,1000px) / 2)';
                 $el.style.top = windowData?.y ?? 'calc(50% - clamp(400px,70vh,700px) / 2)';
@@ -50,15 +52,15 @@ export function WindowContainer({
                 if (desktopData) {
                     desktopData.focusedApp = windowId;
                 }
-            "
-            x-resize="
+            })()"
+            x-resize="(() => {
                 const windowData = windows[windowId];
                 if(windowData){
                     windowData.width = $el.style.width;
                     windowData.height = $el.style.height;
                 }
                 console.log('Window resized', windowData);
-            "
+            })()"
         >
             <div
                 className="title-bar box-content cursor-grab active"
@@ -82,6 +84,10 @@ export function WindowContainer({
                         aria-label="Close"
                         x-on:click="
                             windows[windowId] = undefined;
+                            const desktopData = Alpine.$data(document.querySelector('main'));
+                            if (desktopData && desktopData.focusedApp === windowId) {
+                                desktopData.focusedApp = null;
+                            }
                             $event.target.closest('.window').remove(); "
                     ></button>
                 </div>
