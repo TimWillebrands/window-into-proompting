@@ -17,6 +17,13 @@ export function WindowContainer({
         <div
             id={id}
             x-data={`{ url: '${url}', title: '${title}', windowId: '${id}'}`}
+            x-on:click="
+                // Set this window as focused when clicked
+                const desktopData = Alpine.$data(document.querySelector('main'));
+                if (desktopData) {
+                    desktopData.focusedApp = windowId;
+                }
+            "
             className="
                 window absolute w-[clamp(600px,80vw,1000px)] h-[clamp(400px,70vh,700px)]
                 flex flex-col resize overflow-hidden min-w-[500px] min-h-[350px]
@@ -38,6 +45,11 @@ export function WindowContainer({
                         height: $el.style.height
                     };
                 }
+                // Set this window as focused when it's created
+                const desktopData = Alpine.$data(document.querySelector('main'));
+                if (desktopData) {
+                    desktopData.focusedApp = windowId;
+                }
             "
             x-resize="
                 const windowData = windows[windowId];
@@ -56,15 +68,6 @@ export function WindowContainer({
                     dragTarget.offsetX = $event.clientX - rect.left;
                     dragTarget.offsetY = $event.clientY - rect.top;
                     $event.preventDefault();
-                    document.addEventListener('pointerup', () => {
-                        const w = windows[$root.id]
-                        if(w){
-                            w.x = dragTarget.style.left;
-                            w.y = dragTarget.style.top;
-                        }
-                        console.log('Pointer up event triggered', w, windows);
-                        dragTarget = null;
-                    }, {once: true});
                 "
             >
                 <div className="title-bar-text">

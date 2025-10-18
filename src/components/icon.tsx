@@ -15,38 +15,23 @@ export function Icon({
         <button
             type="button"
             id={label}
-            x-data="{ selected: false, dragging: false }"
+            x-data="{ selected: false, wasDragged: false }"
             class="absolute m-1 w-24 h-24 cursor-default select-none
                 outline-none"
             style={{ top: y, left: x, background: "none" }}
             x-on:pointerdown="
-                $event.preventDefault();
                 $event.stopPropagation();
                 selected = true;
-                dragging = true;
+                wasDragged = false;
+                dragTarget = $el;
                 const rect = $el.getBoundingClientRect();
-                $el.offsetX = $event.clientX - rect.left;
-                $el.offsetY = $event.clientY - rect.top;
+                dragTarget.offsetX = $event.clientX - rect.left;
+                dragTarget.offsetY = $event.clientY - rect.top;
+                dragTarget.startX = $event.clientX;
+                dragTarget.startY = $event.clientY;
+                dragTarget.isDragging = false;
             "
-            x-on:pointermove="if($el && $el.offsetX !== undefined && dragging) {
-                const newX = $event.clientX - $el.offsetX;
-                const newY = $event.clientY - $el.offsetY;
-                $el.style.left = newX + 'px';
-                $el.style.top = newY + 'px';
-                $el.style.zIndex = '1000';
-            }"
-            x-on:pointerup="
-                dragging = false;
-                const grid = 100;
-                const left = parseInt($el.style.left || '0', 10);
-                const top = parseInt($el.style.top || '0', 10);
-                const snappedLeft = Math.round(left / grid) * grid;
-                const snappedTop = Math.round(top / grid) * grid;
-                $el.style.left = snappedLeft + 'px';
-                $el.style.top = snappedTop + 'px';
-                $el.style.zIndex = '';
-                $el = null;
-            "
+            x-on:click="if(wasDragged) { $event.preventDefault(); $event.stopPropagation(); wasDragged = false; }"
             tabIndex={0}
             {...hxAttributes}
         >
