@@ -6,10 +6,13 @@ import { Desktop } from "./components/desktop";
 import { Message } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
+import { Welcome } from "./components/welcome";
 import { models, type SubscriptionMessage } from "./durable_objects/party";
+import { addPersonaRoutes } from "./personaRoutes";
 import { Subscription } from "./subscription";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
+export type AppType = typeof app;
 
 interface SiteData {
     title: string;
@@ -43,6 +46,11 @@ app.get("/", (c) => {
             <Desktop></Desktop>
         </Layout>,
     );
+});
+
+// Welcome tour application
+app.get("/welcome", (c) => {
+    return c.html(<Welcome />);
 });
 
 // OpenParty application
@@ -218,6 +226,8 @@ app.get("/party/:id/messages/:messageid", async (c) => {
         }
     });
 });
+
+addPersonaRoutes(app);
 
 export default app;
 export { MyDurableObject } from "@/durable_objects/party";
