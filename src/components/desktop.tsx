@@ -13,7 +13,8 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 windows: $persist({ }),
                 hasSeenWelcome: $persist(false),
                 focusedApp: $persist(null),
-                user: null
+                user: null,
+                zCounter: 1000
             }"
             x-init="(() => {
                 // Track app opened
@@ -128,7 +129,7 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                 />
             </section>
 
-            <section id="windows" class="w-full h-full pb-10">
+            <section id="windows" class="w-full h-full pb-8">
                 <template x-for="(windowData, index) in Object.values(windows)">
                     <div
                         hx-trigger="load"

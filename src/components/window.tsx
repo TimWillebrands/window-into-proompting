@@ -18,10 +18,12 @@ export function WindowContainer({
             id={id}
             x-data={`{ url: '${url}', title: '${title}', windowId: '${id}'}`}
             x-on:click="(() => {
-                // Set this window as focused when clicked
+                // Set this window as focused when clicked and bring to front
                 const desktopData = Alpine.$data(document.querySelector('main'));
                 if (desktopData) {
                     desktopData.focusedApp = windowId;
+                    const z = ++desktopData.zCounter;
+                    $el.style.zIndex = z;
                 }
             })()"
             className="

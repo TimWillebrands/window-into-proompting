@@ -55,7 +55,7 @@ function ChatInput() {
                         >
                             🤖 Model:
                         </label>
-                        <select name="model" id="model" className="flex-1" hx-on:change="analytics.trackModelSelected(event.target.value, 'dropdown')">
+                        <select name="model" id="model" className="flex-1" hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')">
                             {models.map((model) => (
                                 <option value={model}>{model}</option>
                             ))}
