@@ -1,14 +1,15 @@
 import { WindowContainer } from "./window";
+import { defaultPersonas } from "@/default_personas";
 
 export function Welcome() {
     return (
         <WindowContainer id="welcome" title="Welcome to Proompt.party" url="/welcome">
             <div 
-                className="window-body flex flex-col h-full p-0 bg-[#ECE9D8]"
+                className="window-body flex flex-col flex-1 min-h-0 p-0 bg-[#ECE9D8]"
                 x-data="{ currentStep: 1 }"
             >
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-6">
                     {/* Step 1: Introduction */}
                     <div x-show="currentStep === 1" className="space-y-4">
                         <div className="flex items-start gap-4 mb-6">
@@ -17,7 +18,7 @@ export function Welcome() {
                             </div>
                             <div className="flex-1">
                                 <h1 className="text-2xl font-bold text-[#003399] mb-2" style="text-shadow: 1px 1px 0px rgba(255,255,255,0.5)">
-                                    Welcome to Proompt.party
+                                    Welcome
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
                                     A playground for LLM experiments. Not too vibecode'y but an 
@@ -102,8 +103,7 @@ export function Welcome() {
                                         rows={3} 
                                         className="text-xs" 
                                         readonly
-                                        value="You are a helpful assistant who explains complex topics using simple analogies."
-                                    ></textarea>
+                                    >{defaultPersonas[0].systemPrompt.toString()}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -189,7 +189,7 @@ export function Welcome() {
                                     </p>
                                     <p>
                                         <strong className="text-purple-700">Durable Objects:</strong> SQLite at the edge with WebSocket coordination. 
-                                        Grug brain say "complexity bad!" but also grug brain say "ooh shiny edge computing primitives!"
+                                        Every room is a distinct instance which works reallly nice to organize the flow of messages.
                                     </p>
                                     <p>
                                         <strong className="text-green-700">htmx + SSE:</strong> Server renders HTML, browser swaps it. 
@@ -244,7 +244,7 @@ export function Welcome() {
 
                         <div className="window bg-white shadow-lg">
                             <div className="title-bar">
-                                <div className="title-bar-text">Engineering Philosophy (grug-inspired)</div>
+                                <div className="title-bar-text">Engineering Philosophy</div>
                             </div>
                             <div className="window-body p-4">
                                 <ul className="space-y-2 text-xs leading-relaxed">
@@ -332,7 +332,7 @@ export function Welcome() {
                 </div>
 
                 {/* Navigation Bar */}
-                <div className="border-t-2 border-[#D4D0C8] bg-[#ECE9D8] p-4 shadow-[inset_1px_1px_0px_#ffffff,inset_-1px_-1px_0px_#808080]">
+                <div className="flex-shrink-0 border-t-2 border-[#D4D0C8] bg-[#ECE9D8] p-4 shadow-[inset_1px_1px_0px_#ffffff,inset_-1px_-1px_0px_#808080]">
                     <div className="flex justify-between items-center">
                         {/* Progress Indicator */}
                         <div className="text-xs text-gray-800">
