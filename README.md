@@ -2,7 +2,7 @@
 
 # 🎉 PROOMPTING: Now with friends!
 
-(Join the Party!)[https://proompting.party]
+[Join the Party!](https://proompting.party)
 
 **SOI SOI SOI SOI SOI SOI SOI**
 
