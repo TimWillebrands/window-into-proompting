@@ -130,7 +130,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     }
 
     async sendPrompt(prompt: string, sender: string, model: Model) {
-        console.log("Party.ts - sendPrompt", prompt);
+        console.log("[Party.ts->sendPrompt] prompt:", prompt);
 
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
@@ -147,6 +147,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             .toArray()
             .map((row) => row.messageid);
 
+        console.log(
+            "[Party.ts->sendPrompt] new message IDs:",
+            newMessageIds,
+            "starting generation now.",
+        );
+
         const generation = new Generation(this.ai, newMessageIds[1]);
         this.generations.set(newMessageIds[1], generation);
 
@@ -156,7 +162,10 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             .toArray();
 
         generation.generate(messages, prompt, model).then((g) => {
-            console.log("Generation finished", g.messageId);
+            console.log(
+                "[Party.ts->sendPrompt] generation finished",
+                g.messageId,
+            );
             this.sql.exec(
                 `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
                 g.message,
