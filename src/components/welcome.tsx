@@ -30,9 +30,9 @@ export function Welcome() {
                     
                     function getStepName(step) {
                         const names = {
-                            1: 'Introduction',
-                            2: 'Personas',
-                            3: 'Party Chat',
+                            1: 'Introduction & Login',
+                            2: 'Create Personas',
+                            3: 'Start Party Chats',
                             4: 'Getting Started'
                         };
                         return names[step] || 'Unknown';
@@ -41,7 +41,7 @@ export function Welcome() {
             >
                 {/* Content Area */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-6">
-                    {/* Step 1: Introduction */}
+                    {/* Step 1: Introduction & Login */}
                     <div x-show="currentStep === 1" className="space-y-4">
                         <div className="flex items-start gap-4 mb-6">
                             <div className="text-7xl leading-none select-none" style="filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.2))">
@@ -49,57 +49,35 @@ export function Welcome() {
                             </div>
                             <div className="flex-1">
                                 <h1 className="text-2xl font-bold text-[#003399] mb-2" style="text-shadow: 1px 1px 0px rgba(255,255,255,0.5)">
-                                    Welcome
+                                    Welcome to Proompt.party
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Proompt.party is a playground for LLM experiments. Not too vibecode'y but an 
-                                    exploration of multiplayer-first architectures using cheap models.
+                                    A multiplayer chat application where you can have conversations with other users and AI personas with distinct personalities.
                                 </p>
                             </div>
                         </div>
 
                         <div className="window bg-white shadow-lg">
                             <div className="title-bar bg-gradient-to-r from-[#0054E3] to-[#1084D0]">
-                                <div className="title-bar-text text-white font-bold">About This Project</div>
+                                <div className="title-bar-text text-white font-bold">Getting Started</div>
                             </div>
                             <div className="window-body p-4 space-y-3">
                                 <div className="flex items-start gap-2">
-                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <span className="text-blue-600 font-bold text-sm">1.</span>
                                     <p className="text-sm text-gray-800">
-                                        Built by <strong>Tim Willebrands</strong>, an engineer who likes exploring ideas and building things.
+                                        <strong>Log in:</strong> Click the user button in the taskbar at the bottom of the screen to sign in or create an account.
                                     </p>
                                 </div>
                                 <div className="flex items-start gap-2">
-                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <span className="text-blue-600 font-bold text-sm">2.</span>
                                     <p className="text-sm text-gray-800">
-                                        Here I want to explore real-time multiplayer group chat with LLM and human agents. Where the LLM agents
-                                        have their own personalities and at some point memories.  
+                                        <strong>Create personas:</strong> Define system prompts that give AI agents their personality and behavior.
                                     </p>
                                 </div>
                                 <div className="flex items-start gap-2">
-                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <span className="text-blue-600 font-bold text-sm">3.</span>
                                     <p className="text-sm text-gray-800">
-                                        Tech choices driven by desire to understand hypetech, engineering constraints and vibes: <strong>Cloudflare Workers</strong> for checking out wahat serverless is all about, 
-                                        <strong>Durable Objects</strong> for coordinating state across multiple clients, <strong>htmx</strong> to pay respects to https://grugbrain.dev/.
-                                    </p>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <span className="text-blue-600 font-bold text-sm">→</span>
-                                    <p className="text-sm text-gray-800">
-                                        Serves as a portfolio (yes, this whole XP aesthetic is deliberate), but more importantly as an exploration space 
-                                        for real-time collab with LLM agents (yes, the bots that pretend to think).
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-[#FFF8DC] to-[#FFFACD] border-2 border-[#F0E68C] p-4 shadow-[inset_-1px_-1px_#808080,inset_1px_1px_#ffffff,inset_-2px_-2px_#C0C0C0,inset_2px_2px_#DFDFDF]">
-                            <div className="flex items-start gap-3">
-                                <div className="text-3xl">💡</div>
-                                <div>
-                                    <p className="font-bold text-sm text-gray-900 mb-1">Why Windows XP?</p>
-                                    <p className="text-xs text-gray-700 leading-relaxed">
-                                        Because nostalgia, and I can just follow set patterns without having to think too much. 
+                                        <strong>Start party chats:</strong> Create or join chat rooms to talk with other users and your AI personas.
                                     </p>
                                 </div>
                             </div>
@@ -114,24 +92,26 @@ export function Welcome() {
                             </div>
                             <div className="flex-1">
                                 <h1 className="text-2xl font-bold text-[#003399] mb-2" style="text-shadow: 1px 1px 0px rgba(255,255,255,0.5)">
-                                    Personas
+                                    Create Personas
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Manage reusable system prompts. Nothing fancy, just a CRUD interface 
-                                    for managing systemprompts of the various LLM agents.
+                                    Personas are system prompts that define how AI agents behave in conversations. Create and manage different personas to give your AI agents distinct personalities.
                                 </p>
                             </div>
                         </div>
 
                         <div className="window bg-white shadow-lg">
                             <div className="title-bar">
-                                <div className="title-bar-text">How It Works</div>
+                                <div className="title-bar-text">Example Persona</div>
                             </div>
                             <div className="window-body p-4 space-y-3">
+                                <p className="text-xs text-gray-700 mb-2">
+                                    Each persona has a system prompt that determines its behavior, tone, and personality. Here's an example:
+                                </p>
                                 <div className="field-row-stacked">
                                     <label className="font-bold text-xs">SYSTEM PROMPT</label>
                                     <textarea 
-                                        rows={3} 
+                                        rows={4} 
                                         className="text-xs" 
                                         readonly
                                     >{defaultPersonas[Math.floor(Math.random() * defaultPersonas.length)].systemPrompt}</textarea>
@@ -140,18 +120,14 @@ export function Welcome() {
                         </div>
 
                         <div className="window bg-white shadow-lg">
-                            <div className="title-bar bg-gradient-to-r from-[#D44500] to-[#FF6B35]">
-                                <div className="title-bar-text text-white font-bold">Implementation Detail</div>
+                            <div className="title-bar">
+                                <div className="title-bar-text">How to Use</div>
                             </div>
-                            <div className="window-body p-4">
-                                <p className="text-xs font-mono text-gray-800 leading-relaxed mb-2">
-                                    // Full-stack: route handlers, KV ops,<br/>
-                                    // split-pane UI with htmx for partial swaps.<br/>
-                                    // Server render HTML, browser swap in DOM.<br/>
-                                    // No SPA complexity. Hypermedia go brrr.
-                                </p>
-                                <p className="text-xs text-gray-700">
-                                    Built the whole thing. Designed it, wrote it, made it work. That's the fun part.
+                            <div className="window-body p-4 space-y-2">
+                                <p className="text-xs text-gray-800">
+                                    • Create new personas with custom system prompts<br/>
+                                    • Edit existing personas to change their behavior<br/>
+                                    • Use personas in party chats to add AI participants
                                 </p>
                             </div>
                         </div>
@@ -178,59 +154,55 @@ export function Welcome() {
                             </div>
                             <div className="flex-1">
                                 <h1 className="text-2xl font-bold text-[#003399] mb-2" style="text-shadow: 1px 1px 0px rgba(255,255,255,0.5)">
-                                    Party Chats
+                                    Start Party Chats
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Stateful, persistent chat rooms. The interesting part is the architecture: 
-                                    Durable Objects for room state, WebSocket pub/sub, SSE for streaming LLM responses to browser.
+                                    Create or join chat rooms where you can have conversations with other users and AI personas. Messages are persistent and multiple people can participate in the same room.
                                 </p>
                             </div>
                         </div>
 
                         <div className="window bg-white shadow-lg">
                             <div className="title-bar">
-                                <div className="title-bar-text">Technical Overview</div>
+                                <div className="title-bar-text">How It Works</div>
                             </div>
                             <div className="window-body p-4 space-y-3">
-                                <div className="space-y-2 text-xs font-mono bg-gray-50 p-3 border border-gray-300">
-                                    <div><span className="text-blue-600">Browser</span> → htmx SSE connection</div>
-                                    <div className="pl-4">↓</div>
-                                    <div><span className="text-green-600">Hono</span> → WebSocket to Durable Object</div>
-                                    <div className="pl-4">↓</div>
-                                    <div><span className="text-purple-600">Durable Object</span> → SQLite + WebSocket pub/sub</div>
-                                    <div className="pl-4">↓</div>
-                                    <div><span className="text-orange-600">OpenRouter</span> → LLM streaming response</div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <p className="text-sm text-gray-800">
+                                        <strong>Create a new party:</strong> Start a chat room with a custom name or use a random one.
+                                    </p>
                                 </div>
-                                <p className="text-xs text-gray-700">
-                                    Each room is a Durable Object instance with its own SQLite database. 
-                                    Messages persist. Multiple clients can connect. Responses stream token-by-token.
-                                </p>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <p className="text-sm text-gray-800">
+                                        <strong>Join existing parties:</strong> Browse your previous chat rooms or join one by ID.
+                                    </p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold text-sm">→</span>
+                                    <p className="text-sm text-gray-800">
+                                        <strong>Chat with users and personas:</strong> Have conversations with other logged-in users and add AI personas to participate in the discussion.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
                         <div className="window bg-white shadow-lg">
-                            <div className="title-bar bg-gradient-to-r from-[#0078D7] to-[#00BCF2]">
-                                <div className="title-bar-text text-white font-bold">Why This Stack? (The Irony)</div>
+                            <div className="title-bar">
+                                <div className="title-bar-text">Features</div>
                             </div>
                             <div className="window-body p-4 space-y-2">
-                                <div className="text-xs space-y-2">
-                                    <p>
-                                        <strong className="text-blue-700">Cloudflare Workers:</strong> Deploy to 300+ edge locations. 
-                                        Is this overkill for a toy chat app? Yes. Is it fun to explore? Also yes.
-                                    </p>
-                                    <p>
-                                        <strong className="text-purple-700">Durable Objects:</strong> SQLite at the edge with WebSocket coordination. 
-                                        Every room is a distinct instance which works reallly nice to organize the flow of messages.
-                                    </p>
-                                    <p>
-                                        <strong className="text-green-700">htmx + SSE:</strong> Server renders HTML, browser swaps it. 
-                                        Actually simple despite the backend complexity. <a href="https://htmx.org/essays/" target="_blank" rel="noopener" className="text-blue-600 underline">Read the essays.</a>
-                                    </p>
-                                </div>
+                                <p className="text-xs text-gray-800">
+                                    • Messages are saved and persist across sessions<br/>
+                                    • Multiple users can join the same chat room<br/>
+                                    • Add personas to conversations to have AI participants<br/>
+                                    • Real-time updates as messages are sent
+                                </p>
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-center justify-center gap-3 p-4">
+                        <div className="flex items-center justify-center p-4">
                             <button 
                                 type="button"
                                 className="min-w-[140px]"
@@ -241,122 +213,43 @@ export function Welcome() {
                             >
                                 Open Party Chat →
                             </button>
-                            <a 
-                                href="https://htmx.org" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="opacity-80 hover:opacity-100 transition-opacity"
-                            >
-                                <img 
-                                    src="https://htmx.org/img/createdwith.jpeg" 
-                                    alt="Created with htmx"
-                                    className="h-8 border border-gray-400 shadow-sm"
-                                />
-                            </a>
                         </div>
                     </div>
 
-                    {/* Step 4: About Tim */}
+                    {/* Step 4: Getting Started */}
                     <div x-show="currentStep === 4" className="space-y-4" x-cloak>
                         <div className="flex items-start gap-4 mb-4">
                             <div className="text-6xl leading-none select-none" style="filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.2))">
-                                🛠️
+                                ✅
                             </div>
                             <div className="flex-1">
                                 <h1 className="text-2xl font-bold text-[#003399] mb-2" style="text-shadow: 1px 1px 0px rgba(255,255,255,0.5)">
-                                    Who did this?
+                                    You're All Set
                                 </h1>
                                 <p className="text-sm leading-relaxed text-gray-800">
-                                    Tim Willebrands. Builder of Maintainable Systems | Tech Lead & Architect
+                                    You now know the basics. Log in, create personas, and start chatting in party rooms.
                                 </p>
                             </div>
                         </div>
 
                         <div className="window bg-white shadow-lg">
                             <div className="title-bar">
-                                <div className="title-bar-text">Engineering Philosophy</div>
+                                <div className="title-bar-text">Getting Started</div>
                             </div>
-                            <div className="window-body p-4">
-                                <ul className="space-y-2 text-xs leading-relaxed">
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">▸</span>
-                                        <span><strong>Language-agnostic.</strong> Tools, not identities. Use what works.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">▸</span>
-                                        <span><strong>Maintainable &gt; "clean".</strong> Code other grugs can understand and extend. <a href="https://grugbrain.dev/" target="_blank" rel="noopener" className="text-blue-600 underline">Complexity very bad.</a></span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">▸</span>
-                                        <span><strong>Automate boring parts.</strong> CI/CD, dev environments—let robots do robot work.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">▸</span>
-                                        <span><strong>Understand your stack.</strong> Use Arch btw. Get hands dirty. Break things to learn how they work.</span>
-                                    </li>
-                                </ul>
+                            <div className="window-body p-4 space-y-3">
+                                <p className="text-sm text-gray-800">
+                                    Click the buttons in the previous steps to open the Personas and Party Chat apps, or use the desktop icons to access them anytime.
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    Messages and personas are saved, so you can return to your conversations later.
+                                </p>
                             </div>
                         </div>
 
-                        <div className="window bg-white shadow-lg">
-                            <div className="title-bar bg-gradient-to-r from-[#6B238E] to-[#9B59B6]">
-                                <div className="title-bar-text text-white font-bold">Selected Work & Explorations</div>
-                            </div>
-                            <div className="window-body p-4 space-y-3 text-xs">
-                                <div>
-                                    <div className="font-bold text-purple-800">Auxin (Real-Time Data Platform)</div>
-                                    <p className="text-gray-700">
-                                        Federated GraphQL gateway, modular frontend for third-party embeds, 
-                                        spatially-aware enrichment engine. Designed it, built it, maintained it.
-                                    </p>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-purple-800">GitHub Playground</div>
-                                    <p className="text-gray-700">
-                                        PubbieSubbie (queueing), use-communal-state (CRDT), B-Trees in Rust, 
-                                        raycasting in C3→WASM. Building stuff to understand how it works, not just use it.
-                                    </p>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-purple-800">This Project</div>
-                                    <p className="text-gray-700">
-                                        Overengineered on purpose to explore edge computing, Durable Objects, and real-time patterns. 
-                                        Also an excuse to build something with XP aesthetics because why not.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3 p-4 bg-[#F3F1ED] border-2 border-[#D4D0C8] shadow-[inset_-1px_-1px_#808080,inset_1px_1px_#ffffff]">
-                            <div className="flex gap-2">
-                                <a 
-                                    href="https://github.com/TimWillebrands/" 
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-3 py-2 text-xs"
-                                    style="min-width: 100px;"
-                                >
-                                    <span className="text-lg">⚡</span>
-                                    <span>GitHub</span>
-                                </a>
-                                <a 
-                                    href="https://www.linkedin.com/in/tim-willebrands" 
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-3 py-2 text-xs"
-                                    style="min-width: 100px;"
-                                >
-                                    <span className="text-lg">💼</span>
-                                    <span>LinkedIn</span>
-                                </a>
-                            </div>
-                            <button
-                                type="button"
-                                className="px-4 py-2 min-w-[120px] font-bold"
-                                x-on:click="$event.target.closest('.window').querySelector('[aria-label=Close]').click()"
-                            >
-                                Close Tour
-                            </button>
+                        <div className="text-center text-xs text-gray-600 pt-4">
+                            <a href="https://timwillebrands.nl" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">
+                                timwillebrands.nl
+                            </a>
                         </div>
                     </div>
                 </div>

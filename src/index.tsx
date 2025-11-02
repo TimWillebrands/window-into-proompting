@@ -74,7 +74,7 @@ app.route(PROXY_PATH, createPostHogProxy());
 
 app.get("/", (c) => {
     return c.html(
-        <Layout title="My Party">
+        <Layout title="🎭 Proompting Party 🎉">
             <Desktop></Desktop>
         </Layout>,
     );
