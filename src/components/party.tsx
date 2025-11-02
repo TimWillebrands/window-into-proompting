@@ -55,7 +55,12 @@ function ChatInput() {
                         >
                             🤖 Model:
                         </label>
-                        <select name="model" id="model" className="flex-1" hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')">
+                        <select
+                            name="model"
+                            id="model"
+                            className="flex-1"
+                            hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')"
+                        >
                             {models.map((model) => (
                                 <option value={model}>{model}</option>
                             ))}
@@ -70,7 +75,7 @@ function ChatInput() {
                                 document.getElementById('prompt-input').focus();
                             "
                         >
-                            🗑️ Clear
+                            🗑 Clear
                         </button>
                         <button type="submit" className="min-w-[80px]">
                             🚀 Send
@@ -85,7 +90,9 @@ function ChatInput() {
 function StatusBar() {
     return (
         <div className="status-bar">
-            <p className="status-bar-field">🟢 Connected - <span x-text="user?.fullName"></span></p>
+            <p className="status-bar-field">
+                🟢 Connected - <span x-text="user?.fullName"></span>
+            </p>
             <p className="status-bar-field" id="message-count">
                 💬 0 messages
             </p>
@@ -132,15 +139,6 @@ function ChatMessagesArea({ room }: { room: string }) {
                     border-gray-300 m-2 bg-gradient-to-b from-white to-gray-50 font-sans
                     text-sm h-0 min-h-[200px] chat-messages
                     shadow-[inset_-1px_-1px_#ffffff,inset_1px_1px_#808080]"
-                hx-on-htmx-sse-before-message="console.log('receiving message')"
-                hx-on--sse-after-message="console.log('message received', this)"
-                hx-on--after-swap="
-                    console.log('message swapped');
-                    // Track message received when AI responds
-                    if (this.textContent && this.textContent.includes('AI:')) {
-                        analytics.trackMessageReceived('${room}', this.textContent.length);
-                    }
-                "
             >
                 <WelcomeMessage />
             </div>

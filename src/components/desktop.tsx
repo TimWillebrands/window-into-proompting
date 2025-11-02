@@ -22,10 +22,10 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     app_name: 'proompting-party',
                     source: document.referrer ? 'referral' : 'direct'
                 });
-                
+
                 // Track session started
                 analytics.trackSessionStarted();
-                
+
                 // Only show welcome on first visit
                 if (!hasSeenWelcome) {
                     htmx.ajax('GET', '/welcome', {target: '#windows', swap: 'beforeend'});
@@ -39,7 +39,20 @@ export function Desktop({ children }: PropsWithChildren<unknown>) {
                     hasSeenWelcome = true;
                 }
             })()"
-            {...{"x-on:clerkified.window":"user = Clerk.user; window.posthog.identify(user.id, { email: user.emailAddresses[0].emailAddress, name: user.fullName })"}}
+            {...{
+                "x-on:clerkified.window": `
+                user = Clerk.user;
+                if(user){
+                    analytics.identifyUser(user.id, {
+                        email: user.emailAddresses[0].emailAddress,
+                        emailAddresses: user.emailAddresses,
+                        name: user.fullName
+                    })
+                } else {
+                    console.warn("Clerk user not found", Clerk, user, event)
+                }
+            `,
+            }}
             x-on:pointermove="if(dragTarget && dragTarget.offsetX !== undefined) {
                 // For icons, check if we've moved enough to start dragging
                 if(dragTarget.startX !== undefined && !dragTarget.isDragging) {

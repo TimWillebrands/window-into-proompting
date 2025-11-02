@@ -85,13 +85,6 @@ window.analytics = (() => {
             capture("message_sent", properties);
         },
 
-        trackMessageReceived(partyId, messageLength) {
-            capture("message_received", {
-                party_id: partyId,
-                message_length: messageLength,
-            });
-        },
-
         // Persona events
         trackPersonaCreated(properties) {
             capture("persona_created", properties);

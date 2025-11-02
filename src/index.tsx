@@ -44,23 +44,9 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                         defaults: '2025-05-24',
                         person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
                     });
-                    
+
                     // Set up user identification and session tracking
                     (function() {
-                        // Generate or retrieve user ID
-                        let userId = localStorage.getItem('proompting_user_id');
-                        if (!userId) {
-                            userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                            localStorage.setItem('proompting_user_id', userId);
-                        }
-                        
-                        // Identify user with PostHog
-                        posthog.identify(userId, {
-                            first_seen: new Date().toISOString(),
-                            platform: 'web',
-                            app_version: '1.0.0'
-                        });
-                        
                         // Track session end on page unload
                         window.addEventListener('beforeunload', function() {
                             if (window.analytics) {
