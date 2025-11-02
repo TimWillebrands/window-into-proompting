@@ -10,6 +10,7 @@ function ChatInput() {
                 hx-post={`/party/${room}/prompt`}
                 hx-swap="none"
                 hx-include="[name='prompt']"
+                hx-trigger="submit, keydown[ctrlKey&&key=='Enter']"
                 hx-on:before-request="
                     event.target.querySelector('[type=submit]').disabled = true;
                     event.target.querySelector('[type=submit]').textContent = '⏳ Sending...'; "
@@ -40,10 +41,6 @@ function ChatInput() {
                         required
                         placeholder="Type your message here... (Ctrl+Enter to send)"
                         className="w-full resize-y font-sans text-sm"
-                        hx-trigger="keydown[ctrlKey&&key=='Enter']"
-                        hx-post={`/party/${room}/prompt`}
-                        hx-target="none"
-                        hx-include="[name='prompt']"
                     ></textarea>
                 </div>
 

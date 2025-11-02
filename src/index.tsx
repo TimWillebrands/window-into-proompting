@@ -242,6 +242,7 @@ app.get("/party/:id/messages/:messageid", async (c) => {
             const { value, done } = await reader.read();
 
             if (value) {
+                console.log("value", value);
                 await stream.writeSSE({
                     data: value, //`<span>${value}</span>`,
                     event: "message",
