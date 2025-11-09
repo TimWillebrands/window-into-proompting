@@ -1,4 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+    type SQLSchemaMigration,
+    SQLSchemaMigrations,
+} from "durable-utils/sql-migrations";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources";
 
@@ -21,9 +25,10 @@ async function* promptLlm(
 export type MessageType = {
     messageid: number;
     message?: string;
-    sender: string;
+    senderType: string;
+    senderId: string;
     sendAt?: number;
-    model?: string;
+    modelEndpointStub?: string;
 };
 
 export type SubscriptionMessage =
@@ -59,9 +64,12 @@ class Generation {
             ...history.map(
                 (message) =>
                     ({
-                        role: message.sender === "user" ? "user" : "assistant",
+                        role:
+                            message.senderType === "user"
+                                ? "user"
+                                : "assistant",
                         content: message.message ?? "",
-                        name: undefined,
+                        name: message.senderId,
                     }) as ChatCompletionMessageParam,
             ),
             { role: "user", content: prompt },
@@ -107,27 +115,38 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         });
         this.sql = ctx.storage.sql;
 
+        const migrations = new SQLSchemaMigrations({
+            doStorage: ctx.storage,
+            migrations: Migrations,
+        });
+
         ctx.blockConcurrencyWhile(async () => {
-            for (const migrate of SqlMigrations) {
-                migrate(this.sql);
-            }
+            await migrations.runAll();
         });
     }
 
-    async sendPrompt(prompt: string, sender: string, model: string) {
+    async sendPrompt(
+        prompt: string,
+        senderType: string,
+        senderId: string,
+        personaId: string,
+        model: string,
+    ) {
         console.log("[Party.ts->sendPrompt] prompt:", prompt);
 
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
         const newMessageIds = this.sql
             .exec<{ messageid: number }>(
-                `INSERT INTO messages(message, sender)
-                VALUES (?, ?), (?, ?)
+                `INSERT INTO messages(message, senderType, senderId)
+                VALUES (?, ?, ?), (?, ?, ?)
                 RETURNING messageid`,
                 prompt,
-                sender,
+                senderType,
+                senderId,
                 null,
-                "model",
+                "assistant",
+                personaId,
             )
             .toArray()
             .map((row) => row.messageid);
@@ -172,7 +191,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     message: {
                         messageid: newMessageIds[0],
                         message: prompt,
-                        sender: sender,
+                        senderType: senderType,
+                        senderId: senderId,
                         sendAt: new Date().getMilliseconds(),
                     },
                 } as SubscriptionMessage),
@@ -277,31 +297,37 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response(stream, { headers });
     }
 }
-
-const SqlMigrations = [
-    (sql: SqlStorage) => {
-        sql.exec(`
-        CREATE TABLE IF NOT EXISTS messages(
-            messageid    INTEGER PRIMARY KEY AUTOINCREMENT,
-            message      TEXT,
-            sender       VARCHAR(255) NOT NULL,
-            sendAt       DATETIME
-        );`);
-
-        console.log("Table created if it didn't exist yet");
+const Migrations: SQLSchemaMigration[] = [
+    {
+        idMonotonicInc: 1,
+        description: "initial version",
+        sql: `
+            CREATE TABLE IF NOT EXISTS messages(
+                messageid    INTEGER PRIMARY KEY AUTOINCREMENT,
+                message      TEXT,
+                sender       VARCHAR(255) NOT NULL,
+                sendAt       DATETIME
+            );
+        `,
     },
-    (sql: SqlStorage) => {
-        // Check if the model column already exists
-        const columnExists = sql
-            .exec(`PRAGMA table_info(messages)`)
-            .toArray()
-            .some((row: any) => row.name === "model");
+    {
+        idMonotonicInc: 2,
+        description: "add model column to messages",
+        sql: `
+            ALTER TABLE messages
+            ADD COLUMN modelEndpointStub VARCHAR(255) NOT NULL DEFAULT '-';
+        `,
+    },
+    {
+        idMonotonicInc: 3,
+        description:
+            "add senderId column to messages and rename sender to senderType",
+        sql: `
+            ALTER TABLE messages
+            RENAME COLUMN sender TO senderType;
 
-        if (!columnExists) {
-            sql.exec(`ALTER TABLE messages ADD COLUMN model TEXT;`);
-            console.log("Column 'model' added to table 'messages'");
-        } else {
-            console.log("Column 'model' already exists in table 'messages'");
-        }
+            ALTER TABLE messages
+            ADD COLUMN senderId VARCHAR(127) NOT NULL DEFAULT '0000-0000';
+        `,
     },
 ];

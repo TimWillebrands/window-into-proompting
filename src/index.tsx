@@ -1,4 +1,6 @@
-import { Hono } from "hono";
+import { type ClerkClient, createClerkClient } from "@clerk/backend";
+import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
+import { type Context, Hono } from "hono";
 import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
@@ -14,6 +16,15 @@ import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
+
+let _clerkClient: ClerkClient | null = null;
+function clerkClient(c: Context) {
+    if (_clerkClient === null) {
+        _clerkClient = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+    }
+    return _clerkClient;
+}
+
 export type AppType = typeof app;
 
 interface SiteData {
@@ -69,6 +80,8 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                 ${props.children}
             </body>
         </html>`;
+
+app.use("*", clerkMiddleware());
 
 // PostHog reverse proxy
 app.route(PROXY_PATH, createPostHogProxy());
@@ -138,12 +151,19 @@ app.get("models", async (c) => {
 });
 
 app.post("/party/:id/prompt", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
     const id = c.req.param("id");
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
 
     const body = await c.req.formData();
     const prompt = body.get("prompt");
     const model = body.get("model");
+    const personaId = body.get("personaId") ?? "-unknown persona-";
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
@@ -153,7 +173,13 @@ app.post("/party/:id/prompt", async (c) => {
         return new Response("Invalid model", { status: 400 });
     }
 
-    await party.sendPrompt(prompt, "user", model);
+    if (typeof personaId !== "string") {
+        return new Response("Invalid persona", { status: 400 });
+    }
+
+    const user = await clerkClient(c).users.getUser(auth.userId);
+
+    await party.sendPrompt(prompt, "user", user.id, personaId, model);
 
     return c.text("Proompt accepted", 202);
 });
