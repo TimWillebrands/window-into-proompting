@@ -1,9 +1,9 @@
 import { createContext, useContext } from "hono/jsx";
-import { models } from "@/durable_objects/party";
+import type { OpenRouterModelsResponse } from "@/openRouter";
 import { WindowContainer } from "./window";
 
 function ChatInput() {
-    const { room } = useContext(PartyContext);
+    const { room, openRouter } = useContext(PartyContext);
     return (
         <div className="p-3 border-t-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
             <form
@@ -31,12 +31,15 @@ function ChatInput() {
                 className="flex flex-col gap-3"
             >
                 <div className="field-row-stacked">
-                    <label htmlFor="prompt-input" className="font-bold text-sm">
+                    <label
+                        htmlFor={`prompt_input_${room}`}
+                        className="font-bold text-sm"
+                    >
                         💬 Your Message:
                     </label>
                     <textarea
                         name="prompt"
-                        id="prompt-input"
+                        id={`prompt_input_${room}`}
                         rows={3}
                         required
                         placeholder="Type your message here... (Ctrl+Enter to send)"
@@ -47,19 +50,25 @@ function ChatInput() {
                 <div className="flex flex-row gap-3 items-end justify-between">
                     <div className="field-row items-center">
                         <label
-                            htmlFor="model"
+                            htmlFor={`model_${room}`}
                             className="font-bold text-sm mr-2"
                         >
                             🤖 Model:
                         </label>
                         <select
                             name="model"
-                            id="model"
+                            id={`model_${room}`}
                             className="flex-1"
                             hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')"
                         >
-                            {models.map((model) => (
-                                <option value={model}>{model}</option>
+                            {openRouter.models.map((model) => (
+                                <option
+                                    value={
+                                        model.endpoint.model_variant_permaslug
+                                    }
+                                >
+                                    {model.short_name}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -100,16 +109,20 @@ function StatusBar() {
 
 interface PartyProps {
     room: string;
+    openRouter: OpenRouterModelsResponse["data"];
 }
 
-const PartyContext = createContext({ room: "" });
+const PartyContext = createContext<PartyProps>({
+    room: "",
+    openRouter: null as unknown as OpenRouterModelsResponse["data"],
+});
 
 /**
  * Container for a single party, which manages the layout and behavior of the party window.
  */
-export function Party({ room }: PartyProps) {
+export function Party({ room, openRouter }: PartyProps) {
     return (
-        <PartyContext.Provider value={{ room }}>
+        <PartyContext.Provider value={{ room, openRouter }}>
             <div x-data={`{ room: "${room}" }`}>
                 <WindowContainer
                     id={room}
@@ -123,6 +136,7 @@ export function Party({ room }: PartyProps) {
         </PartyContext.Provider>
     );
 }
+
 function ChatMessagesArea({ room }: { room: string }) {
     return (
         <div className="window-body overflow-y-auto flex-1 flex flex-col p-0">

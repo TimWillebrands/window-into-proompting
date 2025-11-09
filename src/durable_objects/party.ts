@@ -2,21 +2,10 @@ import { DurableObject } from "cloudflare:workers";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources";
 
-export const models = [
-    "z-ai/glm-4.5-air:free",
-    "deepseek/deepseek-chat-v3.1:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "openai/gpt-oss-20b:free",
-    "qwen/qwen3-coder:free",
-    "moonshotai/kimi-k2:free",
-] as const;
-
-type Model = (typeof models)[number];
-
 async function* promptLlm(
     ai: OpenAI,
     messages: ChatCompletionMessageParam[],
-    model: Model,
+    model: string,
 ) {
     const completion = await ai.chat.completions.create({
         model: model,
@@ -64,11 +53,7 @@ class Generation {
         observer(chunk, this.done);
     }
 
-    async generate(
-        history: MessageType[],
-        prompt: string,
-        model: Model = models[0],
-    ) {
+    async generate(history: MessageType[], prompt: string, model: string) {
         const messages: ChatCompletionMessageParam[] = [
             { role: "system", content: "You are a helpful assistant." },
             ...history.map(
@@ -129,7 +114,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         });
     }
 
-    async sendPrompt(prompt: string, sender: string, model: Model) {
+    async sendPrompt(prompt: string, sender: string, model: string) {
         console.log("[Party.ts->sendPrompt] prompt:", prompt);
 
         // Add the user's prompt to the database as a message from the user

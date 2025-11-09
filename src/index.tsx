@@ -7,7 +7,8 @@ import { Message } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
 import { Welcome } from "./components/welcome";
-import { models, type SubscriptionMessage } from "./durable_objects/party";
+import type { SubscriptionMessage } from "./durable_objects/party";
+import { loadFreeOpenRouterModels } from "./openRouter";
 import { addPersonaRoutes } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
@@ -126,7 +127,14 @@ app.get("/party/:id", async (c) => {
 
     if (!party) return new Response("Party not found", { status: 404 });
 
-    return c.html(<Party room={id} />);
+    var openRouter = await loadFreeOpenRouterModels();
+
+    return c.html(<Party room={id} openRouter={openRouter} />);
+});
+
+app.get("models", async (c) => {
+    var models = await loadFreeOpenRouterModels();
+    return c.json(models);
 });
 
 app.post("/party/:id/prompt", async (c) => {
@@ -136,13 +144,16 @@ app.post("/party/:id/prompt", async (c) => {
     const body = await c.req.formData();
     const prompt = body.get("prompt");
     const model = body.get("model");
-    const finalModel = models.find((m) => m === model) ?? models[0];
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
     }
 
-    await party.sendPrompt(prompt, "user", finalModel);
+    if (typeof model !== "string") {
+        return new Response("Invalid model", { status: 400 });
+    }
+
+    await party.sendPrompt(prompt, "user", model);
 
     return c.text("Proompt accepted", 202);
 });
