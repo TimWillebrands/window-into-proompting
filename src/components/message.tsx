@@ -1,6 +1,14 @@
 import type { MessageType } from "@/durable_objects/party";
 
-function ChatMessage({ id, message }: { message: MessageType; id: string }) {
+function ChatMessage({
+    id,
+    message,
+    roomId,
+}: {
+    message: MessageType;
+    id: string;
+    roomId: string;
+}) {
     const isUser = message.senderType === "user";
     const timestamp = new Date(message.sendAt ?? 0).toISOString();
     const baseClasses =
@@ -18,7 +26,10 @@ function ChatMessage({ id, message }: { message: MessageType; id: string }) {
                 {isUser ? (
                     "👤 You"
                 ) : (
-                    <ChatPersonaAvatar personaId={message.senderId} />
+                    <ChatPersonaAvatar
+                        personaId={message.senderId}
+                        roomId={roomId}
+                    />
                 )}
                 {timestamp && (
                     <span className="float-right font-normal text-xs text-gray-500">
@@ -49,6 +60,7 @@ export function Message({
             <ChatMessage
                 id={`message_${message.messageid}_${roomId}`}
                 message={message}
+                roomId={roomId}
             />
         );
     }
