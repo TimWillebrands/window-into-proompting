@@ -5,6 +5,7 @@ import {
 } from "durable-utils/sql-migrations";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources";
+import type { Persona } from "@/components/personas";
 
 async function* promptLlm(
     ai: OpenAI,
@@ -58,9 +59,17 @@ class Generation {
         observer(chunk, this.done);
     }
 
-    async generate(history: MessageType[], prompt: string, model: string) {
+    async generate(
+        history: MessageType[],
+        prompt: string,
+        model: string,
+        persona: Persona | null,
+    ) {
+        const systemPrompt =
+            persona?.systemPrompt ?? "You are a helpful assistant.";
+
         const messages: ChatCompletionMessageParam[] = [
-            { role: "system", content: "You are a helpful assistant." },
+            { role: "system", content: systemPrompt, name: persona?.id },
             ...history.map(
                 (message) =>
                     ({
@@ -101,6 +110,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
     private readonly ai: OpenAI;
     private readonly sql: SqlStorage;
+    private readonly kv: KVNamespace;
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
@@ -114,6 +124,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             },
         });
         this.sql = ctx.storage.sql;
+        this.kv = env.DESKTOP_DATA;
 
         const migrations = new SQLSchemaMigrations({
             doStorage: ctx.storage,
@@ -160,12 +171,16 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         const generation = new Generation(this.ai, newMessageIds[1]);
         this.generations.set(newMessageIds[1], generation);
 
+        const personaData = await this.kv.get<Persona>(`persona:${personaId}`, {
+            type: "json",
+        });
+
         // Fire and forget the generation
         const messages = this.sql
             .exec<MessageType>("SELECT * FROM messages")
             .toArray();
 
-        generation.generate(messages, prompt, model).then((g) => {
+        generation.generate(messages, prompt, model, personaData).then((g) => {
             console.log(
                 "[Party.ts->sendPrompt] generation finished",
                 g.messageId,

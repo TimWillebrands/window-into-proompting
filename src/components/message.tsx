@@ -1,22 +1,8 @@
-import type { PropsWithChildren } from "hono/jsx";
 import type { MessageType } from "@/durable_objects/party";
 
-interface ChatMessageProps {
-    id: string;
-    isUser: boolean;
-    timestamp?: string;
-    className?: string;
-    [hxAttr: string]: unknown; // For HTMX attributes
-}
-
-function ChatMessage({
-    id,
-    isUser,
-    children,
-    timestamp,
-    className = "",
-    ...hxAttributes
-}: PropsWithChildren<ChatMessageProps>) {
+function ChatMessage({ id, message }: { message: MessageType; id: string }) {
+    const isUser = message.senderType === "user";
+    const timestamp = new Date(message.sendAt ?? 0).toISOString();
     const baseClasses =
         "mb-4 p-3 border border-gray-300 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md";
     const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
@@ -25,12 +11,15 @@ function ChatMessage({
     return (
         <div
             id={id}
-            className={`${baseClasses} ${isUser ? userClasses : aiClasses} ${className}`}
+            className={`${baseClasses} ${isUser ? userClasses : aiClasses}`}
             x-init="$el.scrollIntoView()"
-            {...hxAttributes}
         >
             <div className="font-bold mb-2 text-gray-800 text-sm">
-                {isUser ? "👤 You" : "🤖 AI Assistant"}
+                {isUser ? (
+                    "👤 You"
+                ) : (
+                    <ChatPersonaAvatar personaId={message.senderId} />
+                )}
                 {timestamp && (
                     <span className="float-right font-normal text-xs text-gray-500">
                         {timestamp}
@@ -38,7 +27,7 @@ function ChatMessage({
                 )}
             </div>
             <div className="leading-relaxed text-sm">
-                <streaming-md id="md">{children}</streaming-md>
+                <streaming-md id="md">{message.message}</streaming-md>
             </div>
         </div>
     );
@@ -59,12 +48,8 @@ export function Message({
         return (
             <ChatMessage
                 id={`message_${message.messageid}_${roomId}`}
-                isUser={message.sender === "user"}
-                timestamp={new Date(message.sendAt ?? 0).toISOString()}
-                className="message"
-            >
-                {message.message}
-            </ChatMessage>
+                message={message}
+            />
         );
     }
 
@@ -100,10 +85,31 @@ export function Message({
             </div>
 
             <streaming-md className="message-content text-sm"></streaming-md>
-            {/*<zero-md>
-                <template></template>
-                <script class="message-content" type="text/markdown"></script>
-            </zero-md>*/}
         </article>
+    );
+}
+
+function ChatPersonaAvatar({
+    personaId,
+    roomId,
+}: {
+    personaId: string;
+    roomId: string;
+}) {
+    return (
+        <div class="flex">
+            <img
+                src={`https://robohash.org/${personaId}.png?size=16x16`}
+                alt="avatar"
+            />
+            <span
+                hx-get={`/personas/${personaId}/avatar`}
+                hx-trigger="load"
+                hx-target="this"
+                hx-swap="outerHTML"
+            >
+                {personaId}
+            </span>
+        </div>
     );
 }

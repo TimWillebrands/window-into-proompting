@@ -11,7 +11,7 @@ import { Party } from "./components/party";
 import { Welcome } from "./components/welcome";
 import type { SubscriptionMessage } from "./durable_objects/party";
 import { loadFreeOpenRouterModels } from "./openRouter";
-import { addPersonaRoutes } from "./personaRoutes";
+import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
 
@@ -114,6 +114,12 @@ app.get("/party", async (c) => {
 });
 
 app.post("/party/create", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
     const body = await c.req.formData();
     const partyName = body.get("partyName")?.toString();
     if (!partyName) return new Response("Invalid party name", { status: 400 });
@@ -141,13 +147,15 @@ app.get("/party/:id", async (c) => {
     if (!party) return new Response("Party not found", { status: 404 });
 
     var openRouter = await loadFreeOpenRouterModels();
+    var personas = await getAllPersonas(c.env);
 
-    return c.html(<Party room={id} openRouter={openRouter} />);
-});
-
-app.get("models", async (c) => {
-    var models = await loadFreeOpenRouterModels();
-    return c.json(models);
+    return c.html(
+        <Party
+            room={id}
+            openRouter={openRouter}
+            personaParticipants={personas}
+        />,
+    );
 });
 
 app.post("/party/:id/prompt", async (c) => {
@@ -163,7 +171,7 @@ app.post("/party/:id/prompt", async (c) => {
     const body = await c.req.formData();
     const prompt = body.get("prompt");
     const model = body.get("model");
-    const personaId = body.get("personaId") ?? "-unknown persona-";
+    const personaId = body.get("personaId");
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
@@ -179,6 +187,7 @@ app.post("/party/:id/prompt", async (c) => {
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
+    console.log("proomptin!", user.id, user.emailAddresses[0], personaId);
     await party.sendPrompt(prompt, "user", user.id, personaId, model);
 
     return c.text("Proompt accepted", 202);
