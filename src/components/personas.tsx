@@ -11,10 +11,10 @@ export type Persona = PersonaMetadata & {
 };
 
 // Component for just the personas list content (for OOB swaps)
-export function PersonasList({ 
-    personas, 
-    "hx-swap-oob": hxSwapOob
-}: { 
+export function PersonasList({
+    personas,
+    "hx-swap-oob": hxSwapOob,
+}: {
     personas: PersonaMetadata[];
     "hx-swap-oob"?: string;
 }) {
@@ -94,7 +94,11 @@ export function PersonasList({
 
 export function Personas({ personas }: { personas: PersonaMetadata[] }) {
     return (
-        <WindowContainer id="Personas" title="👤 Persona Manager" url="/personas">
+        <WindowContainer
+            id="Personas"
+            title="👤 Persona Manager"
+            url="/personas"
+        >
             <div className="window-body flex flex-col h-full">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -151,7 +155,10 @@ export function Personas({ personas }: { personas: PersonaMetadata[] }) {
                 {/* Status Bar */}
                 <div className="status-bar">
                     <p className="status-bar-field">🟢 Ready</p>
-                    <p className="status-bar-field">{personas.length} persona{personas.length !== 1 ? 's' : ''}</p>
+                    <p className="status-bar-field">
+                        {personas.length} persona
+                        {personas.length !== 1 ? "s" : ""}
+                    </p>
                     <p className="status-bar-field">💾 Auto-saved</p>
                 </div>
             </div>
@@ -180,7 +187,9 @@ export function PersonaTemplateMenu() {
                         })}
                         hx-on="click: document.getElementById('template-menu').innerHTML = ''"
                     >
-                        <div className="font-medium text-gray-800">{template.name}</div>
+                        <div className="font-medium text-gray-800">
+                            {template.name}
+                        </div>
                         <div className="text-xs text-gray-500 truncate mt-0.5">
                             {template.systemPrompt.slice(0, 60)}...
                         </div>
@@ -216,9 +225,11 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                     />
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800">
-                            ✏️ Edit Persona
+                            ✏ Edit Persona
                         </h2>
-                        <p className="text-sm text-gray-500">ID: {persona.id}</p>
+                        <p className="text-sm text-gray-500">
+                            ID: {persona.id}
+                        </p>
                     </div>
                 </div>
 
@@ -272,7 +283,8 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                             {persona.systemPrompt}
                         </textarea>
                         <p className="mt-2 text-xs text-gray-600">
-                            💡 This prompt defines how the AI will behave when using this persona.
+                            💡 This prompt defines how the AI will behave when
+                            using this persona.
                         </p>
                     </div>
 
@@ -286,7 +298,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                                 hx-swap="innerHTML"
                                 hx-confirm="Are you sure you want to delete this persona? This action cannot be undone."
                             >
-                                🗑️ Delete
+                                🗑 Delete
                             </button>
                             <button
                                 type="button"
@@ -315,7 +327,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                 {/* Preview Section */}
                 <div className="mt-8 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 shadow-sm">
                     <h3 className="font-semibold text-gray-700 mb-3 text-sm">
-                        👁️ Preview
+                        👁 Preview
                     </h3>
                     <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
                         <img
@@ -369,7 +381,9 @@ export function PersonaBlank() {
         <div className="p-8 h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/30">
             <div className="text-center text-gray-500">
                 <div className="text-6xl mb-4">👤</div>
-                <h3 className="text-xl font-semibold mb-2 text-gray-700">Select a Persona</h3>
+                <h3 className="text-xl font-semibold mb-2 text-gray-700">
+                    Select a Persona
+                </h3>
                 <p className="text-sm text-gray-500">
                     Choose a persona from the list to edit its details
                 </p>

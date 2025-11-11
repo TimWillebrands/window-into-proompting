@@ -114,11 +114,13 @@ function ChatPersonaAvatar({
                 src={`https://robohash.org/${personaId}.png?size=16x16`}
                 alt="avatar"
             />
+            &nbsp;
             <span
                 hx-get={`/personas/${personaId}/avatar`}
                 hx-trigger="load"
                 hx-target="this"
                 hx-swap="outerHTML"
+                hx-params="none"
             >
                 {personaId}
             </span>

@@ -156,11 +156,12 @@ function ChatMessagesArea({
                     <fieldset class="min-w-0">
                         <legend>Persona</legend>
                         <div class="flex flex-col">
-                            {personaParticipants.map((participant) => (
+                            {personaParticipants.map((participant, i) => (
                                 <PersonaListItem
                                     key={participant.id}
                                     id={participant.id}
                                     name={participant.name}
+                                    isSelected={i === 0}
                                 />
                             ))}
                         </div>
@@ -189,7 +190,7 @@ function WelcomeMessage() {
     );
 }
 
-function PersonaListItem(persona: PersonaMetadata) {
+function PersonaListItem(persona: PersonaMetadata & { isSelected: boolean }) {
     return (
         <label htmlFor={persona.id} class="block group cursor-pointer mb-2">
             <input
@@ -198,6 +199,7 @@ function PersonaListItem(persona: PersonaMetadata) {
                 name="personaId"
                 value={persona.id}
                 class="sr-only"
+                checked={persona.isSelected}
             />
             <div
                 class="

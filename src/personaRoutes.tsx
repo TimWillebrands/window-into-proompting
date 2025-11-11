@@ -69,11 +69,12 @@ export function addPersonaRoutes(app: AppType) {
             { type: "json" },
         );
 
-        if (!personaData) {
-            return c.html(<span>Unknown ({id})</span>);
-        }
+        const name =
+            personaData === null ? `Unknown (${id})` : personaData.name;
 
-        return c.html(<span>{personaData.name}</span>);
+        return c.html(<span>{name}</span>, 200, {
+            "Cache-Control": "max-age=600",
+        });
     });
 
     // Persona creation

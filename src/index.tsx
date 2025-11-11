@@ -108,8 +108,6 @@ app.get("/party", async (c) => {
         .map((key) => key.metadata)
         .filter((party) => party !== undefined);
 
-    console.log(partyData.keys);
-
     return c.html(<OpenParty previousParties={parties} />);
 });
 
