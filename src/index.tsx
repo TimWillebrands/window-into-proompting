@@ -1,6 +1,7 @@
 import { type ClerkClient, createClerkClient } from "@clerk/backend";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { type Context, Hono } from "hono";
+import { env } from "hono/adapter";
 import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
@@ -29,6 +30,7 @@ export type AppType = typeof app;
 
 interface SiteData {
     title: string;
+    isProduction: boolean;
 }
 
 const Layout = (props: PropsWithChildren<SiteData>) =>
@@ -68,13 +70,25 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                     })();
                 </script>
 
-                <script
-                    async
-                    crossorigin="anonymous"
-                    data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
-                    src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                    type="text/javascript"
-                ></script>
+                ${
+                    props.isProduction ? (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
+                            src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    ) : (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
+                            src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    )
+                }
             </head>
             <body hx-ext="sse" >
                 ${props.children}
@@ -87,8 +101,12 @@ app.use("*", clerkMiddleware());
 app.route(PROXY_PATH, createPostHogProxy());
 
 app.get("/", (c) => {
+    const { PROD_ENV } = env<{ PROD_ENV?: string }>(c);
     return c.html(
-        <Layout title="🎭 Proompting Party 🎉">
+        <Layout
+            title="🎭 Proompting Party 🎉"
+            isProduction={PROD_ENV === "Production"}
+        >
             <Desktop></Desktop>
         </Layout>,
     );
