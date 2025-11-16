@@ -204,7 +204,17 @@ app.post("/party/:id/prompt", async (c) => {
     const user = await clerkClient(c).users.getUser(auth.userId);
 
     console.log("proomptin!", user.id, user.emailAddresses[0], personaId);
-    await party.sendPrompt(prompt, "user", user.id, personaId, model, id);
+    await party.sendPrompt(
+        prompt,
+        "user",
+        user.username ??
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
+        personaId,
+        model,
+        id,
+    );
 
     return c.text("Proompt accepted", 202);
 });

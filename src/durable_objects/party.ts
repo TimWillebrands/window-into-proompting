@@ -29,10 +29,35 @@ const phClient = new PostHog(
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
+    private readonly personaNames = new Map<string, string>();
 
     private readonly ai: OpenAI;
     private readonly sql: SqlStorage;
     private readonly kv: KVNamespace;
+
+    private async getPersona(personaId: string) {
+        const personaData = await this.kv.get<Persona>(`persona:${personaId}`, {
+            type: "json",
+        });
+        if (personaData === null) {
+            throw new Error(`Persona not found: ${personaId}`);
+        }
+        return personaData;
+    }
+
+    private async getPersonaName(personaId: string): Promise<string> {
+        let name = this.personaNames.get(personaId);
+        if (!name) {
+            try {
+                const personaData = await this.getPersona(personaId);
+                this.personaNames.set(personaId, personaData.name);
+                name = personaData.name;
+            } catch (error) {
+                name = personaId;
+            }
+        }
+        return name;
+    }
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
@@ -69,6 +94,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     ) {
         console.log("[Party.ts->sendPrompt] prompt:", prompt);
 
+        const personaData = await this.getPersona(personaId);
+
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
         const newMessageIds = this.sql
@@ -92,40 +119,50 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "starting generation now.",
         );
 
-        const generation = new Generation(this.ai, newMessageIds[1]);
+        const generatedMessageId = newMessageIds[1];
+        const generation = new Generation(this.ai);
         this.generations.set(newMessageIds[1], generation);
-
-        const personaData = await this.kv.get<Persona>(`persona:${personaId}`, {
-            type: "json",
-        });
-
-        if (!personaData) {
-            throw new Error(`Persona ${personaId} not found`);
-        }
 
         // Fire and forget the generation
         const messages = this.sql
-            .exec<MessageType>("SELECT * FROM messages")
-            .toArray();
+            .exec<MessageType>(
+                // Lets not include the 'null' message we reserved for the response
+                "SELECT * FROM messages WHERE messageid < ?",
+                generatedMessageId,
+            )
+            .toArray()
+            .map(async (msg) => ({
+                ...msg,
+                senderName: await this.getPersonaName(msg.senderId),
+            }));
 
         generation
-            .generate(messages, prompt, model, personaData, senderId, roomId)
-            .then((g) => {
+            .generate(
+                await Promise.all(messages),
+                model,
+                personaData,
+                senderId,
+                roomId,
+            )
+            .then((message) => {
                 console.log(
                     "[Party.ts->sendPrompt] generation finished",
-                    g.messageId,
+                    generatedMessageId,
                 );
                 this.sql.exec(
                     `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                    g.message,
+                    message,
                     new Date().toISOString(),
-                    g.messageId,
+                    generatedMessageId,
                 );
                 // Don't delete immediately from the cache after generation
                 // finished since there can be a `sub` request incoming.
                 // There shouldn't be more since we've updated the message
                 // with a date
-                setTimeout(() => this.generations.delete(g.messageId), 1000);
+                setTimeout(
+                    () => this.generations.delete(generatedMessageId),
+                    1000,
+                );
             });
 
         for (const socket of this.ctx.getWebSockets()) {

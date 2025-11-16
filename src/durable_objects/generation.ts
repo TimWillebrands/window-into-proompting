@@ -13,22 +13,19 @@ async function* promptLlm(
     roomId: string,
 ) {
     try {
-        console.log("create connection");
-
         const completion = await ai.chat.completions.create({
             model: model,
             messages: messages,
             stream: true,
             posthogDistinctId: userId,
+            posthogTraceId: roomId,
             posthogProperties: { room_id: roomId },
             posthogGroups: { room_id: roomId },
         });
-        console.log("connection created");
 
         for await (const chunk of completion) {
             yield chunk.choices[0].delta.content;
         }
-        console.log("all chunks read");
     } catch (err: any) {
         console.error(err);
         if (err?.error?.message) {
@@ -40,18 +37,25 @@ async function* promptLlm(
     }
 }
 
+const instruction = `<instruction>
+    You are a participant in a roleplaying game, you and others are
+    acting as colleagues in a team. The chat is happening in a corporate
+    slack channel.
+    You never acknowledge the game and completely assume your persona.
+    Don't output your response wrapped in an xml <message sender="-name-">
+    tag like you'll see in the input.
+</instruction>`;
+
 export class Generation {
     private readonly ai: OpenAI;
-    private readonly messageId: number;
     private readonly observers = new Set<Observer>();
     private readonly textEncoder = new TextEncoder();
 
     private message = "";
     private done = false;
 
-    constructor(ai: OpenAI, messageId: number) {
+    constructor(ai: OpenAI) {
         this.ai = ai;
-        this.messageId = messageId;
     }
 
     observe(observer: Observer) {
@@ -61,8 +65,7 @@ export class Generation {
     }
 
     async generate(
-        history: MessageType[],
-        prompt: string,
+        history: (MessageType & { senderName: string })[],
         model: string,
         persona: Persona,
         userId: string,
@@ -71,8 +74,7 @@ export class Generation {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
-                content: `You are part of a multi-person chat, all messages are prefixed with the sender's name.
-                You are: ${persona.systemPrompt}`,
+                content: `${instruction}\n${persona.systemPrompt}`,
                 name: persona?.id,
             },
             ...history.map(
@@ -84,12 +86,13 @@ export class Generation {
                                 : "user",
                         content:
                             message.senderId === persona.id
-                                ? message.message
-                                : `${message.senderId}: ${message.message}`,
+                                ? `<message sender="you">${message.message}</message>`
+                                : `<message sender="${message.senderName}">${message.message}</message>`,
                         name: message.senderId,
                     }) as ChatCompletionMessageParam,
             ),
-            { role: "user", content: prompt },
+            // Ya might ask, why not inject the user prompt here? We
+            // already have that in the history array. Thats why.
         ];
         const data = promptLlm(this.ai, messages, model, userId, roomId);
 
@@ -109,6 +112,6 @@ export class Generation {
             observer(new Uint8Array(0), true);
         }
 
-        return { messageId: this.messageId, message: this.message };
+        return this.message;
     }
 }

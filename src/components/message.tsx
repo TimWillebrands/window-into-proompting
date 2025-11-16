@@ -86,7 +86,22 @@ export function Message({
             hx-target="find .message-content"
             sse-close="finished"
             hx-on--after-swap="this.querySelector('.thinking')?.remove()"
-            x-init="$el.scrollIntoView()"
+            x-init="
+                $el.scrollIntoView();
+                const streamingMd = $el.querySelector('streaming-md');
+                if (streamingMd) {
+                    const finishStream = () => {
+                        setTimeout(() => {
+                            const md = $el.querySelector('streaming-md');
+                            if (md && md.finish) {
+                                md.finish();
+                            }
+                        }, 50);
+                    };
+                    $el.addEventListener('htmx:sseClose', finishStream);
+                    $el.addEventListener('htmx:sseError', finishStream);
+                }
+            "
             className="mb-4 mr-6 p-3 border border-gray-300 bg-gradient-to-br from-green-50 to-green-100/50 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md"
         >
             <div className="font-bold mb-2 text-gray-800 text-sm">
