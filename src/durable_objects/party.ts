@@ -1,27 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
+import { OpenAI } from "@posthog/ai";
 import {
     type SQLSchemaMigration,
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
-import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources";
+import { PostHog } from "posthog-node";
 import type { Persona } from "@/components/personas";
-
-async function* promptLlm(
-    ai: OpenAI,
-    messages: ChatCompletionMessageParam[],
-    model: string,
-) {
-    const completion = await ai.chat.completions.create({
-        model: model,
-        messages: messages,
-        stream: true,
-    });
-
-    for await (const chunk of completion) {
-        yield chunk.choices[0].delta.content;
-    }
-}
+import { Generation } from "./generation";
 
 export type MessageType = {
     messageid: number;
@@ -37,73 +22,10 @@ export type SubscriptionMessage =
     | { type: "message"; message: MessageType }
     | { type: "messageStream"; messageId: number };
 
-type Observer = (chunk: Uint8Array, done: boolean) => void;
-
-class Generation {
-    private readonly ai: OpenAI;
-    private readonly messageId: number;
-    private readonly observers = new Set<Observer>();
-    private readonly textEncoder = new TextEncoder();
-
-    private message = "";
-    private done = false;
-
-    constructor(ai: OpenAI, messageId: number) {
-        this.ai = ai;
-        this.messageId = messageId;
-    }
-
-    observe(observer: Observer) {
-        this.observers.add(observer);
-        const chunk = this.textEncoder.encode(this.message);
-        observer(chunk, this.done);
-    }
-
-    async generate(
-        history: MessageType[],
-        prompt: string,
-        model: string,
-        persona: Persona | null,
-    ) {
-        const systemPrompt =
-            persona?.systemPrompt ?? "You are a helpful assistant.";
-
-        const messages: ChatCompletionMessageParam[] = [
-            { role: "system", content: systemPrompt, name: persona?.id },
-            ...history.map(
-                (message) =>
-                    ({
-                        role:
-                            message.senderType === "user"
-                                ? "user"
-                                : "assistant",
-                        content: message.message ?? "",
-                        name: message.senderId,
-                    }) as ChatCompletionMessageParam,
-            ),
-            { role: "user", content: prompt },
-        ];
-        const data = promptLlm(this.ai, messages, model);
-
-        for await (const value of data) {
-            if (typeof value !== "string") {
-                continue;
-            }
-            this.message += value;
-            const chunk = this.textEncoder.encode(value);
-            for (const observer of this.observers) {
-                observer(chunk, false);
-            }
-        }
-
-        this.done = true;
-        for (const observer of this.observers) {
-            observer(new Uint8Array(0), true);
-        }
-
-        return { messageId: this.messageId, message: this.message };
-    }
-}
+const phClient = new PostHog(
+    "phc_f44OvBqb7P19kNmbDBXlNy4UH8pdoiJcUVKZJ1aN950",
+    { host: "https://eu.i.posthog.com" },
+);
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
@@ -122,6 +44,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 "HTTP-Referer": "https://proomting.party", // Optional. Site URL for rankings on openrouter.ai.
                 "X-Title": "Proompting Party", // Optional. Site title for rankings on openrouter.ai.
             },
+            posthog: phClient,
         });
         this.sql = ctx.storage.sql;
         this.kv = env.DESKTOP_DATA;
@@ -142,6 +65,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         senderId: string,
         personaId: string,
         model: string,
+        roomId: string,
     ) {
         console.log("[Party.ts->sendPrompt] prompt:", prompt);
 
@@ -175,28 +99,34 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             type: "json",
         });
 
+        if (!personaData) {
+            throw new Error(`Persona ${personaId} not found`);
+        }
+
         // Fire and forget the generation
         const messages = this.sql
             .exec<MessageType>("SELECT * FROM messages")
             .toArray();
 
-        generation.generate(messages, prompt, model, personaData).then((g) => {
-            console.log(
-                "[Party.ts->sendPrompt] generation finished",
-                g.messageId,
-            );
-            this.sql.exec(
-                `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                g.message,
-                new Date().toISOString(),
-                g.messageId,
-            );
-            // Don't delete immediately from the cache after generation
-            // finished since there can be a `sub` request incoming.
-            // There shouldn't be more since we've updated the message
-            // with a date
-            setTimeout(() => this.generations.delete(g.messageId), 1000);
-        });
+        generation
+            .generate(messages, prompt, model, personaData, senderId, roomId)
+            .then((g) => {
+                console.log(
+                    "[Party.ts->sendPrompt] generation finished",
+                    g.messageId,
+                );
+                this.sql.exec(
+                    `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
+                    g.message,
+                    new Date().toISOString(),
+                    g.messageId,
+                );
+                // Don't delete immediately from the cache after generation
+                // finished since there can be a `sub` request incoming.
+                // There shouldn't be more since we've updated the message
+                // with a date
+                setTimeout(() => this.generations.delete(g.messageId), 1000);
+            });
 
         for (const socket of this.ctx.getWebSockets()) {
             console.log("user message", newMessageIds);
@@ -310,6 +240,15 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         });
 
         return new Response(stream, { headers });
+    }
+
+    async deleteMessage(messageId: number) {
+        const deleted = this.sql.exec(
+            `DELETE FROM messages WHERE messageid = ?`,
+            [messageId],
+        );
+
+        return new Response();
     }
 }
 const Migrations: SQLSchemaMigration[] = [

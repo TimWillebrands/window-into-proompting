@@ -19,7 +19,7 @@ function ChatMessage({
     return (
         <div
             id={id}
-            className={`${baseClasses} ${isUser ? userClasses : aiClasses}`}
+            className={`message ${baseClasses} ${isUser ? userClasses : aiClasses}`}
             x-init="$el.scrollIntoView()"
         >
             <div className="font-bold mb-2 text-gray-800 text-sm">
@@ -36,6 +36,15 @@ function ChatMessage({
                         {timestamp}
                     </span>
                 )}
+                <button
+                    type="button"
+                    class="float-right w-2"
+                    hx-delete={`/party/${roomId}/messages/${message.messageid}`}
+                    hx-target="closest .message"
+                    hx-swap="delete"
+                >
+                    🗑
+                </button>
             </div>
             <div className="leading-relaxed text-sm">
                 <streaming-md id="md">{message.message}</streaming-md>

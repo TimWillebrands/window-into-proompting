@@ -204,7 +204,7 @@ app.post("/party/:id/prompt", async (c) => {
     const user = await clerkClient(c).users.getUser(auth.userId);
 
     console.log("proomptin!", user.id, user.emailAddresses[0], personaId);
-    await party.sendPrompt(prompt, "user", user.id, personaId, model);
+    await party.sendPrompt(prompt, "user", user.id, personaId, model, id);
 
     return c.text("Proompt accepted", 202);
 });
@@ -320,6 +320,25 @@ app.get("/party/:id/messages/:messageid", async (c) => {
             }
         }
     });
+});
+
+app.delete("/party/:id/messages/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const messageid = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    return party.deleteMessage(messageid);
 });
 
 addPersonaRoutes(app);
