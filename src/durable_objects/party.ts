@@ -253,7 +253,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         if (!generation) {
             return new Response("Message not found", { status: 404 });
         }
-        const stream = new ReadableStream({
+        const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
                 if (request.signal.aborted) {
                     controller.close();
@@ -276,14 +276,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "Content-Type": "application/octet-stream",
         });
 
-        return new Response(stream, { headers });
+        const res = new Response(stream, { headers });
+        return res;
     }
 
     async deleteMessage(messageId: number) {
-        const deleted = this.sql.exec(
-            `DELETE FROM messages WHERE messageid = ?`,
-            [messageId],
-        );
+        this.sql.exec(`DELETE FROM messages WHERE messageid = ?`, [messageId]);
 
         return new Response();
     }

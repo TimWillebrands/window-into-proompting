@@ -94,7 +94,6 @@ function parser(renderer) {
   };
 }
 function parser_end(p) {
-  add_text(p);
   if (p.pending.length > 0) {
     parser_write(p, `
 `);
@@ -1205,26 +1204,18 @@ class StreamingMarkdownElement extends HTMLElement {
   };
   consumeInitialChildren() {
     const snapshot = Array.from(this.childNodes);
-    let hasContent = false;
     for (const node of snapshot) {
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.data;
-        if (text) {
+        if (text)
           this.appendChunk(text);
-          hasContent = true;
-        }
         node.parentNode?.removeChild(node);
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const text = node.textContent || "";
-        if (text) {
+        if (text)
           this.appendChunk(text);
-          hasContent = true;
-        }
         node.parentNode?.removeChild(node);
       }
-    }
-    if (hasContent) {
-      this.finish();
     }
   }
   autoScrollIfNearBottom() {

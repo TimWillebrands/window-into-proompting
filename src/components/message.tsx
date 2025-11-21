@@ -1,5 +1,10 @@
 import type { MessageType } from "@/durable_objects/party";
 
+const baseClasses =
+    "mb-4 p-3 border border-gray-300 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md";
+const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
+const aiClasses = "mr-6 bg-gradient-to-br from-green-50 to-green-100/50";
+
 function ChatMessage({
     id,
     message,
@@ -10,45 +15,59 @@ function ChatMessage({
     roomId: string;
 }) {
     const isUser = message.senderType === "user";
-    const timestamp = new Date(message.sendAt ?? 0).toISOString();
-    const baseClasses =
-        "mb-4 p-3 border border-gray-300 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md";
-    const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
-    const aiClasses = "mr-6 bg-gradient-to-br from-green-50 to-green-100/50";
 
     return (
         <div
             id={id}
-            className={`message ${baseClasses} ${isUser ? userClasses : aiClasses}`}
+            class={`message ${baseClasses} ${isUser ? userClasses : aiClasses}`}
             x-init="$el.scrollIntoView()"
         >
-            <div className="font-bold mb-2 text-gray-800 text-sm">
-                {isUser ? (
-                    "👤 You"
-                ) : (
-                    <ChatPersonaAvatar
-                        personaId={message.senderId}
-                        roomId={roomId}
-                    />
-                )}
-                {timestamp && (
-                    <span className="float-right font-normal text-xs text-gray-500">
-                        {timestamp}
-                    </span>
-                )}
-                <button
-                    type="button"
-                    class="float-right w-2"
-                    hx-delete={`/party/${roomId}/messages/${message.messageid}`}
-                    hx-target="closest .message"
-                    hx-swap="delete"
-                >
-                    🗑
-                </button>
-            </div>
+            <MessageHeader
+                messageId={message.messageid}
+                personaId={!isUser ? message.senderId : undefined}
+                sendAt={message.sendAt}
+                roomId={roomId}
+            />
             <div className="leading-relaxed text-sm">
                 <streaming-md id="md">{message.message}</streaming-md>
             </div>
+        </div>
+    );
+}
+
+function MessageHeader({
+    personaId,
+    roomId,
+    sendAt,
+    messageId,
+}: {
+    personaId?: string;
+    roomId: string;
+    sendAt?: number;
+    messageId: string | number;
+}) {
+    const timestamp = sendAt
+        ? new Date(sendAt).toISOString()
+        : new Date().toISOString();
+    return (
+        <div class="font-bold mb-2 text-gray-800 text-sm">
+            {!personaId ? (
+                "👤 You"
+            ) : (
+                <ChatPersonaAvatar personaId={personaId} roomId={roomId} />
+            )}
+            <span className="float-right font-normal text-xs text-gray-500">
+                {timestamp ?? new Date().toLocaleString()}
+            </span>
+            <button
+                type="button"
+                class="float-right w-2"
+                hx-delete={`/party/${roomId}/messages/${messageId}`}
+                hx-target="closest .message"
+                hx-swap="delete"
+            >
+                🗑
+            </button>
         </div>
     );
 }
@@ -102,14 +121,14 @@ export function Message({
                     $el.addEventListener('htmx:sseError', finishStream);
                 }
             "
-            className="mb-4 mr-6 p-3 border border-gray-300 bg-gradient-to-br from-green-50 to-green-100/50 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md"
+            class={`message ${baseClasses} ${aiClasses}`}
         >
-            <div className="font-bold mb-2 text-gray-800 text-sm">
-                🤖 AI Assistant
-                <span className="float-right font-normal text-xs text-gray-500">
-                    {new Date().toLocaleTimeString()}
-                </span>
-            </div>
+            <MessageHeader
+                personaId="unknown"
+                roomId={roomId}
+                messageId={message}
+                sse-swap="persona"
+            />
 
             <div
                 className="thinking text-sm text-gray-600"
@@ -125,15 +144,17 @@ export function Message({
     );
 }
 
-function ChatPersonaAvatar({
+export function ChatPersonaAvatar({
     personaId,
     roomId,
+    attrs,
 }: {
     personaId: string;
     roomId: string;
+    attrs?: Record<string, string>;
 }) {
     return (
-        <div class="flex">
+        <div class="flex" {...attrs}>
             <img
                 src={`https://robohash.org/${personaId}.png?size=16x16`}
                 alt="avatar"

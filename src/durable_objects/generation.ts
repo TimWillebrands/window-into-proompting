@@ -5,13 +5,19 @@ import type { MessageType } from "./party";
 
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
+export type PartyGeneration =
+    | { type: "msg"; content: string }
+    | { type: "error"; message: string }
+    | { type: "persona"; id: string };
+
 async function* promptLlm(
     ai: OpenAI,
     messages: ChatCompletionMessageParam[],
     model: string,
     userId: string,
     roomId: string,
-) {
+    personaId: string,
+): AsyncGenerator<PartyGeneration> {
     try {
         const completion = await ai.chat.completions.create({
             model: model,
@@ -23,16 +29,21 @@ async function* promptLlm(
             posthogGroups: { room_id: roomId },
         });
 
+        yield { type: "persona", id: personaId };
+
         for await (const chunk of completion) {
-            yield chunk.choices[0].delta.content;
+            if (typeof chunk.choices[0].delta.content !== "string") {
+                continue;
+            }
+            yield { type: "msg", content: chunk.choices[0].delta.content };
         }
     } catch (err: any) {
         console.error(err);
         if (err?.error?.message) {
-            yield `${err?.error?.message}\n`;
+            yield { type: "error", message: `${err?.error?.message}\n` };
         }
         if (err?.error?.metadata?.raw) {
-            yield err?.error?.metadata?.raw;
+            yield { type: "error", message: `${err?.error?.metadata?.raw}\n` };
         }
     }
 }
@@ -86,7 +97,7 @@ export class Generation {
                                 : "user",
                         content:
                             message.senderId === persona.id
-                                ? `<message sender="you">${message.message}</message>`
+                                ? message.message
                                 : `<message sender="${message.senderName}">${message.message}</message>`,
                         name: message.senderId,
                     }) as ChatCompletionMessageParam,
@@ -94,16 +105,22 @@ export class Generation {
             // Ya might ask, why not inject the user prompt here? We
             // already have that in the history array. Thats why.
         ];
-        const data = promptLlm(this.ai, messages, model, userId, roomId);
+        const data = promptLlm(
+            this.ai,
+            messages,
+            model,
+            userId,
+            roomId,
+            persona.id,
+        );
 
         for await (const value of data) {
-            if (typeof value !== "string") {
-                continue;
-            }
-            this.message += value;
-            const chunk = this.textEncoder.encode(value);
-            for (const observer of this.observers) {
-                observer(chunk, false);
+            if (value.type === "msg") {
+                this.message += value.content;
+                const chunk = this.textEncoder.encode(value.content);
+                for (const observer of this.observers) {
+                    observer(chunk, false);
+                }
             }
         }
 
