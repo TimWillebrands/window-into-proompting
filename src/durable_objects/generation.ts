@@ -71,8 +71,17 @@ export class Generation {
 
     observe(observer: Observer) {
         this.observers.add(observer);
-        const chunk = this.textEncoder.encode(this.message);
+        const chunk = this.toEvent(this.message);
         observer(chunk, this.done);
+    }
+
+    toEvent(data: string, id?: string, eventType: string = "message") {
+        let message = `id: ${id}\n`;
+        if (eventType) {
+            message += `event: ${eventType}\n`;
+        }
+        message += `data: ${JSON.stringify(data)}\n\n`; // Data field followed by double newline
+        return this.textEncoder.encode(message);
     }
 
     async generate(
@@ -117,7 +126,7 @@ export class Generation {
         for await (const value of data) {
             if (value.type === "msg") {
                 this.message += value.content;
-                const chunk = this.textEncoder.encode(value.content);
+                const chunk = this.toEvent(value.content);
                 for (const observer of this.observers) {
                     observer(chunk, false);
                 }

@@ -247,37 +247,71 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         request: Request,
         messageId: number,
     ): Promise<Response> {
-        // Else if the message is still being generated we stream it to the client
-
         const generation = this.generations.get(messageId);
         if (!generation) {
             return new Response("Message not found", { status: 404 });
         }
-        const stream = new ReadableStream<Uint8Array>({
-            async start(controller) {
-                if (request.signal.aborted) {
-                    controller.close();
-                    return;
-                }
-                generation.observe((chunk, done) => {
-                    if (done) {
-                        controller.close();
-                    } else {
-                        controller.enqueue(chunk);
-                    }
-                });
-            },
-            cancel() {
-                console.error(`Subscription to message ${messageId} cancelled`);
-            },
-        });
 
+        // Create a stream to write the SSE messages.
+        // TransformStream acts as a buffer between the writer and the reader.
+        const { readable, writable } = new TransformStream();
+
+        // Set necessary headers for SSE and CORS.
         const headers = new Headers({
-            "Content-Type": "application/octet-stream",
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache", // Important for SSE to prevent buffering
+            Connection: "keep-alive", // Keep the connection open
+            "Access-Control-Allow-Origin": "*", // Allow requests from any origin
+            "Access-Control-Allow-Headers":
+                "Origin, X-Requested-With, Content-Type, Accept",
         });
 
-        const res = new Response(stream, { headers });
-        return res;
+        const writer = writable.getWriter();
+
+        try {
+            generation.observe(async (chunk, done) => {
+                if (done) {
+                    writable.close();
+                } else {
+                    await writer.write(chunk);
+                }
+            });
+        } catch (err) {
+            console.error(err);
+            writable.abort();
+        } finally {
+            writable.close();
+        }
+
+        // Return the response with the readable stream attached.
+        // The client will receive data as it's written to the writable stream.
+        return new Response(readable, { headers });
+
+        // const stream = new ReadableStream<Uint8Array>({
+        //     async start(controller) {
+        //         if (request.signal.aborted) {
+        //             controller.close();
+        //             return;
+        //         }
+        //         generation.observe((chunk, done) => {
+        //             if (done) {
+        //                 controller.close();
+        //             } else {
+        //                 controller.enqueue(chunk);
+        //             }
+        //         });
+        //     },
+        //     cancel() {
+        //         console.error(`Subscription to message ${messageId} cancelled`);
+        //     },
+        // });
+
+        // const headers = new Headers({
+        //     "Content-Type": "application/octet-stream",
+        // });
+
+        // const res = new Response(stream, { headers });
+        // return res;
     }
 
     async deleteMessage(messageId: number) {

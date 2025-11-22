@@ -1,5 +1,6 @@
 import { type ClerkClient, createClerkClient } from "@clerk/backend";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
+import { EventSourceParserStream } from "eventsource-parser/stream";
 import { type Context, Hono } from "hono";
 import { env } from "hono/adapter";
 import { html } from "hono/html";
@@ -307,6 +308,7 @@ app.get("/party/:id/messages/:messageid", async (c) => {
 
     const reader = response.body
         .pipeThrough(new TextDecoderStream())
+        .pipeThrough(new EventSourceParserStream())
         .getReader();
 
     return streamSSE(c, async (stream) => {
@@ -315,7 +317,7 @@ app.get("/party/:id/messages/:messageid", async (c) => {
 
             if (value) {
                 await stream.writeSSE({
-                    data: value, //`<span>${value}</span>`,
+                    data: JSON.parse(value.data), //`<span>${value}</span>`,
                     event: "message",
                 });
             }
