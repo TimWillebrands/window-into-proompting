@@ -86,14 +86,11 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
     async sendPrompt(
         prompt: string,
-        senderType: string,
         senderId: string,
         personaId: string,
         model: string,
         roomId: string,
     ) {
-        console.log("[Party.ts->sendPrompt] prompt:", prompt);
-
         const personaData = await this.getPersona(personaId);
 
         // Add the user's prompt to the database as a message from the user
@@ -104,7 +101,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 VALUES (?, ?, ?), (?, ?, ?)
                 RETURNING messageid`,
                 prompt,
-                senderType,
+                "user",
                 senderId,
                 null,
                 "assistant",
@@ -173,7 +170,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     message: {
                         messageid: newMessageIds[0],
                         message: prompt,
-                        senderType: senderType,
+                        senderType: "user",
                         senderId: senderId,
                         sendAt: new Date().getUTCMilliseconds(),
                     },
@@ -184,6 +181,86 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 JSON.stringify({
                     type: "messageStream",
                     messageId: newMessageIds[1],
+                } as SubscriptionMessage),
+            );
+        }
+
+        return new Response();
+    }
+
+    async proceed(
+        senderId: string,
+        personaId: string,
+        model: string,
+        roomId: string,
+    ) {
+        const personaData = await this.getPersona(personaId);
+
+        // generate a message-stub for the model.
+        const newMessageId = this.sql
+            .exec<{ messageid: number }>(
+                `INSERT INTO messages(message, senderType, senderId)
+                VALUES (?, ?, ?)
+                RETURNING messageid`,
+                null,
+                "assistant",
+                personaId,
+            )
+            .one().messageid;
+
+        console.log(
+            "[Party.ts->proceed] new message IDs:",
+            newMessageId,
+            "starting generation now.",
+        );
+
+        const generation = new Generation(this.ai);
+        this.generations.set(newMessageId, generation);
+
+        // Fire and forget the generation
+        const messages = this.sql
+            .exec<MessageType>(
+                // Lets not include the 'null' message we reserved for the response
+                "SELECT * FROM messages WHERE messageid < ?",
+                newMessageId,
+            )
+            .toArray()
+            .map(async (msg) => ({
+                ...msg,
+                senderName: await this.getPersonaName(msg.senderId),
+            }));
+
+        generation
+            .generate(
+                await Promise.all(messages),
+                model,
+                personaData,
+                senderId,
+                roomId,
+            )
+            .then((message) => {
+                console.log(
+                    "[Party.ts->proceed] generation finished",
+                    newMessageId,
+                );
+                this.sql.exec(
+                    `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
+                    message,
+                    new Date().toISOString(),
+                    newMessageId,
+                );
+                // Don't delete immediately from the cache after generation
+                // finished since there can be a `sub` request incoming.
+                // There shouldn't be more since we've updated the message
+                // with a date
+                setTimeout(() => this.generations.delete(newMessageId), 1000);
+            });
+
+        for (const socket of this.ctx.getWebSockets()) {
+            socket.send(
+                JSON.stringify({
+                    type: "messageStream",
+                    messageId: newMessageId,
                 } as SubscriptionMessage),
             );
         }

@@ -162,6 +162,7 @@ function ChatMessagesArea({
                                     id={participant.id}
                                     name={participant.name}
                                     isSelected={i === 0}
+                                    room={room}
                                 />
                             ))}
                         </div>
@@ -190,7 +191,9 @@ function WelcomeMessage() {
     );
 }
 
-function PersonaListItem(persona: PersonaMetadata & { isSelected: boolean }) {
+function PersonaListItem(
+    persona: PersonaMetadata & { isSelected: boolean; room: string },
+) {
     return (
         <label htmlFor={persona.id} class="block group cursor-pointer mb-2">
             <input
@@ -236,6 +239,14 @@ function PersonaListItem(persona: PersonaMetadata & { isSelected: boolean }) {
                             ID: {persona.id.slice(0, 24)}...
                         </p>
                     </div>
+                    <button
+                        type="button"
+                        class="h-8 w-8 !p-0 !min-h-auto !min-w-auto"
+                        hx-post={`/party/${persona.room}/proceed?personaId=${persona.id}`}
+                        hx-swap="none"
+                    >
+                        Go
+                    </button>
                 </div>
             </div>
         </label>

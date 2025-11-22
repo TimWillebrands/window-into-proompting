@@ -205,10 +205,45 @@ app.post("/party/:id/prompt", async (c) => {
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
-    console.log("proomptin!", user.id, user.emailAddresses[0], personaId);
     await party.sendPrompt(
         prompt,
-        "user",
+        user.username ??
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
+        personaId,
+        model,
+        id,
+    );
+
+    return c.text("Proompt accepted", 202);
+});
+
+app.post("/party/:id/proceed", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+
+    const body = await c.req.formData();
+    const model = body.get("model");
+    const personaId = c.req.query("personaId");
+
+    if (typeof model !== "string") {
+        return new Response("Invalid model", { status: 400 });
+    }
+
+    if (typeof personaId !== "string") {
+        return new Response("Invalid persona", { status: 400 });
+    }
+
+    const user = await clerkClient(c).users.getUser(auth.userId);
+
+    await party.proceed(
         user.username ??
             user.fullName ??
             user.emailAddresses[0].emailAddress ??
