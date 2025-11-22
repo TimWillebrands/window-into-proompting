@@ -35,7 +35,7 @@ function ChatMessage({
     );
 }
 
-function MessageHeader({
+export function MessageHeader({
     personaId,
     roomId,
     sendAt,
@@ -100,37 +100,14 @@ export function Message({
             role="tabpanel"
             hx-ext="sse"
             sse-connect={`/party/${roomId}/messages/${message}`}
-            sse-swap="message"
-            hx-swap="beforeend"
-            hx-target="find .message-content"
             sse-close="finished"
-            hx-on--after-swap="this.querySelector('.thinking')?.remove()"
-            x-init="
-                $el.scrollIntoView();
-                const streamingMd = $el.querySelector('streaming-md');
-                if (streamingMd) {
-                    const finishStream = () => {
-                        setTimeout(() => {
-                            const md = $el.querySelector('streaming-md');
-                            if (md && md.finish) {
-                                md.finish();
-                            }
-                        }, 50);
-                    };
-                    $el.addEventListener('htmx:sseClose', finishStream);
-                    $el.addEventListener('htmx:sseError', finishStream);
-                }
-            "
+            x-init=" $el.scrollIntoView(); "
             class={`message ${baseClasses} ${aiClasses}`}
         >
-            <MessageHeader
-                personaId="unknown"
-                roomId={roomId}
-                messageId={message}
-                sse-swap="persona"
-            />
-
             <div
+                sse-swap="persona"
+                hx-target="this"
+                hx-swap="outerHTML"
                 className="thinking text-sm text-gray-600"
                 x-data="{time: 0}"
                 x-init="setInterval(() => time++, 1000)"
@@ -139,7 +116,27 @@ export function Message({
                 <progress></progress>
             </div>
 
-            <streaming-md className="message-content text-sm"></streaming-md>
+            <details>
+                <summary>Reasoning</summary>
+                <div class="window">
+                    <div class="title-bar">
+                        <div class="title-bar-text">Reasoning</div>
+                    </div>
+                    <div class="window-body">
+                        <streaming-md
+                            sse-swap="reasoning"
+                            hx-swap="beforeend"
+                            class="reason-content text-sm"
+                        ></streaming-md>
+                    </div>
+                </div>
+            </details>
+
+            <streaming-md
+                sse-swap="message"
+                hx-swap="beforeend"
+                class="message-content text-sm"
+            ></streaming-md>
         </article>
     );
 }

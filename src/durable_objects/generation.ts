@@ -6,9 +6,10 @@ import type { MessageType } from "./party";
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
 export type PartyGeneration =
-    | { type: "msg"; content: string }
-    | { type: "error"; message: string }
-    | { type: "persona"; id: string };
+    | { type: "message"; data: string }
+    | { type: "reasoning"; data: string }
+    | { type: "error"; data: string }
+    | { type: "persona"; data: string };
 
 async function* promptLlm(
     ai: OpenAI,
@@ -29,21 +30,30 @@ async function* promptLlm(
             posthogGroups: { room_id: roomId },
         });
 
-        yield { type: "persona", id: personaId };
+        yield { type: "persona", data: personaId };
 
         for await (const chunk of completion) {
+            if (
+                "reasoning" in chunk.choices[0].delta &&
+                typeof chunk.choices[0].delta.reasoning === "string"
+            ) {
+                yield {
+                    type: "reasoning",
+                    data: chunk.choices[0].delta.reasoning,
+                };
+            }
             if (typeof chunk.choices[0].delta.content !== "string") {
                 continue;
             }
-            yield { type: "msg", content: chunk.choices[0].delta.content };
+            yield { type: "message", data: chunk.choices[0].delta.content };
         }
     } catch (err: any) {
-        console.error(err);
+        console.error("Oh no!", err);
         if (err?.error?.message) {
-            yield { type: "error", message: `${err?.error?.message}\n` };
+            yield { type: "error", data: `${err?.error?.message}\n` };
         }
         if (err?.error?.metadata?.raw) {
-            yield { type: "error", message: `${err?.error?.metadata?.raw}\n` };
+            yield { type: "error", data: `${err?.error?.metadata?.raw}\n` };
         }
     }
 }
@@ -124,12 +134,12 @@ export class Generation {
         );
 
         for await (const value of data) {
-            if (value.type === "msg") {
-                this.message += value.content;
-                const chunk = this.toEvent(value.content);
-                for (const observer of this.observers) {
-                    observer(chunk, false);
-                }
+            if (value.type === "message") {
+                this.message += value.data;
+            }
+            const chunk = this.toEvent(value.data, undefined, value.type);
+            for (const observer of this.observers) {
+                observer(chunk, false);
             }
         }
 

@@ -7,10 +7,11 @@ import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
 import { Desktop } from "./components/desktop";
-import { Message } from "./components/message";
+import { Message, MessageHeader } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
 import { Welcome } from "./components/welcome";
+import type { PartyGeneration } from "./durable_objects/generation";
 import type { SubscriptionMessage } from "./durable_objects/party";
 import { loadFreeOpenRouterModels } from "./openRouter";
 import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
@@ -139,7 +140,7 @@ app.post("/party/create", async (c) => {
 
     const body = await c.req.formData();
     const partyName = body.get("partyName")?.toString();
-    if (!partyName) return new Response("Invalid party name", { status: 400 });
+    if (!partyName) return new Response("Ievalid party name", { status: 400 });
     const partyId = crypto.randomUUID();
 
     const desktopData = c.env.DESKTOP_DATA;
@@ -300,10 +301,21 @@ app.get("/party/:id/messages/:messageid", async (c) => {
         });
     }
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.streamMessage(c.req.raw, messageid);
+    const response = await party.streamMessage(messageid);
 
-    if (!response.ok || !response.body) {
-        return new Response("Invalid response", { status: 500 });
+    if (!response.ok) {
+        return response;
+    }
+
+    if (!response.body) {
+        return new Response(
+            JSON.stringify({
+                error: "No body, are we streamin?",
+                messageId: messageid,
+                roomId: id,
+            }),
+            { status: 500 },
+        );
     }
 
     const reader = response.body
@@ -316,10 +328,25 @@ app.get("/party/:id/messages/:messageid", async (c) => {
             const { value, done } = await reader.read();
 
             if (value) {
-                await stream.writeSSE({
-                    data: JSON.parse(value.data), //`<span>${value}</span>`,
-                    event: "message",
-                });
+                if (value.event === "persona") {
+                    const personaId = JSON.parse(value.data);
+                    await stream.writeSSE({
+                        data: (
+                            <MessageHeader
+                                personaId={personaId}
+                                roomId={id}
+                                sendAt={new Date().getUTCMilliseconds()}
+                                messageId={messageid}
+                            />
+                        ),
+                        event: value.event,
+                    });
+                } else {
+                    await stream.writeSSE({
+                        data: JSON.parse(value.data),
+                        event: value.event,
+                    });
+                }
             }
             if (done) {
                 await stream.writeSSE({
