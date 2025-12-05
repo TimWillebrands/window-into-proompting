@@ -11,7 +11,6 @@ import { Message, MessageHeader } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
 import { Welcome } from "./components/welcome";
-import type { PartyGeneration } from "./durable_objects/generation";
 import type { SubscriptionMessage } from "./durable_objects/party";
 import { loadFreeOpenRouterModels } from "./openRouter";
 import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";

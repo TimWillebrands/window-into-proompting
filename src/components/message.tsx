@@ -101,7 +101,12 @@ export function Message({
             hx-ext="sse"
             sse-connect={`/party/${roomId}/messages/${message}`}
             sse-close="finished"
-            x-init=" $el.scrollIntoView(); "
+            x-init="
+                $el.scrollIntoView();
+                $el.addEventListener('htmx:sseClose', () => {
+                    console.log('sse close!')
+                    $el.querySelectorAll('streaming-md').forEach(el => el.finish())
+                })"
             class={`message ${baseClasses} ${aiClasses}`}
         >
             <div
