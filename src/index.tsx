@@ -10,8 +10,13 @@ import { Desktop } from "./components/desktop";
 import { Message, MessageHeader } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
+import { Persona, type PersonaMetadata } from "./components/personas";
 import { Welcome } from "./components/welcome";
-import type { SubscriptionMessage } from "./durable_objects/party";
+import type {
+    PartyInfo,
+    PartyInfoFull,
+    SubscriptionMessage,
+} from "./durable_objects/party";
 import { loadFreeOpenRouterModels } from "./openRouter";
 import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
@@ -143,12 +148,32 @@ app.post("/party/create", async (c) => {
     const partyId = crypto.randomUUID();
 
     const desktopData = c.env.DESKTOP_DATA;
-    const party = {
+
+    const user = await clerkClient(c).users.getUser(auth.userId);
+
+    const party: PartyInfo = {
         id: partyId,
         name: partyName,
     };
 
-    await desktopData.put(`party:${partyId}`, JSON.stringify(party), {
+    const participants = await getAllPersonas(c.env);
+
+    const fullPartyInfo: PartyInfoFull = {
+        ...party,
+        participants: [
+            ...participants,
+            {
+                id: user.id,
+                name:
+                    user.username ??
+                    user.fullName ??
+                    user.emailAddresses[0].emailAddress ??
+                    user.id,
+            },
+        ],
+    };
+
+    await desktopData.put(`party:${partyId}`, JSON.stringify(fullPartyInfo), {
         metadata: party,
     });
 
@@ -173,6 +198,26 @@ app.get("/party/:id", async (c) => {
             personaParticipants={personas}
         />,
     );
+});
+
+app.get("/party/:id/messages/raw", async (c) => {
+    const id = c.req.param("id");
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const responseType = c.req.header("Content-Type");
+
+    const messages = await party.downloadMessages();
+
+    if (responseType === "text/html") {
+        return c.html(
+            <ul>
+                {messages.map((msg) => (
+                    <li key={msg.messageid}>{msg.message}</li>
+                ))}
+            </ul>,
+        );
+    }
+
+    return c.json(messages);
 });
 
 app.post("/party/:id/prompt", async (c) => {

@@ -5,7 +5,7 @@ import {
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
-import type { Persona } from "@/components/personas";
+import type { Persona, PersonaMetadata } from "@/components/personas";
 import { Generation } from "./generation";
 
 export type MessageType = {
@@ -21,6 +21,15 @@ export type SubscriptionMessage =
     | { type: "join"; messages: MessageType[] }
     | { type: "message"; message: MessageType }
     | { type: "messageStream"; messageId: number };
+
+export type PartyInfoFull = PartyInfo & {
+    participants: PersonaMetadata[];
+};
+
+export type PartyInfo = {
+    id: string;
+    name: string;
+};
 
 const phClient = new PostHog(
     "phc_f44OvBqb7P19kNmbDBXlNy4UH8pdoiJcUVKZJ1aN950",
@@ -53,6 +62,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 this.personaNames.set(personaId, personaData.name);
                 name = personaData.name;
             } catch (error) {
+                console.warn(
+                    `Failed to fetch persona name for ${personaId}: ${error}`,
+                );
                 name = personaId;
             }
         }
@@ -117,11 +129,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         );
 
         const generatedMessageId = newMessageIds[1];
-        const generation = new Generation(this.ai);
-        this.generations.set(newMessageIds[1], generation);
 
-        // Fire and forget the generation
-        const messages = this.sql
+        // Get message history up to this point
+        const messagesQuery = this.sql
             .exec<MessageType>(
                 // Lets not include the 'null' message we reserved for the response
                 "SELECT * FROM messages WHERE messageid < ?",
@@ -132,35 +142,28 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 ...msg,
                 senderName: await this.getPersonaName(msg.senderId),
             }));
+        const messages = await Promise.all(messagesQuery);
+        const generation = new Generation(this.ai, messages, model, roomId, []);
+        this.generations.set(newMessageIds[1], generation);
 
-        generation
-            .generate(
-                await Promise.all(messages),
-                model,
-                personaData,
-                senderId,
-                roomId,
-            )
-            .then((message) => {
-                console.log(
-                    "[Party.ts->sendPrompt] generation finished",
-                    generatedMessageId,
-                );
-                this.sql.exec(
-                    `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                    message,
-                    new Date().toISOString(),
-                    generatedMessageId,
-                );
-                // Don't delete immediately from the cache after generation
-                // finished since there can be a `sub` request incoming.
-                // There shouldn't be more since we've updated the message
-                // with a date
-                setTimeout(
-                    () => this.generations.delete(generatedMessageId),
-                    1000,
-                );
-            });
+        // Fire and forget the generation
+        generation.generate(personaData, senderId).then((message) => {
+            console.log(
+                "[Party.ts->sendPrompt] generation finished",
+                generatedMessageId,
+            );
+            this.sql.exec(
+                `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
+                message,
+                new Date().toISOString(),
+                generatedMessageId,
+            );
+            // Don't delete immediately from the cache after generation
+            // finished since there can be a `sub` request incoming.
+            // There shouldn't be more since we've updated the message
+            // with a date
+            setTimeout(() => this.generations.delete(generatedMessageId), 1000);
+        });
 
         for (const socket of this.ctx.getWebSockets()) {
             console.log("user message", newMessageIds);
@@ -214,11 +217,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "starting generation now.",
         );
 
-        const generation = new Generation(this.ai);
-        this.generations.set(newMessageId, generation);
-
         // Fire and forget the generation
-        const messages = this.sql
+        const messagesQuery = this.sql
             .exec<MessageType>(
                 // Lets not include the 'null' message we reserved for the response
                 "SELECT * FROM messages WHERE messageid < ?",
@@ -230,15 +230,13 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 senderName: await this.getPersonaName(msg.senderId),
             }));
 
+        const messages = await Promise.all(messagesQuery);
+        const generation = new Generation(this.ai, messages, model, roomId, []);
+        this.generations.set(newMessageId, generation);
+
         generation
-            .generate(
-                await Promise.all(messages),
-                model,
-                personaData,
-                senderId,
-                roomId,
-            )
-            .then((message) => {
+            .generate(personaData, senderId)
+            .then(async ({ message, followUp }) => {
                 console.log(
                     "[Party.ts->proceed] generation finished",
                     newMessageId,
@@ -249,6 +247,17 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     new Date().toISOString(),
                     newMessageId,
                 );
+
+                if (followUp.personaId) {
+                    try {
+                        const persona = await this.getPersona(
+                            followUp.personaId,
+                        );
+                        this.proceed("overseer", persona.id, model, roomId);
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
                 // Don't delete immediately from the cache after generation
                 // finished since there can be a `sub` request incoming.
                 // There shouldn't be more since we've updated the message
@@ -268,7 +277,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response();
     }
 
-    async fetch(request: Request): Promise<Response> {
+    async fetch(_: Request): Promise<Response> {
         // Creates two ends of a WebSocket connection.
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
@@ -358,6 +367,20 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         this.sql.exec(`DELETE FROM messages WHERE messageid = ?`, [messageId]);
 
         return new Response();
+    }
+
+    async downloadMessages(): Promise<
+        (MessageType & { senderName: string })[]
+    > {
+        const messages = this.sql
+            .exec<MessageType>("SELECT * FROM messages LIMIT 100")
+            .toArray()
+            .map(async (msg) => ({
+                ...msg,
+                senderName: await this.getPersonaName(msg.senderId),
+            }));
+
+        return await Promise.all(messages);
     }
 }
 const Migrations: SQLSchemaMigration[] = [
