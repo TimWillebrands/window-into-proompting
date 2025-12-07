@@ -4,6 +4,7 @@ import { WindowContainer } from "./window";
 export type PersonaMetadata = {
     id: string;
     name: string;
+    isUser?: boolean;
 };
 
 export type Persona = PersonaMetadata & {

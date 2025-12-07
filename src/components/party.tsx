@@ -54,10 +54,10 @@ function ChatInput() {
                     <div class="field-row gap-2">
                         <button
                             type="button"
-                            hx-on:click="
-                                document.getElementById('prompt-input').value = '';
-                                document.getElementById('prompt-input').focus();
-                            "
+                            hx-on:click={`
+                                document.getElementById('prompt_input_${room}').value = '';
+                                document.getElementById('prompt_input_${room}').focus();
+                            `}
                         >
                             🗑 Clear
                         </button>
@@ -258,12 +258,11 @@ function ChatForm({ room, children }: PropsWithChildren<{ room: string }>) {
         <form
             hx-post={`/party/${room}/prompt`}
             hx-swap="none"
-            hx-include="[name='prompt']"
             hx-trigger="submit, keydown[ctrlKey&&key=='Enter']"
-            hx-on:before-request="
+            hx-on:before-request={`
             event.target.querySelector('[type=submit]').disabled = true;
-            event.target.querySelector('[type=submit]').textContent = '⏳ Sending...'; "
-            hx-on:after-request="
+            event.target.querySelector('[type=submit]').textContent = '⏳ Sending...'; `}
+            hx-on:after-request={`
             event.target.querySelector('[type=submit]').disabled = false;
             event.target.querySelector('[type=submit]').textContent = '🚀 Send';
             const formData = new FormData(event.target);
@@ -276,7 +275,8 @@ function ChatForm({ room, children }: PropsWithChildren<{ room: string }>) {
                 message_type: 'text'
             });
             event.target.reset();
-            document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; "
+            document.getElementById('prompt_input_${room}').value = '';
+            document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; `}
             class="flex flex-col h-full"
         >
             {children}

@@ -11,6 +11,10 @@ export type PartyGeneration =
     | { type: "error"; data: string }
     | { type: "persona"; data: string };
 
+type CompletionCreateParams = Parameters<
+    OpenAI["chat"]["completions"]["create"]
+>["0"];
+
 async function* promptLlm(
     ai: OpenAI,
     messages: ChatCompletionMessageParam[],
@@ -18,9 +22,8 @@ async function* promptLlm(
     userId: string,
     roomId: string,
     personaId: string,
-    responseFormat?: Parameters<
-        typeof ai.chat.completions.create
-    >["0"]["response_format"],
+    responseFormat?: CompletionCreateParams["response_format"],
+    reasoningEffort?: CompletionCreateParams["reasoning_effort"],
 ): AsyncGenerator<PartyGeneration> {
     try {
         const completion = await ai.chat.completions.create({
@@ -32,6 +35,7 @@ async function* promptLlm(
             posthogProperties: { room_id: roomId },
             posthogGroups: { room_id: roomId },
             response_format: responseFormat,
+            reasoning_effort: reasoningEffort,
         });
 
         yield { type: "persona", data: personaId };
@@ -126,6 +130,34 @@ export class Generation {
         observer(chunk, this.done);
     }
 
+    private get overseerPrompt() {
+        return `# Instruction
+You are the director of a chat room roleplay. Your task is to decide
+what persona should be continuing the conversation or that the conversation
+is over. Provide a reason for your decision and a small instruction to the
+next persona. Make sure to provide a persona ID in case of a follow-up.
+
+If the conversation has reached it's end make sure the 'stop' property of the
+output is set to true. In all other cases set it to false.
+
+# Participants
+This is a list of participants in the chat room. Each participant has a unique
+ID and a name. In the output you should refer to the participant by their ID.
+
+## Personas
+${this.participants
+    .map(
+        (p) => `
+### ${p.name}
+**ID: ${p.id}**
+
+${p.systemPrompt}
+`,
+    )
+    .join("\n\n")}
+`;
+    }
+
     private toEvent(data: string, id?: string, eventType: string = "message") {
         let message = `id: ${id}\n`;
         if (eventType) {
@@ -152,7 +184,7 @@ export class Generation {
                         content:
                             message.senderId === persona.id
                                 ? message.message
-                                : `<message sender="${message.senderName}">${message.message}</message>`,
+                                : `<message sender="${message.senderName}" senderId="${message.senderId}">${message.message}</message>`,
                         name: message.senderId,
                     }) as ChatCompletionMessageParam,
             ),
@@ -197,10 +229,7 @@ export class Generation {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
-                content: `You are the director of a chat room roleplay. Your task is to decide
-                    what persona should be continuing the conversation or that the conversation
-                    is over. Provide a reason for your decision and a small instruction to the
-                    next persona. Make sure to provide a persona ID in case of a follow-up.`,
+                content: this.overseerPrompt,
             },
             ...this.history.map(
                 (message) =>
@@ -218,7 +247,7 @@ export class Generation {
             {
                 role: "user",
                 content: `Task: assign a persona as follow-up or decide that the conversation is over.
-                    Provide a reason for your decision. Refer to the persona by their 'sender' attribute.`,
+                    Provide a reason for your decision. Refer to the persona by their 'senderId' attribute.`,
             },
         ];
         const data = promptLlm(
@@ -245,11 +274,20 @@ export class Generation {
                             reason: {
                                 type: "string",
                             },
+                            stop: {
+                                type: "boolean",
+                            },
                         },
-                        required: ["reason"],
+                        required: [
+                            "reason",
+                            "instruction",
+                            "personaId",
+                            "stop",
+                        ],
                     },
                 },
             },
+            "minimal",
         );
 
         let overseerMessageStr = "";
@@ -277,7 +315,8 @@ export class Generation {
 }
 
 type OverseerOutput = {
-    personaId?: string;
-    instruction?: string;
+    personaId: string;
+    instruction: string;
     reason: string;
+    stop: boolean;
 };

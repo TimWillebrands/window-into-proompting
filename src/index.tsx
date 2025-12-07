@@ -151,7 +151,7 @@ app.post("/party/create", async (c) => {
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
-    const party: PartyInfo = {
+    const partyInfo: PartyInfo = {
         id: partyId,
         name: partyName,
     };
@@ -159,7 +159,7 @@ app.post("/party/create", async (c) => {
     const participants = await getAllPersonas(c.env);
 
     const fullPartyInfo: PartyInfoFull = {
-        ...party,
+        ...partyInfo,
         participants: [
             ...participants,
             {
@@ -174,8 +174,11 @@ app.post("/party/create", async (c) => {
     };
 
     await desktopData.put(`party:${partyId}`, JSON.stringify(fullPartyInfo), {
-        metadata: party,
+        metadata: partyInfo,
     });
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(partyId);
+    await party.setParticipants(fullPartyInfo.participants);
 
     return c.redirect(`/party/${partyId}`);
 });
@@ -198,6 +201,36 @@ app.get("/party/:id", async (c) => {
             personaParticipants={personas}
         />,
     );
+});
+
+app.get("/party/:id/reset-participants", async (c) => {
+    const id = c.req.param("id");
+    const desktopData = c.env.DESKTOP_DATA;
+    const partyInfoStr = await desktopData.get(`party:${id}`);
+
+    if (!partyInfoStr) return new Response("Party not found", { status: 404 });
+
+    const partyInfo = JSON.parse(partyInfoStr) as PartyInfoFull;
+
+    const participants =
+        partyInfo.participants === undefined ||
+        partyInfo.participants.length === 0
+            ? await getAllPersonas(c.env)
+            : partyInfo.participants;
+
+    partyInfo.participants = participants;
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const currentParticipants = await party.setParticipants(participants);
+    await desktopData.put(`party:${id}`, JSON.stringify(partyInfo));
+
+    const partyInfoStrFin = await desktopData.get(`party:${id}`);
+
+    if (!partyInfoStrFin)
+        return new Response("Party not found", { status: 404 });
+
+    const partyInfoFin = JSON.parse(partyInfoStrFin) as PartyInfoFull;
+    return c.json(partyInfoFin);
 });
 
 app.get("/party/:id/messages/raw", async (c) => {

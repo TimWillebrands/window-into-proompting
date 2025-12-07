@@ -38,38 +38,57 @@ const phClient = new PostHog(
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
-    private readonly personaNames = new Map<string, string>();
 
-    private readonly ai: OpenAI;
-    private readonly sql: SqlStorage;
-    private readonly kv: KVNamespace;
+    private async tryGetPersona(id: string) {
+        const personaData = await this.kv.get(`persona:${id}`);
+        if (!personaData) {
+            return null;
+        }
+        return JSON.parse(personaData) as Persona;
+    }
 
-    private async getPersona(personaId: string) {
-        const personaData = await this.kv.get<Persona>(`persona:${personaId}`, {
-            type: "json",
-        });
-        if (personaData === null) {
-            throw new Error(`Persona not found: ${personaId}`);
+    private async getPersona(id: string) {
+        const personaData = await this.tryGetPersona(id);
+        if (!personaData) {
+            throw new Error(`Persona '${id}' not found`);
         }
         return personaData;
     }
 
-    private async getPersonaName(personaId: string): Promise<string> {
-        let name = this.personaNames.get(personaId);
-        if (!name) {
-            try {
-                const personaData = await this.getPersona(personaId);
-                this.personaNames.set(personaId, personaData.name);
-                name = personaData.name;
-            } catch (error) {
-                console.warn(
-                    `Failed to fetch persona name for ${personaId}: ${error}`,
-                );
-                name = personaId;
-            }
+    private async getParticipants(partyId: string) {
+        const partyInfoStr = await this.kv.get(`party:${partyId}`);
+
+        if (!partyInfoStr) throw new Error(`Party not found: ${partyId}.`);
+
+        const partyInfo = JSON.parse(partyInfoStr) as PartyInfoFull;
+
+        if (
+            partyInfo.participants === undefined ||
+            partyInfo.participants.length === 0
+        ) {
+            console.log(`Party ${partyId} has no participants.`, partyInfo);
+            throw new Error(`Party has no participants.`);
         }
-        return name;
+
+        const participants = await Promise.all(
+            partyInfo.participants.map(
+                async (p) =>
+                    (await this.tryGetPersona(p.id)) ??
+                    ({
+                        ...p,
+                        isUser: true,
+                        systemPrompt:
+                            "this is a real human user and has no systemprompt, use their answers in chat to weigh their character",
+                    } satisfies Persona),
+            ),
+        );
+
+        return participants;
     }
+
+    private readonly ai: OpenAI;
+    private readonly sql: SqlStorage;
+    private readonly kv: KVNamespace;
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
@@ -78,7 +97,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             baseURL: "https://openrouter.ai/api/v1",
             apiKey: env.GEMINI_API_KEY,
             defaultHeaders: {
-                "HTTP-Referer": "https://proomting.party", // Optional. Site URL for rankings on openrouter.ai.
+                "HTTP-Referer": "https://proompting.party", // Optional. Site URL for rankings on openrouter.ai.
                 "X-Title": "Proompting Party", // Optional. Site title for rankings on openrouter.ai.
             },
             posthog: phClient,
@@ -128,42 +147,15 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "starting generation now.",
         );
 
-        const generatedMessageId = newMessageIds[1];
+        const newMessageId = newMessageIds[1];
 
-        // Get message history up to this point
-        const messagesQuery = this.sql
-            .exec<MessageType>(
-                // Lets not include the 'null' message we reserved for the response
-                "SELECT * FROM messages WHERE messageid < ?",
-                generatedMessageId,
-            )
-            .toArray()
-            .map(async (msg) => ({
-                ...msg,
-                senderName: await this.getPersonaName(msg.senderId),
-            }));
-        const messages = await Promise.all(messagesQuery);
-        const generation = new Generation(this.ai, messages, model, roomId, []);
-        this.generations.set(newMessageIds[1], generation);
-
-        // Fire and forget the generation
-        generation.generate(personaData, senderId).then((message) => {
-            console.log(
-                "[Party.ts->sendPrompt] generation finished",
-                generatedMessageId,
-            );
-            this.sql.exec(
-                `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                message,
-                new Date().toISOString(),
-                generatedMessageId,
-            );
-            // Don't delete immediately from the cache after generation
-            // finished since there can be a `sub` request incoming.
-            // There shouldn't be more since we've updated the message
-            // with a date
-            setTimeout(() => this.generations.delete(generatedMessageId), 1000);
-        });
+        await this.initiateGeneration(
+            newMessageId,
+            model,
+            roomId,
+            personaData,
+            senderId,
+        );
 
         for (const socket of this.ctx.getWebSockets()) {
             console.log("user message", newMessageIds);
@@ -217,23 +209,67 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "starting generation now.",
         );
 
-        // Fire and forget the generation
+        await this.initiateGeneration(
+            newMessageId,
+            model,
+            roomId,
+            personaData,
+            senderId,
+        );
+
+        for (const socket of this.ctx.getWebSockets()) {
+            socket.send(
+                JSON.stringify({
+                    type: "messageStream",
+                    messageId: newMessageId,
+                } as SubscriptionMessage),
+            );
+        }
+
+        return new Response();
+    } /**
+     * Initiate a generation, this only blocks on fetching resources (dependencies etc) not
+     * on the actual generation itself.
+     * @param newMessageId The Id of the message up unto which we should base the generation
+     * @param model The model to use for the generation
+     * @param roomId The chat-room id
+     * @param personaData The persona data to base generation on
+     * @param senderId The id of the sender (user || overseer)
+     */
+    async initiateGeneration(
+        newMessageId: number,
+        model: string,
+        roomId: string,
+        personaData: Persona,
+        senderId: string,
+    ) {
+        // Get message history up to this point
         const messagesQuery = this.sql
             .exec<MessageType>(
-                // Lets not include the 'null' message we reserved for the response
+                // '<' not '<=' because lets not include the 'null' message we reserved
+                // for the response
                 "SELECT * FROM messages WHERE messageid < ?",
                 newMessageId,
             )
             .toArray()
             .map(async (msg) => ({
                 ...msg,
-                senderName: await this.getPersonaName(msg.senderId),
+                senderName:
+                    (await this.tryGetPersona(msg.senderId))?.name ||
+                    msg.senderId,
             }));
 
         const messages = await Promise.all(messagesQuery);
-        const generation = new Generation(this.ai, messages, model, roomId, []);
+        const generation = new Generation(
+            this.ai,
+            messages,
+            model,
+            roomId,
+            await this.getParticipants(roomId),
+        );
         this.generations.set(newMessageId, generation);
 
+        // Fire and forget the generation
         generation
             .generate(personaData, senderId)
             .then(async ({ message, followUp }) => {
@@ -248,14 +284,18 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     newMessageId,
                 );
 
-                if (followUp.personaId) {
+                if (!followUp.stop) {
                     try {
                         const persona = await this.getPersona(
                             followUp.personaId,
                         );
                         this.proceed("overseer", persona.id, model, roomId);
                     } catch (error) {
-                        console.error(error);
+                        console.warn(
+                            "Continued with unknown persona. Possibly a user?",
+                            followUp.personaId,
+                            error,
+                        );
                     }
                 }
                 // Don't delete immediately from the cache after generation
@@ -264,17 +304,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 // with a date
                 setTimeout(() => this.generations.delete(newMessageId), 1000);
             });
-
-        for (const socket of this.ctx.getWebSockets()) {
-            socket.send(
-                JSON.stringify({
-                    type: "messageStream",
-                    messageId: newMessageId,
-                } as SubscriptionMessage),
-            );
-        }
-
-        return new Response();
     }
 
     async fetch(_: Request): Promise<Response> {
@@ -363,6 +392,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response(readable, { headers });
     }
 
+    // TODO: temp implementation, we just dump all persona's in the party
+    // we should implement a proper way to add and remove participants
+    async setParticipants(_: PersonaMetadata[]) {
+        return [];
+    }
+
     async deleteMessage(messageId: number) {
         this.sql.exec(`DELETE FROM messages WHERE messageid = ?`, [messageId]);
 
@@ -377,7 +412,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             .toArray()
             .map(async (msg) => ({
                 ...msg,
-                senderName: await this.getPersonaName(msg.senderId),
+                senderName:
+                    (await this.tryGetPersona(msg.senderId))?.name ?? "Unknown",
             }));
 
         return await Promise.all(messages);
