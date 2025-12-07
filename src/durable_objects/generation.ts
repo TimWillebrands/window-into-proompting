@@ -211,11 +211,6 @@ ${p.systemPrompt}
             }
         }
 
-        this.done = true;
-        for (const observer of this.observers) {
-            observer(new Uint8Array(0), true);
-        }
-
         const followUp = await this.followUp(this.message, persona);
         console.log("overseer verdict:", followUp);
 

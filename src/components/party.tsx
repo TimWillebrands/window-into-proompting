@@ -6,8 +6,8 @@ import { WindowContainer } from "./window";
 function ChatInput() {
     const { room, openRouter } = useContext(PartyContext);
     return (
-        <div class="p-3 border-t-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div class="flex flex-col gap-3">
+        <div class="p-2 border-t-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div class="flex flex-col gap-2">
                 <div class="field-row-stacked">
                     <label
                         htmlFor={`prompt_input_${room}`}
@@ -18,7 +18,7 @@ function ChatInput() {
                     <textarea
                         name="prompt"
                         id={`prompt_input_${room}`}
-                        rows={3}
+                        rows={2}
                         required
                         placeholder="Type your message here... (Ctrl+Enter to send)"
                         class="w-full resize-y font-sans text-sm"
@@ -148,12 +148,12 @@ function ChatMessagesArea({
                     <WelcomeMessage />
                 </div>
                 <menu
-                    class="w-64 overflow-y-auto overflow-x-hidden p-2 border-2
+                    class="w-64 flex flex-col overflow-hidden p-2 border-2
                     border-gray-300 m-2 bg-gradient-to-b from-white to-gray-50 font-sans
-                    text-sm min-h-[200px] chat-messages
+                    text-sm min-h-[200px]
                     shadow-[inset_-1px_-1px_#ffffff,inset_1px_1px_#808080]"
                 >
-                    <fieldset class="min-w-0">
+                    <fieldset class="min-w-0 flex-1 overflow-y-auto">
                         <legend>Persona</legend>
                         <div class="flex flex-col">
                             {personaParticipants.map((participant, i) => (
@@ -165,6 +165,15 @@ function ChatMessagesArea({
                                     room={room}
                                 />
                             ))}
+                        </div>
+                    </fieldset>
+                    <fieldset
+                        id="follow-up-panel"
+                        class="min-w-0 mt-2 max-h-64 overflow-y-auto"
+                    >
+                        <legend>Follow-up</legend>
+                        <div class="text-sm text-gray-500 p-2">
+                            Waiting for response...
                         </div>
                     </fieldset>
                 </menu>

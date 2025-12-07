@@ -46,9 +46,13 @@ export function MessageHeader({
     sendAt?: number;
     messageId: string | number;
 }) {
-    const timestamp = sendAt
-        ? new Date(sendAt).toISOString()
-        : new Date().toISOString();
+    const date = sendAt ? new Date(sendAt) : new Date();
+    const timestamp = date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
     return (
         <div class="font-bold mb-2 text-gray-800 text-sm">
             {!personaId ? (
@@ -57,7 +61,7 @@ export function MessageHeader({
                 <ChatPersonaAvatar personaId={personaId} roomId={roomId} />
             )}
             <span className="float-right font-normal text-xs text-gray-500">
-                {timestamp ?? new Date().toLocaleString()}
+                {timestamp}
             </span>
             <button
                 type="button"
@@ -101,12 +105,14 @@ export function Message({
             hx-ext="sse"
             sse-connect={`/party/${roomId}/messages/${message}`}
             sse-close="finished"
-            x-init="
+            x-init={`
                 $el.scrollIntoView();
+                const followUpPanel = document.getElementById('follow-up-panel');
+                if (followUpPanel) followUpPanel.innerHTML = '<div class="text-sm text-gray-500 p-2">Waiting for response...</div>';
                 $el.addEventListener('htmx:sseClose', () => {
                     console.log('sse close!')
                     $el.querySelectorAll('streaming-md').forEach(el => el.finish())
-                })"
+                })`}
             class={`message ${baseClasses} ${aiClasses}`}
         >
             <div
@@ -141,6 +147,13 @@ export function Message({
                 sse-swap="message"
                 hx-swap="beforeend"
                 class="message-content text-sm"
+            ></streaming-md>
+
+            <streaming-md
+                sse-swap="overseer"
+                hx-target="#follow-up-panel"
+                hx-swap="beforeend"
+                class="overseer-content text-sm hidden"
             ></streaming-md>
         </article>
     );
