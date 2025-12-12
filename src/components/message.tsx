@@ -1,45 +1,77 @@
-import type { PropsWithChildren } from "hono/jsx";
 import type { MessageType } from "@/durable_objects/party";
 
-interface ChatMessageProps {
-    id: string;
-    isUser: boolean;
-    timestamp?: string;
-    className?: string;
-    [hxAttr: string]: unknown; // For HTMX attributes
-}
+const baseClasses =
+    "mb-4 p-3 border border-gray-300 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md";
+const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
+const aiClasses = "mr-6 bg-gradient-to-br from-green-50 to-green-100/50";
 
 function ChatMessage({
     id,
-    isUser,
-    children,
-    timestamp,
-    className = "",
-    ...hxAttributes
-}: PropsWithChildren<ChatMessageProps>) {
-    const baseClasses =
-        "mb-4 p-3 border border-gray-300 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md";
-    const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
-    const aiClasses = "mr-6 bg-gradient-to-br from-green-50 to-green-100/50";
+    message,
+    roomId,
+}: {
+    message: MessageType;
+    id: string;
+    roomId: string;
+}) {
+    const isUser = message.senderType === "user";
 
     return (
         <div
             id={id}
-            className={`${baseClasses} ${isUser ? userClasses : aiClasses} ${className}`}
+            class={`message ${baseClasses} ${isUser ? userClasses : aiClasses}`}
             x-init="$el.scrollIntoView()"
-            {...hxAttributes}
         >
-            <div className="font-bold mb-2 text-gray-800 text-sm">
-                {isUser ? "👤 You" : "🤖 AI Assistant"}
-                {timestamp && (
-                    <span className="float-right font-normal text-xs text-gray-500">
-                        {timestamp}
-                    </span>
-                )}
-            </div>
+            <MessageHeader
+                messageId={message.messageid}
+                personaId={!isUser ? message.senderId : undefined}
+                sendAt={message.sendAt}
+                roomId={roomId}
+            />
             <div className="leading-relaxed text-sm">
-                <streaming-md id="md">{children}</streaming-md>
+                <streaming-md id="md">{message.message}</streaming-md>
             </div>
+        </div>
+    );
+}
+
+export function MessageHeader({
+    personaId,
+    roomId,
+    sendAt,
+    messageId,
+}: {
+    personaId?: string;
+    roomId: string;
+    sendAt?: number;
+    messageId: string | number;
+}) {
+    const date = sendAt ? new Date(sendAt) : new Date();
+    const timestamp = date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+    return (
+        <div class="font-bold mb-2 text-gray-800 text-sm">
+            {!personaId ? (
+                "👤 You"
+            ) : (
+                <ChatPersonaAvatar personaId={personaId} roomId={roomId} />
+            )}
+            <span className="float-right font-normal text-xs text-gray-500">
+                {timestamp}
+            </span>
+            <button
+                type="button"
+                class="float-right w-2"
+                hx-delete={`/party/${roomId}/messages/${messageId}`}
+                hx-target="closest .message"
+                hx-swap="delete"
+            >
+                🗑
+            </button>
         </div>
     );
 }
@@ -59,12 +91,9 @@ export function Message({
         return (
             <ChatMessage
                 id={`message_${message.messageid}_${roomId}`}
-                isUser={message.sender === "user"}
-                timestamp={new Date(message.sendAt ?? 0).toISOString()}
-                className="message"
-            >
-                {message.message}
-            </ChatMessage>
+                message={message}
+                roomId={roomId}
+            />
         );
     }
 
@@ -75,22 +104,21 @@ export function Message({
             role="tabpanel"
             hx-ext="sse"
             sse-connect={`/party/${roomId}/messages/${message}`}
-            sse-swap="message"
-            hx-swap="beforeend"
-            hx-target="find .message-content"
             sse-close="finished"
-            hx-on--after-swap="this.querySelector('.thinking')?.remove()"
-            x-init="$el.scrollIntoView()"
-            className="mb-4 mr-6 p-3 border border-gray-300 bg-gradient-to-br from-green-50 to-green-100/50 shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#c0c0c0] rounded-md"
+            x-init={`
+                $el.scrollIntoView();
+                const followUpPanel = document.getElementById('follow-up-panel');
+                if (followUpPanel) followUpPanel.innerHTML = '<div class="text-sm text-gray-500 p-2">Waiting for response...</div>';
+                $el.addEventListener('htmx:sseClose', () => {
+                    console.log('sse close!')
+                    $el.querySelectorAll('streaming-md').forEach(el => el.finish())
+                })`}
+            class={`message ${baseClasses} ${aiClasses}`}
         >
-            <div className="font-bold mb-2 text-gray-800 text-sm">
-                🤖 AI Assistant
-                <span className="float-right font-normal text-xs text-gray-500">
-                    {new Date().toLocaleTimeString()}
-                </span>
-            </div>
-
             <div
+                sse-swap="persona"
+                hx-target="this"
+                hx-swap="outerHTML"
                 className="thinking text-sm text-gray-600"
                 x-data="{time: 0}"
                 x-init="setInterval(() => time++, 1000)"
@@ -99,11 +127,63 @@ export function Message({
                 <progress></progress>
             </div>
 
-            <streaming-md className="message-content text-sm"></streaming-md>
-            {/*<zero-md>
-                <template></template>
-                <script class="message-content" type="text/markdown"></script>
-            </zero-md>*/}
+            <details>
+                <summary>Reasoning</summary>
+                <div class="window">
+                    <div class="title-bar">
+                        <div class="title-bar-text">Reasoning</div>
+                    </div>
+                    <div class="window-body">
+                        <streaming-md
+                            sse-swap="reasoning"
+                            hx-swap="beforeend"
+                            class="reason-content text-sm"
+                        ></streaming-md>
+                    </div>
+                </div>
+            </details>
+
+            <streaming-md
+                sse-swap="message"
+                hx-swap="beforeend"
+                class="message-content text-sm"
+            ></streaming-md>
+
+            <streaming-md
+                sse-swap="overseer"
+                hx-target="#follow-up-panel"
+                hx-swap="beforeend"
+                class="overseer-content text-sm hidden"
+            ></streaming-md>
         </article>
+    );
+}
+
+export function ChatPersonaAvatar({
+    personaId,
+    roomId,
+    attrs,
+}: {
+    personaId: string;
+    roomId: string;
+    attrs?: Record<string, string>;
+}) {
+    return (
+        <div class="flex" {...attrs}>
+            <img
+                src={`https://robohash.org/${personaId}.png?size=16x16`}
+                alt="avatar"
+            />
+            &nbsp;
+            <span
+                hx-get={`/personas/${personaId}/avatar`}
+                hx-trigger="load"
+                hx-target="this"
+                hx-swap="outerHTML"
+                hx-params="none"
+            >
+                {personaId}
+            </span>
+        </div>
     );
 }

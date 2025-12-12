@@ -1,17 +1,24 @@
 import { type ClerkClient, createClerkClient } from "@clerk/backend";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
+import { EventSourceParserStream } from "eventsource-parser/stream";
 import { type Context, Hono } from "hono";
+import { env } from "hono/adapter";
 import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
 import { Desktop } from "./components/desktop";
-import { Message } from "./components/message";
+import { Message, MessageHeader } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
+import { Persona, type PersonaMetadata } from "./components/personas";
 import { Welcome } from "./components/welcome";
-import type { SubscriptionMessage } from "./durable_objects/party";
+import type {
+    PartyInfo,
+    PartyInfoFull,
+    SubscriptionMessage,
+} from "./durable_objects/party";
 import { loadFreeOpenRouterModels } from "./openRouter";
-import { addPersonaRoutes } from "./personaRoutes";
+import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
 
@@ -29,6 +36,7 @@ export type AppType = typeof app;
 
 interface SiteData {
     title: string;
+    isProduction: boolean;
 }
 
 const Layout = (props: PropsWithChildren<SiteData>) =>
@@ -68,13 +76,25 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                     })();
                 </script>
 
-                <script
-                    async
-                    crossorigin="anonymous"
-                    data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
-                    src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                    type="text/javascript"
-                ></script>
+                ${
+                    props.isProduction ? (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
+                            src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    ) : (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
+                            src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    )
+                }
             </head>
             <body hx-ext="sse" >
                 ${props.children}
@@ -87,8 +107,12 @@ app.use("*", clerkMiddleware());
 app.route(PROXY_PATH, createPostHogProxy());
 
 app.get("/", (c) => {
+    const { PROD_ENV } = env<{ PROD_ENV?: string }>(c);
     return c.html(
-        <Layout title="🎭 Proompting Party 🎉">
+        <Layout
+            title="🎭 Proompting Party 🎉"
+            isProduction={PROD_ENV === "Production"}
+        >
             <Desktop></Desktop>
         </Layout>,
     );
@@ -108,26 +132,53 @@ app.get("/party", async (c) => {
         .map((key) => key.metadata)
         .filter((party) => party !== undefined);
 
-    console.log(partyData.keys);
-
     return c.html(<OpenParty previousParties={parties} />);
 });
 
 app.post("/party/create", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
     const body = await c.req.formData();
     const partyName = body.get("partyName")?.toString();
-    if (!partyName) return new Response("Invalid party name", { status: 400 });
+    if (!partyName) return new Response("Ievalid party name", { status: 400 });
     const partyId = crypto.randomUUID();
 
     const desktopData = c.env.DESKTOP_DATA;
-    const party = {
+
+    const user = await clerkClient(c).users.getUser(auth.userId);
+
+    const partyInfo: PartyInfo = {
         id: partyId,
         name: partyName,
     };
 
-    await desktopData.put(`party:${partyId}`, JSON.stringify(party), {
-        metadata: party,
+    const participants = await getAllPersonas(c.env);
+
+    const fullPartyInfo: PartyInfoFull = {
+        ...partyInfo,
+        participants: [
+            ...participants,
+            {
+                id: user.id,
+                name:
+                    user.username ??
+                    user.fullName ??
+                    user.emailAddresses[0].emailAddress ??
+                    user.id,
+            },
+        ],
+    };
+
+    await desktopData.put(`party:${partyId}`, JSON.stringify(fullPartyInfo), {
+        metadata: partyInfo,
     });
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(partyId);
+    await party.setParticipants(fullPartyInfo.participants);
 
     return c.redirect(`/party/${partyId}`);
 });
@@ -141,13 +192,65 @@ app.get("/party/:id", async (c) => {
     if (!party) return new Response("Party not found", { status: 404 });
 
     var openRouter = await loadFreeOpenRouterModels();
+    var personas = await getAllPersonas(c.env);
 
-    return c.html(<Party room={id} openRouter={openRouter} />);
+    return c.html(
+        <Party
+            room={id}
+            openRouter={openRouter}
+            personaParticipants={personas}
+        />,
+    );
 });
 
-app.get("models", async (c) => {
-    var models = await loadFreeOpenRouterModels();
-    return c.json(models);
+app.get("/party/:id/reset-participants", async (c) => {
+    const id = c.req.param("id");
+    const desktopData = c.env.DESKTOP_DATA;
+    const partyInfoStr = await desktopData.get(`party:${id}`);
+
+    if (!partyInfoStr) return new Response("Party not found", { status: 404 });
+
+    const partyInfo = JSON.parse(partyInfoStr) as PartyInfoFull;
+
+    const participants =
+        partyInfo.participants === undefined ||
+        partyInfo.participants.length === 0
+            ? await getAllPersonas(c.env)
+            : partyInfo.participants;
+
+    partyInfo.participants = participants;
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const currentParticipants = await party.setParticipants(participants);
+    await desktopData.put(`party:${id}`, JSON.stringify(partyInfo));
+
+    const partyInfoStrFin = await desktopData.get(`party:${id}`);
+
+    if (!partyInfoStrFin)
+        return new Response("Party not found", { status: 404 });
+
+    const partyInfoFin = JSON.parse(partyInfoStrFin) as PartyInfoFull;
+    return c.json(partyInfoFin);
+});
+
+app.get("/party/:id/messages/raw", async (c) => {
+    const id = c.req.param("id");
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    const responseType = c.req.header("Content-Type");
+
+    const messages = await party.downloadMessages();
+
+    if (responseType === "text/html") {
+        return c.html(
+            <ul>
+                {messages.map((msg) => (
+                    <li key={msg.messageid}>{msg.message}</li>
+                ))}
+            </ul>,
+        );
+    }
+
+    return c.json(messages);
 });
 
 app.post("/party/:id/prompt", async (c) => {
@@ -163,7 +266,7 @@ app.post("/party/:id/prompt", async (c) => {
     const body = await c.req.formData();
     const prompt = body.get("prompt");
     const model = body.get("model");
-    const personaId = body.get("personaId") ?? "-unknown persona-";
+    const personaId = body.get("personaId");
 
     if (typeof prompt !== "string") {
         return new Response("Invalid prompt", { status: 400 });
@@ -179,7 +282,53 @@ app.post("/party/:id/prompt", async (c) => {
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
-    await party.sendPrompt(prompt, "user", user.id, personaId, model);
+    await party.sendPrompt(
+        prompt,
+        user.username ??
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
+        personaId,
+        model,
+        id,
+    );
+
+    return c.text("Proompt accepted", 202);
+});
+
+app.post("/party/:id/proceed", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+
+    const body = await c.req.formData();
+    const model = body.get("model");
+    const personaId = c.req.query("personaId");
+
+    if (typeof model !== "string") {
+        return new Response("Invalid model", { status: 400 });
+    }
+
+    if (typeof personaId !== "string") {
+        return new Response("Invalid persona", { status: 400 });
+    }
+
+    const user = await clerkClient(c).users.getUser(auth.userId);
+
+    await party.proceed(
+        user.username ??
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
+        personaId,
+        model,
+        id,
+    );
 
     return c.text("Proompt accepted", 202);
 });
@@ -264,14 +413,26 @@ app.get("/party/:id/messages/:messageid", async (c) => {
         });
     }
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.streamMessage(c.req.raw, messageid);
+    const response = await party.streamMessage(messageid);
 
-    if (!response.ok || !response.body) {
-        return new Response("Invalid response", { status: 500 });
+    if (!response.ok) {
+        return response;
+    }
+
+    if (!response.body) {
+        return new Response(
+            JSON.stringify({
+                error: "No body, are we streamin?",
+                messageId: messageid,
+                roomId: id,
+            }),
+            { status: 500 },
+        );
     }
 
     const reader = response.body
         .pipeThrough(new TextDecoderStream())
+        .pipeThrough(new EventSourceParserStream())
         .getReader();
 
     return streamSSE(c, async (stream) => {
@@ -279,11 +440,25 @@ app.get("/party/:id/messages/:messageid", async (c) => {
             const { value, done } = await reader.read();
 
             if (value) {
-                console.log("value", value);
-                await stream.writeSSE({
-                    data: value, //`<span>${value}</span>`,
-                    event: "message",
-                });
+                if (value.event === "persona") {
+                    const personaId = JSON.parse(value.data);
+                    await stream.writeSSE({
+                        data: (
+                            <MessageHeader
+                                personaId={personaId}
+                                roomId={id}
+                                sendAt={new Date().getUTCMilliseconds()}
+                                messageId={messageid}
+                            />
+                        ),
+                        event: value.event,
+                    });
+                } else {
+                    await stream.writeSSE({
+                        data: JSON.parse(value.data),
+                        event: value.event,
+                    });
+                }
             }
             if (done) {
                 await stream.writeSSE({
@@ -295,6 +470,25 @@ app.get("/party/:id/messages/:messageid", async (c) => {
             }
         }
     });
+});
+
+app.delete("/party/:id/messages/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const messageid = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+    return party.deleteMessage(messageid);
 });
 
 addPersonaRoutes(app);

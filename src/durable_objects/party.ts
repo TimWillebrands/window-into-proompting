@@ -1,26 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
+import { OpenAI } from "@posthog/ai";
 import {
     type SQLSchemaMigration,
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
-import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources";
-
-async function* promptLlm(
-    ai: OpenAI,
-    messages: ChatCompletionMessageParam[],
-    model: string,
-) {
-    const completion = await ai.chat.completions.create({
-        model: model,
-        messages: messages,
-        stream: true,
-    });
-
-    for await (const chunk of completion) {
-        yield chunk.choices[0].delta.content;
-    }
-}
+import { PostHog } from "posthog-node";
+import type { Persona, PersonaMetadata } from "@/components/personas";
+import { Generation } from "./generation";
 
 export type MessageType = {
     messageid: number;
@@ -36,71 +22,73 @@ export type SubscriptionMessage =
     | { type: "message"; message: MessageType }
     | { type: "messageStream"; messageId: number };
 
-type Observer = (chunk: Uint8Array, done: boolean) => void;
+export type PartyInfoFull = PartyInfo & {
+    participants: PersonaMetadata[];
+};
 
-class Generation {
-    private readonly ai: OpenAI;
-    private readonly messageId: number;
-    private readonly observers = new Set<Observer>();
-    private readonly textEncoder = new TextEncoder();
+export type PartyInfo = {
+    id: string;
+    name: string;
+};
 
-    private message = "";
-    private done = false;
-
-    constructor(ai: OpenAI, messageId: number) {
-        this.ai = ai;
-        this.messageId = messageId;
-    }
-
-    observe(observer: Observer) {
-        this.observers.add(observer);
-        const chunk = this.textEncoder.encode(this.message);
-        observer(chunk, this.done);
-    }
-
-    async generate(history: MessageType[], prompt: string, model: string) {
-        const messages: ChatCompletionMessageParam[] = [
-            { role: "system", content: "You are a helpful assistant." },
-            ...history.map(
-                (message) =>
-                    ({
-                        role:
-                            message.senderType === "user"
-                                ? "user"
-                                : "assistant",
-                        content: message.message ?? "",
-                        name: message.senderId,
-                    }) as ChatCompletionMessageParam,
-            ),
-            { role: "user", content: prompt },
-        ];
-        const data = promptLlm(this.ai, messages, model);
-
-        for await (const value of data) {
-            if (typeof value !== "string") {
-                continue;
-            }
-            this.message += value;
-            const chunk = this.textEncoder.encode(value);
-            for (const observer of this.observers) {
-                observer(chunk, false);
-            }
-        }
-
-        this.done = true;
-        for (const observer of this.observers) {
-            observer(new Uint8Array(0), true);
-        }
-
-        return { messageId: this.messageId, message: this.message };
-    }
-}
+const phClient = new PostHog(
+    "phc_f44OvBqb7P19kNmbDBXlNy4UH8pdoiJcUVKZJ1aN950",
+    { host: "https://eu.i.posthog.com" },
+);
 
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
 
+    private async tryGetPersona(id: string) {
+        const personaData = await this.kv.get(`persona:${id}`);
+        if (!personaData) {
+            return null;
+        }
+        return JSON.parse(personaData) as Persona;
+    }
+
+    private async getPersona(id: string) {
+        const personaData = await this.tryGetPersona(id);
+        if (!personaData) {
+            throw new Error(`Persona '${id}' not found`);
+        }
+        return personaData;
+    }
+
+    private async getParticipants(partyId: string) {
+        const partyInfoStr = await this.kv.get(`party:${partyId}`);
+
+        if (!partyInfoStr) throw new Error(`Party not found: ${partyId}.`);
+
+        const partyInfo = JSON.parse(partyInfoStr) as PartyInfoFull;
+
+        if (
+            partyInfo.participants === undefined ||
+            partyInfo.participants.length === 0
+        ) {
+            console.log(`Party ${partyId} has no participants.`, partyInfo);
+            throw new Error(`Party has no participants.`);
+        }
+
+        const participants = await Promise.all(
+            partyInfo.participants.map(
+                async (p) =>
+                    (await this.tryGetPersona(p.id)) ??
+                    ({
+                        ...p,
+                        isUser: true,
+                        systemPrompt:
+                            "this is a real human user and has no systemprompt, use their answers in chat to weigh their character",
+                    } satisfies Persona),
+            ),
+        );
+
+        return participants;
+    }
+
     private readonly ai: OpenAI;
     private readonly sql: SqlStorage;
+    private readonly kv: KVNamespace;
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
@@ -109,11 +97,13 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             baseURL: "https://openrouter.ai/api/v1",
             apiKey: env.GEMINI_API_KEY,
             defaultHeaders: {
-                "HTTP-Referer": "https://proomting.party", // Optional. Site URL for rankings on openrouter.ai.
+                "HTTP-Referer": "https://proompting.party", // Optional. Site URL for rankings on openrouter.ai.
                 "X-Title": "Proompting Party", // Optional. Site title for rankings on openrouter.ai.
             },
+            posthog: phClient,
         });
         this.sql = ctx.storage.sql;
+        this.kv = env.DESKTOP_DATA;
 
         const migrations = new SQLSchemaMigrations({
             doStorage: ctx.storage,
@@ -127,12 +117,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
     async sendPrompt(
         prompt: string,
-        senderType: string,
         senderId: string,
         personaId: string,
         model: string,
+        roomId: string,
     ) {
-        console.log("[Party.ts->sendPrompt] prompt:", prompt);
+        const personaData = await this.getPersona(personaId);
 
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
@@ -142,7 +132,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 VALUES (?, ?, ?), (?, ?, ?)
                 RETURNING messageid`,
                 prompt,
-                senderType,
+                "user",
                 senderId,
                 null,
                 "assistant",
@@ -157,31 +147,15 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             "starting generation now.",
         );
 
-        const generation = new Generation(this.ai, newMessageIds[1]);
-        this.generations.set(newMessageIds[1], generation);
+        const newMessageId = newMessageIds[1];
 
-        // Fire and forget the generation
-        const messages = this.sql
-            .exec<MessageType>("SELECT * FROM messages")
-            .toArray();
-
-        generation.generate(messages, prompt, model).then((g) => {
-            console.log(
-                "[Party.ts->sendPrompt] generation finished",
-                g.messageId,
-            );
-            this.sql.exec(
-                `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                g.message,
-                new Date().toISOString(),
-                g.messageId,
-            );
-            // Don't delete immediately from the cache after generation
-            // finished since there can be a `sub` request incoming.
-            // There shouldn't be more since we've updated the message
-            // with a date
-            setTimeout(() => this.generations.delete(g.messageId), 1000);
-        });
+        await this.initiateGeneration(
+            newMessageId,
+            model,
+            roomId,
+            personaData,
+            senderId,
+        );
 
         for (const socket of this.ctx.getWebSockets()) {
             console.log("user message", newMessageIds);
@@ -191,9 +165,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                     message: {
                         messageid: newMessageIds[0],
                         message: prompt,
-                        senderType: senderType,
+                        senderType: "user",
                         senderId: senderId,
-                        sendAt: new Date().getMilliseconds(),
+                        sendAt: new Date().getUTCMilliseconds(),
                     },
                 } as SubscriptionMessage),
             );
@@ -209,7 +183,130 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response();
     }
 
-    async fetch(request: Request): Promise<Response> {
+    async proceed(
+        senderId: string,
+        personaId: string,
+        model: string,
+        roomId: string,
+    ) {
+        const personaData = await this.getPersona(personaId);
+
+        // generate a message-stub for the model.
+        const newMessageId = this.sql
+            .exec<{ messageid: number }>(
+                `INSERT INTO messages(message, senderType, senderId)
+                VALUES (?, ?, ?)
+                RETURNING messageid`,
+                null,
+                "assistant",
+                personaId,
+            )
+            .one().messageid;
+
+        console.log(
+            "[Party.ts->proceed] new message IDs:",
+            newMessageId,
+            "starting generation now.",
+        );
+
+        await this.initiateGeneration(
+            newMessageId,
+            model,
+            roomId,
+            personaData,
+            senderId,
+        );
+
+        for (const socket of this.ctx.getWebSockets()) {
+            socket.send(
+                JSON.stringify({
+                    type: "messageStream",
+                    messageId: newMessageId,
+                } as SubscriptionMessage),
+            );
+        }
+
+        return new Response();
+    } /**
+     * Initiate a generation, this only blocks on fetching resources (dependencies etc) not
+     * on the actual generation itself.
+     * @param newMessageId The Id of the message up unto which we should base the generation
+     * @param model The model to use for the generation
+     * @param roomId The chat-room id
+     * @param personaData The persona data to base generation on
+     * @param senderId The id of the sender (user || overseer)
+     */
+    async initiateGeneration(
+        newMessageId: number,
+        model: string,
+        roomId: string,
+        personaData: Persona,
+        senderId: string,
+    ) {
+        // Get message history up to this point
+        const messagesQuery = this.sql
+            .exec<MessageType>(
+                // '<' not '<=' because lets not include the 'null' message we reserved
+                // for the response
+                "SELECT * FROM messages WHERE messageid < ?",
+                newMessageId,
+            )
+            .toArray()
+            .map(async (msg) => ({
+                ...msg,
+                senderName:
+                    (await this.tryGetPersona(msg.senderId))?.name ||
+                    msg.senderId,
+            }));
+
+        const messages = await Promise.all(messagesQuery);
+        const generation = new Generation(
+            this.ai,
+            messages,
+            model,
+            roomId,
+            await this.getParticipants(roomId),
+        );
+        this.generations.set(newMessageId, generation);
+
+        // Fire and forget the generation
+        generation
+            .generate(personaData, senderId)
+            .then(async ({ message, followUp }) => {
+                console.log(
+                    "[Party.ts->proceed] generation finished",
+                    newMessageId,
+                );
+                this.sql.exec(
+                    `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
+                    message,
+                    new Date().toISOString(),
+                    newMessageId,
+                );
+
+                if (!followUp.stop) {
+                    try {
+                        const persona = await this.getPersona(
+                            followUp.personaId,
+                        );
+                        this.proceed("overseer", persona.id, model, roomId);
+                    } catch (error) {
+                        console.warn(
+                            "Continued with unknown persona. Possibly a user?",
+                            followUp.personaId,
+                            error,
+                        );
+                    }
+                }
+                // Don't delete immediately from the cache after generation
+                // finished since there can be a `sub` request incoming.
+                // There shouldn't be more since we've updated the message
+                // with a date
+                setTimeout(() => this.generations.delete(newMessageId), 1000);
+            });
+    }
+
+    async fetch(_: Request): Promise<Response> {
         // Creates two ends of a WebSocket connection.
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
@@ -261,40 +358,65 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return message;
     }
 
-    async streamMessage(
-        request: Request,
-        messageId: number,
-    ): Promise<Response> {
-        // Else if the message is still being generated we stream it to the client
-
+    async streamMessage(messageId: number): Promise<Response> {
         const generation = this.generations.get(messageId);
         if (!generation) {
             return new Response("Message not found", { status: 404 });
         }
-        const stream = new ReadableStream({
-            async start(controller) {
-                if (request.signal.aborted) {
-                    controller.close();
-                    return;
-                }
-                generation.observe((chunk, done) => {
-                    if (done) {
-                        controller.close();
-                    } else {
-                        controller.enqueue(chunk);
-                    }
-                });
-            },
-            cancel() {
-                console.error(`Subscription to message ${messageId} cancelled`);
-            },
-        });
+
+        const { readable, writable } = new TransformStream();
 
         const headers = new Headers({
-            "Content-Type": "application/octet-stream",
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache", // Important for SSE to prevent buffering
+            Connection: "keep-alive", // Keep the connection open
         });
 
-        return new Response(stream, { headers });
+        const writer = writable.getWriter();
+
+        try {
+            generation.observe(async (chunk, done) => {
+                if (done) {
+                    writable.close();
+                } else {
+                    await writer.write(chunk);
+                }
+            });
+        } catch (err) {
+            console.error(err);
+            writable.abort();
+        } finally {
+            writable.close();
+        }
+
+        return new Response(readable, { headers });
+    }
+
+    // TODO: temp implementation, we just dump all persona's in the party
+    // we should implement a proper way to add and remove participants
+    async setParticipants(_: PersonaMetadata[]) {
+        return [];
+    }
+
+    async deleteMessage(messageId: number) {
+        this.sql.exec(`DELETE FROM messages WHERE messageid = ?`, [messageId]);
+
+        return new Response();
+    }
+
+    async downloadMessages(): Promise<
+        (MessageType & { senderName: string })[]
+    > {
+        const messages = this.sql
+            .exec<MessageType>("SELECT * FROM messages LIMIT 100")
+            .toArray()
+            .map(async (msg) => ({
+                ...msg,
+                senderName:
+                    (await this.tryGetPersona(msg.senderId))?.name ?? "Unknown",
+            }));
+
+        return await Promise.all(messages);
     }
 }
 const Migrations: SQLSchemaMigration[] = [

@@ -1,3 +1,4 @@
+import { getAuth } from "@hono/clerk-auth";
 import type { AppType } from ".";
 import {
     MissingPersona,
@@ -11,18 +12,20 @@ import {
     PersonaTemplateMenu,
 } from "./components/personas";
 
+// Helper function to get all personas
+export async function getAllPersonas(
+    env: Cloudflare.Env,
+): Promise<PersonaMetadata[]> {
+    const personaData = await env.DESKTOP_DATA.list<PersonaMetadata>({
+        prefix: "persona:",
+    });
+
+    return personaData.keys
+        .map((key: { metadata?: PersonaMetadata }) => key.metadata)
+        .filter((persona): persona is PersonaMetadata => persona !== undefined);
+}
+
 export function addPersonaRoutes(app: AppType) {
-    // Helper function to get all personas
-    async function getAllPersonas(env: Cloudflare.Env): Promise<PersonaMetadata[]> {
-        const personaData = await env.DESKTOP_DATA.list<PersonaMetadata>({
-            prefix: "persona:",
-        });
-
-        return personaData.keys
-            .map((key: { metadata?: PersonaMetadata }) => key.metadata)
-            .filter((persona): persona is PersonaMetadata => persona !== undefined);
-    }
-
     // Personas application
     app.get("/personas", async (c) => {
         const personas = await getAllPersonas(c.env);
@@ -59,8 +62,29 @@ export function addPersonaRoutes(app: AppType) {
             : c.html(<MissingPersona personaId={id} />, 404);
     });
 
+    app.get("/personas/:id/avatar", async (c) => {
+        const id = c.req.param("id");
+        const personaData = await c.env.DESKTOP_DATA.get<Persona>(
+            `persona:${id}`,
+            { type: "json" },
+        );
+
+        const name =
+            personaData === null ? `Unknown (${id})` : personaData.name;
+
+        return c.html(<span>{name}</span>, 200, {
+            "Cache-Control": "max-age=600",
+        });
+    });
+
     // Persona creation
     app.post("/personas/new", async (c) => {
+        const auth = getAuth(c);
+
+        if (!auth?.userId || !auth.isAuthenticated) {
+            return new Response("Unauthorized!!", { status: 401 });
+        }
+
         const body = await c.req.formData();
         const id = crypto.randomUUID();
 
@@ -91,7 +115,10 @@ export function addPersonaRoutes(app: AppType) {
         return c.html(
             <>
                 <PersonaForm persona={personaData} />
-                <PersonasList personas={personas} hx-swap-oob="outerHTML:#personas-list" />
+                <PersonasList
+                    personas={personas}
+                    hx-swap-oob="outerHTML:#personas-list"
+                />
             </>,
             201,
         );
@@ -99,6 +126,12 @@ export function addPersonaRoutes(app: AppType) {
 
     // Persona update
     app.put("/personas/:id", async (c) => {
+        const auth = getAuth(c);
+
+        if (!auth?.userId || !auth.isAuthenticated) {
+            return new Response("Unauthorized!!", { status: 401 });
+        }
+
         const id = c.req.param("id");
         const body = await c.req.formData();
         const existingPersona = await c.env.DESKTOP_DATA.get<Persona>(
@@ -146,7 +179,10 @@ export function addPersonaRoutes(app: AppType) {
         return c.html(
             <>
                 <PersonaForm persona={updatedPersona} />
-                <PersonasList personas={personas} hx-swap-oob="outerHTML:#personas-list" />
+                <PersonasList
+                    personas={personas}
+                    hx-swap-oob="outerHTML:#personas-list"
+                />
             </>,
             200,
         );
@@ -154,6 +190,11 @@ export function addPersonaRoutes(app: AppType) {
 
     // Persona deletion
     app.delete("/personas/:id", async (c) => {
+        const auth = getAuth(c);
+
+        if (!auth?.userId || !auth.isAuthenticated) {
+            return new Response("Unauthorized!!", { status: 401 });
+        }
         const id = c.req.param("id");
         const existingPersona = await c.env.DESKTOP_DATA.get<Persona>(
             `persona:${id}`,
@@ -173,7 +214,10 @@ export function addPersonaRoutes(app: AppType) {
             return c.html(
                 <>
                     <PersonaDeleted />
-                    <PersonasList personas={personas} hx-swap-oob="outerHTML:#personas-list" />
+                    <PersonasList
+                        personas={personas}
+                        hx-swap-oob="outerHTML:#personas-list"
+                    />
                 </>,
                 200,
             );
@@ -204,6 +248,12 @@ export function addPersonaRoutes(app: AppType) {
 
     // Duplicate persona
     app.post("/personas/:id/duplicate", async (c) => {
+        const auth = getAuth(c);
+
+        if (!auth?.userId || !auth.isAuthenticated) {
+            return new Response("Unauthorized!!", { status: 401 });
+        }
+
         const id = c.req.param("id");
         const existingPersona = await c.env.DESKTOP_DATA.get<Persona>(
             `persona:${id}`,
@@ -240,7 +290,10 @@ export function addPersonaRoutes(app: AppType) {
             return c.html(
                 <>
                     <PersonaForm persona={duplicatedPersona} />
-                    <PersonasList personas={personas} hx-swap-oob="outerHTML:#personas-list" />
+                    <PersonasList
+                        personas={personas}
+                        hx-swap-oob="outerHTML:#personas-list"
+                    />
                 </>,
                 201,
             );
