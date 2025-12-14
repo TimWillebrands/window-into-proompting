@@ -1,3 +1,13 @@
+// Event Bus
+window.eventBus = {
+    dispatch(event, detail) {
+        window.dispatchEvent(new CustomEvent(event, { detail }));
+    },
+    listen(event, callback) {
+        window.addEventListener(event, callback);
+    }
+};
+
 window.cookieStorage = {
     getItem(key) {
         const cookies = document.cookie.split(";");

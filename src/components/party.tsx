@@ -37,7 +37,7 @@ function ChatInput() {
                             name="model"
                             id={`model_${room}`}
                             class="flex-1"
-                            hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')"
+                            x-on:change="eventBus.dispatch('model-selected', { model: event.target.value, room: room }); analytics.trackModelSelected(event.target.value, 'dropdown')"
                         >
                             {openRouter.models.map((model) => (
                                 <option
