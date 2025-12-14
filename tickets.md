@@ -51,14 +51,14 @@ This creates a clean, predictable, and maintainable architecture.
 
 ---
 
-### Ticket 3: Eliminate Global Variables
+### Ticket 3: Eliminate Global Variables via Alpine's Event System
 
 **Task:**
-1.  Create a simple, global event bus.
-2.  Refactor the `party.tsx` component to dispatch a custom event (e.g., `model-selected`) when the model is changed.
-3.  The Alpine.js store will listen for this event and can update its state if necessary (e.g., to store the last used model). The `window.currentModel` global will be removed.
+1.  Remove the custom `window.eventBus` object.
+2.  Refactor the `party.tsx` component to use Alpine's native `$dispatch` magic property to send a `model-selected` event.
+3.  The `select` element will now use `x-on:change="$dispatch('model-selected', { model: $event.target.value })"`.
 
-**Justification:** This removes the use of anti-patterns (global variables) and replaces them with a clean, event-driven communication mechanism that prevents state conflicts between components.
+**Justification:** Instead of creating a custom event bus, we will leverage Alpine.js's built-in event system (`$dispatch` and `x-on`). This is the idiomatic way to handle component communication in Alpine. It's more maintainable, requires less custom code, and is immediately understandable to anyone familiar with the framework. This change removes the last of the global variable anti-patterns.
 
 ---
 
