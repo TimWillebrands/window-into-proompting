@@ -288,9 +288,9 @@ app.post("/party/:id/prompt", async (c) => {
             user.fullName ??
             user.emailAddresses[0].emailAddress ??
             user.id,
-        personaId,
         model,
         id,
+        personaId,
     );
 
     return c.text("Proompt accepted", 202);

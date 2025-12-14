@@ -94,7 +94,7 @@ const instruction = `<instruction>
     tag like you'll see in the input.
 </instruction>`;
 
-type MessageWithSender = MessageType & {
+export type MessageWithSender = MessageType & {
     senderName: string;
 };
 
@@ -211,7 +211,7 @@ ${p.systemPrompt}
             }
         }
 
-        const followUp = await this.followUp(this.message, persona);
+        const followUp = await this.followUp();
         console.log("overseer verdict:", followUp);
 
         return {
@@ -220,7 +220,7 @@ ${p.systemPrompt}
         };
     }
 
-    private async followUp(message: string, persona: Persona) {
+    private async followUp() {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
@@ -234,11 +234,6 @@ ${p.systemPrompt}
                         name: message.senderId,
                     }) as ChatCompletionMessageParam,
             ),
-            {
-                role: "user",
-                content: `<message sender="${persona.name}">${message}</message>`,
-                name: persona.id,
-            },
             {
                 role: "user",
                 content: `Task: assign a persona as follow-up or decide that the conversation is over.

@@ -6,7 +6,7 @@ import {
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
 import type { Persona, PersonaMetadata } from "@/components/personas";
-import { Generation } from "./generation";
+import { Generation, type MessageWithSender } from "./generation";
 
 export type MessageType = {
     messageid: number;
@@ -39,7 +39,9 @@ const phClient = new PostHog(
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
 
-    private async tryGetPersona(id: string) {
+    private async tryGetPersona(id?: string) {
+        if (!id) return null;
+
         const personaData = await this.kv.get(`persona:${id}`);
         if (!personaData) {
             return null;
@@ -47,7 +49,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return JSON.parse(personaData) as Persona;
     }
 
-    private async getPersona(id: string) {
+    // TODO: Take in message-history and return the logical/most-fun persona
+    // to answer the prompt
+    private async getPersona(id?: string) {
         const personaData = await this.tryGetPersona(id);
         if (!personaData) {
             throw new Error(`Persona '${id}' not found`);
@@ -118,12 +122,10 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     async sendPrompt(
         prompt: string,
         senderId: string,
-        personaId: string,
         model: string,
         roomId: string,
+        personaId?: string,
     ) {
-        const personaData = await this.getPersona(personaId);
-
         // Add the user's prompt to the database as a message from the user
         // and generate a message-stub for the model.
         const newMessageIds = this.sql
@@ -149,12 +151,17 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         const newMessageId = newMessageIds[1];
 
+        const messages = await this.getMessagesUntil(newMessageId);
+
+        const personaData = await this.getPersona(personaId);
+
         await this.initiateGeneration(
             newMessageId,
             model,
             roomId,
             personaData,
             senderId,
+            messages,
         );
 
         for (const socket of this.ctx.getWebSockets()) {
@@ -189,8 +196,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         model: string,
         roomId: string,
     ) {
-        const personaData = await this.getPersona(personaId);
-
         // generate a message-stub for the model.
         const newMessageId = this.sql
             .exec<{ messageid: number }>(
@@ -203,11 +208,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             )
             .one().messageid;
 
-        console.log(
-            "[Party.ts->proceed] new message IDs:",
-            newMessageId,
-            "starting generation now.",
-        );
+        const messages = await this.getMessagesUntil(newMessageId);
+
+        const personaData = await this.getPersona(personaId);
 
         await this.initiateGeneration(
             newMessageId,
@@ -215,6 +218,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             roomId,
             personaData,
             senderId,
+            messages,
         );
 
         for (const socket of this.ctx.getWebSockets()) {
@@ -227,22 +231,9 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         }
 
         return new Response();
-    } /**
-     * Initiate a generation, this only blocks on fetching resources (dependencies etc) not
-     * on the actual generation itself.
-     * @param newMessageId The Id of the message up unto which we should base the generation
-     * @param model The model to use for the generation
-     * @param roomId The chat-room id
-     * @param personaData The persona data to base generation on
-     * @param senderId The id of the sender (user || overseer)
-     */
-    async initiateGeneration(
-        newMessageId: number,
-        model: string,
-        roomId: string,
-        personaData: Persona,
-        senderId: string,
-    ) {
+    }
+
+    async getMessagesUntil(newMessageId: number): Promise<MessageWithSender[]> {
         // Get message history up to this point
         const messagesQuery = this.sql
             .exec<MessageType>(
@@ -260,6 +251,26 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             }));
 
         const messages = await Promise.all(messagesQuery);
+        return messages;
+    }
+
+    /**
+     * Initiate a generation, this only blocks on fetching resources (dependencies etc) not
+     * on the actual generation itself.
+     * @param newMessageId The Id of the message up unto which we should base the generation
+     * @param model The model to use for the generation
+     * @param roomId The chat-room id
+     * @param personaData The persona data to base generation on
+     * @param senderId The id of the sender (user || overseer)
+     */
+    async initiateGeneration(
+        newMessageId: number,
+        model: string,
+        roomId: string,
+        personaData: Persona,
+        senderId: string,
+        messages: MessageWithSender[],
+    ) {
         const generation = new Generation(
             this.ai,
             messages,
