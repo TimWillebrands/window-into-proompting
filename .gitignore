@@ -37,3 +37,9 @@ public/output.css
 !.dev.vars.example
 .env*
 !.env.example
+
+# gemini-cli settings
+.gemini/
+
+# GitHub App credentials
+gha-creds-*.json
