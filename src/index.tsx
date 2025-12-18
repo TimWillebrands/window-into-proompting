@@ -10,7 +10,6 @@ import { Desktop } from "./components/desktop";
 import { Message, MessageHeader } from "./components/message";
 import { OpenParty, type Party as PartyType } from "./components/openParty";
 import { Party } from "./components/party";
-import { Persona, type PersonaMetadata } from "./components/personas";
 import { Welcome } from "./components/welcome";
 import type {
     PartyInfo,
