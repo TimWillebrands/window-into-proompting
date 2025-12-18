@@ -1,4 +1,4 @@
-# Determine the responing Persona automatically
+# Determine the responding Persona automatically
 
 ## Context and Problem Statement
 

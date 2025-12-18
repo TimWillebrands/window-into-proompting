@@ -23,10 +23,17 @@ We have multiple problem domains such as **Authentication**: what is a user, **M
 
 **Coordination**: How can we best coordinate multiple streams of input being processed by the model, and orchestrate the conversation?
 
-
-## Decision Drivers
+### Coordination problems
 
 So on this topic of _coordination_. What are the most important factors I want to consider when picking technology/patterns to facilitate programming this? For this we should first think about what difficulties we anticipate.
+
+*   **Turn-Taking & Floor Control:** In a group chat with multiple autonomous AI personas, how do you orchestrate the flow of conversation? A mechanism is needed to act as a "director," deciding which persona should speak next to prevent either chaotic cross-talk or a conversational stalemate. This is fundamentally a problem of distributed consensus or leader election, reimagined for a conversational context.
+*   **Context Management & Cohesion:** As a conversation deepens, so does the context that each AI persona needs to consider. The core challenge is twofold: ensuring each persona receives the precise subset of the conversation needed for a relevant response, and maintaining a cohesive single conversational thread when multiple personas might be reacting to different earlier messages. This is a state synchronization and context propagation problem.
+*   **Concurrent State Modification:** When multiple users and personas can generate messages simultaneously, the shared state (the message history) is subject to concurrent writes. The architecture must handle this gracefully to prevent race conditions, guarantee a consistent message order for all participants, and clearly signal "who is typing" to manage user expectations and prevent confusion.
+*   **Observability in a Multi-Agent System:** Tracing the conversational path in a system with multiple, autonomous AI agents is inherently complex. A single user message might need to trigger a cascade of internal "thoughts" and responses from several AIs. 
+
+
+## Decision Drivers
 
 
 * **Curiousity and Fun**: (So far) this is a personal project. On top of exploring AI/LLM systems, I also want to explore technologies/concepts outside of my daily professional life and have fun with it.
