@@ -6,7 +6,7 @@ import {
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
 import type { Persona, PersonaMetadata } from "@/components/personas";
-import { Generation, type MessageWithSender } from "./generation";
+import { Generation, type MessageWithSender } from "../services/generation";
 
 export type MessageType = {
     messageid: number;
@@ -39,7 +39,11 @@ const phClient = new PostHog(
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
 
-    private async tryGetPersona(id?: string) {
+    private readonly ai: OpenAI;
+    private readonly sql: SqlStorage;
+    private readonly kv: KVNamespace;
+
+    private async tryGetPersona(id: string | null | undefined) {
         if (!id) return null;
 
         const personaData = await this.kv.get(`persona:${id}`);
@@ -47,16 +51,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             return null;
         }
         return JSON.parse(personaData) as Persona;
-    }
-
-    // TODO: Take in message-history and return the logical/most-fun persona
-    // to answer the prompt
-    private async getPersona(id?: string) {
-        const personaData = await this.tryGetPersona(id);
-        if (!personaData) {
-            throw new Error(`Persona '${id}' not found`);
-        }
-        return personaData;
     }
 
     private async getParticipants(partyId: string) {
@@ -82,17 +76,13 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                         ...p,
                         isUser: true,
                         systemPrompt:
-                            "this is a real human user and has no systemprompt, use their answers in chat to weigh their character",
+                            "this is a real human user and has no systemprompt, use their answers in chat to evaluate their character",
                     } satisfies Persona),
             ),
         );
 
         return participants;
     }
-
-    private readonly ai: OpenAI;
-    private readonly sql: SqlStorage;
-    private readonly kv: KVNamespace;
 
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
@@ -124,10 +114,10 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         senderId: string,
         model: string,
         roomId: string,
-        personaId?: string,
+        personaId: string | null,
     ) {
         // Add the user's prompt to the database as a message from the user
-        // and generate a message-stub for the model.
+        // and generate a message-stub for the model's answer.
         const newMessageIds = this.sql
             .exec<{ messageid: number }>(
                 `INSERT INTO messages(message, senderType, senderId)
@@ -138,7 +128,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 senderId,
                 null,
                 "assistant",
-                personaId,
+                personaId ?? "__IN_PROGRESS",
             )
             .toArray()
             .map((row) => row.messageid);
@@ -153,7 +143,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         const messages = await this.getMessagesUntil(newMessageId);
 
-        const personaData = await this.getPersona(personaId);
+        const personaData = await this.tryGetPersona(personaId);
 
         await this.initiateGeneration(
             newMessageId,
@@ -192,7 +182,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
     async proceed(
         senderId: string,
-        personaId: string,
+        personaId: string | null | undefined,
         model: string,
         roomId: string,
     ) {
@@ -210,7 +200,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         const messages = await this.getMessagesUntil(newMessageId);
 
-        const personaData = await this.getPersona(personaId);
+        const personaData = await this.tryGetPersona(personaId);
 
         await this.initiateGeneration(
             newMessageId,
@@ -260,14 +250,14 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
      * @param newMessageId The Id of the message up unto which we should base the generation
      * @param model The model to use for the generation
      * @param roomId The chat-room id
-     * @param personaData The persona data to base generation on
+     * @param personaData The optional persona to force a generation for
      * @param senderId The id of the sender (user || overseer)
      */
     async initiateGeneration(
         newMessageId: number,
         model: string,
         roomId: string,
-        personaData: Persona,
+        personaData: Persona | null,
         senderId: string,
         messages: MessageWithSender[],
     ) {
@@ -281,40 +271,71 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         this.generations.set(newMessageId, generation);
 
         // Fire and forget the generation
-        generation
-            .generate(personaData, senderId)
-            .then(async ({ message, followUp }) => {
+        generation.generate(personaData, senderId).then(
+            async ({ message, persona, stop }) => {
                 console.log(
-                    "[Party.ts->proceed] generation finished",
-                    newMessageId,
-                );
-                this.sql.exec(
-                    `UPDATE messages SET message = ?, sendAt = ? WHERE messageid = ?`,
-                    message,
-                    new Date().toISOString(),
-                    newMessageId,
+                    `[Party.ts->initiateGeneration] generation finished. stop: ${stop}, messageId: ${newMessageId}, weHazPerzona: ${persona === undefined}`,
                 );
 
-                if (!followUp.stop) {
-                    try {
-                        const persona = await this.getPersona(
-                            followUp.personaId,
+                if (stop) {
+                    setTimeout(() => {
+                        console.log(
+                            `Generation stopped for message ${newMessageId}`,
                         );
-                        this.proceed("overseer", persona.id, model, roomId);
-                    } catch (error) {
-                        console.warn(
-                            "Continued with unknown persona. Possibly a user?",
-                            followUp.personaId,
-                            error,
-                        );
-                    }
+                        this.deleteMessage(newMessageId);
+                    }, 1000);
+                    return;
                 }
+
+                if (persona === undefined) {
+                    throw new Error(
+                        "Persona not found. This should never happen at this point since the " +
+                            "assertion happened in generation.ts",
+                    );
+                }
+
+                try {
+                    const cursor = this.sql.exec(
+                        `UPDATE messages SET message = ?, sendAt = ?, senderId = ? WHERE messageid = ?`,
+                        message,
+                        new Date().toISOString(),
+                        persona.id,
+                        newMessageId,
+                    );
+
+                    console.log(
+                        "[Party.ts->initiateGeneration] generation saved",
+                        newMessageId,
+                        cursor,
+                    );
+
+                    this.proceed(persona.id, null, model, roomId);
+                } catch (error) {
+                    console.error(
+                        "Error saving generation",
+                        error,
+                        personaData,
+                        newMessageId,
+                        senderId,
+                    );
+                }
+
                 // Don't delete immediately from the cache after generation
                 // finished since there can be a `sub` request incoming.
                 // There shouldn't be more since we've updated the message
                 // with a date
                 setTimeout(() => this.generations.delete(newMessageId), 1000);
-            });
+            },
+            (error) => {
+                console.error(
+                    "Error generating message",
+                    error,
+                    personaData,
+                    newMessageId,
+                    senderId,
+                );
+            },
+        );
     }
 
     async fetch(_: Request): Promise<Response> {

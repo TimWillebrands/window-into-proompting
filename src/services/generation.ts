@@ -1,7 +1,8 @@
 import type { OpenAI } from "@posthog/ai";
 import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Persona } from "@/components/personas";
-import type { MessageType } from "./party";
+import type { MessageType } from "../durable_objects/party";
+import { cleanJsonString } from "./cleanJson";
 
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
@@ -25,22 +26,44 @@ async function* promptLlm(
     responseFormat?: CompletionCreateParams["response_format"],
     reasoningEffort?: CompletionCreateParams["reasoning_effort"],
 ): AsyncGenerator<PartyGeneration> {
+    const controller = new AbortController();
+    const timeout = 5000;
+    let watchdog: NodeJS.Timeout | undefined;
+    let timedout = false;
+
+    function resetWatchdog() {
+        if (watchdog) clearTimeout(watchdog);
+        if (timedout) return;
+        watchdog = setTimeout(() => {
+            timedout = true;
+            console.warn("Generation timed out");
+            controller.abort();
+        }, timeout);
+    }
+
     try {
-        const completion = await ai.chat.completions.create({
-            model: model,
-            messages: messages,
-            stream: true,
-            posthogDistinctId: userId,
-            posthogTraceId: roomId,
-            posthogProperties: { room_id: roomId },
-            posthogGroups: { room_id: roomId },
-            response_format: responseFormat,
-            reasoning_effort: reasoningEffort,
-        });
+        const completion = await ai.chat.completions.create(
+            {
+                model: model,
+                messages: messages,
+                stream: true,
+                posthogDistinctId: userId,
+                posthogTraceId: roomId,
+                posthogProperties: { room_id: roomId },
+                posthogGroups: { room_id: roomId },
+                response_format: responseFormat,
+                reasoning_effort: reasoningEffort,
+            },
+            {
+                signal: controller.signal,
+            },
+        );
 
         yield { type: "persona", data: personaId };
+        resetWatchdog();
 
         for await (const chunk of completion) {
+            resetWatchdog();
             if (
                 "reasoning" in chunk.choices[0].delta &&
                 typeof chunk.choices[0].delta.reasoning === "string"
@@ -52,6 +75,13 @@ async function* promptLlm(
             }
             if (typeof chunk.choices[0].delta.content !== "string") {
                 continue;
+            }
+            if (chunk.choices[0].finish_reason) {
+                yield {
+                    type: "error",
+                    data: chunk.choices[0].finish_reason,
+                };
+                break;
             }
             yield { type: "message", data: chunk.choices[0].delta.content };
         }
@@ -65,6 +95,9 @@ async function* promptLlm(
                 yield { type: "error", data: `${err?.error?.metadata?.raw}\n` };
             }
         }
+    } finally {
+        timedout = true;
+        clearTimeout(watchdog);
     }
 }
 
@@ -130,59 +163,47 @@ export class Generation {
         observer(chunk, this.done);
     }
 
-    private get overseerPrompt() {
-        return `# Instruction
-You are the director of a chat room roleplay. Your task is to decide
-what persona should be continuing the conversation or that the conversation
-is over. Provide a reason for your decision and a small instruction to the
-next persona. Make sure to provide a persona ID in case of a follow-up.
+    async generate(personaOverride: Persona | null, userId: string) {
+        var { persona: respondent, overseerMsg } = await this.findRespondent();
+        var persona = personaOverride ?? respondent;
 
-If the conversation has reached it's end make sure the 'stop' property of the
-output is set to true. In all other cases set it to false.
+        console.log(
+            "[generate.ts] Respondent:",
+            persona?.id,
+            persona?.name,
+            overseerMsg,
+        );
 
-# Participants
-This is a list of participants in the chat room. Each participant has a unique
-ID and a name. In the output you should refer to the participant by their ID.
-
-## Personas
-${this.participants
-    .map(
-        (p) => `
-### ${p.name}
-**ID: ${p.id}**
-
-${p.systemPrompt}
-`,
-    )
-    .join("\n\n")}
-`;
-    }
-
-    private toEvent(data: string, id?: string, eventType: string = "message") {
-        let message = `id: ${id}\n`;
-        if (eventType) {
-            message += `event: ${eventType}\n`;
+        if (overseerMsg.stop) {
+            this.endConversation();
+            return {
+                stop: true,
+            };
         }
-        message += `data: ${JSON.stringify(data)}\n\n`; // Data field followed by double newline
-        return this.textEncoder.encode(message);
-    }
 
-    async generate(persona: Persona, userId: string) {
+        console.log("[generate.ts] dont stop addicted to the shindig");
+
+        if (persona === undefined || persona === null) {
+            throw new Error("No persona found by overseer!");
+        }
+
+        this.pushPersonaChange(persona.id);
+
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
                 content: `${instruction}\n${persona.systemPrompt}`,
-                name: persona?.id,
+                name: persona.id,
             },
             ...this.history.map(
                 (message) =>
                     ({
                         role:
-                            message.senderId === persona.id
+                            message.senderId === persona?.id
                                 ? "assistant"
                                 : "user",
                         content:
-                            message.senderId === persona.id
+                            message.senderId === persona?.id
                                 ? message.message
                                 : `<message sender="${message.senderName}" senderId="${message.senderId}">${message.message}</message>`,
                         name: message.senderId,
@@ -201,6 +222,8 @@ ${p.systemPrompt}
             persona.id,
         );
 
+        console.log("[generate.ts] Started persona prompt generation");
+
         for await (const value of data) {
             if (value.type === "message") {
                 this.message += value.data;
@@ -211,16 +234,28 @@ ${p.systemPrompt}
             }
         }
 
-        const followUp = await this.followUp();
-        console.log("overseer verdict:", followUp);
-
         return {
             message: this.message,
-            followUp: followUp.overseer,
+            persona: persona,
+            stop: false,
         };
     }
 
-    private async followUp() {
+    private pushPersonaChange(personaId: string) {
+        console.log("[generation.ts] Persona changed to:", personaId);
+        for (const observer of this.observers) {
+            observer(this.toEvent("persona", personaId), false);
+        }
+    }
+
+    private endConversation() {
+        console.log("[generation.ts] Conversation ended");
+        for (const observer of this.observers) {
+            observer(this.toEvent("stop"), true);
+        }
+    }
+
+    private async findRespondent() {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
@@ -237,7 +272,26 @@ ${p.systemPrompt}
             {
                 role: "user",
                 content: `Task: assign a persona as follow-up or decide that the conversation is over.
-                    Provide a reason for your decision. Refer to the persona by their 'senderId' attribute.`,
+                    Decide based on who is 'interesting' as a persona that has a high level of engagement
+                    or relevance to the conversation or as a fun twist to spice up the conversation.
+                    Provide a concise reason for your decision. Refer to the persona by their 'senderId'
+                    attribute and communicate it as 'personaId' in the response. Also provide a short
+                    instruction to the persona on how to engage in the conversation.
+
+                    The response should be a JSON object with the following properties:
+                    - personaId: string
+                    - reason: string
+                    - instruction: string
+                    - stop: boolean
+
+                    Example:
+                    {
+                        "personaId": "123",
+                        "reason": "Their sudden interest in this conversation would be hillariously ironic and interesting.",
+                        "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
+                        "stop": false
+                    }
+                    `,
             },
         ];
         const data = promptLlm(
@@ -292,15 +346,70 @@ ${p.systemPrompt}
             }
         }
 
-        this.done = true;
-        for (const observer of this.observers) {
-            observer(new Uint8Array(0), true);
-        }
+        try {
+            console.log("Overseer Message:", overseerMessageStr);
+            overseerMessageStr = cleanJsonString(overseerMessageStr);
+            const overseerMsg = JSON.parse(
+                overseerMessageStr,
+            ) as OverseerOutput;
+            const persona = this.participants.find(
+                (p) => p.id === overseerMsg.personaId,
+            );
 
-        return {
-            overseerMessageStr,
-            overseer: JSON.parse(overseerMessageStr) as OverseerOutput,
-        };
+            return { persona, overseerMsg };
+        } catch (error) {
+            console.error(
+                "Error parsing overseer message:\n",
+                overseerMessageStr,
+                "\n\nerror:\n",
+                error,
+            );
+            throw error;
+        }
+    }
+
+    //TODO: Currently we just dump all participants their systemprompt into this
+    // badboy. Not only is this wasting context but I'm also not sure if this gets
+    // us the best response.
+    private get overseerPrompt() {
+        return `# Instruction
+You are the director of a chat room roleplay. Your task is to decide
+what persona should be continuing the conversation or that the conversation
+is over. Provide a reason for your decision. Make sure to provide a persona
+ID in case of a follow-up.
+
+If the conversation has reached it's end make sure the 'stop' property of the
+output is set to true. In all other cases set it to false.
+
+# Participants
+This is a list of participants in the chat room. Each participant has a unique
+ID and a name. In the output you should refer to the participant by their ID.
+
+## Personas
+${this.participants
+    .map(
+        (p) => `
+### ${p.name}
+**ID: ${p.id}**
+
+${p.systemPrompt}
+`,
+    )
+    .join("\n\n")}
+`;
+    }
+
+    private toEvent(
+        data: string | object,
+        id?: string,
+        eventType: string = "message",
+    ) {
+        let message = `id: ${id}\n`;
+        if (eventType) {
+            message += `event: ${eventType}\n`;
+        }
+        message += `data: ${JSON.stringify(data)}\n\n`; // Data field followed by double newline
+        return this.textEncoder.encode(message);
     }
 }
 

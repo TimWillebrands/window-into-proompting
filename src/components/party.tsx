@@ -44,6 +44,9 @@ function ChatInput() {
                                     value={
                                         model.endpoint.model_variant_permaslug
                                     }
+                                    selected={model.endpoint.model_variant_permaslug.includes(
+                                        "DeepSeek",
+                                    )}
                                 >
                                     {model.short_name}
                                 </option>
@@ -156,12 +159,12 @@ function ChatMessagesArea({
                     <fieldset class="min-w-0 flex-1 overflow-y-auto">
                         <legend>Persona</legend>
                         <div class="flex flex-col">
-                            {personaParticipants.map((participant, i) => (
+                            <NeitherListItem />
+                            {personaParticipants.map((participant) => (
                                 <PersonaListItem
                                     key={participant.id}
                                     id={participant.id}
                                     name={participant.name}
-                                    isSelected={i === 0}
                                     room={room}
                                 />
                             ))}
@@ -200,9 +203,50 @@ function WelcomeMessage() {
     );
 }
 
-function PersonaListItem(
-    persona: PersonaMetadata & { isSelected: boolean; room: string },
-) {
+function NeitherListItem() {
+    return (
+        <label htmlFor="neitherRadio" class="block group cursor-pointer mb-2">
+            <input
+                type="radio"
+                id="neitherRadio"
+                name="personaId"
+                value="none"
+                class="sr-only"
+                checked
+            />
+            <div
+                class="
+                w-full
+                p-1 rounded-md transition-colors duration-150
+                bg-slate-100
+                border-2 border-solid
+                border-t-white border-l-white
+                border-r-slate-400 border-b-slate-400
+                shadow-[1px_1px_2px_rgba(0,0,0,0.4)]
+
+                group-has-[:checked]:bg-blue-600
+                group-has-[:checked]:border-t-slate-600 group-has-[:checked]:border-l-slate-600
+                group-has-[:checked]:border-r-slate-300 group-has-[:checked]:border-b-slate-300
+                group-has-[:checked]:shadow-none
+            "
+            >
+                <div
+                    class="flex items-center space-x-2 transition-transform duration-150
+                group-has-[:checked]:translate-x-px group-has-[:checked]:translate-y-px"
+                >
+                    <div class="sunken-panel p-0.5 flex-shrink-0">🙅</div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold !text-sm text-black truncate group-has-[:checked]:text-white">
+                            None
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </label>
+    );
+}
+
+function PersonaListItem(persona: PersonaMetadata & { room: string }) {
     return (
         <label htmlFor={persona.id} class="block group cursor-pointer mb-2">
             <input
@@ -211,7 +255,6 @@ function PersonaListItem(
                 name="personaId"
                 value={persona.id}
                 class="sr-only"
-                checked={persona.isSelected}
             />
             <div
                 class="

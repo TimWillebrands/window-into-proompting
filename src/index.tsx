@@ -289,7 +289,7 @@ app.post("/party/:id/prompt", async (c) => {
             user.id,
         model,
         id,
-        personaId,
+        personaId === "none" ? null : personaId,
     );
 
     return c.text("Proompt accepted", 202);
