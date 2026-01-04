@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
-import { OpenAI } from "@posthog/ai";
 import {
     type SQLSchemaMigration,
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
 import type { Persona, PersonaMetadata } from "@/components/personas";
+import { createLLMProvider } from "@/providers/factory";
+import type { LLMProvider } from "@/providers/types";
 import { Generation, type MessageWithSender } from "../services/generation";
 
 export type MessageType = {
@@ -39,7 +40,7 @@ const phClient = new PostHog(
 export class MyDurableObject extends DurableObject<CloudflareBindings> {
     private readonly generations = new Map<number, Generation>();
 
-    private readonly ai: OpenAI;
+    private readonly provider: LLMProvider;
     private readonly sql: SqlStorage;
     private readonly kv: KVNamespace;
 
@@ -87,15 +88,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
         super(ctx, env);
-        this.ai = new OpenAI({
-            baseURL: "https://openrouter.ai/api/v1",
-            apiKey: env.GEMINI_API_KEY,
-            defaultHeaders: {
-                "HTTP-Referer": "https://proompting.party", // Optional. Site URL for rankings on openrouter.ai.
-                "X-Title": "Proompting Party", // Optional. Site title for rankings on openrouter.ai.
-            },
-            posthog: phClient,
-        });
+        this.provider = createLLMProvider(env, phClient);
         this.sql = ctx.storage.sql;
         this.kv = env.DESKTOP_DATA;
 
@@ -267,7 +260,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         messages: MessageWithSender[],
     ) {
         const generation = new Generation(
-            this.ai,
+            this.provider,
             messages,
             model,
             roomId,
@@ -295,7 +288,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 if (persona === undefined) {
                     throw new Error(
                         "Persona not found. This should never happen at this point since the " +
-                            "assertion happened in generation.ts",
+                        "assertion happened in generation.ts",
                     );
                 }
 

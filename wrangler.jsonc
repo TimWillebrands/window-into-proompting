@@ -6,7 +6,9 @@
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "proompting",
     "main": "src/index.tsx",
-    "compatibility_flags": ["nodejs_compat"],
+    "compatibility_flags": [
+        "nodejs_compat"
+    ],
     "compatibility_date": "2025-09-06",
     "assets": {
         "binding": "ASSETS",
@@ -26,7 +28,9 @@
     "migrations": [
         {
             "tag": "v1",
-            "new_sqlite_classes": ["MyDurableObject"],
+            "new_sqlite_classes": [
+                "MyDurableObject"
+            ],
         },
     ],
     "kv_namespaces": [
@@ -53,6 +57,8 @@
     "vars": {
         "PROD_ENV": "Production",
         "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ",
+        "LLM_PROVIDER": "openrouter",
+        "OLLAMA_BASE_URL": "http://127.0.0.1:11434"
     },
     /**
      * Note: Use secrets to store sensitive data.

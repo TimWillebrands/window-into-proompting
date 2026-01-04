@@ -16,7 +16,7 @@ import type {
     PartyInfoFull,
     SubscriptionMessage,
 } from "./durable_objects/party";
-import { loadFreeOpenRouterModels } from "./openRouter";
+import { createLLMProvider } from "./providers/factory";
 import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
@@ -75,25 +75,24 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                     })();
                 </script>
 
-                ${
-                    props.isProduction ? (
-                        <script
-                            async
-                            crossorigin="anonymous"
-                            data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
-                            src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                            type="text/javascript"
-                        ></script>
-                    ) : (
-                        <script
-                            async
-                            crossorigin="anonymous"
-                            data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
-                            src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                            type="text/javascript"
-                        ></script>
-                    )
-                }
+                ${props.isProduction ? (
+            <script
+                async
+                crossorigin="anonymous"
+                data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
+                src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                type="text/javascript"
+            ></script>
+        ) : (
+            <script
+                async
+                crossorigin="anonymous"
+                data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
+                src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                type="text/javascript"
+            ></script>
+        )
+        }
             </head>
             <body hx-ext="sse" >
                 ${props.children}
@@ -190,13 +189,14 @@ app.get("/party/:id", async (c) => {
 
     if (!party) return new Response("Party not found", { status: 404 });
 
-    var openRouter = await loadFreeOpenRouterModels();
+    const provider = createLLMProvider(c.env);
+    const models = await provider.getModels();
     var personas = await getAllPersonas(c.env);
 
     return c.html(
         <Party
             room={id}
-            openRouter={openRouter}
+            models={models}
             personaParticipants={personas}
         />,
     );
@@ -213,7 +213,7 @@ app.get("/party/:id/reset-participants", async (c) => {
 
     const participants =
         partyInfo.participants === undefined ||
-        partyInfo.participants.length === 0
+            partyInfo.participants.length === 0
             ? await getAllPersonas(c.env)
             : partyInfo.participants;
 
@@ -284,9 +284,9 @@ app.post("/party/:id/prompt", async (c) => {
     await party.sendPrompt(
         prompt,
         user.username ??
-            user.fullName ??
-            user.emailAddresses[0].emailAddress ??
-            user.id,
+        user.fullName ??
+        user.emailAddresses[0].emailAddress ??
+        user.id,
         model,
         id,
         personaId === "none" ? null : personaId,
@@ -321,9 +321,9 @@ app.post("/party/:id/proceed", async (c) => {
 
     await party.proceed(
         user.username ??
-            user.fullName ??
-            user.emailAddresses[0].emailAddress ??
-            user.id,
+        user.fullName ??
+        user.emailAddresses[0].emailAddress ??
+        user.id,
         personaId,
         model,
         id,
