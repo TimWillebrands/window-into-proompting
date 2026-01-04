@@ -5,7 +5,7 @@ import {
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
 import type { Persona, PersonaMetadata } from "@/components/personas";
-import { OpenRouterLLMProvider } from "@/providers/openRouter";
+import { createLLMProvider } from "@/providers/factory";
 import type { LLMProvider } from "@/providers/types";
 import { Generation, type MessageWithSender } from "../services/generation";
 
@@ -88,7 +88,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     constructor(ctx: DurableObjectState, env: CloudflareBindings) {
         // Required, as we're extending the base class.
         super(ctx, env);
-        this.provider = new OpenRouterLLMProvider(env.GEMINI_API_KEY, phClient);
+        this.provider = createLLMProvider(env, phClient);
         this.sql = ctx.storage.sql;
         this.kv = env.DESKTOP_DATA;
 

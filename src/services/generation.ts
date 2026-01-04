@@ -58,9 +58,7 @@ export class Generation {
     }
 
     async generate(personaOverride: Persona | null, userId: string) {
-        var { persona: respondent, overseerMsg } = await this.findRespondent(
-            userId,
-        );
+        var { persona: respondent, overseerMsg } = await this.findRespondent();
         var persona = personaOverride ?? respondent;
 
         console.log(
@@ -153,7 +151,7 @@ export class Generation {
         }
     }
 
-    private async findRespondent(userId: string) {
+    private async findRespondent() {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
@@ -175,13 +173,13 @@ export class Generation {
                      Provide a concise reason for your decision. Refer to the persona by their 'senderId'
                      attribute and communicate it as 'personaId' in the response. Also provide a short
                      instruction to the persona on how to engage in the conversation.
- 
+
                      The response should be a JSON object with the following properties:
                      - personaId: string
                      - reason: string
                      - instruction: string
                      - stop: boolean
- 
+
                      Example:
                      {
                          "personaId": "123",
@@ -253,6 +251,13 @@ export class Generation {
                 (p) => p.id === overseerMsg.personaId,
             );
 
+            if (!persona) {
+                console.warn(
+                    "Persona not found for overseer message",
+                    overseerMessageStr,
+                );
+            }
+
             return { persona, overseerMsg };
         } catch (error) {
             console.error(
@@ -274,25 +279,25 @@ export class Generation {
  what persona should be continuing the conversation or that the conversation
  is over. Provide a reason for your decision. Make sure to provide a persona
  ID in case of a follow-up.
- 
+
  If the conversation has reached it's end make sure the 'stop' property of the
  output is set to true. In all other cases set it to false.
- 
+
  # Participants
  This is a list of participants in the chat room. Each participant has a unique
  ID and a name. In the output you should refer to the participant by their ID.
- 
+
  ## Personas
  ${this.participants
-                .map(
-                    (p) => `
+     .map(
+         (p) => `
  ### ${p.name}
  **ID: ${p.id}**
- 
+
  ${p.systemPrompt}
  `,
-                )
-                .join("\n\n")}
+     )
+     .join("\n\n")}
  `;
     }
 

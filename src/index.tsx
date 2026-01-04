@@ -16,7 +16,7 @@ import type {
     PartyInfoFull,
     SubscriptionMessage,
 } from "./durable_objects/party";
-import { OpenRouterLLMProvider } from "./providers/openRouter";
+import { createLLMProvider } from "./providers/factory";
 import { addPersonaRoutes, getAllPersonas } from "./personaRoutes";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 import { Subscription } from "./subscription";
@@ -189,7 +189,7 @@ app.get("/party/:id", async (c) => {
 
     if (!party) return new Response("Party not found", { status: 404 });
 
-    const provider = new OpenRouterLLMProvider(c.env.GEMINI_API_KEY);
+    const provider = createLLMProvider(c.env);
     const models = await provider.getModels();
     var personas = await getAllPersonas(c.env);
 
