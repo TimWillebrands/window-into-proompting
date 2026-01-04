@@ -1,10 +1,10 @@
 import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
-import type { OpenRouterModelsResponse } from "@/openRouter";
+import type { LLMModel } from "@/providers/types";
 import type { PersonaMetadata } from "./personas";
 import { WindowContainer } from "./window";
 
 function ChatInput() {
-    const { room, openRouter } = useContext(PartyContext);
+    const { room, models } = useContext(PartyContext);
     return (
         <div class="p-2 border-t-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
             <div class="flex flex-col gap-2">
@@ -39,16 +39,16 @@ function ChatInput() {
                             class="flex-1"
                             hx-on:change="window.currentModel = event.target.value; analytics.trackModelSelected(event.target.value, 'dropdown')"
                         >
-                            {openRouter.models.map((model) => (
+                            {models.map((model) => (
                                 <option
                                     value={
-                                        model.endpoint.model_variant_permaslug
+                                        model.id
                                     }
-                                    selected={model.endpoint.model_variant_permaslug.includes(
+                                    selected={model.id.includes(
                                         "DeepSeek",
                                     )}
                                 >
-                                    {model.short_name}
+                                    {model.name}
                                 </option>
                             ))}
                         </select>
@@ -90,23 +90,23 @@ function StatusBar() {
 
 interface PartyProps {
     room: string;
-    openRouter: OpenRouterModelsResponse["data"];
+    models: LLMModel[];
     personaParticipants: PersonaMetadata[];
 }
 
 const PartyContext = createContext<PartyProps>({
     room: "",
-    openRouter: null as unknown as OpenRouterModelsResponse["data"],
+    models: [],
     personaParticipants: [],
 });
 
 /**
  * Container for a single party, which manages the layout and behavior of the party window.
  */
-export function Party({ room, openRouter, personaParticipants }: PartyProps) {
+export function Party({ room, models, personaParticipants }: PartyProps) {
     return (
         <PartyContext.Provider
-            value={{ room, openRouter, personaParticipants }}
+            value={{ room, models, personaParticipants }}
         >
             <div x-data={`{ room: "${room}" }`}>
                 <WindowContainer

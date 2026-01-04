@@ -1,8 +1,8 @@
-import type { OpenAI } from "@posthog/ai";
 import { JSONRepairError, jsonrepair } from "jsonrepair";
 import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Persona } from "@/components/personas";
 import type { MessageType } from "../durable_objects/party";
+import type { LLMProvider } from "../providers/types";
 
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
@@ -12,127 +12,21 @@ export type PartyGeneration =
     | { type: "error"; data: string }
     | { type: "persona"; data: string };
 
-type CompletionCreateParams = Parameters<
-    OpenAI["chat"]["completions"]["create"]
->["0"];
-
-async function* promptLlm(
-    ai: OpenAI,
-    messages: ChatCompletionMessageParam[],
-    model: string,
-    userId: string,
-    roomId: string,
-    personaId: string,
-    responseFormat?: CompletionCreateParams["response_format"],
-    reasoningEffort?: CompletionCreateParams["reasoning_effort"],
-): AsyncGenerator<PartyGeneration> {
-    const controller = new AbortController();
-    const timeout = 5000;
-    let watchdog: NodeJS.Timeout | undefined;
-    let timedout = false;
-
-    function resetWatchdog() {
-        if (watchdog) clearTimeout(watchdog);
-        if (timedout) return;
-        watchdog = setTimeout(() => {
-            timedout = true;
-            console.warn("Generation timed out");
-            controller.abort();
-        }, timeout);
-    }
-
-    try {
-        const completion = await ai.chat.completions.create(
-            {
-                model: model,
-                messages: messages,
-                stream: true,
-                posthogDistinctId: userId,
-                posthogTraceId: roomId,
-                posthogProperties: { room_id: roomId },
-                posthogGroups: { room_id: roomId },
-                response_format: responseFormat,
-                reasoning_effort: reasoningEffort,
-            },
-            {
-                signal: controller.signal,
-            },
-        );
-
-        yield { type: "persona", data: personaId };
-        resetWatchdog();
-
-        for await (const chunk of completion) {
-            resetWatchdog();
-            if (
-                "reasoning" in chunk.choices[0].delta &&
-                typeof chunk.choices[0].delta.reasoning === "string"
-            ) {
-                yield {
-                    type: "reasoning",
-                    data: chunk.choices[0].delta.reasoning,
-                };
-            }
-            if (typeof chunk.choices[0].delta.content !== "string") {
-                continue;
-            }
-            if (chunk.choices[0].finish_reason) {
-                yield {
-                    type: "error",
-                    data: chunk.choices[0].finish_reason,
-                };
-                break;
-            }
-            yield { type: "message", data: chunk.choices[0].delta.content };
-        }
-    } catch (err: unknown) {
-        console.error("Oh no!", err);
-        if (narrowError(err)) {
-            if ("message" in err.error) {
-                yield { type: "error", data: `${err?.error?.message}\n` };
-            }
-            if (err?.error?.metadata?.raw) {
-                yield { type: "error", data: `${err?.error?.metadata?.raw}\n` };
-            }
-        }
-    } finally {
-        timedout = true;
-        clearTimeout(watchdog);
-    }
-}
-
-type GenError = {
-    metadata?: {
-        raw?: string;
-    };
-    message?: string;
-};
-
-function narrowError(err: unknown): err is { error: GenError } {
-    return (
-        typeof err === "object" &&
-        err !== null &&
-        "error" in err &&
-        err.error !== null &&
-        typeof err.error === "object"
-    );
-}
-
 const instruction = `<instruction>
-    You are a participant in a roleplaying game, you and others are
-    acting as colleagues in a team. The chat is happening in a corporate
-    slack channel.
-    You never acknowledge the game and completely assume your persona.
-    Don't output your response wrapped in an xml <message sender="-name-">
-    tag like you'll see in the input.
-</instruction>`;
+     You are a participant in a roleplaying game, you and others are
+     acting as colleagues in a team. The chat is happening in a corporate
+     slack channel.
+     You never acknowledge the game and completely assume your persona.
+     Don't output your response wrapped in an xml <message sender="-name-">
+     tag like you'll see in the input.
+ </instruction>`;
 
 export type MessageWithSender = MessageType & {
     senderName: string;
 };
 
 export class Generation {
-    private readonly ai: OpenAI;
+    private readonly provider: LLMProvider;
     private readonly history: MessageWithSender[];
     private readonly participants: Persona[];
     private readonly model: string;
@@ -144,13 +38,13 @@ export class Generation {
     private done = false;
 
     constructor(
-        ai: OpenAI,
+        provider: LLMProvider,
         history: MessageWithSender[],
         model: string,
         roomId: string,
         participants: Persona[],
     ) {
-        this.ai = ai;
+        this.provider = provider;
         this.history = history;
         this.participants = participants;
         this.model = model;
@@ -164,7 +58,9 @@ export class Generation {
     }
 
     async generate(personaOverride: Persona | null, userId: string) {
-        var { persona: respondent, overseerMsg } = await this.findRespondent();
+        var { persona: respondent, overseerMsg } = await this.findRespondent(
+            userId,
+        );
         var persona = personaOverride ?? respondent;
 
         console.log(
@@ -188,6 +84,10 @@ export class Generation {
         }
 
         this.pushPersonaChange(persona.id);
+        // Also notify observers about the persona - this was previously done in promptLlm
+        for (const observer of this.observers) {
+            observer(this.toEvent(persona.id, undefined, "persona"), false);
+        }
 
         const messages: ChatCompletionMessageParam[] = [
             {
@@ -213,14 +113,12 @@ export class Generation {
             // already have that in the history array. Thats why.
         ];
 
-        const data = promptLlm(
-            this.ai,
-            messages,
-            this.model,
-            userId,
-            this.roomId,
-            persona.id,
-        );
+        const data = this.provider.generate({
+            model: this.model,
+            messages: messages,
+            userId: userId,
+            roomId: this.roomId,
+        });
 
         console.log("[generate.ts] Started persona prompt generation");
 
@@ -255,7 +153,7 @@ export class Generation {
         }
     }
 
-    private async findRespondent() {
+    private async findRespondent(userId: string) {
         const messages: ChatCompletionMessageParam[] = [
             {
                 role: "system",
@@ -272,36 +170,34 @@ export class Generation {
             {
                 role: "user",
                 content: `Task: assign a persona as follow-up or decide that the conversation is over.
-                    Decide based on who is 'interesting' as a persona that has a high level of engagement
-                    or relevance to the conversation or as a fun twist to spice up the conversation.
-                    Provide a concise reason for your decision. Refer to the persona by their 'senderId'
-                    attribute and communicate it as 'personaId' in the response. Also provide a short
-                    instruction to the persona on how to engage in the conversation.
-
-                    The response should be a JSON object with the following properties:
-                    - personaId: string
-                    - reason: string
-                    - instruction: string
-                    - stop: boolean
-
-                    Example:
-                    {
-                        "personaId": "123",
-                        "reason": "Their sudden interest in this conversation would be hillariously ironic and interesting.",
-                        "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
-                        "stop": false
-                    }
-                    `,
+                     Decide based on who is 'interesting' as a persona that has a high level of engagement
+                     or relevance to the conversation or as a fun twist to spice up the conversation.
+                     Provide a concise reason for your decision. Refer to the persona by their 'senderId'
+                     attribute and communicate it as 'personaId' in the response. Also provide a short
+                     instruction to the persona on how to engage in the conversation.
+ 
+                     The response should be a JSON object with the following properties:
+                     - personaId: string
+                     - reason: string
+                     - instruction: string
+                     - stop: boolean
+ 
+                     Example:
+                     {
+                         "personaId": "123",
+                         "reason": "Their sudden interest in this conversation would be hillariously ironic and interesting.",
+                         "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
+                         "stop": false
+                     }
+                     `,
             },
         ];
-        const data = promptLlm(
-            this.ai,
-            messages,
-            this.model,
-            "overseer",
-            this.roomId,
-            "overseer",
-            {
+        const data = this.provider.generate({
+            model: this.model,
+            messages: messages,
+            userId: "overseer",
+            roomId: this.roomId,
+            responseFormat: {
                 type: "json_schema",
                 json_schema: {
                     name: "overseer",
@@ -331,8 +227,9 @@ export class Generation {
                     },
                 },
             },
-            "minimal",
-        );
+            // Note: reasoning_effort is not yet supported in the common interface,
+            // but we can add it if needed. For now assuming "minimal" is handled or ignored.
+        });
 
         let overseerMessageStr = "";
 
@@ -373,30 +270,30 @@ export class Generation {
     // us the best response.
     private get overseerPrompt() {
         return `# Instruction
-You are the director of a chat room roleplay. Your task is to decide
-what persona should be continuing the conversation or that the conversation
-is over. Provide a reason for your decision. Make sure to provide a persona
-ID in case of a follow-up.
-
-If the conversation has reached it's end make sure the 'stop' property of the
-output is set to true. In all other cases set it to false.
-
-# Participants
-This is a list of participants in the chat room. Each participant has a unique
-ID and a name. In the output you should refer to the participant by their ID.
-
-## Personas
-${this.participants
-    .map(
-        (p) => `
-### ${p.name}
-**ID: ${p.id}**
-
-${p.systemPrompt}
-`,
-    )
-    .join("\n\n")}
-`;
+ You are the director of a chat room roleplay. Your task is to decide
+ what persona should be continuing the conversation or that the conversation
+ is over. Provide a reason for your decision. Make sure to provide a persona
+ ID in case of a follow-up.
+ 
+ If the conversation has reached it's end make sure the 'stop' property of the
+ output is set to true. In all other cases set it to false.
+ 
+ # Participants
+ This is a list of participants in the chat room. Each participant has a unique
+ ID and a name. In the output you should refer to the participant by their ID.
+ 
+ ## Personas
+ ${this.participants
+                .map(
+                    (p) => `
+ ### ${p.name}
+ **ID: ${p.id}**
+ 
+ ${p.systemPrompt}
+ `,
+                )
+                .join("\n\n")}
+ `;
     }
 
     private toEvent(
