@@ -14,6 +14,7 @@
         "durable-utils": "^0.3.5",
         "eventsource-parser": "^3.0.6",
         "hono": "^4.9.6",
+        "jsonrepair": "^3.13.1",
         "openai": "^5.23.0",
         "posthog-node": "^5.11.2",
         "streaming-markdown-component": "^0.1.5"
