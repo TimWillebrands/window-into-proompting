@@ -1,8 +1,8 @@
 import type { OpenAI } from "@posthog/ai";
+import { JSONRepairError, jsonrepair } from "jsonrepair";
 import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Persona } from "@/components/personas";
 import type { MessageType } from "../durable_objects/party";
-import { cleanJsonString } from "./cleanJson";
 
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
@@ -261,7 +261,7 @@ export class Generation {
                 role: "system",
                 content: this.overseerPrompt,
             },
-            ...this.history.map(
+            ...this.history.slice(-3).map(
                 (message) =>
                     ({
                         role: "user",
@@ -348,7 +348,7 @@ export class Generation {
 
         try {
             console.log("Overseer Message:", overseerMessageStr);
-            overseerMessageStr = cleanJsonString(overseerMessageStr);
+            overseerMessageStr = jsonrepair(overseerMessageStr);
             const overseerMsg = JSON.parse(
                 overseerMessageStr,
             ) as OverseerOutput;

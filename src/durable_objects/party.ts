@@ -186,6 +186,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         model: string,
         roomId: string,
     ) {
+        console.log("Proceed!", senderId, personaId, model, roomId);
         // generate a message-stub for the model.
         const newMessageId = this.sql
             .exec<{ messageid: number }>(
@@ -194,12 +195,14 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 RETURNING messageid`,
                 null,
                 "assistant",
-                personaId,
+                personaId ?? "__IN_PROGRESS",
             )
             .one().messageid;
 
+        console.log("New message ID:", newMessageId);
         const messages = await this.getMessagesUntil(newMessageId);
 
+        console.log("Messages#", messages.length);
         const personaData = await this.tryGetPersona(personaId);
 
         await this.initiateGeneration(
@@ -210,6 +213,8 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
             senderId,
             messages,
         );
+
+        console.log("Initiated!");
 
         for (const socket of this.ctx.getWebSockets()) {
             socket.send(
@@ -309,7 +314,17 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                         cursor,
                     );
 
-                    this.proceed(persona.id, null, model, roomId);
+                    this.proceed(persona.id, null, model, roomId).catch(
+                        (error) => {
+                            console.error(
+                                "Error follow-up proceed generation",
+                                error,
+                                personaData,
+                                newMessageId,
+                                senderId,
+                            );
+                        },
+                    );
                 } catch (error) {
                     console.error(
                         "Error saving generation",
