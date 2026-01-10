@@ -1,7 +1,7 @@
 import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
 import type { LLMModel } from "@/providers/types";
-import type { PersonaMetadata } from "./personas";
-import { WindowContainer } from "./window";
+import type { PersonaMetadata } from "../persona-management/personas";
+import { WindowContainer } from "../desktop/window";
 
 function ChatInput() {
     const { room, models } = useContext(PartyContext);

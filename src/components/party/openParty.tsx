@@ -1,4 +1,4 @@
-import { WindowContainer } from "./window";
+import { WindowContainer } from "../desktop/window";
 
 export type Party = {
     id: string;

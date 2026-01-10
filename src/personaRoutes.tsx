@@ -10,7 +10,7 @@ import {
     Personas,
     PersonasList,
     PersonaTemplateMenu,
-} from "./components/personas";
+} from "./components/persona-management/personas";
 
 // Helper function to get all personas
 export async function getAllPersonas(

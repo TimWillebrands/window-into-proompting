@@ -9,10 +9,12 @@ function ChatMessage({
     id,
     message,
     roomId,
+    personaName,
 }: {
     message: MessageType;
     id: string;
     roomId: string;
+    personaName?: string;
 }) {
     const isUser = message.senderType === "user";
 
@@ -25,6 +27,7 @@ function ChatMessage({
             <MessageHeader
                 messageId={message.messageid}
                 personaId={!isUser ? message.senderId : undefined}
+                personaName={personaName}
                 sendAt={message.sendAt}
                 roomId={roomId}
             />
@@ -40,11 +43,13 @@ export function MessageHeader({
     roomId,
     sendAt,
     messageId,
+    personaName,
 }: {
     personaId?: string;
     roomId: string;
     sendAt?: number;
     messageId: string | number;
+    personaName?: string;
 }) {
     const date = sendAt ? new Date(sendAt) : new Date();
     const timestamp = date.toLocaleString(undefined, {
@@ -58,7 +63,11 @@ export function MessageHeader({
             {!personaId ? (
                 "👤 You"
             ) : (
-                <ChatPersonaAvatar personaId={personaId} roomId={roomId} />
+                <ChatPersonaAvatar
+                    personaId={personaId}
+                    personaName={personaName}
+                    roomId={roomId}
+                />
             )}
             <span className="float-right font-normal text-xs text-gray-500">
                 {timestamp}
@@ -82,9 +91,11 @@ export function MessageHeader({
 export function Message({
     message,
     roomId,
+    personaName,
 }: {
     message: MessageType | number;
     roomId: string;
+    personaName?: string;
 }) {
     if (typeof message === "object") {
         // Static message display
@@ -93,6 +104,7 @@ export function Message({
                 id={`message_${message.messageid}_${roomId}`}
                 message={message}
                 roomId={roomId}
+                personaName={personaName}
             />
         );
     }
@@ -161,10 +173,12 @@ export function Message({
 
 export function ChatPersonaAvatar({
     personaId,
+    personaName,
     roomId,
     attrs,
 }: {
     personaId: string;
+    personaName?: string;
     roomId: string;
     attrs?: Record<string, string>;
 }) {
@@ -175,15 +189,19 @@ export function ChatPersonaAvatar({
                 alt="avatar"
             />
             &nbsp;
-            <span
-                hx-get={`/personas/${personaId}/avatar`}
-                hx-trigger="load"
-                hx-target="this"
-                hx-swap="outerHTML"
-                hx-params="none"
-            >
-                {personaId}
-            </span>
+            {personaName ? (
+                <span>{personaName}</span>
+            ) : (
+                <span
+                    hx-get={`/personas/${personaId}/avatar`}
+                    hx-trigger="load"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    hx-params="none"
+                >
+                    {personaId}
+                </span>
+            )}
         </div>
     );
 }

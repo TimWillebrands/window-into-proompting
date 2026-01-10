@@ -1,5 +1,5 @@
 import { defaultPersonas } from "@/defaultPersonas";
-import { WindowContainer } from "./window";
+import { WindowContainer } from "../desktop/window";
 
 export type PersonaMetadata = {
     id: string;

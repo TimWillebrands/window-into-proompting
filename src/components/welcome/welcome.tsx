@@ -1,4 +1,4 @@
-import { WindowContainer } from "./window";
+import { WindowContainer } from "../desktop/window";
 import { defaultPersonas } from "@/defaultPersonas";
 
 export function Welcome() {

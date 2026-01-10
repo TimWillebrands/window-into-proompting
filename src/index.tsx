@@ -6,11 +6,12 @@ import { env } from "hono/adapter";
 import { html } from "hono/html";
 import type { PropsWithChildren } from "hono/jsx";
 import { streamSSE } from "hono/streaming";
-import { Desktop } from "./components/desktop";
-import { Message, MessageHeader } from "./components/message";
-import { OpenParty, type Party as PartyType } from "./components/openParty";
-import { Party } from "./components/party";
-import { Welcome } from "./components/welcome";
+import { Desktop } from "./components/desktop/desktop";
+import { Message, MessageHeader } from "./components/party/message";
+import { OpenParty, type Party as PartyType } from "./components/party/openParty";
+import { Party } from "./components/party/party";
+import { Welcome } from "./components/welcome/welcome";
+import type { Persona } from "./components/persona-management/personas";
 import type {
     PartyInfo,
     PartyInfoFull,
@@ -359,7 +360,15 @@ app.get("/party/:id/messages", async (c) => {
             });
         }, 5_000);
 
+        // Start fetching personas immediately, but don't await yet
+        const personasPromise = getAllPersonas(c.env);
+
+        // Start subscription immediately to catch "join" message
         const subscription = new Subscription<SubscriptionMessage>(socket);
+
+        // Now await the personas
+        const personas = await personasPromise;
+        const personaMap = new Map(personas.map((p) => [p.id, p.name]));
 
         for await (const message of subscription.messages()) {
             console.log("subscription message received", message.type);
@@ -369,7 +378,14 @@ app.get("/party/:id/messages", async (c) => {
                         data: (
                             <>
                                 {message.messages.map((message) => (
-                                    <Message roomId={id} message={message} />
+                                    <Message
+                                        roomId={id}
+                                        message={message}
+                                        personaName={
+                                            personaMap.get(message.senderId) ??
+                                            undefined
+                                        }
+                                    />
                                 ))}
                             </>
                         ),
@@ -378,7 +394,16 @@ app.get("/party/:id/messages", async (c) => {
                     break;
                 case "message":
                     await stream.writeSSE({
-                        data: <Message roomId={id} message={message.message} />,
+                        data: (
+                            <Message
+                                roomId={id}
+                                message={message.message}
+                                personaName={
+                                    personaMap.get(message.message.senderId) ??
+                                    undefined
+                                }
+                            />
+                        ),
                         event: "message",
                     });
                     break;
@@ -448,6 +473,14 @@ app.get("/party/:id/messages/:messageid", async (c) => {
                                 roomId={id}
                                 sendAt={new Date().getUTCMilliseconds()}
                                 messageId={messageid}
+                                personaName={
+                                    (
+                                        await c.env.DESKTOP_DATA.get<Persona>(
+                                            `persona:${personaId}`,
+                                            { type: "json" },
+                                        )
+                                    )?.name
+                                }
                             />
                         ),
                         event: value.event,

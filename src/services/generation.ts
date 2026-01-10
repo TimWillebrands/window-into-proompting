@@ -1,6 +1,6 @@
 import { JSONRepairError, jsonrepair } from "jsonrepair";
 import type { ChatCompletionMessageParam } from "openai/resources";
-import type { Persona } from "@/components/personas";
+import type { Persona } from "@/components/persona-management/personas";
 import type { MessageType } from "../durable_objects/party";
 import type { LLMProvider } from "../providers/types";
 
@@ -289,15 +289,15 @@ export class Generation {
 
  ## Personas
  ${this.participants
-     .map(
-         (p) => `
+                .map(
+                    (p) => `
  ### ${p.name}
  **ID: ${p.id}**
 
  ${p.systemPrompt}
  `,
-     )
-     .join("\n\n")}
+                )
+                .join("\n\n")}
  `;
     }
 

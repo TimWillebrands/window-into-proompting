@@ -4,7 +4,7 @@ import {
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
-import type { Persona, PersonaMetadata } from "@/components/personas";
+import type { Persona, PersonaMetadata } from "@/components/persona-management/personas";
 import { createLLMProvider } from "@/providers/factory";
 import type { LLMProvider } from "@/providers/types";
 import { Generation, type MessageWithSender } from "../services/generation";
