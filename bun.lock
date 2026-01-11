@@ -7,6 +7,12 @@
         "@clerk/backend": "^2.20.0",
         "@hono/clerk-auth": "^3.0.3",
         "@posthog/ai": "^7.1.0",
+        "@proompting/backend": "workspace:*",
+        "@proompting/core": "workspace:*",
+        "@proompting/desktop": "workspace:*",
+        "@proompting/party": "workspace:*",
+        "@proompting/persona": "workspace:*",
+        "@proompting/welcome": "workspace:*",
         "durable-utils": "^0.3.5",
         "eventsource-parser": "^3.0.6",
         "hono": "^4.9.6",
@@ -21,6 +27,65 @@
         "concurrently": "^9.2.1",
         "tailwindcss": "^4.1.13",
         "wrangler": "^4.34.0",
+      },
+    },
+    "packages/backend": {
+      "name": "@proompting/backend",
+      "version": "0.0.1",
+      "dependencies": {
+        "@posthog/ai": "^7.1.0",
+        "@proompting/core": "workspace:*",
+        "durable-utils": "^0.3.5",
+        "openai": "^5.23.0",
+        "posthog-node": "^5.11.2",
+      },
+    },
+    "packages/core": {
+      "name": "@proompting/core",
+      "version": "0.0.1",
+    },
+    "packages/desktop": {
+      "name": "@proompting/desktop",
+      "version": "0.0.1",
+      "dependencies": {
+        "@proompting/core": "workspace:*",
+      },
+      "peerDependencies": {
+        "hono": "^4.9.6",
+      },
+    },
+    "packages/party": {
+      "name": "@proompting/party",
+      "version": "0.0.1",
+      "dependencies": {
+        "@proompting/backend": "workspace:*",
+        "@proompting/core": "workspace:*",
+        "@proompting/desktop": "workspace:*",
+      },
+      "peerDependencies": {
+        "hono": "^4.9.6",
+      },
+    },
+    "packages/persona": {
+      "name": "@proompting/persona",
+      "version": "0.0.1",
+      "dependencies": {
+        "@proompting/core": "workspace:*",
+        "@proompting/desktop": "workspace:*",
+      },
+      "peerDependencies": {
+        "hono": "^4.9.6",
+      },
+    },
+    "packages/welcome": {
+      "name": "@proompting/welcome",
+      "version": "0.0.1",
+      "dependencies": {
+        "@proompting/core": "workspace:*",
+        "@proompting/desktop": "workspace:*",
+      },
+      "peerDependencies": {
+        "hono": "^4.9.6",
       },
     },
   },
@@ -200,6 +265,18 @@
     "@posthog/ai": ["@posthog/ai@7.1.0", "", { "dependencies": { "@ai-sdk/provider": "^2.0.0", "@anthropic-ai/sdk": "^0.67.0", "@google/genai": "^1.29.0", "@langchain/core": "^1.0.0", "ai": "^5.0.87", "langchain": "^1.0.0", "openai": "^6.8.1", "uuid": "^11.0.5", "zod": "^4.1.8" }, "peerDependencies": { "posthog-node": "^5.0.0" } }, "sha512-NAvezUr+q+arS+CbjaVJuwfQAruJShOupgSjNtKbD7JtRMGo/nnD3AQZP5xCN/sIHtFuMGMQdb9w6yFMTMhuPA=="],
 
     "@posthog/core": ["@posthog/core@1.5.2", "", { "dependencies": { "cross-spawn": "^7.0.6" } }, "sha512-iedUP3EnOPPxTA2VaIrsrd29lSZnUV+ZrMnvY56timRVeZAXoYCkmjfIs3KBAsF8OUT5h1GXLSkoQdrV0r31OQ=="],
+
+    "@proompting/backend": ["@proompting/backend@workspace:packages/backend"],
+
+    "@proompting/core": ["@proompting/core@workspace:packages/core"],
+
+    "@proompting/desktop": ["@proompting/desktop@workspace:packages/desktop"],
+
+    "@proompting/party": ["@proompting/party@workspace:packages/party"],
+
+    "@proompting/persona": ["@proompting/persona@workspace:packages/persona"],
+
+    "@proompting/welcome": ["@proompting/welcome@workspace:packages/welcome"],
 
     "@sindresorhus/is": ["@sindresorhus/is@7.0.2", "", {}, "sha512-d9xRovfKNz1SKieM0qJdO+PQonjnnIfSNWfHYnBSJ9hkjm0ZPw6HlxscDXYstp3z+7V2GOFHc+J0CYrYTjqCJw=="],
 

@@ -5,12 +5,64 @@
         "moduleResolution": "Bundler",
         "strict": true,
         "skipLibCheck": true,
-        "lib": ["ESNext"],
+        "lib": [
+            "ESNext"
+        ],
         "jsx": "react-jsx",
         "jsxImportSource": "hono/jsx",
-        "types": ["./worker-configuration.d.ts", "bun"],
+        "types": [
+            "./worker-configuration.d.ts",
+            "bun"
+        ],
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": [
+                "./src/*"
+            ],
+            "@proompting/core": [
+                "./packages/core/src/index.ts"
+            ],
+            "@proompting/core/*": [
+                "./packages/core/src/*"
+            ],
+            "@proompting/backend": [
+                "./packages/backend/src/index.ts"
+            ],
+            "@proompting/desktop": [
+                "./packages/desktop/src/index.ts"
+            ],
+            "@proompting/party": [
+                "./packages/party/src/index.ts"
+            ],
+            "@proompting/persona": [
+                "./packages/persona/src/index.ts"
+            ],
+            "@proompting/welcome": [
+                "./packages/welcome/src/index.ts"
+            ]
         }
-    }
+    },
+    "include": [
+        "src/**/*",
+        "packages/**/*"
+    ],
+    "references": [
+        {
+            "path": "./packages/core"
+        },
+        {
+            "path": "./packages/backend"
+        },
+        {
+            "path": "./packages/desktop"
+        },
+        {
+            "path": "./packages/party"
+        },
+        {
+            "path": "./packages/persona"
+        },
+        {
+            "path": "./packages/welcome"
+        }
+    ]
 }

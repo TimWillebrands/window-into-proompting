@@ -1,0 +1,14 @@
+{
+    "name": "@proompting/party",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "./src/index.ts",
+    "dependencies": {
+        "@proompting/core": "workspace:*",
+        "@proompting/backend": "workspace:*",
+        "@proompting/desktop": "workspace:*"
+    },
+    "peerDependencies": {
+        "hono": "^4.9.6"
+    }
+}
