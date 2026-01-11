@@ -32,7 +32,32 @@ function ChatMessage({
                 roomId={roomId}
             />
             <div className="leading-relaxed text-sm">
+                {message.reasoning && (
+                    <details>
+                        <summary>Reasoning</summary>
+                        <div class="window">
+                            <div class="title-bar">
+                                <div class="title-bar-text">Reasoning</div>
+                            </div>
+                            <div class="window-body">
+                                <streaming-md class="reason-content text-sm">
+                                    {message.reasoning}
+                                </streaming-md>
+                            </div>
+                        </div>
+                    </details>
+                )}
                 <streaming-md id="md">{message.message}</streaming-md>
+                {message.overseer && (
+                    <details className="mt-2">
+                        <summary className="text-xs text-gray-500 cursor-pointer">
+                            Director's Cut
+                        </summary>
+                        <div class="p-2 bg-gray-50 rounded text-xs text-gray-600 font-mono whitespace-pre-wrap border border-gray-200">
+                            {message.overseer}
+                        </div>
+                    </details>
+                )}
             </div>
         </div>
     );
@@ -59,28 +84,50 @@ export function MessageHeader({
         minute: "2-digit",
     });
     return (
-        <div class="font-bold mb-2 text-gray-800 text-sm">
-            {!personaId ? (
-                "👤 You"
-            ) : (
-                <ChatPersonaAvatar
-                    personaId={personaId}
-                    personaName={personaName}
-                    roomId={roomId}
-                />
-            )}
-            <span className="float-right font-normal text-xs text-gray-500">
-                {timestamp}
-            </span>
-            <button
-                type="button"
-                class="float-right w-2"
-                hx-delete={`/party/${roomId}/messages/${messageId}`}
-                hx-target="closest .message"
-                hx-swap="delete"
-            >
-                🗑
-            </button>
+        <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-gray-200">
+            <div class="flex items-center gap-2 font-bold text-gray-800 text-sm min-w-0 flex-1">
+                {!personaId ? (
+                    <span class="flex items-center gap-1">
+                        <span class="text-base">👤</span>
+                        <span>You</span>
+                    </span>
+                ) : (
+                    <ChatPersonaAvatar
+                        personaId={personaId}
+                        personaName={personaName}
+                        roomId={roomId}
+                    />
+                )}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="font-normal text-xs text-gray-500 hidden sm:inline">
+                    {timestamp}
+                </span>
+                <div class="flex items-center gap-1">
+                    <button
+                        type="button"
+                        class="w-6 h-6 min-w-6! flex items-center justify-center rounded hover:bg-blue-100 transition-colors text-sm opacity-60 hover:opacity-100"
+                        title="Re-prompt from here"
+                        hx-post={`/party/${roomId}/reprompt/${messageId}`}
+                        hx-include="[name='model'], [name='personaId']"
+                        hx-swap="none"
+                        hx-trigger="click"
+                        hx-confirm="Reset conversation from this message and regenerate?"
+                    >
+                        🔄
+                    </button>
+                    <button
+                        type="button"
+                        class="w-6 h-6 min-w-6! flex items-center justify-center rounded hover:bg-red-100 transition-colors text-sm opacity-60 hover:opacity-100"
+                        title="Delete message"
+                        hx-delete={`/party/${roomId}/messages/${messageId}`}
+                        hx-target="closest .message"
+                        hx-swap="delete"
+                    >
+                        🗑️
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

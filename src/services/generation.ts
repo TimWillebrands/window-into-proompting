@@ -35,6 +35,7 @@ export class Generation {
     private readonly textEncoder = new TextEncoder();
 
     private message = "";
+    private reasoning = "";
     private done = false;
 
     constructor(
@@ -123,6 +124,8 @@ export class Generation {
         for await (const value of data) {
             if (value.type === "message") {
                 this.message += value.data;
+            } else if (value.type === "reasoning") {
+                this.reasoning += value.data;
             }
             const chunk = this.toEvent(value.data, undefined, value.type);
             for (const observer of this.observers) {
@@ -132,6 +135,8 @@ export class Generation {
 
         return {
             message: this.message,
+            reasoning: this.reasoning,
+            overseer: overseerMsg,
             persona: persona,
             stop: false,
         };

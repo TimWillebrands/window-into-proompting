@@ -523,6 +523,49 @@ app.delete("/party/:id/messages/:messageid", async (c) => {
     return party.deleteMessage(messageid);
 });
 
+app.post("/party/:id/reprompt/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const messageid = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
+
+    const body = await c.req.formData();
+    const model = body.get("model");
+    const personaId = body.get("personaId");
+
+    if (typeof model !== "string") {
+        return new Response("Invalid model", { status: 400 });
+    }
+
+    const party = c.env.MY_DURABLE_OBJECT.getByName(id);
+
+    // Delete all messages after this one
+    await party.deleteMessagesAfter(messageid);
+
+    // Trigger a new generation from this point
+    const user = await clerkClient(c).users.getUser(auth.userId);
+    await party.proceed(
+        user.username ??
+        user.fullName ??
+        user.emailAddresses[0].emailAddress ??
+        user.id,
+        personaId === "none" ? null : personaId?.toString() ?? null,
+        model,
+        id,
+    );
+
+    return c.text("Re-prompt initiated", 202);
+});
+
 addPersonaRoutes(app);
 
 export default app;

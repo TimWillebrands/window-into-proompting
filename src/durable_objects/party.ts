@@ -12,6 +12,8 @@ import { Generation, type MessageWithSender } from "../services/generation";
 export type MessageType = {
     messageid: number;
     message?: string;
+    reasoning?: string;
+    overseer?: string;
     senderType: string;
     senderId: string;
     sendAt?: number;
@@ -270,7 +272,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         // Fire and forget the generation
         generation.generate(personaData, senderId).then(
-            async ({ message, persona, stop }) => {
+            async ({ message, persona, stop, reasoning, overseer }) => {
                 console.log(
                     `[Party.ts->initiateGeneration] generation finished. stop: ${stop}, messageId: ${newMessageId}, weHazPerzona: ${persona === undefined}`,
                 );
@@ -294,8 +296,10 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
                 try {
                     const cursor = this.sql.exec(
-                        `UPDATE messages SET message = ?, sendAt = ?, senderId = ? WHERE messageid = ?`,
+                        `UPDATE messages SET message = ?, reasoning = ?, overseer = ?, sendAt = ?, senderId = ? WHERE messageid = ?`,
                         message,
+                        reasoning,
+                        JSON.stringify(overseer, undefined, 2),
                         new Date().toISOString(),
                         persona.id,
                         newMessageId,
@@ -444,6 +448,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         return new Response();
     }
 
+    async deleteMessagesAfter(messageId: number) {
+        this.sql.exec(`DELETE FROM messages WHERE messageid > ?`, [messageId]);
+
+        return new Response();
+    }
+
     async downloadMessages(): Promise<
         (MessageType & { senderName: string })[]
     > {
@@ -490,6 +500,17 @@ const Migrations: SQLSchemaMigration[] = [
 
             ALTER TABLE messages
             ADD COLUMN senderId VARCHAR(127) NOT NULL DEFAULT '0000-0000';
+        `,
+    },
+    {
+        idMonotonicInc: 4,
+        description: "add checking and overseer columns to messages",
+        sql: `
+            ALTER TABLE messages
+            ADD COLUMN reasoning TEXT;
+
+            ALTER TABLE messages
+            ADD COLUMN overseer TEXT;
         `,
     },
 ];
