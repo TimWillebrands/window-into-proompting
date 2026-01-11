@@ -2,7 +2,7 @@
     "name": "@proompting/welcome",
     "version": "0.0.1",
     "type": "module",
-    "main": "./src/index.ts",
+    "main": "./src/index.tsx",
     "dependencies": {
         "@proompting/core": "workspace:*",
         "@proompting/desktop": "workspace:*"

@@ -77,7 +77,7 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
 app.use("*", clerkMiddleware());
 
 // Proxy PostHog requests
-app.all(PROXY_PATH, createPostHogProxy());
+app.route(PROXY_PATH, createPostHogProxy());
 
 // Mount sub-apps
 app.route("/party", partyApp);
@@ -86,7 +86,7 @@ app.route("/welcome", welcomeApp);
 
 // Main route
 app.get("/", (c) => {
-    const isProduction = c.env.ENVIRONMENT === "production";
+    const isProduction = c.env.PROD_ENV === "Production";
     return c.html(
         <Layout title="Proompt.party" isProduction={isProduction}>
             <Desktop />

@@ -141,14 +141,14 @@ app.get("/:id/messages/raw", async (c) => {
     if (responseType === "text/html") {
         return c.html(
             <ul>
-                {messages.map((msg) => (
+                {(messages as any).map((msg: any) => (
                     <li key={msg.messageid}>{msg.message}</li>
                 ))}
             </ul>,
         );
     }
 
-    return c.json(messages);
+    return c.json(messages as any);
 });
 
 // Prompt

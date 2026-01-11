@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "hono/jsx";
 
-type WindowProps = {
+export type WindowProps = {
     id?: string;
     title: string;
     url?: string;

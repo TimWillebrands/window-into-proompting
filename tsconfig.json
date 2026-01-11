@@ -31,38 +31,17 @@
                 "./packages/desktop/src/index.ts"
             ],
             "@proompting/party": [
-                "./packages/party/src/index.ts"
+                "./packages/party/src/index.tsx"
             ],
             "@proompting/persona": [
-                "./packages/persona/src/index.ts"
+                "./packages/persona/src/index.tsx"
             ],
             "@proompting/welcome": [
-                "./packages/welcome/src/index.ts"
+                "./packages/welcome/src/index.tsx"
             ]
         }
     },
     "include": [
-        "src/**/*",
-        "packages/**/*"
-    ],
-    "references": [
-        {
-            "path": "./packages/core"
-        },
-        {
-            "path": "./packages/backend"
-        },
-        {
-            "path": "./packages/desktop"
-        },
-        {
-            "path": "./packages/party"
-        },
-        {
-            "path": "./packages/persona"
-        },
-        {
-            "path": "./packages/welcome"
-        }
+        "src/**/*"
     ]
 }

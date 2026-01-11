@@ -1,6 +1,7 @@
 import type { PersonaMetadata } from "./persona";
 
 export interface MessageType {
+    [key: string]: any;
     messageid: number;
     message?: string;
     reasoning?: string;
