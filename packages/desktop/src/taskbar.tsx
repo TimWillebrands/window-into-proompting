@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "hono/jsx";
 
-export function Taskbar({ children }: PropsWithChildren<unknown>) {
+export function Taskbar(_props: PropsWithChildren<unknown>) {
     return (
         <section
             id="taskbar"

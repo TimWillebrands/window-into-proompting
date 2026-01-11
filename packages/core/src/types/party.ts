@@ -1,15 +1,15 @@
 import type { PersonaMetadata } from "./persona";
 
 export interface MessageType {
-    [key: string]: any;
+    [key: string]: ArrayBuffer | string | number | null;
     messageid: number;
-    message?: string;
-    reasoning?: string;
-    overseer?: string;
+    message: string | null;
+    reasoning: string | null;
+    overseer: string | null;
     senderType: string;
     senderId: string;
-    sendAt?: number;
-    modelEndpointStub?: string;
+    sendAt: number | null;
+    modelEndpointStub: string | null;
 }
 
 export type SubscriptionMessage =

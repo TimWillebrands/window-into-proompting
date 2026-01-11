@@ -28,7 +28,7 @@ function ChatMessage({
                 messageId={message.messageid}
                 personaId={!isUser ? message.senderId : undefined}
                 personaName={personaName}
-                sendAt={message.sendAt}
+                sendAt={message.sendAt ?? undefined}
                 roomId={roomId}
             />
             <div className="leading-relaxed text-sm">
@@ -95,7 +95,6 @@ export function MessageHeader({
                     <ChatPersonaAvatar
                         personaId={personaId}
                         personaName={personaName}
-                        roomId={roomId}
                     />
                 )}
             </div>
@@ -221,12 +220,10 @@ export function Message({
 export function ChatPersonaAvatar({
     personaId,
     personaName,
-    roomId,
     attrs,
 }: {
     personaId: string;
     personaName?: string;
-    roomId: string;
     attrs?: Record<string, string>;
 }) {
     return (

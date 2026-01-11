@@ -5,7 +5,7 @@ import { OpenRouterLLMProvider } from "./openRouter";
 
 export function createLLMProvider(
     env: Cloudflare.Env,
-    phClient?: PostHog,
+    phClient: PostHog,
 ): LLMProvider {
     if (env.LLM_PROVIDER === "ollama") {
         return new OllamaLLMProvider(env.OLLAMA_BASE_URL, phClient);

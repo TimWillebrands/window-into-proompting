@@ -153,10 +153,14 @@ export function Welcome() {
                                     personality. Here's an example:
                                 </p>
                                 <div className="field-row-stacked">
-                                    <label className="font-bold text-xs">
+                                    <label
+                                        className="font-bold text-xs"
+                                        htmlFor="example-system-prompt"
+                                    >
                                         SYSTEM PROMPT
                                     </label>
                                     <textarea
+                                        id="example-system-prompt"
                                         rows={4}
                                         className="text-xs"
                                         readonly

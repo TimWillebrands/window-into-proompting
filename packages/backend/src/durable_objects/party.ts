@@ -271,7 +271,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 if (persona === undefined) {
                     throw new Error(
                         "Persona not found. This should never happen at this point since the " +
-                            "assertion happened in generation.ts",
+                        "assertion happened in generation.ts",
                     );
                 }
 

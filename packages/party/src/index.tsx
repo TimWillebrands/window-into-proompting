@@ -16,8 +16,14 @@ import { streamSSE } from "hono/streaming";
 import { Message } from "./components/message";
 import { OpenParty } from "./components/openParty";
 import { Party } from "./components/party";
+import { PostHog } from "posthog-node";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
+
+const phClient = new PostHog(
+    "phc_f44OvBqb7P19kNmbDBXlNy4UH8pdoiJcUVKZJ1aN950",
+    { host: "https://eu.i.posthog.com" },
+);
 
 // List parties
 app.get("/", async (c) => {
@@ -88,7 +94,7 @@ app.get("/:id", async (c) => {
 
     if (!party) return new Response("Party not found", { status: 404 });
 
-    const provider = createLLMProvider(c.env);
+    const provider = createLLMProvider(c.env, phClient);
     const models = await provider.getModels();
     var personas = await getAllPersonas(c.env);
 
@@ -109,7 +115,7 @@ app.get("/:id/reset-participants", async (c) => {
 
     const participants =
         partyInfo.participants === undefined ||
-        partyInfo.participants.length === 0
+            partyInfo.participants.length === 0
             ? await getAllPersonas(c.env)
             : partyInfo.participants;
 
@@ -138,14 +144,14 @@ app.get("/:id/messages/raw", async (c) => {
     if (responseType === "text/html") {
         return c.html(
             <ul>
-                {(messages as any).map((msg: any) => (
+                {messages.map((msg) => (
                     <li key={msg.messageid}>{msg.message}</li>
                 ))}
             </ul>,
         );
     }
 
-    return c.json(messages as any);
+    return c.json(messages);
 });
 
 // Prompt
@@ -176,9 +182,9 @@ app.post("/:id/prompt", async (c) => {
     await party.sendPrompt(
         prompt,
         user.username ??
-            user.fullName ??
-            user.emailAddresses[0].emailAddress ??
-            user.id,
+        user.fullName ??
+        user.emailAddresses[0].emailAddress ??
+        user.id,
         model,
         id,
         personaId === "none" ? null : personaId,
@@ -211,9 +217,9 @@ app.post("/:id/proceed", async (c) => {
 
     await party.proceed(
         user.username ??
-            user.fullName ??
-            user.emailAddresses[0].emailAddress ??
-            user.id,
+        user.fullName ??
+        user.emailAddresses[0].emailAddress ??
+        user.id,
         personaId,
         model,
         id,
@@ -312,7 +318,11 @@ app.get("/:id/messages/:msgId", async (c) => {
         }),
     );
 
-    return c.body(response.body as any, {
+    if (response.body === null) {
+        return c.body("Not Found", { status: 404 });
+    }
+
+    return c.body(response.body, {
         headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",

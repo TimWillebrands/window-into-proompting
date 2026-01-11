@@ -6,12 +6,13 @@ import type {
     LLMProvider,
 } from "@proompting/core/types";
 import { loadFreeOpenRouterModels } from "./openRouterApi";
+import { PostHog } from "posthog-node";
 
 export class OpenRouterLLMProvider implements LLMProvider {
     id = "openrouter";
     private ai: OpenAI;
 
-    constructor(apiKey: string, posthogClient?: any) {
+    constructor(apiKey: string, posthogClient: PostHog) {
         this.ai = new OpenAI({
             baseURL: "https://openrouter.ai/api/v1",
             apiKey: apiKey,

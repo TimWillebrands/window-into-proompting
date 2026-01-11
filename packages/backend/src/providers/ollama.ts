@@ -5,12 +5,13 @@ import type {
     LLMModel,
     LLMProvider,
 } from "@proompting/core/types";
+import { PostHog } from "posthog-node";
 
 export class OllamaLLMProvider implements LLMProvider {
     id = "ollama";
     private ai: OpenAI;
 
-    constructor(baseUrl: string, posthogClient?: any) {
+    constructor(baseUrl: string, posthogClient: PostHog) {
         this.ai = new OpenAI({
             baseURL: `${baseUrl}/v1`,
             apiKey: "ollama", // Required but ignored by Ollama
