@@ -1,5 +1,5 @@
-import type { ChatCompletionMessageParam } from "openai/resources";
 import type { OpenAI } from "@posthog/ai";
+import type { ChatCompletionMessageParam } from "openai/resources";
 
 export interface LLMModel {
     id: string;
@@ -15,7 +15,9 @@ export type LLMGenerationParams = {
     userId?: string;
     roomId?: string;
     temperature?: number;
-    responseFormat?: Parameters<OpenAI['chat']['completions']['create']>[0]['response_format'];
+    responseFormat?: Parameters<
+        OpenAI["chat"]["completions"]["create"]
+    >[0]["response_format"];
 };
 
 export type LLMGenerationEvent =
@@ -27,7 +29,5 @@ export type LLMGenerationEvent =
 export interface LLMProvider {
     id: string;
     getModels(): Promise<LLMModel[]>;
-    generate(
-        params: LLMGenerationParams,
-    ): AsyncGenerator<LLMGenerationEvent>;
+    generate(params: LLMGenerationParams): AsyncGenerator<LLMGenerationEvent>;
 }

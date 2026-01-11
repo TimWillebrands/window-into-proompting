@@ -1,18 +1,18 @@
 import { getAuth } from "@hono/clerk-auth";
-import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import {
-    Subscription,
-    type PartyInfo,
-    type PartyInfoFull,
-    type SubscriptionMessage,
-    type Party as PartyType
-} from "@proompting/core";
-import {
+    clerkClient,
     createLLMProvider,
     getAllPersonas,
-    clerkClient
 } from "@proompting/backend";
+import {
+    type PartyInfo,
+    type PartyInfoFull,
+    type Party as PartyType,
+    Subscription,
+    type SubscriptionMessage,
+} from "@proompting/core";
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { Message } from "./components/message";
 import { OpenParty } from "./components/openParty";
 import { Party } from "./components/party";
@@ -93,11 +93,7 @@ app.get("/:id", async (c) => {
     var personas = await getAllPersonas(c.env);
 
     return c.html(
-        <Party
-            room={id}
-            models={models}
-            personaParticipants={personas}
-        />,
+        <Party room={id} models={models} personaParticipants={personas} />,
     );
 });
 
@@ -113,7 +109,7 @@ app.get("/:id/reset-participants", async (c) => {
 
     const participants =
         partyInfo.participants === undefined ||
-            partyInfo.participants.length === 0
+        partyInfo.participants.length === 0
             ? await getAllPersonas(c.env)
             : partyInfo.participants;
 
@@ -124,7 +120,8 @@ app.get("/:id/reset-participants", async (c) => {
     await desktopData.put(`party:${id}`, JSON.stringify(partyInfo));
 
     const partyInfoStrFin = await desktopData.get(`party:${id}`);
-    if (!partyInfoStrFin) return new Response("Party not found", { status: 404 });
+    if (!partyInfoStrFin)
+        return new Response("Party not found", { status: 404 });
 
     const partyInfoFin = JSON.parse(partyInfoStrFin) as PartyInfoFull;
     return c.json(partyInfoFin);
@@ -167,18 +164,21 @@ app.post("/:id/prompt", async (c) => {
     const model = body.get("model");
     const personaId = body.get("personaId");
 
-    if (typeof prompt !== "string") return new Response("Invalid prompt", { status: 400 });
-    if (typeof model !== "string") return new Response("Invalid model", { status: 400 });
-    if (typeof personaId !== "string") return new Response("Invalid persona", { status: 400 });
+    if (typeof prompt !== "string")
+        return new Response("Invalid prompt", { status: 400 });
+    if (typeof model !== "string")
+        return new Response("Invalid model", { status: 400 });
+    if (typeof personaId !== "string")
+        return new Response("Invalid persona", { status: 400 });
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
     await party.sendPrompt(
         prompt,
         user.username ??
-        user.fullName ??
-        user.emailAddresses[0].emailAddress ??
-        user.id,
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
         model,
         id,
         personaId === "none" ? null : personaId,
@@ -202,16 +202,18 @@ app.post("/:id/proceed", async (c) => {
     const model = body.get("model");
     const personaId = c.req.query("personaId");
 
-    if (typeof model !== "string") return new Response("Invalid model", { status: 400 });
-    if (typeof personaId !== "string") return new Response("Invalid persona", { status: 400 });
+    if (typeof model !== "string")
+        return new Response("Invalid model", { status: 400 });
+    if (typeof personaId !== "string")
+        return new Response("Invalid persona", { status: 400 });
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
     await party.proceed(
         user.username ??
-        user.fullName ??
-        user.emailAddresses[0].emailAddress ??
-        user.id,
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
         personaId,
         model,
         id,
@@ -243,30 +245,30 @@ app.get("/:id/messages", async (c) => {
         const keepAlive = setInterval(() => {
             stream.writeSSE({
                 event: "keepalive",
-                data: performance.now() - startTime + "ms",
+                data: `${performance.now() - startTime}ms`,
             });
         }, 5_000);
 
         const personasPromise = getAllPersonas(c.env);
         const subscription = new Subscription<SubscriptionMessage>(socket);
         const personas = await personasPromise;
-        const personaMap = new Map<string, string>(personas.map((p) => [p.id, p.name]));
+        const personaMap = new Map<string, string>(
+            personas.map((p) => [p.id, p.name]),
+        );
 
         for await (const message of subscription.messages()) {
             switch (message.type) {
                 case "join":
                     await stream.writeSSE({
-                        data: (
-                            <>
-                                {message.messages.map((msg) => (
-                                    <Message
-                                        roomId={id}
-                                        message={msg}
-                                        personaName={personaMap.get(msg.senderId)}
-                                    />
-                                ))}
-                            </>
-                        ).toString(),
+                        data: message.messages
+                            .map((msg) => (
+                                <Message
+                                    roomId={id}
+                                    message={msg}
+                                    personaName={personaMap.get(msg.senderId)}
+                                />
+                            ))
+                            .toString(),
                         event: "message",
                     });
                     break;
@@ -276,7 +278,9 @@ app.get("/:id/messages", async (c) => {
                             <Message
                                 roomId={id}
                                 message={message.message}
-                                personaName={personaMap.get(message.message.senderId)}
+                                personaName={personaMap.get(
+                                    message.message.senderId,
+                                )}
                             />
                         ).toString(),
                         event: "message",
@@ -285,10 +289,7 @@ app.get("/:id/messages", async (c) => {
                 case "messageStream":
                     await stream.writeSSE({
                         data: (
-                            <Message
-                                roomId={id}
-                                message={message.messageId}
-                            />
+                            <Message roomId={id} message={message.messageId} />
                         ).toString(),
                         event: "message",
                     });

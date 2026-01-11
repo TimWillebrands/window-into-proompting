@@ -5,9 +5,7 @@
         "moduleResolution": "Bundler",
         "strict": true,
         "skipLibCheck": true,
-        "lib": [
-            "ESNext"
-        ],
+        "lib": ["ESNext"],
         "jsx": "react-jsx",
         "jsxImportSource": "hono/jsx",
         "declaration": true,
@@ -16,9 +14,7 @@
         "outDir": "./dist",
         "rootDir": "./src"
     },
-    "include": [
-        "src/**/*"
-    ],
+    "include": ["src/**/*"],
     "references": [
         {
             "path": "../core"

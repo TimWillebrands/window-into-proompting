@@ -1,4 +1,5 @@
 // @proompting/core - Shared types and utilities
-export * from "./types";
-export { Subscription } from "./subscription";
+
 export { defaultPersonas } from "./defaultPersonas";
+export { Subscription } from "./subscription";
+export * from "./types";

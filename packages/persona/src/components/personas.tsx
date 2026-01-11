@@ -1,4 +1,8 @@
-import { defaultPersonas, type PersonaMetadata, type Persona } from "@proompting/core";
+import {
+    defaultPersonas,
+    type Persona,
+    type PersonaMetadata,
+} from "@proompting/core";
 import { WindowContainer } from "@proompting/desktop";
 
 // Component for just the personas list content (for OOB swaps)

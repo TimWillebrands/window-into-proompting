@@ -6,38 +6,34 @@
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "proompting",
     "main": "src/index.tsx",
-    "compatibility_flags": [
-        "nodejs_compat"
-    ],
+    "compatibility_flags": ["nodejs_compat"],
     "compatibility_date": "2025-09-06",
     "assets": {
         "binding": "ASSETS",
-        "directory": "./public",
+        "directory": "./public"
     },
     "observability": {
-        "enabled": true,
+        "enabled": true
     },
     "durable_objects": {
         "bindings": [
             {
                 "name": "MY_DURABLE_OBJECT",
-                "class_name": "MyDurableObject",
-            },
-        ],
+                "class_name": "MyDurableObject"
+            }
+        ]
     },
     "migrations": [
         {
             "tag": "v1",
-            "new_sqlite_classes": [
-                "MyDurableObject"
-            ],
-        },
+            "new_sqlite_classes": ["MyDurableObject"]
+        }
     ],
     "kv_namespaces": [
         {
             "binding": "DESKTOP_DATA",
-            "id": "95ba1e7160b148d2b20870605b5f2313",
-        },
+            "id": "95ba1e7160b148d2b20870605b5f2313"
+        }
     ],
     /**
      * Smart Placement
@@ -59,7 +55,7 @@
         "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ",
         "LLM_PROVIDER": "openrouter",
         "OLLAMA_BASE_URL": "http://127.0.0.1:11434"
-    },
+    }
     /**
      * Note: Use secrets to store sensitive data.
      * https://developers.cloudflare.com/workers/configuration/secrets/

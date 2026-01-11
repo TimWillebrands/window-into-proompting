@@ -1,7 +1,7 @@
-import { PostHog } from "posthog-node";
+import type { LLMProvider } from "@proompting/core/types";
+import type { PostHog } from "posthog-node";
 import { OllamaLLMProvider } from "./ollama";
 import { OpenRouterLLMProvider } from "./openRouter";
-import type { LLMProvider } from "@proompting/core/types";
 
 export function createLLMProvider(
     env: Cloudflare.Env,

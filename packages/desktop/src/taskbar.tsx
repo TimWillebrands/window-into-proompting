@@ -24,8 +24,14 @@ export function Taskbar({ children }: PropsWithChildren<unknown>) {
                         x-bind:title="w.title"
                         style="font-family: 'Tahoma', 'MS Sans Serif', sans-serif;"
                     >
-                        <span className="text-sm flex-shrink-0" x-text="(w.title.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u) || ['📄'])[0]"></span>
-                        <span className="truncate font-medium" x-text="w.title.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim()"></span>
+                        <span
+                            className="text-sm flex-shrink-0"
+                            x-text="(w.title.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u) || ['📄'])[0]"
+                        ></span>
+                        <span
+                            className="truncate font-medium"
+                            x-text="w.title.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim()"
+                        ></span>
                     </button>
                 </template>
             </div>
@@ -64,7 +70,10 @@ function UserButton() {
             x-on:click="if(Clerk.isSignedIn) { Clerk.openUserProfile() } else { Clerk.openSignIn() }"
         >
             <span className="text-sm">👤</span>
-            <span className="max-w-[100px] truncate" x-text="(user && (user.firstName || user.fullName)) || 'user'"></span>
+            <span
+                className="max-w-[100px] truncate"
+                x-text="(user && (user.firstName || user.fullName)) || 'user'"
+            ></span>
         </button>
     );
 }
@@ -83,21 +92,21 @@ function SystemTray() {
                 x-text="dbg ? '🐞' : '📈'"
             ></span>
             <div className="flex items-center gap-2 text-white text-[11px] font-medium">
-                <span 
-                    className="bg-purple-600/60 px-1.5 py-0.5 rounded border border-purple-800/70 shadow-sm" 
+                <span
+                    className="bg-purple-600/60 px-1.5 py-0.5 rounded border border-purple-800/70 shadow-sm"
                     title="Session duration"
                     style="text-shadow: 0 1px 1px rgba(0,0,0,0.3);"
                     x-text="Math.floor((analytics?.getSessionDuration?.()||0)/60000) + 'm'"
                 ></span>
-                <span 
-                    className="bg-emerald-600/60 px-1.5 py-0.5 rounded border border-emerald-800/70 max-w-[60px] truncate shadow-sm" 
+                <span
+                    className="bg-emerald-600/60 px-1.5 py-0.5 rounded border border-emerald-800/70 max-w-[60px] truncate shadow-sm"
                     title="Current model"
                     style="text-shadow: 0 1px 1px rgba(0,0,0,0.3);"
                     x-text="window.currentModel || 'auto'"
                 ></span>
             </div>
             <div className="border-l border-cyan-900 pl-2 h-5 flex items-center">
-                <span 
+                <span
                     className="font-mono text-[11px] text-white font-semibold bg-cyan-800/40 px-2 py-0.5 rounded border border-cyan-900/60 shadow-sm"
                     style="text-shadow: 0 1px 1px rgba(0,0,0,0.3);"
                 >

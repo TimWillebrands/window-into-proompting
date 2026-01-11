@@ -12,7 +12,10 @@ export function createPostHogProxy() {
     // Handle static assets with caching
     posthogProxy.get("/static/*", async (c) => {
         const url = new URL(c.req.url);
-        const upstreamPath = url.pathname.replace(new RegExp(`^${PROXY_PATH}`), "");
+        const upstreamPath = url.pathname.replace(
+            new RegExp(`^${PROXY_PATH}`),
+            "",
+        );
         const pathWithParams = upstreamPath + url.search;
 
         let response = await caches.default.match(c.req.raw);
@@ -28,12 +31,18 @@ export function createPostHogProxy() {
     // Forward all other requests to PostHog API
     posthogProxy.all("*", async (c) => {
         const url = new URL(c.req.url);
-        const upstreamPath = url.pathname.replace(new RegExp(`^${PROXY_PATH}`), "");
+        const upstreamPath = url.pathname.replace(
+            new RegExp(`^${PROXY_PATH}`),
+            "",
+        );
         const pathWithParams = upstreamPath + url.search;
 
         const originRequest = new Request(c.req.raw);
         originRequest.headers.delete("cookie");
-        return await fetch(`${POSTHOG_API_HOST}${pathWithParams}`, originRequest);
+        return await fetch(
+            `${POSTHOG_API_HOST}${pathWithParams}`,
+            originRequest,
+        );
     });
 
     return posthogProxy;

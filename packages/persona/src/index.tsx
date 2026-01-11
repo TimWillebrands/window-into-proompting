@@ -1,4 +1,6 @@
 import { getAuth } from "@hono/clerk-auth";
+import { getAllPersonas } from "@proompting/backend";
+import type { Persona } from "@proompting/core";
 import { Hono } from "hono";
 import {
     MissingPersona,
@@ -9,8 +11,6 @@ import {
     PersonasList,
     PersonaTemplateMenu,
 } from "./components/personas";
-import { getAllPersonas } from "@proompting/backend";
-import type { Persona, PersonaMetadata } from "@proompting/core";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
 
@@ -40,10 +40,9 @@ app.get("/blank", async (c) => {
 // Persona edit form
 app.get("/:id", async (c) => {
     const id = c.req.param("id");
-    const personaData = await c.env.DESKTOP_DATA.get<Persona>(
-        `persona:${id}`,
-        { type: "json" },
-    );
+    const personaData = await c.env.DESKTOP_DATA.get<Persona>(`persona:${id}`, {
+        type: "json",
+    });
 
     return personaData !== null
         ? c.html(<PersonaForm persona={personaData} />)
@@ -52,13 +51,11 @@ app.get("/:id", async (c) => {
 
 app.get("/:id/avatar", async (c) => {
     const id = c.req.param("id");
-    const personaData = await c.env.DESKTOP_DATA.get<Persona>(
-        `persona:${id}`,
-        { type: "json" },
-    );
+    const personaData = await c.env.DESKTOP_DATA.get<Persona>(`persona:${id}`, {
+        type: "json",
+    });
 
-    const name =
-        personaData === null ? `Unknown (${id})` : personaData.name;
+    const name = personaData === null ? `Unknown (${id})` : personaData.name;
 
     return c.html(<span>{name}</span>, 200, {
         "Cache-Control": "max-age=600",

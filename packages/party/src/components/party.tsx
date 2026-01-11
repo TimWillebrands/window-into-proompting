@@ -1,6 +1,6 @@
-import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
 import type { LLMModel, PersonaMetadata } from "@proompting/core/types";
 import { WindowContainer } from "@proompting/desktop";
+import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
 
 function ChatInput() {
     const { room, models } = useContext(PartyContext);
@@ -40,12 +40,8 @@ function ChatInput() {
                         >
                             {models.map((model) => (
                                 <option
-                                    value={
-                                        model.id
-                                    }
-                                    selected={model.id.includes(
-                                        "DeepSeek",
-                                    )}
+                                    value={model.id}
+                                    selected={model.id.includes("DeepSeek")}
                                 >
                                     {model.name}
                                 </option>
@@ -104,9 +100,7 @@ const PartyContext = createContext<PartyProps>({
  */
 export function Party({ room, models, personaParticipants }: PartyProps) {
     return (
-        <PartyContext.Provider
-            value={{ room, models, personaParticipants }}
-        >
+        <PartyContext.Provider value={{ room, models, personaParticipants }}>
             <div x-data={`{ room: "${room}" }`}>
                 <WindowContainer
                     id={room}

@@ -1,17 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
+import type {
+    LLMProvider,
+    MessageType,
+    PartyInfoFull,
+    Persona,
+    PersonaMetadata,
+    SubscriptionMessage,
+} from "@proompting/core/types";
 import {
     type SQLSchemaMigration,
     SQLSchemaMigrations,
 } from "durable-utils/sql-migrations";
 import { PostHog } from "posthog-node";
-import type {
-    Persona,
-    PersonaMetadata,
-    MessageType,
-    SubscriptionMessage,
-    PartyInfoFull,
-    LLMProvider,
-} from "@proompting/core/types";
 import { createLLMProvider } from "../providers";
 import { Generation, type MessageWithSender } from "../services";
 
@@ -271,7 +271,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 if (persona === undefined) {
                     throw new Error(
                         "Persona not found. This should never happen at this point since the " +
-                        "assertion happened in generation.ts",
+                            "assertion happened in generation.ts",
                     );
                 }
 

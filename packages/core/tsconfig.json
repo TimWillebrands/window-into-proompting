@@ -5,16 +5,12 @@
         "moduleResolution": "Bundler",
         "strict": true,
         "skipLibCheck": true,
-        "lib": [
-            "ESNext"
-        ],
+        "lib": ["ESNext"],
         "declaration": true,
         "declarationMap": true,
         "composite": true,
         "outDir": "./dist",
         "rootDir": "./src"
     },
-    "include": [
-        "src/**/*"
-    ]
+    "include": ["src/**/*"]
 }

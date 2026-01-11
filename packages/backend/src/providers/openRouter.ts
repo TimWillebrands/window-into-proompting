@@ -1,11 +1,11 @@
 import { OpenAI } from "@posthog/ai";
-import { loadFreeOpenRouterModels } from "./openRouterApi";
 import type {
     LLMGenerationEvent,
     LLMGenerationParams,
     LLMModel,
     LLMProvider,
 } from "@proompting/core/types";
+import { loadFreeOpenRouterModels } from "./openRouterApi";
 
 export class OpenRouterLLMProvider implements LLMProvider {
     id = "openrouter";

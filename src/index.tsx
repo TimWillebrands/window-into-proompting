@@ -1,11 +1,11 @@
 import { clerkMiddleware } from "@hono/clerk-auth";
-import { Hono } from "hono";
-import { html } from "hono/html";
-import type { PropsWithChildren } from "hono/jsx";
 import { Desktop } from "@proompting/desktop";
 import partyApp from "@proompting/party";
 import personaApp from "@proompting/persona";
 import welcomeApp from "@proompting/welcome";
+import { Hono } from "hono";
+import { html } from "hono/html";
+import type { PropsWithChildren } from "hono/jsx";
 import { createPostHogProxy, PROXY_PATH } from "./posthog";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
@@ -50,24 +50,25 @@ const Layout = (props: PropsWithChildren<SiteData>) =>
                     })();
                 </script>
 
-                ${props.isProduction ? (
-            <script
-                async
-                crossorigin="anonymous"
-                data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
-                src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                type="text/javascript"
-            ></script>
-        ) : (
-            <script
-                async
-                crossorigin="anonymous"
-                data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
-                src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-                type="text/javascript"
-            ></script>
-        )
-        }
+                ${
+                    props.isProduction ? (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ"
+                            src="https://clerk.proompting.party/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    ) : (
+                        <script
+                            async
+                            crossorigin="anonymous"
+                            data-clerk-publishable-key="pk_test_aGFwcHktYmVuZ2FsLTY2LmNsZXJrLmFjY291bnRzLmRldiQ"
+                            src="https://happy-bengal-66.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+                            type="text/javascript"
+                        ></script>
+                    )
+                }
             </head>
             <body hx-ext="sse" >
                 ${props.children}

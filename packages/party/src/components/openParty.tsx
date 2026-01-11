@@ -1,7 +1,11 @@
-import { WindowContainer } from "@proompting/desktop";
 import type { Party as PartyType } from "@proompting/core/types";
+import { WindowContainer } from "@proompting/desktop";
 
-export function OpenParty({ previousParties }: { previousParties: PartyType[] }) {
+export function OpenParty({
+    previousParties,
+}: {
+    previousParties: PartyType[];
+}) {
     return (
         <WindowContainer id="open-party" title="🎉 Party Chat" url="/party">
             <div className="window-body flex flex-col h-full">
@@ -26,7 +30,9 @@ export function OpenParty({ previousParties }: { previousParties: PartyType[] })
                             {previousParties.length === 0 ? (
                                 <div className="text-center text-gray-600 py-10 border-2 border-dashed border-gray-300 rounded-lg bg-white">
                                     <div className="text-3xl mb-3">🎈</div>
-                                    <div className="text-sm font-medium">No previous parties found</div>
+                                    <div className="text-sm font-medium">
+                                        No previous parties found
+                                    </div>
                                     <div className="text-xs text-gray-500 mt-2">
                                         Start your first party below!
                                     </div>
@@ -56,13 +62,19 @@ export function OpenParty({ previousParties }: { previousParties: PartyType[] })
                                                     <div className="text-xs text-gray-500 mt-1">
                                                         {party.lastActivity && (
                                                             <span>
-                                                                Last: {party.lastActivity}
+                                                                Last:{" "}
+                                                                {
+                                                                    party.lastActivity
+                                                                }
                                                             </span>
                                                         )}
                                                         {party.messageCount !==
                                                             undefined && (
                                                             <span className="ml-2">
-                                                                💬 {party.messageCount}
+                                                                💬{" "}
+                                                                {
+                                                                    party.messageCount
+                                                                }
                                                             </span>
                                                         )}
                                                     </div>
@@ -74,7 +86,9 @@ export function OpenParty({ previousParties }: { previousParties: PartyType[] })
                                                         stroke="currentColor"
                                                         viewBox="0 0 24 24"
                                                     >
-                                                        <title>Join party</title>
+                                                        <title>
+                                                            Join party
+                                                        </title>
                                                         <path
                                                             strokeLinecap="round"
                                                             strokeLinejoin="round"
@@ -192,7 +206,10 @@ export function OpenParty({ previousParties }: { previousParties: PartyType[] })
                 {/* Status Bar */}
                 <div className="status-bar">
                     <p className="status-bar-field">🟢 Ready</p>
-                    <p className="status-bar-field">{previousParties.length} previous part{previousParties.length !== 1 ? 'ies' : 'y'}</p>
+                    <p className="status-bar-field">
+                        {previousParties.length} previous part
+                        {previousParties.length !== 1 ? "ies" : "y"}
+                    </p>
                     <p className="status-bar-field">💬 Chat service online</p>
                 </div>
             </div>

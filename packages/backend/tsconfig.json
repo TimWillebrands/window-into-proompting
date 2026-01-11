@@ -5,21 +5,15 @@
         "moduleResolution": "Bundler",
         "strict": true,
         "skipLibCheck": true,
-        "lib": [
-            "ESNext"
-        ],
+        "lib": ["ESNext"],
         "declaration": true,
         "declarationMap": true,
         "composite": true,
         "outDir": "./dist",
         "rootDir": "./src",
-        "types": [
-            "../../worker-configuration.d.ts"
-        ]
+        "types": ["../../worker-configuration.d.ts"]
     },
-    "include": [
-        "src/**/*"
-    ],
+    "include": ["src/**/*"],
     "references": [
         {
             "path": "../core"

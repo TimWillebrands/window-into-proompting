@@ -1,6 +1,6 @@
-import { JSONRepairError, jsonrepair } from "jsonrepair";
+import type { LLMProvider, MessageType, Persona } from "@proompting/core/types";
+import { jsonrepair } from "jsonrepair";
 import type { ChatCompletionMessageParam } from "openai/resources";
-import type { Persona, MessageType, LLMProvider } from "@proompting/core/types";
 
 type Observer = (chunk: Uint8Array, done: boolean) => void;
 
@@ -292,15 +292,15 @@ export class Generation {
 
  ## Personas
  ${this.participants
-                .map(
-                    (p) => `
+     .map(
+         (p) => `
  ### ${p.name}
  **ID: ${p.id}**
 
  ${p.systemPrompt}
  `,
-                )
-                .join("\n\n")}
+     )
+     .join("\n\n")}
  `;
     }
 
