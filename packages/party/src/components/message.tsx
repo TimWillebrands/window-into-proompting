@@ -249,16 +249,18 @@ export function Message({
             sse-connect={`/party/${roomId}/messages/${message}`}
             sse-close="finished"
             x-init={`
-                $el.scrollIntoView();
-                const followUpPanel = document.getElementById('follow-up-panel');
-                if (followUpPanel) followUpPanel.innerHTML = '<div class="text-sm text-gray-500 p-2">Waiting for response...</div>';
-                $el.addEventListener('htmx:sseClose', () => {
-                    console.log('sse close!')
-                    $el.querySelectorAll('streaming-md').forEach(el => el.finish())
-                })`}
+                    $el.scrollIntoView();
+                    const followUpPanel = document.getElementById('follow-up-panel');
+                    if (followUpPanel) followUpPanel.innerHTML = '<div class="text-sm text-gray-500 p-2">Waiting for response...</div>';
+                    $el.addEventListener('htmx:sseClose', () => {
+                        console.log('sse close!')
+                        $el.querySelectorAll('streaming-md').forEach(el => el.finish())
+                        const thinkingEl = $el.querySelector('.thinking');
+                        if (thinkingEl && thinkingEl.interval) clearInterval(thinkingEl.interval);
+                    })`}
             {...{
                 "hx-on:htmx:after-swap":
-                    "if (event.target.getAttribute('sse-swap') === 'error') { this.querySelector('.thinking')?.remove(); }",
+                    "if (event.target.getAttribute('sse-swap') === 'error') { const thinkingEl = event.target.closest('.message').querySelector('.thinking'); if (thinkingEl && thinkingEl.interval) clearInterval(thinkingEl.interval); thinkingEl?.remove(); }",
             }}
             class={`message ${baseClasses} ${aiClasses}`}
         >
@@ -267,8 +269,8 @@ export function Message({
                 hx-target="this"
                 hx-swap="outerHTML"
                 className="thinking text-sm text-gray-600"
-                x-data="{time: 0}"
-                x-init="setInterval(() => time++, 1000)"
+                x-data="{time: 0, interval: null}"
+                x-init="$el.interval = setInterval(() => time++, 1000)"
             >
                 💭 Thinking <span x-text="time"> </span> seconds...
                 <progress></progress>

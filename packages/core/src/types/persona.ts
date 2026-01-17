@@ -6,4 +6,5 @@ export interface PersonaMetadata {
 
 export interface Persona extends PersonaMetadata {
     systemPrompt: string;
+    bio?: string;
 }

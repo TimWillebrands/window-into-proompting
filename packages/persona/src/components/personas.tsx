@@ -15,12 +15,13 @@ export function PersonasList({
 }) {
     return (
         <div
-            className="w-1/3 border-r border-gray-300 overflow-y-auto bg-gradient-to-b from-gray-50 to-white"
+            className="w-1/3 border-r border-gray-300 overflow-y-auto bg-gradient-to-b from-gray-50 to-white flex flex-col"
             id="personas-list"
             hx-swap-oob={hxSwapOob}
         >
-            <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">
                         Available Personas
                     </h3>
@@ -28,7 +29,33 @@ export function PersonasList({
                         {personas.length}
                     </span>
                 </div>
+                <div className="flex items-center space-x-2">
+                    <button
+                        type="button"
+                        className="flex-1 text-xs px-2 py-1.5 border border-gray-300 text-gray-700 rounded hover:bg-white hover:shadow-sm transition-colors"
+                        hx-get="/personas/templates"
+                        hx-target="#template-menu"
+                        hx-swap="innerHTML"
+                        hx-indicator="#persona-loading"
+                    >
+                        📋 Templates
+                    </button>
+                    <button
+                        type="button"
+                        className="flex-1 text-xs px-2 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        hx-post="/personas/new"
+                        hx-target="#persona-editor"
+                        hx-swap="innerHTML"
+                        hx-indicator="#persona-loading"
+                    >
+                        ➕ New
+                    </button>
+                </div>
+                <div id="template-menu" className="mt-2"></div>
+            </div>
 
+            {/* List Content */}
+            <div className="flex-1 p-4">
                 {personas.length === 0 ? (
                     <div className="text-gray-500 text-center py-10 border-2 border-dashed border-gray-300 rounded-lg bg-white">
                         <p className="text-sm font-medium">No personas yet.</p>
@@ -45,6 +72,7 @@ export function PersonasList({
                                 hx-get={`/personas/${persona.id}`}
                                 hx-target="#persona-editor"
                                 hx-swap="innerHTML"
+                                hx-indicator="#persona-loading"
                                 hx-on:click={`analytics.trackPersonaSelected('${persona.id}', '${persona.name}')`}
                             >
                                 <div className="flex items-center space-x-3">
@@ -94,68 +122,52 @@ export function Personas({ personas }: { personas: PersonaMetadata[] }) {
             title="👤 Persona Manager"
             url="/personas"
         >
-            <div className="window-body flex flex-col h-full">
-                {/* Header */}
-                <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-blue-900">
-                            📋 Persona Management
-                        </h2>
-                        <div className="flex items-center space-x-2">
-                            <button
-                                type="button"
-                                hx-get="/personas/templates"
-                                hx-target="#template-menu"
-                                hx-swap="innerHTML"
-                            >
-                                📋 Templates
-                            </button>
-                            <button
-                                type="button"
-                                hx-post="/personas/new"
-                                hx-target="#persona-editor"
-                                hx-swap="innerHTML"
-                            >
-                                ➕ New Persona
-                            </button>
-                        </div>
-                    </div>
-                    <div id="template-menu" className="mt-2"></div>
-                </div>
+            <div className="window-body flex h-full">
+                {/* Personas List with integrated header */}
+                <PersonasList personas={personas} />
 
-                <div className="flex h-full">
-                    {/* Personas List */}
-                    <PersonasList personas={personas} />
-
-                    {/* Persona Editor */}
+                {/* Persona Editor */}
+                <div
+                    className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50/30 relative"
+                    id="persona-editor"
+                >
+                    {/* Loading indicator */}
                     <div
-                        className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50/30"
-                        id="persona-editor"
+                        id="persona-loading"
+                        className="htmx-indicator absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10"
                     >
-                        <div className="p-8 h-full flex items-center justify-center">
-                            <div className="text-center text-gray-500">
-                                <div className="text-6xl mb-4">👤</div>
-                                <h3 className="text-xl font-semibold mb-2 text-gray-700">
-                                    Select a Persona
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                    Choose a persona from the list to edit its
-                                    details
-                                </p>
-                            </div>
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                            <p className="text-sm text-gray-600">
+                                Loading persona...
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Default state */}
+                    <div className="p-8 h-full flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                            <div className="text-6xl mb-4">👤</div>
+                            <h3 className="text-xl font-semibold mb-2 text-gray-700">
+                                Select a Persona
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                                Choose a persona from the list to edit its
+                                details
+                            </p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Status Bar */}
-                <div className="status-bar">
-                    <p className="status-bar-field">🟢 Ready</p>
-                    <p className="status-bar-field">
-                        {personas.length} persona
-                        {personas.length !== 1 ? "s" : ""}
-                    </p>
-                    <p className="status-bar-field">💾 Auto-saved</p>
-                </div>
+            {/* Status Bar */}
+            <div className="status-bar">
+                <p className="status-bar-field">🟢 Ready</p>
+                <p className="status-bar-field">
+                    {personas.length} persona
+                    {personas.length !== 1 ? "s" : ""}
+                </p>
+                <p className="status-bar-field">💾 Auto-saved</p>
             </div>
         </WindowContainer>
     );
@@ -207,6 +219,10 @@ export function PersonaForm({ persona }: { persona: Persona }) {
         .trim()
         .split(/\s+/)
         .filter((word) => word.length > 0).length;
+    const bioCount = (persona.bio ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter((word) => word.length > 0).length;
 
     return (
         <div className="p-6 h-full bg-gradient-to-br from-white to-blue-50/20 overflow-y-auto">
@@ -233,6 +249,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                     hx-put={`/personas/${persona.id}`}
                     hx-target="#persona-editor"
                     hx-swap="innerHTML"
+                    hx-indicator="#persona-loading"
                     className="space-y-5"
                 >
                     {/* Name Field */}
@@ -283,6 +300,45 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                         </p>
                     </div>
 
+                    {/* Bio Field */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label
+                                htmlFor="bio"
+                                className="block text-sm font-semibold text-gray-700"
+                            >
+                                Bio
+                            </label>
+                            <span className="text-xs text-white bg-emerald-600 px-2.5 py-1 rounded-full shadow-sm font-semibold">
+                                {bioCount} words
+                            </span>
+                        </div>
+                        <textarea
+                            id="bio"
+                            name="bio"
+                            rows={4}
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-y text-sm"
+                            placeholder="Short summary of this persona..."
+                        >
+                            {persona.bio ?? ""}
+                        </textarea>
+                        <div className="mt-2 flex items-center justify-between">
+                            <p className="text-xs text-gray-600">
+                                Use a concise summary for LLM context.
+                            </p>
+                            <button
+                                type="button"
+                                className="text-xs px-3 py-1.5 border border-emerald-300 text-emerald-700 rounded-full hover:bg-emerald-50"
+                                hx-post={`/personas/${persona.id}/generate-bio`}
+                                hx-target="#persona-editor"
+                                hx-swap="innerHTML"
+                                hx-indicator="#persona-loading"
+                            >
+                                Generate from prompt
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Action Buttons */}
                     <div className="flex items-center justify-between pt-4 border-t border-gray-300">
                         <div className="flex space-x-2">
@@ -291,6 +347,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                                 hx-delete={`/personas/${persona.id}`}
                                 hx-target="#persona-editor"
                                 hx-swap="innerHTML"
+                                hx-indicator="#persona-loading"
                                 hx-confirm="Are you sure you want to delete this persona? This action cannot be undone."
                             >
                                 🗑 Delete
@@ -300,6 +357,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                                 hx-post={`/personas/${persona.id}/duplicate`}
                                 hx-target="#persona-editor"
                                 hx-swap="innerHTML"
+                                hx-indicator="#persona-loading"
                             >
                                 📄 Duplicate
                             </button>
@@ -311,6 +369,7 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                                 hx-get="/personas/blank"
                                 hx-target="#persona-editor"
                                 hx-swap="innerHTML"
+                                hx-indicator="#persona-loading"
                             >
                                 Cancel
                             </button>
@@ -335,8 +394,13 @@ export function PersonaForm({ persona }: { persona: Persona }) {
                                 {persona.name}
                             </p>
                             <p className="text-xs text-gray-600 truncate">
-                                {persona.systemPrompt.slice(0, 100)}
-                                {persona.systemPrompt.length > 100 && "..."}
+                                {persona.bio?.trim()
+                                    ? persona.bio.slice(0, 100)
+                                    : persona.systemPrompt.slice(0, 100)}
+                                {(persona.bio?.trim()
+                                    ? persona.bio.length
+                                    : persona.systemPrompt.length) > 100 &&
+                                    "..."}
                             </p>
                         </div>
                         <div className="text-right">
@@ -382,6 +446,15 @@ export function PersonaBlank() {
                 <p className="text-sm text-gray-500">
                     Choose a persona from the list to edit its details
                 </p>
+                <button
+                    type="button"
+                    hx-get="/personas"
+                    hx-target="#Personas"
+                    hx-swap="outerHTML"
+                    hx-indicator="#persona-loading"
+                >
+                    ← Back to Personas
+                </button>
             </div>
         </div>
     );
@@ -407,6 +480,7 @@ export function MissingPersona({ personaId }: { personaId: string }) {
                     hx-get="/personas"
                     hx-target="#Personas"
                     hx-swap="outerHTML"
+                    hx-indicator="#persona-loading"
                 >
                     ← Back to Personas
                 </button>
@@ -431,6 +505,7 @@ export function PersonaDeleted() {
                     hx-get="/personas"
                     hx-target="#Personas"
                     hx-swap="outerHTML"
+                    hx-indicator="#persona-loading"
                 >
                     ← Back to Personas
                 </button>

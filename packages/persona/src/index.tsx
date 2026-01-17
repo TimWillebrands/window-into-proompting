@@ -1,5 +1,5 @@
 import { getAuth } from "@hono/clerk-auth";
-import { getAllPersonas } from "@proompting/backend";
+import { ensurePersonaBio, getAllPersonas } from "@proompting/backend";
 import type { Persona } from "@proompting/core";
 import { Hono } from "hono";
 import {
@@ -40,9 +40,7 @@ app.get("/blank", async (c) => {
 // Persona edit form
 app.get("/:id", async (c) => {
     const id = c.req.param("id");
-    const personaData = await c.env.DESKTOP_DATA.get<Persona>(`persona:${id}`, {
-        type: "json",
-    });
+    const personaData = await ensurePersonaBio(c.env, id);
 
     return personaData !== null
         ? c.html(<PersonaForm persona={personaData} />)
@@ -51,9 +49,7 @@ app.get("/:id", async (c) => {
 
 app.get("/:id/avatar", async (c) => {
     const id = c.req.param("id");
-    const personaData = await c.env.DESKTOP_DATA.get<Persona>(`persona:${id}`, {
-        type: "json",
-    });
+    const personaData = await ensurePersonaBio(c.env, id);
 
     const name = personaData === null ? `Unknown (${id})` : personaData.name;
 
@@ -79,6 +75,7 @@ app.post("/new", async (c) => {
         systemPrompt:
             body.get("systemPrompt")?.toString() ??
             "You are a helpful AI assistant.",
+        bio: body.get("bio")?.toString()?.trim() || undefined,
     };
 
     // Store with metadata for easy listing
@@ -128,12 +125,17 @@ app.put("/:id", async (c) => {
         return c.html(<MissingPersona personaId={id} />, 404);
     }
 
+    const bioValue = body.get("bio");
     const updatedPersona: Persona = {
         id,
         name: body.get("name")?.toString()?.trim() || existingPersona.name,
         systemPrompt:
             body.get("systemPrompt")?.toString()?.trim() ||
             existingPersona.systemPrompt,
+        bio:
+            bioValue === null
+                ? existingPersona.bio
+                : bioValue.toString().trim(),
     };
 
     // Validate inputs
@@ -164,6 +166,33 @@ app.put("/:id", async (c) => {
     return c.html(
         <>
             <PersonaForm persona={updatedPersona} />
+            <PersonasList
+                personas={personas}
+                hx-swap-oob="outerHTML:#personas-list"
+            />
+        </>,
+        200,
+    );
+});
+
+app.post("/:id/generate-bio", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
+    const id = c.req.param("id");
+    const personaData = await ensurePersonaBio(c.env, id, { force: true });
+
+    if (!personaData) {
+        return c.html(<MissingPersona personaId={id} />, 404);
+    }
+
+    const personas = await getAllPersonas(c.env);
+    return c.html(
+        <>
+            <PersonaForm persona={personaData} />
             <PersonasList
                 personas={personas}
                 hx-swap-oob="outerHTML:#personas-list"
@@ -215,9 +244,7 @@ app.delete("/:id", async (c) => {
 // Export persona as JSON
 app.get("/:id/export", async (c) => {
     const id = c.req.param("id");
-    const persona = await c.env.DESKTOP_DATA.get<Persona>(`persona:${id}`, {
-        type: "json",
-    });
+    const persona = await ensurePersonaBio(c.env, id);
 
     if (!persona) {
         return c.text("Persona not found", 404);
@@ -254,6 +281,7 @@ app.post("/:id/duplicate", async (c) => {
         id: newId,
         name: `${existingPersona.name} (Copy)`,
         systemPrompt: existingPersona.systemPrompt,
+        bio: existingPersona.bio,
     };
 
     try {

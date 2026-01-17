@@ -339,35 +339,36 @@ export class Generation {
         }
     }
 
+    private personaDetails(persona: Persona) {
+        return `
+### ${persona.name}
+<persona id="${persona.id}" name="${persona.name}">
+${persona.bio}
+</persona>
+`;
+    }
+
     //TODO: Currently we just dump all participants their systemprompt into this
     // badboy. Not only is this wasting context but I'm also not sure if this gets
     // us the best response.
     private get overseerPrompt() {
-        return `# Instruction
- You are the director of a chat room roleplay. Your task is to decide
- what persona should be continuing the conversation or that the conversation
- is over. Provide a reason for your decision. Make sure to provide a persona
- ID in case of a follow-up.
+        return `
+# Instruction
+You are the director of a chat room roleplay. Your task is to decide
+what persona should be continuing the conversation or that the conversation
+is over. Provide a reason for your decision. Make sure to provide a persona
+ID in case of a follow-up.
 
- If the conversation has reached it's end make sure the 'stop' property of the
- output is set to true. In all other cases set it to false.
+If the conversation has reached it's end make sure the 'stop' property of the
+output is set to true. In all other cases set it to false.
 
- # Participants
- This is a list of participants in the chat room. Each participant has a unique
- ID and a name. In the output you should refer to the participant by their ID.
+# Participants
+This is a list of participants in the chat room. Each participant has a unique
+ID and a name. In the output you should refer to the participant by their ID.
 
- ## Personas
- ${this.participants
-     .map(
-         (p) => `
- ### ${p.name}
- **ID: ${p.id}**
-
- ${p.systemPrompt}
- `,
-     )
-     .join("\n\n")}
- `;
+## Personas
+${this.participants.map(this.personaDetails).join("\n\n")}
+`;
     }
 
     private toEvent(
