@@ -20,14 +20,43 @@ export type EventType =
     | "userInstruction"
     | "finished";
 
-const instruction = `<instruction>
-     You are a participant in a roleplaying game, you and others are
-     acting as colleagues in a team. The chat is happening in a corporate
-     slack channel.
-     You never acknowledge the game and completely assume your persona.
-     Don't output your response wrapped in an xml <message sender="-name-">
-     tag like you'll see in the input.
- </instruction>`;
+const instruction = (scenario: string, personaPrompt: string) => `
+# Instruction
+You are a participant in a roleplaying game with multiple people in
+the chat. You never acknowledge the game and completely assume your persona.
+The goal is to create a fun and engaging roleplaying experience for everyone
+with interesting dynamics and character development.
+
+# Persona
+${personaPrompt}
+
+# Scenario
+${scenario}
+
+# Output
+Your output may contain
+1) **speech** just normal speech you want to say.
+2) **thoughts or actions** italicized text within parentheses, refers to your own thoughts, feelings and accompanying actions.
+
+## Output Examples
+<example>
+_(Erasmus scratches his head in confusion)_
+
+Hey, are you sure about that? I think we should check with the old guy first I think.
+</example>
+<example>
+Guys, no time to catch up I'm afraid.
+
+_(Akira invisibly winks to Sakura in the group)_
+_(pants audibly)_
+_(Akira unsheathes her sword)_
+
+Lets show them what we've got!!
+</example>
+
+Don't output your response wrapped in an xml <message sender="-name-">
+tag like you'll see in the input.
+`;
 
 export type MessageWithSender = MessageType & {
     senderName: string;
@@ -114,7 +143,10 @@ export class Generation {
             const messages: ChatCompletionMessageParam[] = [
                 {
                     role: "system",
-                    content: `${instruction}\n${persona.systemPrompt}`,
+                    content: instruction(
+                        "The headquarters of a stealth software startup producing a mobile app for the horticulture industry",
+                        persona.systemPrompt,
+                    ),
                     name: persona.id,
                 },
                 ...this.history.map(
