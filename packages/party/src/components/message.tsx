@@ -123,7 +123,7 @@ export function MessageHeader({
                         hx-target="closest .message"
                         hx-swap="delete"
                     >
-                        🗑️
+                        🗑
                     </button>
                 </div>
             </div>
@@ -171,10 +171,11 @@ export function Message({
                     console.log('sse close!')
                     $el.querySelectorAll('streaming-md').forEach(el => el.finish())
                 })`}
+            {...{ "hx-on:htmx:after-swap": "if (event.target.getAttribute('sse-swap') === 'error') { this.querySelector('.thinking')?.remove(); }" }}
             class={`message ${baseClasses} ${aiClasses}`}
         >
             <div
-                sse-swap="persona"
+                sse-swap="personaChange"
                 hx-target="this"
                 hx-swap="outerHTML"
                 className="thinking text-sm text-gray-600"
@@ -184,6 +185,13 @@ export function Message({
                 💭 Thinking <span x-text="time"> </span> seconds...
                 <progress></progress>
             </div>
+
+            <div
+                sse-swap="error"
+                hx-target="this"
+                hx-swap="outerHTML"
+                class="text-rose-600 text-lg"
+            ></div>
 
             <details>
                 <summary>Reasoning</summary>
@@ -212,6 +220,13 @@ export function Message({
                 hx-target="#follow-up-panel"
                 hx-swap="beforeend"
                 class="overseer-content text-sm hidden"
+            ></streaming-md>
+
+            <streaming-md
+                sse-swap="userInstruction"
+                hx-target="#follow-up-panel"
+                hx-swap="innerHTML"
+                class="user-instruction-content text-sm hidden"
             ></streaming-md>
         </article>
     );

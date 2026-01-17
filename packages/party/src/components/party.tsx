@@ -136,6 +136,22 @@ function ChatMessagesArea({
                     sse-connect={`/party/${room}/messages`}
                     sse-swap="message"
                     hx-swap="beforeend"
+                    hx-on_htmx:sse-before-message={`
+                        if (event.detail.type === 'deleteMessage') {
+                            const data = JSON.parse(event.detail.data);
+                            const el = document.getElementById('message_' + data.messageId + '_${room}');
+                            if (el) el.remove();
+                        } else if (event.detail.type === 'deleteMessagesAfter') {
+                            const data = JSON.parse(event.detail.data);
+                            document.querySelectorAll('.message').forEach(el => {
+                                const idParts = el.id.split('_');
+                                const msgId = parseInt(idParts[1]);
+                                if (msgId > data.messageId) {
+                                    el.remove();
+                                }
+                            });
+                        }
+                    `}
                     class="flex-1 grow overflow-y-auto overflow-x-hidden p-4 border-2
                     border-gray-300 m-2 bg-gradient-to-b from-white to-gray-50 font-sans
                     text-sm min-h-[200px] chat-messages

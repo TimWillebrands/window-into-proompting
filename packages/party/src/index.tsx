@@ -11,12 +11,13 @@ import {
     Subscription,
     type SubscriptionMessage,
 } from "@proompting/core";
+import { EventSourceParserStream } from "eventsource-parser/stream";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { Message } from "./components/message";
+import { PostHog } from "posthog-node";
+import { Message, MessageHeader } from "./components/message";
 import { OpenParty } from "./components/openParty";
 import { Party } from "./components/party";
-import { PostHog } from "posthog-node";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
 
@@ -193,7 +194,6 @@ app.post("/:id/prompt", async (c) => {
     return c.text("Proompt accepted", 202);
 });
 
-// Proceed
 app.post("/:id/proceed", async (c) => {
     const auth = getAuth(c);
 
@@ -208,10 +208,13 @@ app.post("/:id/proceed", async (c) => {
     const model = body.get("model");
     const personaId = c.req.query("personaId");
 
-    if (typeof model !== "string")
+    if (typeof model !== "string") {
         return new Response("Invalid model", { status: 400 });
-    if (typeof personaId !== "string")
+    }
+
+    if (typeof personaId !== "string") {
         return new Response("Invalid persona", { status: 400 });
+    }
 
     const user = await clerkClient(c).users.getUser(auth.userId);
 
@@ -228,15 +231,15 @@ app.post("/:id/proceed", async (c) => {
     return c.text("Proompt accepted", 202);
 });
 
-// Messages stream
 app.get("/:id/messages", async (c) => {
     const id = c.req.param("id");
+
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
     const request = new Request(c.req.url, {
         method: "GET",
         headers: { Upgrade: "websocket" },
     });
-    const handle = await party.fetch(request);
+    const handle = await party.fetch(request); //.subscribe();
 
     if (handle.webSocket === null) {
         throw new Error("Subscription failed, no WebSocket in response");
@@ -255,40 +258,26 @@ app.get("/:id/messages", async (c) => {
             });
         }, 5_000);
 
-        const personasPromise = getAllPersonas(c.env);
         const subscription = new Subscription<SubscriptionMessage>(socket);
-        const personas = await personasPromise;
-        const personaMap = new Map<string, string>(
-            personas.map((p) => [p.id, p.name]),
-        );
 
         for await (const message of subscription.messages()) {
+            console.log("subscription message received", message.type);
             switch (message.type) {
                 case "join":
                     await stream.writeSSE({
-                        data: message.messages
-                            .map((msg) => (
-                                <Message
-                                    roomId={id}
-                                    message={msg}
-                                    personaName={personaMap.get(msg.senderId)}
-                                />
-                            ))
-                            .toString(),
+                        data: (
+                            <>
+                                {message.messages.map((message) => (
+                                    <Message roomId={id} message={message} />
+                                ))}
+                            </>
+                        ),
                         event: "message",
                     });
                     break;
                 case "message":
                     await stream.writeSSE({
-                        data: (
-                            <Message
-                                roomId={id}
-                                message={message.message}
-                                personaName={personaMap.get(
-                                    message.message.senderId,
-                                )}
-                            />
-                        ).toString(),
+                        data: <Message roomId={id} message={message.message} />,
                         event: "message",
                     });
                     break;
@@ -296,88 +285,161 @@ app.get("/:id/messages", async (c) => {
                     await stream.writeSSE({
                         data: (
                             <Message roomId={id} message={message.messageId} />
-                        ).toString(),
+                        ),
                         event: "message",
+                    });
+                    break;
+                case "deleteMessage":
+                    await stream.writeSSE({
+                        data: JSON.stringify({ messageId: message.messageId }),
+                        event: "deleteMessage",
+                    });
+                    break;
+                case "deleteMessagesAfter":
+                    await stream.writeSSE({
+                        data: JSON.stringify({ messageId: message.messageId }),
+                        event: "deleteMessagesAfter",
                     });
                     break;
             }
         }
+
+        console.log("subscription closed");
+        await stream.writeSSE({
+            data: "it is finished",
+            event: "finished",
+        });
+        await stream.close();
         clearInterval(keepAlive);
     });
 });
 
-// Single message stream
-app.get("/:id/messages/:msgId", async (c) => {
+app.get("/:id/messages/:messageid", async (c) => {
     const id = c.req.param("id");
-    const msgId = c.req.param("msgId");
-
+    const messageid = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.fetch(
-        new Request(`http://do/messages/${msgId}`, {
-            headers: { Accept: "text/event-stream" },
-        }),
-    );
+    const response = await party.streamMessage(messageid);
 
-    if (response.body === null) {
-        return c.body("Not Found", { status: 404 });
+    if (!response.ok) {
+        return response;
     }
 
-    return c.body(response.body, {
-        headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
-        },
+    if (!response.body) {
+        return new Response(
+            JSON.stringify({
+                error: "No body, are we streamin?",
+                messageId: messageid,
+                roomId: id,
+            }),
+            { status: 500 },
+        );
+    }
+
+    const reader = response.body
+        .pipeThrough(new TextDecoderStream())
+        .pipeThrough(new EventSourceParserStream())
+        .getReader();
+
+    return streamSSE(c, async (stream) => {
+        while (true) {
+            const { value, done } = await reader.read();
+
+            if (value) {
+                if (value.event === "persona") {
+                    const personaId = JSON.parse(value.data);
+                    await stream.writeSSE({
+                        data: (
+                            <MessageHeader
+                                personaId={personaId}
+                                roomId={id}
+                                sendAt={new Date().getUTCMilliseconds()}
+                                messageId={messageid}
+                            />
+                        ),
+                        event: value.event,
+                    });
+                } else {
+                    await stream.writeSSE({
+                        data: JSON.parse(value.data),
+                        event: value.event,
+                    });
+                }
+            }
+            if (done) {
+                await stream.writeSSE({
+                    data: "it is finished",
+                    event: "finished",
+                });
+                await stream.close();
+                break;
+            }
+        }
     });
 });
 
-// Delete message
-app.delete("/:id/messages/:msgId", async (c) => {
+app.delete("/:id/messages/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
     const id = c.req.param("id");
-    const msgId = c.req.param("msgId");
+    const messageid = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageid) || messageid < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
 
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.fetch(
-        new Request(`http://do/messages/${msgId}`, {
-            method: "DELETE",
-        }),
-    );
-
-    return response;
+    return party.deleteMessage(messageid);
 });
 
-// Delete messages after
-app.delete("/:id/messages-after/:msgId", async (c) => {
+app.delete("/:id/messages-after/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
+
     const id = c.req.param("id");
-    const msgId = c.req.param("msgId");
+    const messageId = Number(c.req.param("messageid"));
+    if (Number.isNaN(messageId) || messageId < 0) {
+        return new Response(`Invalid messageid: ${c.req.param("messageid")}`, {
+            status: 400,
+        });
+    }
 
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.fetch(
-        new Request(`http://do/messages-after/${msgId}`, {
-            method: "DELETE",
-        }),
-    );
-
-    return response;
+    return await party.deleteMessagesAfter(messageId);
 });
 
 // Re-prompt
-app.post("/:id/re-prompt/:msgId", async (c) => {
+app.post("/:id/reprompt/:messageid", async (c) => {
+    const auth = getAuth(c);
+
+    if (!auth?.userId || !auth.isAuthenticated) {
+        return new Response("Unauthorized!!", { status: 401 });
+    }
     const id = c.req.param("id");
-    const msgId = c.req.param("msgId");
+    const messageId = Number(c.req.param("messageid"));
     const body = await c.req.formData();
     const model = body.get("model")?.toString();
-    const personaId = body.get("personaId")?.toString();
+
+    if (model === undefined || model === null) {
+        return new Response("Invalid model", { status: 400 });
+    }
 
     const party = c.env.MY_DURABLE_OBJECT.getByName(id);
-    const response = await party.fetch(
-        new Request(`http://do/re-prompt/${msgId}`, {
-            method: "POST",
-            body: JSON.stringify({ model, personaId }),
-        }),
-    );
 
-    return response;
+    await party.deleteMessagesAfter(messageId);
+    return party.proceed(auth.userId, null, model, id);
 });
 
 export default app;

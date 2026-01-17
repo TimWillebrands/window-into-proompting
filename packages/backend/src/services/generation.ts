@@ -10,6 +10,15 @@ export type PartyGeneration =
     | { type: "error"; data: string }
     | { type: "persona"; data: string };
 
+export type EventType =
+    | "message"
+    | "reasoning"
+    | "overseer"
+    | "error"
+    | "personaChange"
+    | "userInstruction"
+    | "finished";
+
 const instruction = `<instruction>
      You are a participant in a roleplaying game, you and others are
      acting as colleagues in a team. The chat is happening in a corporate
@@ -57,100 +66,142 @@ export class Generation {
     }
 
     async generate(personaOverride: Persona | null, userId: string) {
-        var { persona: respondent, overseerMsg } = await this.findRespondent();
-        var persona = personaOverride ?? respondent;
+        try {
+            var { persona: respondent, overseerMsg } = await this.findRespondent();
+            var persona = personaOverride ?? respondent;
 
-        console.log(
-            "[generate.ts] Respondent:",
-            persona?.id,
-            persona?.name,
-            overseerMsg,
-        );
+            if (persona?.isUser) {
+                console.log(
+                    "[generate.ts] User selected as respondent, stopping generation.",
+                );
+                this.pushUserInstruction(overseerMsg.instruction);
+                this.endConversation();
+                return {
+                    stop: true,
+                };
+            }
 
-        if (overseerMsg.stop) {
+            console.log(
+                "[generate.ts] Respondent:",
+                persona?.id,
+                persona?.name,
+                overseerMsg,
+            );
+
+            if (overseerMsg.stop) {
+                this.endConversation();
+                return {
+                    stop: true,
+                };
+            }
+
+            console.log("[generate.ts] dont stop addicted to the shindig");
+
+            if (persona === undefined || persona === null) {
+                const msg = `No persona ${overseerMsg.personaId} found by overseer!`;
+                this.pushError(msg);
+                this.endConversation();
+                return {
+                    stop: true,
+                };
+            }
+
+            this.pushPersonaChange(persona.id);
+
+            const messages: ChatCompletionMessageParam[] = [
+                {
+                    role: "system",
+                    content: `${instruction}\n${persona.systemPrompt}`,
+                    name: persona.id,
+                },
+                ...this.history.map(
+                    (message) =>
+                        ({
+                            role:
+                                message.senderId === persona?.id
+                                    ? "assistant"
+                                    : "user",
+                            content:
+                                message.senderId === persona?.id
+                                    ? message.message
+                                    : `<message sender="${message.senderName}" senderId="${message.senderId}">${message.message}</message>`,
+                            name: message.senderId,
+                        }) as ChatCompletionMessageParam,
+                ),
+                // Ya might ask, why not inject the user prompt here? We
+                // already have that in the history array. Thats why.
+            ];
+
+            const data = this.provider.generate({
+                model: this.model,
+                messages: messages,
+                userId: userId,
+                roomId: this.roomId,
+            });
+
+            console.log("[generate.ts] Started persona prompt generation");
+
+            for await (const value of data) {
+                if (value.type === "message") {
+                    this.message += value.data;
+                } else if (value.type === "reasoning") {
+                    this.reasoning += value.data;
+                }
+                const chunk = this.toEvent(value.data, undefined, value.type);
+                for (const observer of this.observers) {
+                    observer(chunk, false);
+                }
+            }
+
+            return {
+                message: this.message,
+                reasoning: this.reasoning,
+                overseer: overseerMsg,
+                persona: persona,
+                stop: false,
+            };
+        } catch (error) {
+            console.error("[generate.ts] Error during generation:", error);
+            this.pushError(
+                error instanceof Error ? error.message : "Unknown error",
+            );
             this.endConversation();
             return {
                 stop: true,
             };
         }
-
-        console.log("[generate.ts] dont stop addicted to the shindig");
-
-        if (persona === undefined || persona === null) {
-            throw new Error("No persona found by overseer!");
-        }
-
-        this.pushPersonaChange(persona.id);
-        // Also notify observers about the persona - this was previously done in promptLlm
-        for (const observer of this.observers) {
-            observer(this.toEvent(persona.id, undefined, "persona"), false);
-        }
-
-        const messages: ChatCompletionMessageParam[] = [
-            {
-                role: "system",
-                content: `${instruction}\n${persona.systemPrompt}`,
-                name: persona.id,
-            },
-            ...this.history.map(
-                (message) =>
-                    ({
-                        role:
-                            message.senderId === persona?.id
-                                ? "assistant"
-                                : "user",
-                        content:
-                            message.senderId === persona?.id
-                                ? message.message
-                                : `<message sender="${message.senderName}" senderId="${message.senderId}">${message.message}</message>`,
-                        name: message.senderId,
-                    }) as ChatCompletionMessageParam,
-            ),
-            // Ya might ask, why not inject the user prompt here? We
-            // already have that in the history array. Thats why.
-        ];
-
-        const data = this.provider.generate({
-            model: this.model,
-            messages: messages,
-            userId: userId,
-            roomId: this.roomId,
-        });
-
-        console.log("[generate.ts] Started persona prompt generation");
-
-        for await (const value of data) {
-            if (value.type === "message") {
-                this.message += value.data;
-            } else if (value.type === "reasoning") {
-                this.reasoning += value.data;
-            }
-            const chunk = this.toEvent(value.data, undefined, value.type);
-            for (const observer of this.observers) {
-                observer(chunk, false);
-            }
-        }
-
-        return {
-            message: this.message,
-            reasoning: this.reasoning,
-            overseer: overseerMsg,
-            persona: persona,
-            stop: false,
-        };
     }
 
     private pushPersonaChange(personaId: string) {
         console.log("[generation.ts] Persona changed to:", personaId);
         for (const observer of this.observers) {
-            observer(this.toEvent("persona", personaId), false);
+            observer(
+                this.toEvent(personaId, personaId, "personaChange"),
+                false,
+            );
+        }
+    }
+
+    private pushUserInstruction(instruction: string) {
+        console.log("[generation.ts] Pushing user instruction:", instruction);
+        for (const observer of this.observers) {
+            observer(
+                this.toEvent(instruction, undefined, "userInstruction"),
+                false,
+            );
+        }
+    }
+
+    private pushError(errorMessage: string) {
+        for (const observer of this.observers) {
+            observer(this.toEvent(errorMessage, undefined, "error"), false);
         }
     }
 
     private endConversation() {
         console.log("[generation.ts] Conversation ended");
         for (const observer of this.observers) {
-            observer(this.toEvent("stop"), true);
+            observer(this.toEvent("finished", undefined, "finished"), true);
         }
     }
 
@@ -185,7 +236,7 @@ export class Generation {
 
                      Example:
                      {
-                         "personaId": "123",
+                         "personaId": "123-abcd-456-efgh",
                          "reason": "Their sudden interest in this conversation would be hillariously ironic and interesting.",
                          "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
                          "stop": false
@@ -254,12 +305,7 @@ export class Generation {
                 (p) => p.id === overseerMsg.personaId,
             );
 
-            if (!persona) {
-                console.warn(
-                    "Persona not found for overseer message",
-                    overseerMessageStr,
-                );
-            }
+            // TODO: If persona is undefined retry a limited number of times
 
             return { persona, overseerMsg };
         } catch (error) {
@@ -292,22 +338,22 @@ export class Generation {
 
  ## Personas
  ${this.participants
-     .map(
-         (p) => `
+                .map(
+                    (p) => `
  ### ${p.name}
  **ID: ${p.id}**
 
  ${p.systemPrompt}
  `,
-     )
-     .join("\n\n")}
+                )
+                .join("\n\n")}
  `;
     }
 
     private toEvent(
         data: string | object,
         id?: string,
-        eventType: string = "message",
+        eventType: EventType | undefined = "message",
     ) {
         let message = `id: ${id}\n`;
         if (eventType) {

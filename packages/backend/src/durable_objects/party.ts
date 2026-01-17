@@ -142,14 +142,14 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                         senderId: senderId,
                         sendAt: new Date().getUTCMilliseconds(),
                     },
-                } as SubscriptionMessage),
+                }),
             );
 
             socket.send(
                 JSON.stringify({
                     type: "messageStream",
                     messageId: newMessageIds[1],
-                } as SubscriptionMessage),
+                }),
             );
         }
 
@@ -332,7 +332,6 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     }
 
     async fetch(_: Request): Promise<Response> {
-        // Creates two ends of a WebSocket connection.
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
 
@@ -347,14 +346,12 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
         // (run the `constructor`) and deliver the message to the appropriate handler.
         this.ctx.acceptWebSocket(server);
 
-        // Generate a random UUID for the session.
         const id = crypto.randomUUID();
 
         // Attach the session ID to the WebSocket connection and serialize it.
         // This is necessary to restore the state of the connection when the Durable Object wakes up.
         server.serializeAttachment({ id });
 
-        // Send chat history to the client
         const messages = this.sql
             .exec<MessageType>("SELECT * FROM Messages")
             .toArray();
@@ -401,10 +398,11 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
 
         try {
             generation.observe(async (chunk, done) => {
+                if (chunk) {
+                    await writer.write(chunk);
+                }
                 if (done) {
                     writable.close();
-                } else {
-                    await writer.write(chunk);
                 }
             });
         } catch (err) {
@@ -426,11 +424,29 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
     async deleteMessage(messageId: number) {
         this.sql.exec(`DELETE FROM messages WHERE messageid = ?`, [messageId]);
 
+        for (const socket of this.ctx.getWebSockets()) {
+            socket.send(
+                JSON.stringify({
+                    type: "deleteMessage",
+                    messageId: messageId,
+                } as SubscriptionMessage),
+            );
+        }
+
         return new Response();
     }
 
     async deleteMessagesAfter(messageId: number) {
         this.sql.exec(`DELETE FROM messages WHERE messageid > ?`, [messageId]);
+
+        for (const socket of this.ctx.getWebSockets()) {
+            socket.send(
+                JSON.stringify({
+                    type: "deleteMessagesAfter",
+                    messageId: messageId,
+                } as SubscriptionMessage),
+            );
+        }
 
         return new Response();
     }

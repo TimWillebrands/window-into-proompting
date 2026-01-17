@@ -6,6 +6,7 @@ export interface MessageType {
     message: string | null;
     reasoning: string | null;
     overseer: string | null;
+    error: string | null;
     senderType: string;
     senderId: string;
     sendAt: number | null;
@@ -15,7 +16,9 @@ export interface MessageType {
 export type SubscriptionMessage =
     | { type: "join"; messages: MessageType[] }
     | { type: "message"; message: MessageType }
-    | { type: "messageStream"; messageId: number };
+    | { type: "messageStream"; messageId: number }
+    | { type: "deleteMessage"; messageId: number }
+    | { type: "deleteMessagesAfter"; messageId: number };
 
 export interface PartyInfo {
     id: string;
