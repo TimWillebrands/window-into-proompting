@@ -263,7 +263,15 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                         console.log(
                             `Generation stopped for message ${newMessageId}`,
                         );
-                        this.deleteMessage(newMessageId);
+                        this.sql.exec(
+                            `UPDATE messages SET message = ?, reasoning = ?, overseer = ?, sendAt = ?, senderId = ? WHERE messageid = ?`,
+                            null,
+                            null,
+                            JSON.stringify(overseer, undefined, 2),
+                            new Date().toISOString(),
+                            "overseer",
+                            newMessageId,
+                        );
                     }, 1000);
                     return;
                 }
@@ -271,7 +279,7 @@ export class MyDurableObject extends DurableObject<CloudflareBindings> {
                 if (persona === undefined) {
                     throw new Error(
                         "Persona not found. This should never happen at this point since the " +
-                        "assertion happened in generation.ts",
+                            "assertion happened in generation.ts",
                     );
                 }
 

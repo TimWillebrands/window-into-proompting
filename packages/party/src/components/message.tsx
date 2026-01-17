@@ -16,6 +16,13 @@ function ChatMessage({
     roomId: string;
     personaName?: string;
 }) {
+    const isStopMessage =
+        message.senderId === "overseer" && message.message === null;
+
+    if (isStopMessage) {
+        return <StopMessage id={id} message={message} roomId={roomId} />;
+    }
+
     const isUser = message.senderType === "user";
 
     return (
@@ -59,6 +66,84 @@ function ChatMessage({
                     </details>
                 )}
             </div>
+        </div>
+    );
+}
+
+function StopMessage({
+    id,
+    message,
+    roomId,
+}: {
+    message: MessageType;
+    id: string;
+    roomId: string;
+}) {
+    const date = message.sendAt ? new Date(message.sendAt) : new Date();
+    const timestamp = date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+    return (
+        <div id={id} class="message mb-4 py-2" x-init="$el.scrollIntoView()">
+            {message.overseer ? (
+                <details class="w-full">
+                    <summary class="cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2">
+                        <div class="flex items-center justify-center gap-3">
+                            <hr class="flex-1 border-gray-300" />
+                            <span class="text-xs text-gray-500 bg-white px-2">
+                                Conversation ended • {timestamp}
+                            </span>
+                            <hr class="flex-1 border-gray-300" />
+                        </div>
+                    </summary>
+                    <div class="mt-3 p-3 bg-gray-50 rounded text-xs text-gray-600 whitespace-pre-wrap border border-gray-200">
+                        {(() => {
+                            try {
+                                const overseerData = JSON.parse(
+                                    message.overseer,
+                                );
+                                return (
+                                    <div>
+                                        <div class="font-semibold mb-2 text-gray-700">
+                                            Director's Decision:
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong class="text-gray-600">
+                                                Reason:
+                                            </strong>{" "}
+                                            {overseerData.reason}
+                                        </div>
+                                        <div>
+                                            <strong class="text-gray-600">
+                                                Instruction:
+                                            </strong>{" "}
+                                            {overseerData.instruction}
+                                        </div>
+                                    </div>
+                                );
+                            } catch {
+                                return (
+                                    <pre class="font-mono text-xs">
+                                        {message.overseer}
+                                    </pre>
+                                );
+                            }
+                        })()}
+                    </div>
+                </details>
+            ) : (
+                <div class="flex items-center justify-center gap-3">
+                    <hr class="flex-1 border-gray-300" />
+                    <span class="text-xs text-gray-500 bg-white px-2">
+                        Conversation ended • {timestamp}
+                    </span>
+                    <hr class="flex-1 border-gray-300" />
+                </div>
+            )}
         </div>
     );
 }
@@ -171,7 +256,10 @@ export function Message({
                     console.log('sse close!')
                     $el.querySelectorAll('streaming-md').forEach(el => el.finish())
                 })`}
-            {...{ "hx-on:htmx:after-swap": "if (event.target.getAttribute('sse-swap') === 'error') { this.querySelector('.thinking')?.remove(); }" }}
+            {...{
+                "hx-on:htmx:after-swap":
+                    "if (event.target.getAttribute('sse-swap') === 'error') { this.querySelector('.thinking')?.remove(); }",
+            }}
             class={`message ${baseClasses} ${aiClasses}`}
         >
             <div
@@ -220,6 +308,13 @@ export function Message({
                 hx-target="#follow-up-panel"
                 hx-swap="beforeend"
                 class="overseer-content text-sm hidden"
+            ></streaming-md>
+
+            <streaming-md
+                sse-swap="overseerStop"
+                hx-target="this"
+                hx-swap="beforeend"
+                class="overseer-stop-content text-sm hidden"
             ></streaming-md>
 
             <streaming-md

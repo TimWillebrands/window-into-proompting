@@ -14,6 +14,7 @@ export type EventType =
     | "message"
     | "reasoning"
     | "overseer"
+    | "overseerStop"
     | "error"
     | "personaChange"
     | "userInstruction"
@@ -67,7 +68,8 @@ export class Generation {
 
     async generate(personaOverride: Persona | null, userId: string) {
         try {
-            var { persona: respondent, overseerMsg } = await this.findRespondent();
+            var { persona: respondent, overseerMsg } =
+                await this.findRespondent();
             var persona = personaOverride ?? respondent;
 
             if (persona?.isUser) {
@@ -89,6 +91,7 @@ export class Generation {
             );
 
             if (overseerMsg.stop) {
+                this.pushOverseerStop(overseerMsg);
                 this.endConversation();
                 return {
                     stop: true,
@@ -177,6 +180,23 @@ export class Generation {
         for (const observer of this.observers) {
             observer(
                 this.toEvent(personaId, personaId, "personaChange"),
+                false,
+            );
+        }
+    }
+
+    private pushOverseerStop(overseerMsg: OverseerOutput) {
+        console.log("[generation.ts] Overseer stop:", overseerMsg);
+        for (const observer of this.observers) {
+            observer(
+                this.toEvent(
+                    {
+                        reason: overseerMsg.reason,
+                        instruction: overseerMsg.instruction,
+                    },
+                    undefined,
+                    "overseerStop",
+                ),
                 false,
             );
         }
@@ -338,15 +358,15 @@ export class Generation {
 
  ## Personas
  ${this.participants
-                .map(
-                    (p) => `
+     .map(
+         (p) => `
  ### ${p.name}
  **ID: ${p.id}**
 
  ${p.systemPrompt}
  `,
-                )
-                .join("\n\n")}
+     )
+     .join("\n\n")}
  `;
     }
 
