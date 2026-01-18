@@ -97,9 +97,9 @@ export class Generation {
 
     async generate(personaOverride: Persona | null, userId: string) {
         try {
-            var { persona: respondent, overseerMsg } =
+            const { persona: respondent, overseerMsg } =
                 await this.findRespondent();
-            var persona = personaOverride ?? respondent;
+            const persona = personaOverride ?? respondent;
 
             if (persona?.isUser) {
                 console.log(
