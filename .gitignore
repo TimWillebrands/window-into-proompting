@@ -38,8 +38,5 @@ public/output.css
 .env*
 !.env.example
 
-# gemini-cli settings
-.gemini/
-
 # GitHub App credentials
 gha-creds-*.json
