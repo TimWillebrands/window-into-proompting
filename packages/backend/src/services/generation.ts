@@ -58,6 +58,42 @@ Don't output your response wrapped in an xml <message sender="-name-">
 tag like you'll see in the input.
 `;
 
+export function toUserScopedMessage(message: MessageWithSender): string {
+    return `<message sender="${message.senderName}" senderId="${message.senderId}">\n${message.message}\n</message>`;
+}
+
+function overseerInstructionMessage(messages: MessageWithSender[]): string {
+    return `# Task
+Assign a persona as follow-up or decide that the conversation is over.
+Decide based on who is 'interesting' as a persona that has a high level of engagement
+or relevance to the conversation or as a fun twist to spice up the conversation.
+Provide a concise reason for your decision. Refer to the persona by their 'senderId'
+attribute and communicate it as 'personaId' in the response. Also provide a short
+instruction to the persona on how to engage in the conversation.
+
+## Context
+These are the last messages in the conversation to assist in decision making:
+
+${messages.map(toUserScopedMessage).join("\n\n")}
+
+# Output
+The response should be a JSON object with the following properties:
+- personaId: string
+- reason: string
+- instruction: string
+- stop: boolean
+
+## Examples
+Example:
+{
+    "personaId": "123-abcd-456-efgh",
+    "reason": "The sudden interest of Erica in this conversation would be hillariously ironic and interesting because of her earlier feigned disinterest.",
+    "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
+    "stop": false
+}
+`;
+}
+
 export type MessageWithSender = MessageType & {
     senderName: string;
 };
@@ -159,7 +195,7 @@ export class Generation {
                             content:
                                 message.senderId === persona?.id
                                     ? message.message
-                                    : `<message sender="${message.senderName}" senderId="${message.senderId}">${message.message}</message>`,
+                                    : toUserScopedMessage(message),
                             name: message.senderId,
                         }) as ChatCompletionMessageParam,
                 ),
@@ -263,37 +299,9 @@ export class Generation {
                 role: "system",
                 content: this.overseerPrompt,
             },
-            ...this.history.slice(-3).map(
-                (message) =>
-                    ({
-                        role: "user",
-                        content: `<message sender="${message.senderName}">${message.message}</message>`,
-                        name: message.senderId,
-                    }) as ChatCompletionMessageParam,
-            ),
             {
                 role: "user",
-                content: `Task: assign a persona as follow-up or decide that the conversation is over.
-                     Decide based on who is 'interesting' as a persona that has a high level of engagement
-                     or relevance to the conversation or as a fun twist to spice up the conversation.
-                     Provide a concise reason for your decision. Refer to the persona by their 'senderId'
-                     attribute and communicate it as 'personaId' in the response. Also provide a short
-                     instruction to the persona on how to engage in the conversation.
-
-                     The response should be a JSON object with the following properties:
-                     - personaId: string
-                     - reason: string
-                     - instruction: string
-                     - stop: boolean
-
-                     Example:
-                     {
-                         "personaId": "123-abcd-456-efgh",
-                         "reason": "Their sudden interest in this conversation would be hillariously ironic and interesting.",
-                         "instruction": "Ask about their history on this subject, mention your own wacky experience with it.",
-                         "stop": false
-                     }
-                     `,
+                content: overseerInstructionMessage(this.history.slice(-4)),
             },
         ];
         const data = this.provider.generate({
