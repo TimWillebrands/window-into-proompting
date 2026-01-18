@@ -20,7 +20,7 @@ function ChatMessage({
         message.senderId === "overseer" && message.message === null;
 
     if (isStopMessage) {
-        return <StopMessage id={id} message={message} roomId={roomId} />;
+        return <StopMessage id={id} message={message} />;
     }
 
     const isUser = message.senderType === "user";
@@ -73,11 +73,9 @@ function ChatMessage({
 function StopMessage({
     id,
     message,
-    roomId,
 }: {
     message: MessageType;
     id: string;
-    roomId: string;
 }) {
     const date = message.sendAt ? new Date(message.sendAt) : new Date();
     const timestamp = date.toLocaleString(undefined, {

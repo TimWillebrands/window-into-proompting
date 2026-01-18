@@ -23,7 +23,7 @@ export type LLMGenerationParams = {
 export type LLMGenerationEvent =
     | { type: "message"; data: string }
     | { type: "reasoning"; data: string }
-    | { type: "error"; data: string }
+    | { type: "error"; data: string };
 
 export interface LLMProvider {
     id: string;

@@ -5,7 +5,7 @@ import type {
     LLMModel,
     LLMProvider,
 } from "@proompting/core/types";
-import { PostHog } from "posthog-node";
+import type { PostHog } from "posthog-node";
 
 export class OllamaLLMProvider implements LLMProvider {
     id = "ollama";

@@ -116,7 +116,7 @@ app.get("/:id/reset-participants", async (c) => {
 
     const participants =
         partyInfo.participants === undefined ||
-            partyInfo.participants.length === 0
+        partyInfo.participants.length === 0
             ? await getAllPersonas(c.env)
             : partyInfo.participants;
 
@@ -183,9 +183,9 @@ app.post("/:id/prompt", async (c) => {
     await party.sendPrompt(
         prompt,
         user.username ??
-        user.fullName ??
-        user.emailAddresses[0].emailAddress ??
-        user.id,
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
         model,
         id,
         personaId === "none" ? null : personaId,
@@ -220,9 +220,9 @@ app.post("/:id/proceed", async (c) => {
 
     await party.proceed(
         user.username ??
-        user.fullName ??
-        user.emailAddresses[0].emailAddress ??
-        user.id,
+            user.fullName ??
+            user.emailAddresses[0].emailAddress ??
+            user.id,
         personaId,
         model,
         id,

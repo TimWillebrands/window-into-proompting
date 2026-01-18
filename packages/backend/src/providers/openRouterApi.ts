@@ -56,8 +56,7 @@ interface Model {
     reasoning_config: ReasoningConfig | null;
     features: ModelFeatures | null;
     default_parameters: DefaultParameters;
-    // biome-ignore lint/suspicious/noExplicitAny: External API definition
-    default_order: any[];
+    default_order: unknown[];
     quick_start_example_type: null;
     is_trainable_text: boolean | null;
     is_trainable_image: boolean | null;
@@ -94,8 +93,7 @@ interface Endpoint {
     moderation_required: boolean;
     data_policy: DataPolicy;
     pricing: Pricing;
-    // biome-ignore lint/suspicious/noExplicitAny: External API definition
-    variable_pricings: any[];
+    variable_pricings: unknown[];
     is_hidden: boolean;
     is_deranked: boolean;
     is_disabled: boolean;
@@ -142,8 +140,7 @@ interface EndpointModel {
     reasoning_config: ReasoningConfig | null;
     features: ModelFeatures | null;
     default_parameters: DefaultParameters;
-    // biome-ignore lint/suspicious/noExplicitAny: External API definition
-    default_order: any[];
+    default_order: unknown[];
     quick_start_example_type: null;
     is_trainable_text: boolean | null;
     is_trainable_image: boolean | null;
@@ -161,8 +158,7 @@ interface ProviderInfo {
     dataPolicy: DataPolicy;
     headquarters?: string;
     datacenters?: string[];
-    // biome-ignore lint/suspicious/noExplicitAny: External API definition
-    regionOverrides: Record<string, any>;
+    regionOverrides: Record<string, unknown>;
     hasChatCompletions: boolean;
     hasCompletions: boolean;
     isAbortable: boolean;
@@ -225,8 +221,7 @@ interface EndpointFeatures {
     is_mandatory_reasoning?: boolean;
     should_send_reasoning_text_in_text_content?: boolean;
     supports_tool_choice: SupportsToolChoice;
-    // biome-ignore lint/suspicious/noExplicitAny: External API definition
-    supported_parameters?: Record<string, any>;
+    supported_parameters?: Record<string, unknown>;
     supports_input_audio?: boolean;
     disable_free_endpoint_limits?: boolean;
 }
