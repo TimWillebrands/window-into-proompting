@@ -1,0 +1,36 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "strict": true,
+        "skipLibCheck": true,
+        "lib": ["ESNext", "DOM"],
+        "jsx": "react-jsx",
+        "jsxImportSource": "hono/jsx",
+        "declaration": true,
+        "declarationMap": true,
+        "composite": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "types": ["../../worker-configuration.d.ts"],
+        "paths": {
+            "@proompting/core": ["../core/src/index.ts"],
+            "@proompting/core/*": ["../core/src/*"],
+            "@proompting/backend": ["../backend/src/index.ts"],
+            "@proompting/desktop": ["../desktop/src/index.ts"]
+        }
+    },
+    "include": ["src/**/*"],
+    "references": [
+        {
+            "path": "../core"
+        },
+        {
+            "path": "../backend"
+        },
+        {
+            "path": "../desktop"
+        }
+    ]
+}

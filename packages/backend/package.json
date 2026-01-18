@@ -1,0 +1,19 @@
+{
+    "name": "@proompting/backend",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./durable-objects": "./src/durable_objects/index.ts",
+        "./providers": "./src/providers/index.ts",
+        "./services": "./src/services/index.ts"
+    },
+    "dependencies": {
+        "@proompting/core": "workspace:*",
+        "@posthog/ai": "^7.1.0",
+        "durable-utils": "^0.3.5",
+        "openai": "^5.23.0",
+        "posthog-node": "^5.11.2"
+    }
+}

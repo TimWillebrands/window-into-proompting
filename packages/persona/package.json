@@ -1,0 +1,13 @@
+{
+    "name": "@proompting/persona",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "./src/index.tsx",
+    "dependencies": {
+        "@proompting/core": "workspace:*",
+        "@proompting/desktop": "workspace:*"
+    },
+    "peerDependencies": {
+        "hono": "^4.9.6"
+    }
+}
