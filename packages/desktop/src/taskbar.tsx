@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from "hono/jsx";
 
+/**
+ * Renders the desktop taskbar fixed to the bottom of the viewport.
+ *
+ * Includes the StartButton, UserButton, a horizontally scrollable area of window buttons, and the SystemTray.
+ *
+ * @returns A JSX element representing the rendered taskbar
+ */
 export function Taskbar(_props: PropsWithChildren<unknown>) {
     return (
         <section
@@ -57,6 +64,11 @@ function StartButton() {
     );
 }
 
+/**
+ * Renders a styled user button that displays the current user's name and opens the user profile or sign-in flow when clicked.
+ *
+ * @returns A JSX element for the user button showing an emoji and the user's first or full name (falls back to `"user"`). The button opens the user profile if signed in, otherwise opens the sign-in flow.
+ */
 function UserButton() {
     return (
         <button
@@ -78,6 +90,13 @@ function UserButton() {
     );
 }
 
+/**
+ * Renders the system tray section of the taskbar containing an analytics toggle, session duration and model badges, and the current local time.
+ *
+ * The analytics toggle flips a debug flag and enables/disables PostHog debugging when available. The session badge shows minutes from `analytics?.getSessionDuration?.()`, the model badge displays `window.currentModel` or `"auto"`, and the time badge shows the current local time in HH:MM format.
+ *
+ * @returns The SystemTray React element
+ */
 function SystemTray() {
     return (
         <div

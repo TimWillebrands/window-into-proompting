@@ -5,7 +5,14 @@ const POSTHOG_API_HOST = "https://eu.i.posthog.com";
 const POSTHOG_ASSET_HOST = "https://eu-assets.i.posthog.com";
 const PROXY_PATH = "/phg-9b7e";
 
-// Create PostHog reverse proxy router
+/**
+ * Create a Hono router configured to proxy PostHog API requests and serve PostHog static assets.
+ *
+ * The returned router is typed for Cloudflare environment bindings and includes routes for cached
+ * static asset delivery and request forwarding to the PostHog API.
+ *
+ * @returns A Hono router instance (typed with `Bindings: Cloudflare.Env`) that proxies requests to PostHog and serves its static assets.
+ */
 export function createPostHogProxy() {
     const posthogProxy = new Hono<{ Bindings: Cloudflare.Env }>();
 

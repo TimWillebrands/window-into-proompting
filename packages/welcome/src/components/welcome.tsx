@@ -1,6 +1,14 @@
 import { defaultPersonas } from "@proompting/core";
 import { WindowContainer } from "@proompting/desktop";
 
+/**
+ * Renders the Welcome window that presents a four-step interactive onboarding tour for Proompt.party.
+ *
+ * The component includes a step-driven content area, progress indicator, and navigation controls.
+ * It also logs analytics events when the tour starts and when each step is completed.
+ *
+ * @returns The root React element for the Welcome window containing the four-step interactive onboarding tour.
+ */
 export function Welcome() {
     return (
         <WindowContainer

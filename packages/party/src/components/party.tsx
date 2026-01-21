@@ -2,6 +2,11 @@ import type { LLMModel, PersonaMetadata } from "@proompting/core/types";
 import { WindowContainer } from "@proompting/desktop";
 import { createContext, type PropsWithChildren, useContext } from "hono/jsx";
 
+/**
+ * Renders the chat input area used to compose and send messages within a party room.
+ *
+ * @returns A JSX element containing a message textarea, a model selection dropdown, and Clear/Send controls.
+ */
 function ChatInput() {
     const { room, models } = useContext(PartyContext);
     return (
@@ -96,7 +101,12 @@ const PartyContext = createContext<PartyProps>({
 });
 
 /**
- * Container for a single party, which manages the layout and behavior of the party window.
+ * Render a party window that provides room-scoped context and composes the chat UI.
+ *
+ * @param room - Party room identifier used for context, element ids, and URLs.
+ * @param models - Available LLM models supplied to descendant components for selection.
+ * @param personaParticipants - Persona metadata displayed in the persona panel.
+ * @returns The JSX element that renders the party window with provided context for its children.
  */
 export function Party({ room, models, personaParticipants }: PartyProps) {
     return (
@@ -120,6 +130,16 @@ export function Party({ room, models, personaParticipants }: PartyProps) {
     );
 }
 
+/**
+ * Renders the chat messages area, persona panel, and input for a given party room.
+ *
+ * The messages pane connects to the room's server-sent events stream and reacts to
+ * `deleteMessage` and `deleteMessagesAfter` events by removing matching message DOM nodes.
+ *
+ * @param room - The party room identifier; used to scope the SSE connection and message element IDs.
+ * @param personaParticipants - Array of persona metadata rendered as selectable persona list items.
+ * @returns The JSX element containing the messages pane, persona menu, and chat input.
+ */
 function ChatMessagesArea({
     room,
     personaParticipants,

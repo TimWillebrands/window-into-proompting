@@ -5,7 +5,13 @@ import {
 } from "@proompting/core";
 import { WindowContainer } from "@proompting/desktop";
 
-// Component for just the personas list content (for OOB swaps)
+/**
+ * Render the sidebar list of available personas with header actions and a template menu.
+ *
+ * @param personas - The personas metadata to display and count in the header.
+ * @param hx-swap-oob - Optional value applied to the root element's `hx-swap-oob` attribute for htmx out-of-band swaps.
+ * @returns The sidebar JSX element containing the header, template controls, and the personas list or empty state.
+ */
 export function PersonasList({
     personas,
     "hx-swap-oob": hxSwapOob,
@@ -115,6 +121,12 @@ export function PersonasList({
     );
 }
 
+/**
+ * Render the Persona Manager window with a sidebar list of personas and an editor pane.
+ *
+ * @param personas - Array of persona metadata to display in the sidebar
+ * @returns The rendered Persona Manager window element
+ */
 export function Personas({ personas }: { personas: PersonaMetadata[] }) {
     return (
         <WindowContainer
@@ -214,6 +226,14 @@ export function PersonaTemplateMenu() {
     );
 }
 
+/**
+ * Render an editable persona form with controls and a live preview.
+ *
+ * Renders fields for persona name, system prompt, and bio with word-count badges, actions to delete/duplicate/cancel/save, a "Generate from prompt" bio generator button, and a preview card that shows the persona's avatar, name, truncated bio (or system prompt), and a word-count status indicator.
+ *
+ * @param persona - The persona to edit; expected to include `id`, `name`, `systemPrompt`, and optional `bio`.
+ * @returns A JSX element containing the persona editor form and preview UI.
+ */
 export function PersonaForm({ persona }: { persona: Persona }) {
     const wordCount = persona.systemPrompt
         .trim()
@@ -435,6 +455,11 @@ export function PersonaForm({ persona }: { persona: Persona }) {
     );
 }
 
+/**
+ * Renders a centered placeholder prompting the user to select a persona.
+ *
+ * @returns A JSX element containing a visual prompt and a "Back to Personas" button that navigates to the personas list.
+ */
 export function PersonaBlank() {
     return (
         <div className="p-8 h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/30">
@@ -460,6 +485,12 @@ export function PersonaBlank() {
     );
 }
 
+/**
+ * Render a centered "Persona Not Found" alert that highlights a missing persona ID.
+ *
+ * @param personaId - The ID of the persona that was not found
+ * @returns A React element showing an alert with the missing persona ID and a back-to-personas button
+ */
 export function MissingPersona({ personaId }: { personaId: string }) {
     return (
         <div className="p-8 h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-red-50/30">
@@ -489,6 +520,11 @@ export function MissingPersona({ personaId }: { personaId: string }) {
     );
 }
 
+/**
+ * Render a centered confirmation view shown after a persona is deleted.
+ *
+ * @returns A JSX element displaying a deletion success message and a back button that navigates back to the personas list.
+ */
 export function PersonaDeleted() {
     return (
         <div className="p-8 h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-green-50/30">

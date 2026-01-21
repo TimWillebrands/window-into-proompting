@@ -8,6 +8,11 @@ const posthogClient = new PostHog(
     { host: "https://eu.i.posthog.com" },
 );
 
+/**
+ * Lists metadata for all personas stored in DESKTOP_DATA.
+ *
+ * @returns An array of `PersonaMetadata` objects for each persona key; entries without metadata are excluded.
+ */
 export async function getAllPersonas(
     env: Cloudflare.Env,
 ): Promise<PersonaMetadata[]> {
@@ -20,6 +25,18 @@ export async function getAllPersonas(
         .filter((persona): persona is PersonaMetadata => persona !== undefined);
 }
 
+/**
+ * Ensures a persona has a short descriptive bio and persists it if newly generated.
+ *
+ * If the persona exists but has no bio (or if `options.force` is true), generates a concise 1–2 sentence bio (under 300 characters) focused on role, tone, and behavioral cues, updates the persona record in storage, and returns the updated persona. If the persona does not exist, returns `null`.
+ *
+ * @param env - Cloudflare environment bindings used for storage and providers
+ * @param personaId - Identifier of the persona to ensure a bio for
+ * @param options.force - If true, regenerate and overwrite an existing bio
+ * @returns The updated Persona with a non-empty `bio`, or `null` if the persona was not found
+ * @throws Error if no LLM models are available for generation
+ * @throws Error if the generation produces no content
+ */
 export async function ensurePersonaBio(
     env: Cloudflare.Env,
     personaId: string,

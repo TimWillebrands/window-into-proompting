@@ -1,6 +1,12 @@
 import type { Party as PartyType } from "@proompting/core/types";
 import { WindowContainer } from "@proompting/desktop";
 
+/**
+ * Renders the Party Chat window allowing users to view previous parties, start a new party, or use quick actions.
+ *
+ * @param previousParties - Array of parties used to populate the "Previous Parties" list and the status bar
+ * @returns The WindowContainer element representing the Party Chat UI
+ */
 export function OpenParty({
     previousParties,
 }: {

@@ -5,6 +5,18 @@ const baseClasses =
 const userClasses = "ml-6 bg-gradient-to-br from-blue-50 to-blue-100/50";
 const aiClasses = "mr-6 bg-gradient-to-br from-green-50 to-green-100/50";
 
+/**
+ * Render a chat message block with header, content, and optional reasoning or Director's Cut.
+ *
+ * The component renders differently for user vs. persona/AI senders and handles a special
+ * "conversation stopped" message by rendering the end-of-conversation block.
+ *
+ * @param id - DOM id to assign to the message container
+ * @param message - The message object to render (includes sender, content, timestamps, reasoning, and overseer fields)
+ * @param roomId - Identifier of the room, used by header actions
+ * @param personaName - Optional display name for the persona when the message is from a persona/assistant
+ * @returns The rendered message element for insertion into the chat UI
+ */
 function ChatMessage({
     id,
     message,
@@ -70,6 +82,15 @@ function ChatMessage({
     );
 }
 
+/**
+ * Render a "conversation ended" message block, optionally showing a Director's Decision from overseer content.
+ *
+ * Renders a centered timestamped end indicator; if `message.overseer` is present, expands into a details panel that attempts to parse `message.overseer` as JSON and displays `reason` and `instruction` fields, falling back to the raw overseer text when parsing fails. The displayed timestamp is taken from `message.sendAt` when available, otherwise the current time, formatted with short month, day, hour, and minute.
+ *
+ * @param id - DOM id applied to the message container
+ * @param message - The message object representing the stop event; may include `sendAt` and `overseer` fields
+ * @returns The JSX element for the stop message block
+ */
 function StopMessage({
     id,
     message,
@@ -146,6 +167,16 @@ function StopMessage({
     );
 }
 
+/**
+ * Render a per-message header showing the sender (You or persona avatar), a formatted timestamp, and action buttons.
+ *
+ * @param personaId - Optional persona identifier; when provided an avatar is shown instead of "You"
+ * @param roomId - Room identifier used to construct action endpoints (re-prompt and delete)
+ * @param sendAt - Optional message timestamp in milliseconds since epoch; current time is used if omitted
+ * @param messageId - Identifier of the message used in action endpoints
+ * @param personaName - Optional display name for the persona avatar
+ * @returns The header element containing the sender label/avatar, the formatted timestamp, and re-prompt and delete buttons
+ */
 export function MessageHeader({
     personaId,
     roomId,
@@ -215,7 +246,12 @@ export function MessageHeader({
 }
 
 /**
- * Container for a single message, loads in a response and renders that markdown using a web-component.
+ * Render a chat message as either a static message component or a streaming AI response container.
+ *
+ * @param message - A MessageType object for a static message, or a numeric stream id for a streaming AI response
+ * @param roomId - The room identifier used to scope element ids and streaming endpoints
+ * @param personaName - Optional display name for the persona associated with the message
+ * @returns A JSX element that contains the rendered message (static or streaming)
  */
 export function Message({
     message,
@@ -327,6 +363,14 @@ export function Message({
     );
 }
 
+/**
+ * Render a compact persona avatar row showing an image and either the persona name or a lazy-loaded avatar placeholder.
+ *
+ * @param personaId - Unique identifier for the persona; used to source the avatar image and as fallback text while loading.
+ * @param personaName - Optional display name to show next to the avatar; when provided it is shown instead of the personaId loader.
+ * @param attrs - Optional HTML attributes to spread onto the container element.
+ * @returns A JSX element containing the avatar image and either the persona name or an element that HTMX replaces with a fetched avatar.
+ */
 export function ChatPersonaAvatar({
     personaId,
     personaName,
