@@ -70,13 +70,7 @@ function ChatMessage({
     );
 }
 
-function StopMessage({
-    id,
-    message,
-}: {
-    message: MessageType;
-    id: string;
-}) {
+function StopMessage({ id, message }: { message: MessageType; id: string }) {
     const date = message.sendAt ? new Date(message.sendAt) : new Date();
     const timestamp = date.toLocaleString(undefined, {
         month: "short",

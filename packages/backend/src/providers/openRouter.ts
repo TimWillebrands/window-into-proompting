@@ -5,8 +5,8 @@ import type {
     LLMModel,
     LLMProvider,
 } from "@proompting/core/types";
-import { loadFreeOpenRouterModels } from "./openRouterApi";
 import type { PostHog } from "posthog-node";
+import { loadFreeOpenRouterModels } from "./openRouterApi";
 
 export class OpenRouterLLMProvider implements LLMProvider {
     id = "openrouter";
