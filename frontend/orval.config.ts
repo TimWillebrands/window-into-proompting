@@ -1,0 +1,23 @@
+import { defineConfig } from 'orval';
+
+export default defineConfig({
+    partyzone: {
+        input: {
+            target: [
+                'http://localhost:8080/api/openapi/v1.json',
+                'http://backend/api/openapi/v1.json',
+            ],
+        },
+        output: {
+            target: './src/api/party-zone.ts',
+            schemas: './src/api/model',
+            client: 'react-query',
+            baseUrl: '/api',
+            override: {
+                query: {
+                    useSuspenseQuery: true,
+                },
+            },
+        },
+    },
+});

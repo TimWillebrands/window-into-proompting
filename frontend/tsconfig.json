@@ -1,24 +1,22 @@
 {
+    "include": ["**/*.ts", "**/*.tsx"],
     "compilerOptions": {
-        "target": "ESNext",
-        "module": "ESNext",
-        "moduleResolution": "Bundler",
-        "strict": true,
-        "skipLibCheck": true,
-        "lib": ["ESNext"],
+        "target": "ES2022",
         "jsx": "react-jsx",
-        "jsxImportSource": "hono/jsx",
-        "types": ["./worker-configuration.d.ts", "bun"],
-        "paths": {
-            "@/*": ["./src/*"],
-            "@proompting/core": ["./packages/core/src/index.ts"],
-            "@proompting/core/*": ["./packages/core/src/*"],
-            "@proompting/backend": ["./packages/backend/src/index.ts"],
-            "@proompting/desktop": ["./packages/desktop/src/index.ts"],
-            "@proompting/party": ["./packages/party/src/index.tsx"],
-            "@proompting/persona": ["./packages/persona/src/index.tsx"],
-            "@proompting/welcome": ["./packages/welcome/src/index.tsx"]
-        }
-    },
-    "include": ["src/**/*"]
+        "jsxImportSource": "react",
+        "module": "ESNext",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["vite/client", "./worker-configuration.d.ts"],
+        /* Bundler mode */
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        /* Linting */
+        "skipLibCheck": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedSideEffectImports": true
+    }
 }

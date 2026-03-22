@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+:root {
+    font-family: "Tahoma", "MS Sans Serif", system-ui, sans-serif;
+    font-size: 11px;
+    color: #000;
+    background-color: #ece9d8;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+}
+
+.window-body {
+    background: #ece9d8;
+    color: #000;
+}
+
+.app-surface {
+    font-family: "Tahoma", "MS Sans Serif", system-ui, sans-serif;
+    font-size: 11px;
+    color: #000;
+}
+
+.app-surface button,
+.app-surface input,
+.app-surface textarea,
+.app-surface select {
+    font: inherit;
+    line-height: 1.2;
+}
+
+.app-surface button {
+    min-width: 0;
+    min-height: 0;
+}
+
+.app-surface input,
+.app-surface textarea,
+.app-surface select {
+    background-color: #fff;
+    color: #000;
+}
+
+/* XP-style fieldset groupbox */
+.xp-groupbox {
+    border: 1px solid #9db2c8;
+    border-radius: 0;
+    padding: 8px;
+    margin: 0;
+}
+
+.xp-groupbox > legend {
+    color: #003399;
+    font-weight: 600;
+    font-size: 11px;
+    padding: 0 4px;
+}
+
+/* XP-style section header with blue gradient */
+.xp-section-header {
+    background: linear-gradient(180deg, #7191c5 0%, #4d75ad 100%);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+}
+
+/* Standard XP pane background */
+.xp-pane {
+    background: #ece9d8;
+    color: #000;
+}
+
+/* Sunken field (like text area or list container) */
+.xp-sunken {
+    border: 1px solid #7f9db9;
+    border-right-color: #fff;
+    border-bottom-color: #fff;
+    background: #fff;
+}
+
+/* Markdown rendered content inside chat bubbles */
+.markdown-content {
+    line-height: 1.5;
+    word-break: break-word;
+}
+.markdown-content p {
+    margin: 0 0 0.5em;
+}
+.markdown-content p:last-child {
+    margin-bottom: 0;
+}
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    font-weight: 700;
+    margin: 0.6em 0 0.3em;
+}
+.markdown-content h1 {
+    font-size: 1.3em;
+}
+.markdown-content h2 {
+    font-size: 1.15em;
+}
+.markdown-content h3 {
+    font-size: 1.05em;
+}
+.markdown-content ul,
+.markdown-content ol {
+    margin: 0.3em 0 0.3em 1.4em;
+    padding: 0;
+}
+.markdown-content li {
+    margin: 0.1em 0;
+}
+.markdown-content code {
+    font-family: "Courier New", monospace;
+    font-size: 0.95em;
+    background: #eee;
+    padding: 0.1em 0.3em;
+    border-radius: 2px;
+}
+.markdown-content pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 0.6em 0.8em;
+    overflow-x: auto;
+    margin: 0.4em 0;
+    font-size: 0.9em;
+}
+.markdown-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+.markdown-content blockquote {
+    border-left: 3px solid #aca899;
+    margin: 0.3em 0;
+    padding: 0.2em 0.6em;
+    color: #555;
+}
+.markdown-content a {
+    color: #316ac5;
+    text-decoration: underline;
+}
+.markdown-content strong {
+    font-weight: 700;
+}
+.markdown-content em {
+    font-style: italic;
+}
+.markdown-content hr {
+    border: none;
+    border-top: 1px solid #d4d0c8;
+    margin: 0.5em 0;
+}
+.markdown-content table {
+    border-collapse: collapse;
+    margin: 0.4em 0;
+}
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid #aca899;
+    padding: 0.2em 0.5em;
+}
+.markdown-content th {
+    background: #ece9d8;
+    font-weight: 700;
+}

@@ -1,0 +1,13 @@
+@backend_HostAddress = http://localhost:5072
+
+#if (EnableOpenAPI)
+GET {{backend_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+#endif
+
+GET {{backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
