@@ -9,19 +9,21 @@ using System.ClientModel;
 
 namespace PartyTown.Services.Llm;
 
-public sealed class OllamaLlmProvider(IOptions<LlmOptions> options, ILogger<OllamaLlmProvider> logger) : ILlmProvider
+public sealed class OllamaLlmProvider(
+    OllamaOptions providerOptions,
+    ILogger<OllamaLlmProvider> logger
+) : ILlmProvider
 {
-    private readonly LlmOptions _options = options.Value;
-
     public string Id => "ollama";
 
-    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
+    private readonly OpenAIClientOptions options = new()
     {
-        var options = new OpenAIClientOptions
-        {
-            Endpoint = new Uri($"{_options.OllamaBaseUrl.TrimEnd('/')}/v1")
-        };
+        Endpoint = new Uri($"{providerOptions.BaseUrl.TrimEnd('/')}/v1")
+    };
 
+    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(
+        CancellationToken cancellationToken = default)
+    {
         var modelClient = new OpenAIModelClient(new ApiKeyCredential("ollama"), options);
 
         try
@@ -59,15 +61,10 @@ public sealed class OllamaLlmProvider(IOptions<LlmOptions> options, ILogger<Olla
             logger.LogDebug("LLM API call starting: {Model}", parameters.Model);
             var sw = Stopwatch.StartNew();
 
-            var clientOptions = new OpenAIClientOptions
-            {
-                Endpoint = new Uri($"{_options.OllamaBaseUrl.TrimEnd('/')}/v1")
-            };
-
             var chatClient = new ChatClient(
                 parameters.Model,
                 new ApiKeyCredential("ollama"),
-                clientOptions);
+                options);
 
             var messages = OpenAiChatMapper.ToChatMessages(parameters.Messages);
             var completionOptions = OpenAiChatMapper.ToChatCompletionOptions(parameters);

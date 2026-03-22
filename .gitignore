@@ -14,6 +14,7 @@ frontend/bun.lock
 frontend/dist
 frontend/build
 frontend/.output
+frontend/.vite
 
 # Cloudflare wrangler
 frontend/.wrangler/state
