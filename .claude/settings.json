@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "tanstack-query@tanstack-skills": true,
+    "tanstack-router@tanstack-skills": true,
+    "tanstack-start@tanstack-skills": true
+  }
+}
