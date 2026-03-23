@@ -1,12 +1,20 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import DOMPurify from 'dompurify';
 import * as smd from 'streaming-markdown';
 import type { Persona } from '../../api/model';
 import {
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
+    useGetPartyIdModelsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
     usePostPartyIdProceed,
@@ -342,7 +350,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         saveParticipantsMutation,
     ]);
 
-    const modelsByProvider = partyDetailsQuery.data.data.models;
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
     const peoplePicker = partyPersonas.map((persona) => ({
         id: persona.id ?? '',
@@ -396,50 +403,21 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                 </div>
 
                 <div className="flex gap-2">
-                    <select
-                        className="flex-1 text-[11px]"
-                        value={model}
-                        onChange={(event) => {
-                            const option = event.target.selectedOptions[0];
-                            const nextModel = option.dataset.model;
-                            const nextProvider = option.dataset.provider;
-                            if (
-                                nextModel === undefined ||
-                                nextProvider === undefined
-                            )
-                                return;
-                            setModel(nextModel);
-                            setProvider(nextProvider);
-                        }}
+                    <Suspense
+                        fallback={
+                            <select disabled className="flex-1 text-[11px]">
+                                <option>Loading models...</option>
+                            </select>
+                        }
                     >
-                        {modelsByProvider.length === 0 ? (
-                            <option value={model}>{model}</option>
-                        ) : (
-                            modelsByProvider
-                                .flatMap((entry) => entry.models)
-                                .map((entry) => ({
-                                    id: entry.id,
-                                    provider: entry.provider,
-                                    displayName: `${entry.provider} / ${entry.name || entry.id}`,
-                                }))
-                                .map((entry) => (
-                                    <option
-                                        key={entry.id}
-                                        data-model={entry.id}
-                                        data-provider={entry.provider}
-                                    >
-                                        {entry.displayName}
-                                    </option>
-                                ))
-                        )}
-                    </select>
+                        <ModelDropdown
+                            partyId={apiPartyId}
+                            model={model}
+                            setModel={setModel}
+                            setProvider={setProvider}
+                        />
+                    </Suspense>
                 </div>
-
-                {modelsByProvider.length === 0 ? (
-                    <p className="text-[10px]" style={{ color: '#996600' }}>
-                        No models available from backend yet.
-                    </p>
-                ) : null}
             </div>
 
             {/* Party participant management */}
@@ -520,6 +498,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                             message={message}
                             busy={busy}
                             personas={partyPersonas}
+                            userPersonaId={selectedPersonaId}
                             isGenerating={activeGenerationSet.has(
                                 message.messageId,
                             )}
@@ -662,7 +641,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                                         chatGroupId,
                                         provider,
                                         model,
-                                        personaId: selectedPersonaId || null,
                                     },
                                 })
                             }
@@ -687,6 +665,62 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     );
 }
 
+function ModelDropdown({
+    partyId,
+    model,
+    setModel,
+    setProvider,
+}: {
+    partyId: string;
+    model: string;
+    setModel: (m: string) => void;
+    setProvider: (p: string) => void;
+}) {
+    const modelsQuery = useGetPartyIdModelsSuspense(partyId);
+    const models = modelsQuery.data.data ?? [];
+
+    useEffect(() => {
+        if (models.length === 0) return;
+        const isCurrentValid = models.some((m) => m.name === model);
+        if (!isCurrentValid) {
+            const first = models[0];
+            setModel(first.name ?? '');
+            setProvider(first.providerType ?? '');
+        }
+    }, [models, model, setModel, setProvider]);
+
+    return (
+        <select
+            className="flex-1 text-[11px]"
+            value={model}
+            onChange={(event) => {
+                const option = event.target.selectedOptions[0];
+                const nextModel = option.dataset.model;
+                const nextProvider = option.dataset.provider;
+                if (nextModel === undefined || nextProvider === undefined)
+                    return;
+                setModel(nextModel);
+                setProvider(nextProvider);
+            }}
+        >
+            {models.length === 0 ? (
+                <option value={model}>{model} (no models available)</option>
+            ) : (
+                models.map((entry) => (
+                    <option
+                        key={`${entry.providerType}-${entry.endpointProviderGrainId}-${entry.name}`}
+                        value={entry.name}
+                        data-model={entry.name}
+                        data-provider={entry.providerType}
+                    >
+                        {entry.providerDescription} / {entry.name}
+                    </option>
+                ))
+            )}
+        </select>
+    );
+}
+
 function ChatBubble({
     message,
     onDelete,
@@ -694,6 +728,7 @@ function ChatBubble({
     onReprompt,
     busy,
     personas,
+    userPersonaId,
     isGenerating,
 }: {
     message: RealtimeChatMessage;
@@ -702,6 +737,7 @@ function ChatBubble({
     onReprompt: () => void;
     busy: boolean;
     personas: Persona[];
+    userPersonaId: string;
     isGenerating: boolean;
 }) {
     const isUser = message.senderType === 'user';
@@ -709,7 +745,7 @@ function ChatBubble({
 
     const senderName = useMemo(() => {
         if (message.senderName) {
-            return message.senderName;
+            return isUser ? `${message.senderName} (you)` : message.senderName;
         }
         if (isUser) {
             return 'You';
@@ -739,6 +775,94 @@ function ChatBubble({
     }, [message.overseer]);
 
     const isOverseerStop = overseerData?.stop === true;
+    const isDirectedAtUser =
+        !!overseerData &&
+        !!userPersonaId &&
+        overseerData.personaId === userPersonaId;
+
+    const userPersonaName =
+        personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
+
+    if (isDirectedAtUser && overseerData) {
+        return (
+            <div
+                style={{
+                    borderBottom: '1px solid #B0C4F0',
+                    background:
+                        'linear-gradient(135deg, #EDF3FF 0%, #E6EEFF 100%)',
+                    borderLeft: '4px solid #316AC5',
+                    padding: '8px 10px',
+                }}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <span
+                        style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#1a3a8f',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                        }}
+                    >
+                        <span style={{ fontSize: 14 }}>🎬</span>
+                        Your turn,{' '}
+                        <span style={{ color: '#003399' }}>
+                            {userPersonaName}
+                        </span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={onReprompt}
+                            style={{ fontSize: '10px', color: '#666' }}
+                        >
+                            redo
+                        </button>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={onTruncate}
+                            style={{ fontSize: '10px', color: '#666' }}
+                        >
+                            cut
+                        </button>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={onDelete}
+                            style={{ fontSize: '10px', color: '#666' }}
+                        >
+                            del
+                        </button>
+                    </span>
+                </div>
+                <div
+                    style={{
+                        fontSize: 12,
+                        color: '#1a1a4a',
+                        fontWeight: 500,
+                        marginBottom: overseerData.reason ? 4 : 0,
+                        lineHeight: 1.4,
+                    }}
+                >
+                    {overseerData.instruction}
+                </div>
+                {overseerData.reason && (
+                    <div
+                        style={{
+                            fontSize: 10,
+                            color: '#5560AA',
+                            fontStyle: 'italic',
+                        }}
+                    >
+                        {overseerData.reason}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div

@@ -1,5 +1,3 @@
-using System.Text.Json.Nodes;
-
 namespace PartyTown.Grains.Generation;
 
 [Alias("PartyTown.Grains.Generation.ILlmEndpointGrain")]
@@ -28,33 +26,40 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
 }
 
-public readonly record struct LlmGenerationEvent(string Type, string Data);
+[GenerateSerializer]
+public readonly record struct LlmGenerationEvent(
+    [property: Id(0)] string Type,
+    [property: Id(1)] string Data);
 
+[GenerateSerializer]
 public sealed record class LlmChatMessage
 {
-    public string Role { get; init; } = string.Empty;
-    public string Content { get; init; } = string.Empty;
-    public string? Name { get; init; }
+    [Id(0)] public string Role { get; init; } = string.Empty;
+    [Id(1)] public string Content { get; init; } = string.Empty;
+    [Id(2)] public string? Name { get; init; }
 }
 
+[GenerateSerializer]
 public sealed record class LlmGenerationParams
 {
-    public string Model { get; init; } = string.Empty;
-    public IReadOnlyList<LlmChatMessage> Messages { get; init; } = [];
-    public string? UserId { get; init; }
-    public string? RoomId { get; init; }
-    public double? Temperature { get; init; }
-    public JsonObject? ResponseFormat { get; init; }
+    [Id(0)] public string Model { get; init; } = string.Empty;
+    [Id(1)] public IReadOnlyList<LlmChatMessage> Messages { get; init; } = [];
+    [Id(2)] public string? UserId { get; init; }
+    [Id(3)] public string? RoomId { get; init; }
+    [Id(4)] public double? Temperature { get; init; }
+    // Serialized JSON string (JsonObject is not Orleans-serializable)
+    [Id(5)] public string? ResponseFormat { get; init; }
 }
 
+[GenerateSerializer]
 public sealed record class LlmModel
 {
-    public required string Name { get; init; }
-    public required int EndpointProviderGrainId { get; init; }
-    public required string ProviderType { get; init; }
-    public string? ProviderDescription { get; init; }
-    public string? Description { get; init; }
-    public int? ContextLength { get; init; }
+    [Id(0)] public required string Name { get; init; }
+    [Id(1)] public required int EndpointProviderGrainId { get; init; }
+    [Id(2)] public required string ProviderType { get; init; }
+    [Id(3)] public string? ProviderDescription { get; init; }
+    [Id(4)] public string? Description { get; init; }
+    [Id(5)] public int? ContextLength { get; init; }
 }
 
 public static class LlmEndpointGrainFactory

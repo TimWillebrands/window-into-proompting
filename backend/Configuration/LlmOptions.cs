@@ -4,22 +4,20 @@ public sealed class LlmOptions
 {
     public const string SectionName = "Llm";
 
-    public IReadOnlyList<ILlmProviderOptions> Providers { get; set; } = [];
+    public List<LlmProviderConfig> Providers { get; set; } = [];
 }
 
-public sealed record OllamaOptions : ILlmProviderOptions
+/// <summary>
+/// Flat union config for any LLM provider. Use <see cref="Type"/> to discriminate.
+/// Supported types: "ollama", "openrouter".
+/// </summary>
+public sealed class LlmProviderConfig
 {
-    public required string BaseUrl { get; init; } = "http://localhost:11434";
-    public int Priority { get; init; }
-}
+    public string Type { get; init; } = string.Empty;
 
-public sealed record OpenRouterOptions : ILlmProviderOptions
-{
-    public required string ApiKey { get; init; }
-    public int Priority { get; init; }
-}
+    // Ollama
+    public string BaseUrl { get; init; } = "http://localhost:11434";
 
-public interface ILlmProviderOptions
-{
-    public int Priority { get; }
+    // OpenRouter
+    public string ApiKey { get; init; } = string.Empty;
 }

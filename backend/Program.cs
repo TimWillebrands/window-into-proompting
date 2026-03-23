@@ -13,6 +13,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.Configure<LlmOptions>(builder.Configuration.GetSection(LlmOptions.SectionName));
 
+builder.Services.AddMemoryCache();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();

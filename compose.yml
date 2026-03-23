@@ -45,7 +45,10 @@ services:
             - ASPNETCORE_ENVIRONMENT=Development
             - NUGET_PACKAGES=${PWD}/backend/.nuget
             - ConnectionStrings__Default=Host=age-db;Port=5432;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
-            - Llm__OllamaBaseUrl=http://host.docker.internal:11434
+            - Llm__Providers__0__Type=ollama
+            - Llm__Providers__0__BaseUrl=http://192.168.68.102:11434
+            - Llm__Providers__1__Type=ollama
+            - Llm__Providers__1__BaseUrl=http://host.docker.internal:11434
         depends_on:
             backend-init:
                 condition: service_completed_successfully
@@ -55,8 +58,8 @@ services:
             - default
             - app-network
         extra_hosts:
-            - "host.docker.internal:host-gateway" 
-#        command: dotnet watch run --project backend.csproj --non-interactive --always-restart --urls http://0.0.0.0:5072
+            - "host.docker.internal:host-gateway"
+        #        command: dotnet watch run --project backend.csproj --non-interactive --always-restart --urls http://0.0.0.0:5072
         command: dotnet run --project backend.csproj --urls http://0.0.0.0:5072
 
     # Silly init command to bless all dotnet folders with correct permissions

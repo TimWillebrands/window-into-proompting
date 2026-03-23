@@ -1,11 +1,12 @@
 using System.ClientModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
-using OpenAI.Models;
 using PartyTown.Configuration;
 using PartyTown.Logging;
 
@@ -13,27 +14,19 @@ namespace PartyTown.Grains.Generation;
 
 public class OllamaEndpointGrain(
     IOptions<LlmOptions> llmOptions,
+    IHttpClientFactory httpClientFactory,
     ILogger<OllamaEndpointGrain> logger
 ) : Grain, IOllamaEndpointGrain
 {
-    private int ProviderGrainIndex => Convert.ToInt32(this.GetGrainId().GetIntegerKey());
-    private string ProviderDescription => $"ollama[{Options.BaseUrl}]";
-    private OllamaOptions Options
-    {
-        get
-        {
-            var options = llmOptions.Value.Providers[ProviderGrainIndex];
-            if (options is OllamaOptions ollamaOptions)
-            {
-                return ollamaOptions;
-            }
-            throw new InvalidOperationException($"Provider {ProviderGrainIndex} is not an Ollama provider");
-        }
-    }
+    private int GrainIndex => (int)this.GetPrimaryKeyLong();
+    private LlmProviderConfig Config => llmOptions.Value.Providers
+        .Where(p => p.Type == "ollama")
+        .ElementAt(GrainIndex);
+    private string ProviderDescription => $"ollama[{Config.BaseUrl}]";
 
     private OpenAIClientOptions OpenAiOptions => new()
     {
-        Endpoint = new Uri($"{Options.BaseUrl.TrimEnd('/')}/v1")
+        Endpoint = new Uri($"{Config.BaseUrl.TrimEnd('/')}/v1")
     };
 
     public async IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
@@ -89,21 +82,35 @@ public class OllamaEndpointGrain(
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        var modelClient = new OpenAIModelClient(new ApiKeyCredential("ollama"), OpenAiOptions);
-
         try
         {
-            logger.LogDebug("Fetching models from Ollama");
+            logger.LogDebug("Fetching models from Ollama at {BaseUrl}", Config.BaseUrl);
 
-            var response = await modelClient.GetModelsAsync(cancellationToken);
-            var list = response.Value
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(3));
+
+            var http = httpClientFactory.CreateClient();
+            var url = $"{Config.BaseUrl.TrimEnd('/')}/api/tags";
+            var httpResponse = await http.GetAsync(url, cts.Token);
+            httpResponse.EnsureSuccessStatusCode();
+
+            var content = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                logger.LogWarning("Ollama at {BaseUrl} returned empty response for /api/tags", Config.BaseUrl);
+                return [];
+            }
+
+            var response = JsonSerializer.Deserialize<OllamaTagsResponse>(content);
+
+            var list = (response?.Models ?? [])
                 .Select(item => new LlmModel
                 {
-                    Name = item.Id,
-                    EndpointProviderGrainId = ProviderGrainIndex,
+                    Name = item.Name,
+                    EndpointProviderGrainId = GrainIndex,
                     ProviderType = "ollama",
                     ProviderDescription = ProviderDescription,
-                    Description = $"Ollama model {item.Id}",
+                    Description = $"Ollama model {item.Name}",
                 })
                 .ToList();
 
@@ -112,9 +119,21 @@ public class OllamaEndpointGrain(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "OllamaEndpointGrain failed to list models");
+            logger.LogError(ex, "OllamaEndpointGrain failed to list models from {BaseUrl}", Config.BaseUrl);
             return [];
         }
+    }
+
+    private sealed class OllamaTagsResponse
+    {
+        [JsonPropertyName("models")]
+        public List<OllamaModelEntry> Models { get; init; } = [];
+    }
+
+    private sealed class OllamaModelEntry
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; init; } = string.Empty;
     }
 
     private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationParams parameters)
@@ -156,34 +175,24 @@ public class OllamaEndpointGrain(
         return options;
     }
 
-    private static bool TryGetJsonSchemaResponseFormat(JsonObject? responseFormatNode, out ChatResponseFormat responseFormat)
+    private static bool TryGetJsonSchemaResponseFormat(string? responseFormatJson, out ChatResponseFormat responseFormat)
     {
         responseFormat = null!;
-        if (responseFormatNode is null)
-        {
-            return false;
-        }
+        if (string.IsNullOrWhiteSpace(responseFormatJson)) return false;
+
+        var responseFormatNode = JsonNode.Parse(responseFormatJson) as JsonObject;
+        if (responseFormatNode is null) return false;
 
         var formatType = responseFormatNode["type"]?.GetValue<string>();
-        if (!string.Equals(formatType, "json_schema", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
+        if (!string.Equals(formatType, "json_schema", StringComparison.OrdinalIgnoreCase)) return false;
 
-        if (responseFormatNode["json_schema"] is not JsonObject schemaRoot)
-        {
-            return false;
-        }
+        if (responseFormatNode["json_schema"] is not JsonObject schemaRoot) return false;
 
         var name = schemaRoot["name"]?.GetValue<string>();
         var schema = schemaRoot["schema"];
-        if (string.IsNullOrWhiteSpace(name) || schema is null)
-        {
-            return false;
-        }
+        if (string.IsNullOrWhiteSpace(name) || schema is null) return false;
 
         var strict = schemaRoot["strict"]?.GetValue<bool>();
-
         responseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
             name,
             BinaryData.FromString(schema.ToJsonString()),

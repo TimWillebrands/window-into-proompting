@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -18,6 +19,7 @@ namespace PartyTown.Controllers;
 public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
+    IMemoryCache cache,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -99,10 +101,8 @@ public sealed class PartyController(
 
         var party = await grains.GetGrain<IPartyGrain>(id).GetParty();
         var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        var models = await router.GetModelsAsync(HttpContext.RequestAborted);
 
-        return Ok(new PartyDetails(party, models, personas));
+        return Ok(new PartyDetails(party, personas));
     }
 
     /// <summary>
@@ -212,7 +212,7 @@ public sealed class PartyController(
             : request.SenderName;
 
         await grains.GetGrain<IPartyGrain>(id)
-            .SendPrompt(request.ChatGroupId, request.Prompt, senderId, senderName, request.Model, request.Provider, request.PersonaId);
+            .SendPrompt(request.ChatGroupId, request.Prompt, senderId, senderName, request.Model, request.Provider);
 
         return Accepted("Proompt accepted");
     }
@@ -252,7 +252,7 @@ public sealed class PartyController(
             : request.SenderName;
 
         await grains.GetGrain<IPartyGrain>(id)
-            .Proceed(request.ChatGroupId, senderId, senderName, request.PersonaId, request.Model, request.Provider);
+            .Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
 
         return Accepted("Proompt accepted");
     }
@@ -361,7 +361,7 @@ public sealed class PartyController(
         await grains.GetGrain<IPartyGrain>(id).DeleteMessagesAfter(request.ChatGroupId, messageId);
         var senderId = request.SenderId ?? Guid.NewGuid();
         var senderName = string.IsNullOrWhiteSpace(request.SenderName) ? senderId.ToString() : request.SenderName;
-        await grains.GetGrain<IPartyGrain>(id).Proceed(request.ChatGroupId, senderId, senderName, null, request.Model, request.Provider);
+        await grains.GetGrain<IPartyGrain>(id).Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
         return Accepted("Proompt accepted");
     }
 
@@ -399,6 +399,18 @@ public sealed class PartyController(
     /// <returns>
     /// A participant list containing all personas plus the optional user participant.
     /// </returns>
+    [HttpGet("{id:guid}/models")]
+    public async Task<ActionResult<IReadOnlyList<LlmModel>>> GetModels(Guid id)
+    {
+        var router = grains.GetGrain<ILlmRouterGrain>(0);
+        var models = await cache.GetOrCreateAsync($"llm-models-{id}", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+            return await router.GetModelsAsync(HttpContext.RequestAborted);
+        });
+        return Ok(models);
+    }
+
     [HttpGet("{id:guid}/chat-groups")]
     public async Task<ActionResult<List<ChatGroupInfo>>> GetChatGroups(Guid id)
     {
@@ -465,4 +477,4 @@ public sealed class PartyController(
 
 }
 
-public record PartyDetails(PartyInfo Party, IReadOnlyList<LlmModel> Models, PersonaMetadata[] PersonaParticipants);
+public record PartyDetails(PartyInfo Party, PersonaMetadata[] PersonaParticipants);

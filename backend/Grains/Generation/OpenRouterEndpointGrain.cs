@@ -19,20 +19,11 @@ public class OpenRouterEndpointGrain(
 {
     private const string BaseUrl = "https://openrouter.ai/api/v1";
 
-    private int ProviderGrainIndex => Convert.ToInt32(this.GetGrainId().GetIntegerKey());
+    private int GrainIndex => (int)this.GetPrimaryKeyLong();
+    private LlmProviderConfig Config => llmOptions.Value.Providers
+        .Where(p => p.Type == "openrouter")
+        .ElementAt(GrainIndex);
     private string ProviderDescription => "openrouter";
-    private OpenRouterOptions Options
-    {
-        get
-        {
-            var options = llmOptions.Value.Providers[ProviderGrainIndex];
-            if (options is OpenRouterOptions openRouterOptions)
-            {
-                return openRouterOptions;
-            }
-            throw new InvalidOperationException($"Provider {ProviderGrainIndex} is not an OpenRouter provider");
-        }
-    }
 
     public async IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationParams parameters,
@@ -44,7 +35,7 @@ public class OpenRouterEndpointGrain(
 
         var chatClient = new ChatClient(
             parameters.Model,
-            new ApiKeyCredential(Options.ApiKey),
+            new ApiKeyCredential(Config.ApiKey),
             new OpenAIClientOptions { Endpoint = new Uri(BaseUrl) });
 
         var messages = ToOpenAiChatMessages(parameters);
@@ -139,7 +130,7 @@ public class OpenRouterEndpointGrain(
                 models.Add(new LlmModel
                 {
                     Name = id,
-                    EndpointProviderGrainId = ProviderGrainIndex,
+                    EndpointProviderGrainId = GrainIndex,
                     ProviderType = "openrouter",
                     ProviderDescription = ProviderDescription,
                     Description = description ?? $"OpenRouter model {name}",
@@ -187,9 +178,12 @@ public class OpenRouterEndpointGrain(
         return options;
     }
 
-    private static bool TryGetJsonSchemaResponseFormat(JsonObject? responseFormatNode, out ChatResponseFormat responseFormat)
+    private static bool TryGetJsonSchemaResponseFormat(string? responseFormatJson, out ChatResponseFormat responseFormat)
     {
         responseFormat = null!;
+        if (string.IsNullOrWhiteSpace(responseFormatJson)) return false;
+
+        var responseFormatNode = JsonNode.Parse(responseFormatJson) as JsonObject;
         if (responseFormatNode is null) return false;
 
         var formatType = responseFormatNode["type"]?.GetValue<string>();

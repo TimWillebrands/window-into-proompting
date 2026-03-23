@@ -26,6 +26,7 @@ import type {
     ChatGroupInfo,
     CreateChatGroupRequest,
     CreatePartyRequest,
+    LlmModel,
     PartyDetails,
     PartyInfo,
     Persona,
@@ -2025,6 +2026,327 @@ export function useGetPartyIdWsSuspense<
     queryKey: DataTag<QueryKey, TData, TError>;
 } {
     const queryOptions = getGetPartyIdWsSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getPartyIdModelsResponse200TextPlain = {
+    data: LlmModel[];
+    status: 200;
+};
+
+export type getPartyIdModelsResponse200ApplicationJson = {
+    data: LlmModel[];
+    status: 200;
+};
+
+export type getPartyIdModelsResponse200TextJson = {
+    data: LlmModel[];
+    status: 200;
+};
+
+export type getPartyIdModelsResponseSuccess = (
+    | getPartyIdModelsResponse200TextPlain
+    | getPartyIdModelsResponse200ApplicationJson
+    | getPartyIdModelsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPartyIdModelsResponse = getPartyIdModelsResponseSuccess;
+
+export const getGetPartyIdModelsUrl = (id: string) => {
+    return `/api/Party/${id}/models`;
+};
+
+export const getPartyIdModels = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getPartyIdModelsResponse> => {
+    const res = await fetch(getGetPartyIdModelsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdModelsResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdModelsResponse;
+};
+
+export const getGetPartyIdModelsQueryKey = (id: string) => {
+    return [`/api/Party/${id}/models`] as const;
+};
+
+export const getGetPartyIdModelsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPartyIdModelsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPartyIdModels>>
+    > = ({ signal }) => getPartyIdModels(id, { signal, ...fetchOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPartyIdModels>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartyIdModelsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPartyIdModels>>
+>;
+export type GetPartyIdModelsQueryError = unknown;
+
+export function useGetPartyIdModels<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPartyIdModels>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPartyIdModels>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdModels<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPartyIdModels>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPartyIdModels>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdModels<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdModels<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPartyIdModelsQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPartyIdModelsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPartyIdModelsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPartyIdModels>>
+    > = ({ signal }) => getPartyIdModels(id, { signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getPartyIdModels>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartyIdModelsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPartyIdModels>>
+>;
+export type GetPartyIdModelsSuspenseQueryError = unknown;
+
+export function useGetPartyIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getPartyIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartyIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPartyIdModelsSuspenseQueryOptions(id, options);
 
     const query = useSuspenseQuery(
         queryOptions,

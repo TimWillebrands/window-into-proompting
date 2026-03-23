@@ -13,6 +13,7 @@ export default defineConfig({
             schemas: './src/api/model',
             client: 'react-query',
             baseUrl: '/api',
+            biome: true,
             override: {
                 query: {
                     useSuspenseQuery: true,

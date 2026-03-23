@@ -16,9 +16,6 @@ interface WindowFrameProps {
 export default function WindowFrame({
     id,
     title,
-    width,
-    height,
-    zIndex,
     icon = '📄',
     onMinimize,
     onRestore,

@@ -15,30 +15,12 @@ public sealed class GenerationSession(ILlmEndpointGrain endpoint, ILogger<Genera
         IReadOnlyList<GenerationParticipant> participants,
         string model,
         Guid roomId,
-        Guid? personaOverrideId,
         Guid senderId,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken = default)
     {
-        OverseerOutput overseer;
-        GenerationParticipant? selectedPersona;
-
-        if (personaOverrideId is { } forced)
-        {
-            selectedPersona = participants.FirstOrDefault(p => p.Id == forced);
-            overseer = new OverseerOutput
-            {
-                PersonaId = forced,
-                Reason = "Persona override",
-                Instruction = "Continue the conversation naturally.",
-                Stop = selectedPersona is null
-            };
-        }
-        else
-        {
-            overseer = await FindRespondentAsync(history, participants, model, roomId, onEvent, cancellationToken);
-            selectedPersona = participants.FirstOrDefault(p => p.Id == overseer.PersonaId);
-        }
+        var overseer = await FindRespondentAsync(history, participants, model, roomId, onEvent, cancellationToken);
+        var selectedPersona = participants.FirstOrDefault(p => p.Id == overseer.PersonaId);
 
         if (selectedPersona is null)
         {
@@ -175,7 +157,7 @@ public sealed class GenerationSession(ILlmEndpointGrain endpoint, ILogger<Genera
             Messages = messages,
             UserId = "overseer",
             RoomId = roomId.ToString(),
-            ResponseFormat = responseFormat
+            ResponseFormat = responseFormat.ToJsonString()
         }, cancellationToken))
         {
             if (chunk.Type == "message")

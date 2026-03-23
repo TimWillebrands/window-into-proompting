@@ -14,7 +14,16 @@ public sealed class LlmRouterGrain(
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         var providers = llmOptions.Value.Providers;
-        var tasks = providers.Select((options, index) => GetEndpointGrainForOptions(options, index).GetModelsAsync(cancellationToken));
+        var tasks = new List<Task<IReadOnlyList<LlmModel>>>();
+
+        var ollamaCount = providers.Count(p => p.Type == "ollama");
+        var openRouterCount = providers.Count(p => p.Type == "openrouter");
+
+        for (var i = 0; i < ollamaCount; i++)
+            tasks.Add(GrainFactory.GetGrain<IOllamaEndpointGrain>(i).GetModelsAsync(cancellationToken));
+        for (var i = 0; i < openRouterCount; i++)
+            tasks.Add(GrainFactory.GetGrain<IOpenRouterEndpointGrain>(i).GetModelsAsync(cancellationToken));
+
         var results = await Task.WhenAll(tasks);
         return results.SelectMany(x => x).ToList();
     }
@@ -39,11 +48,4 @@ public sealed class LlmRouterGrain(
 
         return sb.ToString();
     }
-
-    private ILlmEndpointGrain GetEndpointGrainForOptions(ILlmProviderOptions options, int index) => options switch
-    {
-        OllamaOptions => GrainFactory.GetGrain<IOllamaEndpointGrain>(index),
-        OpenRouterOptions => GrainFactory.GetGrain<IOpenRouterEndpointGrain>(index),
-        _ => throw new NotSupportedException($"Provider type {options.GetType().Name} is not supported")
-    };
 }
