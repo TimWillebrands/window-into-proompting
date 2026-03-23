@@ -14,7 +14,7 @@ namespace PartyTown.Grains.Generation;
 public class OllamaEndpointGrain(
     IOptions<LlmOptions> llmOptions,
     ILogger<OllamaEndpointGrain> logger
-) : Grain, ILlmEndpointGrain
+) : Grain, IOllamaEndpointGrain
 {
     private int ProviderGrainIndex => Convert.ToInt32(this.GetGrainId().GetIntegerKey());
     private string ProviderDescription => $"ollama[{Options.BaseUrl}]";
@@ -62,20 +62,20 @@ public class OllamaEndpointGrain(
                 if (!string.IsNullOrWhiteSpace(part.Text))
                 {
                     chunkCount++;
-                    yield return new LlmGenerationEvent { Type = "message", Data = part.Text };
+                    yield return new LlmGenerationEvent("message", part.Text);
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
             {
                 logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
-                yield return new LlmGenerationEvent { Type = "error", Data = update.RefusalUpdate };
+                yield return new LlmGenerationEvent("error", update.RefusalUpdate);
             }
 
             if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
             {
                 logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
-                yield return new LlmGenerationEvent { Type = "error", Data = finishReason.ToString() };
+                yield return new LlmGenerationEvent("error", finishReason.ToString());
                 yield break;
             }
         }
@@ -101,6 +101,7 @@ public class OllamaEndpointGrain(
                 {
                     Name = item.Id,
                     EndpointProviderGrainId = ProviderGrainIndex,
+                    ProviderType = "ollama",
                     ProviderDescription = ProviderDescription,
                     Description = $"Ollama model {item.Id}",
                 })

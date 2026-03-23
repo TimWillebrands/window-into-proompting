@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PartyTown.Grains;
+using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Llm;
 using PartyTown.Services.Realtime;
 
 namespace PartyTown.Controllers;
@@ -18,7 +18,6 @@ namespace PartyTown.Controllers;
 public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
-    ILlmProviderRegistry llmProviderRegistry,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -100,7 +99,8 @@ public sealed class PartyController(
 
         var party = await grains.GetGrain<IPartyGrain>(id).GetParty();
         var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
-        var models = await llmProviderRegistry.GetAllModelsAsync(HttpContext.RequestAborted);
+        var router = grains.GetGrain<ILlmRouterGrain>(0);
+        var models = await router.GetModelsAsync(HttpContext.RequestAborted);
 
         return Ok(new PartyDetails(party, models, personas));
     }
@@ -465,4 +465,4 @@ public sealed class PartyController(
 
 }
 
-public record PartyDetails(PartyInfo Party, IReadOnlyList<CategorizedModels> Models, PersonaMetadata[] PersonaParticipants);
+public record PartyDetails(PartyInfo Party, IReadOnlyList<LlmModel> Models, PersonaMetadata[] PersonaParticipants);

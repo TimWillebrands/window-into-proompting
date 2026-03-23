@@ -2,12 +2,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using JsonRepairSharp;
+using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Llm;
 
 namespace PartyTown.Services.Generation;
 
-public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationSession> logger)
+public sealed class GenerationSession(ILlmEndpointGrain endpoint, ILogger<GenerationSession> logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     public async Task<GenerationResult> GenerateAsync(
@@ -97,7 +97,7 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
         var builder = new StringBuilder();
         var reasoning = new StringBuilder();
 
-        await foreach (var chunk in provider.GenerateAsync(new LlmGenerationParams
+        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
         {
             Model = model,
             Messages = messages,
@@ -169,7 +169,7 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
             }
         };
 
-        await foreach (var chunk in provider.GenerateAsync(new LlmGenerationParams
+        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
         {
             Model = model,
             Messages = messages,
@@ -248,7 +248,7 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
         // Send the parsed overseer output to the frontend as a complete event
         // done=false so the generation stream stays active until persona finishes
         await onEvent("overseerComplete", JsonSerializer.Serialize(parsed, WebOptions), false);
-        
+
         return parsed;
     }
 

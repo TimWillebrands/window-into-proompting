@@ -4,7 +4,6 @@ using Orleans.Configuration;
 using Orleans.EventSourcing;
 using PartyTown.Configuration;
 using PartyTown.Logging;
-using PartyTown.Services.Llm;
 using PartyTown.Services.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,10 +16,6 @@ builder.Services.Configure<LlmOptions>(builder.Configuration.GetSection(LlmOptio
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<OpenRouterModelsClient>();
-builder.Services.AddSingleton<ILlmProvider, OllamaLlmProvider>();
-builder.Services.AddSingleton<ILlmProvider, OpenRouterLlmProvider>();
-builder.Services.AddSingleton<ILlmProviderRegistry, LlmProviderRegistry>();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 
 builder.Host.UseOrleans(siloBuilder =>

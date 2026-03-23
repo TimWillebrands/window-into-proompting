@@ -3,10 +3,10 @@ using System.Text.Json;
 using Orleans.EventSourcing;
 using Orleans.Providers;
 using Orleans.Streams;
+using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Generation;
-using PartyTown.Services.Llm;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
@@ -16,7 +16,6 @@ namespace PartyTown.Grains;
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
 public sealed class PartyGrain(
-    ILlmProviderRegistry llmProviderRegistry,
     ILogger<PartyGrain> logger,
     ILoggerFactory loggerFactory)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
@@ -202,12 +201,18 @@ public sealed class PartyGrain(
             logger.LogInformation("Starting generation for message {MessageId}", messageId);
             var sw = Stopwatch.StartNew();
 
-            var llmProvider = llmProviderRegistry.GetProvider(provider);
-            var session = new GenerationSession(llmProvider, loggerFactory.CreateLogger<GenerationSession>());
-
             var cts = new CancellationTokenSource();
             var generationKey = (chatGroupId, messageId);
             activeGenerations[generationKey] = cts;
+
+            var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+            var allModels = await router.GetModelsAsync(cts.Token);
+            var modelInfo = allModels.FirstOrDefault(m => m.Name == model && m.ProviderType.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                ?? allModels.FirstOrDefault(m => m.Name == model)
+                ?? throw new InvalidOperationException($"Model '{model}' not found on any provider");
+
+            var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, modelInfo);
+            var session = new GenerationSession(endpointGrain, loggerFactory.CreateLogger<GenerationSession>());
 
             try
             {

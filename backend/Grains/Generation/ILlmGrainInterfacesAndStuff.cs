@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using PartyTown.Services.Llm;
 
 namespace PartyTown.Grains.Generation;
 
@@ -13,22 +12,18 @@ public interface ILlmEndpointGrain : IGrainWithIntegerKey
     IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(LlmGenerationParams parameters, CancellationToken cancellationToken = default);
 }
 
+[Alias("PartyTown.Grains.Generation.IOllamaEndpointGrain")]
+public interface IOllamaEndpointGrain : ILlmEndpointGrain { }
+
+[Alias("PartyTown.Grains.Generation.IOpenRouterEndpointGrain")]
+public interface IOpenRouterEndpointGrain : ILlmEndpointGrain { }
+
 [Alias("PartyTown.Grains.Generation.ILlmRouterGrain")]
 public interface ILlmRouterGrain : IGrainWithIntegerKey
 {
-    /// <summary>
-    /// Routes the request to an appropriate endpoint grain and forwards the response.
-    /// </summary>
-    /// <param name="parameters">The parameters for the generation request.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     [Alias("RouteAndGenerateAsync")]
     Task<string> RouteAndGenerateAsync(LlmGenerationParams parameters);
 
-    /// <summary>
-    /// Retrieves a list of all available models of all the various LlmEndpoints.
-    /// </summary>
-    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
 }
@@ -56,7 +51,19 @@ public sealed record class LlmModel
 {
     public required string Name { get; init; }
     public required int EndpointProviderGrainId { get; init; }
+    public required string ProviderType { get; init; }
     public string? ProviderDescription { get; init; }
     public string? Description { get; init; }
     public int? ContextLength { get; init; }
+}
+
+public static class LlmEndpointGrainFactory
+{
+    public static ILlmEndpointGrain GetGrain(IGrainFactory grainFactory, LlmModel model) =>
+        model.ProviderType switch
+        {
+            "ollama" => grainFactory.GetGrain<IOllamaEndpointGrain>(model.EndpointProviderGrainId),
+            "openrouter" => grainFactory.GetGrain<IOpenRouterEndpointGrain>(model.EndpointProviderGrainId),
+            _ => throw new NotSupportedException($"Unknown provider type: {model.ProviderType}")
+        };
 }
