@@ -18,12 +18,12 @@ docker compose down -v     # Stop and wipe DB
 
 A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`.
 
-### Service URLs (inside Docker)
+### Service URLs (host)
 
 - **Frontend**: http://localhost:3000 (Vite dev server)
-- **Backend**: http://localhost:5072 (.NET with `dotnet watch`)
+- **Backend**: http://localhost:5072 (.NET)
 - **Caddy proxy**: http://localhost:8080 (routes `/api/*` → backend, `/*` → frontend)
-- **Database**: localhost:5455 (PostgreSQL + Apache AGE)
+- **Database**: localhost:${HOST_DB_PORT:-5455} (PostgreSQL + Apache AGE)
 
 Both frontend and backend hot-reload on file changes.
 
@@ -50,7 +50,7 @@ dotnet clean && dotnet build
 ### Database
 
 ```bash
-docker compose exec age-db psql -U $POSTGRES_USER -d $POSTGRES_DB
+docker compose exec age-db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
 DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the volume (`docker compose down -v`).
