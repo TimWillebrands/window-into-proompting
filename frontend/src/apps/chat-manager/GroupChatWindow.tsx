@@ -533,6 +533,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                         <StreamingIndicator
                             info={generationInfo}
                             overseerText={activeOverseerText}
+                            personas={partyPersonas}
                         />
                     )}
                 </div>
@@ -1185,9 +1186,11 @@ function MarkdownContent({
 function StreamingIndicator({
     info,
     overseerText,
+    personas,
 }: {
     info: GenerationPhase;
     overseerText?: string | null;
+    personas?: Persona[];
 }) {
     if (info.phase === 'overseer') {
         return (
@@ -1221,37 +1224,60 @@ function StreamingIndicator({
             </div>
         );
     }
-    if (info.phase === 'typing') {
+    if (info.phase === 'typing' || info.phase === 'streaming') {
+        const personaId = info.personaName; // actually the ID from personaChange event
+        const resolvedName =
+            personas?.find((p) => p.id === personaId)?.name ??
+            personaId.slice(0, 8);
         return (
             <div
-                className="flex items-center gap-2"
                 style={{
-                    color: '#004499',
-                    background: '#F0F8FF',
-                    padding: '4px 8px',
-                    border: '1px solid #BDD7EE',
+                    borderBottom: '1px solid #D4D0C8',
+                    background: '#F8F8F8',
+                    borderLeft: '3px solid #316AC5',
+                    padding: '6px 8px',
                 }}
             >
-                <span>{info.personaName} is typing...</span>
-            </div>
-        );
-    }
-    if (info.phase === 'streaming') {
-        return (
-            <div
-                className="flex items-center gap-2"
-                style={{
-                    color: '#004499',
-                    background: '#F0F8FF',
-                    padding: '4px 8px',
-                    border: '1px solid #BDD7EE',
-                }}
-            >
-                <span>{info.personaName}</span>
-                <span className="animate-pulse">▌</span>
-                <span style={{ color: '#808080', fontSize: 10 }}>
-                    ({info.charCount} chars)
-                </span>
+                <div className="flex items-center gap-2 mb-1">
+                    <img
+                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                        alt={resolvedName}
+                        style={{
+                            width: 22,
+                            height: 22,
+                            flexShrink: 0,
+                            imageRendering: 'pixelated',
+                        }}
+                    />
+                    <span style={{ fontWeight: 600, color: '#006600' }}>
+                        {resolvedName}
+                    </span>
+                    {info.phase === 'streaming' && (
+                        <span style={{ color: '#808080', fontSize: 10 }}>
+                            ({info.charCount} chars)
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-1 pl-1" style={{ color: '#808080' }}>
+                    <span
+                        className="inline-block animate-bounce"
+                        style={{ animationDelay: '0ms', fontSize: 16, lineHeight: 1 }}
+                    >
+                        •
+                    </span>
+                    <span
+                        className="inline-block animate-bounce"
+                        style={{ animationDelay: '150ms', fontSize: 16, lineHeight: 1 }}
+                    >
+                        •
+                    </span>
+                    <span
+                        className="inline-block animate-bounce"
+                        style={{ animationDelay: '300ms', fontSize: 16, lineHeight: 1 }}
+                    >
+                        •
+                    </span>
+                </div>
             </div>
         );
     }

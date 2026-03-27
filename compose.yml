@@ -46,7 +46,7 @@ services:
             - NUGET_PACKAGES=${PWD}/backend/.nuget
             - ConnectionStrings__Default=Host=age-db;Port=5432;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
             - Llm__Providers__0__Type=ollama
-            - Llm__Providers__0__BaseUrl=http://192.168.68.102:11434
+            - Llm__Providers__0__BaseUrl=http://192.168.68.101:11434
             - Llm__Providers__1__Type=ollama
             - Llm__Providers__1__BaseUrl=http://host.docker.internal:11434
         depends_on:
