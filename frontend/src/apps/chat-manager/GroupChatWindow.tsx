@@ -1,3 +1,4 @@
+import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
@@ -112,6 +113,30 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId();
 
     const busy = promptParty.isPending || proceedParty.isPending;
+
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const handleSubmit = useCallback(async () => {
+        const trimmed = inputValue.trim();
+        if (!trimmed || busy) {
+            return;
+        }
+        await promptParty.mutateAsync({
+            id: apiPartyId,
+            data: {
+                chatGroupId,
+                prompt: trimmed,
+                provider,
+                model,
+                personaId: selectedPersonaId || null,
+            },
+        });
+        setInputValue('');
+    }, [inputValue, busy, promptParty, apiPartyId, chatGroupId, provider, model, selectedPersonaId]);
+
+    useHotkey('Mod+Enter', handleSubmit, {
+        target: textareaRef,
+    });
 
     const saveParticipantsMutation = usePutPartyIdParticipants({
         mutation: {
@@ -570,21 +595,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                     }}
                     onSubmit={async (event) => {
                         event.preventDefault();
-                        const trimmed = inputValue.trim();
-                        if (!trimmed || busy) {
-                            return;
-                        }
-                        await promptParty.mutateAsync({
-                            id: apiPartyId,
-                            data: {
-                                chatGroupId,
-                                prompt: trimmed,
-                                provider,
-                                model,
-                                personaId: selectedPersonaId || null,
-                            },
-                        });
-                        setInputValue('');
+                        await handleSubmit();
                     }}
                 >
                     {pendingInstruction && (
@@ -605,6 +616,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                         </div>
                     )}
                     <textarea
+                        ref={textareaRef}
                         rows={3}
                         className="w-full text-[11px]"
                         style={{ padding: '4px' }}
