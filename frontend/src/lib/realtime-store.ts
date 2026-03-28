@@ -667,6 +667,38 @@ export type GenerationPhase =
     | { phase: 'typing'; personaName: string }
     | { phase: 'streaming'; personaName: string; charCount: number };
 
+export type ActiveGenerationPhase = GenerationPhase & { messageId?: number };
+
+const getPhaseForMessage = (
+    group: ChatGroupRealtimeState,
+    activeId: number,
+): ActiveGenerationPhase => {
+    const message = group.messages.find((m) => m.messageId === activeId);
+    if (!message) return { phase: 'overseer', messageId: activeId };
+
+    const events = message.generationEvents ?? [];
+    if (events.find((e) => e.event === 'overseerStop'))
+        return { phase: 'idle', messageId: activeId };
+
+    const personaChangeEvent = [...events]
+        .reverse()
+        .find((e) => e.event === 'personaChange');
+    if (!personaChangeEvent) return { phase: 'overseer', messageId: activeId };
+
+    const personaName = personaChangeEvent.data;
+    const msgCount = events.filter((e) => e.event === 'message').length;
+
+    if (msgCount < 3)
+        return { phase: 'typing', personaName, messageId: activeId };
+    return {
+        phase: 'streaming',
+        personaName,
+        charCount: (message.content ?? '').length,
+        messageId: activeId,
+    };
+};
+
+/** Returns a single GenerationPhase for the most recent active generation (backward compat). */
 export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
     useRealtimeStore(
         useShallow((state) => {
@@ -678,29 +710,23 @@ export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
                 group.activeGenerationMessageIds[
                     group.activeGenerationMessageIds.length - 1
                 ];
-            const message = group.messages.find(
-                (m) => m.messageId === activeId,
-            );
-            if (!message) return { phase: 'overseer' };
+            return getPhaseForMessage(group, activeId);
+        }),
+    );
 
-            const events = message.generationEvents ?? [];
-            if (events.find((e) => e.event === 'overseerStop'))
-                return { phase: 'idle' };
+/** Returns an array of GenerationPhases — one per active generation stream. */
+export const useActiveGenerationPhases = (
+    chatGroupId: string,
+): ActiveGenerationPhase[] =>
+    useRealtimeStore(
+        useShallow((state) => {
+            const group = state.chatGroups[chatGroupId];
+            if (!group || group.activeGenerationMessageIds.length === 0)
+                return [];
 
-            const personaChangeEvent = [...events]
-                .reverse()
-                .find((e) => e.event === 'personaChange');
-            if (!personaChangeEvent) return { phase: 'overseer' };
-
-            const personaName = personaChangeEvent.data;
-            const msgCount = events.filter((e) => e.event === 'message').length;
-
-            if (msgCount < 3) return { phase: 'typing', personaName };
-            return {
-                phase: 'streaming',
-                personaName,
-                charCount: (message.content ?? '').length,
-            };
+            return group.activeGenerationMessageIds
+                .map((id) => getPhaseForMessage(group, id))
+                .filter((p) => p.phase !== 'idle');
         }),
     );
 

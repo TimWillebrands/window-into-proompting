@@ -28,7 +28,7 @@ import {
     type GenerationPhase,
     type RealtimeChatMessage,
     type RealtimeConnectionStatus,
-    useActiveGenerationInfo,
+    useActiveGenerationPhases,
     useChatGroupGenerationState,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
@@ -90,7 +90,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
 
     const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
     const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
-    const generationInfo = useActiveGenerationInfo(chatGroupId ?? '');
+    const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
     const {
         connectPartyRealtime,
         disconnectPartyRealtime,
@@ -274,16 +274,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         () => new Set(activeGenerations),
         [activeGenerations],
     );
-
-    const activeOverseerText = useMemo(() => {
-        if (
-            generationInfo.phase !== 'overseer' ||
-            activeGenerations.length === 0
-        )
-            return null;
-        const activeId = activeGenerations[activeGenerations.length - 1];
-        return messages.find((m) => m.messageId === activeId)?.overseer ?? null;
-    }, [generationInfo.phase, activeGenerations, messages]);
 
     const uniqueMessages = useMemo(
         () =>
@@ -529,13 +519,24 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                             }
                         />
                     ))}
-                    {isStreaming && (
-                        <StreamingIndicator
-                            info={generationInfo}
-                            overseerText={activeOverseerText}
-                            personas={partyPersonas}
-                        />
-                    )}
+                    {generationPhases.length > 0
+                        ? generationPhases.map((phase) => (
+                              <StreamingIndicator
+                                  key={phase.messageId ?? 'unknown'}
+                                  info={phase}
+                                  overseerText={
+                                      phase.phase === 'overseer'
+                                          ? (messages.find(
+                                                (m) =>
+                                                    m.messageId ===
+                                                    phase.messageId,
+                                            )?.overseer ?? null)
+                                          : null
+                                  }
+                                  personas={partyPersonas}
+                              />
+                          ))
+                        : null}
                 </div>
 
                 {/* Unread indicator */}

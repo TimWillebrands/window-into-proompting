@@ -211,8 +211,9 @@ public sealed class PartyController(
             ? senderId.ToString()
             : request.SenderName;
 
-        await grains.GetGrain<IPartyGrain>(id)
-            .SendPrompt(request.ChatGroupId, request.Prompt, senderId, senderName, request.Model, request.Provider);
+        // Route directly to ChatGroupGrain for parallel persona fan-out
+        await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
+            .SendUserMessageAndNotifyAsync(senderId, senderName, request.Prompt, request.Model, request.Provider);
 
         return Accepted("Proompt accepted");
     }
@@ -246,13 +247,15 @@ public sealed class PartyController(
             return BadRequest("Invalid provider");
         }
 
-        var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName)
-            ? senderId.ToString()
-            : request.SenderName;
+        // Create a synthetic trigger message to fan out to personas
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var lastMessage = messages.LastOrDefault();
 
-        await grains.GetGrain<IPartyGrain>(id)
-            .Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
+        if (lastMessage is not null)
+        {
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, request.Model, request.Provider);
+        }
 
         return Accepted("Proompt accepted");
     }
@@ -294,7 +297,7 @@ public sealed class PartyController(
             return BadRequest("Invalid message id");
         }
 
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessage(chatGroupId, messageId);
+        await grains.GetGrain<IChatGroupGrain>(chatGroupId).DeleteMessageAsync(messageId);
         return NoContent();
     }
 
@@ -320,7 +323,7 @@ public sealed class PartyController(
             return BadRequest("Invalid message id");
         }
 
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessagesAfter(chatGroupId, messageId);
+        await grains.GetGrain<IChatGroupGrain>(chatGroupId).DeleteMessagesAfterAsync(messageId);
         return NoContent();
     }
 
@@ -358,10 +361,17 @@ public sealed class PartyController(
             return BadRequest("Invalid provider");
         }
 
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessagesAfter(request.ChatGroupId, messageId);
-        var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName) ? senderId.ToString() : request.SenderName;
-        await grains.GetGrain<IPartyGrain>(id).Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
+        await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
+
+        // Fan out to personas after truncation
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var lastMessage = messages.LastOrDefault();
+        if (lastMessage is not null)
+        {
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, request.Model, request.Provider);
+        }
+
         return Accepted("Proompt accepted");
     }
 

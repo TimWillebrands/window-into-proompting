@@ -1,16 +1,27 @@
+using System.Text;
+using System.Text.Json;
+using Orleans.Concurrency;
+using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Generation;
+using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
 
 /// <summary>
-/// Grain that stores and manages a single persona's data.
+/// Grain that stores a single persona's data and reacts to messages.
+/// Marked [Reentrant] so multiple concurrent NotifyMessageAsync calls don't deadlock.
 /// </summary>
+[Reentrant]
 public sealed class PersonaGrain(
-    [PersistentState( stateName: "persona", storageName: "personas")]
+    [PersistentState(stateName: "persona", storageName: "personas")]
     IPersistentState<Persona> state,
+    ILoggerFactory loggerFactory,
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Grain activated");
@@ -22,15 +33,10 @@ public sealed class PersonaGrain(
         logger.LogInformation("Grain deactivating: {Reason}", reason.ReasonCode);
         return base.OnDeactivateAsync(reason, cancellationToken);
     }
-    /// <summary>
-    /// Sets the persona fields using a model instance.
-    /// </summary>
+
     public Task SetPersona(Persona persona) =>
         SetPersona(persona.Name, persona.SystemPrompt, persona.Bio);
 
-    /// <summary>
-    /// Sets the full persona payload for this grain.
-    /// </summary>
     public async Task SetPersona(string name, string systemPrompt, string? bio)
         => await UpdateStateAsync(current => current with
         {
@@ -40,9 +46,6 @@ public sealed class PersonaGrain(
             Bio = bio
         });
 
-    /// <summary>
-    /// Updates the persona name.
-    /// </summary>
     public async Task SetName(string name)
         => await UpdateStateAsync(current => current with
         {
@@ -50,9 +53,6 @@ public sealed class PersonaGrain(
             Name = name
         });
 
-    /// <summary>
-    /// Updates the persona system prompt.
-    /// </summary>
     public async Task SetSystemPrompt(string systemPrompt)
         => await UpdateStateAsync(current => current with
         {
@@ -60,9 +60,6 @@ public sealed class PersonaGrain(
             SystemPrompt = systemPrompt
         });
 
-    /// <summary>
-    /// Updates the persona bio.
-    /// </summary>
     public async Task SetBio(string? bio)
         => await UpdateStateAsync(current => current with
         {
@@ -70,20 +67,183 @@ public sealed class PersonaGrain(
             Bio = bio
         });
 
-    /// <summary>
-    /// Gets the current persona state, ensuring the id matches the grain key.
-    /// </summary>
     public Task<Persona> GetPersona() =>
         Task.FromResult(state.State with
         {
             Id = this.GetPrimaryKey()
         });
 
-    /// <summary>
-    /// Clears the persona state from storage.
-    /// </summary>
     public Task DeletePersona() =>
         state.ClearStateAsync();
+
+    /// <summary>
+    /// Called by ChatGroupGrain when a new message arrives in the chat group.
+    /// The persona independently decides whether to respond and generates if yes.
+    /// </summary>
+    public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, string model, string provider)
+    {
+        var personaId = this.GetPrimaryKey();
+        var persona = state.State with { Id = personaId };
+
+        logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
+            persona.Name, triggeringMessage.MessageId, chatGroupId);
+
+        var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
+
+        try
+        {
+            // Resolve the LLM endpoint
+            var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+            var allModels = await router.GetModelsAsync();
+            var modelInfo = allModels.FirstOrDefault(m => m.Name == model && m.ProviderType.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                ?? allModels.FirstOrDefault(m => m.Name == model)
+                ?? throw new InvalidOperationException($"Model '{model}' not found on any provider");
+
+            var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, modelInfo);
+
+            // Fetch context from the chat group
+            var history = await chatGroupGrain.GetMessagesUntilAsync(triggeringMessage.MessageId + 1);
+            var participants = await chatGroupGrain.GetParticipantsAsync();
+
+            var self = new GenerationParticipant
+            {
+                Id = personaId,
+                Name = persona.Name,
+                Bio = persona.Bio,
+                SystemPrompt = persona.SystemPrompt,
+                IsUser = false
+            };
+
+            var allParticipants = participants.Select(p =>
+            {
+                if (p.Id == personaId)
+                    return self;
+                return new GenerationParticipant
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    IsUser = p.IsUser,
+                    Bio = null,
+                    SystemPrompt = null
+                };
+            }).ToList();
+
+            // Phase 1: Decide whether to respond
+            var decisionService = new PersonaDecisionService(endpointGrain, loggerFactory.CreateLogger<PersonaDecisionService>());
+            var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
+
+            var decision = await decisionService.ShouldRespondAsync(
+                self,
+                history,
+                allParticipants,
+                model,
+                chatGroupGrain.GetPrimaryKey(),
+                totalAiRounds,
+                onEvent: null,  // No streaming for the decision phase
+                cancellationToken: default);
+
+            if (!decision.Respond)
+            {
+                logger.LogInformation("Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
+                return;
+            }
+
+            logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
+
+            // Phase 2: Reserve a message slot
+            var assistantMessage = await chatGroupGrain.ReserveAssistantMessageAsync(model);
+            var messageId = assistantMessage.MessageId;
+
+            // Send persona identity event
+            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+            {
+                ChatGroupId = chatGroupId,
+                Event = "personaChange",
+                Data = personaId.ToString(),
+                Done = false
+            });
+
+            // Send overseer decision as event
+            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+            {
+                ChatGroupId = chatGroupId,
+                Event = "overseerComplete",
+                Data = JsonSerializer.Serialize(new
+                {
+                    personaId = personaId,
+                    instruction = decision.Instruction,
+                    reason = decision.Reason,
+                    stop = false
+                }, WebOptions),
+                Done = false
+            });
+
+            // Phase 3: Generate response
+            var session = new GenerationSession(endpointGrain);
+
+            // Re-fetch history up to our reserved message
+            var generationHistory = await chatGroupGrain.GetMessagesUntilAsync(messageId);
+
+            // Build generation participants with full details
+            var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+            var allPersonas = await personaRoot.GetAll();
+            var personaMap = allPersonas.ToDictionary(p => p.Id, p => p);
+
+            var fullParticipants = participants.Select(p =>
+            {
+                if (p.IsUser)
+                    return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = true, SystemPrompt = "this is a real human user", Bio = null };
+                if (personaMap.TryGetValue(p.Id, out var pm))
+                    return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, IsUser = false };
+                return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
+            }).ToList();
+
+            // Use GenerateResponseOnly (skip overseer — we already decided)
+            var result = await session.GenerateResponseOnlyAsync(
+                self,
+                generationHistory,
+                model,
+                chatGroupGrain.GetPrimaryKey(),
+                personaId,
+                onEvent: async (eventType, data, done) =>
+                {
+                    await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+                    {
+                        ChatGroupId = chatGroupId,
+                        Event = eventType,
+                        Data = data,
+                        Done = done
+                    });
+                },
+                default);
+
+            // Phase 4: Store the completed response
+            var overseerJson = JsonSerializer.Serialize(new
+            {
+                personaId = personaId,
+                instruction = decision.Instruction,
+                reason = decision.Reason,
+                stop = false
+            }, WebOptions);
+
+            await chatGroupGrain.AppendPersonaResponseAsync(
+                messageId,
+                result.Message ?? string.Empty,
+                result.Reasoning,
+                overseerJson,
+                personaId);
+
+            logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogDebug("Persona {PersonaName} generation cancelled", persona.Name);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
+        }
+    }
 
     private async Task UpdateStateAsync(Func<Persona, Persona> update)
     {
@@ -99,45 +259,27 @@ public sealed class PersonaGrain(
 [Alias("backend.IPersonaGrain")]
 public interface IPersonaGrain : IGrainWithGuidKey
 {
-    /// <summary>
-    /// Sets the persona fields using a model instance.
-    /// </summary>
     [Alias("SetPersonaFromModel")]
     Task SetPersona(Persona persona);
 
-    /// <summary>
-    /// Sets the full persona payload for this grain.
-    /// </summary>
     [Alias("SetPersona")]
     Task SetPersona(string name, string systemPrompt, string? bio);
 
-    /// <summary>
-    /// Updates the persona name.
-    /// </summary>
     [Alias("SetName")]
     Task SetName(string name);
 
-    /// <summary>
-    /// Updates the persona system prompt.
-    /// </summary>
     [Alias("SetSystemPrompt")]
     Task SetSystemPrompt(string systemPrompt);
 
-    /// <summary>
-    /// Updates the persona bio.
-    /// </summary>
     [Alias("SetBio")]
     Task SetBio(string? bio);
 
-    /// <summary>
-    /// Gets the current persona model.
-    /// </summary>
     [Alias("GetPersona")]
     Task<Persona> GetPersona();
 
-    /// <summary>
-    /// Deletes the persona state.
-    /// </summary>
     [Alias("DeletePersona")]
     Task DeletePersona();
+
+    [Alias("NotifyMessageAsync")]
+    Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, string model, string provider);
 }
