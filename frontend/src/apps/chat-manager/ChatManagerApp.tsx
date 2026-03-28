@@ -8,6 +8,7 @@ import {
 } from '../../lib/realtime-store';
 import { useEffect } from 'react';
 import {
+    getGetPartyIdChatGroupsQueryKey,
     useGetPartyIdChatGroupsSuspense,
     usePostPartyIdChatGroups,
 } from '../../api/party-zone';
@@ -33,10 +34,10 @@ export default function ChatManagerApp() {
         mutation: {
             onSuccess: (created) => {
                 queryClient.invalidateQueries({
-                    queryKey: ['chatGroups', ROOT_PARTY_ID],
+                    queryKey: getGetPartyIdChatGroupsQueryKey(ROOT_PARTY_ID),
                 });
                 setSelectedChatGroupId(created.data.id);
-                setNewChatName(created.data.name ?? 'unknown chatgroup');
+                setNewChatName('');
             },
         },
     });

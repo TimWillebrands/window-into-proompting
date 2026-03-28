@@ -4,12 +4,10 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
-import type { CategorizedModels } from './categorizedModels';
 import type { PartyInfo } from './partyInfo';
 import type { PersonaMetadata } from './personaMetadata';
 
 export interface PartyDetails {
     party: PartyInfo;
-    models: CategorizedModels[];
     personaParticipants: PersonaMetadata[];
 }

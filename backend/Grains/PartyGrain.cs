@@ -3,10 +3,10 @@ using System.Text.Json;
 using Orleans.EventSourcing;
 using Orleans.Providers;
 using Orleans.Streams;
+using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Generation;
-using PartyTown.Services.Llm;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
@@ -16,7 +16,6 @@ namespace PartyTown.Grains;
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
 public sealed class PartyGrain(
-    ILlmProviderRegistry llmProviderRegistry,
     ILogger<PartyGrain> logger,
     ILoggerFactory loggerFactory)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
@@ -84,7 +83,7 @@ public sealed class PartyGrain(
     public Task<List<ChatMessage>> DownloadMessages()
         => Task.FromResult(State.Messages.OrderBy(m => m.MessageId).Take(100).ToList());
 
-    public async Task<int[]> SendPrompt(Guid chatGroupId, string prompt, Guid senderId, string senderName, string model, string provider, Guid? personaId)
+    public async Task<int[]> SendPrompt(Guid chatGroupId, string prompt, Guid senderId, string senderName, string model, string provider)
     {
         var nextMessageId = State.GetNextMessageId(chatGroupId);
         var userMessage = new ChatMessage
@@ -103,7 +102,7 @@ public sealed class PartyGrain(
             ChatGroupId = chatGroupId,
             MessageId = nextMessageId + 2,
             SenderType = "assistant",
-            SenderId = personaId ?? Guid.Empty,
+            SenderId = Guid.Empty,
             SenderName = null,
             Content = null,
             SendAt = null,
@@ -123,12 +122,12 @@ public sealed class PartyGrain(
         await PublishPartyEvent(new PartyStreamEvent { Type = "message", ChatGroupId = chatGroupId, Message = userMessage });
         await PublishPartyEvent(new PartyStreamEvent { Type = "messageStream", ChatGroupId = chatGroupId, MessageId = assistantMessage.MessageId });
 
-        _ = StartGenerationAsync(chatGroupId, assistantMessage.MessageId, model, provider, personaId, senderId);
+        _ = StartGenerationAsync(chatGroupId, assistantMessage.MessageId, model, provider, senderId);
 
         return [userMessage.MessageId, assistantMessage.MessageId];
     }
 
-    public async Task<int> Proceed(Guid chatGroupId, Guid senderId, string senderName, Guid? personaId, string model, string provider)
+    public async Task<int> Proceed(Guid chatGroupId, Guid senderId, string senderName, string model, string provider)
     {
         var nextMessageId = State.GetNextMessageId(chatGroupId);
         var assistantMessage = new ChatMessage
@@ -136,7 +135,7 @@ public sealed class PartyGrain(
             ChatGroupId = chatGroupId,
             MessageId = nextMessageId + 1,
             SenderType = "assistant",
-            SenderId = personaId ?? Guid.Empty,
+            SenderId = Guid.Empty,
             SenderName = null,
             Content = null,
             SendAt = null,
@@ -153,7 +152,7 @@ public sealed class PartyGrain(
         await ConfirmEvents();
 
         await PublishPartyEvent(new PartyStreamEvent { Type = "messageStream", ChatGroupId = chatGroupId, MessageId = assistantMessage.MessageId });
-        _ = StartGenerationAsync(chatGroupId, assistantMessage.MessageId, model, provider, personaId, senderId);
+        _ = StartGenerationAsync(chatGroupId, assistantMessage.MessageId, model, provider, senderId);
         return assistantMessage.MessageId;
     }
 
@@ -194,20 +193,26 @@ public sealed class PartyGrain(
         await ConfirmEvents();
     }
 
-    private async Task StartGenerationAsync(Guid chatGroupId, int messageId, string model, string provider, Guid? personaId, Guid senderId)
+    private async Task StartGenerationAsync(Guid chatGroupId, int messageId, string model, string provider, Guid senderId)
     {
         using (logger.BeginMessageScope(chatGroupId, messageId))
-        using (logger.BeginGenerationScope(model, provider, personaId))
+        using (logger.BeginGenerationScope(model, provider))
         {
             logger.LogInformation("Starting generation for message {MessageId}", messageId);
             var sw = Stopwatch.StartNew();
 
-            var llmProvider = llmProviderRegistry.GetProvider(provider);
-            var session = new GenerationSession(llmProvider, loggerFactory.CreateLogger<GenerationSession>());
-
             var cts = new CancellationTokenSource();
             var generationKey = (chatGroupId, messageId);
             activeGenerations[generationKey] = cts;
+
+            var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+            var allModels = await router.GetModelsAsync(cts.Token);
+            var modelInfo = allModels.FirstOrDefault(m => m.Name == model && m.ProviderType.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                ?? allModels.FirstOrDefault(m => m.Name == model)
+                ?? throw new InvalidOperationException($"Model '{model}' not found on any provider");
+
+            var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, modelInfo);
+            var session = new GenerationSession(endpointGrain, loggerFactory.CreateLogger<GenerationSession>());
 
             try
             {
@@ -219,7 +224,6 @@ public sealed class PartyGrain(
                     participants,
                     model,
                     this.GetPrimaryKey(),
-                    personaId,
                     senderId,
                     onEvent: async (eventType, data, done) =>
                     {
@@ -284,7 +288,7 @@ public sealed class PartyGrain(
                 if (result.Persona is not null)
                 {
                     logger.LogInformation("Persona {PersonaName} will continue the conversation", result.Persona.Name);
-                    _ = Proceed(chatGroupId, result.Persona.Id, result.Persona.Name, null, model, provider);
+                    _ = Proceed(chatGroupId, result.Persona.Id, result.Persona.Name, model, provider);
                 }
             }
             catch (OperationCanceledException)
@@ -449,10 +453,10 @@ public interface IPartyGrain : IGrainWithGuidKey
     Task<List<ChatMessage>> DownloadMessages();
 
     [Alias("SendPrompt")]
-    Task<int[]> SendPrompt(Guid chatGroupId, string prompt, Guid senderId, string senderName, string model, string provider, Guid? personaId);
+    Task<int[]> SendPrompt(Guid chatGroupId, string prompt, Guid senderId, string senderName, string model, string provider);
 
     [Alias("Proceed")]
-    Task<int> Proceed(Guid chatGroupId, Guid senderId, string senderName, Guid? personaId, string model, string provider);
+    Task<int> Proceed(Guid chatGroupId, Guid senderId, string senderName, string model, string provider);
 
     [Alias("DeleteMessage")]
     Task DeleteMessage(Guid chatGroupId, int messageId);

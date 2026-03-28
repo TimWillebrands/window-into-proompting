@@ -19,7 +19,7 @@ export function getRouter() {
 
     setupRouterSsrQueryIntegration({
         router,
-        queryClient,
+        queryClient, // This type error is harmless (shrug)
     });
 
     return router;

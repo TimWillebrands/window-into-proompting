@@ -7,7 +7,6 @@ import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
 import WindowFrame from '../components/desktop/WindowFrame';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
-import type { DesktopLayoutState } from '../types/desktop';
 
 /** Pixel size of one grid cell — kept large so windows snap to coarse grid */
 const GRID_CELL = 1;

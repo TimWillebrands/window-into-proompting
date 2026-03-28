@@ -10,8 +10,6 @@ export interface ProceedRequest {
     model?: string;
     provider?: string;
     /** @nullable */
-    personaId?: string | null;
-    /** @nullable */
     senderId?: string | null;
     /** @nullable */
     senderName?: string | null;

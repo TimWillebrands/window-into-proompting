@@ -67,7 +67,6 @@ public sealed record class PromptRequest
     public string Prompt { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;
-    public Guid? PersonaId { get; set; }
     public Guid? SenderId { get; set; }
     public string? SenderName { get; set; }
 }
@@ -77,7 +76,6 @@ public sealed record class ProceedRequest
     public Guid ChatGroupId { get; set; }
     public string Model { get; set; } = string.Empty;
     public string Provider { get; set; } = string.Empty;
-    public Guid? PersonaId { get; set; }
     public Guid? SenderId { get; set; }
     public string? SenderName { get; set; }
 }

@@ -6,9 +6,12 @@
  */
 
 export interface LlmModel {
-    id?: string;
-    name?: string;
-    provider?: string;
+    name: string;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    endpointProviderGrainId: number | string;
+    providerType: string;
+    /** @nullable */
+    providerDescription?: string | null;
     /** @nullable */
     description?: string | null;
     /**

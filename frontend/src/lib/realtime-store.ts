@@ -467,7 +467,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     // Replace accumulated chunks with clean parsed JSON
                     nextMessage = {
                         ...baseMessage,
-                        overseer: payload.data,
+                        overseer: payload.data ?? null,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,

@@ -2,12 +2,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using JsonRepairSharp;
+using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Llm;
 
 namespace PartyTown.Services.Generation;
 
-public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationSession> logger)
+public sealed class GenerationSession(ILlmEndpointGrain endpoint, ILogger<GenerationSession> logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     public async Task<GenerationResult> GenerateAsync(
@@ -15,30 +15,12 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
         IReadOnlyList<GenerationParticipant> participants,
         string model,
         Guid roomId,
-        Guid? personaOverrideId,
         Guid senderId,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken = default)
     {
-        OverseerOutput overseer;
-        GenerationParticipant? selectedPersona;
-
-        if (personaOverrideId is { } forced)
-        {
-            selectedPersona = participants.FirstOrDefault(p => p.Id == forced);
-            overseer = new OverseerOutput
-            {
-                PersonaId = forced,
-                Reason = "Persona override",
-                Instruction = "Continue the conversation naturally.",
-                Stop = selectedPersona is null
-            };
-        }
-        else
-        {
-            overseer = await FindRespondentAsync(history, participants, model, roomId, onEvent, cancellationToken);
-            selectedPersona = participants.FirstOrDefault(p => p.Id == overseer.PersonaId);
-        }
+        var overseer = await FindRespondentAsync(history, participants, model, roomId, onEvent, cancellationToken);
+        var selectedPersona = participants.FirstOrDefault(p => p.Id == overseer.PersonaId);
 
         if (selectedPersona is null)
         {
@@ -97,7 +79,7 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
         var builder = new StringBuilder();
         var reasoning = new StringBuilder();
 
-        await foreach (var chunk in provider.GenerateAsync(new LlmGenerationParams
+        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
         {
             Model = model,
             Messages = messages,
@@ -169,13 +151,13 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
             }
         };
 
-        await foreach (var chunk in provider.GenerateAsync(new LlmGenerationParams
+        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
         {
             Model = model,
             Messages = messages,
             UserId = "overseer",
             RoomId = roomId.ToString(),
-            ResponseFormat = responseFormat
+            ResponseFormat = responseFormat.ToJsonString()
         }, cancellationToken))
         {
             if (chunk.Type == "message")
@@ -248,7 +230,7 @@ public sealed class GenerationSession(ILlmProvider provider, ILogger<GenerationS
         // Send the parsed overseer output to the frontend as a complete event
         // done=false so the generation stream stays active until persona finishes
         await onEvent("overseerComplete", JsonSerializer.Serialize(parsed, WebOptions), false);
-        
+
         return parsed;
     }
 
