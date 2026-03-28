@@ -15,6 +15,7 @@ body {
 .window-body {
     background: #ece9d8;
     color: #000;
+    margin: 0 3px;
 }
 
 .app-surface {

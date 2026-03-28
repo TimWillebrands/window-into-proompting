@@ -1,4 +1,5 @@
 import OpenPartyApp from '../apps/chat-manager/ChatManagerApp';
+import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import PersonasApp from '../apps/personas/PersonasApp';
 import type { WindowDescriptor } from './types';
 
@@ -17,6 +18,13 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: OpenPartyApp,
         initialPosition: { x: 360, y: 260 },
     },
+    {
+        id: 'config-panel',
+        title: 'Control Panel',
+        icon: '⚙️',
+        component: ConfigPanelApp,
+        initialPosition: { x: 200, y: 150 },
+    },
 ];
 
 export const DESKTOP_ICONS = [
@@ -31,5 +39,11 @@ export const DESKTOP_ICONS = [
         label: 'Group Chats',
         icon: '/img/842.ico',
         windowId: 'open-party',
+    },
+    {
+        id: 'config-panel',
+        label: 'Control Panel',
+        icon: '/img/842.ico',
+        windowId: 'config-panel',
     },
 ];
