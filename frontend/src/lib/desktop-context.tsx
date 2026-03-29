@@ -1,7 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { create } from 'zustand';
 import type { DesktopLayoutState } from '../types/desktop';
+import { useNavHistoryStore } from './nav-history';
 import type { DesktopWindowState, WindowDescriptor } from './types';
 import { WINDOW_PRESETS } from './window-presets';
 
@@ -82,6 +83,12 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
 
             applyDesktopUpdate((prev) => {
                 if (prev.windows[runtimeId]) {
+                    // Push re-focus to nav history (dedup logic in push will skip if same)
+                    if (!useNavHistoryStore.getState().isNavigating) {
+                        useNavHistoryStore
+                            .getState()
+                            .push({ kind: 'window', windowId: runtimeId });
+                    }
                     const nextZ = prev.zCounter + 1;
                     return {
                         windows: {
@@ -97,6 +104,13 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                         focusedId: runtimeId,
                         zCounter: nextZ,
                     };
+                }
+
+                // Push new window to nav history
+                if (!useNavHistoryStore.getState().isNavigating) {
+                    useNavHistoryStore
+                        .getState()
+                        .push({ kind: 'window', windowId: runtimeId });
                 }
 
                 const nextZ = prev.zCounter + 1;
@@ -128,6 +142,16 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
             applyDesktopUpdate((prev) => {
                 if (!prev.windows[id]) {
                     return prev;
+                }
+
+                // Push window switch to nav history (only when actually changing focus)
+                if (
+                    prev.focusedId !== id &&
+                    !useNavHistoryStore.getState().isNavigating
+                ) {
+                    useNavHistoryStore
+                        .getState()
+                        .push({ kind: 'window', windowId: id });
                 }
 
                 const nextZ = prev.zCounter + 1;

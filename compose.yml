@@ -46,9 +46,12 @@ services:
             - NUGET_PACKAGES=${PWD}/backend/.nuget
             - ConnectionStrings__Default=Host=age-db;Port=5432;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
             - Llm__Providers__0__Type=ollama
-            - Llm__Providers__0__BaseUrl=http://192.168.68.101:11434
+            - Llm__Providers__0__BaseUrl=http://192.168.68.100:11434
             - Llm__Providers__1__Type=ollama
             - Llm__Providers__1__BaseUrl=http://host.docker.internal:11434
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://dashboard:18889
+            - Logging__LogLevel__Default=Information
+            - Logging__LogLevel__Microsoft=Warning
         depends_on:
             backend-init:
                 condition: service_completed_successfully
@@ -117,6 +120,18 @@ services:
                 condition: service_healthy
         networks:
             - app-network
+
+    # Ew, microsoft, goor
+    dashboard:
+        image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+        container_name: dashboard
+        ports:
+            - "18888:18888" # Dashboard web UI
+            - "4317:18889" # OTLP gRPC endpoint
+            - "4318:18890" # OTLP HTTP endpoint
+        environment:
+            # Skips the login page for local development
+            - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
 
 volumes:
     age-data:
