@@ -24,7 +24,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return base.OnActivateAsync(cancellationToken);
     }
 
-    public async Task InitializeAsync(Guid partyId, ChatGroupInfo info, List<PartyParticipant> participants)
+    public async Task InitializeAsync(Guid partyId, List<PartyParticipant> participants)
     {
         if (State.Initialized)
             return;
@@ -32,7 +32,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         RaiseEvent(new ChatGroupInitializedEvent
         {
             PartyId = partyId,
-            Info = info,
             Participants = [.. participants]
         });
         await ConfirmEvents();
@@ -51,27 +50,29 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await ConfirmEvents();
     }
 
-    public async Task<ChatMessage> SendUserMessageAsync(Guid senderId, string senderName, string content)
+    public async Task<ChatMessage> SendNewMessageAsync(
+        Guid senderId,
+        string content,
+        string? reasoning,
+        string? overseer)
     {
         var chatGroupId = this.GetPrimaryKey();
         var messageId = State.NextMessageId + 1;
 
-        var userMessage = new ChatMessage
+        var message = new ChatMessage
         {
             ChatGroupId = chatGroupId,
             MessageId = messageId,
             Content = content,
             SenderType = "user",
             SenderId = senderId,
-            SenderName = senderName,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
         RaiseEvent(new ChatGroupUserMessageEvent
         {
             SenderId = senderId,
-            SenderName = senderName,
-            Message = userMessage
+            Message = message
         });
         await ConfirmEvents();
 
@@ -79,45 +80,23 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         {
             Type = "message",
             ChatGroupId = chatGroupId,
-            Message = userMessage
+            Message = message
         });
 
-        return userMessage;
+        _ = NotifyAllParticipantsAsync(message);
+
+        return message;
     }
 
-    public async Task<ChatMessage> ReserveAssistantMessageAsync(string model)
+    public async Task AppendMessageAsync(
+        int messageId,
+        string content,
+        string? reasoning,
+        string? overseer)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var messageId = State.NextMessageId + 1;
-
-        var assistantMessage = new ChatMessage
-        {
-            ChatGroupId = chatGroupId,
-            MessageId = messageId,
-            SenderType = "assistant",
-            SenderId = Guid.Empty,
-            SenderName = null,
-            Content = null,
-            SendAt = null,
-            ModelEndpointStub = model
-        };
-
-        RaiseEvent(new ChatGroupAssistantReservedEvent { Message = assistantMessage });
-        await ConfirmEvents();
-
-        await PublishPartyEvent(new PartyStreamEvent
-        {
-            Type = "messageStream",
-            ChatGroupId = chatGroupId,
-            MessageId = assistantMessage.MessageId
-        });
-
-        return assistantMessage;
-    }
-
-    public async Task AppendPersonaResponseAsync(int messageId, string content, string? reasoning, string? overseer, Guid senderId)
-    {
-        var chatGroupId = this.GetPrimaryKey();
+        var message = State.Messages.FirstOrDefault(m => m.MessageId == messageId)
+            ?? throw new ArgumentException($"Message with id {messageId} not found", nameof(messageId));
 
         RaiseEvent(new ChatGroupGenerationCompletedEvent
         {
@@ -125,7 +104,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Content = content,
             Reasoning = reasoning,
             Overseer = overseer,
-            SenderId = senderId,
+            SenderId = message.SenderId,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
         await ConfirmEvents();
@@ -220,33 +199,14 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
     }
 
-    public Task<List<MessageWithSender>> GetMessagesUntilAsync(int messageId)
+    public Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId)
     {
         var before = State.Messages
             .Where(m => m.MessageId < messageId)
             .OrderBy(m => m.MessageId)
             .ToArray();
 
-        var participantsById = State.Participants.ToDictionary(x => x.Id, x => x.Name);
-
-        var messages = before.Select(message => new MessageWithSender
-        {
-            ChatGroupId = message.ChatGroupId,
-            MessageId = message.MessageId,
-            Content = message.Content,
-            Reasoning = message.Reasoning,
-            Overseer = message.Overseer,
-            Error = message.Error,
-            SenderType = message.SenderType,
-            SenderId = message.SenderId,
-            SendAt = message.SendAt,
-            ModelEndpointStub = message.ModelEndpointStub,
-            SenderName = participantsById.TryGetValue(message.SenderId, out var name)
-                ? name
-                : State.UserNames.TryGetValue(message.SenderId, out var userName)
-                    ? userName
-                    : message.SenderId.ToString()
-        }).ToList();
+        var messages = before.Select(message => message with { }).ToList();
 
         return Task.FromResult(messages);
     }
@@ -267,36 +227,22 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     /// <summary>
-    /// Fan out a message notification to all AI participants in parallel.
+    /// Fan out a message notification to all participants in parallel.
     /// Each PersonaGrain independently decides whether to respond.
     /// </summary>
-    public async Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, string model, string provider)
+    public async Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var aiParticipants = State.Participants.Where(p => !p.IsUser).ToList();
+        var participants = State.Participants.ToList();
 
-        logger.LogInformation("Fanning out to {Count} AI participants in chat group {ChatGroupId}",
-            aiParticipants.Count, chatGroupId);
+        logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
+            participants.Count, chatGroupId);
 
-        var tasks = aiParticipants.Select(p =>
+        var tasks = participants.Select(p =>
             GrainFactory.GetGrain<IPersonaGrain>(p.Id)
-                .NotifyMessageAsync(chatGroupId, triggeringMessage, model, provider));
+                .NotifyMessageAsync(chatGroupId, triggeringMessage));
 
         await Task.WhenAll(tasks);
-    }
-
-    /// <summary>
-    /// Sends a user message and fans out to all AI participants.
-    /// Used by the controller for the parallel generation flow.
-    /// </summary>
-    public async Task<ChatMessage> SendUserMessageAndNotifyAsync(Guid senderId, string senderName, string content, string model, string provider)
-    {
-        var userMessage = await SendUserMessageAsync(senderId, senderName, content);
-
-        // Fire-and-forget fan-out to all AI participants
-        _ = NotifyAllParticipantsAsync(userMessage, model, provider);
-
-        return userMessage;
     }
 
     private Task PublishPartyEvent(PartyStreamEvent evt)
@@ -310,13 +256,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 }
 
-// ── Interface ──
-
 [Alias("backend.IChatGroupGrain")]
 public interface IChatGroupGrain : IGrainWithGuidKey
 {
     [Alias("InitializeAsync")]
-    Task InitializeAsync(Guid partyId, ChatGroupInfo info, List<PartyParticipant> participants);
+    Task InitializeAsync(Guid partyId, List<PartyParticipant> participants);
 
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
@@ -330,14 +274,19 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("SetParticipantsAsync")]
     Task SetParticipantsAsync(List<PartyParticipant> participants);
 
-    [Alias("SendUserMessageAsync")]
-    Task<ChatMessage> SendUserMessageAsync(Guid senderId, string senderName, string content);
+    [Alias("SendNewMessageAsync")]
+    Task<ChatMessage> SendNewMessageAsync(
+        Guid senderId,
+        string content,
+        string? reasoning = null,
+        string? overseer = null);
 
-    [Alias("ReserveAssistantMessageAsync")]
-    Task<ChatMessage> ReserveAssistantMessageAsync(string model);
-
-    [Alias("AppendPersonaResponseAsync")]
-    Task AppendPersonaResponseAsync(int messageId, string content, string? reasoning, string? overseer, Guid senderId);
+    [Alias("AppendMessageAsync")]
+    Task AppendMessageAsync(
+        int messageId,
+        string content,
+        string? reasoning = null,
+        string? overseer = null);
 
     [Alias("MarkGenerationStoppedAsync")]
     Task MarkGenerationStoppedAsync(int messageId, string? overseer);
@@ -355,7 +304,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt);
 
     [Alias("GetMessagesUntilAsync")]
-    Task<List<MessageWithSender>> GetMessagesUntilAsync(int messageId);
+    Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId);
 
     [Alias("GetParticipantsAsync")]
     Task<List<PartyParticipant>> GetParticipantsAsync();
@@ -364,10 +313,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     Task<int> CountTrailingAssistantMessagesAsync();
 
     [Alias("NotifyAllParticipantsAsync")]
-    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, string model, string provider);
-
-    [Alias("SendUserMessageAndNotifyAsync")]
-    Task<ChatMessage> SendUserMessageAndNotifyAsync(Guid senderId, string senderName, string content, string model, string provider);
+    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage);
 }
 
 // ── State ──
@@ -379,27 +325,20 @@ public sealed record class ChatGroupState
     public Guid PartyId { get; set; }
 
     [Id(1)]
-    public ChatGroupInfo Info { get; set; } = new();
-
-    [Id(2)]
     public List<ChatMessage> Messages { get; set; } = [];
 
-    [Id(3)]
+    [Id(2)]
     public int NextMessageId { get; set; }
 
-    [Id(4)]
-    public Dictionary<Guid, string> UserNames { get; set; } = [];
-
-    [Id(5)]
+    [Id(3)]
     public List<PartyParticipant> Participants { get; set; } = [];
 
-    [Id(6)]
+    [Id(4)]
     public bool Initialized { get; set; }
 
     public void Apply(ChatGroupInitializedEvent @event)
     {
         PartyId = @event.PartyId;
-        Info = @event.Info;
         Participants = [.. @event.Participants];
         Initialized = true;
     }
@@ -411,14 +350,7 @@ public sealed record class ChatGroupState
 
     public void Apply(ChatGroupUserMessageEvent @event)
     {
-        UserNames[@event.SenderId] = @event.SenderName;
-        Messages.Add(CloneMessage(@event.Message));
-        NextMessageId = Math.Max(NextMessageId, @event.Message.MessageId);
-    }
-
-    public void Apply(ChatGroupAssistantReservedEvent @event)
-    {
-        Messages.Add(CloneMessage(@event.Message));
+        Messages.Add(@event.Message with { });
         NextMessageId = Math.Max(NextMessageId, @event.Message.MessageId);
     }
 
@@ -430,9 +362,7 @@ public sealed record class ChatGroupState
         target.Content = @event.Content;
         target.Reasoning = @event.Reasoning;
         target.Overseer = @event.Overseer;
-        target.Error = null;
         target.SenderId = @event.SenderId;
-        target.SenderName = Participants.FirstOrDefault(p => p.Id == @event.SenderId)?.Name;
         target.SendAt = @event.SendAt;
     }
 
@@ -441,10 +371,7 @@ public sealed record class ChatGroupState
         var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
         if (target is null) return;
 
-        target.Content = null;
-        target.Reasoning = null;
         target.Overseer = @event.Overseer;
-        target.Error = null;
         target.SenderId = Guid.Empty;
         target.SendAt = @event.SendAt;
     }
@@ -463,22 +390,6 @@ public sealed record class ChatGroupState
 
     public void Apply(ChatGroupMessagesAfterDeletedEvent @event)
         => Messages.RemoveAll(m => m.MessageId > @event.MessageId);
-
-    private static ChatMessage CloneMessage(ChatMessage source)
-        => new()
-        {
-            ChatGroupId = source.ChatGroupId,
-            MessageId = source.MessageId,
-            Content = source.Content,
-            Reasoning = source.Reasoning,
-            Overseer = source.Overseer,
-            Error = source.Error,
-            SenderType = source.SenderType,
-            SenderId = source.SenderId,
-            SenderName = source.SenderName,
-            SendAt = source.SendAt,
-            ModelEndpointStub = source.ModelEndpointStub
-        };
 }
 
 // ── Events ──
@@ -486,34 +397,30 @@ public sealed record class ChatGroupState
 [GenerateSerializer, Alias(nameof(ChatGroupEvent))]
 public abstract record class ChatGroupEvent;
 
+/// <summary>Raised once when a chat group is first created. Sets the parent party, initial participants, and marks the grain as initialized.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupInitializedEvent))]
 public sealed record class ChatGroupInitializedEvent : ChatGroupEvent
 {
     [Id(0)] public Guid PartyId { get; set; }
-    [Id(1)] public ChatGroupInfo Info { get; set; } = new();
     [Id(2)] public List<PartyParticipant> Participants { get; set; } = [];
 }
 
+/// <summary>Raised when the participant list is replaced wholesale (e.g. personas added/removed from the group).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupParticipantsSetEvent))]
 public sealed record class ChatGroupParticipantsSetEvent : ChatGroupEvent
 {
     [Id(0)] public List<PartyParticipant> Participants { get; set; } = [];
 }
 
+/// <summary>Raised when a new message is sent (by a user or persona). Appends to the message log and advances the message counter.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupUserMessageEvent))]
 public sealed record class ChatGroupUserMessageEvent : ChatGroupEvent
 {
     [Id(0)] public Guid SenderId { get; set; }
-    [Id(1)] public string SenderName { get; set; } = string.Empty;
     [Id(2)] public ChatMessage Message { get; set; } = new();
 }
 
-[GenerateSerializer, Alias(nameof(ChatGroupAssistantReservedEvent))]
-public sealed record class ChatGroupAssistantReservedEvent : ChatGroupEvent
-{
-    [Id(0)] public ChatMessage Message { get; set; } = new();
-}
-
+/// <summary>Raised when an LLM generation finishes successfully. Fills in the content, reasoning, and overseer fields on a previously sent message.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationCompletedEvent))]
 public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
 {
@@ -525,6 +432,7 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(5)] public long SendAt { get; set; }
 }
 
+/// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationStoppedEvent))]
 public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
 {
@@ -533,6 +441,7 @@ public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
     [Id(2)] public long SendAt { get; set; }
 }
 
+/// <summary>Raised when LLM generation fails with an error. Records the error on the message for client display.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationFailedEvent))]
 public sealed record class ChatGroupGenerationFailedEvent : ChatGroupEvent
 {
@@ -541,12 +450,14 @@ public sealed record class ChatGroupGenerationFailedEvent : ChatGroupEvent
     [Id(2)] public long SendAt { get; set; }
 }
 
+/// <summary>Raised when a single message is deleted by a user.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessageDeletedEvent))]
 public sealed record class ChatGroupMessageDeletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
 }
 
+/// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessagesAfterDeletedEvent))]
 public sealed record class ChatGroupMessagesAfterDeletedEvent : ChatGroupEvent
 {

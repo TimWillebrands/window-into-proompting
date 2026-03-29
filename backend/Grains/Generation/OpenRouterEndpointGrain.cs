@@ -17,59 +17,37 @@ public class OpenRouterEndpointGrain(
     ILogger<OpenRouterEndpointGrain> logger
 ) : Grain, IOpenRouterEndpointGrain
 {
-    private const string BaseUrl = "https://openrouter.ai/api/v1";
+    private int _activeGenerations;
+
+    public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     private int GrainIndex => (int)this.GetPrimaryKeyLong();
-    private LlmProviderConfig Config => llmOptions.Value.Providers
-        .Where(p => p.Type == "openrouter")
-        .ElementAt(GrainIndex);
-    private string ProviderDescription => "openrouter";
+    private OpenRouterProviderConfig Config => (OpenRouterProviderConfig)llmOptions.Value.Providers.ElementAt(GrainIndex);
+    private const string ProviderDescription = "openrouter";
 
-    public async IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
-        LlmGenerationParams parameters,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
+        LlmGenerationJob parameters,
+        CancellationToken cancellationToken = default)
     {
-        using var _ = logger.BeginGenerationScope(parameters.Model, ProviderDescription);
-        logger.LogDebug("LLM API call starting: {Model}", parameters.Model);
-        var sw = Stopwatch.StartNew();
-
-        var chatClient = new ChatClient(
-            parameters.Model,
-            new ApiKeyCredential(Config.ApiKey),
-            new OpenAIClientOptions { Endpoint = new Uri(BaseUrl) });
-
-        var messages = ToOpenAiChatMessages(parameters);
-        var completionOptions = ToChatCompletionOptions(parameters);
-        var chunkCount = 0;
-
-        await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
+        var modelName = Config.TEMP_ModelName;
+        Interlocked.Increment(ref _activeGenerations);
+        try
         {
-            foreach (var part in update.ContentUpdate ?? [])
-            {
-                if (!string.IsNullOrWhiteSpace(part.Text))
-                {
-                    chunkCount++;
-                    yield return new LlmGenerationEvent("message", part.Text);
-                }
-            }
+            using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
+            logger.LogDebug("LLM API call starting: {Model}", modelName);
+            var sw = Stopwatch.StartNew();
 
-            if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
-            {
-                logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
-                yield return new LlmGenerationEvent("error", update.RefusalUpdate);
-            }
+            var chatClient = new ChatClient(
+                modelName,
+                new ApiKeyCredential(Config.ApiKey),
+                new OpenAIClientOptions { Endpoint = new Uri(Config.BaseUrl) });
 
-            if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
-            {
-                logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
-                yield return new LlmGenerationEvent("error", finishReason.ToString());
-                yield break;
-            }
+            return LlmEndpointGrainUtils.GenerateAsync(logger, parameters, chatClient, cancellationToken);
         }
-
-        sw.Stop();
-        logger.LogInformation("LLM API call completed: {Model} in {ElapsedMs}ms", parameters.Model, sw.ElapsedMilliseconds);
-        logger.LogDebug("Received {ChunkCount} chunks", chunkCount);
+        finally
+        {
+            Interlocked.Decrement(ref _activeGenerations);
+        }
     }
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
@@ -146,61 +124,5 @@ public class OpenRouterEndpointGrain(
             logger.LogError(ex, "OpenRouterEndpointGrain failed to list models");
             return [];
         }
-    }
-
-    private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationParams parameters)
-    {
-        return parameters.Messages.Select(msg =>
-        {
-            ChatMessage mapped = msg.Role switch
-            {
-                "system" => new SystemChatMessage(msg.Content) { ParticipantName = msg.Name },
-                "assistant" => new AssistantChatMessage(msg.Content) { ParticipantName = msg.Name },
-                _ => new UserChatMessage(msg.Content) { ParticipantName = msg.Name }
-            };
-            return mapped;
-        });
-    }
-
-    private static ChatCompletionOptions ToChatCompletionOptions(LlmGenerationParams parameters)
-    {
-        var options = new ChatCompletionOptions
-        {
-            EndUserId = parameters.UserId,
-            Temperature = parameters.Temperature is null ? null : (float)parameters.Temperature.Value
-        };
-
-        if (TryGetJsonSchemaResponseFormat(parameters.ResponseFormat, out var responseFormat))
-        {
-            options.ResponseFormat = responseFormat;
-        }
-
-        return options;
-    }
-
-    private static bool TryGetJsonSchemaResponseFormat(string? responseFormatJson, out ChatResponseFormat responseFormat)
-    {
-        responseFormat = null!;
-        if (string.IsNullOrWhiteSpace(responseFormatJson)) return false;
-
-        var responseFormatNode = JsonNode.Parse(responseFormatJson) as JsonObject;
-        if (responseFormatNode is null) return false;
-
-        var formatType = responseFormatNode["type"]?.GetValue<string>();
-        if (!string.Equals(formatType, "json_schema", StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (responseFormatNode["json_schema"] is not JsonObject schemaRoot) return false;
-
-        var name = schemaRoot["name"]?.GetValue<string>();
-        var schema = schemaRoot["schema"];
-        if (string.IsNullOrWhiteSpace(name) || schema is null) return false;
-
-        var strict = schemaRoot["strict"]?.GetValue<bool>();
-        responseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-            name,
-            BinaryData.FromString(schema.ToJsonString()),
-            jsonSchemaIsStrict: strict);
-
-        return true;
     }
 }

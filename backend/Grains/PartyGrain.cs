@@ -77,7 +77,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
         // Initialize the ChatGroupGrain with party context
         var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id);
-        await chatGroupGrain.InitializeAsync(this.GetPrimaryKey(), chatGroup, [.. State.Participants]);
+        await chatGroupGrain.InitializeAsync(this.GetPrimaryKey(), [.. State.Participants]);
 
         return chatGroup;
     }

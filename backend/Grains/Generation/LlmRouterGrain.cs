@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Options;
 using Orleans.Concurrency;
 using PartyTown.Configuration;
@@ -6,46 +5,58 @@ using PartyTown.Configuration;
 namespace PartyTown.Grains.Generation;
 
 [Reentrant]
-public sealed class LlmRouterGrain(
-    IOptions<LlmOptions> llmOptions,
-    ILogger<LlmRouterGrain> logger
-) : Grain, ILlmRouterGrain
+public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILlmRouterGrain
 {
-    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
+    private IReadOnlyList<ILlmEndpointGrain> ModelProviders => field ??= FetchModelProviders();
+
+    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(
+        CancellationToken cancellationToken = default)
     {
-        var providers = llmOptions.Value.Providers;
-        var tasks = new List<Task<IReadOnlyList<LlmModel>>>();
-
-        var ollamaCount = providers.Count(p => p.Type == "ollama");
-        var openRouterCount = providers.Count(p => p.Type == "openrouter");
-
-        for (var i = 0; i < ollamaCount; i++)
-            tasks.Add(GrainFactory.GetGrain<IOllamaEndpointGrain>(i).GetModelsAsync(cancellationToken));
-        for (var i = 0; i < openRouterCount; i++)
-            tasks.Add(GrainFactory.GetGrain<IOpenRouterEndpointGrain>(i).GetModelsAsync(cancellationToken));
-
+        var tasks = ModelProviders
+            .Select(grain => grain.GetModelsAsync(cancellationToken));
         var results = await Task.WhenAll(tasks);
-        return results.SelectMany(x => x).ToList();
+        return [.. results.SelectMany(model => model)];
     }
 
-    public async Task<string> RouteAndGenerateAsync(LlmGenerationParams parameters)
+    public async Task<IAsyncEnumerable<LlmGenerationEvent>> RouteAndGenerateAsync(
+        LlmGenerationJob job,
+        CancellationToken cancellationToken = default)
     {
-        var models = await GetModelsAsync();
-        var model = models.FirstOrDefault(m => m.Name == parameters.Model)
-            ?? throw new InvalidOperationException($"No endpoint grain found for model '{parameters.Model}'");
-
-        logger.LogInformation("Routing generation for model {Model} to {ProviderType}[{GrainId}]",
-            parameters.Model, model.ProviderType, model.EndpointProviderGrainId);
-
-        var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, model);
-        var sb = new StringBuilder();
-
-        await foreach (var evt in endpointGrain.GenerateAsync(parameters))
+        var modelProviderTasks = ModelProviders.Select(async grain =>
         {
-            if (evt.Type == "message")
-                sb.Append(evt.Data);
-        }
+            var models = await grain.GetModelsAsync();
+            return new
+            {
+                Grain = grain,
+                Pressure = await grain.PressureAsync(),
+                CompatibleModels = models.Where(m => m.Supports(job.JobComplexity))
+            };
+        });
 
-        return sb.ToString();
+        var compatibleProvider = (await Task.WhenAll(modelProviderTasks))
+            .Where(provider => provider.CompatibleModels.Any())
+            .OrderBy(provider => provider.Pressure)
+            .FirstOrDefault();
+
+        return compatibleProvider is null
+            ? throw new InvalidOperationException($"No model-providers available for job complexity {job.JobComplexity}")
+            : compatibleProvider.Grain.GenerateAsync(job, cancellationToken);
+    }
+
+    private IReadOnlyList<ILlmEndpointGrain> FetchModelProviders()
+    {
+        var models = llmOptions.Value.Providers.Select((providerConfig, i) =>
+        {
+            return providerConfig switch
+            {
+                OllamaProviderConfig =>
+                    GrainFactory.GetGrain<IOllamaEndpointGrain>(i) as ILlmEndpointGrain,
+                OpenRouterProviderConfig =>
+                    GrainFactory.GetGrain<IOpenRouterEndpointGrain>(i),
+                _ => throw new InvalidOperationException($"Unsupported provider type: {providerConfig.GetType().Name}"),
+            };
+        });
+
+        return [.. models];
     }
 }

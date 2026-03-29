@@ -11,26 +11,27 @@ namespace PartyTown.Services.Generation;
 /// Per-persona decision service: each persona independently decides whether to respond.
 /// Replaces the global Overseer with a self-referential "should I speak?" LLM call.
 /// </summary>
-public sealed class PersonaDecisionService(ILlmEndpointGrain endpoint, ILogger logger)
+public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
-        IReadOnlyList<MessageWithSender> history,
+        IReadOnlyList<ChatMessage> history,
         IReadOnlyList<GenerationParticipant> participants,
-        string model,
-        Guid roomId,
         int totalAiRoundsInGroup,
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken)
     {
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
+        var recentMessages = history.TakeLast(8)
+            .Select(m => new ChatMessageWithSenderName(m, participants.First(p => p.Id == m.SenderId).Name));
 
         var messages = new List<LlmChatMessage>
         {
             new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants) },
-            new() { Role = "user", Content = ShouldRespondUserPrompt(history.TakeLast(8).ToArray(), totalAiRoundsInGroup, recentSelfMessageCount, self) }
+            new() { Role = "user", Content =
+                ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self) }
         };
 
         var text = new StringBuilder();
@@ -56,14 +57,14 @@ public sealed class PersonaDecisionService(ILlmEndpointGrain endpoint, ILogger l
             }
         };
 
-        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
+        var generation = await router.RouteAndGenerateAsync(new LlmGenerationJob
         {
-            Model = model,
             Messages = messages,
-            UserId = $"persona-decision-{self.Id}",
-            RoomId = roomId.ToString(),
+            JobComplexity = JobComplexity.General,
             ResponseFormat = responseFormat.ToJsonString()
-        }, cancellationToken))
+        }, cancellationToken);
+
+        await foreach (var chunk in generation)
         {
             if (chunk.Type == "message")
             {
@@ -120,7 +121,7 @@ public sealed class PersonaDecisionService(ILlmEndpointGrain endpoint, ILogger l
         return parsed;
     }
 
-    private static int CountRecentSelfMessages(IReadOnlyList<MessageWithSender> history, Guid selfId)
+    private static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
     {
         var count = 0;
         for (var i = history.Count - 1; i >= 0; i--)
@@ -162,7 +163,7 @@ Bio: {self.Bio ?? "No bio"}
 """;
 
     private static string ShouldRespondUserPrompt(
-        IReadOnlyList<MessageWithSender> messages,
+        IEnumerable<ChatMessageWithSenderName> messages,
         int totalAiRoundsInGroup,
         int recentSelfMessageCount,
         GenerationParticipant self)
@@ -186,7 +187,7 @@ Bio: {self.Bio ?? "No bio"}
 
         return $"""
 # Recent conversation
-{string.Join("\n\n", messages.Select(m => $"<message sender=\"{m.SenderName}\" senderId=\"{m.SenderId}\">\n{m.Content}\n</message>"))}
+{string.Join("\n\n", messages.Select(m => $"<message senderName=\"{m.SenderName}\" senderId=\"{m.Message.SenderId}\">\n{m.Message.Content}\n</message>"))}
 {pressure}{selfPressure}
 
 # Decision
@@ -208,3 +209,5 @@ public sealed record class ShouldRespondResult
     [Id(2)]
     public string Reason { get; init; } = string.Empty;
 }
+
+public readonly record struct ChatMessageWithSenderName(ChatMessage Message, string SenderName);

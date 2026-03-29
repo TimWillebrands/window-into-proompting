@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RestorePackagesPath>$(MSBuildProjectDirectory)/.nuget</RestorePackagesPath>
     <RestorePath>$(MSBuildProjectDirectory)/.nuget</RestorePath>
+    <NoWarn>$(NoWarn);CA1873</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

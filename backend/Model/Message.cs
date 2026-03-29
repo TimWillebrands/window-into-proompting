@@ -7,10 +7,6 @@ namespace PartyTown.Model;
 [GenerateSerializer, Alias(nameof(ChatMessage))]
 public record class ChatMessage
 {
-    /// <summary>Identifier of the chat group this message belongs to.</summary>
-    [Id(9)]
-    public Guid ChatGroupId { get; set; }
-
     /// <summary>Unique identifier for this message within the party.</summary>
     [Id(0)]
     public int MessageId { get; set; }
@@ -43,23 +39,7 @@ public record class ChatMessage
     [Id(7)]
     public long? SendAt { get; set; }
 
-    /// <summary>Model endpoint stub for assistant messages (e.g., "openai/gpt-4o").</summary>
-    [Id(8)]
-    public string? ModelEndpointStub { get; set; }
-
-    /// <summary>Human-readable sender name for display purposes.</summary>
-    [Id(10)]
-    public string? SenderName { get; set; }
-}
-
-/// <summary>
-/// A chat message with resolved sender name for display purposes.
-/// Used when sending history to clients or passing to the LLM.
-/// </summary>
-[GenerateSerializer, Alias(nameof(MessageWithSender))]
-public sealed record class MessageWithSender : ChatMessage
-{
-    /// <summary>Human-readable sender name.</summary>
-    [Id(20)]
-    public new required string SenderName { get; init; }
+    /// <summary>Identifier of the chat group this message belongs to.</summary>
+    [Id(9)]
+    public Guid ChatGroupId { get; set; }
 }

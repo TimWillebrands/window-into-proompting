@@ -4,17 +4,14 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.Generation;
 
-public sealed class GenerationSession(ILlmEndpointGrain endpoint)
+public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
 {
     /// <summary>
-    /// Generates a response for a specific persona. No overseer — the persona has already decided to respond.
+    /// Generates a response for a specific persona.
     /// </summary>
     public async Task<GenerationResult> GenerateResponseOnlyAsync(
         GenerationParticipant persona,
-        IReadOnlyList<MessageWithSender> history,
-        string model,
-        Guid roomId,
-        Guid senderId,
+        IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken)
     {
@@ -24,7 +21,13 @@ public sealed class GenerationSession(ILlmEndpointGrain endpoint)
             {
                 Role = "system",
                 Content = Instruction(
-                    "The headquarters of a stealth software startup producing a mobile app for the horticulture industry",
+                    """
+                    The headquarters of a stealth software startup producing a mobile app for
+                    the horticulture industry.
+                    'Stealth' meaning the company operates discreetly and does not reveal its
+                    existence until ready to launch; this in order to protect the revolutionary
+                    tech. At least, this is what employees are told, or is there more to it?
+                    """,
                     persona.SystemPrompt ?? string.Empty),
                 Name = persona.Id.ToString()
             }
@@ -35,20 +38,22 @@ public sealed class GenerationSession(ILlmEndpointGrain endpoint)
             Role = message.SenderId == persona.Id ? "assistant" : "user",
             Content = message.SenderId == persona.Id
                 ? (message.Content ?? string.Empty)
-                : ToUserScopedMessage(message),
+                : ToUserScopedMessage(
+                    message,
+                    allParticipants.First(p => p.Id == message.SenderId).Name),
             Name = message.SenderId.ToString()
         }));
 
         var builder = new StringBuilder();
         var reasoning = new StringBuilder();
-
-        await foreach (var chunk in endpoint.GenerateAsync(new LlmGenerationParams
+        var job = new LlmGenerationJob
         {
-            Model = model,
             Messages = messages,
-            UserId = senderId.ToString(),
-            RoomId = roomId.ToString()
-        }, cancellationToken))
+            JobComplexity = JobComplexity.General
+        };
+
+        var generation = await router.RouteAndGenerateAsync(job, cancellationToken);
+        await foreach (var chunk in generation)
         {
             if (chunk.Type == "message")
             {
@@ -73,13 +78,13 @@ public sealed class GenerationSession(ILlmEndpointGrain endpoint)
         };
     }
 
-    private static string ToUserScopedMessage(MessageWithSender message)
-        => $"<message sender=\"{message.SenderName}\" senderId=\"{message.SenderId}\">\n{message.Content}\n</message>";
+    private static string ToUserScopedMessage(ChatMessage message, string senderName)
+        => $"<message sender=\"{senderName}\" senderId=\"{message.SenderId}\">\n{message.Content}\n</message>";
 
     private static string Instruction(string scenario, string personaPrompt)
         => $"""
 # Instruction
-You are in a group chat with other people. Stay completely in character
+You are in a (group) chat with other people. Stay completely in character
 as your persona — never acknowledge that you are an AI or playing a role.
 
 Talk like a real person in a casual group chat: short, reactive, and natural.

@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Orleans.Concurrency;
 using PartyTown.Grains.Generation;
@@ -24,13 +23,19 @@ public sealed class PersonaGrain(
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Grain activated");
+        logger.LogInformation(
+            "PersonaGrain activated - Name: '{PersonaName}' - Id: '{PersonaId}'",
+            state.State.Name,
+            this.GetPrimaryKey());
         return base.OnActivateAsync(cancellationToken);
     }
 
     public override Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Grain deactivating: {Reason}", reason.ReasonCode);
+        logger.LogInformation(
+            "PersonaGrain deactivating: {Reason} - Id: '{PersonaId}'",
+            reason.ReasonCode,
+            this.GetPrimaryKey());
         return base.OnDeactivateAsync(reason, cancellationToken);
     }
 
@@ -80,7 +85,7 @@ public sealed class PersonaGrain(
     /// Called by ChatGroupGrain when a new message arrives in the chat group.
     /// The persona independently decides whether to respond and generates if yes.
     /// </summary>
-    public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, string model, string provider)
+    public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage)
     {
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
@@ -94,12 +99,6 @@ public sealed class PersonaGrain(
         {
             // Resolve the LLM endpoint
             var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
-            var allModels = await router.GetModelsAsync();
-            var modelInfo = allModels.FirstOrDefault(m => m.Name == model && m.ProviderType.Equals(provider, StringComparison.OrdinalIgnoreCase))
-                ?? allModels.FirstOrDefault(m => m.Name == model)
-                ?? throw new InvalidOperationException($"Model '{model}' not found on any provider");
-
-            var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, modelInfo);
 
             // Fetch context from the chat group
             var history = await chatGroupGrain.GetMessagesUntilAsync(triggeringMessage.MessageId + 1);
@@ -129,15 +128,13 @@ public sealed class PersonaGrain(
             }).ToList();
 
             // Phase 1: Decide whether to respond
-            var decisionService = new PersonaDecisionService(endpointGrain, loggerFactory.CreateLogger<PersonaDecisionService>());
+            var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
             var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
             var decision = await decisionService.ShouldRespondAsync(
                 self,
                 history,
                 allParticipants,
-                model,
-                chatGroupGrain.GetPrimaryKey(),
                 totalAiRounds,
                 onEvent: null,  // No streaming for the decision phase
                 cancellationToken: default);
@@ -151,8 +148,7 @@ public sealed class PersonaGrain(
             logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
 
             // Phase 2: Reserve a message slot
-            var assistantMessage = await chatGroupGrain.ReserveAssistantMessageAsync(model);
-            var messageId = assistantMessage.MessageId;
+            var messageId = await chatGroupGrain.GetNextMessageIdAsync();
 
             // Send persona identity event
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
@@ -179,7 +175,7 @@ public sealed class PersonaGrain(
             });
 
             // Phase 3: Generate response
-            var session = new GenerationSession(endpointGrain);
+            var session = new GenerationSession(router, allParticipants);
 
             // Re-fetch history up to our reserved message
             var generationHistory = await chatGroupGrain.GetMessagesUntilAsync(messageId);
@@ -202,9 +198,6 @@ public sealed class PersonaGrain(
             var result = await session.GenerateResponseOnlyAsync(
                 self,
                 generationHistory,
-                model,
-                chatGroupGrain.GetPrimaryKey(),
-                personaId,
                 onEvent: async (eventType, data, done) =>
                 {
                     await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
@@ -226,12 +219,11 @@ public sealed class PersonaGrain(
                 stop = false
             }, WebOptions);
 
-            await chatGroupGrain.AppendPersonaResponseAsync(
+            await chatGroupGrain.AppendMessageAsync(
                 messageId,
                 result.Message ?? string.Empty,
                 result.Reasoning,
-                overseerJson,
-                personaId);
+                overseerJson);
 
             logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);
         }
@@ -281,5 +273,5 @@ public interface IPersonaGrain : IGrainWithGuidKey
     Task DeletePersona();
 
     [Alias("NotifyMessageAsync")]
-    Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, string model, string provider);
+    Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage);
 }

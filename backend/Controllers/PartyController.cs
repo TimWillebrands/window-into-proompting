@@ -194,26 +194,13 @@ public sealed class PartyController(
             return BadRequest("Invalid prompt");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
-        {
-            return BadRequest("Invalid model");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
-
         logger.LogInformation("Sending prompt to party {PartyId}, message length: {Length}", id, request.Prompt.Length);
 
         var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName)
-            ? senderId.ToString()
-            : request.SenderName;
 
         // Route directly to ChatGroupGrain for parallel persona fan-out
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
-            .SendUserMessageAndNotifyAsync(senderId, senderName, request.Prompt, request.Model, request.Provider);
+            .SendNewMessageAsync(senderId, request.Prompt);
 
         return Accepted("Proompt accepted");
     }
@@ -237,15 +224,6 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
-        {
-            return BadRequest("Invalid model");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
 
         // Create a synthetic trigger message to fan out to personas
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
@@ -254,7 +232,7 @@ public sealed class PartyController(
 
         if (lastMessage is not null)
         {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, request.Model, request.Provider);
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage);
         }
 
         return Accepted("Proompt accepted");
@@ -351,15 +329,6 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
-        {
-            return BadRequest("Invalid model");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
         await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
@@ -369,7 +338,7 @@ public sealed class PartyController(
         var lastMessage = messages.LastOrDefault();
         if (lastMessage is not null)
         {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, request.Model, request.Provider);
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage);
         }
 
         return Accepted("Proompt accepted");
