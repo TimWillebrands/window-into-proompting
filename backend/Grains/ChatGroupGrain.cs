@@ -54,7 +54,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         Guid senderId,
         string content,
         string? reasoning,
-        string? overseer)
+        string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
         var messageId = State.NextMessageId + 1;
@@ -92,7 +92,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         int messageId,
         string content,
         string? reasoning,
-        string? overseer)
+        string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
         var message = State.Messages.FirstOrDefault(m => m.MessageId == messageId)
@@ -103,7 +103,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             MessageId = messageId,
             Content = content,
             Reasoning = reasoning,
-            Overseer = overseer,
+            Appraisal = appraisal,
             SenderId = message.SenderId,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
@@ -121,14 +121,14 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationStoppedAsync(int messageId, string? overseer)
+    public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
 
         RaiseEvent(new ChatGroupGenerationStoppedEvent
         {
             MessageId = messageId,
-            Overseer = overseer,
+            Appraisal = appraisal,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
         await ConfirmEvents();
@@ -279,17 +279,17 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         Guid senderId,
         string content,
         string? reasoning = null,
-        string? overseer = null);
+        string? appraisal = null);
 
     [Alias("AppendMessageAsync")]
     Task AppendMessageAsync(
         int messageId,
         string content,
         string? reasoning = null,
-        string? overseer = null);
+        string? appraisal = null);
 
     [Alias("MarkGenerationStoppedAsync")]
-    Task MarkGenerationStoppedAsync(int messageId, string? overseer);
+    Task MarkGenerationStoppedAsync(int messageId, string? appraisal);
 
     [Alias("MarkGenerationFailedAsync")]
     Task MarkGenerationFailedAsync(int messageId, string error);
@@ -361,7 +361,7 @@ public sealed record class ChatGroupState
 
         target.Content = @event.Content;
         target.Reasoning = @event.Reasoning;
-        target.Overseer = @event.Overseer;
+        target.Appraisal = @event.Appraisal;
         target.SenderId = @event.SenderId;
         target.SendAt = @event.SendAt;
     }
@@ -371,7 +371,7 @@ public sealed record class ChatGroupState
         var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
         if (target is null) return;
 
-        target.Overseer = @event.Overseer;
+        target.Appraisal = @event.Appraisal;
         target.SenderId = Guid.Empty;
         target.SendAt = @event.SendAt;
     }
@@ -420,14 +420,14 @@ public sealed record class ChatGroupUserMessageEvent : ChatGroupEvent
     [Id(2)] public ChatMessage Message { get; set; } = new();
 }
 
-/// <summary>Raised when an LLM generation finishes successfully. Fills in the content, reasoning, and overseer fields on a previously sent message.</summary>
+/// <summary>Raised when an LLM generation finishes successfully. Fills in the content, reasoning, and appraisal fields on a previously sent message.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationCompletedEvent))]
 public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
     [Id(1)] public string? Content { get; set; }
     [Id(2)] public string? Reasoning { get; set; }
-    [Id(3)] public string? Overseer { get; set; }
+    [Id(3)] public string? Appraisal { get; set; }
     [Id(4)] public Guid SenderId { get; set; }
     [Id(5)] public long SendAt { get; set; }
 }
@@ -437,7 +437,7 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
 public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
-    [Id(1)] public string? Overseer { get; set; }
+    [Id(1)] public string? Appraisal { get; set; }
     [Id(2)] public long SendAt { get; set; }
 }
 

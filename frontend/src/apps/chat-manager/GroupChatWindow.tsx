@@ -16,6 +16,7 @@ import {
 } from '../../api/party-zone';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import {
+    type ActiveGenerationPhase,
     type GenerationPhase,
     type RealtimeChatMessage,
     type RealtimeConnectionStatus,
@@ -213,7 +214,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         }
     }, [partyDetailsQuery.data, participantPersonaIds, selectedPersonaId]);
 
-    // Auto-save user persona to backend whenever selection changes so the overseer knows who the human is
+    // Auto-save user persona to backend whenever selection changes
     useEffect(() => {
         if (lastSavedUserPersonaId.current === selectedPersonaId) return;
         if (partyDetailsQuery.data.status !== 200) return;
@@ -276,7 +277,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         [messages],
     );
 
-    // Detect overseer stop directed at the user's persona that hasn't been responded to yet
+    // Detect appraisal stop directed at the user's persona that hasn't been responded to yet
     const pendingInstruction = useMemo(() => {
         if (!selectedPersonaId) return null;
         let lastStopIdx = -1;
@@ -284,9 +285,9 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
             null;
         for (let i = 0; i < uniqueMessages.length; i++) {
             const msg = uniqueMessages[i];
-            if (!msg.overseer) continue;
+            if (!msg.appraisal) continue;
             try {
-                const o = JSON.parse(msg.overseer);
+                const o = JSON.parse(msg.appraisal);
                 const personaId = o.personaId ?? o.PersonaId;
                 const stop = o.stop ?? o.Stop;
                 if (stop && personaId === selectedPersonaId) {
@@ -343,13 +344,30 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         const ids = new Set<string>();
         for (const phase of generationPhases) {
             if (
-                (phase.phase === 'typing' || phase.phase === 'streaming') &&
+                (phase.phase === 'deciding' ||
+                    phase.phase === 'typing' ||
+                    phase.phase === 'streaming') &&
                 phase.personaName
             ) {
                 ids.add(phase.personaName);
             }
         }
         return ids;
+    }, [generationPhases]);
+
+    const personaPhases = useMemo(() => {
+        const map = new Map<string, ActiveGenerationPhase>();
+        for (const phase of generationPhases) {
+            if (
+                (phase.phase === 'deciding' ||
+                    phase.phase === 'typing' ||
+                    phase.phase === 'streaming') &&
+                phase.personaName
+            ) {
+                map.set(phase.personaName, phase);
+            }
+        }
+        return map;
     }, [generationPhases]);
 
     return (
@@ -454,15 +472,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                                   <StreamingIndicator
                                       key={phase.messageId ?? 'unknown'}
                                       info={phase}
-                                      overseerText={
-                                          phase.phase === 'overseer'
-                                              ? (messages.find(
-                                                    (m) =>
-                                                        m.messageId ===
-                                                        phase.messageId,
-                                                )?.overseer ?? null)
-                                              : null
-                                      }
                                       personas={partyPersonas}
                                   />
                               ))
@@ -611,6 +620,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                 participantPersonaIds={participantPersonaIds}
                 selectedPersonaId={selectedPersonaId}
                 activePersonaIds={activePersonaIds}
+                personaPhases={personaPhases}
                 hasChanges={hasParticipantChanges}
                 isSaving={saveParticipantsMutation.isPending}
                 saveError={
@@ -641,6 +651,7 @@ function ParticipantsSidebar({
     participantPersonaIds,
     selectedPersonaId,
     activePersonaIds,
+    personaPhases,
     hasChanges,
     isSaving,
     saveError,
@@ -652,6 +663,7 @@ function ParticipantsSidebar({
     participantPersonaIds: string[];
     selectedPersonaId: string;
     activePersonaIds: Set<string>;
+    personaPhases: Map<string, ActiveGenerationPhase>;
     hasChanges: boolean;
     isSaving: boolean;
     saveError: string | null;
@@ -698,47 +710,88 @@ function ParticipantsSidebar({
                 {aiPersonas.map((persona) => {
                     const id = persona.id ?? '';
                     const isActive = participantSet.has(id);
-                    const isTyping = activePersonaIds.has(id);
+                    const isWorking = activePersonaIds.has(id);
+                    const phase = personaPhases.get(id);
+                    const isDeciding = phase?.phase === 'deciding';
+                    const decisionText =
+                        isDeciding && 'decisionText' in phase
+                            ? phase.decisionText
+                            : '';
+
                     return (
-                        <button
-                            type="button"
-                            key={id}
-                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
-                            onClick={() => onToggleParticipant(id)}
-                            title={
-                                isActive
-                                    ? 'Click to remove from chat'
-                                    : 'Click to add to chat'
-                            }
-                        >
-                            <img
-                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
-                                alt={persona.name ?? id}
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    flexShrink: 0,
-                                    imageRendering: 'pixelated',
-                                }}
-                            />
-                            <span
-                                className={isTyping ? 'animate-pulse' : ''}
-                                style={{
-                                    flex: 1,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 11,
-                                    fontWeight: isActive ? 600 : 400,
-                                    color: isActive ? '#000' : '#808080',
-                                }}
+                        <div key={id}>
+                            <button
+                                type="button"
+                                className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
+                                onClick={() => onToggleParticipant(id)}
+                                title={
+                                    isActive
+                                        ? 'Click to remove from chat'
+                                        : 'Click to add to chat'
+                                }
                             >
-                                {persona.name ?? id.slice(0, 8)}
-                            </span>
-                            <span
-                                className={`participant-status-dot${isActive ? ' online' : ' offline'}`}
-                            />
-                        </button>
+                                <img
+                                    src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                                    alt={persona.name ?? id}
+                                    style={{
+                                        width: 24,
+                                        height: 24,
+                                        flexShrink: 0,
+                                        imageRendering: 'pixelated',
+                                    }}
+                                />
+                                <span
+                                    className={isWorking ? 'animate-pulse' : ''}
+                                    style={{
+                                        flex: 1,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        fontSize: 11,
+                                        fontWeight: isActive ? 600 : 400,
+                                        color: isActive ? '#000' : '#808080',
+                                    }}
+                                >
+                                    {persona.name ?? id.slice(0, 8)}
+                                </span>
+                                <span
+                                    className={`participant-status-dot${isActive ? ' online' : ' offline'}${isWorking ? ' working' : ''}`}
+                                />
+                            </button>
+                            {isDeciding && decisionText && (
+                                <details
+                                    open
+                                    style={{
+                                        padding: '2px 8px 4px 40px',
+                                        fontSize: 9,
+                                    }}
+                                >
+                                    <summary
+                                        style={{
+                                            color: '#806600',
+                                            cursor: 'pointer',
+                                            userSelect: 'none',
+                                            fontSize: 10,
+                                        }}
+                                    >
+                                        thinking...
+                                    </summary>
+                                    <div
+                                        style={{
+                                            color: '#666',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-all',
+                                            maxHeight: 80,
+                                            overflow: 'hidden',
+                                            marginTop: 2,
+                                        }}
+                                    >
+                                        {decisionText}
+                                    </div>
+                                </details>
+                            )}
+                        </div>
                     );
                 })}
 
@@ -877,10 +930,10 @@ function ChatBubble({
         message.reasoning || (message.generationEvents?.length ?? 0) > 0
     );
 
-    const overseerData = useMemo(() => {
-        if (!message.overseer) return null;
+    const appraisalData = useMemo(() => {
+        if (!message.appraisal) return null;
         try {
-            const raw = JSON.parse(message.overseer);
+            const raw = JSON.parse(message.appraisal);
             // Normalise PascalCase keys from older messages to camelCase
             return {
                 personaId: raw.personaId ?? raw.PersonaId,
@@ -891,18 +944,18 @@ function ChatBubble({
         } catch {
             return null;
         }
-    }, [message.overseer]);
+    }, [message.appraisal]);
 
-    const isOverseerStop = overseerData?.stop === true;
+    const isAppraisalStop = appraisalData?.stop === true;
     const isDirectedAtUser =
-        !!overseerData &&
+        !!appraisalData &&
         !!userPersonaId &&
-        overseerData.personaId === userPersonaId;
+        appraisalData.personaId === userPersonaId;
 
     const userPersonaName =
         personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
 
-    if (isDirectedAtUser && overseerData) {
+    if (isDirectedAtUser && appraisalData) {
         return (
             <div
                 style={{
@@ -962,13 +1015,13 @@ function ChatBubble({
                         fontSize: 12,
                         color: '#1a1a4a',
                         fontWeight: 500,
-                        marginBottom: overseerData.reason ? 4 : 0,
+                        marginBottom: appraisalData.reason ? 4 : 0,
                         lineHeight: 1.4,
                     }}
                 >
-                    {overseerData.instruction}
+                    {appraisalData.instruction}
                 </div>
-                {overseerData.reason && (
+                {appraisalData.reason && (
                     <div
                         style={{
                             fontSize: 10,
@@ -976,7 +1029,7 @@ function ChatBubble({
                             fontStyle: 'italic',
                         }}
                     >
-                        {overseerData.reason}
+                        {appraisalData.reason}
                     </div>
                 )}
             </div>
@@ -988,23 +1041,23 @@ function ChatBubble({
             className="p-2"
             style={{
                 borderBottom: '1px solid #D4D0C8',
-                background: isOverseerStop
+                background: isAppraisalStop
                     ? '#FFFBEA'
                     : isUser
                       ? '#FFFEF5'
                       : '#F8F8F8',
                 borderLeft: isGenerating
                     ? '3px solid #316AC5'
-                    : isOverseerStop
+                    : isAppraisalStop
                       ? '3px solid #CC8800'
                       : '3px solid transparent',
             }}
         >
             <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2">
-                    {isOverseerStop ? (
+                    {isAppraisalStop ? (
                         <span
-                            title="Overseer"
+                            title="Appraisal"
                             style={{
                                 width: 22,
                                 height: 22,
@@ -1032,14 +1085,14 @@ function ChatBubble({
                     <span
                         style={{
                             fontWeight: 600,
-                            color: isOverseerStop
+                            color: isAppraisalStop
                                 ? '#806600'
                                 : isUser
                                   ? '#003399'
                                   : '#006600',
                         }}
                     >
-                        {isOverseerStop ? 'Overseer' : senderName}
+                        {isAppraisalStop ? 'Appraisal' : senderName}
                     </span>
                     {formatTime(message.sendAt) ? (
                         <span style={{ color: '#ACA899', fontSize: 10 }}>
@@ -1097,7 +1150,7 @@ function ChatBubble({
                 </div>
             ) : null}
 
-            {overseerData && (
+            {appraisalData && (
                 <details className="mt-1" style={{ fontSize: 10 }}>
                     <summary
                         style={{
@@ -1106,12 +1159,12 @@ function ChatBubble({
                             userSelect: 'none',
                         }}
                     >
-                        Overseer →{' '}
-                        {personas.find((p) => p.id === overseerData.personaId)
+                        Appraisal →{' '}
+                        {personas.find((p) => p.id === appraisalData.personaId)
                             ?.name ??
-                            overseerData.personaId?.slice(0, 8) ??
+                            appraisalData.personaId?.slice(0, 8) ??
                             'none'}
-                        {overseerData.stop ? ' (stop)' : ''}
+                        {appraisalData.stop ? ' (stop)' : ''}
                     </summary>
                     <div
                         className="mt-1 p-1.5"
@@ -1121,18 +1174,18 @@ function ChatBubble({
                             color: '#555',
                         }}
                     >
-                        {overseerData.reason && (
+                        {appraisalData.reason && (
                             <div>
                                 <span style={{ fontWeight: 600 }}>Reason:</span>{' '}
-                                {overseerData.reason}
+                                {appraisalData.reason}
                             </div>
                         )}
-                        {overseerData.instruction && (
+                        {appraisalData.instruction && (
                             <div>
                                 <span style={{ fontWeight: 600 }}>
                                     Instruction:
                                 </span>{' '}
-                                {overseerData.instruction}
+                                {appraisalData.instruction}
                             </div>
                         )}
                     </div>
@@ -1185,7 +1238,7 @@ function ChatBubble({
                                             ![
                                                 'message',
                                                 'reasoning',
-                                                'overseer',
+                                                'appraisal',
                                             ].includes(e.event),
                                     )
                                     .map((e, i) => (
@@ -1204,8 +1257,7 @@ function ChatBubble({
                                             <span style={{ color: '#000' }}>
                                                 {e.event === 'overseerStop'
                                                     ? '(stopped)'
-                                                    : e.event ===
-                                                        'personaChange'
+                                                    : e.event === 'attend'
                                                       ? (personas.find(
                                                             (p) =>
                                                                 p.id === e.data,
@@ -1213,7 +1265,7 @@ function ChatBubble({
                                                         e.data.slice(0, 8))
                                                       : e.data.slice(0, 50)}
                                                 {e.event !== 'overseerStop' &&
-                                                e.event !== 'personaChange' &&
+                                                e.event !== 'attend' &&
                                                 e.data.length > 50
                                                     ? '...'
                                                     : ''}
@@ -1295,47 +1347,61 @@ function MarkdownContent({
 
 function StreamingIndicator({
     info,
-    overseerText,
     personas,
 }: {
     info: GenerationPhase;
-    overseerText?: string | null;
     personas?: Persona[];
 }) {
-    if (info.phase === 'overseer') {
+    if (info.phase === 'waiting') {
+        return (
+            <div
+                className="flex items-center gap-2 animate-pulse"
+                style={{
+                    color: '#808080',
+                    padding: '4px 8px',
+                }}
+            >
+                <span>Waiting for responses...</span>
+            </div>
+        );
+    }
+    if (info.phase === 'deciding') {
+        const personaId = info.personaName;
+        const resolvedName =
+            personas?.find((p) => p.id === personaId)?.name ??
+            personaId.slice(0, 8);
         return (
             <div
                 style={{
-                    color: '#806600',
+                    borderBottom: '1px solid #D4D0C8',
                     background: '#FFF8DC',
-                    padding: '4px 8px',
-                    border: '1px solid #E6D87A',
+                    borderLeft: '3px solid #CC8800',
+                    padding: '6px 8px',
                 }}
             >
-                <span className="animate-pulse">
-                    Overseer is choosing who speaks...
-                </span>
-                {overseerText && (
-                    <div
-                        className="mt-1"
+                <div className="flex items-center gap-2">
+                    <img
+                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                        alt={resolvedName}
                         style={{
-                            fontFamily: 'monospace',
-                            fontSize: 9,
-                            color: '#5a4800',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                            maxHeight: 48,
-                            overflow: 'hidden',
+                            width: 22,
+                            height: 22,
+                            flexShrink: 0,
+                            imageRendering: 'pixelated',
                         }}
+                    />
+                    <span
+                        className="animate-pulse"
+                        style={{ fontWeight: 600, color: '#806600' }}
                     >
-                        {overseerText}
-                    </div>
-                )}
+                        {resolvedName} is thinking...
+                    </span>
+                </div>
             </div>
         );
     }
     if (info.phase === 'typing' || info.phase === 'streaming') {
-        const personaId = info.personaName; // actually the ID from personaChange event
+        const personaId = info.personaName; // actually the ID from attend event
         const resolvedName =
             personas?.find((p) => p.id === personaId)?.name ??
             personaId.slice(0, 8);

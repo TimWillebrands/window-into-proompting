@@ -6,7 +6,7 @@ export interface RealtimeChatMessage {
     messageId: number;
     content: string | null;
     reasoning: string | null;
-    overseer: string | null;
+    appraisal: string | null;
     error: string | null;
     senderType: string;
     senderId: string;
@@ -406,7 +406,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     messageId,
                     content: null,
                     reasoning: null,
-                    overseer: null,
+                    appraisal: null,
                     error: null,
                     senderType: 'assistant',
                     senderId: '00000000-0000-0000-0000-000000000000',
@@ -449,25 +449,37 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                             eventEntry,
                         ],
                     };
-                } else if (payload.event === 'overseer') {
-                    // Accumulate overseer chunks for realtime display
+                } else if (payload.event === 'appraisal') {
+                    // Accumulate appraisal chunks for realtime display
                     nextMessage = {
                         ...baseMessage,
-                        overseer: `${baseMessage.overseer ?? ''}${payload.data ?? ''}`,
+                        appraisal: `${baseMessage.appraisal ?? ''}${payload.data ?? ''}`,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,
                         ],
                     };
-                } else if (payload.event === 'overseerComplete') {
+                } else if (payload.event === 'appraisalComplete') {
                     // Replace accumulated chunks with clean parsed JSON
                     nextMessage = {
                         ...baseMessage,
-                        overseer: payload.data ?? null,
+                        appraisal: payload.data ?? null,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,
                         ],
+                    };
+                } else if (payload.event === 'declined') {
+                    // Persona decided not to respond — remove phantom message
+                    return {
+                        ...prev,
+                        messages: prev.messages.filter(
+                            (m) => m.messageId !== messageId,
+                        ),
+                        activeGenerationMessageIds:
+                            prev.activeGenerationMessageIds.filter(
+                                (id) => id !== messageId,
+                            ),
                     };
                 } else {
                     nextMessage = {
@@ -659,7 +671,8 @@ export const useRealtimeConnectionStatus = (
 
 export type GenerationPhase =
     | { phase: 'idle' }
-    | { phase: 'overseer' }
+    | { phase: 'waiting' }
+    | { phase: 'deciding'; personaName: string; decisionText: string }
     | { phase: 'typing'; personaName: string }
     | { phase: 'streaming'; personaName: string; charCount: number };
 
@@ -670,18 +683,33 @@ const getPhaseForMessage = (
     activeId: number,
 ): ActiveGenerationPhase => {
     const message = group.messages.find((m) => m.messageId === activeId);
-    if (!message) return { phase: 'overseer', messageId: activeId };
+    if (!message) return { phase: 'waiting', messageId: activeId };
 
     const events = message.generationEvents ?? [];
     if (events.find((e) => e.event === 'overseerStop'))
         return { phase: 'idle', messageId: activeId };
+    if (events.find((e) => e.event === 'declined'))
+        return { phase: 'idle', messageId: activeId };
 
-    const personaChangeEvent = [...events]
-        .reverse()
-        .find((e) => e.event === 'personaChange');
-    if (!personaChangeEvent) return { phase: 'overseer', messageId: activeId };
+    const attendEvent = [...events].reverse().find((e) => e.event === 'attend');
+    if (!attendEvent) return { phase: 'waiting', messageId: activeId };
 
-    const personaName = personaChangeEvent.data;
+    const personaName = attendEvent.data;
+
+    // Check if still in the appraisal phase (has appraisal chunks but no appraisalComplete yet)
+    const hasAppraisalComplete = events.some(
+        (e) => e.event === 'appraisalComplete',
+    );
+    if (!hasAppraisalComplete) {
+        const decisionText = (message.appraisal ?? '').trim();
+        return {
+            phase: 'deciding',
+            personaName,
+            decisionText,
+            messageId: activeId,
+        };
+    }
+
     const msgCount = events.filter((e) => e.event === 'message').length;
 
     if (msgCount < 3)

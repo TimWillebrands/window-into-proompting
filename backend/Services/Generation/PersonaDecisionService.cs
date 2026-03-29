@@ -73,7 +73,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
             if (onEvent is not null)
             {
-                await onEvent("overseer", chunk.Data, false);
+                await onEvent("appraisal", chunk.Data, false);
             }
         }
 
@@ -115,7 +115,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         if (onEvent is not null)
         {
-            await onEvent("overseerComplete", JsonSerializer.Serialize(parsed, WebOptions), false);
+            await onEvent("appraisalComplete", JsonSerializer.Serialize(parsed, WebOptions), false);
         }
 
         return parsed;

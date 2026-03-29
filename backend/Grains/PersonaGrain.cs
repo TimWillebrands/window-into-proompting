@@ -127,7 +127,19 @@ public sealed class PersonaGrain(
                 };
             }).ToList();
 
-            // Phase 1: Decide whether to respond
+            // Phase 1: Reserve a message slot early so we can stream decision events
+            var messageId = await chatGroupGrain.GetNextMessageIdAsync();
+
+            // Send attend event so frontend knows this persona is evaluating the conversation
+            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+            {
+                ChatGroupId = chatGroupId,
+                Event = "attend",
+                Data = personaId.ToString(),
+                Done = false
+            });
+
+            // Phase 2: Decide whether to respond (streaming decision reasoning)
             var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
             var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
@@ -136,34 +148,44 @@ public sealed class PersonaGrain(
                 history,
                 allParticipants,
                 totalAiRounds,
-                onEvent: null,  // No streaming for the decision phase
+                onEvent: async (eventType, data, done) =>
+                {
+                    await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+                    {
+                        ChatGroupId = chatGroupId,
+                        Event = eventType,
+                        Data = data,
+                        Done = done
+                    });
+                },
                 cancellationToken: default);
 
             if (!decision.Respond)
             {
                 logger.LogInformation("Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
+
+                // Notify frontend that this persona declined
+                await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+                {
+                    ChatGroupId = chatGroupId,
+                    Event = "declined",
+                    Data = JsonSerializer.Serialize(new
+                    {
+                        personaId = personaId,
+                        reason = decision.Reason
+                    }, WebOptions),
+                    Done = true
+                });
                 return;
             }
 
             logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
 
-            // Phase 2: Reserve a message slot
-            var messageId = await chatGroupGrain.GetNextMessageIdAsync();
-
-            // Send persona identity event
+            // Send appraisal complete — persona has decided to engage
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
             {
                 ChatGroupId = chatGroupId,
-                Event = "personaChange",
-                Data = personaId.ToString(),
-                Done = false
-            });
-
-            // Send overseer decision as event
-            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-            {
-                ChatGroupId = chatGroupId,
-                Event = "overseerComplete",
+                Event = "appraisalComplete",
                 Data = JsonSerializer.Serialize(new
                 {
                     personaId = personaId,
@@ -194,7 +216,7 @@ public sealed class PersonaGrain(
                 return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
             }).ToList();
 
-            // Use GenerateResponseOnly (skip overseer — we already decided)
+            // Generate response — appraisal already decided to engage
             var result = await session.GenerateResponseOnlyAsync(
                 self,
                 generationHistory,
@@ -211,7 +233,7 @@ public sealed class PersonaGrain(
                 default);
 
             // Phase 4: Store the completed response
-            var overseerJson = JsonSerializer.Serialize(new
+            var appraisalJson = JsonSerializer.Serialize(new
             {
                 personaId = personaId,
                 instruction = decision.Instruction,
@@ -223,7 +245,7 @@ public sealed class PersonaGrain(
                 messageId,
                 result.Message ?? string.Empty,
                 result.Reasoning,
-                overseerJson);
+                appraisalJson);
 
             logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);
         }
