@@ -10,9 +10,7 @@ export interface RealtimeChatMessage {
     error: string | null;
     senderType: string;
     senderId: string;
-    senderName: string | null;
     sendAt: number | null;
-    modelEndpointStub: string | null;
     generationEvents: Array<{ event: string; data: string; at: number }>;
 }
 
@@ -412,9 +410,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     error: null,
                     senderType: 'assistant',
                     senderId: '00000000-0000-0000-0000-000000000000',
-                    senderName: null,
                     sendAt: null,
-                    modelEndpointStub: null,
                     generationEvents: [],
                 };
 
@@ -741,38 +737,6 @@ export const useChatGroupGenerationState = (chatGroupId: string) =>
             state.chatGroups[chatGroupId]?.activeGenerationMessageIds ??
             EMPTY_GENERATION_MESSAGE_IDS,
     );
-
-export async function sendPromptToChatGroup(args: {
-    partyId: string;
-    chatGroupId: string;
-    prompt: string;
-    model: string;
-    provider: string;
-    personaId?: string;
-    senderId?: string;
-    senderName?: string;
-}) {
-    const response = await fetch(`/api/Party/${args.partyId}/prompt`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            chatGroupId: args.chatGroupId,
-            prompt: args.prompt,
-            model: args.model,
-            provider: args.provider,
-            personaId: args.personaId ?? null,
-            senderId: args.senderId ?? null,
-            senderName: args.senderName ?? null,
-        }),
-    });
-
-    if (!response.ok) {
-        const body = await response.text();
-        throw new Error(body || `Prompt failed with status ${response.status}`);
-    }
-}
 
 export function useRealtimeStoreActions() {
     const connectPartyRealtime = useRealtimeStore(

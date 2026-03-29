@@ -1,20 +1,12 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-    Suspense,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react';
 import DOMPurify from 'dompurify';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
 import type { Persona } from '../../api/model';
 import {
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
-    useGetPartyIdModelsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
     usePostPartyIdProceed,
@@ -22,7 +14,6 @@ import {
     usePostPartyIdRepromptMessageId,
     usePutPartyIdParticipants,
 } from '../../api/party-zone';
-import PeoplePicker from '../../components/chat/PeoplePicker';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import {
     type GenerationPhase,
@@ -44,9 +35,6 @@ interface GroupChatWindowProps {
     chatGroupId?: string;
     partyName?: string;
 }
-
-const DEFAULT_PROVIDER = 'openrouter';
-const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 
 export default function GroupChatWindow({
     chatGroupId,
@@ -72,8 +60,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [selectedPersonaId, setSelectedPersonaId] = useState('');
-    const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-    const [model, setModel] = useState(DEFAULT_MODEL);
 
     // Participant management – backed by actual party state
     const [participantPersonaIds, setParticipantPersonaIds] = useState<
@@ -134,13 +120,18 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
             data: {
                 chatGroupId,
                 prompt: trimmed,
-                provider,
-                model,
-                personaId: selectedPersonaId || null,
+                senderId: selectedPersonaId || null,
             },
         });
         setInputValue('');
-    }, [inputValue, busy, promptParty, apiPartyId, chatGroupId, provider, model, selectedPersonaId]);
+    }, [
+        inputValue,
+        busy,
+        promptParty,
+        apiPartyId,
+        chatGroupId,
+        selectedPersonaId,
+    ]);
 
     useHotkey('Mod+Enter', handleSubmit, {
         target: textareaRef,
@@ -341,10 +332,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
-    const peoplePicker = partyPersonas.map((persona) => ({
-        id: persona.id ?? '',
-        name: persona.name ?? '',
-    }));
     const promptablePersonas = partyPersonas.filter(
         (p) => !participantPersonaIds.includes(p.id ?? ''),
     );
@@ -352,374 +339,507 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??
         selectedPersonaId;
 
+    const activePersonaIds = useMemo(() => {
+        const ids = new Set<string>();
+        for (const phase of generationPhases) {
+            if (
+                (phase.phase === 'typing' || phase.phase === 'streaming') &&
+                phase.personaName
+            ) {
+                ids.add(phase.personaName);
+            }
+        }
+        return ids;
+    }, [generationPhases]);
+
     return (
         <div
-            className="app-surface flex flex-col h-full"
+            className="app-surface flex h-full"
             style={{ background: '#ECE9D8' }}
         >
-            {/* Header toolbar */}
-            <div
-                className="p-2 space-y-2"
-                style={{ borderBottom: '1px solid #ACA899' }}
-            >
-                <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                        <ConnectionDot status={connectionStatus} />
-                        <span style={{ fontWeight: 600, color: '#000' }}>
-                            {partyName ?? apiPartyId}
+            {/* Main chat column */}
+            <div className="flex-1 flex flex-col min-w-0 h-full">
+                {/* Header toolbar */}
+                <div
+                    className="p-2"
+                    style={{
+                        borderBottom: '1px solid #ACA899',
+                        background:
+                            'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
+                    }}
+                >
+                    <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                            <ConnectionDot status={connectionStatus} />
+                            <span style={{ fontWeight: 600, color: '#000' }}>
+                                {partyName ?? apiPartyId}
+                            </span>
                         </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                        {isStreaming && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    cancelGenerations.mutateAsync({
+                        <span className="flex items-center gap-2">
+                            {isStreaming && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        cancelGenerations.mutateAsync({
+                                            id: apiPartyId,
+                                        })
+                                    }
+                                    style={{
+                                        fontSize: 10,
+                                        color: '#CC0000',
+                                        padding: '1px 6px',
+                                        background: '#FFF0F0',
+                                        border: '1px solid #CC0000',
+                                    }}
+                                >
+                                    ■ Stop
+                                </button>
+                            )}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Message area */}
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div
+                        ref={scrollRef}
+                        onScroll={(event) => {
+                            const target = event.currentTarget;
+                            const distanceFromBottom =
+                                target.scrollHeight -
+                                target.scrollTop -
+                                target.clientHeight;
+                            setIsNearBottom(distanceFromBottom < 48);
+                        }}
+                        className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
+                    >
+                        {uniqueMessages.map((message) => (
+                            <ChatBubble
+                                key={`${message.chatGroupId}:${message.messageId}`}
+                                message={message}
+                                busy={busy}
+                                personas={partyPersonas}
+                                userPersonaId={selectedPersonaId}
+                                isGenerating={activeGenerationSet.has(
+                                    message.messageId,
+                                )}
+                                onDelete={() =>
+                                    deletePartyMessage.mutateAsync({
                                         id: apiPartyId,
+                                        chatGroupId: chatGroupId,
+                                        messageId: message.messageId,
                                     })
                                 }
-                                style={{
-                                    fontSize: 10,
-                                    color: '#CC0000',
-                                    padding: '1px 6px',
-                                    background: '#FFF0F0',
-                                    border: '1px solid #CC0000',
-                                }}
-                            >
-                                ■ Stop
-                            </button>
-                        )}
-                    </span>
-                </div>
+                                onTruncate={() =>
+                                    truncatePartyMessagesAfter.mutateAsync({
+                                        id: apiPartyId,
+                                        chatGroupId: chatGroupId,
+                                        messageId: message.messageId,
+                                    })
+                                }
+                                onReprompt={() =>
+                                    repromptParty.mutateAsync({
+                                        id: apiPartyId,
+                                        messageId: message.messageId,
+                                        data: {
+                                            chatGroupId,
+                                            senderId: selectedPersonaId || null,
+                                        },
+                                    })
+                                }
+                            />
+                        ))}
+                        {generationPhases.length > 0
+                            ? generationPhases.map((phase) => (
+                                  <StreamingIndicator
+                                      key={phase.messageId ?? 'unknown'}
+                                      info={phase}
+                                      overseerText={
+                                          phase.phase === 'overseer'
+                                              ? (messages.find(
+                                                    (m) =>
+                                                        m.messageId ===
+                                                        phase.messageId,
+                                                )?.overseer ?? null)
+                                              : null
+                                      }
+                                      personas={partyPersonas}
+                                  />
+                              ))
+                            : null}
+                    </div>
 
-                <div className="flex gap-2">
-                    <Suspense
-                        fallback={
-                            <select disabled className="flex-1 text-[11px]">
-                                <option>Loading models...</option>
-                            </select>
-                        }
-                    >
-                        <ModelDropdown
-                            partyId={apiPartyId}
-                            model={model}
-                            setModel={setModel}
-                            setProvider={setProvider}
-                        />
-                    </Suspense>
-                </div>
-            </div>
-
-            {/* Party participant management */}
-            <div
-                className="p-1 space-y-1"
-                style={{
-                    borderBottom: '1px solid #ACA899',
-                    background: '#F0EDD4',
-                }}
-            >
-                <PeoplePicker
-                    people={peoplePicker}
-                    selectedIds={participantPersonaIds}
-                    onChange={setParticipantPersonaIds}
-                    compact
-                />
-                <div className="flex items-center justify-between gap-2">
-                    {participantPersonaIds.length === 0 &&
-                        peoplePicker.length > 0 && (
-                            <span style={{ fontSize: 10, color: '#996600' }}>
-                                No AI participants — AI won't respond.
-                            </span>
-                        )}
-                    {hasParticipantChanges && (
-                        <div className="flex items-center gap-1 ml-auto">
-                            {saveParticipantsMutation.isError && (
-                                <span style={{ fontSize: 10, color: '#c00' }}>
-                                    {saveParticipantsMutation.error instanceof
-                                    Error
-                                        ? saveParticipantsMutation.error.message
-                                        : 'Failed to save'}
-                                </span>
-                            )}
+                    {/* Unread indicator */}
+                    {!isNearBottom && unreadCount > 0 ? (
+                        <div
+                            className="flex items-center justify-between px-2 py-1"
+                            style={{
+                                borderTop: '1px solid #ACA899',
+                                background: '#FFFDD5',
+                                color: '#000',
+                            }}
+                        >
+                            <span>{unreadCount} new message(s)</span>
                             <button
                                 type="button"
-                                disabled={saveParticipantsMutation.isPending}
-                                style={{ fontSize: 11 }}
-                                onClick={() =>
-                                    setParticipantPersonaIds(
-                                        savedParticipantPersonaIds,
+                                onClick={() => {
+                                    const node = scrollRef.current;
+                                    if (!node) {
+                                        return;
+                                    }
+                                    node.scrollTop = node.scrollHeight;
+                                    setUnreadCount(0);
+                                    setIsNearBottom(true);
+                                }}
+                            >
+                                Jump to latest
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {/* Input area */}
+                    <form
+                        className="p-2 space-y-1"
+                        style={{
+                            borderTop: '1px solid #ACA899',
+                            background:
+                                'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
+                        }}
+                        onSubmit={async (event) => {
+                            event.preventDefault();
+                            await handleSubmit();
+                        }}
+                    >
+                        {pendingInstruction && (
+                            <div
+                                style={{
+                                    background: '#FFFBEA',
+                                    border: '1px solid #E6D87A',
+                                    padding: '4px 8px',
+                                    fontSize: 11,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: '#806600',
+                                    }}
+                                >
+                                    ⚖️ As {selectedPersonaName}:
+                                </span>{' '}
+                                <span style={{ color: '#555' }}>
+                                    {pendingInstruction.instruction}
+                                </span>
+                            </div>
+                        )}
+                        <textarea
+                            ref={textareaRef}
+                            rows={3}
+                            className="w-full text-[11px]"
+                            style={{ padding: '4px' }}
+                            placeholder="Type a message to the chat group..."
+                            value={inputValue}
+                            onChange={(event) =>
+                                setInputValue(event.currentTarget.value)
+                            }
+                        />
+                        {promptParty.isError ? (
+                            <p
+                                className="text-[10px]"
+                                style={{ color: '#c00' }}
+                            >
+                                {promptParty.error instanceof Error
+                                    ? promptParty.error.message
+                                    : 'Failed to send'}
+                            </p>
+                        ) : null}
+                        <div className="flex items-center gap-1">
+                            <select
+                                className="flex-1 text-[11px]"
+                                value={selectedPersonaId}
+                                onChange={(event) =>
+                                    setSelectedPersonaId(
+                                        event.currentTarget.value,
                                     )
                                 }
                             >
-                                Reset
-                            </button>
+                                {promptablePersonas.map((persona) => (
+                                    <option key={persona.id} value={persona.id}>
+                                        {persona.name}
+                                    </option>
+                                ))}
+                            </select>
                             <button
                                 type="button"
-                                disabled={saveParticipantsMutation.isPending}
-                                style={{ fontSize: 11 }}
-                                onClick={handleSaveParticipants}
+                                disabled={busy}
+                                className="text-[11px]"
+                                style={{
+                                    padding: '2px 10px',
+                                    background: busy ? '#D4D0C8' : '#ECE9D8',
+                                }}
+                                onClick={() =>
+                                    proceedParty.mutateAsync({
+                                        id: apiPartyId,
+                                        data: {
+                                            chatGroupId,
+                                            senderId: selectedPersonaId || null,
+                                        },
+                                    })
+                                }
                             >
-                                {saveParticipantsMutation.isPending
-                                    ? 'Saving...'
-                                    : 'Save'}
+                                {busy ? '...' : 'Proceed'}
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={busy}
+                                className="text-[11px]"
+                                style={{
+                                    padding: '2px 16px',
+                                    background: busy ? '#D4D0C8' : '#ECE9D8',
+                                }}
+                            >
+                                {busy ? '...' : 'Send'}
                             </button>
                         </div>
-                    )}
+                    </form>
                 </div>
             </div>
 
-            {/* Message area */}
-            <div className="flex-1 flex flex-col min-h-0">
-                <div
-                    ref={scrollRef}
-                    onScroll={(event) => {
-                        const target = event.currentTarget;
-                        const distanceFromBottom =
-                            target.scrollHeight -
-                            target.scrollTop -
-                            target.clientHeight;
-                        setIsNearBottom(distanceFromBottom < 48);
-                    }}
-                    className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
-                >
-                    {uniqueMessages.map((message) => (
-                        <ChatBubble
-                            key={`${message.chatGroupId}:${message.messageId}`}
-                            message={message}
-                            busy={busy}
-                            personas={partyPersonas}
-                            userPersonaId={selectedPersonaId}
-                            isGenerating={activeGenerationSet.has(
-                                message.messageId,
-                            )}
-                            onDelete={() =>
-                                deletePartyMessage.mutateAsync({
-                                    id: apiPartyId,
-                                    chatGroupId: chatGroupId,
-                                    messageId: message.messageId,
-                                })
-                            }
-                            onTruncate={() =>
-                                truncatePartyMessagesAfter.mutateAsync({
-                                    id: apiPartyId,
-                                    chatGroupId: chatGroupId,
-                                    messageId: message.messageId,
-                                })
-                            }
-                            onReprompt={() =>
-                                repromptParty.mutateAsync({
-                                    id: apiPartyId,
-                                    messageId: message.messageId,
-                                    data: {
-                                        chatGroupId,
-                                        model,
-                                        provider,
-                                    },
-                                })
-                            }
-                        />
-                    ))}
-                    {generationPhases.length > 0
-                        ? generationPhases.map((phase) => (
-                              <StreamingIndicator
-                                  key={phase.messageId ?? 'unknown'}
-                                  info={phase}
-                                  overseerText={
-                                      phase.phase === 'overseer'
-                                          ? (messages.find(
-                                                (m) =>
-                                                    m.messageId ===
-                                                    phase.messageId,
-                                            )?.overseer ?? null)
-                                          : null
-                                  }
-                                  personas={partyPersonas}
-                              />
-                          ))
-                        : null}
-                </div>
-
-                {/* Unread indicator */}
-                {!isNearBottom && unreadCount > 0 ? (
-                    <div
-                        className="flex items-center justify-between px-2 py-1"
-                        style={{
-                            borderTop: '1px solid #ACA899',
-                            background: '#FFFDD5',
-                            color: '#000',
-                        }}
-                    >
-                        <span>{unreadCount} new message(s)</span>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const node = scrollRef.current;
-                                if (!node) {
-                                    return;
-                                }
-                                node.scrollTop = node.scrollHeight;
-                                setUnreadCount(0);
-                                setIsNearBottom(true);
-                            }}
-                        >
-                            Jump to latest
-                        </button>
-                    </div>
-                ) : null}
-
-                {/* Input area */}
-                <form
-                    className="p-2 space-y-1"
-                    style={{
-                        borderTop: '1px solid #ACA899',
-                        background: '#F5F5ED',
-                    }}
-                    onSubmit={async (event) => {
-                        event.preventDefault();
-                        await handleSubmit();
-                    }}
-                >
-                    {pendingInstruction && (
-                        <div
-                            style={{
-                                background: '#FFFBEA',
-                                border: '1px solid #E6D87A',
-                                padding: '4px 8px',
-                                fontSize: 11,
-                            }}
-                        >
-                            <span style={{ fontWeight: 600, color: '#806600' }}>
-                                ⚖️ As {selectedPersonaName}:
-                            </span>{' '}
-                            <span style={{ color: '#555' }}>
-                                {pendingInstruction.instruction}
-                            </span>
-                        </div>
-                    )}
-                    <textarea
-                        ref={textareaRef}
-                        rows={3}
-                        className="w-full text-[11px]"
-                        style={{ padding: '4px' }}
-                        placeholder="Type a message to the chat group..."
-                        value={inputValue}
-                        onChange={(event) =>
-                            setInputValue(event.currentTarget.value)
-                        }
-                    />
-                    {promptParty.isError ? (
-                        <p className="text-[10px]" style={{ color: '#c00' }}>
-                            {promptParty.error instanceof Error
-                                ? promptParty.error.message
-                                : 'Failed to send'}
-                        </p>
-                    ) : null}
-                    <div className="flex items-center gap-1">
-                        <select
-                            className="flex-1 text-[11px]"
-                            value={selectedPersonaId}
-                            onChange={(event) =>
-                                setSelectedPersonaId(event.currentTarget.value)
-                            }
-                        >
-                            {promptablePersonas.map((persona) => (
-                                <option key={persona.id} value={persona.id}>
-                                    {persona.name}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            disabled={busy}
-                            className="text-[11px]"
-                            style={{
-                                padding: '2px 10px',
-                                background: busy ? '#D4D0C8' : '#ECE9D8',
-                            }}
-                            onClick={() =>
-                                proceedParty.mutateAsync({
-                                    id: apiPartyId,
-                                    data: {
-                                        chatGroupId,
-                                        provider,
-                                        model,
-                                    },
-                                })
-                            }
-                        >
-                            {busy ? '...' : 'Proceed'}
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            className="text-[11px]"
-                            style={{
-                                padding: '2px 16px',
-                                background: busy ? '#D4D0C8' : '#ECE9D8',
-                            }}
-                        >
-                            {busy ? '...' : 'Send'}
-                        </button>
-                    </div>
-                </form>
-            </div>
+            {/* Right sidebar: participants */}
+            <ParticipantsSidebar
+                personas={partyPersonas}
+                participantPersonaIds={participantPersonaIds}
+                selectedPersonaId={selectedPersonaId}
+                activePersonaIds={activePersonaIds}
+                hasChanges={hasParticipantChanges}
+                isSaving={saveParticipantsMutation.isPending}
+                saveError={
+                    saveParticipantsMutation.isError
+                        ? saveParticipantsMutation.error instanceof Error
+                            ? saveParticipantsMutation.error.message
+                            : 'Failed to save'
+                        : null
+                }
+                onToggleParticipant={(id) => {
+                    setParticipantPersonaIds((prev) =>
+                        prev.includes(id)
+                            ? prev.filter((pid) => pid !== id)
+                            : [...prev, id],
+                    );
+                }}
+                onSave={handleSaveParticipants}
+                onReset={() =>
+                    setParticipantPersonaIds(savedParticipantPersonaIds)
+                }
+            />
         </div>
     );
 }
 
-function ModelDropdown({
-    partyId,
-    model,
-    setModel,
-    setProvider,
+function ParticipantsSidebar({
+    personas,
+    participantPersonaIds,
+    selectedPersonaId,
+    activePersonaIds,
+    hasChanges,
+    isSaving,
+    saveError,
+    onToggleParticipant,
+    onSave,
+    onReset,
 }: {
-    partyId: string;
-    model: string;
-    setModel: (m: string) => void;
-    setProvider: (p: string) => void;
+    personas: Persona[];
+    participantPersonaIds: string[];
+    selectedPersonaId: string;
+    activePersonaIds: Set<string>;
+    hasChanges: boolean;
+    isSaving: boolean;
+    saveError: string | null;
+    onToggleParticipant: (id: string) => void;
+    onSave: () => void;
+    onReset: () => void;
 }) {
-    const modelsQuery = useGetPartyIdModelsSuspense(partyId);
-    const models = modelsQuery.data.data ?? [];
-
-    useEffect(() => {
-        if (models.length === 0) return;
-        const isCurrentValid = models.some((m) => m.name === model);
-        if (!isCurrentValid) {
-            const first = models[0];
-            setModel(first.name ?? '');
-            setProvider(first.providerType ?? '');
-        }
-    }, [models, model, setModel, setProvider]);
+    const participantSet = new Set(participantPersonaIds);
+    const aiPersonas = personas.filter((p) => !p.isUser);
+    const userPersona = personas.find((p) => p.id === selectedPersonaId);
+    const totalActive =
+        participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
 
     return (
-        <select
-            className="flex-1 text-[11px]"
-            value={model}
-            onChange={(event) => {
-                const option = event.target.selectedOptions[0];
-                const nextModel = option.dataset.model;
-                const nextProvider = option.dataset.provider;
-                if (nextModel === undefined || nextProvider === undefined)
-                    return;
-                setModel(nextModel);
-                setProvider(nextProvider);
-            }}
+        <div
+            className="participant-sidebar flex flex-col h-full"
+            style={{ width: 180, minWidth: 180 }}
         >
-            {models.length === 0 ? (
-                <option value={model}>{model} (no models available)</option>
-            ) : (
-                models.map((entry) => (
-                    <option
-                        key={`${entry.providerType}-${entry.endpointProviderGrainId}-${entry.name}`}
-                        value={entry.name}
-                        data-model={entry.name}
-                        data-provider={entry.providerType}
+            <div className="xp-section-header">
+                PARTICIPANTS — {totalActive}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+                {/* AI participants */}
+                {aiPersonas.length > 0 && (
+                    <div
+                        style={{
+                            padding: '4px 8px 2px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: '#808080',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                        }}
                     >
-                        {entry.providerDescription} / {entry.name}
-                    </option>
-                ))
+                        AI —{' '}
+                        {
+                            aiPersonas.filter((p) =>
+                                participantSet.has(p.id ?? ''),
+                            ).length
+                        }
+                    </div>
+                )}
+                {aiPersonas.map((persona) => {
+                    const id = persona.id ?? '';
+                    const isActive = participantSet.has(id);
+                    const isTyping = activePersonaIds.has(id);
+                    return (
+                        <button
+                            type="button"
+                            key={id}
+                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
+                            onClick={() => onToggleParticipant(id)}
+                            title={
+                                isActive
+                                    ? 'Click to remove from chat'
+                                    : 'Click to add to chat'
+                            }
+                        >
+                            <img
+                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                                alt={persona.name ?? id}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                className={isTyping ? 'animate-pulse' : ''}
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: isActive ? 600 : 400,
+                                    color: isActive ? '#000' : '#808080',
+                                }}
+                            >
+                                {persona.name ?? id.slice(0, 8)}
+                            </span>
+                            <span
+                                className={`participant-status-dot${isActive ? ' online' : ' offline'}`}
+                            />
+                        </button>
+                    );
+                })}
+
+                {/* User persona */}
+                {userPersona && (
+                    <>
+                        <div
+                            style={{
+                                padding: '6px 8px 2px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: '#808080',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                            }}
+                        >
+                            YOU
+                        </div>
+                        <div className="participant-row active">
+                            <img
+                                src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
+                                alt={userPersona.name ?? 'You'}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: '#003399',
+                                }}
+                            >
+                                {userPersona.name ?? 'You'}
+                            </span>
+                            <span className="participant-status-dot online" />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Save/Reset controls */}
+            {participantPersonaIds.length === 0 && aiPersonas.length > 0 && (
+                <div
+                    style={{
+                        padding: '4px 8px',
+                        fontSize: 10,
+                        color: '#996600',
+                        background: '#FFFBEA',
+                        borderTop: '1px solid #E6D87A',
+                    }}
+                >
+                    No AI participants — AI won't respond.
+                </div>
             )}
-        </select>
+            {saveError && (
+                <div
+                    style={{
+                        padding: '4px 8px',
+                        fontSize: 10,
+                        color: '#c00',
+                        borderTop: '1px solid #ACA899',
+                    }}
+                >
+                    {saveError}
+                </div>
+            )}
+            {hasChanges && (
+                <div
+                    className="flex gap-1 p-1"
+                    style={{
+                        borderTop: '1px solid #ACA899',
+                        background: '#ECE9D8',
+                    }}
+                >
+                    <button
+                        type="button"
+                        disabled={isSaving}
+                        className="flex-1 text-[10px]"
+                        onClick={onReset}
+                    >
+                        Reset
+                    </button>
+                    <button
+                        type="button"
+                        disabled={isSaving}
+                        className="flex-1 text-[10px]"
+                        onClick={onSave}
+                    >
+                        {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -746,15 +866,12 @@ function ChatBubble({
     const [showDetails, setShowDetails] = useState(false);
 
     const senderName = useMemo(() => {
-        if (message.senderName) {
-            return isUser ? `${message.senderName} (you)` : message.senderName;
-        }
-        if (isUser) {
-            return 'You';
-        }
         const persona = personas.find((p) => p.id === message.senderId);
-        return persona?.name ?? message.senderId.slice(0, 8);
-    }, [message.senderName, message.senderId, isUser, personas]);
+        if (persona?.name) {
+            return isUser ? `${persona.name} (you)` : persona.name;
+        }
+        return isUser ? 'You' : message.senderId.slice(0, 8);
+    }, [message.senderId, isUser, personas]);
 
     const hasDetails = !!(
         message.reasoning || (message.generationEvents?.length ?? 0) > 0
@@ -924,14 +1041,6 @@ function ChatBubble({
                     >
                         {isOverseerStop ? 'Overseer' : senderName}
                     </span>
-                    {message.modelEndpointStub ? (
-                        <span
-                            className="text-[10px]"
-                            style={{ color: '#808080' }}
-                        >
-                            {message.modelEndpointStub.split('/').pop()}
-                        </span>
-                    ) : null}
                     {formatTime(message.sendAt) ? (
                         <span style={{ color: '#ACA899', fontSize: 10 }}>
                             {formatTime(message.sendAt)}
@@ -1259,22 +1368,37 @@ function StreamingIndicator({
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-1 pl-1" style={{ color: '#808080' }}>
+                <div
+                    className="flex items-center gap-1 pl-1"
+                    style={{ color: '#808080' }}
+                >
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '0ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '0ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '150ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '150ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '300ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '300ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>

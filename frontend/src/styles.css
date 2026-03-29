@@ -81,6 +81,53 @@ body {
     background: #fff;
 }
 
+/* Participant sidebar */
+.participant-sidebar {
+    background: linear-gradient(180deg, #f5f5ed 0%, #ece9d8 100%);
+    border-left: 1px solid #aca899;
+}
+
+.participant-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.participant-row:hover {
+    background: rgba(49, 106, 197, 0.08);
+}
+
+.participant-row.active {
+    background: rgba(49, 106, 197, 0.06);
+}
+
+.participant-row.active:hover {
+    background: rgba(49, 106, 197, 0.12);
+}
+
+.participant-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.participant-status-dot.online {
+    background: #00aa00;
+}
+
+.participant-status-dot.offline {
+    background: #c0c0c0;
+}
+
 /* Markdown rendered content inside chat bubbles */
 .markdown-content {
     line-height: 1.5;
