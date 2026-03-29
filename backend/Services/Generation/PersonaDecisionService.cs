@@ -24,8 +24,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         CancellationToken cancellationToken)
     {
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
+        var participantIds = new HashSet<Guid>(participants.Select(p => p.Id));
         var recentMessages = history.TakeLast(8)
+            .Where(m => participantIds.Contains(m.SenderId))
             .Select(m => new ChatMessageWithSenderName(m, participants.First(p => p.Id == m.SenderId).Name));
+
+        // TODO: Store SenderName directly on ChatMessage to avoid this lookup. See: Option 1 (denormalize sender name into message)
 
         var messages = new List<LlmChatMessage>
         {
