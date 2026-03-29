@@ -4,7 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
-import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
+
 import type {
     DataTag,
     DefinedInitialDataOptions,
@@ -21,6 +21,7 @@ import type {
     UseSuspenseQueryOptions,
     UseSuspenseQueryResult,
 } from '@tanstack/react-query';
+import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 
 import type {
     ChatGroupInfo,

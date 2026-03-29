@@ -9,6 +9,7 @@ export * from './categorizedModels';
 export * from './chatGroupInfo';
 export * from './createChatGroupRequest';
 export * from './createPartyRequest';
+export * from './jobComplexity';
 export * from './llmModel';
 export * from './partyDetails';
 export * from './partyInfo';

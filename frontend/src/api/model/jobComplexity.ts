@@ -5,8 +5,4 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface ProceedRequest {
-    chatGroupId?: string;
-    /** @nullable */
-    senderId?: string | null;
-}
+export type JobComplexity = number;

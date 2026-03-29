@@ -7,8 +7,6 @@
 
 export interface RepromptRequest {
     chatGroupId?: string;
-    model?: string;
-    provider?: string;
     /** @nullable */
     senderId?: string | null;
     /** @nullable */

@@ -8,10 +8,6 @@
 export interface PromptRequest {
     chatGroupId?: string;
     prompt?: string;
-    model?: string;
-    provider?: string;
     /** @nullable */
     senderId?: string | null;
-    /** @nullable */
-    senderName?: string | null;
 }
