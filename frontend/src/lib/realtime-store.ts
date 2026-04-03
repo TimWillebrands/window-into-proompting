@@ -371,6 +371,11 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (message) => message.messageId === messageId,
                 );
 
+                const resolvedSenderId = existing?.senderId
+                    ?? (payload.event === 'attend' ? payload.data : null)
+                    ?? existing?.generationEvents?.find((e) => e.event === 'attend')?.data
+                    ?? '00000000-0000-0000-0000-000000000000';
+
                 const baseMessage: RealtimeChatMessage = existing ?? {
                     chatGroupId,
                     messageId,
@@ -379,7 +384,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     appraisal: null,
                     error: null,
                     senderType: 'assistant',
-                    senderId: '00000000-0000-0000-0000-000000000000',
+                    senderId: resolvedSenderId,
                     sendAt: null,
                     generationEvents: [],
                 };
@@ -426,6 +431,16 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     nextMessage = {
                         ...baseMessage,
                         appraisal: payload.data ?? null,
+                        generationEvents: [
+                            ...baseMessage.generationEvents,
+                            eventEntry,
+                        ],
+                    };
+                } else if (payload.event === 'attend') {
+                    // First event that carries the real persona ID — use it as senderId
+                    nextMessage = {
+                        ...baseMessage,
+                        senderId: payload.data ?? baseMessage.senderId,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,
