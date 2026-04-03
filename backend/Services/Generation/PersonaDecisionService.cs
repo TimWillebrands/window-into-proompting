@@ -61,14 +61,16 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             }
         };
 
-        var generation = await router.RouteAndGenerateAsync(new LlmGenerationJob
+        var job = new LlmGenerationJob
         {
             Messages = messages,
             JobComplexity = JobComplexity.General,
             ResponseFormat = responseFormat.ToJsonString()
-        }, cancellationToken);
+        };
 
-        await foreach (var chunk in generation)
+        var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+
+        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
             if (chunk.Type == "message")
             {

@@ -1,7 +1,4 @@
-using PartyTown;
 using Microsoft.Extensions.Options;
-using Orleans.Configuration;
-using Orleans.EventSourcing;
 using PartyTown.Configuration;
 using PartyTown.Logging;
 using PartyTown.Services.Realtime;
@@ -14,7 +11,25 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' not found.");
 
-builder.Services.Configure<LlmOptions>(builder.Configuration.GetSection(LlmOptions.SectionName));
+builder.Services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    return new ConfigureOptions<LlmOptions>(options =>
+    {
+        var section = config.GetSection($"{LlmOptions.SectionName}:Providers");
+        foreach (var child in section.GetChildren())
+        {
+            var type = child["Type"];
+            ILlmProviderConfig provider = type switch
+            {
+                "ollama" => child.Get<OllamaProviderConfig>()!,
+                "openrouter" => child.Get<OpenRouterProviderConfig>()!,
+                _ => throw new InvalidOperationException($"Unknown LLM provider type: '{type}'")
+            };
+            options.Providers.Add(provider);
+        }
+    });
+});
 
 builder.Services.AddMemoryCache();
 builder.Services.AddOpenApi();

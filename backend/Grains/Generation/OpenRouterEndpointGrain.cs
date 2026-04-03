@@ -113,6 +113,7 @@ public class OpenRouterEndpointGrain(
                     ProviderDescription = ProviderDescription,
                     Description = description ?? $"OpenRouter model {name}",
                     ContextLength = contextLength,
+                    SupportedComplexities = JobComplexity.General,
                 });
             }
 

@@ -52,8 +52,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             JobComplexity = JobComplexity.General
         };
 
-        var generation = await router.RouteAndGenerateAsync(job, cancellationToken);
-        await foreach (var chunk in generation)
+        var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
             if (chunk.Type == "message")
             {

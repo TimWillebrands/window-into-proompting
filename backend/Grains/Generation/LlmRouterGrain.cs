@@ -18,29 +18,31 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
         return [.. results.SelectMany(model => model)];
     }
 
-    public async Task<IAsyncEnumerable<LlmGenerationEvent>> RouteAndGenerateAsync(
-        LlmGenerationJob job,
+
+    public async Task<ILlmEndpointGrain> RouteAsync(
+        JobComplexity jobComplexity,
         CancellationToken cancellationToken = default)
     {
         var modelProviderTasks = ModelProviders.Select(async grain =>
         {
-            var models = await grain.GetModelsAsync();
+            var models = await grain.GetModelsAsync(cancellationToken);
             return new
             {
                 Grain = grain,
                 Pressure = await grain.PressureAsync(),
-                CompatibleModels = models.Where(m => m.Supports(job.JobComplexity))
+                CompatibleModels = models.Where(m => m.Supports(jobComplexity))
             };
         });
 
-        var compatibleProvider = (await Task.WhenAll(modelProviderTasks))
+        var finishedTasks = await Task.WhenAll(modelProviderTasks);
+        var compatibleProvider = finishedTasks
             .Where(provider => provider.CompatibleModels.Any())
             .OrderBy(provider => provider.Pressure)
             .FirstOrDefault();
 
         return compatibleProvider is null
-            ? throw new InvalidOperationException($"No model-providers available for job complexity {job.JobComplexity}")
-            : compatibleProvider.Grain.GenerateAsync(job, cancellationToken);
+            ? throw new InvalidOperationException($"No model-providers available for job complexity {jobComplexity}")
+            : compatibleProvider.Grain;
     }
 
     private IReadOnlyList<ILlmEndpointGrain> FetchModelProviders()

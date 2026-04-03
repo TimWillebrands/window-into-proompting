@@ -24,9 +24,9 @@ public interface IOpenRouterEndpointGrain : ILlmEndpointGrain { }
 [Alias("PartyTown.Grains.Generation.ILlmRouterGrain")]
 public interface ILlmRouterGrain : IGrainWithIntegerKey
 {
-    [Alias("RouteAndGenerateAsync")]
-    Task<IAsyncEnumerable<LlmGenerationEvent>> RouteAndGenerateAsync(
-        LlmGenerationJob parameters,
+    [Alias("RouteAsync")]
+    Task<ILlmEndpointGrain> RouteAsync(
+        JobComplexity jobComplexity,
         CancellationToken cancellationToken = default);
 
     [Alias("GetModelsAsync")]

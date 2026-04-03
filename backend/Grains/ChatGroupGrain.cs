@@ -229,8 +229,10 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     /// <summary>
     /// Fan out a message notification to all participants in parallel.
     /// Each PersonaGrain independently decides whether to respond.
+    /// Fire and forget - we don't await because PersonaGrains call back into this
+    /// grain (GetMessagesUntilAsync) which would cause a deadlock on a non-reentrant grain.
     /// </summary>
-    public async Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage)
+    public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage)
     {
         var chatGroupId = this.GetPrimaryKey();
         var participants = State.Participants.ToList();
@@ -238,11 +240,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
             participants.Count, chatGroupId);
 
-        var tasks = participants.Select(p =>
-            GrainFactory.GetGrain<IPersonaGrain>(p.Id)
-                .NotifyMessageAsync(chatGroupId, triggeringMessage));
+        foreach (var p in participants)
+        {
+            _ = GrainFactory.GetGrain<IPersonaGrain>(p.Id)
+                .NotifyMessageAsync(chatGroupId, triggeringMessage);
+        }
 
-        await Task.WhenAll(tasks);
+        return Task.CompletedTask;
     }
 
     private Task PublishPartyEvent(PartyStreamEvent evt)

@@ -88,6 +88,7 @@ public class OllamaEndpointGrain(
                     ProviderType = "ollama",
                     ProviderDescription = ProviderDescription,
                     Description = $"Ollama model {item.Name}",
+                    SupportedComplexities = JobComplexity.General,
                 })
                 .ToList();
 
