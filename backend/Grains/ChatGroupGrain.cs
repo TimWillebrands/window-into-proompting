@@ -229,8 +229,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var count = 0;
         for (var i = State.Messages.Count - 1; i >= 0; i--)
         {
-            if (State.Messages[i].SenderType != "assistant")
+            var msg = State.Messages[i];
+            if (msg.SenderType != "assistant")
                 break;
+            if (string.IsNullOrEmpty(msg.Content))
+                continue;
             count++;
         }
         return Task.FromResult(count);
@@ -419,7 +422,10 @@ public sealed record class ChatGroupState
         => Messages.RemoveAll(m => m.MessageId == @event.MessageId);
 
     public void Apply(ChatGroupMessagesAfterDeletedEvent @event)
-        => Messages.RemoveAll(m => m.MessageId > @event.MessageId);
+    {
+        Messages.RemoveAll(m => m.MessageId > @event.MessageId);
+        NextMessageId = Messages.Count > 0 ? Messages.Max(m => m.MessageId) : 0;
+    }
 }
 
 // ── Events ──
