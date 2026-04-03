@@ -106,7 +106,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         {
             try
             {
-                string repairedJson = JsonRepair.RepairJson(raw);
+                string repairedJson = JsonRepair.RepairJson(raw, JsonRepair.InputType.LLM);
                 parsed = JsonSerializer.Deserialize<ShouldRespondResult>(repairedJson, WebOptions);
             }
             catch (Exception ex)
