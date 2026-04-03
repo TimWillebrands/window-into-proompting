@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using JsonRepairSharp;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.Generation;
 
@@ -15,6 +16,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// Appraises whether the persona should respond based on the conversation history and participants.
+    /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
         IReadOnlyList<ChatMessage> history,
@@ -79,7 +83,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
             if (onEvent is not null)
             {
-                await onEvent("appraisal", chunk.Data, false);
+                await onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false);
             }
         }
 
@@ -121,7 +125,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         if (onEvent is not null)
         {
-            await onEvent("appraisalComplete", JsonSerializer.Serialize(parsed, WebOptions), false);
+            await onEvent(MessageStreamEvent.PersonaEvaluationComplete, JsonSerializer.Serialize(parsed, WebOptions), false);
         }
 
         return parsed;

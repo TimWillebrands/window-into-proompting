@@ -134,7 +134,7 @@ public sealed class PersonaGrain(
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
             {
                 ChatGroupId = chatGroupId,
-                Event = "attend",
+                Event = MessageStreamEvent.PersonaEvaluatingResponse,
                 Data = personaId.ToString(),
                 Done = false
             });
@@ -168,7 +168,7 @@ public sealed class PersonaGrain(
                 await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
                 {
                     ChatGroupId = chatGroupId,
-                    Event = "declined",
+                    Event = MessageStreamEvent.PersonaDeclinedResponse,
                     Data = JsonSerializer.Serialize(new
                     {
                         personaId = personaId,
@@ -185,7 +185,7 @@ public sealed class PersonaGrain(
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
             {
                 ChatGroupId = chatGroupId,
-                Event = "appraisalComplete",
+                Event = MessageStreamEvent.PersonaEvaluationComplete,
                 Data = JsonSerializer.Serialize(new
                 {
                     personaId = personaId,

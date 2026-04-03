@@ -37,7 +37,12 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
 [Alias("PartyTown.Grains.Generation.LlmGenerationEvent")]
 public readonly record struct LlmGenerationEvent(
     [property: Id(0)] string Type,
-    [property: Id(1)] string Data);
+    [property: Id(1)] string Data)
+{
+    public const string ContentChunk = "message";
+    public const string ReasoningChunk = "reasoning";
+    public const string GenerationError = "error";
+}
 
 [GenerateSerializer]
 [Alias("PartyTown.Grains.Generation.LlmChatMessage")]

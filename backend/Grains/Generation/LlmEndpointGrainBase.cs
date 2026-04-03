@@ -26,20 +26,20 @@ public static class LlmEndpointGrainUtils
                 if (!string.IsNullOrWhiteSpace(part.Text))
                 {
                     chunkCount++;
-                    yield return new LlmGenerationEvent("message", part.Text);
+                    yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
             {
                 logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
-                yield return new LlmGenerationEvent("error", update.RefusalUpdate);
+                yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
             }
 
             if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
             {
                 logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
-                yield return new LlmGenerationEvent("error", finishReason.ToString());
+                yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
                 yield break;
             }
         }

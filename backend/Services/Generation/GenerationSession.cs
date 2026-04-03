@@ -1,6 +1,7 @@
 using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.Generation;
 
@@ -55,11 +56,11 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
         await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
-            if (chunk.Type == "message")
+            if (chunk.Type == LlmGenerationEvent.ContentChunk)
             {
                 builder.Append(chunk.Data);
             }
-            else if (chunk.Type == "reasoning")
+            else if (chunk.Type == LlmGenerationEvent.ReasoningChunk)
             {
                 reasoning.Append(chunk.Data);
             }
@@ -67,7 +68,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             await onEvent(chunk.Type, chunk.Data, false);
         }
 
-        await onEvent("finished", "finished", true);
+        await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
         return new GenerationResult
         {

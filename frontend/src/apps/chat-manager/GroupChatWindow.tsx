@@ -250,7 +250,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         partyDetailsQuery.data,
         savedParticipantPersonaIds,
         apiPartyId,
-        saveParticipantsMutation,
+        saveParticipantsMutation.mutate,
     ]);
 
     const hasParticipantChanges = useMemo(() => {
@@ -329,7 +329,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         apiPartyId,
         participantPersonaIds,
         partyDetailsQuery.data,
-        saveParticipantsMutation,
+        saveParticipantsMutation.mutate,
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
