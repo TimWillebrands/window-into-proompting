@@ -22,6 +22,7 @@ import {
     type RealtimeConnectionStatus,
     useActiveGenerationPhases,
     useChatGroupGenerationState,
+    useChatGroupMessages,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '../../lib/realtime-store';
@@ -78,11 +79,9 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
     const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
     const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
-    const {
-        connectPartyRealtime,
-        disconnectPartyRealtime,
-        subscribeToChatGroup,
-    } = useRealtimeStoreActions();
+    const realtimeMessages = useChatGroupMessages(chatGroupId ?? '');
+    const { connectPartyRealtime, disconnectPartyRealtime } =
+        useRealtimeStoreActions();
 
     const partyDetailsQuery = useGetPartyIdSuspense(apiPartyId);
 
@@ -160,12 +159,8 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         }
 
         connectPartyRealtime(apiPartyId);
-        const unsubscribe = subscribeToChatGroup(chatGroupId, (state) => {
-            setMessages(state.messages);
-        });
 
         return () => {
-            unsubscribe();
             disconnectPartyRealtime(apiPartyId);
         };
     }, [
@@ -173,8 +168,11 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         chatGroupId,
         connectPartyRealtime,
         disconnectPartyRealtime,
-        subscribeToChatGroup,
     ]);
+
+    useEffect(() => {
+        setMessages(realtimeMessages);
+    }, [realtimeMessages]);
 
     useEffect(() => {
         if (messages.length === 0) {

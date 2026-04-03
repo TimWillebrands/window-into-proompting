@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { useShallow } from 'zustand/react/shallow';
+import { useStoreWithEqualityFn } from 'zustand/traditional';
+import deepEqual from 'fast-deep-equal';
 
 export interface RealtimeChatMessage {
     chatGroupId: string;
@@ -28,6 +29,14 @@ interface PartyRealtimeConnection {
     subscriberCount: number;
 }
 
+const DEFAULT_CONNECTION_STATE: PartyRealtimeConnection = {
+    status: 'disconnected',
+    socket: null,
+    lastSequence: 0,
+    reconnectAttempt: 0,
+    subscriberCount: 0,
+};
+
 interface ChatGroupRealtimeState {
     chatGroupId: string;
     messages: RealtimeChatMessage[];
@@ -42,8 +51,6 @@ type PartyRealtimeEnvelope = {
     data: unknown;
 };
 
-type ChatGroupListener = (state: ChatGroupRealtimeState) => void;
-
 const DEFAULT_CHAT_GROUP_STATE = (
     chatGroupId: string,
 ): ChatGroupRealtimeState => ({
@@ -53,8 +60,7 @@ const DEFAULT_CHAT_GROUP_STATE = (
     lastSequence: 0,
 });
 
-const chatGroupListeners = new Map<string, Set<ChatGroupListener>>();
-const EMPTY_MESSAGES: RealtimeChatMessage[] = [];
+export const EMPTY_MESSAGES: RealtimeChatMessage[] = [];
 const EMPTY_GENERATION_MESSAGE_IDS: number[] = [];
 
 interface RealtimeStoreState {
@@ -62,25 +68,7 @@ interface RealtimeStoreState {
     chatGroups: Record<string, ChatGroupRealtimeState>;
     connectPartyRealtime: (partyId: string) => void;
     disconnectPartyRealtime: (partyId: string) => void;
-    subscribeToChatGroup: (
-        chatGroupId: string,
-        listener: ChatGroupListener,
-    ) => () => void;
 }
-
-const emitChatGroupState = (
-    chatGroupId: string,
-    state: ChatGroupRealtimeState,
-) => {
-    const listeners = chatGroupListeners.get(chatGroupId);
-    if (!listeners) {
-        return;
-    }
-
-    for (const listener of listeners) {
-        listener(state);
-    }
-};
 
 const appendOrUpdateMessage = (
     messages: RealtimeChatMessage[],
@@ -91,7 +79,13 @@ const appendOrUpdateMessage = (
     );
 
     if (existingIndex < 0) {
-        return [...messages, message].sort((a, b) => a.messageId - b.messageId);
+        const nextMessages = [...messages, message];
+        const lastMsg = messages[messages.length - 1];
+
+        if (lastMsg && message.messageId < lastMsg.messageId) {
+            return nextMessages.sort((a, b) => a.messageId - b.messageId);
+        }
+        return nextMessages;
     }
 
     const existing = messages[existingIndex];
@@ -107,7 +101,7 @@ const appendOrUpdateMessage = (
     return nextMessages;
 };
 
-const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
+export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
     const establishPartyRealtime = (partyId: string) => {
         if (typeof window === 'undefined') {
             return;
@@ -140,13 +134,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        socket: null,
-                        status: 'disconnected',
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     status: 'connecting',
                     socket,
                 },
@@ -158,13 +146,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
+                        ...(state.connections[partyId] ??
+                            DEFAULT_CONNECTION_STATE),
                         status: 'connected',
                         reconnectAttempt: 0,
                         socket,
@@ -214,33 +197,26 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
         sequence: number,
         update: (prev: ChatGroupRealtimeState) => ChatGroupRealtimeState,
     ) => {
-        let nextState: ChatGroupRealtimeState | null = null;
-
         set((state) => {
             const previous =
                 state.chatGroups[chatGroupId] ??
                 DEFAULT_CHAT_GROUP_STATE(chatGroupId);
 
             const updated = update(previous);
-            nextState = {
-                ...updated,
-                lastSequence:
-                    sequence > 0
-                        ? Math.max(updated.lastSequence, sequence)
-                        : updated.lastSequence,
-            };
 
             return {
                 chatGroups: {
                     ...state.chatGroups,
-                    [chatGroupId]: nextState,
+                    [chatGroupId]: {
+                        ...updated,
+                        lastSequence:
+                            sequence > 0
+                                ? Math.max(updated.lastSequence, sequence)
+                                : updated.lastSequence,
+                    },
                 },
             };
         });
-
-        if (nextState) {
-            emitChatGroupState(chatGroupId, nextState);
-        }
     };
 
     const handleEnvelope = (
@@ -251,13 +227,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        status: 'disconnected',
-                        socket: null,
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     lastSequence: Math.max(
                         state.connections[partyId]?.lastSequence ?? 0,
                         envelope.sequence,
@@ -426,19 +396,11 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     nextMessage = {
                         ...baseMessage,
                         content: `${baseMessage.content ?? ''}${payload.data ?? ''}`,
-                        generationEvents: [
-                            ...baseMessage.generationEvents,
-                            eventEntry,
-                        ],
                     };
                 } else if (payload.event === 'reasoning') {
                     nextMessage = {
                         ...baseMessage,
                         reasoning: `${baseMessage.reasoning ?? ''}${payload.data ?? ''}`,
-                        generationEvents: [
-                            ...baseMessage.generationEvents,
-                            eventEntry,
-                        ],
                     };
                 } else if (payload.event === 'error') {
                     nextMessage = {
@@ -542,13 +504,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        status: 'disconnected',
-                        socket: null,
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     status: 'reconnecting',
                     reconnectAttempt,
                     socket: null,
@@ -569,13 +525,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
+                        ...(state.connections[partyId] ??
+                            DEFAULT_CONNECTION_STATE),
                         subscriberCount:
                             (state.connections[partyId]?.subscriberCount ?? 0) +
                             1,
@@ -600,13 +551,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     connections: {
                         ...state.connections,
                         [partyId]: {
-                            ...(state.connections[partyId] ?? {
-                                lastSequence: 0,
-                                reconnectAttempt: 0,
-                                socket: null,
-                                status: 'disconnected',
-                                subscriberCount: 0,
-                            }),
+                            ...(state.connections[partyId] ??
+                                DEFAULT_CONNECTION_STATE),
                             subscriberCount: nextSubscriberCount,
                         },
                     },
@@ -622,42 +568,11 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
-                        status: 'disconnected',
-                        socket: null,
-                        reconnectAttempt: 0,
+                        ...DEFAULT_CONNECTION_STATE,
                         subscriberCount: 0,
                     },
                 },
             }));
-        },
-        subscribeToChatGroup: (chatGroupId, listener) => {
-            const listeners = chatGroupListeners.get(chatGroupId) ?? new Set();
-            listeners.add(listener);
-            chatGroupListeners.set(chatGroupId, listeners);
-
-            listener(
-                get().chatGroups[chatGroupId] ??
-                    DEFAULT_CHAT_GROUP_STATE(chatGroupId),
-            );
-
-            return () => {
-                const activeListeners = chatGroupListeners.get(chatGroupId);
-                if (!activeListeners) {
-                    return;
-                }
-
-                activeListeners.delete(listener);
-                if (activeListeners.size === 0) {
-                    chatGroupListeners.delete(chatGroupId);
-                }
-            };
         },
     };
 });
@@ -724,8 +639,9 @@ const getPhaseForMessage = (
 
 /** Returns a single GenerationPhase for the most recent active generation (backward compat). */
 export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
-    useRealtimeStore(
-        useShallow((state) => {
+    useStoreWithEqualityFn(
+        useRealtimeStore,
+        (state) => {
             const group = state.chatGroups[chatGroupId];
             if (!group || group.activeGenerationMessageIds.length === 0)
                 return { phase: 'idle' };
@@ -735,15 +651,17 @@ export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
                     group.activeGenerationMessageIds.length - 1
                 ];
             return getPhaseForMessage(group, activeId);
-        }),
+        },
+        deepEqual,
     );
 
 /** Returns an array of GenerationPhases — one per active generation stream. */
 export const useActiveGenerationPhases = (
     chatGroupId: string,
 ): ActiveGenerationPhase[] =>
-    useRealtimeStore(
-        useShallow((state) => {
+    useStoreWithEqualityFn(
+        useRealtimeStore,
+        (state) => {
             const group = state.chatGroups[chatGroupId];
             if (!group || group.activeGenerationMessageIds.length === 0)
                 return [];
@@ -751,7 +669,8 @@ export const useActiveGenerationPhases = (
             return group.activeGenerationMessageIds
                 .map((id) => getPhaseForMessage(group, id))
                 .filter((p) => p.phase !== 'idle');
-        }),
+        },
+        deepEqual,
     );
 
 export const useChatGroupMessages = (chatGroupId: string) =>
@@ -773,13 +692,9 @@ export function useRealtimeStoreActions() {
     const disconnectPartyRealtime = useRealtimeStore(
         (state) => state.disconnectPartyRealtime,
     );
-    const subscribeToChatGroup = useRealtimeStore(
-        (state) => state.subscribeToChatGroup,
-    );
 
     return {
         connectPartyRealtime,
         disconnectPartyRealtime,
-        subscribeToChatGroup,
     };
 }
