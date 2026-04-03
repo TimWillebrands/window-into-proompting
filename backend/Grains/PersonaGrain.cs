@@ -128,7 +128,7 @@ public sealed class PersonaGrain(
             }).ToList();
 
             // Phase 1: Reserve a message slot early so we can stream decision events
-            var messageId = await chatGroupGrain.GetNextMessageIdAsync();
+            var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
 
             // Send attend event so frontend knows this persona is evaluating the conversation
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent

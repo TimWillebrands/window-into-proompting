@@ -42,9 +42,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
-    public async Task<int> GetNextMessageIdAsync()
+    public async Task<int> GetNextMessageIdAsync(Guid? senderId = null, string senderType = "assistant")
     {
-        RaiseEvent(new ChatGroupMessageSlotReservedEvent());
+        RaiseEvent(new ChatGroupMessageSlotReservedEvent
+        {
+            SenderId = senderId,
+            SenderType = senderType
+        });
         await ConfirmEvents();
         return State.NextMessageId;
     }
@@ -62,7 +66,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var messageId = await GetNextMessageIdAsync();
+        var messageId = await GetNextMessageIdAsync(senderId, "user");
 
         var message = new ChatMessage
         {
@@ -71,6 +75,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Content = content,
             SenderType = "user",
             SenderId = senderId,
+            Reasoning = reasoning,
+            Appraisal = appraisal,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
@@ -100,8 +106,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var message = State.Messages.FirstOrDefault(m => m.MessageId == messageId)
-            ?? throw new ArgumentException($"Message with id {messageId} not found", nameof(messageId));
+        var sendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         RaiseEvent(new ChatGroupGenerationCompletedEvent
         {
@@ -109,8 +114,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Content = content,
             Reasoning = reasoning,
             Appraisal = appraisal,
-            SenderId = message.SenderId,
-            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            SenderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty,
+            SendAt = sendAt
         });
         await ConfirmEvents();
 
@@ -278,7 +283,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
     [Alias("GetNextMessageIdAsync")]
-    Task<int> GetNextMessageIdAsync();
+    Task<int> GetNextMessageIdAsync(Guid? senderId = null, string senderType = "assistant");
 
     [Alias("SetParticipantsAsync")]
     Task SetParticipantsAsync(List<PartyParticipant> participants);
@@ -357,9 +362,20 @@ public sealed record class ChatGroupState
         Participants = [.. @event.Participants];
     }
 
-    public void Apply(ChatGroupMessageSlotReservedEvent _)
+    public void Apply(ChatGroupMessageSlotReservedEvent @event)
     {
         NextMessageId++;
+
+        var stub = new ChatMessage
+        {
+            MessageId = NextMessageId,
+            SenderType = @event.SenderType ?? "assistant",
+            SenderId = @event.SenderId ?? Guid.Empty,
+            ChatGroupId = PartyId,
+            Content = string.Empty,
+            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        Messages.Add(stub);
     }
 
     public void Apply(ChatGroupUserMessageEvent @event)
@@ -473,7 +489,11 @@ public sealed record class ChatGroupMessageDeletedEvent : ChatGroupEvent
 
 /// <summary>Raised to atomically reserve a unique message ID slot for a persona about to generate.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessageSlotReservedEvent))]
-public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent;
+public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
+{
+    [Id(0)] public Guid? SenderId { get; set; }
+    [Id(1)] public string? SenderType { get; set; }
+}
 
 /// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessagesAfterDeletedEvent))]
