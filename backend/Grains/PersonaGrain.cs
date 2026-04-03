@@ -95,6 +95,9 @@ public sealed class PersonaGrain(
 
         var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
 
+        // Phase 1: Reserve a message slot early so we can stream decision events
+        var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
+
         try
         {
             // Resolve the LLM endpoint
@@ -126,9 +129,6 @@ public sealed class PersonaGrain(
                     SystemPrompt = null
                 };
             }).ToList();
-
-            // Phase 1: Reserve a message slot early so we can stream decision events
-            var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
 
             // Send attend event so frontend knows this persona is evaluating the conversation
             await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
@@ -252,10 +252,13 @@ public sealed class PersonaGrain(
         catch (OperationCanceledException)
         {
             logger.LogDebug("Persona {PersonaName} generation cancelled", persona.Name);
+            await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
+            // FIXME: If at some point we go public, don't send exceptions over the wire
+            await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.ToString());
         }
     }
 
