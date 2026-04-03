@@ -42,7 +42,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
-    public Task<int> GetNextMessageIdAsync() => Task.FromResult(State.NextMessageId);
+    public async Task<int> GetNextMessageIdAsync()
+    {
+        RaiseEvent(new ChatGroupMessageSlotReservedEvent());
+        await ConfirmEvents();
+        return State.NextMessageId;
+    }
 
     public async Task SetParticipantsAsync(List<PartyParticipant> participants)
     {
@@ -57,7 +62,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? appraisal)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var messageId = State.NextMessageId + 1;
+        var messageId = await GetNextMessageIdAsync();
 
         var message = new ChatMessage
         {
@@ -160,7 +165,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await NotifyStreamChunkAsync(messageId, new MessageStreamEvent
         {
             ChatGroupId = chatGroupId,
-            Event = "error",
+            Event = MessageStreamEvent.GenerationError,
             Data = error,
             Done = true
         });
@@ -352,6 +357,11 @@ public sealed record class ChatGroupState
         Participants = [.. @event.Participants];
     }
 
+    public void Apply(ChatGroupMessageSlotReservedEvent _)
+    {
+        NextMessageId++;
+    }
+
     public void Apply(ChatGroupUserMessageEvent @event)
     {
         Messages.Add(@event.Message with { });
@@ -460,6 +470,10 @@ public sealed record class ChatGroupMessageDeletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
 }
+
+/// <summary>Raised to atomically reserve a unique message ID slot for a persona about to generate.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupMessageSlotReservedEvent))]
+public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent;
 
 /// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessagesAfterDeletedEvent))]
