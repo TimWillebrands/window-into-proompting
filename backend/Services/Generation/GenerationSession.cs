@@ -41,7 +41,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
                 ? (message.Content ?? string.Empty)
                 : ToUserScopedMessage(
                     message,
-                    allParticipants.First(p => p.Id == message.SenderId).Name),
+                    allParticipants.FirstOrDefault(p => p.Id == message.SenderId)?.Name ?? "Unknown"),
             Name = message.SenderId.ToString()
         }));
 

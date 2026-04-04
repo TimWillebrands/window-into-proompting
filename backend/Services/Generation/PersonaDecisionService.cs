@@ -17,6 +17,44 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
+    /// Calculates a response urge score (0.0 - 1.0) based on mention detection,
+    /// silence streak, and question presence. Used to auto-respond or add pressure.
+    /// </summary>
+    public static ResponseUrge CalculateResponseUrge(
+        GenerationParticipant self,
+        IReadOnlyList<ChatMessage> history,
+        int totalAiRoundsInGroup)
+    {
+        double mentionScore = 0;
+        double questionScore = 0;
+        double silenceStreakScore = 0;
+
+        if (history.Count == 0)
+            return new ResponseUrge(0, 0, 0, 0);
+
+        var latest = history[^1];
+        var contentLower = (latest.Content ?? "").ToLowerInvariant();
+        var nameLower = self.Name.ToLowerInvariant();
+
+        // Direct mention: is the persona's name in the latest message?
+        if (contentLower.Contains(nameLower))
+            mentionScore = 1.0;
+
+        // Question detection: does the latest message end with a question mark?
+        if (contentTrimmed(latest.Content ?? "").EndsWith('?'))
+            questionScore = 0.6;
+
+        // Silence streak: how many AI rounds without this persona responding?
+        // Each round without a response increases urge slightly
+        silenceStreakScore = Math.Min(0.4, totalAiRoundsInGroup * 0.1);
+
+        var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore);
+        return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore);
+    }
+
+    private static string contentTrimmed(string content) => content.TrimEnd();
+
+    /// <summary>
     /// Appraises whether the persona should respond based on the conversation history and participants.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
@@ -27,6 +65,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken)
     {
+        var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
         var participantIds = new HashSet<Guid>(participants.Select(p => p.Id));
         var recentMessages = history.TakeLast(8)
@@ -35,11 +74,23 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         // TODO: Store SenderName directly on ChatMessage to avoid this lookup. See: Option 1 (denormalize sender name into message)
 
+        // Auto-respond threshold: if urge is very high (direct mention), skip LLM decision
+        if (urge.Total >= 0.9)
+        {
+            logger.LogInformation("Persona {PersonaName} auto-responding (urge={Urge:F2}, mention={Mention:F2})", self.Name, urge.Total, urge.MentionScore);
+            return new ShouldRespondResult
+            {
+                Respond = true,
+                Instruction = "You were directly addressed — respond naturally.",
+                Reason = $"Auto-respond: direct mention detected (urge={urge.Total:F2})"
+            };
+        }
+
         var messages = new List<LlmChatMessage>
         {
             new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants) },
             new() { Role = "user", Content =
-                ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self) }
+                ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
 
         var text = new StringBuilder();
@@ -88,14 +139,15 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
 
         var raw = text.ToString().Trim();
-        logger.LogInformation("Persona {PersonaName} decision raw ({Chars} chars): {Raw}", self.Name, raw.Length, raw);
+        logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2}",
+            self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore);
 
         ShouldRespondResult? parsed = null;
 
         try
         {
             parsed = JsonSerializer.Deserialize<ShouldRespondResult>(raw, WebOptions);
-            logger.LogInformation("Persona {PersonaName} decision: Respond={Respond} Reason={Reason}", self.Name, parsed?.Respond, parsed?.Reason);
+            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} raw ({Chars} chars): {Raw}", self.Name, urge.Total, raw.Length, raw);
         }
         catch (Exception ex)
         {
@@ -176,7 +228,8 @@ Bio: {self.Bio ?? "No bio"}
         IEnumerable<ChatMessageWithSenderName> messages,
         int totalAiRoundsInGroup,
         int recentSelfMessageCount,
-        GenerationParticipant self)
+        GenerationParticipant self,
+        ResponseUrge urge)
     {
         var pressure = totalAiRoundsInGroup switch
         {
@@ -195,10 +248,18 @@ Bio: {self.Bio ?? "No bio"}
             _ => ""
         };
 
+        var urgePressure = urge.Total switch
+        {
+            >= 0.7 => "\n\n> There's a strong signal that you should respond right now — lean toward speaking up.",
+            >= 0.5 => "\n\n> Some indicators suggest you might want to chime in. Consider it, but use your judgment.",
+            >= 0.3 => "\n\n> The situation is somewhat quiet. You could respond if it feels natural, but it's not urgent.",
+            _ => ""
+        };
+
         return $"""
 # Recent conversation
 {string.Join("\n\n", messages.Select(m => $"<message senderName=\"{m.SenderName}\" senderId=\"{m.Message.SenderId}\">\n{m.Message.Content}\n</message>"))}
-{pressure}{selfPressure}
+{urgePressure}{pressure}{selfPressure}
 
 # Decision
 Should {self.Name} respond right now?
@@ -206,6 +267,8 @@ JSON object with: respond (boolean), instruction (string — guidance for your r
 """;
     }
 }
+
+public readonly record struct ResponseUrge(double Total, double MentionScore, double QuestionScore, double SilenceStreakScore);
 
 [GenerateSerializer, Alias(nameof(ShouldRespondResult))]
 public sealed record class ShouldRespondResult
