@@ -1,0 +1,26 @@
+service: proompting-web
+image: proompting-frontend
+
+servers:
+  web:
+    - game.timwillebrands.nl
+
+proxy:
+  host: game.timwillebrands.nl
+  ssl: true
+  app_port: 3000
+  healthcheck:
+    path: /
+
+ssh:
+  user: root
+  keys:
+    - ~/.ssh/kamal_ed25519
+
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+  dockerfile: frontend/Dockerfile
+  context: frontend

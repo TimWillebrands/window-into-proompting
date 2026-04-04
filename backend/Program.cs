@@ -122,7 +122,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+app.MapGet("/up", () => Results.Ok());
 app.UseWebSockets();
 
 app.MapControllers();
