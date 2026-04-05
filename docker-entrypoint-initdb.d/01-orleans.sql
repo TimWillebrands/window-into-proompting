@@ -198,6 +198,9 @@ INSERT INTO OrleansQuery(QueryKey, QueryText) VALUES
 ('GatewaysQueryKey', 'SELECT Address, ProxyPort, Generation FROM OrleansMembershipTable WHERE DeploymentId = @DeploymentId AND Status = @Status AND ProxyPort > 0');
 
 INSERT INTO OrleansQuery(QueryKey, QueryText) VALUES
+('CleanupDefunctSiloEntriesKey', 'DELETE FROM OrleansMembershipTable WHERE DeploymentId = @DeploymentId AND @DeploymentId IS NOT NULL AND IAmAliveTime < @IAmAliveTime AND Status != 3');
+
+INSERT INTO OrleansQuery(QueryKey, QueryText) VALUES
 ('WriteToStorageKey', 'SELECT * FROM WriteToStorage(@GrainIdHash, @GrainIdN0, @GrainIdN1, @GrainTypeHash, @GrainTypeString, @GrainIdExtensionString, @ServiceId, @GrainStateVersion, @PayloadBinary)');
 
 INSERT INTO OrleansQuery(QueryKey, QueryText) VALUES

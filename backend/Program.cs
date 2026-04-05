@@ -24,18 +24,11 @@ builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 
 builder.Host.UseOrleans(siloBuilder =>
 {
-    if (builder.Environment.IsDevelopment())
+    siloBuilder.UseAdoNetClustering(options =>
     {
-        siloBuilder.UseLocalhostClustering();
-    }
-    else
-    {
-        siloBuilder.UseAdoNetClustering(options =>
-        {
-            options.Invariant = "Npgsql";
-            options.ConnectionString = connectionString;
-        });
-    }
+        options.Invariant = "Npgsql";
+        options.ConnectionString = connectionString;
+    });
 
     siloBuilder.AddAdoNetGrainStorage("urls", options =>
     {
