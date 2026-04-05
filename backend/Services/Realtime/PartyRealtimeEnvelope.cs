@@ -33,6 +33,9 @@ public sealed record class PartyRealtimeEnvelope
 [JsonDerivedType(typeof(PartyGenerationCompletedData), "party_generation_completed")]
 [JsonDerivedType(typeof(PartyPongData), "party_pong")]
 [JsonDerivedType(typeof(PartyUnknownEventData), "party_unknown")]
+[JsonDerivedType(typeof(PersonaGenerationDeltaData), "persona_generation_delta")]
+[JsonDerivedType(typeof(PersonaGenerationCompletedData), "persona_generation_completed")]
+[JsonDerivedType(typeof(PersonaGenerationErrorData), "persona_generation_error")]
 public interface IPartyRealtimeData;
 
 /// <summary>Payload for the "party.snapshot" event: initial message backlog on connect.</summary>
@@ -61,3 +64,12 @@ public sealed record class PartyPongData(Guid PartyId, Guid ChatGroupId) : IPart
 
 /// <summary>Payload for unhandled or unknown event types.</summary>
 public sealed record class PartyUnknownEventData(Guid PartyId, Guid ChatGroupId, string EventType, ChatMessage? Message, int? MessageId) : IPartyRealtimeData;
+
+/// <summary>Payload for the "persona.generation.delta" event: a streamed text chunk from persona generation.</summary>
+public sealed record class PersonaGenerationDeltaData(string Data) : IPartyRealtimeData;
+
+/// <summary>Payload for the "persona.generation.completed" event: generation finished with optional parsed fields.</summary>
+public sealed record class PersonaGenerationCompletedData(string? Name, string? SystemPrompt, string? Bio) : IPartyRealtimeData;
+
+/// <summary>Payload for the "persona.generation.error" event.</summary>
+public sealed record class PersonaGenerationErrorData(string Message) : IPartyRealtimeData;

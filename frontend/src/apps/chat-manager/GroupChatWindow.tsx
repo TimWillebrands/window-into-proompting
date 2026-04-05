@@ -140,7 +140,16 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
             },
         });
         setInputValue('');
-    }, [inputValue, busy, promptParty, apiPartyId, chatGroupId, provider, model, selectedPersonaId]);
+    }, [
+        inputValue,
+        busy,
+        promptParty,
+        apiPartyId,
+        chatGroupId,
+        provider,
+        model,
+        selectedPersonaId,
+    ]);
 
     useHotkey('Mod+Enter', handleSubmit, {
         target: textareaRef,
@@ -1258,22 +1267,37 @@ function StreamingIndicator({
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-1 pl-1" style={{ color: '#808080' }}>
+                <div
+                    className="flex items-center gap-1 pl-1"
+                    style={{ color: '#808080' }}
+                >
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '0ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '0ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '150ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '150ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>
                     <span
                         className="inline-block animate-bounce"
-                        style={{ animationDelay: '300ms', fontSize: 16, lineHeight: 1 }}
+                        style={{
+                            animationDelay: '300ms',
+                            fontSize: 16,
+                            lineHeight: 1,
+                        }}
                     >
                         •
                     </span>
