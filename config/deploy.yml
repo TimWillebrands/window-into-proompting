@@ -49,8 +49,11 @@ accessories:
     volumes:
       - /data/postgres:/var/lib/postgresql
     files:
-      - docker-entrypoint-initdb.d/01-create-age-setup.sql:/docker-entrypoint-initdb.d/01-create-age-setup.sql
-      - docker-entrypoint-initdb.d/02-orleans.sql:/docker-entrypoint-initdb.d/02-orleans.sql
+      - docker-entrypoint-initdb.d/00-create-age-and-sample.sql:/docker-entrypoint-initdb.d/00-create-age-and-sample.sql
+      - docker-entrypoint-initdb.d/01-orleans-main.sql:/docker-entrypoint-initdb.d/01-orleans-main.sql
+      - docker-entrypoint-initdb.d/02-orleans-clustering.sql:/docker-entrypoint-initdb.d/02-orleans-clustering.sql
+      - docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql:/docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql
+      - docker-entrypoint-initdb.d/04-orleans-persistence.sql:/docker-entrypoint-initdb.d/04-orleans-persistence.sql
 
   dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
