@@ -1,4 +1,4 @@
-service: proompting-web
+service: proompting-frontend
 image: proompting-frontend
 
 servers:
@@ -7,7 +7,7 @@ servers:
 
 proxy:
   host: game.timwillebrands.nl
-  ssl: true
+  ssl: false
   app_port: 3000
   healthcheck:
     path: /
@@ -24,3 +24,4 @@ builder:
   arch: amd64
   dockerfile: frontend/Dockerfile
   context: frontend
+

@@ -4,6 +4,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import viteReact from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import viteTsConfigPaths from 'vite-tsconfig-paths';
+import { nitro } from 'nitro/vite'
 
 export default defineConfig({
     plugins: [
@@ -13,15 +14,11 @@ export default defineConfig({
         }),
         tailwindcss(),
         tanstackStart(),
+        nitro(), 
         // React's vite plugin must come after start's vite plugin
         viteReact(),
     ],
     css: {
         transformer: 'postcss',
-    },
-    build: {
-        rollupOptions: {
-            external: (id) => id.includes('XP.css'),
-        },
     },
 });
