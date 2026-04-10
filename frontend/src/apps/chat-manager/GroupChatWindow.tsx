@@ -130,6 +130,8 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         promptParty,
         apiPartyId,
         chatGroupId,
+        provider,
+        model,
         selectedPersonaId,
     ]);
 

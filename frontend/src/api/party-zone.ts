@@ -27,6 +27,7 @@ import type {
     ChatGroupInfo,
     CreateChatGroupRequest,
     CreatePartyRequest,
+    DefaultPersonaTemplate,
     LlmModel,
     PartyDetails,
     PartyInfo,
@@ -3897,3 +3898,589 @@ export const useDeletePersonaId = <TError = unknown, TContext = unknown>(
 > => {
     return useMutation(getDeletePersonaIdMutationOptions(options), queryClient);
 };
+
+export type getPersonaDefaultsResponse200TextPlain = {
+    data: DefaultPersonaTemplate[];
+    status: 200;
+};
+
+export type getPersonaDefaultsResponse200ApplicationJson = {
+    data: DefaultPersonaTemplate[];
+    status: 200;
+};
+
+export type getPersonaDefaultsResponse200TextJson = {
+    data: DefaultPersonaTemplate[];
+    status: 200;
+};
+
+export type getPersonaDefaultsResponseSuccess = (
+    | getPersonaDefaultsResponse200TextPlain
+    | getPersonaDefaultsResponse200ApplicationJson
+    | getPersonaDefaultsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPersonaDefaultsResponse = getPersonaDefaultsResponseSuccess;
+
+export const getGetPersonaDefaultsUrl = () => {
+    return `/api/Persona/defaults`;
+};
+
+export const getPersonaDefaults = async (
+    options?: RequestInit,
+): Promise<getPersonaDefaultsResponse> => {
+    const res = await fetch(getGetPersonaDefaultsUrl(), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaDefaultsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaDefaultsResponse;
+};
+
+export const getGetPersonaDefaultsQueryKey = () => {
+    return [`/api/Persona/defaults`] as const;
+};
+
+export const getGetPersonaDefaultsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getPersonaDefaults>>,
+            TError,
+            TData
+        >
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPersonaDefaultsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPersonaDefaults>>
+    > = ({ signal }) => getPersonaDefaults({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaDefaults>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaDefaultsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaDefaults>>
+>;
+export type GetPersonaDefaultsQueryError = unknown;
+
+export function useGetPersonaDefaults<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaDefaults>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaDefaults>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaDefaults<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaDefaults>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaDefaults>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaDefaults<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaDefaults<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaDefaultsQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPersonaDefaultsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getPersonaDefaults>>,
+            TError,
+            TData
+        >
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPersonaDefaultsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPersonaDefaults>>
+    > = ({ signal }) => getPersonaDefaults({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaDefaults>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaDefaultsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaDefaults>>
+>;
+export type GetPersonaDefaultsSuspenseQueryError = unknown;
+
+export function useGetPersonaDefaultsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaDefaultsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaDefaultsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaDefaultsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaDefaults>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaDefaults>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaDefaultsSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getPersonaWsResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type getPersonaWsResponseSuccess = getPersonaWsResponse200 & {
+    headers: Headers;
+};
+
+export type getPersonaWsResponse = getPersonaWsResponseSuccess;
+
+export const getGetPersonaWsUrl = () => {
+    return `/api/Persona/ws`;
+};
+
+export const getPersonaWs = async (
+    options?: RequestInit,
+): Promise<getPersonaWsResponse> => {
+    const res = await fetch(getGetPersonaWsUrl(), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaWsResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaWsResponse;
+};
+
+export const getGetPersonaWsQueryKey = () => {
+    return [`/api/Persona/ws`] as const;
+};
+
+export const getGetPersonaWsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<Awaited<ReturnType<typeof getPersonaWs>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPersonaWsQueryKey();
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaWs>>> = ({
+        signal,
+    }) => getPersonaWs({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaWsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaWs>>
+>;
+export type GetPersonaWsQueryError = unknown;
+
+export function useGetPersonaWs<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaWs>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaWs<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaWs>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaWs<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaWs<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaWsQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPersonaWsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getPersonaWs>>,
+            TError,
+            TData
+        >
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetPersonaWsQueryKey();
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaWs>>> = ({
+        signal,
+    }) => getPersonaWs({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaWsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaWs>>
+>;
+export type GetPersonaWsSuspenseQueryError = unknown;
+
+export function useGetPersonaWsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaWsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaWsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaWsSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaWs>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaWs>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaWsSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
