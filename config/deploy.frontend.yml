@@ -1,0 +1,27 @@
+service: proompting-frontend
+image: proompting-frontend
+
+servers:
+  web:
+    - static.74.157.104.178.clients.your-server.de
+
+proxy:
+  host: static.74.157.104.178.clients.your-server.de
+  ssl: true
+  app_port: 3000
+  healthcheck:
+    path: /
+
+ssh:
+  user: root
+  keys:
+    - ~/.ssh/hetzner_ed25519
+
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+  dockerfile: frontend/Dockerfile
+  context: frontend
+
