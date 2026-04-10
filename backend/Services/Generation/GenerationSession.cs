@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -80,7 +81,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
     }
 
     private static string ToUserScopedMessage(ChatMessage message, string senderName)
-        => $"<message sender=\"{senderName}\" senderId=\"{message.SenderId}\">\n{message.Content}\n</message>";
+        => $"<message sender=\"{SecurityElement.Escape(senderName)}\" senderId=\"{message.SenderId}\">\n{SecurityElement.Escape(message.Content ?? "")}\n</message>";
 
     private static string Instruction(string scenario, string personaPrompt)
         => $"""

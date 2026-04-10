@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -147,7 +148,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         try
         {
             parsed = JsonSerializer.Deserialize<ShouldRespondResult>(raw, WebOptions);
-            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} raw ({Chars} chars): {Raw}", self.Name, urge.Total, raw.Length, raw);
+            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
+                self.Name, urge.Total, parsed.Respond, raw.Length);
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug("Persona {PersonaName} decision raw: {Raw}", self.Name, raw);
         }
         catch (Exception ex)
         {
@@ -180,7 +184,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         if (onEvent is not null)
         {
-            await onEvent(MessageStreamEvent.PersonaEvaluationComplete, JsonSerializer.Serialize(parsed, WebOptions), false);
+            await onEvent(MessageStreamEvent.PersonaEvaluationComplete, JsonSerializer.Serialize(parsed, WebOptions), true);
         }
 
         return parsed;
@@ -261,7 +265,7 @@ Bio: {self.Bio ?? "No bio"}
 
         return $"""
 # Recent conversation
-{string.Join("\n\n", messages.Select(m => $"<message senderName=\"{m.SenderName}\" senderId=\"{m.Message.SenderId}\">\n{m.Message.Content}\n</message>"))}
+{string.Join("\n\n", messages.Select(m => $"<message senderName=\"{SecurityElement.Escape(m.SenderName)}\" senderId=\"{m.Message.SenderId}\">\n{SecurityElement.Escape(m.Message.Content ?? "")}\n</message>"))}
 {urgePressure}{pressure}{selfPressure}
 
 # Decision

@@ -41,6 +41,13 @@ public sealed class PartyRootGrain(
 
         if (state.State.PartyIds.Remove(id))
         {
+            var staleKeys = state.State.ChatGroupToParty
+                .Where(kvp => kvp.Value == id)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            foreach (var key in staleKeys)
+                state.State.ChatGroupToParty.Remove(key);
+
             await state.WriteStateAsync();
         }
     }
@@ -50,6 +57,12 @@ public sealed class PartyRootGrain(
 
     public async Task RegisterChatGroup(Guid chatGroupId, Guid partyId)
     {
+        if (!state.State.PartyIds.Contains(partyId))
+            throw new ArgumentException($"Party {partyId} does not exist.", nameof(partyId));
+
+        if (state.State.ChatGroupToParty.ContainsKey(chatGroupId))
+            throw new InvalidOperationException($"Chat group {chatGroupId} is already registered.");
+
         state.State.ChatGroupToParty[chatGroupId] = partyId;
         await state.WriteStateAsync();
     }

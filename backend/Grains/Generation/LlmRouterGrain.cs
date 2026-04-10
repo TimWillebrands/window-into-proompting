@@ -16,7 +16,8 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
             .Select(async grain =>
             {
                 try { return await grain.GetModelsAsync(cancellationToken); }
-                catch { return []; }
+                catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
+                { return []; }
             });
         var results = await Task.WhenAll(tasks);
         return [.. results.SelectMany(model => model)];
@@ -40,12 +41,12 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
                     Failed = false
                 };
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
             {
                 return new
                 {
                     Grain = grain,
-                    Pressure = double.MaxValue,
+                    Pressure = int.MaxValue,
                     CompatibleModels = Enumerable.Empty<LlmModel>(),
                     Failed = true
                 };
