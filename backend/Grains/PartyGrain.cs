@@ -1,3 +1,4 @@
+using Orleans.Concurrency;
 using Orleans.EventSourcing;
 using Orleans.Providers;
 using PartyTown.Logging;
@@ -115,6 +116,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 [Alias("backend.IPartyGrain")]
 public interface IPartyGrain : IGrainWithGuidKey
 {
+    [AlwaysInterleave]
     [Alias("GetParty")]
     Task<PartyInfo> GetParty();
 

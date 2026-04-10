@@ -6,7 +6,7 @@
         "jsxImportSource": "react",
         "module": "ESNext",
         "lib": ["ES2022", "DOM", "DOM.Iterable"],
-        "types": ["vite/client", "./worker-configuration.d.ts"],
+        "types": ["vite/client"],
         /* Bundler mode */
         "moduleResolution": "bundler",
         "allowImportingTsExtensions": true,
