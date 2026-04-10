@@ -20,7 +20,16 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// <summary>
     /// Calculates a response urge score (0.0 - 1.0) based on mention detection,
     /// silence streak, and question presence. Used to auto-respond or add pressure.
+    /// <summary>
+    /// Compute a bounded urgency score indicating how strongly the given persona should respond to the latest message.
     /// </summary>
+    /// <param name="self">The persona whose name and identity are used to detect direct mentions.</param>
+    /// <param name="history">Conversation history; the latest message (history[^1]) is used for mention and question detection. If empty, all scores are zero.</param>
+    /// <param name="totalAiRoundsInGroup">A proxy for recent AI-only turns in the group used to compute silence-streak pressure.</param>
+    /// <returns>
+    /// A <see cref="ResponseUrge"/> where <c>Total</c> is between 0.0 and 1.0 and component scores are:
+    /// <c>MentionScore</c> (direct name mention), <c>QuestionScore</c> (latest message ends with '?'), and <c>SilenceStreakScore</c> (pressure from consecutive AI rounds).
+    /// </returns>
     public static ResponseUrge CalculateResponseUrge(
         GenerationParticipant self,
         IReadOnlyList<ChatMessage> history,
@@ -53,11 +62,25 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore);
     }
 
-    private static string contentTrimmed(string content) => content.TrimEnd();
+    /// <summary>
+/// Returns the input string with trailing whitespace removed.
+/// </summary>
+/// <param name="content">The string to trim.</param>
+/// <returns>The string with trailing whitespace removed; returns the original string if it has no trailing whitespace.</returns>
+private static string contentTrimmed(string content) => content.TrimEnd();
 
     /// <summary>
     /// Appraises whether the persona should respond based on the conversation history and participants.
+    /// <summary>
+    /// Decides whether the given persona should send a message in the conversation by combining deterministic urgency heuristics with an optional LLM-enforced decision.
     /// </summary>
+    /// <param name="self">The persona for whom the decision is being made.</param>
+    /// <param name="history">Full conversation history used to compute urgency and build the prompt.</param>
+    /// <param name="participants">All group participants used to resolve sender display names in recent messages.</param>
+    /// <param name="totalAiRoundsInGroup">Autopilot-length metric that increases pressure to speak as it grows.</param>
+    /// <param name="onEvent">Optional streaming callback invoked for evaluation events. Called with (eventName, payload, final) where payload is partial or final data and final indicates completion.</param>
+    /// <param name="cancellationToken">Cancellation token for LLM routing and streaming operations.</param>
+    /// <returns>A <see cref="ShouldRespondResult"/> containing the decision: whether to respond, a short instruction for the persona if responding, and a human-readable reason. If the LLM output is unparseable, the method returns a fallback result that does not respond.</returns>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
         IReadOnlyList<ChatMessage> history,
@@ -190,6 +213,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return parsed;
     }
 
+    /// <summary>
+    /// Count consecutive assistant messages at the end of the conversation that were sent by the specified persona.
+    /// </summary>
+    /// <param name="history">Conversation history to scan from newest to oldest.</param>
+    /// <param name="selfId">The persona's sender ID to match.</param>
+    /// <returns>The number of consecutive messages at the end of <paramref name="history"/> whose <c>SenderType</c> is "assistant" and whose <c>SenderId</c> equals <paramref name="selfId"/>.</returns>
     private static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
     {
         var count = 0;
@@ -203,7 +232,13 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return count;
     }
 
-    private static string ShouldRespondSystemPrompt(GenerationParticipant self, IReadOnlyList<GenerationParticipant> participants)
+    /// <summary>
+/// Builds a system prompt that instructs a persona to decide whether they should respond in a group chat.
+/// </summary>
+/// <param name="self">The persona whose decision the prompt is framing (name and bio are injected).</param>
+/// <param name="participants">All group participants; other participants (excluding <paramref name="self"/>) are listed in the prompt with human/AI annotations.</param>
+/// <returns>A prompt string describing the decision task, the persona's profile, and the other participants to be sent as the system message.</returns>
+private static string ShouldRespondSystemPrompt(GenerationParticipant self, IReadOnlyList<GenerationParticipant> participants)
         => $"""
 # Instruction
 You are {self.Name}. You are deciding whether YOU should respond to the latest message
@@ -231,6 +266,15 @@ Bio: {self.Bio ?? "No bio"}
         : $"- {p.Name}: {p.Bio ?? "No bio"}"))}
 """;
 
+    /// <summary>
+    /// Builds the user prompt sent to the LLM that summarizes recent conversation context and pressure signals, and asks whether the persona should respond now.
+    /// </summary>
+    /// <param name="messages">Recent messages with resolved sender display names, ordered from oldest to newest.</param>
+    /// <param name="totalAiRoundsInGroup">Number of consecutive AI-only turns in the group used to adjust "autopilot" pressure text.</param>
+    /// <param name="recentSelfMessageCount">Count of consecutive recent messages from the persona to discourage dominating the conversation.</param>
+    /// <param name="self">The persona for whom the decision is being made; used to personalize the final decision question.</param>
+    /// <param name="urge">Precomputed urgency scores (total and components) that influence guidance text in the prompt.</param>
+    /// <returns>A single-string user prompt containing an XML-like recent conversation block, configurable pressure paragraphs, and an explicit JSON decision instruction.</returns>
     private static string ShouldRespondUserPrompt(
         IEnumerable<ChatMessageWithSenderName> messages,
         int totalAiRoundsInGroup,

@@ -20,7 +20,11 @@ public class OllamaEndpointGrain(
 {
     private int _activeGenerations;
 
-    public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
+    /// <summary>
+/// Gets the current number of in-flight generation operations for this grain.
+/// </summary>
+/// <returns>The number of active generation operations.</returns>
+public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     private int GrainIndex => (int)this.GetPrimaryKeyLong();
     private OllamaProviderConfig Config => (OllamaProviderConfig)llmOptions.Value.Providers.ElementAt(GrainIndex);
@@ -31,6 +35,12 @@ public class OllamaEndpointGrain(
         Endpoint = new Uri($"{Config.BaseUrl.TrimEnd('/')}/v1")
     };
 
+    /// <summary>
+    /// Streams generation events from the configured Ollama model for the given generation job.
+    /// </summary>
+    /// <param name="parameters">The generation job containing prompts, instructions, and generation options.</param>
+    /// <param name="cancellationToken">A token that can be used to cancel the generation operation.</param>
+    /// <returns>An async sequence of <see cref="LlmGenerationEvent"/> values emitted during the generation.</returns>
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationJob parameters,
         CancellationToken cancellationToken = default)
@@ -57,6 +67,11 @@ public class OllamaEndpointGrain(
         }
     }
 
+    /// <summary>
+    /// Retrieves the list of models exposed by the configured Ollama provider for this grain.
+    /// </summary>
+    /// <param name="cancellationToken">Token to cancel the remote request.</param>
+    /// <returns>A read-only list of discovered <see cref="LlmModel"/> entries; returns an empty list if no models are found or the request fails.</returns>
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         try

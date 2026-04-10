@@ -155,6 +155,15 @@ export function useGetUp<
     queryKey: DataTag<QueryKey, TData, TError>;
 };
 
+/**
+ * React Query hook that runs the GET /api/up request and returns the query result.
+ *
+ * @param options - Optional configuration object.
+ * @param options.query - Partial React Query options to customize the query behavior.
+ * @param options.fetch - Additional Fetch API RequestInit options forwarded to the underlying request.
+ * @param queryClient - Optional QueryClient instance to run the query against.
+ * @returns The React Query result for the `/api/up` request, augmented with a `queryKey` property identifying the query.
+ */
 export function useGetUp<
     TData = Awaited<ReturnType<typeof getUp>>,
     TError = unknown,
@@ -267,6 +276,13 @@ export function useGetUpSuspense<
     queryKey: DataTag<QueryKey, TData, TError>;
 };
 
+/**
+ * Suspense-enabled React Query hook for fetching the `/api/up` resource.
+ *
+ * @param options - Optional configuration: `query` overrides the generated suspense query options; `fetch` is forwarded to the underlying fetch call.
+ * @param queryClient - Optional React Query client to run the query against.
+ * @returns The suspense query result for the request, augmented with a `queryKey` field that identifies the query.
+ */
 export function useGetUpSuspense<
     TData = Awaited<ReturnType<typeof getUp>>,
     TError = unknown,

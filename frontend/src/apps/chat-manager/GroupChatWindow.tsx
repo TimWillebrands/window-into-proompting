@@ -38,6 +38,11 @@ interface GroupChatWindowProps {
     partyName?: string;
 }
 
+/**
+ * Renders a group chat window or a centered placeholder prompting the user to open a chat group.
+ *
+ * @returns A React element: a centered placeholder message when `chatGroupId` is falsy; otherwise the `ChatView` for the given `chatGroupId` with the optional `partyName`.
+ */
 export default function GroupChatWindow({
     chatGroupId,
     partyName,
@@ -56,6 +61,14 @@ export default function GroupChatWindow({
     return <ChatView chatGroupId={chatGroupId} partyName={partyName} />;
 }
 
+/**
+ * Renders the main chat UI for a chat group, including message list, streaming indicators, input controls, participant management sidebar, and realtime connectivity.
+ *
+ * @param props - Component props.
+ * @param props.chatGroupId - ID of the chat group to display; when falsy the component shows a placeholder.
+ * @param props.partyName - Optional display name for the party shown in the header.
+ * @returns The chat view element for the specified chat group.
+ */
 export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     const apiPartyId = ROOT_PARTY_ID;
     const queryClient = useQueryClient();
@@ -646,6 +659,22 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     );
 }
 
+/**
+ * Renders the participants sidebar used to view and toggle which AI personas participate in the chat, show per-persona active/working indicators and decision previews, and provide Save/Reset controls.
+ *
+ * @param personas - All available personas (both AI and user personas).
+ * @param participantPersonaIds - Currently selected AI participant persona IDs.
+ * @param selectedPersonaId - The ID of the currently selected user persona (may be empty).
+ * @param activePersonaIds - Set of persona IDs that are currently active/working in a generation.
+ * @param personaPhases - Map from persona ID to its current generation phase info (used to show "deciding" state and decision text).
+ * @param hasChanges - Whether the current participant selection differs from the last-saved selection.
+ * @param isSaving - Whether a save operation is in progress (disables the Save/Reset buttons).
+ * @param saveError - Optional error message returned from the last save attempt.
+ * @param onToggleParticipant - Callback invoked with a persona ID to toggle that AI persona in/out of the participant set.
+ * @param onSave - Callback invoked to persist the current participant selection.
+ * @param onReset - Callback invoked to reset the selection to the last-saved state.
+ * @returns The participants sidebar UI element.
+ */
 function ParticipantsSidebar({
     personas,
     participantPersonaIds,
@@ -896,6 +925,23 @@ function ParticipantsSidebar({
     );
 }
 
+/**
+ * Render a single chat message bubble with appraisal-aware UI, action controls, and expandable details.
+ *
+ * Displays message content (streaming-capable), sender/avatar, timestamp, and action buttons (redo/cut/del).
+ * Special-cases appraisal messages directed at the current user to show a "Your turn" block with instruction and reason.
+ * Supports an expandable details panel showing reasoning and filtered generation events.
+ *
+ * @param message - The realtime chat message to render; may include `content`, `error`, `reasoning`, `generationEvents`, and an optional `appraisal` JSON string.
+ * @param onDelete - Callback invoked when the message's delete action is triggered.
+ * @param onTruncate - Callback invoked when the message's truncate/cut action is triggered.
+ * @param onReprompt - Callback invoked when the message's reprompt/redo action is triggered.
+ * @param busy - When true, action buttons are disabled.
+ * @param personas - List of known personas used to resolve sender and appraisal persona names.
+ * @param userPersonaId - The current user's persona id used to detect directed appraisals.
+ * @param isGenerating - When true, renders generation/streaming styling for the bubble.
+ * @returns The rendered chat bubble element.
+ */
 function ChatBubble({
     message,
     onDelete,
@@ -1345,6 +1391,15 @@ function MarkdownContent({
     );
 }
 
+/**
+ * Render a UI row representing the current generation phase for a persona.
+ *
+ * Displays a phase-specific indicator for `waiting`, `deciding`, `typing`, and `streaming`, and a fallback for unknown phases.
+ *
+ * @param info - The generation phase info (e.g., `phase`, `personaName`, optional `charCount`) that controls which indicator is shown.
+ * @param personas - Optional list of personas used to resolve a display name from `info.personaName`.
+ * @returns A React element that visually represents the given generation phase for the resolved persona.
+ */
 function StreamingIndicator({
     info,
     personas,

@@ -14,6 +14,11 @@ namespace PartyTown.Grains;
 public sealed class PartyGrain(ILogger<PartyGrain> logger)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
 {
+    /// <summary>
+    /// Handles grain activation and records an activation log message.
+    /// </summary>
+    /// <param name="cancellationToken">Token to observe while performing activation.</param>
+    /// <returns>A task that completes when activation processing is finished.</returns>
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Grain activated");
@@ -45,6 +50,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         await ConfirmEvents();
     }
 
+    /// <summary>
+    /// Sets the party's participant list and propagates the update to all registered chat groups.
+    /// </summary>
+    /// <param name="participants">The participants to assign to the party; the list is persisted as the party's current participants and then forwarded to each chat group grain.</param>
     public async Task SetParticipants(List<PartyParticipant> participants)
     {
         RaiseEvent(new ParticipantsSetEvent
@@ -61,9 +70,18 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         await Task.WhenAll(tasks);
     }
 
-    public Task<List<ChatGroupInfo>> GetChatGroups()
+    /// <summary>
+        /// Gets a snapshot of the party's chat groups.
+        /// </summary>
+        /// <returns>A list containing a copy of the stored <see cref="ChatGroupInfo"/> entries.</returns>
+        public Task<List<ChatGroupInfo>> GetChatGroups()
         => Task.FromResult<List<ChatGroupInfo>>([.. State.ChatGroups]);
 
+    /// <summary>
+    /// Create a new chat group for this party, persist the creation event, and register the group with the party root registry.
+    /// </summary>
+    /// <param name="name">Display name for the new chat group.</param>
+    /// <returns>The created <see cref="ChatGroupInfo"/>, including its assigned Id and CreatedAt timestamp.</returns>
     public async Task<ChatGroupInfo> CreateChatGroup(string name)
     {
         var chatGroup = new ChatGroupInfo
@@ -83,6 +101,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         return chatGroup;
     }
 
+    /// <summary>
+    /// Aggregate messages from all chat groups belonging to this party.
+    /// </summary>
+    /// <returns>List of up to 100 messages from across chat groups, ordered by MessageId (ascending).</returns>
     public async Task<List<ChatMessage>> DownloadMessages()
     {
         var tasks = State.ChatGroups.Select(async cg =>
@@ -99,6 +121,11 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
             .ToList();
     }
 
+    /// <summary>
+    /// Requests cancellation of all ongoing generation operations across the party's chat groups.
+    /// Currently a no-op when chat group grains do not support cancellation; cancellation support may be added later.
+    /// </summary>
+    /// <returns>A task that completes once cancellation requests have been issued (may complete immediately if cancellation is unsupported).</returns>
     public Task CancelAllGenerations()
     {
         // Delegate cancellation to all chat group grains
@@ -106,6 +133,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Marks the party as deleted and persists that state change.
+    /// </summary>
+    /// <returns>A task that completes when the deletion event has been confirmed in storage.</returns>
     public async Task DeleteParty()
     {
         RaiseEvent(new PartyDeletedEvent());
@@ -116,6 +147,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 [Alias("backend.IPartyGrain")]
 public interface IPartyGrain : IGrainWithGuidKey
 {
+    /// <summary>
+    /// Retrieves a snapshot of the party's current metadata and participants.
+    /// </summary>
+    /// <returns>A <see cref="PartyInfo"/> containing the party's Id, Name, and a copy of the Participants list.</returns>
     [AlwaysInterleave]
     [Alias("GetParty")]
     Task<PartyInfo> GetParty();
@@ -132,9 +167,19 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("CreateChatGroup")]
     Task<ChatGroupInfo> CreateChatGroup(string name);
 
+    /// <summary>
+    /// Fetches messages from every chat group in this party and aggregates them into a single list.
+    /// </summary>
+    /// <returns>A list of up to 100 chat messages aggregated from all chat groups, ordered by MessageId (ascending).</returns>
     [Alias("DownloadMessages")]
     Task<List<ChatMessage>> DownloadMessages();
 
+    /// <summary>
+    /// Requests cancellation of all in-progress assistant/message generation operations associated with this party.
+    /// </summary>
+    /// <remarks>
+    /// If there are no active generations or cancellation is not supported by underlying grains, the call may complete without effect.
+    /// </remarks>
     [Alias("CancelAllGenerations")]
     Task CancelAllGenerations();
 
@@ -168,11 +213,19 @@ public sealed record class PartyState
         Name = @event.Name;
     }
 
+    /// <summary>
+    /// Replaces the state's Participants list with a copy of the participants carried by the event.
+    /// </summary>
+    /// <param name="@event">The event containing the new participants to apply to state.</param>
     public void Apply(ParticipantsSetEvent @event)
     {
         Participants = [.. @event.Participants];
     }
 
+    /// <summary>
+    /// Reset the party state to its default (empty) values.
+    /// </summary>
+    /// <param name="_">The deletion event (ignored); triggers clearing of Id, Name, Participants, and ChatGroups.</param>
     public void Apply(PartyDeletedEvent _)
     {
         Id = Guid.Empty;

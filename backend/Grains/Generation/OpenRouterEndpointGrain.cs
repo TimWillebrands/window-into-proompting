@@ -19,12 +19,25 @@ public class OpenRouterEndpointGrain(
 {
     private int _activeGenerations;
 
-    public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
+    /// <summary>
+/// Gets the current number of active generation requests handled by this grain.
+/// </summary>
+/// <returns>The number of in-flight generation requests.</returns>
+public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     private int GrainIndex => (int)this.GetPrimaryKeyLong();
     private OpenRouterProviderConfig Config => (OpenRouterProviderConfig)llmOptions.Value.Providers.ElementAt(GrainIndex);
     private const string ProviderDescription = "openrouter";
 
+    /// <summary>
+    /// Initiates a streaming generation request against the configured OpenRouter model and yields generation events.
+    /// </summary>
+    /// <param name="parameters">The generation job parameters (prompt, options, and job metadata) to send to the model.</param>
+    /// <param name="cancellationToken">A token to cancel the streaming generation.</param>
+    /// <returns>An async sequence of <see cref="LlmGenerationEvent"/> values representing incremental output, control events, and the final event.</returns>
+    /// <remarks>
+    /// Increments the grain's internal active-generation counter while generation is in progress and ensures it is decremented when generation completes or if setup fails.
+    /// </remarks>
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationJob parameters,
         CancellationToken cancellationToken = default)
@@ -50,6 +63,10 @@ public class OpenRouterEndpointGrain(
         }
     }
 
+    /// <summary>
+    /// Fetches available OpenRouter models from the OpenRouter frontend listing and converts them into a list of <see cref="LlmModel"/> descriptors.
+    /// </summary>
+    /// <returns>An IReadOnlyList of discovered <see cref="LlmModel"/> instances; returns an empty list if the remote response is missing expected data or if an error occurs.</returns>
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         const string url = "https://openrouter.ai/api/frontend/models/find?context=128000&fmt=cards&input_modalities=text&max_price=0&order=top-weekly";

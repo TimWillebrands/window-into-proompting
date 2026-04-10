@@ -219,7 +219,16 @@ public class PersonaController(
     /// Request shapes:
     ///   { "type": "generate-bio", "systemPrompt": "..." }
     ///   { "type": "generate", "prompt": "..." }
+    /// <summary>
+    /// Handle a WebSocket connection for streaming persona generation requests and responses.
     /// </summary>
+    /// <remarks>
+    /// Reads a single initial JSON message to determine the request type, selects an LLM endpoint based on available models, and streams generation events back to the client as ordered WebSocket envelopes. Supported request types:
+    /// - "generate-bio": requires "systemPrompt" and streams incremental bio text, then sends a completion envelope with the generated bio.
+    /// - "generate": requires "prompt", loads the persona generator system prompt from cache/files, streams incremental persona text, parses the final output into name, system prompt, and bio, then sends a completion envelope with those fields.
+    /// For error conditions the method sends "persona.generation.error" envelopes; it closes the socket on normal completion, client disconnect, or fatal error.
+    /// </remarks>
+    /// <returns>A task that completes when the WebSocket session is closed.</returns>
     [HttpGet("ws")]
     public async Task RealtimeGeneration()
     {

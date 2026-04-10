@@ -180,7 +180,12 @@ public sealed class PartyController(
     /// <returns>
     /// <c>202 Accepted</c> when prompt processing is queued; <c>400 Bad Request</c> when
     /// required fields (prompt, model, or provider) are missing or whitespace.
-    /// </returns>
+    /// <summary>
+    /// Queues a user prompt into the specified chat group so party participants (personas) can process it.
+    /// </summary>
+    /// <param name="id">The party identifier associated with the request.</param>
+    /// <param name="request">Contains the destination ChatGroupId, the prompt text, and an optional SenderId; if SenderId is null a new sender id will be generated.</param>
+    /// <returns>`202 Accepted` with the string "Proompt accepted" when the prompt is accepted; `400 BadRequest` with an error message if the chat group id or prompt text is invalid.</returns>
     [HttpPost("{id:guid}/prompt")]
     public async Task<ActionResult> Prompt(Guid id, [FromBody] PromptRequest request)
     {
@@ -215,7 +220,12 @@ public sealed class PartyController(
     /// <returns>
     /// <c>202 Accepted</c> when continuation processing is queued; <c>400 Bad Request</c>
     /// when model or provider is missing or whitespace.
-    /// </returns>
+    /// <summary>
+    /// Trigger participant notification for the latest message in the specified chat group.
+    /// </summary>
+    /// <param name="id">The party identifier associated with the request.</param>
+    /// <param name="request">A ProceedRequest whose <c>ChatGroupId</c> specifies the target chat group; must not be <see cref="Guid.Empty"/>.</param>
+    /// <returns>`202 Accepted` with the body "Proompt accepted" when the request is accepted; `400 BadRequest` with "Invalid chat group id" if <c>request.ChatGroupId</c> is <see cref="Guid.Empty"/>.</returns>
     [HttpPost("{id:guid}/proceed")]
     public async Task<ActionResult> Proceed(Guid id, [FromBody] ProceedRequest request)
     {
@@ -261,7 +271,13 @@ public sealed class PartyController(
     /// <returns>
     /// <c>204 No Content</c> when deletion succeeds, or <c>400 Bad Request</c>
     /// when <paramref name="messageId"/> is negative.
-    /// </returns>
+    /// <summary>
+    /// Deletes the message at the specified index from the given chat group in the party.
+    /// </summary>
+    /// <param name="id">The party identifier.</param>
+    /// <param name="chatGroupId">The chat group's identifier; must not be Guid.Empty.</param>
+    /// <param name="messageId">The zero-based index of the message to delete; must be greater than or equal to 0.</param>
+    /// <returns>`204 NoContent` on success; `400 BadRequest` if `chatGroupId` is Guid.Empty or `messageId` is negative.</returns>
     [HttpDelete("{id:guid}/chat-groups/{chatGroupId:guid}/messages/{messageId:int}")]
     public async Task<ActionResult> DeleteMessage(Guid id, Guid chatGroupId, int messageId)
     {
@@ -287,7 +303,13 @@ public sealed class PartyController(
     /// <returns>
     /// <c>204 No Content</c> when deletion succeeds, or <c>400 Bad Request</c>
     /// when <paramref name="messageId"/> is negative.
-    /// </returns>
+    /// <summary>
+    /// Delete all messages in the specified chat group that come after the given message index.
+    /// </summary>
+    /// <param name="id">The party identifier that contains the chat group.</param>
+    /// <param name="chatGroupId">The chat group's identifier; must not be <see cref="Guid.Empty"/>.</param>
+    /// <param name="messageId">The zero-based message index after which messages will be removed; must be greater than or equal to 0.</param>
+    /// <returns>204 No Content if deletion succeeded; 400 Bad Request if <paramref name="chatGroupId"/> is empty or <paramref name="messageId"/> is negative.</returns>
     [HttpDelete("{id:guid}/chat-groups/{chatGroupId:guid}/messages-after/{messageId:int}")]
     public async Task<ActionResult> DeleteMessagesAfter(Guid id, Guid chatGroupId, int messageId)
     {
@@ -320,7 +342,13 @@ public sealed class PartyController(
     /// <remarks>
     /// This endpoint first removes all messages after <paramref name="messageId"/>, then calls
     /// the same continuation flow used by <see cref="Proceed(Guid, ProceedRequest)"/>.
-    /// </remarks>
+    /// <summary>
+    /// Truncates a chat group's conversation after the specified message index and re-notifies remaining participants with the latest message.
+    /// </summary>
+    /// <param name="id">The party identifier from the route.</param>
+    /// <param name="messageId">The message index after which messages will be deleted.</param>
+    /// <param name="request">Request body containing the target chat group's identifier; must have <c>ChatGroupId</c> set to a non-empty GUID.</param>
+    /// <returns>`202 Accepted` with the confirmation string `"Proompt accepted"` when the operation is accepted; `400 BadRequest` with an error message if `<c>request.ChatGroupId</c>` is empty.</returns>
     [HttpPost("{id:guid}/reprompt/{messageId:int}")]
     public async Task<ActionResult> Reprompt(Guid id, int messageId, [FromBody] RepromptRequest request)
     {

@@ -10,7 +10,14 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
 {
     /// <summary>
     /// Generates a response for a specific persona.
+    /// <summary>
+    /// Generate a persona-specific response by streaming LLM output built from the provided history and emitting events for each chunk.
     /// </summary>
+    /// <param name="persona">The target persona for whom the response is generated.</param>
+    /// <param name="history">Prior chat messages to include in the prompt, ordered from oldest to newest.</param>
+    /// <param name="onEvent">Callback invoked for each streamed chunk and for completion. Called with (eventType, data, isComplete) where `isComplete` is `true` only for the final completion event.</param>
+    /// <param name="cancellationToken">Token to cancel the generation and streaming operation.</param>
+    /// <returns>A GenerationResult containing the assembled generated message, any reasoning content, the Stop flag, and the provided persona.</returns>
     public async Task<GenerationResult> GenerateResponseOnlyAsync(
         GenerationParticipant persona,
         IReadOnlyList<ChatMessage> history,
@@ -80,10 +87,22 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
     }
 
-    private static string ToUserScopedMessage(ChatMessage message, string senderName)
+    /// <summary>
+        /// Wraps a participant's chat message in an XML-like `<message>` element with escaped content and sender name.
+        /// </summary>
+        /// <param name="message">The chat message to wrap; its <c>SenderId</c> is used as the <c>senderId</c> attribute and its <c>Content</c> becomes the element body (empty string if null).</param>
+        /// <param name="senderName">The display name to use in the <c>sender</c> attribute; it will be XML-escaped.</param>
+        /// <returns>A string containing the `<message>` element with escaped attributes and body.</returns>
+        private static string ToUserScopedMessage(ChatMessage message, string senderName)
         => $"<message sender=\"{SecurityElement.Escape(senderName)}\" senderId=\"{message.SenderId}\">\n{SecurityElement.Escape(message.Content ?? "")}\n</message>";
 
-    private static string Instruction(string scenario, string personaPrompt)
+    /// <summary>
+/// Builds the formatted system instruction text combining a chat scenario and a persona prompt.
+/// </summary>
+/// <param name="scenario">Descriptive context for the current chat scenario to include in the instruction.</param>
+/// <param name="personaPrompt">Persona-specific system prompt text describing the character and behavior.</param>
+/// <returns>The complete instruction string containing the "Instruction", "Persona", and "Scenario" sections used as the system message for the LLM.</returns>
+private static string Instruction(string scenario, string personaPrompt)
         => $"""
 # Instruction
 You are in a (group) chat with other people. Stay completely in character

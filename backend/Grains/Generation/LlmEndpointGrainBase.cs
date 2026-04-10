@@ -7,6 +7,17 @@ namespace PartyTown.Grains.Generation;
 
 public static class LlmEndpointGrainUtils
 {
+    /// <summary>
+    /// Streams LLM generation events produced by the provided ChatClient for the given generation job.
+    /// </summary>
+    /// <param name="logger">Logger used for informational and warning messages.</param>
+    /// <param name="parameters">The generation job containing messages and model parameters.</param>
+    /// <param name="chatClient">The chat client used to request streaming completions.</param>
+    /// <param name="cancellationToken">Token to cancel the async enumeration.</param>
+    /// <returns>
+    /// An async sequence of <see cref="LlmGenerationEvent"/> items containing emitted content chunks and error events.
+    /// The sequence yields content chunk events for received text parts and yields generation error events when the model refuses the request or finishes with a non-Stop reason (in which case the sequence terminates immediately).
+    /// </returns>
     public static async IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         ILogger logger,
         LlmGenerationJob parameters,
@@ -49,6 +60,11 @@ public static class LlmEndpointGrainUtils
         logger.LogDebug("Received {ChunkCount} chunks", chunkCount);
     }
 
+    /// <summary>
+    /// Converts the job's message list into OpenAI-compatible chat messages.
+    /// </summary>
+    /// <param name="parameters">The generation job containing a sequence of messages with role, content, and name.</param>
+    /// <returns>An enumerable of <see cref="ChatMessage"/> where each input message is mapped by role: "system" → <see cref="SystemChatMessage"/>, "assistant" → <see cref="AssistantChatMessage"/>, and all other roles → <see cref="UserChatMessage"/>; each produced message has <see cref="ChatMessage.ParticipantName"/> set to the input message's name.</returns>
     private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationJob parameters)
     {
         return parameters.Messages.Select(msg =>
@@ -63,6 +79,13 @@ public static class LlmEndpointGrainUtils
         });
     }
 
+    /// <summary>
+    /// Constructs a <see cref="ChatCompletionOptions"/> based on the job's model parameters.
+    /// </summary>
+    /// <param name="parameters">The generation job whose <see cref="LlmGenerationJob.ModelParameters"/> are used to populate options.</param>
+    /// <returns>
+    /// A <see cref="ChatCompletionOptions"/> with <see cref="ChatCompletionOptions.Temperature"/> set from the model parameters (or null if unspecified) and <see cref="ChatCompletionOptions.ResponseFormat"/> configured when a valid JSON-schema response format is provided.
+    /// </returns>
     private static ChatCompletionOptions ToChatCompletionOptions(LlmGenerationJob parameters)
     {
         var mp = parameters.ModelParameters;
@@ -79,6 +102,12 @@ public static class LlmEndpointGrainUtils
         return options;
     }
 
+    /// <summary>
+    /// Parses a JSON response-format specification and, when it denotes a `json_schema` format, creates a corresponding `ChatResponseFormat`.
+    /// </summary>
+    /// <param name="responseFormatJson">A JSON string describing the response format. Expected shape: a top-level object with `"type": "json_schema"` and a `"json_schema"` object containing a required `"name"` (string) and `"schema"` (any JSON value); an optional `"strict"` (boolean) may also be present.</param>
+    /// <param name="responseFormat">When the method returns `true`, contains the constructed `ChatResponseFormat` for the specified JSON schema.</param>
+    /// <returns>`true` if the input was a valid `json_schema` definition and `responseFormat` was created; `false` otherwise.</returns>
     private static bool TryGetJsonSchemaResponseFormat(string? responseFormatJson, out ChatResponseFormat responseFormat)
     {
         responseFormat = null!;

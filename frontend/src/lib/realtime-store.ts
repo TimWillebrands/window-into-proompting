@@ -700,6 +700,13 @@ export const useChatGroupGenerationState = (chatGroupId: string) =>
             EMPTY_GENERATION_MESSAGE_IDS,
     );
 
+/**
+ * Exposes the realtime connection actions from the realtime store.
+ *
+ * @returns An object with:
+ * - `connectPartyRealtime(partyId)` — increments the subscriber count for `partyId` and initiates establishing a realtime connection if needed.
+ * - `disconnectPartyRealtime(partyId)` — decrements the subscriber count for `partyId` and closes/resets the connection when the count reaches zero.
+ */
 export function useRealtimeStoreActions() {
     const connectPartyRealtime = useRealtimeStore(
         (state) => state.connectPartyRealtime,

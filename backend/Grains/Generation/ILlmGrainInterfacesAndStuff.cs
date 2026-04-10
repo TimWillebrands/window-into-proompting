@@ -3,14 +3,26 @@ namespace PartyTown.Grains.Generation;
 [Alias("PartyTown.Grains.Generation.ILlmEndpointGrain")]
 public interface ILlmEndpointGrain : IGrainWithIntegerKey
 {
+    /// <summary>
+    /// Gets the list of LLM models supported by this endpoint.
+    /// </summary>
+    /// <returns>The read-only list of models that the endpoint can serve.</returns>
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Streams generation events produced for the specified generation job.
+    /// </summary>
+    /// <param name="parameters">The generation job describing input messages, job complexity, optional model parameters, optional job data, and optional response format.</param>
+    /// <returns>A sequence of <see cref="LlmGenerationEvent"/> items representing streamed generation output (content chunks, reasoning chunks, and error events) for the requested job.</returns>
     [Alias("GenerateStreamAsync")]
     IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(LlmGenerationJob parameters, CancellationToken cancellationToken = default);
 
     // NOTE: Not sure if this is sufficient info for the router to make a decision
-    // But this is how much backpressure (pending generations) the endpoint has
+    /// <summary>
+    /// Gets the current backpressure level for the endpoint as the count of pending generation requests.
+    /// </summary>
+    /// <returns>The number of pending generation requests currently queued for the endpoint.</returns>
     [Alias("Pressure")]
     ValueTask<int> PressureAsync();
 }
@@ -24,11 +36,20 @@ public interface IOpenRouterEndpointGrain : ILlmEndpointGrain { }
 [Alias("PartyTown.Grains.Generation.ILlmRouterGrain")]
 public interface ILlmRouterGrain : IGrainWithIntegerKey
 {
-    [Alias("RouteAsync")]
+    /// <summary>
+        /// Selects an endpoint grain appropriate for the specified job complexity.
+        /// </summary>
+        /// <param name="jobComplexity">The complexity category of the job used to determine a compatible endpoint.</param>
+        /// <returns>The endpoint grain chosen to handle jobs of the given complexity.</returns>
+        [Alias("RouteAsync")]
     Task<ILlmEndpointGrain> RouteAsync(
         JobComplexity jobComplexity,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the list of LLM models supported by this endpoint.
+    /// </summary>
+    /// <returns>The read-only list of models that the endpoint can serve.</returns>
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
 }
@@ -103,6 +124,11 @@ public sealed record class LlmModel
     [Id(5)] public int? ContextLength { get; init; }
     [Id(6)] public JobComplexity SupportedComplexities { get; init; }
 
-    internal bool Supports(JobComplexity jobComplexity)
+    /// <summary>
+        /// Determines whether the model supports the specified job complexity.
+        /// </summary>
+        /// <param name="jobComplexity">The job complexity flag to test for support.</param>
+        /// <returns>`true` if the model supports the given job complexity, `false` otherwise.</returns>
+        internal bool Supports(JobComplexity jobComplexity)
         => SupportedComplexities.HasFlag(jobComplexity);
 }
