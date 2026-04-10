@@ -3,11 +3,11 @@ image: proompting-frontend
 
 servers:
   web:
-    - game.timwillebrands.nl
+    - static.74.157.104.178.clients.your-server.de
 
 proxy:
-  host: game.timwillebrands.nl
-  ssl: false
+  host: static.74.157.104.178.clients.your-server.de
+  ssl: true
   app_port: 3000
   healthcheck:
     path: /
@@ -15,7 +15,7 @@ proxy:
 ssh:
   user: root
   keys:
-    - ~/.ssh/kamal_ed25519
+    - ~/.ssh/hetzner_ed25519
 
 registry:
   server: localhost:5555

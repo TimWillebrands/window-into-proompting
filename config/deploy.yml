@@ -4,10 +4,10 @@ deploy_timeout: 120
 
 servers:
   web:
-    - game.timwillebrands.nl
+    - static.74.157.104.178.clients.your-server.de
 
 proxy:
-  host: game.timwillebrands.nl
+  host: static.74.157.104.178.clients.your-server.de
   app_port: 5072
   path_prefix: /api
   strip_path_prefix: false
@@ -15,7 +15,7 @@ proxy:
 ssh:
   user: root
   keys:
-    - ~/.ssh/kamal_ed25519
+    - ~/.ssh/hetzner_ed25519
 
 registry:
   server: localhost:5555
@@ -39,7 +39,7 @@ env:
 accessories:
   age-db:
     image: apache/age
-    host: game.timwillebrands.nl
+    host: static.74.157.104.178.clients.your-server.de
     env:
       clear:
         POSTGRES_USER: partytown
@@ -57,7 +57,7 @@ accessories:
 
   dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
-    host: game.timwillebrands.nl
+    host: static.74.157.104.178.clients.your-server.de
     port: "18888:18888"
     env:
       clear:
