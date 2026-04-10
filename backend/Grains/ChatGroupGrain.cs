@@ -18,23 +18,34 @@ namespace PartyTown.Grains;
 public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     : JournaledGrain<ChatGroupState, ChatGroupEvent>, IChatGroupGrain
 {
-    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("ChatGroupGrain activated: {ChatGroupId}", this.GetPrimaryKey());
-        return base.OnActivateAsync(cancellationToken);
-    }
+        await base.OnActivateAsync(cancellationToken);
 
-    public async Task InitializeAsync(Guid partyId, List<PartyParticipant> participants)
-    {
         if (State.Initialized)
+        {
+            logger.LogInformation("ChatGroupGrain activated (from replay): {ChatGroupId}", this.GetPrimaryKey());
             return;
+        }
+
+        // Self-initialize from registry
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        var partyId = await registry.GetPartyForChatGroup(this.GetPrimaryKey());
+        if (partyId is null)
+            throw new InvalidOperationException(
+                $"ChatGroupGrain {this.GetPrimaryKey()} not registered in any party.");
+
+        var party = await GrainFactory.GetGrain<IPartyGrain>(partyId.Value).GetParty();
 
         RaiseEvent(new ChatGroupInitializedEvent
         {
-            PartyId = partyId,
-            Participants = [.. participants]
+            PartyId = partyId.Value,
+            Participants = [.. party.Participants]
         });
         await ConfirmEvents();
+
+        logger.LogInformation("ChatGroupGrain self-initialized: {ChatGroupId} in party {PartyId}",
+            this.GetPrimaryKey(), partyId.Value);
     }
 
     public Task<Guid> GetPartyIdAsync() => Task.FromResult(State.PartyId);
@@ -44,10 +55,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task<int> GetNextMessageIdAsync(Guid? senderId = null, string senderType = "assistant")
     {
+
         RaiseEvent(new ChatGroupMessageSlotReservedEvent
         {
             SenderId = senderId,
-            SenderType = senderType
+            SenderType = senderType,
+            ChatGroupId = this.GetPrimaryKey()
         });
         await ConfirmEvents();
         return State.NextMessageId;
@@ -55,6 +68,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task SetParticipantsAsync(List<PartyParticipant> participants)
     {
+
         RaiseEvent(new ChatGroupParticipantsSetEvent { Participants = [.. participants] });
         await ConfirmEvents();
     }
@@ -65,6 +79,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? reasoning,
         string? appraisal)
     {
+
         var chatGroupId = this.GetPrimaryKey();
         var messageId = await GetNextMessageIdAsync(senderId, "user");
 
@@ -105,6 +120,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? reasoning,
         string? appraisal)
     {
+
         var chatGroupId = this.GetPrimaryKey();
         var sendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -133,6 +149,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal)
     {
+
         var chatGroupId = this.GetPrimaryKey();
 
         RaiseEvent(new ChatGroupGenerationStoppedEvent
@@ -157,6 +174,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task MarkGenerationFailedAsync(int messageId, string error)
     {
+
         var chatGroupId = this.GetPrimaryKey();
 
         RaiseEvent(new ChatGroupGenerationFailedEvent
@@ -178,6 +196,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task DeleteMessageAsync(int messageId)
     {
+
         var chatGroupId = this.GetPrimaryKey();
         RaiseEvent(new ChatGroupMessageDeletedEvent { MessageId = messageId });
         await ConfirmEvents();
@@ -186,6 +205,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task DeleteMessagesAfterAsync(int messageId)
     {
+
         var chatGroupId = this.GetPrimaryKey();
         RaiseEvent(new ChatGroupMessagesAfterDeletedEvent { MessageId = messageId });
         await ConfirmEvents();
@@ -194,6 +214,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt)
     {
+
         var chatGroupId = this.GetPrimaryKey();
         var streamProvider = this.GetStreamProvider(PartyStreamIds.Provider);
         var stream = streamProvider.GetStream<PartyStreamEvent>(
@@ -276,9 +297,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 [Alias("backend.IChatGroupGrain")]
 public interface IChatGroupGrain : IGrainWithGuidKey
 {
-    [Alias("InitializeAsync")]
-    Task InitializeAsync(Guid partyId, List<PartyParticipant> participants);
-
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
 
@@ -374,7 +392,7 @@ public sealed record class ChatGroupState
             MessageId = NextMessageId,
             SenderType = @event.SenderType ?? "assistant",
             SenderId = @event.SenderId ?? Guid.Empty,
-            ChatGroupId = PartyId,
+            ChatGroupId = @event.ChatGroupId,
             Content = string.Empty,
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
@@ -383,7 +401,11 @@ public sealed record class ChatGroupState
 
     public void Apply(ChatGroupUserMessageEvent @event)
     {
-        Messages.Add(@event.Message with { });
+        var idx = Messages.FindIndex(m => m.MessageId == @event.Message.MessageId);
+        if (idx >= 0)
+            Messages[idx] = @event.Message with { };
+        else
+            Messages.Add(@event.Message with { });
         NextMessageId = Math.Max(NextMessageId, @event.Message.MessageId);
     }
 
@@ -499,6 +521,7 @@ public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
 {
     [Id(0)] public Guid? SenderId { get; set; }
     [Id(1)] public string? SenderType { get; set; }
+    [Id(2)] public Guid ChatGroupId { get; set; }
 }
 
 /// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>

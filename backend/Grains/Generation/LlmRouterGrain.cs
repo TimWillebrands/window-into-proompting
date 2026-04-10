@@ -13,7 +13,11 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
         CancellationToken cancellationToken = default)
     {
         var tasks = ModelProviders
-            .Select(grain => grain.GetModelsAsync(cancellationToken));
+            .Select(async grain =>
+            {
+                try { return await grain.GetModelsAsync(cancellationToken); }
+                catch { return []; }
+            });
         var results = await Task.WhenAll(tasks);
         return [.. results.SelectMany(model => model)];
     }
@@ -25,18 +29,32 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
     {
         var modelProviderTasks = ModelProviders.Select(async grain =>
         {
-            var models = await grain.GetModelsAsync(cancellationToken);
-            return new
+            try
             {
-                Grain = grain,
-                Pressure = await grain.PressureAsync(),
-                CompatibleModels = models.Where(m => m.Supports(jobComplexity))
-            };
+                var models = await grain.GetModelsAsync(cancellationToken);
+                return new
+                {
+                    Grain = grain,
+                    Pressure = await grain.PressureAsync(),
+                    CompatibleModels = models.Where(m => m.Supports(jobComplexity)),
+                    Failed = false
+                };
+            }
+            catch
+            {
+                return new
+                {
+                    Grain = grain,
+                    Pressure = double.MaxValue,
+                    CompatibleModels = Enumerable.Empty<LlmModel>(),
+                    Failed = true
+                };
+            }
         });
 
         var finishedTasks = await Task.WhenAll(modelProviderTasks);
         var compatibleProvider = finishedTasks
-            .Where(provider => provider.CompatibleModels.Any())
+            .Where(provider => !provider.Failed && provider.CompatibleModels.Any())
             .OrderBy(provider => provider.Pressure)
             .FirstOrDefault();
 

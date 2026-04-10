@@ -48,6 +48,17 @@ public sealed class PartyRootGrain(
     public Task<bool> HasPartyId(Guid id)
         => Task.FromResult(state.State.PartyIds.Contains(id));
 
+    public async Task RegisterChatGroup(Guid chatGroupId, Guid partyId)
+    {
+        state.State.ChatGroupToParty[chatGroupId] = partyId;
+        await state.WriteStateAsync();
+    }
+
+    public Task<Guid?> GetPartyForChatGroup(Guid chatGroupId)
+        => Task.FromResult(state.State.ChatGroupToParty.TryGetValue(chatGroupId, out var partyId)
+            ? partyId
+            : (Guid?)null);
+
     public async Task<PartyInfo[]> GetAll()
     {
         logger.LogDebug("Listing all entities, count: {Count}", state.State.PartyIds.Count);
@@ -79,6 +90,12 @@ public interface IPartyRootGrain : IGrainWithGuidKey
 
     [Alias("GetAll")]
     Task<PartyInfo[]> GetAll();
+
+    [Alias("RegisterChatGroup")]
+    Task RegisterChatGroup(Guid chatGroupId, Guid partyId);
+
+    [Alias("GetPartyForChatGroup")]
+    Task<Guid?> GetPartyForChatGroup(Guid chatGroupId);
 }
 
 [GenerateSerializer, Alias(nameof(PartyRootState))]
@@ -86,4 +103,7 @@ public sealed record class PartyRootState
 {
     [Id(0)]
     public HashSet<Guid> PartyIds { get; set; } = [];
+
+    [Id(1)]
+    public Dictionary<Guid, Guid> ChatGroupToParty { get; set; } = [];
 }

@@ -75,9 +75,9 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
         await ConfirmEvents();
 
-        // Initialize the ChatGroupGrain with party context
-        var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id);
-        await chatGroupGrain.InitializeAsync(this.GetPrimaryKey(), [.. State.Participants]);
+        // Register mapping so ChatGroupGrain can self-initialize on activation
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
 
         return chatGroup;
     }

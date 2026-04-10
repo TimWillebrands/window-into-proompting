@@ -167,13 +167,16 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             }
         }
 
-        // Default to responding if we can't parse — better to speak than stay silent
+        // Fail closed: don't respond if we can't parse the decision
         parsed ??= new ShouldRespondResult
         {
-            Respond = true,
-            Instruction = "Continue the conversation naturally.",
-            Reason = "Fallback — could not parse decision"
+            Respond = false,
+            Instruction = "Do not send a message.",
+            Reason = "Fallback — unparseable decision"
         };
+
+        if (!parsed.Respond && parsed.Reason.StartsWith("Fallback"))
+            logger.LogDebug("Persona {PersonaName} suppressed due to unparseable decision. Raw: {Raw}", self.Name, raw);
 
         if (onEvent is not null)
         {
