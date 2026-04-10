@@ -232,22 +232,26 @@ public class PersonaController(
         using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
         var ct = HttpContext.RequestAborted;
 
-        // Read the initial request message
-        var buffer = new byte[64 * 1024];
+        // Read the initial request message (accumulate all frames)
+        using var messageStream = new MemoryStream();
+        var frameBuffer = new byte[64 * 1024];
         WebSocketReceiveResult receiveResult;
         try
         {
-            receiveResult = await socket.ReceiveAsync(buffer, ct);
+            do
+            {
+                receiveResult = await socket.ReceiveAsync(frameBuffer, ct);
+                if (receiveResult.MessageType == WebSocketMessageType.Close)
+                {
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, ct);
+                    return;
+                }
+                messageStream.Write(frameBuffer.AsSpan(0, receiveResult.Count));
+            } while (!receiveResult.EndOfMessage);
         }
         catch (OperationCanceledException) { return; }
 
-        if (receiveResult.MessageType == WebSocketMessageType.Close)
-        {
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, ct);
-            return;
-        }
-
-        using var requestDoc = JsonDocument.Parse(buffer.AsMemory(0, receiveResult.Count));
+        using var requestDoc = JsonDocument.Parse(messageStream.ToArray());
         var requestType = requestDoc.RootElement.TryGetProperty("type", out var typeProp)
             ? typeProp.GetString()
             : null;
@@ -271,7 +275,12 @@ public class PersonaController(
             {
                 case "generate-bio":
                 {
-                    var systemPrompt = requestDoc.RootElement.GetProperty("systemPrompt").GetString() ?? string.Empty;
+                    if (!requestDoc.RootElement.TryGetProperty("systemPrompt", out var spProp) || spProp.ValueKind != JsonValueKind.String)
+                    {
+                        await SendWsEnvelopeAsync(socket, "persona.generation.error", new PersonaGenerationErrorData("Missing required field: systemPrompt"), ct);
+                        break;
+                    }
+                    var systemPrompt = spProp.GetString() ?? string.Empty;
                     var accumulated = new StringBuilder();
 
                     await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationParams
@@ -298,14 +307,30 @@ public class PersonaController(
 
                 case "generate":
                 {
-                    var prompt = requestDoc.RootElement.GetProperty("prompt").GetString() ?? string.Empty;
+                    if (!requestDoc.RootElement.TryGetProperty("prompt", out var promptProp) || promptProp.ValueKind != JsonValueKind.String)
+                    {
+                        await SendWsEnvelopeAsync(socket, "persona.generation.error", new PersonaGenerationErrorData("Missing required field: prompt"), ct);
+                        break;
+                    }
+                    var prompt = promptProp.GetString() ?? string.Empty;
                     var generatorPrompt = await cache.GetOrCreateAsync("persona-generator-prompt", async entry =>
                     {
                         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
                         var path = Path.Combine(env.ContentRootPath,
                             "Services", "Generation", "Prompts", "PersonaGenerator.md");
-                        return await System.IO.File.ReadAllTextAsync(path);
+                        if (!System.IO.File.Exists(path))
+                        {
+                            logger.LogError("PersonaGenerator.md not found at {Path}", path);
+                            return null;
+                        }
+                        return await System.IO.File.ReadAllTextAsync(path, ct);
                     });
+
+                    if (string.IsNullOrWhiteSpace(generatorPrompt))
+                    {
+                        await SendWsEnvelopeAsync(socket, "persona.generation.error", new PersonaGenerationErrorData("Persona generator unavailable."), ct);
+                        break;
+                    }
 
                     var accumulated = new StringBuilder();
 
@@ -315,7 +340,7 @@ public class PersonaController(
                         Temperature = 0.85,
                         Messages = new LlmChatMessage[]
                         {
-                            new() { Role = "system", Content = generatorPrompt ?? string.Empty },
+                            new() { Role = "system", Content = generatorPrompt },
                             new() { Role = "user", Content = prompt }
                         }
                     }, ct))

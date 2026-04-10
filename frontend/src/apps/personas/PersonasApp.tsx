@@ -199,15 +199,93 @@ function NewPersonaButton({ onCreated }: { onCreated: (id: string) => void }) {
     );
 }
 
-function TemplateButton({ onCreated }: { onCreated: (id: string) => void }) {
-    const [open, setOpen] = useState(false);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const queryClient = useQueryClient();
+function TemplateDropdownContent({
+    onSelect,
+    onClose,
+}: {
+    onSelect: (template: DefaultPersonaTemplate) => void;
+    onClose: () => void;
+}) {
     const defaultsQuery = useGetPersonaDefaultsSuspense();
     const templates: DefaultPersonaTemplate[] = useMemo(() => {
         const data = defaultsQuery.data?.data;
         return Array.isArray(data) ? data : [];
     }, [defaultsQuery.data]);
+
+    return (
+        <>
+            <button
+                type="button"
+                aria-label="Close"
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 99,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'default',
+                }}
+                onClick={onClose}
+            />
+            <div
+                style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: 0,
+                    right: 0,
+                    background: '#fff',
+                    border: '1px solid #ACA899',
+                    boxShadow: '2px 2px 4px rgba(0,0,0,0.2)',
+                    zIndex: 100,
+                    marginBottom: '2px',
+                }}
+            >
+                {templates.map((t) => (
+                    <button
+                        key={t.name}
+                        type="button"
+                        className="w-full text-left"
+                        style={{
+                            padding: '6px 8px',
+                            border: 'none',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #E8E4DC',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#316AC5';
+                            e.currentTarget.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = '#000';
+                        }}
+                        onClick={() => onSelect(t)}
+                    >
+                        <img
+                            src={`https://robohash.org/${encodeURIComponent(t.name ?? '')}.png?size=20x20`}
+                            alt=""
+                            style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                            }}
+                        />
+                        <span style={{ fontWeight: 600 }}>{t.name}</span>
+                    </button>
+                ))}
+            </div>
+        </>
+    );
+}
+
+function TemplateButton({ onCreated }: { onCreated: (id: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const queryClient = useQueryClient();
 
     const upsertMutation = usePutPersonaId({
         mutation: {
@@ -240,86 +318,18 @@ function TemplateButton({ onCreated }: { onCreated: (id: string) => void }) {
     return (
         <div style={{ position: 'relative' }}>
             <button
-                ref={buttonRef}
                 type="button"
                 className="w-full"
-                disabled={upsertMutation.isPending || templates.length === 0}
+                disabled={upsertMutation.isPending}
                 onClick={() => setOpen((v) => !v)}
             >
                 {upsertMutation.isPending ? 'Creating...' : 'From Template...'}
             </button>
             {open && (
-                <>
-                    <button
-                        type="button"
-                        aria-label="Close"
-                        style={{
-                            position: 'fixed',
-                            inset: 0,
-                            zIndex: 99,
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'default',
-                        }}
-                        onClick={() => setOpen(false)}
-                    />
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: '100%',
-                            left: 0,
-                            right: 0,
-                            background: '#fff',
-                            border: '1px solid #ACA899',
-                            boxShadow: '2px 2px 4px rgba(0,0,0,0.2)',
-                            zIndex: 100,
-                            marginBottom: '2px',
-                        }}
-                    >
-                        {templates.map((t) => (
-                            <button
-                                key={t.name}
-                                type="button"
-                                className="w-full text-left"
-                                style={{
-                                    padding: '6px 8px',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid #E8E4DC',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.background =
-                                        '#316AC5';
-                                    e.currentTarget.style.color = '#fff';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background =
-                                        'transparent';
-                                    e.currentTarget.style.color = '#000';
-                                }}
-                                onClick={() => handleSelect(t)}
-                            >
-                                <img
-                                    src={`https://robohash.org/${encodeURIComponent(t.name ?? '')}.png?size=20x20`}
-                                    alt=""
-                                    style={{
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: '50%',
-                                        flexShrink: 0,
-                                    }}
-                                />
-                                <span style={{ fontWeight: 600 }}>
-                                    {t.name}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                </>
+                <TemplateDropdownContent
+                    onSelect={handleSelect}
+                    onClose={() => setOpen(false)}
+                />
             )}
         </div>
     );
@@ -600,6 +610,10 @@ function PersonaEditor({
                     const delta = envelope.data as PersonaGenerationDeltaData;
                     accumulated += delta.data;
                     setBio(accumulated);
+                } else if (envelope.type === 'persona.generation.completed') {
+                    const completed =
+                        envelope.data as PersonaGenerationCompletedData;
+                    setBio(completed.bio ?? accumulated);
                 } else if (envelope.type === 'persona.generation.error') {
                     const err = envelope.data as PersonaGenerationErrorData;
                     setBioGenError(err.message);
@@ -619,7 +633,7 @@ function PersonaEditor({
             className="space-y-3"
             onSubmit={(event) => {
                 event.preventDefault();
-                if (!persona.id) return;
+                if (!persona.id || isGeneratingBio) return;
                 saveMutation.mutate({
                     id: persona.id,
                     data: {

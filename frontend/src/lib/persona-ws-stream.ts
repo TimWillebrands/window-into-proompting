@@ -30,8 +30,13 @@ export async function* personaWsStream(
 
     ws.addEventListener('open', () => ws.send(JSON.stringify(request)));
     ws.addEventListener('message', (e) => {
-        queue.push(JSON.parse(e.data as string) as WsEnvelope);
-        wake();
+        try {
+            queue.push(JSON.parse(e.data as string) as WsEnvelope);
+        } catch (err) {
+            wsError = err instanceof Error ? err : new Error(String(err));
+        } finally {
+            wake();
+        }
     });
     ws.addEventListener('error', () => {
         wsError = new Error('WebSocket connection failed');
