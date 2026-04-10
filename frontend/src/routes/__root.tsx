@@ -10,13 +10,12 @@ import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import CSSIsolation from '../components/CssIsolator';
 import styleCss from '../styles.css?url';
-import xpCss from 'xp.css/dist/XP.css?url';
 
 export const Route = createRootRoute({
     head: () => ({
         links: [
             { rel: 'stylesheet', href: styleCss },
-            { rel: 'stylesheet', href: xpCss },
+            { rel: 'stylesheet', href: '/XP.css' },
         ],
     }),
     component: RootComponent,

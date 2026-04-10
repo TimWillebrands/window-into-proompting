@@ -36,6 +36,7 @@ backend/.nuget
 *.user
 *.userosscache
 *.sln.docstates
+.claude/
 
 # OS
 .DS_Store
