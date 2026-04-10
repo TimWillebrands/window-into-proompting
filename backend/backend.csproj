@@ -7,11 +7,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RestorePackagesPath>$(MSBuildProjectDirectory)/.nuget</RestorePackagesPath>
     <RestorePath>$(MSBuildProjectDirectory)/.nuget</RestorePath>
+    <OpenApiDocumentsDirectory>.</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOnBuild>false</OpenApiGenerateDocumentsOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="JsonRepairSharp" Version="1.2.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.1.26104.118" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Orleans.EventSourcing" Version="10.0.1" />
     <PackageReference Include="Microsoft.Orleans.Server" Version="10.0.1" />
     <PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" Version="10.0.1" />
