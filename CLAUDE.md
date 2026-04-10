@@ -16,7 +16,7 @@ docker compose down        # Stop (preserves DB)
 docker compose down -v     # Stop and wipe DB
 ```
 
-A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`.
+A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`. The `UID`/`GID` values are needed so the backend container can share volume mounts (`.nuget`, `bin`, `obj`) with the host for LSP support.
 
 ### Service URLs (host)
 
@@ -24,6 +24,7 @@ A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PA
 - **Backend**: http://localhost:5072 (.NET)
 - **Caddy proxy**: http://localhost:8080 (routes `/api/*` → backend, `/*` → frontend)
 - **Database**: localhost:${HOST_DB_PORT:-5455} (PostgreSQL + Apache AGE)
+- **Aspire Dashboard**: http://localhost:18888 (OpenTelemetry traces/metrics/logs)
 
 Both frontend and backend hot-reload on file changes.
 
@@ -39,6 +40,8 @@ npm run lint           # Biome lint
 npm run check          # Biome check (lint + format)
 npm run api-generate   # Regenerate API client from OpenAPI spec (orval)
 ```
+
+`npm run api-generate` fetches the OpenAPI spec from the running backend (via Caddy at localhost:8080), so `docker compose up` must be running first.
 
 ### Backend (run inside `backend/` or via `docker compose exec dev-backend`)
 
@@ -66,7 +69,7 @@ DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the 
 
 **Real-time:** `PartyRealtimeHub` is a singleton service managing raw WebSocket connections per party. It broadcasts message envelopes `{ type, sequence, timestamp, data }` to all connected clients. Not SignalR — it's custom WebSocket handling.
 
-**LLM providers:** `ILlmProvider` interface with `OllamaLlmProvider` and `OpenRouterLlmProvider` implementations, registered in `LlmProviderRegistry`. Configured via `appsettings.json` under `Llm` section. Responses are streamed to clients via the realtime hub.
+**LLM generation:** Also modeled as Orleans grains. `LlmRouterGrain` aggregates models from all configured endpoint grains and routes generation requests. `OllamaEndpointGrain` and `OpenRouterEndpointGrain` implement `ILlmEndpointGrain` and handle streaming generation. Provider config is in `LlmOptions` (mapped from `Llm` section in env/appsettings). Responses are streamed to clients via the realtime hub and Orleans streams.
 
 **Controllers:** `PartyController` (CRUD for parties/chat groups, prompt/reprompt/proceed endpoints) and `PersonaController` (CRUD for personas, model listing).
 
@@ -82,7 +85,7 @@ DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the 
 - `desktop-context.tsx` — Zustand store for window management (open/close/focus/drag windows, z-ordering)
 - `realtime-store.ts` — Zustand store managing per-party WebSocket connections with reconnection, sequence tracking, and message merging
 
-**Desktop UI:** Windows XP theme via `xp.css`. Uses `react-grid-layout` for draggable/resizable windows. Apps: `ChatManagerApp` (chat interface), `PersonasApp` (persona management).
+**Desktop UI:** Windows XP theme via `xp.css`. Uses `react-grid-layout` for draggable/resizable windows. Apps: `ChatManagerApp` (chat interface), `PersonasApp` (persona management), `ConfigPanelApp` (settings).
 
 **Code style:** Biome for linting/formatting — 4-space indent, single quotes, trailing commas. No Prettier/ESLint.
 
@@ -91,3 +94,7 @@ DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the 
 - **Caddy** reverse proxy routes API traffic to backend
 - **PostgreSQL + Apache AGE** for Orleans clustering, grain persistence, and graph data
 - **Orleans ports:** 11111 (silo-to-silo), 30000 (gateway)
+
+### Deployment
+
+Deployed via [Kamal](https://kamal-deploy.org/) — config in `config/deploy.yml` and `config/deploy.frontend.yml`. Targets `game.timwillebrands.nl` with accessories for the database and Aspire dashboard.

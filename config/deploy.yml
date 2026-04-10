@@ -1,0 +1,64 @@
+service: proompting
+image: proompting-backend
+deploy_timeout: 120
+
+servers:
+  web:
+    - static.74.157.104.178.clients.your-server.de
+
+proxy:
+  host: static.74.157.104.178.clients.your-server.de
+  app_port: 5072
+  path_prefix: /api
+  strip_path_prefix: false
+
+ssh:
+  user: root
+  keys:
+    - ~/.ssh/hetzner_ed25519
+
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+  dockerfile: backend/Dockerfile
+  context: backend
+
+env:
+  clear:
+    ASPNETCORE_ENVIRONMENT: Production
+    ASPNETCORE_URLS: http://+:5072
+    Llm__Providers__0__Type: openrouter
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://proompting-dashboard:18889
+  secret:
+    - POSTGRES_PASSWORD
+    - OPENROUTER_API_KEY
+    - ConnectionStrings__Default
+
+accessories:
+  age-db:
+    image: apache/age
+    host: static.74.157.104.178.clients.your-server.de
+    env:
+      clear:
+        POSTGRES_USER: partytown
+        POSTGRES_DB: partytown
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - /data/postgres:/var/lib/postgresql
+    files:
+      - docker-entrypoint-initdb.d/01-orleans-main.sql:/docker-entrypoint-initdb.d/01-orleans-main.sql
+      - docker-entrypoint-initdb.d/02-orleans-clustering.sql:/docker-entrypoint-initdb.d/02-orleans-clustering.sql
+      - docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql:/docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql
+      - docker-entrypoint-initdb.d/04-orleans-persistence.sql:/docker-entrypoint-initdb.d/04-orleans-persistence.sql
+      - docker-entrypoint-initdb.d/05-age-setup.sql:/docker-entrypoint-initdb.d/05-age-setup.sql
+
+  dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    host: static.74.157.104.178.clients.your-server.de
+    port: "18888:18888"
+    env:
+      clear:
+        DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
