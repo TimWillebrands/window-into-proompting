@@ -75,6 +75,8 @@ DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the 
 
 **OpenAPI:** Backend exposes spec at `/api/openapi/v1.json`.
 
+**Orleans serialization constraint:** Do not use C# collection expressions (`[]`, `[.. x]`) as return values from grain interface methods. The compiler-generated `<>z__ReadOnlyList` type is not known to Orleans and causes `CodecNotFoundException` at runtime. Use `Array.Empty<T>()` for empty returns and `.ToList()` for spread/projection returns instead.
+
 ### Frontend (React 19 + TanStack Start/Router/Query)
 
 **Routing:** File-based via TanStack Router in `src/routes/`. Currently a single route (`index.tsx`) that renders the desktop experience. Route search params store desktop window layout state.

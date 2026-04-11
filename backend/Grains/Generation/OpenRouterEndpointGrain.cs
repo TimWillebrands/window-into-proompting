@@ -123,7 +123,7 @@ public class OpenRouterEndpointGrain(
         catch (Exception ex)
         {
             logger.LogError(ex, "OpenRouterEndpointGrain failed to list models");
-            return [];
+            return Array.Empty<LlmModel>();
         }
     }
 }

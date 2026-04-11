@@ -17,10 +17,10 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
             {
                 try { return await grain.GetModelsAsync(cancellationToken); }
                 catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
-                { return []; }
+                { return Array.Empty<LlmModel>(); }
             });
         var results = await Task.WhenAll(tasks);
-        return [.. results.SelectMany(model => model)];
+        return results.SelectMany(model => model).ToList();
     }
 
 
@@ -78,6 +78,6 @@ public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILl
             };
         });
 
-        return [.. models];
+        return models.ToList();
     }
 }

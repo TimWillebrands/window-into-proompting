@@ -75,7 +75,7 @@ public class OllamaEndpointGrain(
             if (string.IsNullOrWhiteSpace(content))
             {
                 logger.LogWarning("Ollama at {BaseUrl} returned empty response for /api/tags", Config.BaseUrl);
-                return [];
+                return Array.Empty<LlmModel>();
             }
 
             var response = JsonSerializer.Deserialize<OllamaTagsResponse>(content);
@@ -98,7 +98,7 @@ public class OllamaEndpointGrain(
         catch (Exception ex)
         {
             logger.LogError(ex, "OllamaEndpointGrain failed to list models from {BaseUrl}", Config.BaseUrl);
-            return [];
+            return Array.Empty<LlmModel>();
         }
     }
 
