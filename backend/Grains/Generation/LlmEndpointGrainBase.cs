@@ -11,6 +11,7 @@ public static class LlmEndpointGrainUtils
         ILogger logger,
         LlmGenerationJob parameters,
         ChatClient chatClient,
+        Action onFinished,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
@@ -19,34 +20,40 @@ public static class LlmEndpointGrainUtils
         var completionOptions = ToChatCompletionOptions(parameters);
         var chunkCount = 0;
 
-        await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
+        try
         {
-            foreach (var part in update.ContentUpdate ?? [])
+            await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
             {
-                if (!string.IsNullOrWhiteSpace(part.Text))
+                foreach (var part in update.ContentUpdate ?? [])
                 {
-                    chunkCount++;
-                    yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
+                    if (!string.IsNullOrWhiteSpace(part.Text))
+                    {
+                        chunkCount++;
+                        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
+                {
+                    logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
+                    yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
+                }
+
+                if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
+                {
+                    logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
+                    yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
+                    yield break;
                 }
             }
-
-            if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
-            {
-                logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
-                yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
-            }
-
-            if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
-            {
-                logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
-                yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
-                yield break;
-            }
         }
-
-        sw.Stop();
-        logger.LogInformation("LLM API call completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
-        logger.LogDebug("Received {ChunkCount} chunks", chunkCount);
+        finally
+        {
+            onFinished();
+            sw.Stop();
+            logger.LogInformation("LLM API call completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
+            logger.LogDebug("Received {ChunkCount} chunks", chunkCount);
+        }
     }
 
     private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationJob parameters)

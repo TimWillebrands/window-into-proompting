@@ -38,23 +38,24 @@ public class OllamaEndpointGrain(
         var modelName = Config.TEMP_ModelName;
         Interlocked.Increment(ref _activeGenerations);
 
-        try
-        {
-            using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
-            logger.LogDebug("LLM API call starting: {Model}", modelName);
-            var sw = Stopwatch.StartNew();
+        using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
+        logger.LogDebug("LLM API call starting: {Model}", modelName);
+        var sw = Stopwatch.StartNew();
 
-            var chatClient = new ChatClient(
-                modelName,
-                new ApiKeyCredential("ollama"),
-                OpenAiOptions);
+        var chatClient = new ChatClient(
+            modelName,
+            new ApiKeyCredential("ollama"),
+            OpenAiOptions);
 
-            return LlmEndpointGrainUtils.GenerateAsync(logger, parameters, chatClient, cancellationToken);
-        }
-        finally
-        {
-            Interlocked.Decrement(ref _activeGenerations);
-        }
+        // So why do we return the result of GenerateAsync directly?
+        // The caller is already iterating over the result, so we don't need to buffer it
+        // instead we just send the enumerable to the callee directly instead.
+        return LlmEndpointGrainUtils.GenerateAsync(
+            logger,
+            parameters,
+            chatClient,
+            () => Interlocked.Decrement(ref _activeGenerations),
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)

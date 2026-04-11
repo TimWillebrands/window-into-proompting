@@ -99,11 +99,18 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
             .ToList();
     }
 
-    public Task CancelAllGenerations()
+    public async Task CancelAllGenerations(CancellationToken ct = default)
     {
-        // Delegate cancellation to all chat group grains
-        // TODO: Add cancellation support to ChatGroupGrain in a future iteration
-        return Task.CompletedTask;
+        foreach (var cg in State.ChatGroups)
+        {
+            var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(cg.Id);
+            var messages = await chatGroupGrain.GetMessagesAsync();
+            var lastMessage = messages.LastOrDefault();
+            if (lastMessage is not null)
+            {
+                await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, ct);
+            }
+        }
     }
 
     public async Task DeleteParty()
@@ -136,7 +143,7 @@ public interface IPartyGrain : IGrainWithGuidKey
     Task<List<ChatMessage>> DownloadMessages();
 
     [Alias("CancelAllGenerations")]
-    Task CancelAllGenerations();
+    Task CancelAllGenerations(CancellationToken cancellationToken = default);
 
     [Alias("DeleteParty")]
     Task DeleteParty();

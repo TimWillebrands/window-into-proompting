@@ -77,7 +77,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         Guid senderId,
         string content,
         string? reasoning,
-        string? appraisal)
+        string? appraisal,
+        CancellationToken ct = default)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -109,7 +110,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Message = message
         });
 
-        _ = NotifyAllParticipantsAsync(message);
+        _ = NotifyAllParticipantsAsync(message, ct);
 
         return message;
     }
@@ -118,7 +119,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         int messageId,
         string content,
         string? reasoning,
-        string? appraisal)
+        string? appraisal,
+        CancellationToken ct = default)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -134,6 +136,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             SendAt = sendAt
         });
         await ConfirmEvents();
+        _ = NotifyAllParticipantsAsync(State.Messages.FirstOrDefault(m => m.MessageId == messageId)!, ct);
 
         var updatedMessage = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
         if (updatedMessage is not null)
@@ -266,7 +269,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     /// Fire and forget - we don't await because PersonaGrains call back into this
     /// grain (GetMessagesUntilAsync) which would cause a deadlock on a non-reentrant grain.
     /// </summary>
-    public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage)
+    public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
         var participants = State.Participants.ToList();
@@ -277,7 +280,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         foreach (var p in participants)
         {
             _ = GrainFactory.GetGrain<IPersonaGrain>(p.Id)
-                .NotifyMessageAsync(chatGroupId, triggeringMessage);
+                .NotifyMessageAsync(chatGroupId, triggeringMessage, ct);
         }
 
         return Task.CompletedTask;
@@ -314,14 +317,16 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         Guid senderId,
         string content,
         string? reasoning = null,
-        string? appraisal = null);
+        string? appraisal = null,
+        CancellationToken cancellationToken = default);
 
     [Alias("AppendMessageAsync")]
     Task AppendMessageAsync(
         int messageId,
         string content,
         string? reasoning = null,
-        string? appraisal = null);
+        string? appraisal = null,
+        CancellationToken cancellationToken = default);
 
     [Alias("MarkGenerationStoppedAsync")]
     Task MarkGenerationStoppedAsync(int messageId, string? appraisal);
@@ -348,7 +353,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     Task<int> CountTrailingAssistantMessagesAsync();
 
     [Alias("NotifyAllParticipantsAsync")]
-    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage);
+    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken cancellationToken = default);
 }
 
 // ── State ──

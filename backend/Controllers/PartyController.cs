@@ -232,7 +232,7 @@ public sealed class PartyController(
 
         if (lastMessage is not null)
         {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage);
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
 
         return Accepted("Proompt accepted");
@@ -338,7 +338,7 @@ public sealed class PartyController(
         var lastMessage = messages.LastOrDefault();
         if (lastMessage is not null)
         {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage);
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
 
         return Accepted("Proompt accepted");

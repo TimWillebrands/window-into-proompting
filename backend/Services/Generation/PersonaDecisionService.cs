@@ -42,7 +42,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             mentionScore = 1.0;
 
         // Question detection: does the latest message end with a question mark?
-        if (contentTrimmed(latest.Content ?? "").EndsWith('?'))
+        if (ContentTrimmed(latest.Content ?? "").EndsWith('?'))
             questionScore = 0.6;
 
         // Silence streak: how many AI rounds without this persona responding?
@@ -54,7 +54,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, chaosScore);
     }
 
-    private static string contentTrimmed(string content) => content.TrimEnd();
+    private static string ContentTrimmed(string content) => content.TrimEnd();
 
     /// <summary>
     /// Appraises whether the persona should respond based on the conversation history and participants.
@@ -70,11 +70,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
         var participantIds = new HashSet<Guid>(participants.Select(p => p.Id));
-        var recentMessages = history.TakeLast(8)
-            .Where(m => participantIds.Contains(m.SenderId))
+        var recentMessages = history
+            .Where(m => participantIds.Contains(m.SenderId) && !string.IsNullOrWhiteSpace(m.Content))
+            .TakeLast(8)
+            // TODO: Store SenderName directly on ChatMessage to avoid this lookup. See: Option 1 (denormalize sender name into message)
             .Select(m => new ChatMessageWithSenderName(m, participants.First(p => p.Id == m.SenderId).Name));
-
-        // TODO: Store SenderName directly on ChatMessage to avoid this lookup. See: Option 1 (denormalize sender name into message)
 
         // Auto-respond threshold: if urge is very high (direct mention), skip LLM decision
         if (urge.Total >= 0.9)

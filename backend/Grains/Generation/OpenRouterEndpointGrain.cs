@@ -1,8 +1,6 @@
 using System.ClientModel;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
@@ -31,23 +29,25 @@ public class OpenRouterEndpointGrain(
     {
         var modelName = Config.TEMP_ModelName;
         Interlocked.Increment(ref _activeGenerations);
-        try
-        {
-            using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
-            logger.LogDebug("LLM API call starting: {Model}", modelName);
-            var sw = Stopwatch.StartNew();
 
-            var chatClient = new ChatClient(
-                modelName,
-                new ApiKeyCredential(Config.ApiKey),
-                new OpenAIClientOptions { Endpoint = new Uri(Config.BaseUrl) });
+        using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
+        logger.LogDebug("LLM API call starting: {Model}", modelName);
+        var sw = Stopwatch.StartNew();
 
-            return LlmEndpointGrainUtils.GenerateAsync(logger, parameters, chatClient, cancellationToken);
-        }
-        finally
-        {
-            Interlocked.Decrement(ref _activeGenerations);
-        }
+        var chatClient = new ChatClient(
+            modelName,
+            new ApiKeyCredential(Config.ApiKey),
+            new OpenAIClientOptions { Endpoint = new Uri(Config.BaseUrl) });
+
+        // So why do we return the result of GenerateAsync directly?
+        // The caller is already iterating over the result, so we don't need to buffer it
+        // instead we just send the enumerable to the callee directly instead.
+        return LlmEndpointGrainUtils.GenerateAsync(
+            logger,
+            parameters,
+            chatClient,
+            () => Interlocked.Decrement(ref _activeGenerations),
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)

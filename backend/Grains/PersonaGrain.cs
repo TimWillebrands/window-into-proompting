@@ -85,10 +85,13 @@ public sealed class PersonaGrain(
     /// Called by ChatGroupGrain when a new message arrives in the chat group.
     /// The persona independently decides whether to respond and generates if yes.
     /// </summary>
-    public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage)
+    public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromMinutes(1));
+        CancellationToken linkedCt = cts.Token;
 
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
@@ -158,11 +161,14 @@ public sealed class PersonaGrain(
                         Done = done
                     });
                 },
-                cancellationToken: default);
+                cancellationToken: linkedCt);
 
             if (!decision.Respond)
             {
                 logger.LogInformation("Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
+
+                // Make known that we didn't care to respond and why.
+                await chatGroupGrain.MarkGenerationStoppedAsync(messageId, decision.Reason);
 
                 // Notify frontend that this persona declined
                 await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
@@ -230,7 +236,7 @@ public sealed class PersonaGrain(
                         Done = done
                     });
                 },
-                default);
+                linkedCt);
 
             // Phase 4: Store the completed response
             var appraisalJson = JsonSerializer.Serialize(new
@@ -245,7 +251,8 @@ public sealed class PersonaGrain(
                 messageId,
                 result.Message ?? string.Empty,
                 result.Reasoning,
-                appraisalJson);
+                appraisalJson,
+                linkedCt);
 
             logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);
         }
@@ -298,5 +305,5 @@ public interface IPersonaGrain : IGrainWithGuidKey
     Task DeletePersona();
 
     [Alias("NotifyMessageAsync")]
-    Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage);
+    Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, CancellationToken ct);
 }
