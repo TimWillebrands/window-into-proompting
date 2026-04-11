@@ -1,6 +1,6 @@
+import deepEqual from 'fast-deep-equal';
 import { create } from 'zustand';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
-import deepEqual from 'fast-deep-equal';
 
 export interface RealtimeChatMessage {
     chatGroupId: string;
@@ -37,10 +37,18 @@ const DEFAULT_CONNECTION_STATE: PartyRealtimeConnection = {
     subscriberCount: 0,
 };
 
+export interface DeclinedDecision {
+    personaId: string;
+    reason: string | null;
+    decisionText: string;
+    timestamp: number;
+}
+
 interface ChatGroupRealtimeState {
     chatGroupId: string;
     messages: RealtimeChatMessage[];
     activeGenerationMessageIds: number[];
+    declinedDecisions: DeclinedDecision[];
     lastSequence: number;
 }
 
@@ -57,6 +65,7 @@ const DEFAULT_CHAT_GROUP_STATE = (
     chatGroupId,
     messages: [],
     activeGenerationMessageIds: [],
+    declinedDecisions: [],
     lastSequence: 0,
 });
 
@@ -252,6 +261,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (a, b) => a.messageId - b.messageId,
                 ),
                 activeGenerationMessageIds: [],
+                declinedDecisions: [],
             }));
             return;
         }
@@ -371,10 +381,13 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (message) => message.messageId === messageId,
                 );
 
-                const resolvedSenderId = existing?.senderId
-                    ?? (payload.event === 'attend' ? payload.data : null)
-                    ?? existing?.generationEvents?.find((e) => e.event === 'attend')?.data
-                    ?? '00000000-0000-0000-0000-000000000000';
+                const resolvedSenderId =
+                    existing?.senderId ??
+                    (payload.event === 'attend' ? payload.data : null) ??
+                    existing?.generationEvents?.find(
+                        (e) => e.event === 'attend',
+                    )?.data ??
+                    '00000000-0000-0000-0000-000000000000';
 
                 const baseMessage: RealtimeChatMessage = existing ?? {
                     chatGroupId,
@@ -447,7 +460,23 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         ],
                     };
                 } else if (payload.event === 'declined') {
-                    // Persona decided not to respond — remove phantom message
+                    // Persona decided not to respond — capture decision then remove phantom message
+                    const phantom = prev.messages.find(
+                        (m) => m.messageId === messageId,
+                    );
+                    let declinedReason: string | null = null;
+                    try {
+                        const parsed = JSON.parse(payload.data ?? '{}');
+                        declinedReason = parsed.reason ?? null;
+                    } catch {
+                        /* ignore */
+                    }
+                    const declined: DeclinedDecision = {
+                        personaId: phantom?.senderId ?? payload.data ?? '',
+                        reason: declinedReason,
+                        decisionText: (phantom?.appraisal ?? '').trim(),
+                        timestamp: Date.now(),
+                    };
                     return {
                         ...prev,
                         messages: prev.messages.filter(
@@ -457,6 +486,10 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                             prev.activeGenerationMessageIds.filter(
                                 (id) => id !== messageId,
                             ),
+                        declinedDecisions: [
+                            ...prev.declinedDecisions,
+                            declined,
+                        ],
                     };
                 } else {
                     nextMessage = {
@@ -698,6 +731,13 @@ export const useChatGroupGenerationState = (chatGroupId: string) =>
         (state) =>
             state.chatGroups[chatGroupId]?.activeGenerationMessageIds ??
             EMPTY_GENERATION_MESSAGE_IDS,
+    );
+
+const EMPTY_DECLINED: DeclinedDecision[] = [];
+export const useDeclinedDecisions = (chatGroupId: string): DeclinedDecision[] =>
+    useRealtimeStore(
+        (state) =>
+            state.chatGroups[chatGroupId]?.declinedDecisions ?? EMPTY_DECLINED,
     );
 
 export function useRealtimeStoreActions() {

@@ -17,12 +17,14 @@ import {
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import {
     type ActiveGenerationPhase,
+    type DeclinedDecision,
     type GenerationPhase,
     type RealtimeChatMessage,
     type RealtimeConnectionStatus,
     useActiveGenerationPhases,
     useChatGroupGenerationState,
     useChatGroupMessages,
+    useDeclinedDecisions,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '../../lib/realtime-store';
@@ -79,6 +81,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
     const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
     const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
+    const declinedDecisions = useDeclinedDecisions(chatGroupId ?? '');
     const realtimeMessages = useChatGroupMessages(chatGroupId ?? '');
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -130,8 +133,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         promptParty,
         apiPartyId,
         chatGroupId,
-        provider,
-        model,
         selectedPersonaId,
     ]);
 
@@ -431,50 +432,85 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                         }}
                         className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
                     >
-                        {uniqueMessages.map((message) => (
-                            <ChatBubble
-                                key={`${message.chatGroupId}:${message.messageId}`}
-                                message={message}
-                                busy={busy}
-                                personas={partyPersonas}
-                                userPersonaId={selectedPersonaId}
-                                isGenerating={activeGenerationSet.has(
-                                    message.messageId,
-                                )}
-                                onDelete={() =>
-                                    deletePartyMessage.mutateAsync({
-                                        id: apiPartyId,
-                                        chatGroupId: chatGroupId,
-                                        messageId: message.messageId,
-                                    })
+                        {uniqueMessages.map((message) => {
+                            const generating = activeGenerationSet.has(
+                                message.messageId,
+                            );
+                            // Hide while generating with nothing to show yet
+                            if (
+                                generating &&
+                                !message.content &&
+                                !message.error
+                            )
+                                return null;
+                            // Hide appraisal-only messages — they live in the sidebar Thought Log,
+                            // unless this appraisal is a "stop" directed at the user (shows "Your turn" card)
+                            if (
+                                !message.content &&
+                                !message.error &&
+                                message.appraisal
+                            ) {
+                                try {
+                                    const a = JSON.parse(message.appraisal);
+                                    const stop = a.stop ?? a.Stop;
+                                    const pid = a.personaId ?? a.PersonaId;
+                                    if (stop && pid === selectedPersonaId) {
+                                        // keep — "Your turn" card
+                                    } else {
+                                        return null;
+                                    }
+                                } catch {
+                                    return null;
                                 }
-                                onTruncate={() =>
-                                    truncatePartyMessagesAfter.mutateAsync({
-                                        id: apiPartyId,
-                                        chatGroupId: chatGroupId,
-                                        messageId: message.messageId,
-                                    })
-                                }
-                                onReprompt={() =>
-                                    repromptParty.mutateAsync({
-                                        id: apiPartyId,
-                                        messageId: message.messageId,
-                                        data: {
-                                            chatGroupId,
-                                            senderId: selectedPersonaId || null,
-                                        },
-                                    })
-                                }
-                            />
-                        ))}
+                            }
+                            return (
+                                <ChatBubble
+                                    key={`${message.chatGroupId}:${message.messageId}`}
+                                    message={message}
+                                    busy={busy}
+                                    personas={partyPersonas}
+                                    userPersonaId={selectedPersonaId}
+                                    isGenerating={activeGenerationSet.has(
+                                        message.messageId,
+                                    )}
+                                    onDelete={() =>
+                                        deletePartyMessage.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId: chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    onTruncate={() =>
+                                        truncatePartyMessagesAfter.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId: chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    onReprompt={() =>
+                                        repromptParty.mutateAsync({
+                                            id: apiPartyId,
+                                            messageId: message.messageId,
+                                            data: {
+                                                chatGroupId,
+                                                senderId:
+                                                    selectedPersonaId || null,
+                                            },
+                                        })
+                                    }
+                                />
+                            );
+                        })}
                         {generationPhases.length > 0
-                            ? generationPhases.map((phase) => (
-                                  <StreamingIndicator
-                                      key={phase.messageId ?? 'unknown'}
-                                      info={phase}
-                                      personas={partyPersonas}
-                                  />
-                              ))
+                            ? generationPhases
+                                  .filter((p) => p.phase !== 'deciding')
+                                  .map((phase) => (
+                                      <StreamingIndicator
+                                          key={phase.messageId ?? 'unknown'}
+                                          info={phase}
+                                          personas={partyPersonas}
+                                      />
+                                  ))
                             : null}
                     </div>
 
@@ -614,13 +650,16 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                 </div>
             </div>
 
-            {/* Right sidebar: participants */}
+            {/* Right sidebar: participants + thoughts */}
             <ParticipantsSidebar
                 personas={partyPersonas}
                 participantPersonaIds={participantPersonaIds}
                 selectedPersonaId={selectedPersonaId}
                 activePersonaIds={activePersonaIds}
                 personaPhases={personaPhases}
+                livePhases={generationPhases}
+                allMessages={uniqueMessages}
+                declinedDecisions={declinedDecisions}
                 hasChanges={hasParticipantChanges}
                 isSaving={saveParticipantsMutation.isPending}
                 saveError={
@@ -652,6 +691,9 @@ function ParticipantsSidebar({
     selectedPersonaId,
     activePersonaIds,
     personaPhases,
+    livePhases,
+    allMessages,
+    declinedDecisions,
     hasChanges,
     isSaving,
     saveError,
@@ -664,6 +706,9 @@ function ParticipantsSidebar({
     selectedPersonaId: string;
     activePersonaIds: Set<string>;
     personaPhases: Map<string, ActiveGenerationPhase>;
+    livePhases: ActiveGenerationPhase[];
+    allMessages: RealtimeChatMessage[];
+    declinedDecisions: DeclinedDecision[];
     hasChanges: boolean;
     isSaving: boolean;
     saveError: string | null;
@@ -677,139 +722,188 @@ function ParticipantsSidebar({
     const totalActive =
         participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
 
+    const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
+
+    // Combined thought log: "go" decisions from persisted messages + "skip" decisions captured at runtime
+    const thoughtLog = useMemo(() => {
+        type LogEntry = {
+            key: string;
+            personaId: string | null;
+            personaName: string;
+            reason: string | null;
+            instruction: string | null;
+            skip: boolean; // true = declined to respond
+            sortKey: number;
+        };
+
+        const entries: LogEntry[] = [];
+
+        // "go" decisions: messages that have appraisalComplete (stop:false)
+        for (const msg of allMessages) {
+            if (!msg.appraisal) continue;
+            try {
+                const raw = JSON.parse(msg.appraisal);
+                const personaId = raw.personaId ?? raw.PersonaId ?? null;
+                const persona = personas.find((p) => p.id === personaId);
+                entries.push({
+                    key: `msg-${msg.messageId}`,
+                    personaId,
+                    personaName:
+                        persona?.name ?? personaId?.slice(0, 8) ?? 'Unknown',
+                    reason: raw.reason ?? raw.Reason ?? null,
+                    instruction: raw.instruction ?? raw.Instruction ?? null,
+                    skip: !!(raw.stop ?? raw.Stop),
+                    sortKey: msg.sendAt ?? msg.messageId,
+                });
+            } catch {
+                /* ignore */
+            }
+        }
+
+        // "skip" decisions: captured from declined events (ephemeral, session-only)
+        for (const d of declinedDecisions) {
+            const persona = personas.find((p) => p.id === d.personaId);
+            entries.push({
+                key: `declined-${d.personaId}-${d.timestamp}`,
+                personaId: d.personaId,
+                personaName:
+                    persona?.name ?? d.personaId?.slice(0, 8) ?? 'Unknown',
+                reason: d.reason,
+                instruction: null,
+                skip: true,
+                sortKey: d.timestamp,
+            });
+        }
+
+        return entries.sort((a, b) => b.sortKey - a.sortKey);
+    }, [allMessages, declinedDecisions, personas]);
+
+    const sectionLabel = (text: string, badge?: number) => (
+        <div
+            style={{
+                padding: '4px 8px 2px',
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#808080',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+            }}
+        >
+            {text}
+            {badge !== undefined && badge > 0 && (
+                <span
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: '#808080',
+                        color: '#fff',
+                        fontSize: 8,
+                        fontWeight: 700,
+                    }}
+                >
+                    {badge}
+                </span>
+            )}
+        </div>
+    );
+
     return (
         <div
-            className="participant-sidebar flex flex-col h-full"
-            style={{ width: 180, minWidth: 180 }}
+            className="participant-sidebar"
+            style={{
+                width: 180,
+                minWidth: 180,
+                height: '100%',
+                display: 'grid',
+                gridTemplateRows: 'auto 1fr',
+                overflow: 'hidden',
+            }}
         >
-            <div className="xp-section-header">
-                PARTICIPANTS — {totalActive}
-            </div>
+            {/* ── Participants section (auto height row) ── */}
+            <div style={{ overflow: 'hidden auto' }}>
+                {sectionLabel(`Participants — ${totalActive}`)}
 
-            <div className="flex-1 overflow-y-auto">
-                {/* AI participants */}
-                {aiPersonas.length > 0 && (
-                    <div
-                        style={{
-                            padding: '4px 8px 2px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: '#808080',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                        }}
-                    >
-                        AI —{' '}
-                        {
-                            aiPersonas.filter((p) =>
-                                participantSet.has(p.id ?? ''),
-                            ).length
-                        }
-                    </div>
-                )}
+                {/* AI list */}
                 {aiPersonas.map((persona) => {
                     const id = persona.id ?? '';
                     const isActive = participantSet.has(id);
                     const isWorking = activePersonaIds.has(id);
                     const phase = personaPhases.get(id);
                     const isDeciding = phase?.phase === 'deciding';
-                    const decisionText =
-                        isDeciding && 'decisionText' in phase
-                            ? phase.decisionText
-                            : '';
 
                     return (
-                        <div key={id}>
-                            <button
-                                type="button"
-                                className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
-                                onClick={() => onToggleParticipant(id)}
-                                title={
-                                    isActive
-                                        ? 'Click to remove from chat'
-                                        : 'Click to add to chat'
-                                }
+                        <button
+                            key={id}
+                            type="button"
+                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
+                            onClick={() => onToggleParticipant(id)}
+                            title={
+                                isActive
+                                    ? 'Click to remove from chat'
+                                    : 'Click to add to chat'
+                            }
+                        >
+                            <img
+                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                                alt={persona.name ?? id}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                className={isWorking ? 'animate-pulse' : ''}
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: isActive ? 600 : 400,
+                                    color: isActive ? '#000' : '#808080',
+                                }}
                             >
-                                <img
-                                    src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
-                                    alt={persona.name ?? id}
-                                    style={{
-                                        width: 24,
-                                        height: 24,
-                                        flexShrink: 0,
-                                        imageRendering: 'pixelated',
-                                    }}
-                                />
+                                {persona.name ?? id.slice(0, 8)}
+                            </span>
+                            {isDeciding ? (
                                 <span
-                                    className={isWorking ? 'animate-pulse' : ''}
+                                    className="animate-pulse"
                                     style={{
-                                        flex: 1,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        fontSize: 11,
-                                        fontWeight: isActive ? 600 : 400,
-                                        color: isActive ? '#000' : '#808080',
+                                        fontSize: 8,
+                                        color: '#CC8800',
+                                        flexShrink: 0,
                                     }}
+                                    title="Deciding whether to respond"
                                 >
-                                    {persona.name ?? id.slice(0, 8)}
+                                    ●
                                 </span>
+                            ) : (
                                 <span
                                     className={`participant-status-dot${isActive ? ' online' : ' offline'}${isWorking ? ' working' : ''}`}
                                 />
-                            </button>
-                            {isDeciding && decisionText && (
-                                <details
-                                    open
-                                    style={{
-                                        padding: '2px 8px 4px 40px',
-                                        fontSize: 9,
-                                    }}
-                                >
-                                    <summary
-                                        style={{
-                                            color: '#806600',
-                                            cursor: 'pointer',
-                                            userSelect: 'none',
-                                            fontSize: 10,
-                                        }}
-                                    >
-                                        thinking...
-                                    </summary>
-                                    <div
-                                        style={{
-                                            color: '#666',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-all',
-                                            maxHeight: 80,
-                                            overflow: 'hidden',
-                                            marginTop: 2,
-                                        }}
-                                    >
-                                        {decisionText}
-                                    </div>
-                                </details>
                             )}
-                        </div>
+                        </button>
                     );
                 })}
 
-                {/* User persona */}
+                {/* User row */}
                 {userPersona && (
                     <>
                         <div
                             style={{
-                                padding: '6px 8px 2px',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                color: '#808080',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
+                                margin: '4px 8px 0',
+                                borderTop: '1px solid #D4D0C8',
                             }}
-                        >
-                            YOU
-                        </div>
+                        />
                         <div className="participant-row active">
                             <img
                                 src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
@@ -834,64 +928,242 @@ function ParticipantsSidebar({
                             >
                                 {userPersona.name ?? 'You'}
                             </span>
-                            <span className="participant-status-dot online" />
+                            <span
+                                style={{
+                                    fontSize: 8,
+                                    color: '#808080',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                you
+                            </span>
                         </div>
                     </>
                 )}
+
+                {/* Inline status / save controls */}
+                {participantPersonaIds.length === 0 &&
+                    aiPersonas.length > 0 && (
+                        <div
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: 10,
+                                color: '#996600',
+                                background: '#FFFBEA',
+                                borderTop: '1px solid #E6D87A',
+                            }}
+                        >
+                            No AI participants — AI won't respond.
+                        </div>
+                    )}
+                {saveError && (
+                    <div
+                        style={{
+                            padding: '3px 8px',
+                            fontSize: 10,
+                            color: '#c00',
+                            borderTop: '1px solid #ACA899',
+                        }}
+                    >
+                        {saveError}
+                    </div>
+                )}
+                {hasChanges && (
+                    <div
+                        className="flex gap-1 p-1"
+                        style={{ borderTop: '1px solid #ACA899' }}
+                    >
+                        <button
+                            type="button"
+                            disabled={isSaving}
+                            className="flex-1 text-[10px]"
+                            onClick={onReset}
+                        >
+                            Reset
+                        </button>
+                        <button
+                            type="button"
+                            disabled={isSaving}
+                            className="flex-1 text-[10px]"
+                            onClick={onSave}
+                        >
+                            {isSaving ? 'Saving...' : 'Save'}
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Save/Reset controls */}
-            {participantPersonaIds.length === 0 && aiPersonas.length > 0 && (
-                <div
-                    style={{
-                        padding: '4px 8px',
-                        fontSize: 10,
-                        color: '#996600',
-                        background: '#FFFBEA',
-                        borderTop: '1px solid #E6D87A',
-                    }}
-                >
-                    No AI participants — AI won't respond.
+            {/* ── Thought Log section (1fr grid row, always visible) ── */}
+            <div
+                style={{
+                    borderTop: '2px solid #ACA899',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                }}
+            >
+                {sectionLabel(
+                    'Thought Log',
+                    decidingPhases.length + thoughtLog.length,
+                )}
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {/* Live: personas currently deciding */}
+                    {decidingPhases.map((phase) => {
+                        const personaId = phase.personaName;
+                        const persona = personas.find(
+                            (p) => p.id === personaId,
+                        );
+                        const name = persona?.name ?? personaId?.slice(0, 8);
+                        const decisionText =
+                            phase.phase === 'deciding'
+                                ? phase.decisionText
+                                : '';
+                        return (
+                            <div
+                                key={phase.messageId ?? personaId}
+                                style={{
+                                    borderBottom: '1px solid #E6D87A',
+                                    background: '#FFFBEA',
+                                    borderLeft: '3px solid #CC8800',
+                                    padding: '5px 8px',
+                                }}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <img
+                                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                                        alt={name}
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            imageRendering: 'pixelated',
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                    <span
+                                        className="animate-pulse"
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            color: '#806600',
+                                        }}
+                                    >
+                                        {name}…
+                                    </span>
+                                </div>
+                                {decisionText && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#666',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-all',
+                                            maxHeight: 100,
+                                            overflowY: 'auto',
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        {decisionText}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Settled decisions (go + skip), newest first */}
+                    {thoughtLog.length === 0 && decidingPhases.length === 0 ? (
+                        <div
+                            style={{
+                                padding: '10px 8px',
+                                fontSize: 10,
+                                color: '#ACA899',
+                                textAlign: 'center',
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            No decisions yet
+                        </div>
+                    ) : (
+                        thoughtLog.map((entry) => (
+                            <div
+                                key={entry.key}
+                                style={{
+                                    borderBottom: '1px solid #D4D0C8',
+                                    padding: '4px 8px',
+                                    borderLeft: entry.skip
+                                        ? '3px solid #CC8800'
+                                        : '3px solid #009900',
+                                }}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    {entry.personaId && (
+                                        <img
+                                            src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                            alt={entry.personaName}
+                                            style={{
+                                                width: 13,
+                                                height: 13,
+                                                imageRendering: 'pixelated',
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                    )}
+                                    <span
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            color: '#333',
+                                            flex: 1,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {entry.personaName}
+                                    </span>
+                                    <span
+                                        style={{
+                                            fontSize: 9,
+                                            color: entry.skip
+                                                ? '#CC8800'
+                                                : '#009900',
+                                            fontWeight: 700,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {entry.skip ? 'skip' : 'go'}
+                                    </span>
+                                </div>
+                                {entry.reason && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#666',
+                                            fontStyle: 'italic',
+                                            lineHeight: 1.3,
+                                            marginTop: 1,
+                                        }}
+                                    >
+                                        {entry.reason}
+                                    </div>
+                                )}
+                                {entry.instruction && entry.skip && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#806600',
+                                            lineHeight: 1.3,
+                                        }}
+                                    >
+                                        → {entry.instruction}
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
                 </div>
-            )}
-            {saveError && (
-                <div
-                    style={{
-                        padding: '4px 8px',
-                        fontSize: 10,
-                        color: '#c00',
-                        borderTop: '1px solid #ACA899',
-                    }}
-                >
-                    {saveError}
-                </div>
-            )}
-            {hasChanges && (
-                <div
-                    className="flex gap-1 p-1"
-                    style={{
-                        borderTop: '1px solid #ACA899',
-                        background: '#ECE9D8',
-                    }}
-                >
-                    <button
-                        type="button"
-                        disabled={isSaving}
-                        className="flex-1 text-[10px]"
-                        onClick={onReset}
-                    >
-                        Reset
-                    </button>
-                    <button
-                        type="button"
-                        disabled={isSaving}
-                        className="flex-1 text-[10px]"
-                        onClick={onSave}
-                    >
-                        {isSaving ? 'Saving...' : 'Save'}
-                    </button>
-                </div>
-            )}
+            </div>
         </div>
     );
 }
@@ -958,6 +1230,7 @@ function ChatBubble({
     if (isDirectedAtUser && appraisalData) {
         return (
             <div
+                className="group"
                 style={{
                     borderBottom: '1px solid #B0C4F0',
                     background:
@@ -983,7 +1256,7 @@ function ChatBubble({
                             {userPersonaName}
                         </span>
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             type="button"
                             disabled={busy}
@@ -1038,7 +1311,7 @@ function ChatBubble({
 
     return (
         <div
-            className="p-2"
+            className="p-2 group"
             style={{
                 borderBottom: '1px solid #D4D0C8',
                 background: isAppraisalStop
@@ -1100,7 +1373,10 @@ function ChatBubble({
                         </span>
                     ) : null}
                 </div>
-                <span className="flex items-center gap-1">
+                <span
+                    className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ flexShrink: 0 }}
+                >
                     {hasDetails && (
                         <button
                             type="button"
@@ -1149,48 +1425,6 @@ function ChatBubble({
                     {message.error}
                 </div>
             ) : null}
-
-            {appraisalData && (
-                <details className="mt-1" style={{ fontSize: 10 }}>
-                    <summary
-                        style={{
-                            color: '#806600',
-                            cursor: 'pointer',
-                            userSelect: 'none',
-                        }}
-                    >
-                        Appraisal →{' '}
-                        {personas.find((p) => p.id === appraisalData.personaId)
-                            ?.name ??
-                            appraisalData.personaId?.slice(0, 8) ??
-                            'none'}
-                        {appraisalData.stop ? ' (stop)' : ''}
-                    </summary>
-                    <div
-                        className="mt-1 p-1.5"
-                        style={{
-                            background: '#FFFBEA',
-                            border: '1px solid #E6D87A',
-                            color: '#555',
-                        }}
-                    >
-                        {appraisalData.reason && (
-                            <div>
-                                <span style={{ fontWeight: 600 }}>Reason:</span>{' '}
-                                {appraisalData.reason}
-                            </div>
-                        )}
-                        {appraisalData.instruction && (
-                            <div>
-                                <span style={{ fontWeight: 600 }}>
-                                    Instruction:
-                                </span>{' '}
-                                {appraisalData.instruction}
-                            </div>
-                        )}
-                    </div>
-                </details>
-            )}
 
             {showDetails && hasDetails && (
                 <div
@@ -1366,39 +1600,8 @@ function StreamingIndicator({
         );
     }
     if (info.phase === 'deciding') {
-        const personaId = info.personaName;
-        const resolvedName =
-            personas?.find((p) => p.id === personaId)?.name ??
-            personaId.slice(0, 8);
-        return (
-            <div
-                style={{
-                    borderBottom: '1px solid #D4D0C8',
-                    background: '#FFF8DC',
-                    borderLeft: '3px solid #CC8800',
-                    padding: '6px 8px',
-                }}
-            >
-                <div className="flex items-center gap-2">
-                    <img
-                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
-                        alt={resolvedName}
-                        style={{
-                            width: 22,
-                            height: 22,
-                            flexShrink: 0,
-                            imageRendering: 'pixelated',
-                        }}
-                    />
-                    <span
-                        className="animate-pulse"
-                        style={{ fontWeight: 600, color: '#806600' }}
-                    >
-                        {resolvedName} is thinking...
-                    </span>
-                </div>
-            </div>
-        );
+        // deciding phases are shown in the sidebar Thoughts tab, not inline
+        return null;
     }
     if (info.phase === 'typing' || info.phase === 'streaming') {
         const personaId = info.personaName; // actually the ID from attend event
@@ -1498,28 +1701,27 @@ function ConnectionDot({ status }: { status: RealtimeConnectionStatus }) {
     return (
         <span
             title={title}
-            className={
-                status === 'connecting' || status === 'reconnecting'
-                    ? 'animate-pulse'
-                    : ''
-            }
             style={{
                 display: 'inline-block',
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
                 background: color,
-                border: '1px solid rgba(0,0,0,0.3)',
+                flexShrink: 0,
             }}
         />
     );
 }
 
-function formatTime(t: number | null) {
-    return t
-        ? new Date(t).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-          })
-        : null;
+function formatTime(iso: string | null | undefined): string {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return '';
+    }
 }
