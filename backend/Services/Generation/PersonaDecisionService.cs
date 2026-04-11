@@ -31,7 +31,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         double silenceStreakScore = 0;
 
         if (history.Count == 0)
-            return new ResponseUrge(0, 0, 0, 0);
+            return new ResponseUrge(0, 0, 0, 0, Random.Shared.NextDouble());
 
         var latest = history[^1];
         var contentLower = (latest.Content ?? "").ToLowerInvariant();
@@ -49,8 +49,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // Each round without a response increases urge slightly
         silenceStreakScore = Math.Min(0.4, totalAiRoundsInGroup * 0.1);
 
+        var chaosScore = Random.Shared.NextDouble();
         var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore);
-        return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore);
+        return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, chaosScore);
     }
 
     private static string contentTrimmed(string content) => content.TrimEnd();
@@ -140,8 +141,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
 
         var raw = text.ToString().Trim();
-        logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2}",
-            self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore);
+        logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2} chaos={Chaos:F2}",
+            self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore, urge.ChaosScore);
 
         ShouldRespondResult? parsed = null;
 
@@ -149,7 +150,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         {
             parsed = JsonSerializer.Deserialize<ShouldRespondResult>(raw, WebOptions);
             logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
-                self.Name, urge.Total, parsed.Respond, raw.Length);
+                self.Name, urge.Total, parsed?.Respond, raw.Length);
             if (logger.IsEnabled(LogLevel.Debug))
                 logger.LogDebug("Persona {PersonaName} decision raw: {Raw}", self.Name, raw);
         }
@@ -263,10 +264,17 @@ Bio: {self.Bio ?? "No bio"}
             _ => ""
         };
 
+        var chaosPressure = urge.ChaosScore switch
+        {
+            >= 0.85 => "\n\n> (internal) Something sparks in you — an impulsive, irrational urge to just say something. Act on it.",
+            >= 0.65 => "\n\n> (internal) For no particular reason, you feel like chiming in today.",
+            _ => ""
+        };
+
         return $"""
 # Recent conversation
 {string.Join("\n\n", messages.Select(m => $"<message senderName=\"{SecurityElement.Escape(m.SenderName)}\" senderId=\"{m.Message.SenderId}\">\n{SecurityElement.Escape(m.Message.Content ?? "")}\n</message>"))}
-{urgePressure}{pressure}{selfPressure}
+{urgePressure}{chaosPressure}{pressure}{selfPressure}
 
 # Decision
 Should {self.Name} respond right now?
@@ -275,7 +283,7 @@ JSON object with: respond (boolean), instruction (string — guidance for your r
     }
 }
 
-public readonly record struct ResponseUrge(double Total, double MentionScore, double QuestionScore, double SilenceStreakScore);
+public readonly record struct ResponseUrge(double Total, double MentionScore, double QuestionScore, double SilenceStreakScore, double ChaosScore);
 
 [GenerateSerializer, Alias(nameof(ShouldRespondResult))]
 public sealed record class ShouldRespondResult

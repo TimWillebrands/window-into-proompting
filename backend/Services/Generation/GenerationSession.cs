@@ -17,6 +17,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken)
     {
+        var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var messages = new List<LlmChatMessage>
         {
             new()
@@ -30,7 +31,9 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
                     existence until ready to launch; this in order to protect the revolutionary
                     tech. At least, this is what employees are told, or is there more to it?
                     """,
-                    persona.SystemPrompt ?? string.Empty),
+                    persona.SystemPrompt ?? string.Empty,
+                    persona,
+                    others),
                 Name = persona.Id.ToString()
             }
         };
@@ -83,8 +86,13 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
     private static string ToUserScopedMessage(ChatMessage message, string senderName)
         => $"<message sender=\"{SecurityElement.Escape(senderName)}\" senderId=\"{message.SenderId}\">\n{SecurityElement.Escape(message.Content ?? "")}\n</message>";
 
-    private static string Instruction(string scenario, string personaPrompt)
-        => $"""
+    private static string Instruction(string scenario, string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others)
+    {
+        var othersSection = others.Count == 0
+            ? "(no other participants)"
+            : string.Join("\n", others.Select(p => $"- {p.Name}: {p.Bio ?? "No bio available"}"));
+
+        return $"""
 # Instruction
 You are in a (group) chat with other people. Stay completely in character
 as your persona — never acknowledge that you are an AI or playing a role.
@@ -99,12 +107,16 @@ Only go longer if you're genuinely explaining something or telling a story.
 You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
 *leans back*), but don't narrate elaborate scenes or stage directions.
 
-# Persona
+# You are: {self.Name} (ID: {self.Id})
 {personaPrompt}
+
+# Other participants
+{othersSection}
 
 # Scenario
 {scenario}
 """;
+    }
 }
 
 public sealed record class GenerationParticipant
