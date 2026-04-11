@@ -267,7 +267,12 @@ public class PersonaController(
         }
 
         var model = models[0];
-        var endpoint = LlmEndpointGrainFactory.GetGrain(grains, model);
+        ILlmEndpointGrain endpoint = model.ProviderType switch
+        {
+            "openrouter" => grains.GetGrain<IOpenRouterEndpointGrain>(model.EndpointProviderGrainId),
+            "ollama" => grains.GetGrain<IOllamaEndpointGrain>(model.EndpointProviderGrainId),
+            _ => throw new InvalidOperationException($"Unknown provider type: {model.ProviderType}")
+        };
 
         try
         {
@@ -283,15 +288,13 @@ public class PersonaController(
                     var systemPrompt = spProp.GetString() ?? string.Empty;
                     var accumulated = new StringBuilder();
 
-                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationParams
+                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
                     {
-                        Model = model.Name,
-                        Temperature = 0.7,
-                        Messages = new LlmChatMessage[]
-                        {
+                        Messages = [
                             new() { Role = "system", Content = BioGenerationSystemPrompt },
                             new() { Role = "user", Content = systemPrompt }
-                        }
+                        ],
+                        ModelParameters = new LlmModelParameters { Temperature = 0.7 }
                     }, ct))
                     {
                         if (evt.Type != "message") continue;
@@ -334,15 +337,13 @@ public class PersonaController(
 
                     var accumulated = new StringBuilder();
 
-                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationParams
+                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
                     {
-                        Model = model.Name,
-                        Temperature = 0.85,
-                        Messages = new LlmChatMessage[]
-                        {
+                        Messages = [
                             new() { Role = "system", Content = generatorPrompt },
                             new() { Role = "user", Content = prompt }
-                        }
+                        ],
+                        ModelParameters = new LlmModelParameters { Temperature = 0.85 }
                     }, ct))
                     {
                         if (evt.Type != "message") continue;

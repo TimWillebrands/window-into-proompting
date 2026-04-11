@@ -194,25 +194,13 @@ public sealed class PartyController(
             return BadRequest("Invalid prompt");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
-        {
-            return BadRequest("Invalid model");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
-
         logger.LogInformation("Sending prompt to party {PartyId}, message length: {Length}", id, request.Prompt.Length);
 
         var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName)
-            ? senderId.ToString()
-            : request.SenderName;
 
-        await grains.GetGrain<IPartyGrain>(id)
-            .SendPrompt(request.ChatGroupId, request.Prompt, senderId, senderName, request.Model, request.Provider);
+        // Route directly to ChatGroupGrain for parallel persona fan-out
+        await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
+            .SendNewMessageAsync(senderId, request.Prompt);
 
         return Accepted("Proompt accepted");
     }
@@ -236,23 +224,16 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
+
+        // Create a synthetic trigger message to fan out to personas
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var lastMessage = messages.LastOrDefault();
+
+        if (lastMessage is not null)
         {
-            return BadRequest("Invalid model");
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
-
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
-
-        var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName)
-            ? senderId.ToString()
-            : request.SenderName;
-
-        await grains.GetGrain<IPartyGrain>(id)
-            .Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
 
         return Accepted("Proompt accepted");
     }
@@ -294,7 +275,7 @@ public sealed class PartyController(
             return BadRequest("Invalid message id");
         }
 
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessage(chatGroupId, messageId);
+        await grains.GetGrain<IChatGroupGrain>(chatGroupId).DeleteMessageAsync(messageId);
         return NoContent();
     }
 
@@ -320,7 +301,7 @@ public sealed class PartyController(
             return BadRequest("Invalid message id");
         }
 
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessagesAfter(chatGroupId, messageId);
+        await grains.GetGrain<IChatGroupGrain>(chatGroupId).DeleteMessagesAfterAsync(messageId);
         return NoContent();
     }
 
@@ -348,20 +329,18 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Model))
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
+        await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
+
+        // Fan out to personas after truncation
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var lastMessage = messages.LastOrDefault();
+        if (lastMessage is not null)
         {
-            return BadRequest("Invalid model");
+            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
 
-        if (string.IsNullOrWhiteSpace(request.Provider))
-        {
-            return BadRequest("Invalid provider");
-        }
-
-        await grains.GetGrain<IPartyGrain>(id).DeleteMessagesAfter(request.ChatGroupId, messageId);
-        var senderId = request.SenderId ?? Guid.NewGuid();
-        var senderName = string.IsNullOrWhiteSpace(request.SenderName) ? senderId.ToString() : request.SenderName;
-        await grains.GetGrain<IPartyGrain>(id).Proceed(request.ChatGroupId, senderId, senderName, request.Model, request.Provider);
         return Accepted("Proompt accepted");
     }
 

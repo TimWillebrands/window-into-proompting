@@ -1,18 +1,17 @@
+import deepEqual from 'fast-deep-equal';
 import { create } from 'zustand';
-import { useShallow } from 'zustand/react/shallow';
+import { useStoreWithEqualityFn } from 'zustand/traditional';
 
 export interface RealtimeChatMessage {
     chatGroupId: string;
     messageId: number;
     content: string | null;
     reasoning: string | null;
-    overseer: string | null;
+    appraisal: string | null;
     error: string | null;
     senderType: string;
     senderId: string;
-    senderName: string | null;
     sendAt: number | null;
-    modelEndpointStub: string | null;
     generationEvents: Array<{ event: string; data: string; at: number }>;
 }
 
@@ -30,10 +29,26 @@ interface PartyRealtimeConnection {
     subscriberCount: number;
 }
 
+const DEFAULT_CONNECTION_STATE: PartyRealtimeConnection = {
+    status: 'disconnected',
+    socket: null,
+    lastSequence: 0,
+    reconnectAttempt: 0,
+    subscriberCount: 0,
+};
+
+export interface DeclinedDecision {
+    personaId: string;
+    reason: string | null;
+    decisionText: string;
+    timestamp: number;
+}
+
 interface ChatGroupRealtimeState {
     chatGroupId: string;
     messages: RealtimeChatMessage[];
     activeGenerationMessageIds: number[];
+    declinedDecisions: DeclinedDecision[];
     lastSequence: number;
 }
 
@@ -44,19 +59,17 @@ type PartyRealtimeEnvelope = {
     data: unknown;
 };
 
-type ChatGroupListener = (state: ChatGroupRealtimeState) => void;
-
 const DEFAULT_CHAT_GROUP_STATE = (
     chatGroupId: string,
 ): ChatGroupRealtimeState => ({
     chatGroupId,
     messages: [],
     activeGenerationMessageIds: [],
+    declinedDecisions: [],
     lastSequence: 0,
 });
 
-const chatGroupListeners = new Map<string, Set<ChatGroupListener>>();
-const EMPTY_MESSAGES: RealtimeChatMessage[] = [];
+export const EMPTY_MESSAGES: RealtimeChatMessage[] = [];
 const EMPTY_GENERATION_MESSAGE_IDS: number[] = [];
 
 interface RealtimeStoreState {
@@ -64,25 +77,7 @@ interface RealtimeStoreState {
     chatGroups: Record<string, ChatGroupRealtimeState>;
     connectPartyRealtime: (partyId: string) => void;
     disconnectPartyRealtime: (partyId: string) => void;
-    subscribeToChatGroup: (
-        chatGroupId: string,
-        listener: ChatGroupListener,
-    ) => () => void;
 }
-
-const emitChatGroupState = (
-    chatGroupId: string,
-    state: ChatGroupRealtimeState,
-) => {
-    const listeners = chatGroupListeners.get(chatGroupId);
-    if (!listeners) {
-        return;
-    }
-
-    for (const listener of listeners) {
-        listener(state);
-    }
-};
 
 const appendOrUpdateMessage = (
     messages: RealtimeChatMessage[],
@@ -93,7 +88,13 @@ const appendOrUpdateMessage = (
     );
 
     if (existingIndex < 0) {
-        return [...messages, message].sort((a, b) => a.messageId - b.messageId);
+        const nextMessages = [...messages, message];
+        const lastMsg = messages[messages.length - 1];
+
+        if (lastMsg && message.messageId < lastMsg.messageId) {
+            return nextMessages.sort((a, b) => a.messageId - b.messageId);
+        }
+        return nextMessages;
     }
 
     const existing = messages[existingIndex];
@@ -109,7 +110,7 @@ const appendOrUpdateMessage = (
     return nextMessages;
 };
 
-const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
+export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
     const establishPartyRealtime = (partyId: string) => {
         if (typeof window === 'undefined') {
             return;
@@ -142,13 +143,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        socket: null,
-                        status: 'disconnected',
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     status: 'connecting',
                     socket,
                 },
@@ -160,13 +155,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
+                        ...(state.connections[partyId] ??
+                            DEFAULT_CONNECTION_STATE),
                         status: 'connected',
                         reconnectAttempt: 0,
                         socket,
@@ -216,33 +206,26 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
         sequence: number,
         update: (prev: ChatGroupRealtimeState) => ChatGroupRealtimeState,
     ) => {
-        let nextState: ChatGroupRealtimeState | null = null;
-
         set((state) => {
             const previous =
                 state.chatGroups[chatGroupId] ??
                 DEFAULT_CHAT_GROUP_STATE(chatGroupId);
 
             const updated = update(previous);
-            nextState = {
-                ...updated,
-                lastSequence:
-                    sequence > 0
-                        ? Math.max(updated.lastSequence, sequence)
-                        : updated.lastSequence,
-            };
 
             return {
                 chatGroups: {
                     ...state.chatGroups,
-                    [chatGroupId]: nextState,
+                    [chatGroupId]: {
+                        ...updated,
+                        lastSequence:
+                            sequence > 0
+                                ? Math.max(updated.lastSequence, sequence)
+                                : updated.lastSequence,
+                    },
                 },
             };
         });
-
-        if (nextState) {
-            emitChatGroupState(chatGroupId, nextState);
-        }
     };
 
     const handleEnvelope = (
@@ -253,13 +236,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        status: 'disconnected',
-                        socket: null,
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     lastSequence: Math.max(
                         state.connections[partyId]?.lastSequence ?? 0,
                         envelope.sequence,
@@ -284,6 +261,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (a, b) => a.messageId - b.messageId,
                 ),
                 activeGenerationMessageIds: [],
+                declinedDecisions: [],
             }));
             return;
         }
@@ -403,18 +381,24 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (message) => message.messageId === messageId,
                 );
 
+                const resolvedSenderId =
+                    existing?.senderId ??
+                    (payload.event === 'attend' ? payload.data : null) ??
+                    existing?.generationEvents?.find(
+                        (e) => e.event === 'attend',
+                    )?.data ??
+                    '00000000-0000-0000-0000-000000000000';
+
                 const baseMessage: RealtimeChatMessage = existing ?? {
                     chatGroupId,
                     messageId,
                     content: null,
                     reasoning: null,
-                    overseer: null,
+                    appraisal: null,
                     error: null,
                     senderType: 'assistant',
-                    senderId: '00000000-0000-0000-0000-000000000000',
-                    senderName: null,
+                    senderId: resolvedSenderId,
                     sendAt: null,
-                    modelEndpointStub: null,
                     generationEvents: [],
                 };
 
@@ -430,19 +414,11 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     nextMessage = {
                         ...baseMessage,
                         content: `${baseMessage.content ?? ''}${payload.data ?? ''}`,
-                        generationEvents: [
-                            ...baseMessage.generationEvents,
-                            eventEntry,
-                        ],
                     };
                 } else if (payload.event === 'reasoning') {
                     nextMessage = {
                         ...baseMessage,
                         reasoning: `${baseMessage.reasoning ?? ''}${payload.data ?? ''}`,
-                        generationEvents: [
-                            ...baseMessage.generationEvents,
-                            eventEntry,
-                        ],
                     };
                 } else if (payload.event === 'error') {
                     nextMessage = {
@@ -453,24 +429,66 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                             eventEntry,
                         ],
                     };
-                } else if (payload.event === 'overseer') {
-                    // Accumulate overseer chunks for realtime display
+                } else if (payload.event === 'appraisal') {
+                    // Accumulate appraisal chunks for realtime display
                     nextMessage = {
                         ...baseMessage,
-                        overseer: `${baseMessage.overseer ?? ''}${payload.data ?? ''}`,
+                        appraisal: `${baseMessage.appraisal ?? ''}${payload.data ?? ''}`,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,
                         ],
                     };
-                } else if (payload.event === 'overseerComplete') {
+                } else if (payload.event === 'appraisalComplete') {
                     // Replace accumulated chunks with clean parsed JSON
                     nextMessage = {
                         ...baseMessage,
-                        overseer: payload.data ?? null,
+                        appraisal: payload.data ?? null,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,
+                        ],
+                    };
+                } else if (payload.event === 'attend') {
+                    // First event that carries the real persona ID — use it as senderId
+                    nextMessage = {
+                        ...baseMessage,
+                        senderId: payload.data ?? baseMessage.senderId,
+                        generationEvents: [
+                            ...baseMessage.generationEvents,
+                            eventEntry,
+                        ],
+                    };
+                } else if (payload.event === 'declined') {
+                    // Persona decided not to respond — capture decision then remove phantom message
+                    const phantom = prev.messages.find(
+                        (m) => m.messageId === messageId,
+                    );
+                    let declinedReason: string | null = null;
+                    try {
+                        const parsed = JSON.parse(payload.data ?? '{}');
+                        declinedReason = parsed.reason ?? null;
+                    } catch {
+                        /* ignore */
+                    }
+                    const declined: DeclinedDecision = {
+                        personaId: phantom?.senderId ?? payload.data ?? '',
+                        reason: declinedReason,
+                        decisionText: (phantom?.appraisal ?? '').trim(),
+                        timestamp: Date.now(),
+                    };
+                    return {
+                        ...prev,
+                        messages: prev.messages.filter(
+                            (m) => m.messageId !== messageId,
+                        ),
+                        activeGenerationMessageIds:
+                            prev.activeGenerationMessageIds.filter(
+                                (id) => id !== messageId,
+                            ),
+                        declinedDecisions: [
+                            ...prev.declinedDecisions,
+                            declined,
                         ],
                     };
                 } else {
@@ -534,13 +552,7 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
             connections: {
                 ...state.connections,
                 [partyId]: {
-                    ...(state.connections[partyId] ?? {
-                        status: 'disconnected',
-                        socket: null,
-                        lastSequence: 0,
-                        reconnectAttempt: 0,
-                        subscriberCount: 0,
-                    }),
+                    ...(state.connections[partyId] ?? DEFAULT_CONNECTION_STATE),
                     status: 'reconnecting',
                     reconnectAttempt,
                     socket: null,
@@ -561,13 +573,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
+                        ...(state.connections[partyId] ??
+                            DEFAULT_CONNECTION_STATE),
                         subscriberCount:
                             (state.connections[partyId]?.subscriberCount ?? 0) +
                             1,
@@ -592,13 +599,8 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     connections: {
                         ...state.connections,
                         [partyId]: {
-                            ...(state.connections[partyId] ?? {
-                                lastSequence: 0,
-                                reconnectAttempt: 0,
-                                socket: null,
-                                status: 'disconnected',
-                                subscriberCount: 0,
-                            }),
+                            ...(state.connections[partyId] ??
+                                DEFAULT_CONNECTION_STATE),
                             subscriberCount: nextSubscriberCount,
                         },
                     },
@@ -614,42 +616,11 @@ const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 connections: {
                     ...state.connections,
                     [partyId]: {
-                        ...(state.connections[partyId] ?? {
-                            lastSequence: 0,
-                            reconnectAttempt: 0,
-                            socket: null,
-                            status: 'disconnected',
-                            subscriberCount: 0,
-                        }),
-                        status: 'disconnected',
-                        socket: null,
-                        reconnectAttempt: 0,
+                        ...DEFAULT_CONNECTION_STATE,
                         subscriberCount: 0,
                     },
                 },
             }));
-        },
-        subscribeToChatGroup: (chatGroupId, listener) => {
-            const listeners = chatGroupListeners.get(chatGroupId) ?? new Set();
-            listeners.add(listener);
-            chatGroupListeners.set(chatGroupId, listeners);
-
-            listener(
-                get().chatGroups[chatGroupId] ??
-                    DEFAULT_CHAT_GROUP_STATE(chatGroupId),
-            );
-
-            return () => {
-                const activeListeners = chatGroupListeners.get(chatGroupId);
-                if (!activeListeners) {
-                    return;
-                }
-
-                activeListeners.delete(listener);
-                if (activeListeners.size === 0) {
-                    chatGroupListeners.delete(chatGroupId);
-                }
-            };
         },
     };
 });
@@ -663,13 +634,62 @@ export const useRealtimeConnectionStatus = (
 
 export type GenerationPhase =
     | { phase: 'idle' }
-    | { phase: 'overseer' }
+    | { phase: 'waiting' }
+    | { phase: 'deciding'; personaName: string; decisionText: string }
     | { phase: 'typing'; personaName: string }
     | { phase: 'streaming'; personaName: string; charCount: number };
 
+export type ActiveGenerationPhase = GenerationPhase & { messageId?: number };
+
+const getPhaseForMessage = (
+    group: ChatGroupRealtimeState,
+    activeId: number,
+): ActiveGenerationPhase => {
+    const message = group.messages.find((m) => m.messageId === activeId);
+    if (!message) return { phase: 'waiting', messageId: activeId };
+
+    const events = message.generationEvents ?? [];
+    if (events.find((e) => e.event === 'overseerStop'))
+        return { phase: 'idle', messageId: activeId };
+    if (events.find((e) => e.event === 'declined'))
+        return { phase: 'idle', messageId: activeId };
+
+    const attendEvent = [...events].reverse().find((e) => e.event === 'attend');
+    if (!attendEvent) return { phase: 'waiting', messageId: activeId };
+
+    const personaName = attendEvent.data;
+
+    // Check if still in the appraisal phase (has appraisal chunks but no appraisalComplete yet)
+    const hasAppraisalComplete = events.some(
+        (e) => e.event === 'appraisalComplete',
+    );
+    if (!hasAppraisalComplete) {
+        const decisionText = (message.appraisal ?? '').trim();
+        return {
+            phase: 'deciding',
+            personaName,
+            decisionText,
+            messageId: activeId,
+        };
+    }
+
+    const msgCount = events.filter((e) => e.event === 'message').length;
+
+    if (msgCount < 3)
+        return { phase: 'typing', personaName, messageId: activeId };
+    return {
+        phase: 'streaming',
+        personaName,
+        charCount: (message.content ?? '').length,
+        messageId: activeId,
+    };
+};
+
+/** Returns a single GenerationPhase for the most recent active generation (backward compat). */
 export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
-    useRealtimeStore(
-        useShallow((state) => {
+    useStoreWithEqualityFn(
+        useRealtimeStore,
+        (state) => {
             const group = state.chatGroups[chatGroupId];
             if (!group || group.activeGenerationMessageIds.length === 0)
                 return { phase: 'idle' };
@@ -678,30 +698,27 @@ export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
                 group.activeGenerationMessageIds[
                     group.activeGenerationMessageIds.length - 1
                 ];
-            const message = group.messages.find(
-                (m) => m.messageId === activeId,
-            );
-            if (!message) return { phase: 'overseer' };
+            return getPhaseForMessage(group, activeId);
+        },
+        deepEqual,
+    );
 
-            const events = message.generationEvents ?? [];
-            if (events.find((e) => e.event === 'overseerStop'))
-                return { phase: 'idle' };
+/** Returns an array of GenerationPhases — one per active generation stream. */
+export const useActiveGenerationPhases = (
+    chatGroupId: string,
+): ActiveGenerationPhase[] =>
+    useStoreWithEqualityFn(
+        useRealtimeStore,
+        (state) => {
+            const group = state.chatGroups[chatGroupId];
+            if (!group || group.activeGenerationMessageIds.length === 0)
+                return [];
 
-            const personaChangeEvent = [...events]
-                .reverse()
-                .find((e) => e.event === 'personaChange');
-            if (!personaChangeEvent) return { phase: 'overseer' };
-
-            const personaName = personaChangeEvent.data;
-            const msgCount = events.filter((e) => e.event === 'message').length;
-
-            if (msgCount < 3) return { phase: 'typing', personaName };
-            return {
-                phase: 'streaming',
-                personaName,
-                charCount: (message.content ?? '').length,
-            };
-        }),
+            return group.activeGenerationMessageIds
+                .map((id) => getPhaseForMessage(group, id))
+                .filter((p) => p.phase !== 'idle');
+        },
+        deepEqual,
     );
 
 export const useChatGroupMessages = (chatGroupId: string) =>
@@ -716,37 +733,12 @@ export const useChatGroupGenerationState = (chatGroupId: string) =>
             EMPTY_GENERATION_MESSAGE_IDS,
     );
 
-export async function sendPromptToChatGroup(args: {
-    partyId: string;
-    chatGroupId: string;
-    prompt: string;
-    model: string;
-    provider: string;
-    personaId?: string;
-    senderId?: string;
-    senderName?: string;
-}) {
-    const response = await fetch(`/api/Party/${args.partyId}/prompt`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            chatGroupId: args.chatGroupId,
-            prompt: args.prompt,
-            model: args.model,
-            provider: args.provider,
-            personaId: args.personaId ?? null,
-            senderId: args.senderId ?? null,
-            senderName: args.senderName ?? null,
-        }),
-    });
-
-    if (!response.ok) {
-        const body = await response.text();
-        throw new Error(body || `Prompt failed with status ${response.status}`);
-    }
-}
+const EMPTY_DECLINED: DeclinedDecision[] = [];
+export const useDeclinedDecisions = (chatGroupId: string): DeclinedDecision[] =>
+    useRealtimeStore(
+        (state) =>
+            state.chatGroups[chatGroupId]?.declinedDecisions ?? EMPTY_DECLINED,
+    );
 
 export function useRealtimeStoreActions() {
     const connectPartyRealtime = useRealtimeStore(
@@ -755,13 +747,9 @@ export function useRealtimeStoreActions() {
     const disconnectPartyRealtime = useRealtimeStore(
         (state) => state.disconnectPartyRealtime,
     );
-    const subscribeToChatGroup = useRealtimeStore(
-        (state) => state.subscribeToChatGroup,
-    );
 
     return {
         connectPartyRealtime,
         disconnectPartyRealtime,
-        subscribeToChatGroup,
     };
 }

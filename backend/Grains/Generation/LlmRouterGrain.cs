@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Options;
 using Orleans.Concurrency;
 using PartyTown.Configuration;
@@ -6,46 +5,79 @@ using PartyTown.Configuration;
 namespace PartyTown.Grains.Generation;
 
 [Reentrant]
-public sealed class LlmRouterGrain(
-    IOptions<LlmOptions> llmOptions,
-    ILogger<LlmRouterGrain> logger
-) : Grain, ILlmRouterGrain
+public sealed class LlmRouterGrain(IOptions<LlmOptions> llmOptions) : Grain, ILlmRouterGrain
 {
-    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
+    private IReadOnlyList<ILlmEndpointGrain> ModelProviders => field ??= FetchModelProviders();
+
+    public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(
+        CancellationToken cancellationToken = default)
     {
-        var providers = llmOptions.Value.Providers;
-        var tasks = new List<Task<IReadOnlyList<LlmModel>>>();
-
-        var ollamaCount = providers.Count(p => p.Type == "ollama");
-        var openRouterCount = providers.Count(p => p.Type == "openrouter");
-
-        for (var i = 0; i < ollamaCount; i++)
-            tasks.Add(GrainFactory.GetGrain<IOllamaEndpointGrain>(i).GetModelsAsync(cancellationToken));
-        for (var i = 0; i < openRouterCount; i++)
-            tasks.Add(GrainFactory.GetGrain<IOpenRouterEndpointGrain>(i).GetModelsAsync(cancellationToken));
-
+        var tasks = ModelProviders
+            .Select(async grain =>
+            {
+                try { return await grain.GetModelsAsync(cancellationToken); }
+                catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
+                { return Array.Empty<LlmModel>(); }
+            });
         var results = await Task.WhenAll(tasks);
-        return results.SelectMany(x => x).ToList();
+        return results.SelectMany(model => model).ToList();
     }
 
-    public async Task<string> RouteAndGenerateAsync(LlmGenerationParams parameters)
+
+    public async Task<ILlmEndpointGrain> RouteAsync(
+        JobComplexity jobComplexity,
+        CancellationToken cancellationToken = default)
     {
-        var models = await GetModelsAsync();
-        var model = models.FirstOrDefault(m => m.Name == parameters.Model)
-            ?? throw new InvalidOperationException($"No endpoint grain found for model '{parameters.Model}'");
-
-        logger.LogInformation("Routing generation for model {Model} to {ProviderType}[{GrainId}]",
-            parameters.Model, model.ProviderType, model.EndpointProviderGrainId);
-
-        var endpointGrain = LlmEndpointGrainFactory.GetGrain(GrainFactory, model);
-        var sb = new StringBuilder();
-
-        await foreach (var evt in endpointGrain.GenerateAsync(parameters))
+        var modelProviderTasks = ModelProviders.Select(async grain =>
         {
-            if (evt.Type == "message")
-                sb.Append(evt.Data);
-        }
+            try
+            {
+                var models = await grain.GetModelsAsync(cancellationToken);
+                return new
+                {
+                    Grain = grain,
+                    Pressure = await grain.PressureAsync(),
+                    CompatibleModels = models.Where(m => m.Supports(jobComplexity)),
+                    Failed = false
+                };
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
+            {
+                return new
+                {
+                    Grain = grain,
+                    Pressure = int.MaxValue,
+                    CompatibleModels = Enumerable.Empty<LlmModel>(),
+                    Failed = true
+                };
+            }
+        });
 
-        return sb.ToString();
+        var finishedTasks = await Task.WhenAll(modelProviderTasks);
+        var compatibleProvider = finishedTasks
+            .Where(provider => !provider.Failed && provider.CompatibleModels.Any())
+            .OrderBy(provider => provider.Pressure)
+            .FirstOrDefault();
+
+        return compatibleProvider is null
+            ? throw new InvalidOperationException($"No model-providers available for job complexity {jobComplexity}")
+            : compatibleProvider.Grain;
+    }
+
+    private IReadOnlyList<ILlmEndpointGrain> FetchModelProviders()
+    {
+        var models = llmOptions.Value.Providers.Select((providerConfig, i) =>
+        {
+            return providerConfig switch
+            {
+                OllamaProviderConfig =>
+                    GrainFactory.GetGrain<IOllamaEndpointGrain>(i) as ILlmEndpointGrain,
+                OpenRouterProviderConfig =>
+                    GrainFactory.GetGrain<IOpenRouterEndpointGrain>(i),
+                _ => throw new InvalidOperationException($"Unsupported provider type: {providerConfig.GetType().Name}"),
+            };
+        });
+
+        return models.ToList();
     }
 }

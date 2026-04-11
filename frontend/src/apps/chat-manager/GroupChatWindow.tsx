@@ -1,20 +1,12 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-    Suspense,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react';
 import DOMPurify from 'dompurify';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
 import type { Persona } from '../../api/model';
 import {
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
-    useGetPartyIdModelsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
     usePostPartyIdProceed,
@@ -22,14 +14,17 @@ import {
     usePostPartyIdRepromptMessageId,
     usePutPartyIdParticipants,
 } from '../../api/party-zone';
-import PeoplePicker from '../../components/chat/PeoplePicker';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import {
+    type ActiveGenerationPhase,
+    type DeclinedDecision,
     type GenerationPhase,
     type RealtimeChatMessage,
     type RealtimeConnectionStatus,
-    useActiveGenerationInfo,
+    useActiveGenerationPhases,
     useChatGroupGenerationState,
+    useChatGroupMessages,
+    useDeclinedDecisions,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '../../lib/realtime-store';
@@ -44,9 +39,6 @@ interface GroupChatWindowProps {
     chatGroupId?: string;
     partyName?: string;
 }
-
-const DEFAULT_PROVIDER = 'openrouter';
-const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 
 export default function GroupChatWindow({
     chatGroupId,
@@ -72,8 +64,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
     const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [selectedPersonaId, setSelectedPersonaId] = useState('');
-    const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-    const [model, setModel] = useState(DEFAULT_MODEL);
 
     // Participant management – backed by actual party state
     const [participantPersonaIds, setParticipantPersonaIds] = useState<
@@ -90,12 +80,11 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
 
     const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
     const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
-    const generationInfo = useActiveGenerationInfo(chatGroupId ?? '');
-    const {
-        connectPartyRealtime,
-        disconnectPartyRealtime,
-        subscribeToChatGroup,
-    } = useRealtimeStoreActions();
+    const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
+    const declinedDecisions = useDeclinedDecisions(chatGroupId ?? '');
+    const realtimeMessages = useChatGroupMessages(chatGroupId ?? '');
+    const { connectPartyRealtime, disconnectPartyRealtime } =
+        useRealtimeStoreActions();
 
     const partyDetailsQuery = useGetPartyIdSuspense(apiPartyId);
 
@@ -134,9 +123,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
             data: {
                 chatGroupId,
                 prompt: trimmed,
-                provider,
-                model,
-                personaId: selectedPersonaId || null,
+                senderId: selectedPersonaId || null,
             },
         });
         setInputValue('');
@@ -146,8 +133,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         promptParty,
         apiPartyId,
         chatGroupId,
-        provider,
-        model,
         selectedPersonaId,
     ]);
 
@@ -177,12 +162,8 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         }
 
         connectPartyRealtime(apiPartyId);
-        const unsubscribe = subscribeToChatGroup(chatGroupId, (state) => {
-            setMessages(state.messages);
-        });
 
         return () => {
-            unsubscribe();
             disconnectPartyRealtime(apiPartyId);
         };
     }, [
@@ -190,8 +171,11 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         chatGroupId,
         connectPartyRealtime,
         disconnectPartyRealtime,
-        subscribeToChatGroup,
     ]);
+
+    useEffect(() => {
+        setMessages(realtimeMessages);
+    }, [realtimeMessages]);
 
     useEffect(() => {
         if (messages.length === 0) {
@@ -231,7 +215,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         }
     }, [partyDetailsQuery.data, participantPersonaIds, selectedPersonaId]);
 
-    // Auto-save user persona to backend whenever selection changes so the overseer knows who the human is
+    // Auto-save user persona to backend whenever selection changes
     useEffect(() => {
         if (lastSavedUserPersonaId.current === selectedPersonaId) return;
         if (partyDetailsQuery.data.status !== 200) return;
@@ -267,7 +251,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         partyDetailsQuery.data,
         savedParticipantPersonaIds,
         apiPartyId,
-        saveParticipantsMutation,
+        saveParticipantsMutation.mutate,
     ]);
 
     const hasParticipantChanges = useMemo(() => {
@@ -284,16 +268,6 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         [activeGenerations],
     );
 
-    const activeOverseerText = useMemo(() => {
-        if (
-            generationInfo.phase !== 'overseer' ||
-            activeGenerations.length === 0
-        )
-            return null;
-        const activeId = activeGenerations[activeGenerations.length - 1];
-        return messages.find((m) => m.messageId === activeId)?.overseer ?? null;
-    }, [generationInfo.phase, activeGenerations, messages]);
-
     const uniqueMessages = useMemo(
         () =>
             Array.from(
@@ -304,7 +278,7 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         [messages],
     );
 
-    // Detect overseer stop directed at the user's persona that hasn't been responded to yet
+    // Detect appraisal stop directed at the user's persona that hasn't been responded to yet
     const pendingInstruction = useMemo(() => {
         if (!selectedPersonaId) return null;
         let lastStopIdx = -1;
@@ -312,9 +286,9 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
             null;
         for (let i = 0; i < uniqueMessages.length; i++) {
             const msg = uniqueMessages[i];
-            if (!msg.overseer) continue;
+            if (!msg.appraisal) continue;
             try {
-                const o = JSON.parse(msg.overseer);
+                const o = JSON.parse(msg.appraisal);
                 const personaId = o.personaId ?? o.PersonaId;
                 const stop = o.stop ?? o.Stop;
                 if (stop && personaId === selectedPersonaId) {
@@ -356,14 +330,10 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         apiPartyId,
         participantPersonaIds,
         partyDetailsQuery.data,
-        saveParticipantsMutation,
+        saveParticipantsMutation.mutate,
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
-    const peoplePicker = partyPersonas.map((persona) => ({
-        id: persona.id ?? '',
-        name: persona.name ?? '',
-    }));
     const promptablePersonas = partyPersonas.filter(
         (p) => !participantPersonaIds.includes(p.id ?? ''),
     );
@@ -371,363 +341,830 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??
         selectedPersonaId;
 
+    const activePersonaIds = useMemo(() => {
+        const ids = new Set<string>();
+        for (const phase of generationPhases) {
+            if (
+                (phase.phase === 'deciding' ||
+                    phase.phase === 'typing' ||
+                    phase.phase === 'streaming') &&
+                phase.personaName
+            ) {
+                ids.add(phase.personaName);
+            }
+        }
+        return ids;
+    }, [generationPhases]);
+
+    const personaPhases = useMemo(() => {
+        const map = new Map<string, ActiveGenerationPhase>();
+        for (const phase of generationPhases) {
+            if (
+                (phase.phase === 'deciding' ||
+                    phase.phase === 'typing' ||
+                    phase.phase === 'streaming') &&
+                phase.personaName
+            ) {
+                map.set(phase.personaName, phase);
+            }
+        }
+        return map;
+    }, [generationPhases]);
+
     return (
         <div
-            className="app-surface flex flex-col h-full"
+            className="app-surface flex h-full"
             style={{ background: '#ECE9D8' }}
         >
-            {/* Header toolbar */}
-            <div
-                className="p-2 space-y-2"
-                style={{ borderBottom: '1px solid #ACA899' }}
-            >
-                <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                        <ConnectionDot status={connectionStatus} />
-                        <span style={{ fontWeight: 600, color: '#000' }}>
-                            {partyName ?? apiPartyId}
+            {/* Main chat column */}
+            <div className="flex-1 flex flex-col min-w-0 h-full">
+                {/* Header toolbar */}
+                <div
+                    className="p-2"
+                    style={{
+                        borderBottom: '1px solid #ACA899',
+                        background:
+                            'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
+                    }}
+                >
+                    <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                            <ConnectionDot status={connectionStatus} />
+                            <span style={{ fontWeight: 600, color: '#000' }}>
+                                {partyName ?? apiPartyId}
+                            </span>
                         </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                        {isStreaming && (
+                        <span className="flex items-center gap-2">
+                            {isStreaming && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        cancelGenerations.mutateAsync({
+                                            id: apiPartyId,
+                                        })
+                                    }
+                                    style={{
+                                        fontSize: 10,
+                                        color: '#CC0000',
+                                        padding: '1px 6px',
+                                        background: '#FFF0F0',
+                                        border: '1px solid #CC0000',
+                                    }}
+                                >
+                                    ■ Stop
+                                </button>
+                            )}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Message area */}
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div
+                        ref={scrollRef}
+                        onScroll={(event) => {
+                            const target = event.currentTarget;
+                            const distanceFromBottom =
+                                target.scrollHeight -
+                                target.scrollTop -
+                                target.clientHeight;
+                            setIsNearBottom(distanceFromBottom < 48);
+                        }}
+                        className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
+                    >
+                        {uniqueMessages.map((message) => {
+                            const generating = activeGenerationSet.has(
+                                message.messageId,
+                            );
+                            // Hide while generating with nothing to show yet
+                            if (
+                                generating &&
+                                !message.content &&
+                                !message.error
+                            )
+                                return null;
+                            // Hide appraisal-only messages — they live in the sidebar Thought Log,
+                            // unless this appraisal is a "stop" directed at the user (shows "Your turn" card)
+                            if (
+                                !message.content &&
+                                !message.error &&
+                                message.appraisal
+                            ) {
+                                try {
+                                    const a = JSON.parse(message.appraisal);
+                                    const stop = a.stop ?? a.Stop;
+                                    const pid = a.personaId ?? a.PersonaId;
+                                    if (stop && pid === selectedPersonaId) {
+                                        // keep — "Your turn" card
+                                    } else {
+                                        return null;
+                                    }
+                                } catch {
+                                    return null;
+                                }
+                            }
+                            return (
+                                <ChatBubble
+                                    key={`${message.chatGroupId}:${message.messageId}`}
+                                    message={message}
+                                    busy={busy}
+                                    personas={partyPersonas}
+                                    userPersonaId={selectedPersonaId}
+                                    isGenerating={activeGenerationSet.has(
+                                        message.messageId,
+                                    )}
+                                    onDelete={() =>
+                                        deletePartyMessage.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId: chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    onTruncate={() =>
+                                        truncatePartyMessagesAfter.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId: chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    onReprompt={() =>
+                                        repromptParty.mutateAsync({
+                                            id: apiPartyId,
+                                            messageId: message.messageId,
+                                            data: {
+                                                chatGroupId,
+                                                senderId:
+                                                    selectedPersonaId || null,
+                                            },
+                                        })
+                                    }
+                                />
+                            );
+                        })}
+                        {generationPhases.length > 0
+                            ? generationPhases
+                                  .filter((p) => p.phase !== 'deciding')
+                                  .map((phase) => (
+                                      <StreamingIndicator
+                                          key={phase.messageId ?? 'unknown'}
+                                          info={phase}
+                                          personas={partyPersonas}
+                                      />
+                                  ))
+                            : null}
+                    </div>
+
+                    {/* Unread indicator */}
+                    {!isNearBottom && unreadCount > 0 ? (
+                        <div
+                            className="flex items-center justify-between px-2 py-1"
+                            style={{
+                                borderTop: '1px solid #ACA899',
+                                background: '#FFFDD5',
+                                color: '#000',
+                            }}
+                        >
+                            <span>{unreadCount} new message(s)</span>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    cancelGenerations.mutateAsync({
-                                        id: apiPartyId,
-                                    })
-                                }
-                                style={{
-                                    fontSize: 10,
-                                    color: '#CC0000',
-                                    padding: '1px 6px',
-                                    background: '#FFF0F0',
-                                    border: '1px solid #CC0000',
+                                onClick={() => {
+                                    const node = scrollRef.current;
+                                    if (!node) {
+                                        return;
+                                    }
+                                    node.scrollTop = node.scrollHeight;
+                                    setUnreadCount(0);
+                                    setIsNearBottom(true);
                                 }}
                             >
-                                ■ Stop
+                                Jump to latest
                             </button>
-                        )}
-                    </span>
-                </div>
+                        </div>
+                    ) : null}
 
-                <div className="flex gap-2">
-                    <Suspense
-                        fallback={
-                            <select disabled className="flex-1 text-[11px]">
-                                <option>Loading models...</option>
-                            </select>
-                        }
+                    {/* Input area */}
+                    <form
+                        className="p-2 space-y-1"
+                        style={{
+                            borderTop: '1px solid #ACA899',
+                            background:
+                                'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
+                        }}
+                        onSubmit={async (event) => {
+                            event.preventDefault();
+                            await handleSubmit();
+                        }}
                     >
-                        <ModelDropdown
-                            partyId={apiPartyId}
-                            model={model}
-                            setModel={setModel}
-                            setProvider={setProvider}
-                        />
-                    </Suspense>
-                </div>
-            </div>
-
-            {/* Party participant management */}
-            <div
-                className="p-1 space-y-1"
-                style={{
-                    borderBottom: '1px solid #ACA899',
-                    background: '#F0EDD4',
-                }}
-            >
-                <PeoplePicker
-                    people={peoplePicker}
-                    selectedIds={participantPersonaIds}
-                    onChange={setParticipantPersonaIds}
-                    compact
-                />
-                <div className="flex items-center justify-between gap-2">
-                    {participantPersonaIds.length === 0 &&
-                        peoplePicker.length > 0 && (
-                            <span style={{ fontSize: 10, color: '#996600' }}>
-                                No AI participants — AI won't respond.
-                            </span>
-                        )}
-                    {hasParticipantChanges && (
-                        <div className="flex items-center gap-1 ml-auto">
-                            {saveParticipantsMutation.isError && (
-                                <span style={{ fontSize: 10, color: '#c00' }}>
-                                    {saveParticipantsMutation.error instanceof
-                                    Error
-                                        ? saveParticipantsMutation.error.message
-                                        : 'Failed to save'}
+                        {pendingInstruction && (
+                            <div
+                                style={{
+                                    background: '#FFFBEA',
+                                    border: '1px solid #E6D87A',
+                                    padding: '4px 8px',
+                                    fontSize: 11,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: '#806600',
+                                    }}
+                                >
+                                    ⚖️ As {selectedPersonaName}:
+                                </span>{' '}
+                                <span style={{ color: '#555' }}>
+                                    {pendingInstruction.instruction}
                                 </span>
-                            )}
-                            <button
-                                type="button"
-                                disabled={saveParticipantsMutation.isPending}
-                                style={{ fontSize: 11 }}
-                                onClick={() =>
-                                    setParticipantPersonaIds(
-                                        savedParticipantPersonaIds,
+                            </div>
+                        )}
+                        <textarea
+                            ref={textareaRef}
+                            rows={3}
+                            className="w-full text-[11px]"
+                            style={{ padding: '4px' }}
+                            placeholder="Type a message to the chat group..."
+                            value={inputValue}
+                            onChange={(event) =>
+                                setInputValue(event.currentTarget.value)
+                            }
+                        />
+                        {promptParty.isError ? (
+                            <p
+                                className="text-[10px]"
+                                style={{ color: '#c00' }}
+                            >
+                                {promptParty.error instanceof Error
+                                    ? promptParty.error.message
+                                    : 'Failed to send'}
+                            </p>
+                        ) : null}
+                        <div className="flex items-center gap-1">
+                            <select
+                                className="flex-1 text-[11px]"
+                                value={selectedPersonaId}
+                                onChange={(event) =>
+                                    setSelectedPersonaId(
+                                        event.currentTarget.value,
                                     )
                                 }
                             >
-                                Reset
-                            </button>
+                                {promptablePersonas.map((persona) => (
+                                    <option key={persona.id} value={persona.id}>
+                                        {persona.name}
+                                    </option>
+                                ))}
+                            </select>
                             <button
                                 type="button"
-                                disabled={saveParticipantsMutation.isPending}
-                                style={{ fontSize: 11 }}
-                                onClick={handleSaveParticipants}
+                                disabled={busy}
+                                className="text-[11px]"
+                                style={{
+                                    padding: '2px 10px',
+                                    background: busy ? '#D4D0C8' : '#ECE9D8',
+                                }}
+                                onClick={() =>
+                                    proceedParty.mutateAsync({
+                                        id: apiPartyId,
+                                        data: {
+                                            chatGroupId,
+                                            senderId: selectedPersonaId || null,
+                                        },
+                                    })
+                                }
                             >
-                                {saveParticipantsMutation.isPending
-                                    ? 'Saving...'
-                                    : 'Save'}
+                                {busy ? '...' : 'Proceed'}
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={busy}
+                                className="text-[11px]"
+                                style={{
+                                    padding: '2px 16px',
+                                    background: busy ? '#D4D0C8' : '#ECE9D8',
+                                }}
+                            >
+                                {busy ? '...' : 'Send'}
                             </button>
                         </div>
-                    )}
+                    </form>
                 </div>
             </div>
 
-            {/* Message area */}
-            <div className="flex-1 flex flex-col min-h-0">
-                <div
-                    ref={scrollRef}
-                    onScroll={(event) => {
-                        const target = event.currentTarget;
-                        const distanceFromBottom =
-                            target.scrollHeight -
-                            target.scrollTop -
-                            target.clientHeight;
-                        setIsNearBottom(distanceFromBottom < 48);
-                    }}
-                    className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
-                >
-                    {uniqueMessages.map((message) => (
-                        <ChatBubble
-                            key={`${message.chatGroupId}:${message.messageId}`}
-                            message={message}
-                            busy={busy}
-                            personas={partyPersonas}
-                            userPersonaId={selectedPersonaId}
-                            isGenerating={activeGenerationSet.has(
-                                message.messageId,
-                            )}
-                            onDelete={() =>
-                                deletePartyMessage.mutateAsync({
-                                    id: apiPartyId,
-                                    chatGroupId: chatGroupId,
-                                    messageId: message.messageId,
-                                })
-                            }
-                            onTruncate={() =>
-                                truncatePartyMessagesAfter.mutateAsync({
-                                    id: apiPartyId,
-                                    chatGroupId: chatGroupId,
-                                    messageId: message.messageId,
-                                })
-                            }
-                            onReprompt={() =>
-                                repromptParty.mutateAsync({
-                                    id: apiPartyId,
-                                    messageId: message.messageId,
-                                    data: {
-                                        chatGroupId,
-                                        model,
-                                        provider,
-                                    },
-                                })
-                            }
-                        />
-                    ))}
-                    {isStreaming && (
-                        <StreamingIndicator
-                            info={generationInfo}
-                            overseerText={activeOverseerText}
-                            personas={partyPersonas}
-                        />
-                    )}
-                </div>
-
-                {/* Unread indicator */}
-                {!isNearBottom && unreadCount > 0 ? (
-                    <div
-                        className="flex items-center justify-between px-2 py-1"
-                        style={{
-                            borderTop: '1px solid #ACA899',
-                            background: '#FFFDD5',
-                            color: '#000',
-                        }}
-                    >
-                        <span>{unreadCount} new message(s)</span>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const node = scrollRef.current;
-                                if (!node) {
-                                    return;
-                                }
-                                node.scrollTop = node.scrollHeight;
-                                setUnreadCount(0);
-                                setIsNearBottom(true);
-                            }}
-                        >
-                            Jump to latest
-                        </button>
-                    </div>
-                ) : null}
-
-                {/* Input area */}
-                <form
-                    className="p-2 space-y-1"
-                    style={{
-                        borderTop: '1px solid #ACA899',
-                        background: '#F5F5ED',
-                    }}
-                    onSubmit={async (event) => {
-                        event.preventDefault();
-                        await handleSubmit();
-                    }}
-                >
-                    {pendingInstruction && (
-                        <div
-                            style={{
-                                background: '#FFFBEA',
-                                border: '1px solid #E6D87A',
-                                padding: '4px 8px',
-                                fontSize: 11,
-                            }}
-                        >
-                            <span style={{ fontWeight: 600, color: '#806600' }}>
-                                ⚖️ As {selectedPersonaName}:
-                            </span>{' '}
-                            <span style={{ color: '#555' }}>
-                                {pendingInstruction.instruction}
-                            </span>
-                        </div>
-                    )}
-                    <textarea
-                        ref={textareaRef}
-                        rows={3}
-                        className="w-full text-[11px]"
-                        style={{ padding: '4px' }}
-                        placeholder="Type a message to the chat group..."
-                        value={inputValue}
-                        onChange={(event) =>
-                            setInputValue(event.currentTarget.value)
-                        }
-                    />
-                    {promptParty.isError ? (
-                        <p className="text-[10px]" style={{ color: '#c00' }}>
-                            {promptParty.error instanceof Error
-                                ? promptParty.error.message
-                                : 'Failed to send'}
-                        </p>
-                    ) : null}
-                    <div className="flex items-center gap-1">
-                        <select
-                            className="flex-1 text-[11px]"
-                            value={selectedPersonaId}
-                            onChange={(event) =>
-                                setSelectedPersonaId(event.currentTarget.value)
-                            }
-                        >
-                            {promptablePersonas.map((persona) => (
-                                <option key={persona.id} value={persona.id}>
-                                    {persona.name}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            disabled={busy}
-                            className="text-[11px]"
-                            style={{
-                                padding: '2px 10px',
-                                background: busy ? '#D4D0C8' : '#ECE9D8',
-                            }}
-                            onClick={() =>
-                                proceedParty.mutateAsync({
-                                    id: apiPartyId,
-                                    data: {
-                                        chatGroupId,
-                                        provider,
-                                        model,
-                                    },
-                                })
-                            }
-                        >
-                            {busy ? '...' : 'Proceed'}
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            className="text-[11px]"
-                            style={{
-                                padding: '2px 16px',
-                                background: busy ? '#D4D0C8' : '#ECE9D8',
-                            }}
-                        >
-                            {busy ? '...' : 'Send'}
-                        </button>
-                    </div>
-                </form>
-            </div>
+            {/* Right sidebar: participants + thoughts */}
+            <ParticipantsSidebar
+                personas={partyPersonas}
+                participantPersonaIds={participantPersonaIds}
+                selectedPersonaId={selectedPersonaId}
+                activePersonaIds={activePersonaIds}
+                personaPhases={personaPhases}
+                livePhases={generationPhases}
+                allMessages={uniqueMessages}
+                declinedDecisions={declinedDecisions}
+                hasChanges={hasParticipantChanges}
+                isSaving={saveParticipantsMutation.isPending}
+                saveError={
+                    saveParticipantsMutation.isError
+                        ? saveParticipantsMutation.error instanceof Error
+                            ? saveParticipantsMutation.error.message
+                            : 'Failed to save'
+                        : null
+                }
+                onToggleParticipant={(id) => {
+                    setParticipantPersonaIds((prev) =>
+                        prev.includes(id)
+                            ? prev.filter((pid) => pid !== id)
+                            : [...prev, id],
+                    );
+                }}
+                onSave={handleSaveParticipants}
+                onReset={() =>
+                    setParticipantPersonaIds(savedParticipantPersonaIds)
+                }
+            />
         </div>
     );
 }
 
-function ModelDropdown({
-    partyId,
-    model,
-    setModel,
-    setProvider,
+function ParticipantsSidebar({
+    personas,
+    participantPersonaIds,
+    selectedPersonaId,
+    activePersonaIds,
+    personaPhases,
+    livePhases,
+    allMessages,
+    declinedDecisions,
+    hasChanges,
+    isSaving,
+    saveError,
+    onToggleParticipant,
+    onSave,
+    onReset,
 }: {
-    partyId: string;
-    model: string;
-    setModel: (m: string) => void;
-    setProvider: (p: string) => void;
+    personas: Persona[];
+    participantPersonaIds: string[];
+    selectedPersonaId: string;
+    activePersonaIds: Set<string>;
+    personaPhases: Map<string, ActiveGenerationPhase>;
+    livePhases: ActiveGenerationPhase[];
+    allMessages: RealtimeChatMessage[];
+    declinedDecisions: DeclinedDecision[];
+    hasChanges: boolean;
+    isSaving: boolean;
+    saveError: string | null;
+    onToggleParticipant: (id: string) => void;
+    onSave: () => void;
+    onReset: () => void;
 }) {
-    const modelsQuery = useGetPartyIdModelsSuspense(partyId);
-    const models = modelsQuery.data.data ?? [];
+    const participantSet = new Set(participantPersonaIds);
+    const aiPersonas = personas.filter((p) => !p.isUser);
+    const userPersona = personas.find((p) => p.id === selectedPersonaId);
+    const totalActive =
+        participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
 
-    useEffect(() => {
-        if (models.length === 0) return;
-        const isCurrentValid = models.some((m) => m.name === model);
-        if (!isCurrentValid) {
-            const first = models[0];
-            setModel(first.name ?? '');
-            setProvider(first.providerType ?? '');
+    const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
+
+    // Combined thought log: "go" decisions from persisted messages + "skip" decisions captured at runtime
+    const thoughtLog = useMemo(() => {
+        type LogEntry = {
+            key: string;
+            personaId: string | null;
+            personaName: string;
+            reason: string | null;
+            instruction: string | null;
+            skip: boolean; // true = declined to respond
+            sortKey: number;
+        };
+
+        const entries: LogEntry[] = [];
+
+        // "go" decisions: messages that have appraisalComplete (stop:false)
+        for (const msg of allMessages) {
+            if (!msg.appraisal) continue;
+            try {
+                const raw = JSON.parse(msg.appraisal);
+                const personaId = raw.personaId ?? raw.PersonaId ?? null;
+                const persona = personas.find((p) => p.id === personaId);
+                entries.push({
+                    key: `msg-${msg.messageId}`,
+                    personaId,
+                    personaName:
+                        persona?.name ?? personaId?.slice(0, 8) ?? 'Unknown',
+                    reason: raw.reason ?? raw.Reason ?? null,
+                    instruction: raw.instruction ?? raw.Instruction ?? null,
+                    skip: !!(raw.stop ?? raw.Stop),
+                    sortKey: msg.sendAt ?? msg.messageId,
+                });
+            } catch {
+                /* ignore */
+            }
         }
-    }, [models, model, setModel, setProvider]);
 
-    return (
-        <select
-            className="flex-1 text-[11px]"
-            value={model}
-            onChange={(event) => {
-                const option = event.target.selectedOptions[0];
-                const nextModel = option.dataset.model;
-                const nextProvider = option.dataset.provider;
-                if (nextModel === undefined || nextProvider === undefined)
-                    return;
-                setModel(nextModel);
-                setProvider(nextProvider);
+        // "skip" decisions: captured from declined events (ephemeral, session-only)
+        for (const d of declinedDecisions) {
+            const persona = personas.find((p) => p.id === d.personaId);
+            entries.push({
+                key: `declined-${d.personaId}-${d.timestamp}`,
+                personaId: d.personaId,
+                personaName:
+                    persona?.name ?? d.personaId?.slice(0, 8) ?? 'Unknown',
+                reason: d.reason,
+                instruction: null,
+                skip: true,
+                sortKey: d.timestamp,
+            });
+        }
+
+        return entries.sort((a, b) => b.sortKey - a.sortKey);
+    }, [allMessages, declinedDecisions, personas]);
+
+    const sectionLabel = (text: string, badge?: number) => (
+        <div
+            style={{
+                padding: '4px 8px 2px',
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#808080',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
             }}
         >
-            {models.length === 0 ? (
-                <option value={model}>{model} (no models available)</option>
-            ) : (
-                models.map((entry) => (
-                    <option
-                        key={`${entry.providerType}-${entry.endpointProviderGrainId}-${entry.name}`}
-                        value={entry.name}
-                        data-model={entry.name}
-                        data-provider={entry.providerType}
-                    >
-                        {entry.providerDescription} / {entry.name}
-                    </option>
-                ))
+            {text}
+            {badge !== undefined && badge > 0 && (
+                <span
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: '#808080',
+                        color: '#fff',
+                        fontSize: 8,
+                        fontWeight: 700,
+                    }}
+                >
+                    {badge}
+                </span>
             )}
-        </select>
+        </div>
+    );
+
+    return (
+        <div
+            className="participant-sidebar"
+            style={{
+                width: 180,
+                minWidth: 180,
+                height: '100%',
+                display: 'grid',
+                gridTemplateRows: 'auto 1fr',
+                overflow: 'hidden',
+            }}
+        >
+            {/* ── Participants section (auto height row) ── */}
+            <div style={{ overflow: 'hidden auto' }}>
+                {sectionLabel(`Participants — ${totalActive}`)}
+
+                {/* AI list */}
+                {aiPersonas.map((persona) => {
+                    const id = persona.id ?? '';
+                    const isActive = participantSet.has(id);
+                    const isWorking = activePersonaIds.has(id);
+                    const phase = personaPhases.get(id);
+                    const isDeciding = phase?.phase === 'deciding';
+
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
+                            onClick={() => onToggleParticipant(id)}
+                            title={
+                                isActive
+                                    ? 'Click to remove from chat'
+                                    : 'Click to add to chat'
+                            }
+                        >
+                            <img
+                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                                alt={persona.name ?? id}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                className={isWorking ? 'animate-pulse' : ''}
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: isActive ? 600 : 400,
+                                    color: isActive ? '#000' : '#808080',
+                                }}
+                            >
+                                {persona.name ?? id.slice(0, 8)}
+                            </span>
+                            {isDeciding ? (
+                                <span
+                                    className="animate-pulse"
+                                    style={{
+                                        fontSize: 8,
+                                        color: '#CC8800',
+                                        flexShrink: 0,
+                                    }}
+                                    title="Deciding whether to respond"
+                                >
+                                    ●
+                                </span>
+                            ) : (
+                                <span
+                                    className={`participant-status-dot${isActive ? ' online' : ' offline'}${isWorking ? ' working' : ''}`}
+                                />
+                            )}
+                        </button>
+                    );
+                })}
+
+                {/* User row */}
+                {userPersona && (
+                    <>
+                        <div
+                            style={{
+                                margin: '4px 8px 0',
+                                borderTop: '1px solid #D4D0C8',
+                            }}
+                        />
+                        <div className="participant-row active">
+                            <img
+                                src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
+                                alt={userPersona.name ?? 'You'}
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: '#003399',
+                                }}
+                            >
+                                {userPersona.name ?? 'You'}
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: 8,
+                                    color: '#808080',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                you
+                            </span>
+                        </div>
+                    </>
+                )}
+
+                {/* Inline status / save controls */}
+                {participantPersonaIds.length === 0 &&
+                    aiPersonas.length > 0 && (
+                        <div
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: 10,
+                                color: '#996600',
+                                background: '#FFFBEA',
+                                borderTop: '1px solid #E6D87A',
+                            }}
+                        >
+                            No AI participants — AI won't respond.
+                        </div>
+                    )}
+                {saveError && (
+                    <div
+                        style={{
+                            padding: '3px 8px',
+                            fontSize: 10,
+                            color: '#c00',
+                            borderTop: '1px solid #ACA899',
+                        }}
+                    >
+                        {saveError}
+                    </div>
+                )}
+                {hasChanges && (
+                    <div
+                        className="flex gap-1 p-1"
+                        style={{ borderTop: '1px solid #ACA899' }}
+                    >
+                        <button
+                            type="button"
+                            disabled={isSaving}
+                            className="flex-1 text-[10px]"
+                            onClick={onReset}
+                        >
+                            Reset
+                        </button>
+                        <button
+                            type="button"
+                            disabled={isSaving}
+                            className="flex-1 text-[10px]"
+                            onClick={onSave}
+                        >
+                            {isSaving ? 'Saving...' : 'Save'}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Thought Log section (1fr grid row, always visible) ── */}
+            <div
+                style={{
+                    borderTop: '2px solid #ACA899',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                }}
+            >
+                {sectionLabel(
+                    'Thought Log',
+                    decidingPhases.length + thoughtLog.length,
+                )}
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {/* Live: personas currently deciding */}
+                    {decidingPhases.map((phase) => {
+                        const personaId = phase.personaName;
+                        const persona = personas.find(
+                            (p) => p.id === personaId,
+                        );
+                        const name = persona?.name ?? personaId?.slice(0, 8);
+                        const decisionText =
+                            phase.phase === 'deciding'
+                                ? phase.decisionText
+                                : '';
+                        return (
+                            <div
+                                key={phase.messageId ?? personaId}
+                                style={{
+                                    borderBottom: '1px solid #E6D87A',
+                                    background: '#FFFBEA',
+                                    borderLeft: '3px solid #CC8800',
+                                    padding: '5px 8px',
+                                }}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <img
+                                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                                        alt={name}
+                                        style={{
+                                            width: 14,
+                                            height: 14,
+                                            imageRendering: 'pixelated',
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                    <span
+                                        className="animate-pulse"
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            color: '#806600',
+                                        }}
+                                    >
+                                        {name}…
+                                    </span>
+                                </div>
+                                {decisionText && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#666',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-all',
+                                            maxHeight: 100,
+                                            overflowY: 'auto',
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        {decisionText}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Settled decisions (go + skip), newest first */}
+                    {thoughtLog.length === 0 && decidingPhases.length === 0 ? (
+                        <div
+                            style={{
+                                padding: '10px 8px',
+                                fontSize: 10,
+                                color: '#ACA899',
+                                textAlign: 'center',
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            No decisions yet
+                        </div>
+                    ) : (
+                        thoughtLog.map((entry) => (
+                            <div
+                                key={entry.key}
+                                style={{
+                                    borderBottom: '1px solid #D4D0C8',
+                                    padding: '4px 8px',
+                                    borderLeft: entry.skip
+                                        ? '3px solid #CC8800'
+                                        : '3px solid #009900',
+                                }}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    {entry.personaId && (
+                                        <img
+                                            src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                            alt={entry.personaName}
+                                            style={{
+                                                width: 13,
+                                                height: 13,
+                                                imageRendering: 'pixelated',
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                    )}
+                                    <span
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            color: '#333',
+                                            flex: 1,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {entry.personaName}
+                                    </span>
+                                    <span
+                                        style={{
+                                            fontSize: 9,
+                                            color: entry.skip
+                                                ? '#CC8800'
+                                                : '#009900',
+                                            fontWeight: 700,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {entry.skip ? 'skip' : 'go'}
+                                    </span>
+                                </div>
+                                {entry.reason && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#666',
+                                            fontStyle: 'italic',
+                                            lineHeight: 1.3,
+                                            marginTop: 1,
+                                        }}
+                                    >
+                                        {entry.reason}
+                                    </div>
+                                )}
+                                {entry.instruction && entry.skip && (
+                                    <div
+                                        style={{
+                                            fontSize: 9,
+                                            color: '#806600',
+                                            lineHeight: 1.3,
+                                        }}
+                                    >
+                                        → {entry.instruction}
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -754,24 +1191,21 @@ function ChatBubble({
     const [showDetails, setShowDetails] = useState(false);
 
     const senderName = useMemo(() => {
-        if (message.senderName) {
-            return isUser ? `${message.senderName} (you)` : message.senderName;
-        }
-        if (isUser) {
-            return 'You';
-        }
         const persona = personas.find((p) => p.id === message.senderId);
-        return persona?.name ?? message.senderId.slice(0, 8);
-    }, [message.senderName, message.senderId, isUser, personas]);
+        if (persona?.name) {
+            return isUser ? `${persona.name} (you)` : persona.name;
+        }
+        return isUser ? 'You' : message.senderId.slice(0, 8);
+    }, [message.senderId, isUser, personas]);
 
     const hasDetails = !!(
         message.reasoning || (message.generationEvents?.length ?? 0) > 0
     );
 
-    const overseerData = useMemo(() => {
-        if (!message.overseer) return null;
+    const appraisalData = useMemo(() => {
+        if (!message.appraisal) return null;
         try {
-            const raw = JSON.parse(message.overseer);
+            const raw = JSON.parse(message.appraisal);
             // Normalise PascalCase keys from older messages to camelCase
             return {
                 personaId: raw.personaId ?? raw.PersonaId,
@@ -782,20 +1216,21 @@ function ChatBubble({
         } catch {
             return null;
         }
-    }, [message.overseer]);
+    }, [message.appraisal]);
 
-    const isOverseerStop = overseerData?.stop === true;
+    const isAppraisalStop = appraisalData?.stop === true;
     const isDirectedAtUser =
-        !!overseerData &&
+        !!appraisalData &&
         !!userPersonaId &&
-        overseerData.personaId === userPersonaId;
+        appraisalData.personaId === userPersonaId;
 
     const userPersonaName =
         personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
 
-    if (isDirectedAtUser && overseerData) {
+    if (isDirectedAtUser && appraisalData) {
         return (
             <div
+                className="group"
                 style={{
                     borderBottom: '1px solid #B0C4F0',
                     background:
@@ -821,7 +1256,7 @@ function ChatBubble({
                             {userPersonaName}
                         </span>
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             type="button"
                             disabled={busy}
@@ -853,13 +1288,13 @@ function ChatBubble({
                         fontSize: 12,
                         color: '#1a1a4a',
                         fontWeight: 500,
-                        marginBottom: overseerData.reason ? 4 : 0,
+                        marginBottom: appraisalData.reason ? 4 : 0,
                         lineHeight: 1.4,
                     }}
                 >
-                    {overseerData.instruction}
+                    {appraisalData.instruction}
                 </div>
-                {overseerData.reason && (
+                {appraisalData.reason && (
                     <div
                         style={{
                             fontSize: 10,
@@ -867,7 +1302,7 @@ function ChatBubble({
                             fontStyle: 'italic',
                         }}
                     >
-                        {overseerData.reason}
+                        {appraisalData.reason}
                     </div>
                 )}
             </div>
@@ -876,26 +1311,26 @@ function ChatBubble({
 
     return (
         <div
-            className="p-2"
+            className="p-2 group"
             style={{
                 borderBottom: '1px solid #D4D0C8',
-                background: isOverseerStop
+                background: isAppraisalStop
                     ? '#FFFBEA'
                     : isUser
                       ? '#FFFEF5'
                       : '#F8F8F8',
                 borderLeft: isGenerating
                     ? '3px solid #316AC5'
-                    : isOverseerStop
+                    : isAppraisalStop
                       ? '3px solid #CC8800'
                       : '3px solid transparent',
             }}
         >
             <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2">
-                    {isOverseerStop ? (
+                    {isAppraisalStop ? (
                         <span
-                            title="Overseer"
+                            title="Appraisal"
                             style={{
                                 width: 22,
                                 height: 22,
@@ -923,30 +1358,25 @@ function ChatBubble({
                     <span
                         style={{
                             fontWeight: 600,
-                            color: isOverseerStop
+                            color: isAppraisalStop
                                 ? '#806600'
                                 : isUser
                                   ? '#003399'
                                   : '#006600',
                         }}
                     >
-                        {isOverseerStop ? 'Overseer' : senderName}
+                        {isAppraisalStop ? 'Appraisal' : senderName}
                     </span>
-                    {message.modelEndpointStub ? (
-                        <span
-                            className="text-[10px]"
-                            style={{ color: '#808080' }}
-                        >
-                            {message.modelEndpointStub.split('/').pop()}
-                        </span>
-                    ) : null}
                     {formatTime(message.sendAt) ? (
                         <span style={{ color: '#ACA899', fontSize: 10 }}>
                             {formatTime(message.sendAt)}
                         </span>
                     ) : null}
                 </div>
-                <span className="flex items-center gap-1">
+                <span
+                    className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ flexShrink: 0 }}
+                >
                     {hasDetails && (
                         <button
                             type="button"
@@ -996,48 +1426,6 @@ function ChatBubble({
                 </div>
             ) : null}
 
-            {overseerData && (
-                <details className="mt-1" style={{ fontSize: 10 }}>
-                    <summary
-                        style={{
-                            color: '#806600',
-                            cursor: 'pointer',
-                            userSelect: 'none',
-                        }}
-                    >
-                        Overseer →{' '}
-                        {personas.find((p) => p.id === overseerData.personaId)
-                            ?.name ??
-                            overseerData.personaId?.slice(0, 8) ??
-                            'none'}
-                        {overseerData.stop ? ' (stop)' : ''}
-                    </summary>
-                    <div
-                        className="mt-1 p-1.5"
-                        style={{
-                            background: '#FFFBEA',
-                            border: '1px solid #E6D87A',
-                            color: '#555',
-                        }}
-                    >
-                        {overseerData.reason && (
-                            <div>
-                                <span style={{ fontWeight: 600 }}>Reason:</span>{' '}
-                                {overseerData.reason}
-                            </div>
-                        )}
-                        {overseerData.instruction && (
-                            <div>
-                                <span style={{ fontWeight: 600 }}>
-                                    Instruction:
-                                </span>{' '}
-                                {overseerData.instruction}
-                            </div>
-                        )}
-                    </div>
-                </details>
-            )}
-
             {showDetails && hasDetails && (
                 <div
                     className="mt-2 p-2"
@@ -1084,7 +1472,7 @@ function ChatBubble({
                                             ![
                                                 'message',
                                                 'reasoning',
-                                                'overseer',
+                                                'appraisal',
                                             ].includes(e.event),
                                     )
                                     .map((e, i) => (
@@ -1103,8 +1491,7 @@ function ChatBubble({
                                             <span style={{ color: '#000' }}>
                                                 {e.event === 'overseerStop'
                                                     ? '(stopped)'
-                                                    : e.event ===
-                                                        'personaChange'
+                                                    : e.event === 'attend'
                                                       ? (personas.find(
                                                             (p) =>
                                                                 p.id === e.data,
@@ -1112,7 +1499,7 @@ function ChatBubble({
                                                         e.data.slice(0, 8))
                                                       : e.data.slice(0, 50)}
                                                 {e.event !== 'overseerStop' &&
-                                                e.event !== 'personaChange' &&
+                                                e.event !== 'attend' &&
                                                 e.data.length > 50
                                                     ? '...'
                                                     : ''}
@@ -1194,47 +1581,30 @@ function MarkdownContent({
 
 function StreamingIndicator({
     info,
-    overseerText,
     personas,
 }: {
     info: GenerationPhase;
-    overseerText?: string | null;
     personas?: Persona[];
 }) {
-    if (info.phase === 'overseer') {
+    if (info.phase === 'waiting') {
         return (
             <div
+                className="flex items-center gap-2 animate-pulse"
                 style={{
-                    color: '#806600',
-                    background: '#FFF8DC',
+                    color: '#808080',
                     padding: '4px 8px',
-                    border: '1px solid #E6D87A',
                 }}
             >
-                <span className="animate-pulse">
-                    Overseer is choosing who speaks...
-                </span>
-                {overseerText && (
-                    <div
-                        className="mt-1"
-                        style={{
-                            fontFamily: 'monospace',
-                            fontSize: 9,
-                            color: '#5a4800',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                            maxHeight: 48,
-                            overflow: 'hidden',
-                        }}
-                    >
-                        {overseerText}
-                    </div>
-                )}
+                <span>Waiting for responses...</span>
             </div>
         );
     }
+    if (info.phase === 'deciding') {
+        // deciding phases are shown in the sidebar Thoughts tab, not inline
+        return null;
+    }
     if (info.phase === 'typing' || info.phase === 'streaming') {
-        const personaId = info.personaName; // actually the ID from personaChange event
+        const personaId = info.personaName; // actually the ID from attend event
         const resolvedName =
             personas?.find((p) => p.id === personaId)?.name ??
             personaId.slice(0, 8);
@@ -1331,28 +1701,27 @@ function ConnectionDot({ status }: { status: RealtimeConnectionStatus }) {
     return (
         <span
             title={title}
-            className={
-                status === 'connecting' || status === 'reconnecting'
-                    ? 'animate-pulse'
-                    : ''
-            }
             style={{
                 display: 'inline-block',
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
                 background: color,
-                border: '1px solid rgba(0,0,0,0.3)',
+                flexShrink: 0,
             }}
         />
     );
 }
 
-function formatTime(t: number | null) {
-    return t
-        ? new Date(t).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-          })
-        : null;
+function formatTime(iso: string | null | undefined): string {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return '';
+    }
 }

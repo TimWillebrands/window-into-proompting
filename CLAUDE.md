@@ -1,14 +1,18 @@
+No file path provided — compressing the text directly:
+
+---
+
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repo.
 
 ## Project Overview
 
-Proompting (aka Partytown) is a Windows XP-themed AI chat application where multiple AI personas converse in "party" chat groups. It uses a C#/.NET backend with Microsoft Orleans (actor model) and a React frontend styled with xp.css.
+Proompting (aka Partytown) = Windows XP-themed AI chat. Multiple AI personas converse in party groups. C#/.NET backend + Microsoft Orleans (actor model). React frontend via xp.css.
 
 ## Development Environment
 
-Everything runs via Docker Compose — no local .NET, Node, or PostgreSQL needed.
+All via Docker Compose. No local .NET/Node/PostgreSQL.
 
 ```bash
 docker compose up          # Start all services (frontend, backend, db, caddy)
@@ -16,7 +20,7 @@ docker compose down        # Stop (preserves DB)
 docker compose down -v     # Stop and wipe DB
 ```
 
-A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`. The `UID`/`GID` values are needed so the backend container can share volume mounts (`.nuget`, `bin`, `obj`) with the host for LSP support.
+`.env` at project root: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`. `UID`/`GID` → backend container shares volume mounts (`.nuget`, `bin`, `obj`) w/ host for LSP.
 
 ### Service URLs (host)
 
@@ -26,7 +30,7 @@ A `.env` file is required at the project root with `POSTGRES_USER`, `POSTGRES_PA
 - **Database**: localhost:${HOST_DB_PORT:-5455} (PostgreSQL + Apache AGE)
 - **Aspire Dashboard**: http://localhost:18888 (OpenTelemetry traces/metrics/logs)
 
-Both frontend and backend hot-reload on file changes.
+Frontend + backend hot-reload on changes.
 
 ## Commands
 
@@ -41,7 +45,7 @@ npm run check          # Biome check (lint + format)
 npm run api-generate   # Regenerate API client from OpenAPI spec (orval)
 ```
 
-`npm run api-generate` fetches the OpenAPI spec from the running backend (via Caddy at localhost:8080), so `docker compose up` must be running first.
+`npm run api-generate` fetches OpenAPI spec from backend (via Caddy at localhost:8080). Requires `docker compose up` first.
 
 ### Backend (run inside `backend/` or via `docker compose exec dev-backend`)
 
@@ -56,36 +60,38 @@ dotnet clean && dotnet build
 docker compose exec age-db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
-DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the volume (`docker compose down -v`).
+DB init scripts in `docker-entrypoint-initdb.d/`. Re-run: wipe volume (`docker compose down -v`).
 
 ## Architecture
 
 ### Backend (.NET 11 + Orleans 10)
 
 **Orleans Grains (distributed actors):**
-- `PartyGrain` — event-sourced (`JournaledGrain<PartyState, PartyEvent>`) grain keyed by GUID. Manages chat groups, participants, messages, and LLM generation. Persistence store: `"parties"`.
-- `PersonaGrain` — stores AI persona config (model, provider, system prompt). Persistence store: `"personas"`.
-- `PartyRootGrain` / `PersonaRootGrain` — singleton registry grains (keyed `Guid.Empty`) that track all parties/personas.
+- `PartyGrain` — event-sourced (`JournaledGrain<PartyState, PartyEvent>`), GUID-keyed. Manages groups/participants/msgs/LLM gen. Store: `"parties"`.
+- `PersonaGrain` — AI persona config (model, provider, system prompt). Store: `"personas"`.
+- `PartyRootGrain` / `PersonaRootGrain` — singleton registry grains (keyed `Guid.Empty`), track all parties/personas.
 
-**Real-time:** `PartyRealtimeHub` is a singleton service managing raw WebSocket connections per party. It broadcasts message envelopes `{ type, sequence, timestamp, data }` to all connected clients. Not SignalR — it's custom WebSocket handling.
+**Real-time:** `PartyRealtimeHub` = singleton, manages raw WebSocket conns per party. Broadcasts `{ type, sequence, timestamp, data }` to clients. Custom WebSocket (not SignalR).
 
-**LLM generation:** Also modeled as Orleans grains. `LlmRouterGrain` aggregates models from all configured endpoint grains and routes generation requests. `OllamaEndpointGrain` and `OpenRouterEndpointGrain` implement `ILlmEndpointGrain` and handle streaming generation. Provider config is in `LlmOptions` (mapped from `Llm` section in env/appsettings). Responses are streamed to clients via the realtime hub and Orleans streams.
+**LLM generation:** Orleans grains. `LlmRouterGrain` aggregates models from endpoint grains → routes gen requests. `OllamaEndpointGrain` + `OpenRouterEndpointGrain` impl `ILlmEndpointGrain`, handle streaming gen. Provider config: `LlmOptions` (from `Llm` in env/appsettings). Responses stream via realtime hub + Orleans streams.
 
-**Controllers:** `PartyController` (CRUD for parties/chat groups, prompt/reprompt/proceed endpoints) and `PersonaController` (CRUD for personas, model listing).
+**Controllers:** `PartyController` (CRUD parties/groups, prompt/reprompt/proceed). `PersonaController` (CRUD personas, model listing).
 
 **OpenAPI:** Backend exposes spec at `/api/openapi/v1.json`.
 
+**Orleans serialization constraint:** No C# collection exprs (`[]`, `[.. x]`) as grain interface return values. Compiler-gen `<>z__ReadOnlyList` unknown to Orleans → `CodecNotFoundException` at runtime. Use `Array.Empty<T>()` (empty) / `.ToList()` (spread/projection) instead.
+
 ### Frontend (React 19 + TanStack Start/Router/Query)
 
-**Routing:** File-based via TanStack Router in `src/routes/`. Currently a single route (`index.tsx`) that renders the desktop experience. Route search params store desktop window layout state.
+**Routing:** File-based via TanStack Router in `src/routes/`. Single route (`index.tsx`) renders desktop. Search params store window layout state.
 
-**API client:** Auto-generated React Query hooks in `src/api/party-zone.ts` via Orval. Regenerate with `npm run api-generate` when backend endpoints change. Hooks use `useSuspenseQuery` by default.
+**API client:** Auto-gen React Query hooks in `src/api/party-zone.ts` via Orval. Regen with `npm run api-generate` on backend changes. Default: `useSuspenseQuery`.
 
 **State management:**
-- `desktop-context.tsx` — Zustand store for window management (open/close/focus/drag windows, z-ordering)
-- `realtime-store.ts` — Zustand store managing per-party WebSocket connections with reconnection, sequence tracking, and message merging
+- `desktop-context.tsx` — Zustand store, window mgmt (open/close/focus/drag, z-ordering)
+- `realtime-store.ts` — Zustand, per-party WebSocket conns: reconnect, sequence tracking, msg merging
 
-**Desktop UI:** Windows XP theme via `xp.css`. Uses `react-grid-layout` for draggable/resizable windows. Apps: `ChatManagerApp` (chat interface), `PersonasApp` (persona management), `ConfigPanelApp` (settings).
+**Desktop UI:** XP theme via `xp.css`. `react-grid-layout` for draggable/resizable windows. Apps: `ChatManagerApp` (chat), `PersonasApp` (persona mgmt), `ConfigPanelApp` (settings).
 
 **Code style:** Biome for linting/formatting — 4-space indent, single quotes, trailing commas. No Prettier/ESLint.
 
@@ -97,4 +103,4 @@ DB init scripts live in `docker-entrypoint-initdb.d/`. To re-run them, wipe the 
 
 ### Deployment
 
-Deployed via [Kamal](https://kamal-deploy.org/) — config in `config/deploy.yml` and `config/deploy.frontend.yml`. Targets `game.timwillebrands.nl` with accessories for the database and Aspire dashboard.
+Deployed via [Kamal](https://kamal-deploy.org/). Config: `config/deploy.yml`, `config/deploy.frontend.yml`. Target: `game.timwillebrands.nl`. Accessories: DB + Aspire dashboard.

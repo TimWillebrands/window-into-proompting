@@ -32,7 +32,7 @@ export interface MessageType {
     messageid: number;
     message: string | null;
     reasoning: string | null;
-    overseer: string | null;
+    appraisal: string | null;
     error: string | null;
     senderType: string;
     senderId: string;

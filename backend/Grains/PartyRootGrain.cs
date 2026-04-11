@@ -41,12 +41,36 @@ public sealed class PartyRootGrain(
 
         if (state.State.PartyIds.Remove(id))
         {
+            var staleKeys = state.State.ChatGroupToParty
+                .Where(kvp => kvp.Value == id)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            foreach (var key in staleKeys)
+                state.State.ChatGroupToParty.Remove(key);
+
             await state.WriteStateAsync();
         }
     }
 
     public Task<bool> HasPartyId(Guid id)
         => Task.FromResult(state.State.PartyIds.Contains(id));
+
+    public async Task RegisterChatGroup(Guid chatGroupId, Guid partyId)
+    {
+        if (!state.State.PartyIds.Contains(partyId))
+            throw new ArgumentException($"Party {partyId} does not exist.", nameof(partyId));
+
+        if (state.State.ChatGroupToParty.ContainsKey(chatGroupId))
+            throw new InvalidOperationException($"Chat group {chatGroupId} is already registered.");
+
+        state.State.ChatGroupToParty[chatGroupId] = partyId;
+        await state.WriteStateAsync();
+    }
+
+    public Task<Guid?> GetPartyForChatGroup(Guid chatGroupId)
+        => Task.FromResult(state.State.ChatGroupToParty.TryGetValue(chatGroupId, out var partyId)
+            ? partyId
+            : (Guid?)null);
 
     public async Task<PartyInfo[]> GetAll()
     {
@@ -79,6 +103,12 @@ public interface IPartyRootGrain : IGrainWithGuidKey
 
     [Alias("GetAll")]
     Task<PartyInfo[]> GetAll();
+
+    [Alias("RegisterChatGroup")]
+    Task RegisterChatGroup(Guid chatGroupId, Guid partyId);
+
+    [Alias("GetPartyForChatGroup")]
+    Task<Guid?> GetPartyForChatGroup(Guid chatGroupId);
 }
 
 [GenerateSerializer, Alias(nameof(PartyRootState))]
@@ -86,4 +116,7 @@ public sealed record class PartyRootState
 {
     [Id(0)]
     public HashSet<Guid> PartyIds { get; set; } = [];
+
+    [Id(1)]
+    public Dictionary<Guid, Guid> ChatGroupToParty { get; set; } = [];
 }

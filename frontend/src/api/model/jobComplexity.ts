@@ -5,8 +5,4 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface DefaultPersonaTemplate {
-    name: string;
-    systemPrompt: string;
-    bio: string;
-}
+export type JobComplexity = number;
