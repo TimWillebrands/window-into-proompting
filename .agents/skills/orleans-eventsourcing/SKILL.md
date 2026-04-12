@@ -1,5 +1,3 @@
-Here is the compressed markdown:
-
 ---
 name: event-sourced-orleans
 description: Design and implement event-sourced systems using Microsoft Orleans JournaledGrain APIs. Use when building Orleans grains that store state through events, implement command handling, and maintain CQRS-style read models or projections.
