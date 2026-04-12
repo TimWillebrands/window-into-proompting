@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
 });
 
 builder.Services.AddMemoryCache();
+builder.Services.AddOutputCache();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
@@ -114,6 +115,8 @@ if (OtlpEndpoint != null)
 }
 
 var app = builder.Build();
+
+app.UseOutputCache();
 
 app.Logger.LogInformation("App starting...");
 app.Logger.LogInformation("LLM Provider: {Provider}", builder.Configuration["Llm:Provider"]);

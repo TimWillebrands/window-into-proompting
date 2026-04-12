@@ -20,22 +20,15 @@ export default function DesktopTaskbar({
                 🪟 start
             </button>
             {windows.map((window) => (
-                <div
+                <button
                     key={window.id}
-                    role="button"
-                    tabIndex={0}
+                    type="button"
                     className={`h-7 px-3 text-sm rounded border relative pr-8 cursor-default select-none flex items-center ${
                         focusedId === window.id
                             ? 'bg-orange-200 text-black'
                             : 'bg-blue-100 text-black'
                     }`}
                     onClick={() => onToggle(window.id)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onToggle(window.id);
-                        }
-                    }}
                 >
                     {window.icon && <span className="mr-1">{window.icon}</span>}
                     <span className="truncate">{window.title}</span>
@@ -50,7 +43,7 @@ export default function DesktopTaskbar({
                     >
                         ✕
                     </button>
-                </div>
+                </button>
             ))}
         </div>
     );

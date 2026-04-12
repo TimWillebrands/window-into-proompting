@@ -3,6 +3,7 @@ import type { LlmProviderEntry } from '../../api/model/llmProviderEntry';
 import {
     useDeleteLlmConfigProvidersId,
     useGetLlmConfigProviders,
+    useGetLlmConfigProvidersIdModels,
     usePostLlmConfigProviders,
     usePutLlmConfigProvidersId,
 } from '../../api/party-zone';
@@ -338,6 +339,7 @@ const EMPTY_ENTRY: LlmProviderEntry = {
     apiKey: null,
     modelName: null,
     supportedComplexities: 1,
+    isEnabled: true,
 };
 
 function LlmProvidersSection() {
@@ -422,12 +424,18 @@ function LlmProvidersSection() {
                         provider={p}
                         onEdit={() => openEdit(p)}
                         onDeleted={refetch}
+                        onToggled={refetch}
                     />
                 ))}
             </div>
 
             {editing && (
-                <ProviderEditor entry={editing} isNew={isNew} onClose={close} />
+                <ProviderModal
+                    title={isNew ? 'Add Provider' : 'Edit Provider'}
+                    onClose={close}
+                >
+                    <ProviderEditor entry={editing} isNew={isNew} onClose={close} />
+                </ProviderModal>
             )}
         </div>
     );
@@ -437,13 +445,18 @@ function ProviderCard({
     provider,
     onEdit,
     onDeleted,
+    onToggled,
 }: {
     provider: LlmProviderEntry;
     onEdit: () => void;
     onDeleted: () => void;
+    onToggled: () => void;
 }) {
     const deleteMutation = useDeleteLlmConfigProvidersId({
         mutation: { onSuccess: onDeleted },
+    });
+    const toggleMutation = usePutLlmConfigProvidersId({
+        mutation: { onSuccess: onToggled },
     });
 
     const complexityLabels = JOB_COMPLEXITIES.filter(
@@ -451,16 +464,29 @@ function ProviderCard({
     ).map((c) => c.label);
 
     const isOllama = provider.type === 'ollama';
+    const isEnabled = provider.isEnabled !== false;
+
+    const handleToggle = () => {
+        if (provider.id) {
+            toggleMutation.mutate({
+                id: provider.id,
+                data: { ...provider, isEnabled: !isEnabled },
+            });
+        }
+    };
 
     return (
         <div
             style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: isEnabled
+                    ? 'rgba(255,255,255,0.1)'
+                    : 'rgba(0,0,0,0.15)',
+                border: `1px solid ${isEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}`,
                 padding: '12px 14px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
+                opacity: isEnabled ? 1 : 0.55,
             }}
         >
             <span style={{ fontSize: 24, flexShrink: 0 }}>
@@ -473,12 +499,29 @@ function ProviderCard({
                         fontWeight: 700,
                         fontSize: 13,
                         marginBottom: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
                     }}
                 >
                     {isOllama ? 'Ollama' : 'OpenRouter'}
+                    {!isEnabled && (
+                        <span
+                            style={{
+                                fontSize: 10,
+                                fontWeight: 400,
+                                background: 'rgba(255,160,0,0.25)',
+                                border: '1px solid rgba(255,160,0,0.4)',
+                                color: '#fca',
+                                padding: '0px 5px',
+                            }}
+                        >
+                            disabled
+                        </span>
+                    )}
                     <span
                         style={{
-                            marginLeft: 8,
+                            marginLeft: 2,
                             fontWeight: 400,
                             opacity: 0.7,
                             fontSize: 11,
@@ -528,6 +571,27 @@ function ProviderCard({
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                 <button
                     type="button"
+                    onClick={handleToggle}
+                    disabled={toggleMutation.isPending}
+                    style={{
+                        fontSize: 11,
+                        padding: '2px 8px',
+                        background: isEnabled
+                            ? 'rgba(60,180,60,0.2)'
+                            : 'rgba(255,255,255,0.08)',
+                        border: `1px solid ${isEnabled ? 'rgba(60,180,60,0.5)' : 'rgba(255,255,255,0.2)'}`,
+                        color: isEnabled ? '#afa' : 'rgba(255,255,255,0.5)',
+                        cursor: toggleMutation.isPending ? 'wait' : 'pointer',
+                    }}
+                >
+                    {toggleMutation.isPending
+                        ? '...'
+                        : isEnabled
+                          ? 'Enabled'
+                          : 'Disabled'}
+                </button>
+                <button
+                    type="button"
                     onClick={onEdit}
                     style={{
                         fontSize: 11,
@@ -563,6 +627,74 @@ function ProviderCard({
     );
 }
 
+function ProviderModal({
+    title,
+    onClose,
+    children,
+}: {
+    title: string;
+    onClose: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 1000,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                cursor: 'pointer',
+            }}
+            onClick={onClose}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    onClose();
+                }
+            }}
+            aria-label="Close modal"
+        >
+            <div
+                role="dialog"
+                className="window"
+                style={{
+                    width: 480,
+                    maxHeight: '85vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+            >
+                <div className="title-bar box-content">
+                    <div className="title-bar-text">{title}</div>
+                    <div className="title-bar-controls">
+                        <button
+                            type="button"
+                            aria-label="Close"
+                            onClick={onClose}
+                        />
+                    </div>
+                </div>
+                <div
+                    className="window-body"
+                    style={{
+                        overflowY: 'auto',
+                    }}
+                >
+                    {children}
+                </div>
+            </div>
+        </button>
+    );
+}
+
 function ProviderEditor({
     entry,
     isNew,
@@ -580,6 +712,7 @@ function ProviderEditor({
     const updateMutation = usePutLlmConfigProvidersId({
         mutation: { onSuccess: onClose },
     });
+    const models = useGetLlmConfigProvidersIdModels(entry.id ?? '');
 
     const set = (patch: Partial<LlmProviderEntry>) =>
         setForm((prev) => ({ ...prev, ...patch }));
@@ -611,24 +744,7 @@ function ProviderEditor({
     const isPending = addMutation.isPending || updateMutation.isPending;
 
     return (
-        <div
-            style={{
-                marginTop: 16,
-                background: 'rgba(0,0,0,0.25)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                padding: 16,
-            }}
-        >
-            <div
-                style={{
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: 14,
-                    marginBottom: 12,
-                }}
-            >
-                {isNew ? 'Add Provider' : 'Edit Provider'}
-            </div>
+        <div>
 
             {/* Type */}
             <FormRow label="Type">
@@ -669,17 +785,29 @@ function ProviderEditor({
 
             {/* Model name */}
             <FormRow label="Model Name">
-                <input
-                    type="text"
-                    value={form.modelName ?? ''}
-                    onChange={(e) => set({ modelName: e.target.value || null })}
-                    placeholder={
-                        form.type === 'ollama'
-                            ? 'e.g. llama3.2'
-                            : 'e.g. nvidia/llama-3.1-nemotron-ultra-253b-v1:free'
-                    }
-                    style={inputStyle}
-                />
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <input
+                        type="text"
+                        list={entry.id ? `models-list-${entry.id}` : undefined}
+                        value={form.modelName ?? ''}
+                        onChange={(e) =>
+                            set({ modelName: e.target.value || null })
+                        }
+                        placeholder={
+                            form.type === 'ollama'
+                                ? 'e.g. llama3.2'
+                                : 'e.g. nvidia/llama-3.1-nemotron-ultra-253b-v1:free'
+                        }
+                        style={inputStyle}
+                    />
+                    {entry.id && (
+                        <datalist id={`models-list-${entry.id}`}>
+                            {(models.data?.data ?? []).map((model) => (
+                                <option key={model} value={model} />
+                            ))}
+                        </datalist>
+                    )}
+                </div>
             </FormRow>
 
             {/* Job complexity */}
@@ -689,7 +817,7 @@ function ProviderEditor({
                         <label
                             key={c.value}
                             style={{
-                                color: '#fff',
+                                color: '#000',
                                 fontSize: 12,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -718,14 +846,6 @@ function ProviderEditor({
                     type="button"
                     onClick={handleSave}
                     disabled={isPending || !form.baseUrl}
-                    style={{
-                        padding: '4px 16px',
-                        fontSize: 12,
-                        background: 'rgba(60,140,255,0.3)',
-                        border: '1px solid rgba(60,140,255,0.6)',
-                        color: '#fff',
-                        cursor: isPending ? 'wait' : 'pointer',
-                    }}
                 >
                     {isPending ? 'Saving...' : 'Save'}
                 </button>
@@ -733,14 +853,6 @@ function ProviderEditor({
                     type="button"
                     onClick={onClose}
                     disabled={isPending}
-                    style={{
-                        padding: '4px 12px',
-                        fontSize: 12,
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.25)',
-                        color: '#fff',
-                        cursor: 'pointer',
-                    }}
                 >
                     Cancel
                 </button>
@@ -760,18 +872,16 @@ function FormRow({
         <div
             style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                marginBottom: 8,
+                flexDirection: 'column',
+                gap: 4,
+                marginBottom: 12,
             }}
         >
             <div
                 style={{
-                    width: 90,
-                    flexShrink: 0,
-                    color: 'rgba(255,255,255,0.75)',
+                    color: '#1B5EAD',
                     fontSize: 12,
-                    textAlign: 'right',
+                    fontWeight: 600,
                 }}
             >
                 {label}
@@ -782,19 +892,21 @@ function FormRow({
 }
 
 const inputStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '3px 6px',
+    width: '100%',
+    padding: '6px 8px',
     fontSize: 12,
     background: 'rgba(255,255,255,0.9)',
     border: '1px solid #7F9DB9',
     color: '#000',
+    boxSizing: 'border-box',
 };
 
 const selectStyle: React.CSSProperties = {
-    padding: '3px 6px',
+    width: '100%',
+    padding: '6px 8px',
     fontSize: 12,
     background: 'rgba(255,255,255,0.9)',
     border: '1px solid #7F9DB9',
     color: '#000',
-    minWidth: 160,
+    boxSizing: 'border-box',
 };

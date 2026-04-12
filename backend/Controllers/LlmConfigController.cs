@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains.Generation;
 
 namespace PartyTown.Controllers;
@@ -14,6 +16,26 @@ public class LlmConfigController(IGrainFactory grains) : ControllerBase
     {
         var providers = await ConfigGrain.GetProvidersAsync();
         return Ok(providers);
+    }
+
+    [HttpGet("providers/{id:guid}/models")]
+    [OutputCache(Duration = 120)]
+    public async Task<ActionResult<List<string>>> GetProviderModels(Guid id)
+    {
+        var providers = await ConfigGrain.GetProvidersAsync();
+        var provider = providers.FirstOrDefault(p => p.Id == id);
+        if (provider == null)
+            return NotFound();
+
+        var endpoint = provider.Type switch
+        {
+            "ollama" => (ILlmEndpointGrain)grains.GetGrain<IOllamaEndpointGrain>(id),
+            "openrouter" => (ILlmEndpointGrain)grains.GetGrain<IOpenRouterEndpointGrain>(id),
+            _ => throw new InvalidOperationException($"Unknown provider type: {provider.Type}")
+        };
+
+        var models = await endpoint.GetModelsAsync();
+        return Ok(models.Select(m => m.Name).ToList());
     }
 
     [HttpPost("providers")]

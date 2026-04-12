@@ -81,12 +81,14 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
         var entries = await configGrain.GetProvidersAsync();
 
-        _cachedProviders = entries.Select(e => e.Type switch
-        {
-            "ollama" => GrainFactory.GetGrain<IOllamaEndpointGrain>(e.Id) as ILlmEndpointGrain,
-            "openrouter" => GrainFactory.GetGrain<IOpenRouterEndpointGrain>(e.Id),
-            _ => throw new InvalidOperationException($"Unsupported provider type: {e.Type}")
-        }).ToList();
+        _cachedProviders = entries
+            .Where(e => e.IsEnabled)
+            .Select(e => e.Type switch
+            {
+                "ollama" => GrainFactory.GetGrain<IOllamaEndpointGrain>(e.Id) as ILlmEndpointGrain,
+                "openrouter" => GrainFactory.GetGrain<IOpenRouterEndpointGrain>(e.Id),
+                _ => throw new InvalidOperationException($"Unsupported provider type: {e.Type}")
+            }).ToList();
 
         logger.LogDebug("Refreshed provider cache with {Count} providers", _cachedProviders.Count);
         return _cachedProviders;

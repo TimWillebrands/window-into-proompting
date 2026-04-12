@@ -139,4 +139,5 @@ public sealed record class LlmProviderEntry
     [Id(4)] public string? ModelName { get; init; }
     [Id(5)] public JobComplexity SupportedComplexities { get; init; } = JobComplexity.General;
     [Id(6)] public TimeSpan? GenerationTimeout { get; init; }
+    [Id(7)] public bool IsEnabled { get; init; } = true;
 }

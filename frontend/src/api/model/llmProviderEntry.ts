@@ -20,4 +20,5 @@ export interface LlmProviderEntry {
      * @pattern ^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$
      */
     generationTimeout?: string | null;
+    isEnabled?: boolean;
 }

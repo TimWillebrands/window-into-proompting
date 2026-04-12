@@ -371,12 +371,11 @@ public sealed class PartyController(
     }
 
     /// <summary>
-    /// Builds the default participant list from persona metadata and an optional user participant.
+    /// Retrieves all available LLM models from the provider router.
     /// </summary>
-    /// <param name="userId">Optional user identifier to append as a participant.</param>
-    /// <param name="userName">Optional user display name; falls back to <paramref name="userId"/>.</param>
+    /// <param name="id">The party identifier (for cache scoping).</param>
     /// <returns>
-    /// A participant list containing all personas plus the optional user participant.
+    /// <c>200 OK</c> containing a list of available LLM models cached for 5 minutes.
     /// </returns>
     [HttpGet("{id:guid}/models")]
     public async Task<ActionResult<IReadOnlyList<LlmModel>>> GetModels(Guid id)
@@ -390,6 +389,13 @@ public sealed class PartyController(
         return Ok(models);
     }
 
+    /// <summary>
+    /// Retrieves all chat groups within the party.
+    /// </summary>
+    /// <param name="id">The party identifier.</param>
+    /// <returns>
+    /// <c>200 OK</c> containing all chat groups; <c>404 Not Found</c> if the party does not exist.
+    /// </returns>
     [HttpGet("{id:guid}/chat-groups")]
     public async Task<ActionResult<List<ChatGroupInfo>>> GetChatGroups(Guid id)
     {
@@ -404,6 +410,16 @@ public sealed class PartyController(
         return Ok(chatGroups);
     }
 
+    /// <summary>
+    /// Creates a new chat group within the party.
+    /// </summary>
+    /// <param name="id">The party identifier.</param>
+    /// <param name="request">The chat group creation payload containing the group name.</param>
+    /// <returns>
+    /// <c>201 Created</c> with the newly created <see cref="ChatGroupInfo"/> when successful;
+    /// <c>400 Bad Request</c> if the group name is missing or whitespace;
+    /// <c>404 Not Found</c> if the party does not exist.
+    /// </returns>
     [HttpPost("{id:guid}/chat-groups")]
     public async Task<ActionResult<ChatGroupInfo>> CreateChatGroup(Guid id, [FromBody] CreateChatGroupRequest request)
     {
@@ -423,6 +439,11 @@ public sealed class PartyController(
         return CreatedAtAction(nameof(GetChatGroups), new { id }, chatGroup);
     }
 
+    /// <summary>
+    /// Ensures the default party exists, creating it if necessary.
+    /// </summary>
+    /// <param name="root">The party root grain singleton.</param>
+    /// <param name="id">The party identifier to check or create.</param>
     private static async Task EnsureDefaultParty(IPartyRootGrain root, Guid id)
     {
         if (id == Guid.Empty && !await root.HasPartyId(Guid.Empty))
@@ -431,6 +452,14 @@ public sealed class PartyController(
         }
     }
 
+    /// <summary>
+    /// Builds the default participant list from persona metadata and an optional user participant.
+    /// </summary>
+    /// <param name="userId">Optional user identifier to append as a participant.</param>
+    /// <param name="userName">Optional user display name; falls back to <paramref name="userId"/>'s string representation.</param>
+    /// <returns>
+    /// A participant list containing all available personas plus the optional user participant.
+    /// </returns>
     private async Task<List<PartyParticipant>> BuildDefaultParticipants(Guid? userId, string? userName)
     {
         var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
