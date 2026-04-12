@@ -101,16 +101,9 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task CancelAllGenerations(CancellationToken ct = default)
     {
-        foreach (var cg in State.ChatGroups)
-        {
-            var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(cg.Id);
-            var messages = await chatGroupGrain.GetMessagesAsync();
-            var lastMessage = messages.LastOrDefault();
-            if (lastMessage is not null)
-            {
-                await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, ct);
-            }
-        }
+        var tasks = State.Participants.Select(p =>
+            GrainFactory.GetGrain<IPersonaGrain>(p.Id).CancelGenerationAsync());
+        await Task.WhenAll(tasks);
     }
 
     public async Task DeleteParty()

@@ -9,7 +9,8 @@ namespace PartyTown.Grains;
 
 /// <summary>
 /// Grain that stores a single persona's data and reacts to messages.
-/// Marked [Reentrant] so multiple concurrent NotifyMessageAsync calls don't deadlock.
+/// Marked [Reentrant] so multiple concurrent NotifyMessageAsync calls don't deadlock,
+/// and so CancelGenerationAsync can interrupt an in-flight NotifyMessageAsync.
 /// </summary>
 [Reentrant]
 public sealed class PersonaGrain(
@@ -19,6 +20,13 @@ public sealed class PersonaGrain(
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
+    private CancellationTokenSource? _activeCts;
+
+    public Task CancelGenerationAsync()
+    {
+        _activeCts?.Cancel();
+        return Task.CompletedTask;
+    }
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -89,9 +97,10 @@ public sealed class PersonaGrain(
     {
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromMinutes(1));
-        CancellationToken linkedCt = cts.Token;
+        _activeCts?.Cancel();
+        _activeCts = new CancellationTokenSource();
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _activeCts.Token);
+        CancellationToken linkedCt = linkedCts.Token;
 
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
@@ -223,20 +232,36 @@ public sealed class PersonaGrain(
             }).ToList();
 
             // Generate response — appraisal already decided to engage
-            var result = await session.GenerateResponseOnlyAsync(
-                self,
-                generationHistory,
-                onEvent: async (eventType, data, done) =>
+            // Retry up to 2 times on transient errors (e.g. provider unavailable mid-stream)
+            const int maxRetries = 2;
+            GenerationResult result = null!;
+            for (var attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                try
                 {
-                    await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-                    {
-                        ChatGroupId = chatGroupId,
-                        Event = eventType,
-                        Data = data,
-                        Done = done
-                    });
-                },
-                linkedCt);
+                    result = await session.GenerateResponseOnlyAsync(
+                        self,
+                        generationHistory,
+                        onEvent: async (eventType, data, done) =>
+                        {
+                            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+                            {
+                                ChatGroupId = chatGroupId,
+                                Event = eventType,
+                                Data = data,
+                                Done = done
+                            });
+                        },
+                        linkedCt);
+                    break; // success
+                }
+                catch (OperationCanceledException) { throw; } // manual cancel — don't retry
+                catch (Exception ex) when (attempt < maxRetries)
+                {
+                    logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", persona.Name, attempt + 1);
+                    await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)), linkedCt);
+                }
+            }
 
             // Phase 4: Store the completed response
             var appraisalJson = JsonSerializer.Serialize(new
@@ -306,4 +331,7 @@ public interface IPersonaGrain : IGrainWithGuidKey
 
     [Alias("NotifyMessageAsync")]
     Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, CancellationToken ct);
+
+    [Alias("CancelGenerationAsync")]
+    Task CancelGenerationAsync();
 }
