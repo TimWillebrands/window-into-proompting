@@ -1,0 +1,241 @@
+using System.Runtime.CompilerServices;
+using Moq;
+using PartyTown.Grains.Generation;
+using PartyTown.Model;
+using PartyTown.Services.Generation;
+using PartyTown.Services.Streaming;
+
+namespace BackendTest;
+
+/// <summary>
+/// Tests for <see cref="GenerationSession"/> — the single-use streaming pump that drives one
+/// LLM response for a specific persona.
+///
+/// Coverage areas:
+///   • Content and reasoning chunks are accumulated into separate StringBuilders and returned
+///     in <see cref="GenerationResult"/> (the two token types must not bleed into each other)
+///   • <c>onEvent</c> is called once per chunk (including a terminal <c>isDone=true</c> event
+///     after the stream ends)
+///   • Cancellation propagates: a cancelled token causes <see cref="OperationCanceledException"/>
+///     and no further chunks are emitted after the cancel point
+///   • Router exceptions bubble up to the caller (PersonaGrain owns retry)
+///
+/// Testing strategy:
+///   GenerationSession is a plain class with no Orleans dependency, so no TestKit silo is needed.
+///   ILlmRouterGrain and ILlmEndpointGrain are mocked with Moq. Scripted IAsyncEnumerable
+///   implementations supply deterministic chunk sequences.
+/// </summary>
+public class GenerationSessionTest
+{
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static GenerationParticipant MakeParticipant(string name) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = name,
+        Bio = $"Test bio for {name}",
+        SystemPrompt = $"You are {name}.",
+    };
+
+    /// <summary>
+    /// Builds a mocked router that routes to the given endpoint grain mock.
+    /// </summary>
+    private static Mock<ILlmRouterGrain> RouterFor(Mock<ILlmEndpointGrain> endpoint)
+    {
+        var router = new Mock<ILlmRouterGrain>();
+        router
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(endpoint.Object);
+        return router;
+    }
+
+    /// <summary>
+    /// Builds an endpoint mock whose GenerateAsync yields the provided scripted chunks.
+    /// </summary>
+    private static Mock<ILlmEndpointGrain> EndpointWith(
+        IEnumerable<LlmGenerationEvent> chunks)
+    {
+        var chunkList = chunks.ToList();
+        var endpoint = new Mock<ILlmEndpointGrain>();
+        endpoint
+            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => Emit(chunkList, ct));
+        return endpoint;
+    }
+
+    private static async IAsyncEnumerable<LlmGenerationEvent> Emit(
+        IEnumerable<LlmGenerationEvent> chunks,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        foreach (var chunk in chunks)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Yield();
+            yield return chunk;
+        }
+    }
+
+    // ── Content / reasoning accumulation ─────────────────────────────────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_AccumulatesContentAndReasoningSeparately()
+    {
+        // ContentChunk tokens go to GenerationResult.Message; ReasoningChunk tokens go to
+        // GenerationResult.Reasoning. The two streams must not bleed into each other.
+        var chunks = new[]
+        {
+            new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "Hello"),
+            new LlmGenerationEvent(LlmGenerationEvent.ReasoningChunk, "because reasons"),
+            new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, " world"),
+        };
+
+        var endpoint = EndpointWith(chunks);
+        var persona = MakeParticipant("Alice");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        var result = await session.GenerateResponseOnlyAsync(
+            persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        Assert.Equal("Hello world", result.Message);
+        Assert.Equal("because reasons", result.Reasoning);
+    }
+
+    // ── onEvent callbacks ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_InvokesOnEventForEachChunkThenDone()
+    {
+        // onEvent must be called once per chunk with isDone=false, then a final call with
+        // isDone=true carrying the GenerationComplete event type after the stream exhausts.
+        var chunks = new[]
+        {
+            new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "A"),
+            new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "B"),
+            new LlmGenerationEvent(LlmGenerationEvent.ReasoningChunk, "R"),
+        };
+
+        var endpoint = EndpointWith(chunks);
+        var persona = MakeParticipant("Bob");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        var events = new List<(string type, string data, bool done)>();
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (type, data, done) => { events.Add((type, data, done)); return Task.CompletedTask; },
+            CancellationToken.None);
+
+        // 3 chunk events + 1 terminal event
+        Assert.Equal(4, events.Count);
+        Assert.All(events.Take(3), e => Assert.False(e.done));
+        var terminal = events[^1];
+        Assert.True(terminal.done);
+        Assert.Equal(MessageStreamEvent.GenerationComplete, terminal.type);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_EmptyStream_StillFiresTerminalEvent()
+    {
+        // Even with no chunks, the terminal GenerationComplete event must be emitted so that
+        // downstream clients can close their generation subscription.
+        var endpoint = EndpointWith([]);
+        var persona = MakeParticipant("Charlie");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        var events = new List<(string type, string data, bool done)>();
+        var result = await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (type, data, done) => { events.Add((type, data, done)); return Task.CompletedTask; },
+            CancellationToken.None);
+
+        var terminal = Assert.Single(events);
+        Assert.True(terminal.done);
+        Assert.Equal(string.Empty, result.Message);
+        Assert.Equal(string.Empty, result.Reasoning);
+    }
+
+    // ── Cancellation ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_CancelledToken_ThrowsOperationCancelledException()
+    {
+        // A pre-cancelled token must surface as OperationCanceledException. The scripted
+        // async enumerable checks ThrowIfCancellationRequested() before the first yield, so
+        // no chunks are emitted and onEvent is never called.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var endpoint = EndpointWith([
+            new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "unreachable"),
+        ]);
+        var persona = MakeParticipant("Dana");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        var events = new List<(string, string, bool)>();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            session.GenerateResponseOnlyAsync(
+                persona, [],
+                (t, d, done) => { events.Add((t, d, done)); return Task.CompletedTask; },
+                cts.Token));
+
+        // No events should have been emitted before the cancellation
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_CancelledMidStream_StopsAfterCancelPoint()
+    {
+        // When cancelled after the first chunk, subsequent chunks must not reach onEvent.
+        // This verifies that no partial results leak out after cancellation.
+        using var cts = new CancellationTokenSource();
+
+        var endpoint = new Mock<ILlmEndpointGrain>();
+        endpoint
+            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => TwoChunksThenCancel(cts, ct));
+
+        var persona = MakeParticipant("Eve");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        var events = new List<(string, string, bool)>();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            session.GenerateResponseOnlyAsync(
+                persona, [],
+                (t, d, done) => { events.Add((t, d, done)); return Task.CompletedTask; },
+                cts.Token));
+
+        // Only the first chunk should have been received before cancellation
+        Assert.Single(events);
+        Assert.Equal("first", events[0].Item2);
+    }
+
+    private static async IAsyncEnumerable<LlmGenerationEvent> TwoChunksThenCancel(
+        CancellationTokenSource cts,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "first");
+        await Task.Yield();
+        cts.Cancel(); // Cancel after yielding the first chunk
+        ct.ThrowIfCancellationRequested();
+        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "second"); // unreachable
+    }
+
+    // ── Error propagation ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_RouterThrows_ExceptionBubblesUp()
+    {
+        // GenerationSession does not retry — exceptions from the router propagate directly.
+        // PersonaGrain is responsible for retry/backoff logic.
+        var router = new Mock<ILlmRouterGrain>();
+        router
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("no endpoints available"));
+
+        var persona = MakeParticipant("Frank");
+        var session = new GenerationSession(router.Object, [persona]);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            session.GenerateResponseOnlyAsync(
+                persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None));
+    }
+}
