@@ -439,11 +439,12 @@ public class PersonaGrainFeedbackTest : TestKitBase
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await grain.NotifyMessageAsync(_chatGroupId, MentionMessage(), cts.Token);
 
-        // Assert: the recovered content (not partial) was appended
+        // Assert: the retry stream starts from a fresh buffer — exact "recovered content",
+        // not "partialrecovered content". Equality (not substring) catches buffer reuse regressions.
         chatGroup.Verify(
             g => g.AppendMessageAsync(
                 It.IsAny<int>(),
-                It.Is<string>(s => s.Contains("recovered content")),
+                "recovered content",
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()),

@@ -637,8 +637,9 @@ function ProviderModal({
     children: React.ReactNode;
 }) {
     return (
-        <button
-            type="button"
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses modal; real dialog is inside
+        <div
+            role="presentation"
             style={{
                 position: 'fixed',
                 inset: 0,
@@ -647,10 +648,6 @@ function ProviderModal({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: 'none',
-                padding: 0,
-                margin: 0,
-                cursor: 'pointer',
             }}
             onClick={onClose}
             onKeyDown={(e) => {
@@ -658,10 +655,10 @@ function ProviderModal({
                     onClose();
                 }
             }}
-            aria-label="Close modal"
         >
             <div
                 role="dialog"
+                aria-label={title}
                 className="window"
                 style={{
                     width: 480,
@@ -691,7 +688,7 @@ function ProviderModal({
                     {children}
                 </div>
             </div>
-        </button>
+        </div>
     );
 }
 
@@ -712,7 +709,9 @@ function ProviderEditor({
     const updateMutation = usePutLlmConfigProvidersId({
         mutation: { onSuccess: onClose },
     });
-    const models = useGetLlmConfigProvidersIdModels(entry.id ?? '');
+    const models = useGetLlmConfigProvidersIdModels(entry.id ?? '', {
+        query: { enabled: !!entry.id },
+    });
 
     const set = (patch: Partial<LlmProviderEntry>) =>
         setForm((prev) => ({ ...prev, ...patch }));

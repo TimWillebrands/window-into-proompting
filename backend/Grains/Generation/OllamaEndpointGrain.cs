@@ -22,8 +22,6 @@ public class OllamaEndpointGrain(
         await RefreshConfigAsync();
     }
 
-    public Task InvalidateConfigAsync() => RefreshConfigAsync();
-
     private async Task RefreshConfigAsync()
     {
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);

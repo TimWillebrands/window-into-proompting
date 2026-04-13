@@ -31,7 +31,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         {
             Id = this.GetPrimaryKey(),
             Name = State.Name,
-            Participants = [.. State.Participants]
+            Participants = State.Participants.ToList()
         });
 
     public async Task SetParty(PartyInfo party)
@@ -62,7 +62,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
     }
 
     public Task<List<ChatGroupInfo>> GetChatGroups()
-        => Task.FromResult<List<ChatGroupInfo>>([.. State.ChatGroups]);
+        => Task.FromResult(State.ChatGroups.ToList());
 
     public async Task<ChatGroupInfo> CreateChatGroup(string name)
     {
