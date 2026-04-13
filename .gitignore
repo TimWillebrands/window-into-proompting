@@ -24,9 +24,9 @@ frontend/.wrangler/outputs
 frontend/.tanstack
 
 # .NET
-backend/bin
-backend/obj
-backend/.nuget
+**/bin
+**/obj
+**/.nuget
 
 # IDE
 .idea/

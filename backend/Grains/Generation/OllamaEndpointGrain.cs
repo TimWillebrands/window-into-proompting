@@ -1,55 +1,64 @@
 using System.ClientModel;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
-using PartyTown.Configuration;
 using PartyTown.Logging;
 
 namespace PartyTown.Grains.Generation;
 
 public class OllamaEndpointGrain(
-    IOptions<LlmOptions> llmOptions,
     IHttpClientFactory httpClientFactory,
     ILogger<OllamaEndpointGrain> logger
 ) : Grain, IOllamaEndpointGrain
 {
     private int _activeGenerations;
+    private LlmProviderEntry? _config;
+
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        await base.OnActivateAsync(cancellationToken);
+        await RefreshConfigAsync();
+    }
+
+    private async Task RefreshConfigAsync()
+    {
+        var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
+        var providers = await configGrain.GetProvidersAsync();
+        // TODO: also filter by IsEnabled so disabled providers keep _config null.
+        // Router (LlmRouterGrain) already filters disabled, but LlmConfigController.GetProviderModels bypasses the router.
+        _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "ollama");
+        if (_config is null)
+            logger.LogWarning("OllamaEndpointGrain {Id}: no config found", this.GetPrimaryKey());
+    }
 
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
-    private int GrainIndex => (int)this.GetPrimaryKeyLong();
-    private OllamaProviderConfig Config => (OllamaProviderConfig)llmOptions.Value.Providers.ElementAt(GrainIndex);
-    private string ProviderDescription => $"ollama[{Config.BaseUrl}]";
+    private string BaseUrl => _config?.BaseUrl ?? "http://localhost:11434";
+    private string ModelName => _config?.ModelName ?? string.Empty;
+    private string ProviderDescription => $"ollama[{BaseUrl}]";
 
     private OpenAIClientOptions OpenAiOptions => new()
     {
-        Endpoint = new Uri($"{Config.BaseUrl.TrimEnd('/')}/v1")
+        Endpoint = new Uri($"{BaseUrl.TrimEnd('/')}/v1")
     };
 
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationJob parameters,
         CancellationToken cancellationToken = default)
     {
-        var modelName = Config.TEMP_ModelName;
+        var modelName = ModelName;
         Interlocked.Increment(ref _activeGenerations);
 
         using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
         logger.LogDebug("LLM API call starting: {Model}", modelName);
-        var sw = Stopwatch.StartNew();
 
         var chatClient = new ChatClient(
             modelName,
             new ApiKeyCredential("ollama"),
             OpenAiOptions);
 
-        // So why do we return the result of GenerateAsync directly?
-        // The caller is already iterating over the result, so we don't need to buffer it
-        // instead we just send the enumerable to the callee directly instead.
         return LlmEndpointGrainUtils.GenerateAsync(
             logger,
             parameters,
@@ -62,34 +71,36 @@ public class OllamaEndpointGrain(
     {
         try
         {
-            logger.LogDebug("Fetching models from Ollama at {BaseUrl}", Config.BaseUrl);
+            logger.LogDebug("Fetching models from Ollama at {BaseUrl}", BaseUrl);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(3));
 
             var http = httpClientFactory.CreateClient();
-            var url = $"{Config.BaseUrl.TrimEnd('/')}/api/tags";
+            var url = $"{BaseUrl.TrimEnd('/')}/api/tags";
             var httpResponse = await http.GetAsync(url, cts.Token);
             httpResponse.EnsureSuccessStatusCode();
 
             var content = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(content))
             {
-                logger.LogWarning("Ollama at {BaseUrl} returned empty response for /api/tags", Config.BaseUrl);
+                logger.LogWarning("Ollama at {BaseUrl} returned empty response for /api/tags", BaseUrl);
                 return Array.Empty<LlmModel>();
             }
 
             var response = JsonSerializer.Deserialize<OllamaTagsResponse>(content);
+            var grainId = this.GetPrimaryKey();
+            var complexity = _config?.SupportedComplexities ?? JobComplexity.General;
 
             var list = (response?.Models ?? [])
                 .Select(item => new LlmModel
                 {
                     Name = item.Name,
-                    EndpointProviderGrainId = GrainIndex,
+                    EndpointProviderGrainId = grainId,
                     ProviderType = "ollama",
                     ProviderDescription = ProviderDescription,
                     Description = $"Ollama model {item.Name}",
-                    SupportedComplexities = JobComplexity.General,
+                    SupportedComplexities = complexity,
                 })
                 .ToList();
 
@@ -98,7 +109,7 @@ public class OllamaEndpointGrain(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "OllamaEndpointGrain failed to list models from {BaseUrl}", Config.BaseUrl);
+            logger.LogError(ex, "OllamaEndpointGrain failed to list models from {BaseUrl}", BaseUrl);
             return Array.Empty<LlmModel>();
         }
     }
@@ -114,5 +125,4 @@ public class OllamaEndpointGrain(
         [JsonPropertyName("name")]
         public string Name { get; init; } = string.Empty;
     }
-
 }

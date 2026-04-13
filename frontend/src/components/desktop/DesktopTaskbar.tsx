@@ -20,33 +20,26 @@ export default function DesktopTaskbar({
                 🪟 start
             </button>
             {windows.map((window) => (
-                <div
-                    key={window.id}
-                    role="button"
-                    tabIndex={0}
-                    className={`h-7 px-3 text-sm rounded border relative pr-8 cursor-default select-none flex items-center ${
-                        focusedId === window.id
-                            ? 'bg-orange-200 text-black'
-                            : 'bg-blue-100 text-black'
-                    }`}
-                    onClick={() => onToggle(window.id)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onToggle(window.id);
-                        }
-                    }}
-                >
-                    {window.icon && <span className="mr-1">{window.icon}</span>}
-                    <span className="truncate">{window.title}</span>
+                <div key={window.id} className="relative flex items-center">
+                    <button
+                        type="button"
+                        className={`h-7 pl-3 pr-8 text-sm rounded border cursor-default select-none flex items-center ${
+                            focusedId === window.id
+                                ? 'bg-orange-200 text-black'
+                                : 'bg-blue-100 text-black'
+                        }`}
+                        onClick={() => onToggle(window.id)}
+                    >
+                        {window.icon && (
+                            <span className="mr-1">{window.icon}</span>
+                        )}
+                        <span className="truncate">{window.title}</span>
+                    </button>
                     <button
                         type="button"
                         aria-label={`Close ${window.title ?? 'window'}`}
                         className="absolute min-w-0! min-h-0! right-1 top-1/2 -translate-y-1/2 text-xs px-1! hover:bg-black/10 rounded"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            onClose(window.id);
-                        }}
+                        onClick={() => onClose(window.id)}
                     >
                         ✕
                     </button>

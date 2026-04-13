@@ -1,7 +1,7 @@
 namespace PartyTown.Grains.Generation;
 
 [Alias("PartyTown.Grains.Generation.ILlmEndpointGrain")]
-public interface ILlmEndpointGrain : IGrainWithIntegerKey
+public interface ILlmEndpointGrain : IGrainWithGuidKey
 {
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
@@ -31,6 +31,9 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
 
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
+
+    [Alias("InvalidateCacheAsync")]
+    Task InvalidateCacheAsync();
 }
 
 [GenerateSerializer]
@@ -77,6 +80,17 @@ public sealed record class LlmGenerationJob
 public enum JobComplexity
 {
     General = 1,
+
+    /// <summary>
+    /// Model capable or articulating the character's output. Probably decently complex
+    /// </summary>
+    CharacterVoice = 2,
+
+    /// <summary>
+    /// Model capable of generating character thoughts or reflections. Based on message
+    /// history and character context.
+    /// </summary>
+    CharacterThoughts = 4,
 }
 
 /// <summary>
@@ -96,7 +110,7 @@ public sealed record class LlmModelParameters
 public sealed record class LlmModel
 {
     [Id(0)] public required string Name { get; init; }
-    [Id(1)] public required int EndpointProviderGrainId { get; init; }
+    [Id(1)] public required Guid EndpointProviderGrainId { get; init; }
     [Id(2)] public required string ProviderType { get; init; }
     [Id(3)] public string? ProviderDescription { get; init; }
     [Id(4)] public string? Description { get; init; }

@@ -8,8 +8,7 @@ import type { JobComplexity } from './jobComplexity';
 
 export interface LlmModel {
     name: string;
-    /** @pattern ^-?(?:0|[1-9]\d*)$ */
-    endpointProviderGrainId: number | string;
+    endpointProviderGrainId: string;
     providerType: string;
     /** @nullable */
     providerDescription?: string | null;

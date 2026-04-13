@@ -29,21 +29,23 @@ import type {
     CreatePartyRequest,
     DefaultPersonaTemplate,
     LlmModel,
+    LlmProviderEntry,
     PartyDetails,
     PartyInfo,
     Persona,
+    ProblemDetails,
     ProceedRequest,
     PromptRequest,
     RepromptRequest,
     UpdatePartyParticipantsRequest,
 } from './model';
 
-export type getUpResponse200 = {
+export type getUpResponse204 = {
     data: void;
-    status: 200;
+    status: 204;
 };
 
-export type getUpResponseSuccess = getUpResponse200 & {
+export type getUpResponseSuccess = getUpResponse204 & {
     headers: Headers;
 };
 
@@ -296,6 +298,998 @@ export function useGetUpSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type getLlmConfigProvidersResponse200TextPlain = {
+    data: LlmProviderEntry[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersResponse200ApplicationJson = {
+    data: LlmProviderEntry[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersResponse200TextJson = {
+    data: LlmProviderEntry[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersResponseSuccess = (
+    | getLlmConfigProvidersResponse200TextPlain
+    | getLlmConfigProvidersResponse200ApplicationJson
+    | getLlmConfigProvidersResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigProvidersResponse =
+    getLlmConfigProvidersResponseSuccess;
+
+export const getGetLlmConfigProvidersUrl = () => {
+    return `/api/LlmConfig/providers`;
+};
+
+export const getLlmConfigProviders = async (
+    options?: RequestInit,
+): Promise<getLlmConfigProvidersResponse> => {
+    const res = await fetch(getGetLlmConfigProvidersUrl(), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getLlmConfigProvidersResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getLlmConfigProvidersResponse;
+};
+
+export const getGetLlmConfigProvidersQueryKey = () => {
+    return [`/api/LlmConfig/providers`] as const;
+};
+
+export const getGetLlmConfigProvidersQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigProviders>>,
+            TError,
+            TData
+        >
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigProvidersQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProviders>>
+    > = ({ signal }) => getLlmConfigProviders({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProviders>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProviders>>
+>;
+export type GetLlmConfigProvidersQueryError = unknown;
+
+export function useGetLlmConfigProviders<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigProviders>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProviders<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigProviders>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProviders<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProviders<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigProvidersQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigProvidersSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigProviders>>,
+            TError,
+            TData
+        >
+    >;
+    fetch?: RequestInit;
+}) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigProvidersQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProviders>>
+    > = ({ signal }) => getLlmConfigProviders({ signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProviders>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProviders>>
+>;
+export type GetLlmConfigProvidersSuspenseQueryError = unknown;
+
+export function useGetLlmConfigProvidersSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProvidersSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProviders>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProviders>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigProvidersSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postLlmConfigProvidersResponse200TextPlain = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type postLlmConfigProvidersResponse200ApplicationJson = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type postLlmConfigProvidersResponse200TextJson = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type postLlmConfigProvidersResponseSuccess = (
+    | postLlmConfigProvidersResponse200TextPlain
+    | postLlmConfigProvidersResponse200ApplicationJson
+    | postLlmConfigProvidersResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postLlmConfigProvidersResponse =
+    postLlmConfigProvidersResponseSuccess;
+
+export const getPostLlmConfigProvidersUrl = () => {
+    return `/api/LlmConfig/providers`;
+};
+
+export const postLlmConfigProviders = async (
+    llmProviderEntry: LlmProviderEntry,
+    options?: RequestInit,
+): Promise<postLlmConfigProvidersResponse> => {
+    const res = await fetch(getPostLlmConfigProvidersUrl(), {
+        ...options,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(llmProviderEntry),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postLlmConfigProvidersResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postLlmConfigProvidersResponse;
+};
+
+export const getPostLlmConfigProvidersMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postLlmConfigProviders>>,
+        TError,
+        { data: LlmProviderEntry },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postLlmConfigProviders>>,
+    TError,
+    { data: LlmProviderEntry },
+    TContext
+> => {
+    const mutationKey = ['postLlmConfigProviders'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postLlmConfigProviders>>,
+        { data: LlmProviderEntry }
+    > = (props) => {
+        const { data } = props ?? {};
+
+        return postLlmConfigProviders(data, fetchOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostLlmConfigProvidersMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postLlmConfigProviders>>
+>;
+export type PostLlmConfigProvidersMutationBody = LlmProviderEntry;
+export type PostLlmConfigProvidersMutationError = unknown;
+
+export const usePostLlmConfigProviders = <TError = unknown, TContext = unknown>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postLlmConfigProviders>>,
+            TError,
+            { data: LlmProviderEntry },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postLlmConfigProviders>>,
+    TError,
+    { data: LlmProviderEntry },
+    TContext
+> => {
+    return useMutation(
+        getPostLlmConfigProvidersMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getLlmConfigProvidersIdModelsResponse200TextPlain = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersIdModelsResponse200ApplicationJson = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersIdModelsResponse200TextJson = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersIdModelsResponseSuccess = (
+    | getLlmConfigProvidersIdModelsResponse200TextPlain
+    | getLlmConfigProvidersIdModelsResponse200ApplicationJson
+    | getLlmConfigProvidersIdModelsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigProvidersIdModelsResponse =
+    getLlmConfigProvidersIdModelsResponseSuccess;
+
+export const getGetLlmConfigProvidersIdModelsUrl = (id: string) => {
+    return `/api/LlmConfig/providers/${id}/models`;
+};
+
+export const getLlmConfigProvidersIdModels = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getLlmConfigProvidersIdModelsResponse> => {
+    const res = await fetch(getGetLlmConfigProvidersIdModelsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getLlmConfigProvidersIdModelsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getLlmConfigProvidersIdModelsResponse;
+};
+
+export const getGetLlmConfigProvidersIdModelsQueryKey = (id: string) => {
+    return [`/api/LlmConfig/providers/${id}/models`] as const;
+};
+
+export const getGetLlmConfigProvidersIdModelsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigProvidersIdModelsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+    > = ({ signal }) =>
+        getLlmConfigProvidersIdModels(id, { signal, ...fetchOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersIdModelsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+>;
+export type GetLlmConfigProvidersIdModelsQueryError = unknown;
+
+export function useGetLlmConfigProvidersIdModels<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersIdModels<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersIdModels<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProvidersIdModels<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigProvidersIdModelsQueryOptions(
+        id,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigProvidersIdModelsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigProvidersIdModelsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+    > = ({ signal }) =>
+        getLlmConfigProvidersIdModels(id, { signal, ...fetchOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersIdModelsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
+>;
+export type GetLlmConfigProvidersIdModelsSuspenseQueryError = unknown;
+
+export function useGetLlmConfigProvidersIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProvidersIdModelsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigProvidersIdModelsSuspenseQueryOptions(
+        id,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type putLlmConfigProvidersIdResponse200TextPlain = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type putLlmConfigProvidersIdResponse200ApplicationJson = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type putLlmConfigProvidersIdResponse200TextJson = {
+    data: LlmProviderEntry;
+    status: 200;
+};
+
+export type putLlmConfigProvidersIdResponseSuccess = (
+    | putLlmConfigProvidersIdResponse200TextPlain
+    | putLlmConfigProvidersIdResponse200ApplicationJson
+    | putLlmConfigProvidersIdResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putLlmConfigProvidersIdResponse =
+    putLlmConfigProvidersIdResponseSuccess;
+
+export const getPutLlmConfigProvidersIdUrl = (id: string) => {
+    return `/api/LlmConfig/providers/${id}`;
+};
+
+export const putLlmConfigProvidersId = async (
+    id: string,
+    llmProviderEntry: LlmProviderEntry,
+    options?: RequestInit,
+): Promise<putLlmConfigProvidersIdResponse> => {
+    const res = await fetch(getPutLlmConfigProvidersIdUrl(id), {
+        ...options,
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(llmProviderEntry),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putLlmConfigProvidersIdResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putLlmConfigProvidersIdResponse;
+};
+
+export const getPutLlmConfigProvidersIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
+        TError,
+        { id: string; data: LlmProviderEntry },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
+    TError,
+    { id: string; data: LlmProviderEntry },
+    TContext
+> => {
+    const mutationKey = ['putLlmConfigProvidersId'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
+        { id: string; data: LlmProviderEntry }
+    > = (props) => {
+        const { id, data } = props ?? {};
+
+        return putLlmConfigProvidersId(id, data, fetchOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutLlmConfigProvidersIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putLlmConfigProvidersId>>
+>;
+export type PutLlmConfigProvidersIdMutationBody = LlmProviderEntry;
+export type PutLlmConfigProvidersIdMutationError = unknown;
+
+export const usePutLlmConfigProvidersId = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
+            TError,
+            { id: string; data: LlmProviderEntry },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
+    TError,
+    { id: string; data: LlmProviderEntry },
+    TContext
+> => {
+    return useMutation(
+        getPutLlmConfigProvidersIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type deleteLlmConfigProvidersIdResponse204 = {
+    data: void;
+    status: 204;
+};
+
+export type deleteLlmConfigProvidersIdResponseSuccess =
+    deleteLlmConfigProvidersIdResponse204 & {
+        headers: Headers;
+    };
+
+export type deleteLlmConfigProvidersIdResponse =
+    deleteLlmConfigProvidersIdResponseSuccess;
+
+export const getDeleteLlmConfigProvidersIdUrl = (id: string) => {
+    return `/api/LlmConfig/providers/${id}`;
+};
+
+export const deleteLlmConfigProvidersId = async (
+    id: string,
+    options?: RequestInit,
+): Promise<deleteLlmConfigProvidersIdResponse> => {
+    const res = await fetch(getDeleteLlmConfigProvidersIdUrl(id), {
+        ...options,
+        method: 'DELETE',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: deleteLlmConfigProvidersIdResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as deleteLlmConfigProvidersIdResponse;
+};
+
+export const getDeleteLlmConfigProvidersIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
+        TError,
+        { id: string },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    const mutationKey = ['deleteLlmConfigProvidersId'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
+        { id: string }
+    > = (props) => {
+        const { id } = props ?? {};
+
+        return deleteLlmConfigProvidersId(id, fetchOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLlmConfigProvidersIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>
+>;
+
+export type DeleteLlmConfigProvidersIdMutationError = unknown;
+
+export const useDeleteLlmConfigProvidersId = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
+            TError,
+            { id: string },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteLlmConfigProvidersIdMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type getPartyResponse200TextPlain = {
     data: PartyInfo[];
@@ -1255,16 +2249,40 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdPromptResponse200 = {
+export type postPartyIdPromptResponse202 = {
     data: void;
-    status: 200;
+    status: 202;
 };
 
-export type postPartyIdPromptResponseSuccess = postPartyIdPromptResponse200 & {
+export type postPartyIdPromptResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponseSuccess = postPartyIdPromptResponse202 & {
+    headers: Headers;
+};
+export type postPartyIdPromptResponseError = (
+    | postPartyIdPromptResponse400TextPlain
+    | postPartyIdPromptResponse400ApplicationJson
+    | postPartyIdPromptResponse400TextJson
+) & {
     headers: Headers;
 };
 
-export type postPartyIdPromptResponse = postPartyIdPromptResponseSuccess;
+export type postPartyIdPromptResponse =
+    | postPartyIdPromptResponseSuccess
+    | postPartyIdPromptResponseError;
 
 export const getPostPartyIdPromptUrl = (id: string) => {
     return `/api/Party/${id}/prompt`;
@@ -1295,7 +2313,7 @@ export const postPartyIdPrompt = async (
 };
 
 export const getPostPartyIdPromptMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -1336,9 +2354,12 @@ export type PostPartyIdPromptMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdPrompt>>
 >;
 export type PostPartyIdPromptMutationBody = PromptRequest;
-export type PostPartyIdPromptMutationError = unknown;
+export type PostPartyIdPromptMutationError = ProblemDetails;
 
-export const usePostPartyIdPrompt = <TError = unknown, TContext = unknown>(
+export const usePostPartyIdPrompt = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
     options?: {
         mutation?: UseMutationOptions<
             Awaited<ReturnType<typeof postPartyIdPrompt>>,
@@ -1361,17 +2382,41 @@ export const usePostPartyIdPrompt = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdProceedResponse200 = {
+export type postPartyIdProceedResponse202 = {
     data: void;
-    status: 200;
+    status: 202;
+};
+
+export type postPartyIdProceedResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdProceedResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdProceedResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
 };
 
 export type postPartyIdProceedResponseSuccess =
-    postPartyIdProceedResponse200 & {
+    postPartyIdProceedResponse202 & {
         headers: Headers;
     };
+export type postPartyIdProceedResponseError = (
+    | postPartyIdProceedResponse400TextPlain
+    | postPartyIdProceedResponse400ApplicationJson
+    | postPartyIdProceedResponse400TextJson
+) & {
+    headers: Headers;
+};
 
-export type postPartyIdProceedResponse = postPartyIdProceedResponseSuccess;
+export type postPartyIdProceedResponse =
+    | postPartyIdProceedResponseSuccess
+    | postPartyIdProceedResponseError;
 
 export const getPostPartyIdProceedUrl = (id: string) => {
     return `/api/Party/${id}/proceed`;
@@ -1402,7 +2447,7 @@ export const postPartyIdProceed = async (
 };
 
 export const getPostPartyIdProceedMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -1443,9 +2488,12 @@ export type PostPartyIdProceedMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdProceed>>
 >;
 export type PostPartyIdProceedMutationBody = ProceedRequest;
-export type PostPartyIdProceedMutationError = unknown;
+export type PostPartyIdProceedMutationError = ProblemDetails;
 
-export const usePostPartyIdProceed = <TError = unknown, TContext = unknown>(
+export const usePostPartyIdProceed = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
     options?: {
         mutation?: UseMutationOptions<
             Awaited<ReturnType<typeof postPartyIdProceed>>,
@@ -1468,12 +2516,12 @@ export const usePostPartyIdProceed = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdCancelResponse200 = {
+export type postPartyIdCancelResponse204 = {
     data: void;
-    status: 200;
+    status: 204;
 };
 
-export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse200 & {
+export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse204 & {
     headers: Headers;
 };
 
@@ -1571,18 +2619,44 @@ export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse200 = {
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 = {
     data: void;
-    status: 200;
+    status: 204;
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse200 & {
-        headers: Headers;
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
     };
 
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess =
+    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 & {
+        headers: Headers;
+    };
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError = (
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson
+) & {
+    headers: Headers;
+};
+
 export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse =
-    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess;
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError;
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdUrl = (
     id: string,
@@ -1622,7 +2696,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesMessageId = async (
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptions =
-    <TError = unknown, TContext = unknown>(options?: {
+    <TError = ProblemDetails, TContext = unknown>(options?: {
         mutation?: UseMutationOptions<
             Awaited<
                 ReturnType<
@@ -1686,10 +2760,10 @@ export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationResult =
     >;
 
 export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationError =
-    unknown;
+    ProblemDetails;
 
 export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -1722,19 +2796,46 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
     );
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse200 =
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 =
     {
         data: void;
-        status: 200;
+        status: 204;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
     };
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse200 & {
+    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 & {
+        headers: Headers;
+    };
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError =
+    (
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson
+    ) & {
         headers: Headers;
     };
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse =
-    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess;
+    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess
+    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError;
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdUrl = (
     id: string,
@@ -1774,7 +2875,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = async (
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions =
-    <TError = unknown, TContext = unknown>(options?: {
+    <TError = ProblemDetails, TContext = unknown>(options?: {
         mutation?: UseMutationOptions<
             Awaited<
                 ReturnType<
@@ -1838,10 +2939,10 @@ export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationResu
     >;
 
 export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationError =
-    unknown;
+    ProblemDetails;
 
 export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -1876,18 +2977,41 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
     );
 };
 
-export type postPartyIdRepromptMessageIdResponse200 = {
+export type postPartyIdRepromptMessageIdResponse202 = {
     data: void;
-    status: 200;
+    status: 202;
+};
+
+export type postPartyIdRepromptMessageIdResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdRepromptMessageIdResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdRepromptMessageIdResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
 };
 
 export type postPartyIdRepromptMessageIdResponseSuccess =
-    postPartyIdRepromptMessageIdResponse200 & {
+    postPartyIdRepromptMessageIdResponse202 & {
         headers: Headers;
     };
+export type postPartyIdRepromptMessageIdResponseError = (
+    | postPartyIdRepromptMessageIdResponse400TextPlain
+    | postPartyIdRepromptMessageIdResponse400ApplicationJson
+    | postPartyIdRepromptMessageIdResponse400TextJson
+) & {
+    headers: Headers;
+};
 
 export type postPartyIdRepromptMessageIdResponse =
-    postPartyIdRepromptMessageIdResponseSuccess;
+    | postPartyIdRepromptMessageIdResponseSuccess
+    | postPartyIdRepromptMessageIdResponseError;
 
 export const getPostPartyIdRepromptMessageIdUrl = (
     id: string,
@@ -1922,7 +3046,7 @@ export const postPartyIdRepromptMessageId = async (
 };
 
 export const getPostPartyIdRepromptMessageIdMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -1963,10 +3087,10 @@ export type PostPartyIdRepromptMessageIdMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>
 >;
 export type PostPartyIdRepromptMessageIdMutationBody = RepromptRequest;
-export type PostPartyIdRepromptMessageIdMutationError = unknown;
+export type PostPartyIdRepromptMessageIdMutationError = ProblemDetails;
 
 export const usePostPartyIdRepromptMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {

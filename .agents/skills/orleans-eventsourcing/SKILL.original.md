@@ -1,11 +1,14 @@
 ---
 name: event-sourced-orleans
 description: Design and implement event-sourced systems using Microsoft Orleans JournaledGrain APIs. Use when building Orleans grains that store state through events, implement command handling, and maintain CQRS-style read models or projections.
+metadata:
+  author: generated
+  version: "1.0"
 ---
 
 # Event-Sourced Orleans
 
-Guides agents: impl **event sourcing in Microsoft Orleans** via built-in `JournaledGrain` APIs.
+This skill guides agents to implement **event sourcing in Microsoft Orleans** using the built-in `JournaledGrain` APIs.
 
 Use this skill when:
 
@@ -14,7 +17,7 @@ Use this skill when:
 - Implementing **CQRS-style command and read model separation**
 - Building **projections or read models from grain events**
 
-Follows official Orleans docs:
+This skill follows the design described in the official Orleans documentation:
 
 https://learn.microsoft.com/en-us/dotnet/orleans/grains/event-sourcing/
 
@@ -22,7 +25,7 @@ https://learn.microsoft.com/en-us/dotnet/orleans/grains/event-sourcing/
 
 # Core Principles
 
-Orleans event sourcing:
+When implementing event sourcing in Orleans:
 
 1. **Grains represent aggregates**
 2. **Commands raise events**
@@ -30,13 +33,15 @@ Orleans event sourcing:
 4. **State is derived from the event log**
 5. **Read models are projections**
 
-Never mutate state directly. State changes only via **events**.
+Never mutate state directly.
+
+State must only change via **events**.
 
 ---
 
 # Key Orleans APIs
 
-Primary base class:
+The primary base class is:
 
 ```csharp
 JournaledGrain<TState, TEvent>
@@ -60,7 +65,7 @@ Important members:
 
 ## 1. One Aggregate Per Grain
 
-Each grain = **one domain aggregate**.
+Each grain should represent **one domain aggregate**.
 
 Examples:
 
@@ -81,13 +86,15 @@ DatabaseGrain
 EverythingGrain
 ```
 
-Grains own **complete aggregate state**.
+Grains should own their **complete aggregate state**.
 
 ---
 
 # Step 1: Define Events
 
-Events = **facts that happened**. Must be immutable + serializable.
+Events represent **facts that happened**.
+
+They must be immutable and serializable.
 
 Example:
 
@@ -111,7 +118,9 @@ Rules:
 
 # Step 2: Define Aggregate State
 
-State = **projection of events**. Must impl `Apply` per event.
+State is a **projection of events**.
+
+It must implement `Apply` methods for each event.
 
 ```csharp
 public class AccountState
@@ -137,9 +146,9 @@ public class AccountState
 }
 ```
 
-Rules:
+Important rules:
 
-- State must have **parameterless constructor**
+- State must have a **parameterless constructor**
 - State must **not contain business logic**
 - State only **applies events**
 
@@ -147,7 +156,7 @@ Rules:
 
 # Step 3: Implement the Grain
 
-Grain handles **commands**, raises events.
+The grain handles **commands** and raises events.
 
 ```csharp
 public interface IAccountGrain : IGrainWithGuidKey
@@ -194,7 +203,7 @@ public class AccountGrain
 }
 ```
 
-Rules:
+Important rules:
 
 - Commands validate business rules
 - Commands raise events
@@ -205,7 +214,7 @@ Rules:
 
 # Event Persistence
 
-When events raised:
+When events are raised:
 
 ```
 Command
@@ -229,7 +238,7 @@ State == replay(all events)
 
 # Handling Multiple Events
 
-Command emits multiple events:
+If a command emits multiple events:
 
 ```csharp
 RaiseEvents(new IAccountEvent[]
@@ -241,7 +250,7 @@ RaiseEvents(new IAccountEvent[]
 await ConfirmEvents();
 ```
 
-Writes events **atomically**.
+This writes events **atomically**.
 
 ---
 
@@ -260,7 +269,7 @@ if (!success)
 }
 ```
 
-Ensures:
+This ensures:
 
 ```
 event only commits if version matches
@@ -270,7 +279,7 @@ event only commits if version matches
 
 # State Change Hooks
 
-React to state updates:
+You can react to state updates:
 
 ```csharp
 protected override void OnStateChanged()
@@ -281,7 +290,7 @@ protected override void OnStateChanged()
 }
 ```
 
-Use for:
+Use this for:
 
 - publishing events to streams
 - updating read models
@@ -291,7 +300,7 @@ Use for:
 
 # CQRS Pattern
 
-Event-sourced Orleans → follow **CQRS**.
+Event-sourced Orleans systems should follow **CQRS**.
 
 ## Command Side
 
@@ -313,13 +322,15 @@ OrderGrain
 CartGrain
 ```
 
-Grains **own event log**.
+These grains **own the event log**.
 
 ---
 
 ## Read Models
 
-Read models = projections. Support **queries**.
+Read models are projections.
+
+They exist to support **queries**.
 
 Examples:
 
@@ -329,7 +340,7 @@ OrderSummaryView
 UserDashboardView
 ```
 
-May be impl as:
+They may be implemented as:
 
 - Orleans grains
 - database tables
@@ -340,7 +351,7 @@ May be impl as:
 
 # Projection Pattern
 
-Common pattern:
+A common pattern is:
 
 ```
 Command Grain
@@ -385,13 +396,15 @@ Orleans guarantees:
 events from a single grain are ordered
 ```
 
-Projections process events **in order**. Never out-of-order.
+Therefore projections should process events **in order**.
+
+Never process events out-of-order.
 
 ---
 
 # Event Replay
 
-When grain activates:
+When a grain activates:
 
 ```
 load event log
@@ -400,7 +413,7 @@ rebuild state
 activate grain
 ```
 
-Assume:
+Agents must assume:
 
 ```
 State is always derived from events
@@ -417,7 +430,7 @@ Avoid event sourcing when:
 - write volume is extremely high
 - the domain has no meaningful events
 
-Prefer normal Orleans state grains.
+Prefer normal Orleans state grains instead.
 
 ---
 
@@ -441,7 +454,9 @@ RaiseEvent(new MoneyDeposited(amount));
 
 ## Large Grain State
 
-Grain state should remain **small**. Large collections should be:
+Grain state should remain **small**.
+
+Large collections should be:
 
 - separate grains
 - external read models
@@ -450,7 +465,9 @@ Grain state should remain **small**. Large collections should be:
 
 ## Using Events for Queries
 
-Events = **not a query API**. Queries must read:
+Events are **not a query API**.
+
+Queries must read:
 
 - state
 - projections
@@ -460,7 +477,7 @@ Events = **not a query API**. Queries must read:
 
 # Recommended Architecture
 
-Typical system:
+A typical system:
 
 ```
 Clients
@@ -478,7 +495,7 @@ Projection Grains
 Read Models
 ```
 
-Provides:
+This architecture provides:
 
 - strong consistency per aggregate
 - scalable reads
@@ -489,7 +506,7 @@ Provides:
 
 # Summary
 
-Event-sourced Orleans flow:
+Event-sourced Orleans systems follow this flow:
 
 ```
 Command
@@ -512,4 +529,4 @@ Key rules:
 - state applies events
 - projections power queries
 
-Pattern → scalable, reliable distributed systems via Orleans.
+This pattern enables scalable, reliable distributed systems using Orleans.

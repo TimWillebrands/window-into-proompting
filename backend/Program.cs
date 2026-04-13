@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
 });
 
 builder.Services.AddMemoryCache();
+builder.Services.AddOutputCache();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
@@ -115,6 +116,8 @@ if (OtlpEndpoint != null)
 
 var app = builder.Build();
 
+app.UseOutputCache();
+
 app.Logger.LogInformation("App starting...");
 app.Logger.LogInformation("LLM Provider: {Provider}", builder.Configuration["Llm:Provider"]);
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
@@ -130,7 +133,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.MapGet("/up", () => Results.Ok());
+app.MapGet("/up", () => Results.NoContent()).Produces(StatusCodes.Status204NoContent);
 app.UseWebSockets();
 
 app.MapControllers();

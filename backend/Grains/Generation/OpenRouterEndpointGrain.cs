@@ -1,47 +1,58 @@
 using System.ClientModel;
 using System.Diagnostics;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
-using PartyTown.Configuration;
 using PartyTown.Logging;
 
 namespace PartyTown.Grains.Generation;
 
 public class OpenRouterEndpointGrain(
-    IOptions<LlmOptions> llmOptions,
     IHttpClientFactory httpClientFactory,
     ILogger<OpenRouterEndpointGrain> logger
 ) : Grain, IOpenRouterEndpointGrain
 {
     private int _activeGenerations;
+    private LlmProviderEntry? _config;
+
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        await base.OnActivateAsync(cancellationToken);
+        await RefreshConfigAsync();
+    }
+
+    private async Task RefreshConfigAsync()
+    {
+        var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
+        var providers = await configGrain.GetProvidersAsync();
+        // TODO: also filter by IsEnabled (see OllamaEndpointGrain.RefreshConfigAsync).
+        _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "openrouter");
+        if (_config is null)
+            logger.LogWarning("OpenRouterEndpointGrain {Id}: no config found", this.GetPrimaryKey());
+    }
 
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
-    private int GrainIndex => (int)this.GetPrimaryKeyLong();
-    private OpenRouterProviderConfig Config => (OpenRouterProviderConfig)llmOptions.Value.Providers.ElementAt(GrainIndex);
+    private string ApiKey => _config?.ApiKey ?? string.Empty;
+    private string BaseUrl => _config?.BaseUrl ?? "https://openrouter.ai/api/v1";
+    private string ModelName => _config?.ModelName ?? string.Empty;
     private const string ProviderDescription = "openrouter";
 
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationJob parameters,
         CancellationToken cancellationToken = default)
     {
-        var modelName = Config.TEMP_ModelName;
+        var modelName = ModelName;
         Interlocked.Increment(ref _activeGenerations);
 
         using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
         logger.LogDebug("LLM API call starting: {Model}", modelName);
-        var sw = Stopwatch.StartNew();
 
         var chatClient = new ChatClient(
             modelName,
-            new ApiKeyCredential(Config.ApiKey),
-            new OpenAIClientOptions { Endpoint = new Uri(Config.BaseUrl) });
+            new ApiKeyCredential(ApiKey),
+            new OpenAIClientOptions { Endpoint = new Uri(BaseUrl) });
 
-        // So why do we return the result of GenerateAsync directly?
-        // The caller is already iterating over the result, so we don't need to buffer it
-        // instead we just send the enumerable to the callee directly instead.
         return LlmEndpointGrainUtils.GenerateAsync(
             logger,
             parameters,
@@ -69,6 +80,8 @@ public class OpenRouterEndpointGrain(
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
 
             var models = new List<LlmModel>();
+            var grainId = this.GetPrimaryKey();
+            var complexity = _config?.SupportedComplexities ?? JobComplexity.General;
 
             if (!document.RootElement.TryGetProperty("data", out var dataNode) ||
                 !dataNode.TryGetProperty("models", out var modelsNode) ||
@@ -87,9 +100,7 @@ public class OpenRouterEndpointGrain(
 
                 var id = idNode.GetString();
                 if (string.IsNullOrWhiteSpace(id))
-                {
                     continue;
-                }
 
                 var name = modelNode.TryGetProperty("short_name", out var nameNode)
                     ? nameNode.GetString() ?? id
@@ -101,19 +112,17 @@ public class OpenRouterEndpointGrain(
 
                 int? contextLength = null;
                 if (modelNode.TryGetProperty("context_length", out var contextNode) && contextNode.TryGetInt32(out var ctx))
-                {
                     contextLength = ctx;
-                }
 
                 models.Add(new LlmModel
                 {
                     Name = id,
-                    EndpointProviderGrainId = GrainIndex,
+                    EndpointProviderGrainId = grainId,
                     ProviderType = "openrouter",
                     ProviderDescription = ProviderDescription,
                     Description = description ?? $"OpenRouter model {name}",
                     ContextLength = contextLength,
-                    SupportedComplexities = JobComplexity.General,
+                    SupportedComplexities = complexity,
                 });
             }
 

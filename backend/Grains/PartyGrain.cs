@@ -31,7 +31,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         {
             Id = this.GetPrimaryKey(),
             Name = State.Name,
-            Participants = [.. State.Participants]
+            Participants = State.Participants.ToList()
         });
 
     public async Task SetParty(PartyInfo party)
@@ -62,7 +62,7 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
     }
 
     public Task<List<ChatGroupInfo>> GetChatGroups()
-        => Task.FromResult<List<ChatGroupInfo>>([.. State.ChatGroups]);
+        => Task.FromResult(State.ChatGroups.ToList());
 
     public async Task<ChatGroupInfo> CreateChatGroup(string name)
     {
@@ -101,16 +101,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task CancelAllGenerations(CancellationToken ct = default)
     {
-        foreach (var cg in State.ChatGroups)
-        {
-            var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(cg.Id);
-            var messages = await chatGroupGrain.GetMessagesAsync();
-            var lastMessage = messages.LastOrDefault();
-            if (lastMessage is not null)
-            {
-                await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, ct);
-            }
-        }
+        // TODO: filter out IsUser participants — activating user persona grains here is wasteful (harmless but unnecessary).
+        var tasks = State.Participants.Select(p =>
+            GrainFactory.GetGrain<IPersonaGrain>(p.Id).CancelGenerationAsync());
+        await Task.WhenAll(tasks);
     }
 
     public async Task DeleteParty()
