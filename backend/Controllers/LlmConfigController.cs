@@ -18,6 +18,8 @@ public class LlmConfigController(IGrainFactory grains) : ControllerBase
     }
 
     [HttpGet("providers/{id:guid}/models")]
+    // TODO: 120s OutputCache can serve stale models after provider mutations.
+    // Prefer tag-based invalidation ("llm-providers" tag + evict in AddProviderAsync/UpdateProviderAsync/RemoveProviderAsync).
     [OutputCache(Duration = 120)]
     public async Task<ActionResult<List<string>>> GetProviderModels(Guid id)
     {
@@ -41,23 +43,42 @@ public class LlmConfigController(IGrainFactory grains) : ControllerBase
     public async Task<ActionResult<LlmProviderEntry>> AddProvider([FromBody] LlmProviderEntry entry)
     {
         var created = await ConfigGrain.AddProviderAsync(entry);
+        // TODO: Location header points at the collection endpoint (GetProviders has no {id} route).
+        // Add a GetProvider(Guid id) action and use CreatedAtAction(nameof(GetProvider), new { id = created.Id }, created).
         return CreatedAtAction(nameof(GetProviders), created);
     }
 
     [HttpPut("providers/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LlmProviderEntry>> UpdateProvider(Guid id, [FromBody] LlmProviderEntry entry)
     {
         if (entry.Id != id)
             return BadRequest("Id in body must match route id");
 
-        var updated = await ConfigGrain.UpdateProviderAsync(entry);
-        return Ok(updated);
+        try
+        {
+            var updated = await ConfigGrain.UpdateProviderAsync(entry);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     [HttpDelete("providers/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteProvider(Guid id)
     {
-        await ConfigGrain.RemoveProviderAsync(id);
-        return NoContent();
+        try
+        {
+            await ConfigGrain.RemoveProviderAsync(id);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 }

@@ -33,18 +33,19 @@ import type {
     PartyDetails,
     PartyInfo,
     Persona,
+    ProblemDetails,
     ProceedRequest,
     PromptRequest,
     RepromptRequest,
     UpdatePartyParticipantsRequest,
 } from './model';
 
-export type getUpResponse200 = {
-    data: undefined;
-    status: 200;
+export type getUpResponse204 = {
+    data: void;
+    status: 204;
 };
 
-export type getUpResponseSuccess = getUpResponse200 & {
+export type getUpResponseSuccess = getUpResponse204 & {
     headers: Headers;
 };
 
@@ -1182,13 +1183,13 @@ export const usePutLlmConfigProvidersId = <
     );
 };
 
-export type deleteLlmConfigProvidersIdResponse200 = {
-    data: undefined;
-    status: 200;
+export type deleteLlmConfigProvidersIdResponse204 = {
+    data: void;
+    status: 204;
 };
 
 export type deleteLlmConfigProvidersIdResponseSuccess =
-    deleteLlmConfigProvidersIdResponse200 & {
+    deleteLlmConfigProvidersIdResponse204 & {
         headers: Headers;
     };
 
@@ -2248,16 +2249,40 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdPromptResponse200 = {
-    data: undefined;
-    status: 200;
+export type postPartyIdPromptResponse202 = {
+    data: void;
+    status: 202;
 };
 
-export type postPartyIdPromptResponseSuccess = postPartyIdPromptResponse200 & {
+export type postPartyIdPromptResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdPromptResponseSuccess = postPartyIdPromptResponse202 & {
+    headers: Headers;
+};
+export type postPartyIdPromptResponseError = (
+    | postPartyIdPromptResponse400TextPlain
+    | postPartyIdPromptResponse400ApplicationJson
+    | postPartyIdPromptResponse400TextJson
+) & {
     headers: Headers;
 };
 
-export type postPartyIdPromptResponse = postPartyIdPromptResponseSuccess;
+export type postPartyIdPromptResponse =
+    | postPartyIdPromptResponseSuccess
+    | postPartyIdPromptResponseError;
 
 export const getPostPartyIdPromptUrl = (id: string) => {
     return `/api/Party/${id}/prompt`;
@@ -2288,7 +2313,7 @@ export const postPartyIdPrompt = async (
 };
 
 export const getPostPartyIdPromptMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -2329,9 +2354,12 @@ export type PostPartyIdPromptMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdPrompt>>
 >;
 export type PostPartyIdPromptMutationBody = PromptRequest;
-export type PostPartyIdPromptMutationError = unknown;
+export type PostPartyIdPromptMutationError = ProblemDetails;
 
-export const usePostPartyIdPrompt = <TError = unknown, TContext = unknown>(
+export const usePostPartyIdPrompt = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
     options?: {
         mutation?: UseMutationOptions<
             Awaited<ReturnType<typeof postPartyIdPrompt>>,
@@ -2354,17 +2382,41 @@ export const usePostPartyIdPrompt = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdProceedResponse200 = {
-    data: undefined;
-    status: 200;
+export type postPartyIdProceedResponse202 = {
+    data: void;
+    status: 202;
+};
+
+export type postPartyIdProceedResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdProceedResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdProceedResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
 };
 
 export type postPartyIdProceedResponseSuccess =
-    postPartyIdProceedResponse200 & {
+    postPartyIdProceedResponse202 & {
         headers: Headers;
     };
+export type postPartyIdProceedResponseError = (
+    | postPartyIdProceedResponse400TextPlain
+    | postPartyIdProceedResponse400ApplicationJson
+    | postPartyIdProceedResponse400TextJson
+) & {
+    headers: Headers;
+};
 
-export type postPartyIdProceedResponse = postPartyIdProceedResponseSuccess;
+export type postPartyIdProceedResponse =
+    | postPartyIdProceedResponseSuccess
+    | postPartyIdProceedResponseError;
 
 export const getPostPartyIdProceedUrl = (id: string) => {
     return `/api/Party/${id}/proceed`;
@@ -2395,7 +2447,7 @@ export const postPartyIdProceed = async (
 };
 
 export const getPostPartyIdProceedMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -2436,9 +2488,12 @@ export type PostPartyIdProceedMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdProceed>>
 >;
 export type PostPartyIdProceedMutationBody = ProceedRequest;
-export type PostPartyIdProceedMutationError = unknown;
+export type PostPartyIdProceedMutationError = ProblemDetails;
 
-export const usePostPartyIdProceed = <TError = unknown, TContext = unknown>(
+export const usePostPartyIdProceed = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
     options?: {
         mutation?: UseMutationOptions<
             Awaited<ReturnType<typeof postPartyIdProceed>>,
@@ -2461,12 +2516,12 @@ export const usePostPartyIdProceed = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type postPartyIdCancelResponse200 = {
-    data: undefined;
-    status: 200;
+export type postPartyIdCancelResponse204 = {
+    data: void;
+    status: 204;
 };
 
-export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse200 & {
+export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse204 & {
     headers: Headers;
 };
 
@@ -2564,18 +2619,44 @@ export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse200 = {
-    data: undefined;
-    status: 200;
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 = {
+    data: void;
+    status: 204;
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse200 & {
-        headers: Headers;
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
     };
 
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess =
+    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 & {
+        headers: Headers;
+    };
+export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError = (
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson
+) & {
+    headers: Headers;
+};
+
 export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse =
-    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess;
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess
+    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError;
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdUrl = (
     id: string,
@@ -2615,7 +2696,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesMessageId = async (
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptions =
-    <TError = unknown, TContext = unknown>(options?: {
+    <TError = ProblemDetails, TContext = unknown>(options?: {
         mutation?: UseMutationOptions<
             Awaited<
                 ReturnType<
@@ -2679,10 +2760,10 @@ export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationResult =
     >;
 
 export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationError =
-    unknown;
+    ProblemDetails;
 
 export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -2715,19 +2796,46 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
     );
 };
 
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse200 =
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 =
     {
-        data: undefined;
-        status: 200;
+        data: void;
+        status: 204;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
     };
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse200 & {
+    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 & {
+        headers: Headers;
+    };
+export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError =
+    (
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson
+        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson
+    ) & {
         headers: Headers;
     };
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse =
-    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess;
+    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess
+    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError;
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdUrl = (
     id: string,
@@ -2767,7 +2875,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = async (
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions =
-    <TError = unknown, TContext = unknown>(options?: {
+    <TError = ProblemDetails, TContext = unknown>(options?: {
         mutation?: UseMutationOptions<
             Awaited<
                 ReturnType<
@@ -2831,10 +2939,10 @@ export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationResu
     >;
 
 export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationError =
-    unknown;
+    ProblemDetails;
 
 export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -2869,18 +2977,41 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
     );
 };
 
-export type postPartyIdRepromptMessageIdResponse200 = {
-    data: undefined;
-    status: 200;
+export type postPartyIdRepromptMessageIdResponse202 = {
+    data: void;
+    status: 202;
+};
+
+export type postPartyIdRepromptMessageIdResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdRepromptMessageIdResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPartyIdRepromptMessageIdResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
 };
 
 export type postPartyIdRepromptMessageIdResponseSuccess =
-    postPartyIdRepromptMessageIdResponse200 & {
+    postPartyIdRepromptMessageIdResponse202 & {
         headers: Headers;
     };
+export type postPartyIdRepromptMessageIdResponseError = (
+    | postPartyIdRepromptMessageIdResponse400TextPlain
+    | postPartyIdRepromptMessageIdResponse400ApplicationJson
+    | postPartyIdRepromptMessageIdResponse400TextJson
+) & {
+    headers: Headers;
+};
 
 export type postPartyIdRepromptMessageIdResponse =
-    postPartyIdRepromptMessageIdResponseSuccess;
+    | postPartyIdRepromptMessageIdResponseSuccess
+    | postPartyIdRepromptMessageIdResponseError;
 
 export const getPostPartyIdRepromptMessageIdUrl = (
     id: string,
@@ -2915,7 +3046,7 @@ export const postPartyIdRepromptMessageId = async (
 };
 
 export const getPostPartyIdRepromptMessageIdMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -2956,10 +3087,10 @@ export type PostPartyIdRepromptMessageIdMutationResult = NonNullable<
     Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>
 >;
 export type PostPartyIdRepromptMessageIdMutationBody = RepromptRequest;
-export type PostPartyIdRepromptMessageIdMutationError = unknown;
+export type PostPartyIdRepromptMessageIdMutationError = ProblemDetails;
 
 export const usePostPartyIdRepromptMessageId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -2985,7 +3116,7 @@ export const usePostPartyIdRepromptMessageId = <
 };
 
 export type getPartyIdWsResponse200 = {
-    data: undefined;
+    data: void;
     status: 200;
 };
 
@@ -4795,7 +4926,7 @@ export const usePutPersonaId = <TError = unknown, TContext = unknown>(
 };
 
 export type deletePersonaIdResponse200 = {
-    data: undefined;
+    data: void;
     status: 200;
 };
 
@@ -5196,7 +5327,7 @@ export function useGetPersonaDefaultsSuspense<
 }
 
 export type getPersonaWsResponse200 = {
-    data: undefined;
+    data: void;
     status: 200;
 };
 

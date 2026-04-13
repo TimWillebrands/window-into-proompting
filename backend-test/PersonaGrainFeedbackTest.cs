@@ -175,6 +175,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
         await grain.NotifyMessageAsync(_chatGroupId, MentionMessage("what do you think?"), CancellationToken.None);
 
         // Assert
+        // TODO: tighten to exact-payload assertion — Contains lets prefixed/suffixed/duplicated strings pass silently.
+        // TODO: add companion test for manual cancel path (CancelGenerationAsync while NotifyMessageAsync in-flight) mirroring NotifyMessage_CancelledDuringGeneration_CallsMarkGenerationFailed_WithCancelled.
         chatGroup.Verify(
             g => g.AppendMessageAsync(
                 It.IsAny<int>(),

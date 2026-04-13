@@ -182,6 +182,8 @@ public sealed class PartyController(
     /// required fields (prompt, model, or provider) are missing or whitespace.
     /// </returns>
     [HttpPost("{id:guid}/prompt")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> Prompt(Guid id, [FromBody] PromptRequest request)
     {
         if (request.ChatGroupId == Guid.Empty)
@@ -202,7 +204,7 @@ public sealed class PartyController(
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
             .SendNewMessageAsync(senderId, request.Prompt);
 
-        return Accepted("Proompt accepted");
+        return Accepted();
     }
 
     /// <summary>
@@ -217,6 +219,8 @@ public sealed class PartyController(
     /// when model or provider is missing or whitespace.
     /// </returns>
     [HttpPost("{id:guid}/proceed")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> Proceed(Guid id, [FromBody] ProceedRequest request)
     {
         if (request.ChatGroupId == Guid.Empty)
@@ -235,7 +239,7 @@ public sealed class PartyController(
             await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
 
-        return Accepted("Proompt accepted");
+        return Accepted();
     }
 
     /// <summary>
@@ -247,6 +251,7 @@ public sealed class PartyController(
     /// when <paramref name="id"/> is empty.
     /// </returns>
     [HttpPost("{id:guid}/cancel")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> CancelGenerations(Guid id)
     {
         await grains.GetGrain<IPartyGrain>(id).CancelAllGenerations();
@@ -263,6 +268,8 @@ public sealed class PartyController(
     /// when <paramref name="messageId"/> is negative.
     /// </returns>
     [HttpDelete("{id:guid}/chat-groups/{chatGroupId:guid}/messages/{messageId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> DeleteMessage(Guid id, Guid chatGroupId, int messageId)
     {
         if (chatGroupId == Guid.Empty)
@@ -289,6 +296,8 @@ public sealed class PartyController(
     /// when <paramref name="messageId"/> is negative.
     /// </returns>
     [HttpDelete("{id:guid}/chat-groups/{chatGroupId:guid}/messages-after/{messageId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> DeleteMessagesAfter(Guid id, Guid chatGroupId, int messageId)
     {
         if (chatGroupId == Guid.Empty)
@@ -322,6 +331,8 @@ public sealed class PartyController(
     /// the same continuation flow used by <see cref="Proceed(Guid, ProceedRequest)"/>.
     /// </remarks>
     [HttpPost("{id:guid}/reprompt/{messageId:int}")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> Reprompt(Guid id, int messageId, [FromBody] RepromptRequest request)
     {
         if (request.ChatGroupId == Guid.Empty)
@@ -341,7 +352,7 @@ public sealed class PartyController(
             await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
         }
 
-        return Accepted("Proompt accepted");
+        return Accepted();
     }
 
     /// <summary>

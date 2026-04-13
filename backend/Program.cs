@@ -133,7 +133,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.MapGet("/up", () => Results.Ok());
+app.MapGet("/up", () => Results.NoContent()).Produces(StatusCodes.Status204NoContent);
 app.UseWebSockets();
 
 app.MapControllers();

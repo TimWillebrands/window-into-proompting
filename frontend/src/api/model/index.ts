@@ -17,6 +17,7 @@ export * from './partyInfo';
 export * from './partyParticipant';
 export * from './persona';
 export * from './personaMetadata';
+export * from './problemDetails';
 export * from './proceedRequest';
 export * from './promptRequest';
 export * from './repromptRequest';

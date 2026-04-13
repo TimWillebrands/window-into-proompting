@@ -26,6 +26,8 @@ public class OllamaEndpointGrain(
     {
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
         var providers = await configGrain.GetProvidersAsync();
+        // TODO: also filter by IsEnabled so disabled providers keep _config null.
+        // Router (LlmRouterGrain) already filters disabled, but LlmConfigController.GetProviderModels bypasses the router.
         _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "ollama");
         if (_config is null)
             logger.LogWarning("OllamaEndpointGrain {Id}: no config found", this.GetPrimaryKey());

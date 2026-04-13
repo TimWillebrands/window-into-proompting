@@ -25,6 +25,7 @@ public class OpenRouterEndpointGrain(
     {
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
         var providers = await configGrain.GetProvidersAsync();
+        // TODO: also filter by IsEnabled (see OllamaEndpointGrain.RefreshConfigAsync).
         _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "openrouter");
         if (_config is null)
             logger.LogWarning("OpenRouterEndpointGrain {Id}: no config found", this.GetPrimaryKey());
