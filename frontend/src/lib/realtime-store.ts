@@ -174,9 +174,10 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 const envelope = JSON.parse(
                     event.data,
                 ) as PartyRealtimeEnvelope;
+                console.log('[ws]', envelope.type, envelope.data);
                 handleEnvelope(partyId, envelope);
-            } catch {
-                // Ignore malformed payloads.
+            } catch (err) {
+                console.warn('[ws] parse error', err, event.data);
             }
         });
 
