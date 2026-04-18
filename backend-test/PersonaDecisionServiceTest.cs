@@ -249,6 +249,62 @@ public class PersonaDecisionServiceTest
     }
 
     [Fact]
+    public async Task ShouldRespondAsync_JsonWrappedInMarkdownCodeFence_ParsesCorrectly()
+    {
+        // Observed in production: models (despite schema constraints) frequently wrap their
+        // response in ```json … ``` fences. The first parse fails on the leading backtick,
+        // and JsonRepair also chokes on it — so the decision service must strip fences itself.
+        var self = MakeParticipant("Vlad");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var fenced = "```json\n{\"reason\": \"Natural opening.\", \"respond\": true, \"instruction\": \"Greet back.\"}\n```";
+
+        var service = MakeService(EndpointReturningJson(fenced));
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Equal("Greet back.", result.Instruction);
+        Assert.False(result.Reason.StartsWith("Fallback"), "Expected fence-stripped JSON to parse, not the fail-closed fallback");
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_JsonWithRawNewlinesInsideStringValue_ParsesCorrectly()
+    {
+        // Second observed failure mode: LLMs emit literal newlines inside a multi-line `reason`
+        // field. JsonRepairSharp does not escape these — the service must normalize control
+        // chars inside string values before handing off to the parser.
+        var self = MakeParticipant("Vlad");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        // Raw 0x0A inside the "reason" string — exactly the byte that triggered the prod error.
+        var broken = "{\"reason\": \"First line.\nSecond line.\", \"respond\": true, \"instruction\": \"Reply.\"}";
+
+        var service = MakeService(EndpointReturningJson(broken));
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.False(result.Reason.StartsWith("Fallback"), "Expected escape-normalized JSON to parse, not the fail-closed fallback");
+    }
+
+    [Fact]
     public async Task ShouldRespondAsync_UnparseableJsonResponse_FailsClosedWithRespondFalse()
     {
         // If even JsonRepair can't recover the response, the service must fail closed:

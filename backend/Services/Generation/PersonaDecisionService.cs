@@ -163,19 +163,34 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
         catch (Exception ex)
         {
-            logger.LogWarning("Persona {PersonaName} decision parse failed: {Error}", self.Name, ex.Message);
+            logger.LogDebug("Persona {PersonaName} decision parse failed (will try cleanup): {Error}", self.Name, ex.Message);
         }
 
         if (parsed is null)
         {
+            // Cleanup pipeline for LLM-produced JSON:
+            //   1. Strip markdown code fences (```json … ```) that some models wrap output in.
+            //   2. Escape raw control chars (newline, tab, etc.) found *inside* string values —
+            //      JsonRepairSharp does not handle these, but the symptom appears often enough
+            //      in multi-line `reason` fields that we fix it before handing off.
+            var cleaned = ExtractJsonPayload(raw);
+
             try
             {
-                string repairedJson = JsonRepair.RepairJson(raw, JsonRepair.InputType.LLM);
-                parsed = JsonSerializer.Deserialize<ShouldRespondResult>(repairedJson, WebOptions);
+                parsed = JsonSerializer.Deserialize<ShouldRespondResult>(cleaned, WebOptions);
             }
-            catch (Exception ex)
+            catch
             {
-                logger.LogWarning("Persona {PersonaName} decision JSON repair failed: {Error}", self.Name, ex.Message);
+                try
+                {
+                    var repaired = JsonRepair.RepairJson(cleaned, JsonRepair.InputType.LLM);
+                    parsed = JsonSerializer.Deserialize<ShouldRespondResult>(repaired, WebOptions);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("Persona {PersonaName} decision JSON repair failed: {Error}. Raw: {Raw}",
+                        self.Name, ex.Message, raw);
+                }
             }
         }
 
@@ -196,6 +211,104 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
 
         return parsed;
+    }
+
+    /// <summary>
+    /// Normalizes an LLM-produced JSON blob: strips markdown code fences and escapes raw
+    /// control characters (LF/CR/TAB) found *inside* string values. Safe to hand to
+    /// <see cref="JsonSerializer"/> or <see cref="JsonRepair"/>.
+    /// </summary>
+    internal static string ExtractJsonPayload(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return raw;
+
+        var s = raw.Trim();
+
+        // Strip markdown code fences: ```json … ``` or ``` … ```.
+        // Models very often wrap structured output this way despite being asked for JSON only.
+        if (s.StartsWith("```"))
+        {
+            // Drop the opening fence line (```json, ```JSON, ```, etc.)
+            var firstNewline = s.IndexOf('\n');
+            if (firstNewline >= 0)
+                s = s[(firstNewline + 1)..];
+            else
+                s = s[3..];
+
+            // Drop the trailing closing fence, if any
+            var closing = s.LastIndexOf("```", StringComparison.Ordinal);
+            if (closing >= 0)
+                s = s[..closing];
+
+            s = s.Trim();
+        }
+
+        // Narrow to the first balanced JSON object. Models sometimes prefix commentary
+        // (e.g. "Here is my decision:") or append stray text after the closing brace.
+        var firstBrace = s.IndexOf('{');
+        var lastBrace = s.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+            s = s[firstBrace..(lastBrace + 1)];
+
+        return EscapeControlCharsInStrings(s);
+    }
+
+    /// <summary>
+    /// Walks a JSON-ish string and replaces raw CR/LF/TAB characters that appear *inside*
+    /// double-quoted string values with their escape sequences. JsonRepairSharp does not
+    /// do this, yet LLMs frequently emit multi-line reason fields with literal newlines.
+    /// </summary>
+    private static string EscapeControlCharsInStrings(string json)
+    {
+        var sb = new StringBuilder(json.Length);
+        bool inString = false;
+        bool escaped = false;
+
+        foreach (var c in json)
+        {
+            if (inString)
+            {
+                if (escaped)
+                {
+                    sb.Append(c);
+                    escaped = false;
+                    continue;
+                }
+
+                switch (c)
+                {
+                    case '\\':
+                        sb.Append(c);
+                        escaped = true;
+                        break;
+                    case '"':
+                        sb.Append(c);
+                        inString = false;
+                        break;
+                    case '\n':
+                        sb.Append("\\n");
+                        break;
+                    case '\r':
+                        sb.Append("\\r");
+                        break;
+                    case '\t':
+                        sb.Append("\\t");
+                        break;
+                    default:
+                        sb.Append(c);
+                        break;
+                }
+            }
+            else
+            {
+                sb.Append(c);
+                if (c == '"')
+                    inString = true;
+            }
+        }
+
+        return sb.ToString();
     }
 
     private static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
