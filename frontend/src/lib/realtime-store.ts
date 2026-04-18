@@ -459,6 +459,19 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                             eventEntry,
                         ],
                     };
+                } else if (payload.event === 'retry') {
+                    // Backend is about to retry generation after a transient failure.
+                    // Clear any partial content/reasoning we buffered during the failed
+                    // attempt so the next stream starts from a clean slate.
+                    nextMessage = {
+                        ...baseMessage,
+                        content: '',
+                        reasoning: null,
+                        generationEvents: [
+                            ...baseMessage.generationEvents,
+                            eventEntry,
+                        ],
+                    };
                 } else if (payload.event === 'declined') {
                     // Persona decided not to respond — capture decision then remove phantom message
                     const phantom = prev.messages.find(

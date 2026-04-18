@@ -1,7 +1,7 @@
-using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using JsonRepairSharp;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -34,15 +34,21 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             return new ResponseUrge(0, 0, 0, 0, Random.Shared.NextDouble());
 
         var latest = history[^1];
-        var contentLower = (latest.Content ?? "").ToLowerInvariant();
-        var nameLower = self.Name.ToLowerInvariant();
+        var content = latest.Content ?? "";
 
-        // Direct mention: is the persona's name in the latest message?
-        if (contentLower.Contains(nameLower))
-            mentionScore = 1.0;
+        // Direct mention: persona name as a whole word (case-insensitive).
+        // Substring matching triggered on "Tim" in "intimate", "optimization", etc.
+        if (!string.IsNullOrWhiteSpace(self.Name))
+        {
+            var mentionRegex = new Regex(
+                $@"\b{Regex.Escape(self.Name)}\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (mentionRegex.IsMatch(content))
+                mentionScore = 1.0;
+        }
 
         // Question detection: does the latest message end with a question mark?
-        if (ContentTrimmed(latest.Content ?? "").EndsWith('?'))
+        if (content.TrimEnd().EndsWith('?'))
             questionScore = 0.6;
 
         // Silence streak: how many AI rounds without this persona responding?
@@ -53,8 +59,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore);
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, chaosScore);
     }
-
-    private static string ContentTrimmed(string content) => content.TrimEnd();
 
     /// <summary>
     /// Appraises whether the persona should respond based on the conversation history and participants.
@@ -97,6 +101,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var text = new StringBuilder();
 
+        // Schema field order drives generation order. Reason first → the model reasons before
+        // committing to a boolean, countering the confirmation-bias pattern where an early
+        // `respond` decision is then rationalized by a post-hoc `reason`.
         var responseFormat = new JsonObject
         {
             ["type"] = "json_schema",
@@ -109,11 +116,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                     ["type"] = "object",
                     ["properties"] = new JsonObject
                     {
+                        ["reason"] = new JsonObject { ["type"] = "string" },
                         ["respond"] = new JsonObject { ["type"] = "boolean" },
-                        ["instruction"] = new JsonObject { ["type"] = "string" },
-                        ["reason"] = new JsonObject { ["type"] = "string" }
+                        ["instruction"] = new JsonObject { ["type"] = "string" }
                     },
-                    ["required"] = new JsonArray("respond", "instruction", "reason")
+                    ["required"] = new JsonArray("reason", "respond", "instruction")
                 }
             }
         };
@@ -206,10 +213,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
     private static string ShouldRespondSystemPrompt(GenerationParticipant self, IReadOnlyList<GenerationParticipant> participants)
         => $"""
-# Instruction
-You are {self.Name}. You are deciding whether YOU should respond to the latest message
-in a group chat. You are NOT generating a response — just deciding whether to speak.
+# You are: {self.Name}
+Bio: {self.Bio ?? "No bio"}
 
+# Task
+You are deciding whether YOU should respond to the latest message in a group chat.
+You are NOT generating a response — just deciding whether to speak.
+
+# Other participants
+{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
+    p.IsUser
+        ? $"- {p.Name} (human)"
+        : $"- {p.Name}: {p.Bio ?? "No bio"}"))}
+
+# How to decide
 Consider:
 - Were you directly addressed, mentioned, or asked a question?
 - Would you naturally react to what was just said, given your personality?
@@ -218,18 +235,11 @@ Consider:
 - Have you been talking too much recently? Give others space.
 
 Be honest — not everyone needs to respond to everything. Silence is fine.
-If you do decide to respond, provide a brief instruction (one sentence) to guide
-your response — a natural nudge, not a script.
 
-# About you
-Name: {self.Name}
-Bio: {self.Bio ?? "No bio"}
-
-# Other participants
-{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
-    p.IsUser
-        ? $"- {p.Name} (human)"
-        : $"- {p.Name}: {p.Bio ?? "No bio"}"))}
+# Output
+Respond with a JSON object. Reason through the decision first; the `respond` boolean
+must follow from your reasoning, not precede it. If you decide to respond, provide
+a brief instruction (one sentence) to guide your response — a natural nudge, not a script.
 """;
 
     private static string ShouldRespondUserPrompt(
@@ -239,46 +249,55 @@ Bio: {self.Bio ?? "No bio"}
         GenerationParticipant self,
         ResponseUrge urge)
     {
-        var pressure = totalAiRoundsInGroup switch
+        // Net pressure bucket. Previously four independent switches rendered contradictory lines
+        // like "lean toward speaking up" + "do NOT respond unless asked" in the same prompt.
+        // Here we collapse pull (urge, chaos) and push (rounds, self-dominance) into one signal
+        // so the model sees a single, coherent nudge.
+        var roundPenalty = totalAiRoundsInGroup switch
         {
-            <= 1 => "",
-            2 => "\n\n> The conversation has been going for a couple of rounds without human input. Only respond if you have something genuinely worth saying.",
-            3 => "\n\n> It's been a few rounds with no human input. Think carefully about whether you really need to add something.",
-            4 => "\n\n> The conversation has been running without human input for a while. Strongly lean toward not responding unless you were directly asked.",
-            _ => "\n\n> This conversation has been on autopilot for too long. Do NOT respond unless you were explicitly asked a question."
+            <= 1 => 0.0,
+            2 => 0.15,
+            3 => 0.35,
+            4 => 0.6,
+            _ => 0.9
+        };
+        var selfPenalty = recentSelfMessageCount switch
+        {
+            0 => 0.0,
+            1 => 0.3,
+            _ => 0.7
+        };
+        var chaosBonus = urge.ChaosScore switch
+        {
+            >= 0.85 => 0.3,
+            >= 0.65 => 0.1,
+            _ => 0.0
         };
 
-        var selfPressure = recentSelfMessageCount switch
+        var net = urge.Total - roundPenalty - selfPenalty + chaosBonus;
+
+        var nudge = net switch
         {
-            0 => "",
-            1 => "\n\n> You spoke recently. Make sure you're not dominating the conversation.",
-            >= 2 => "\n\n> You've spoken multiple times in a row. Strongly consider staying quiet to let others talk.",
-            _ => ""
+            >= 0.7 => "> Strong pull to speak up — lean toward responding.",
+            >= 0.4 => "> Some pull to chime in. Use your judgment.",
+            >= 0.0 => "> No strong signal either way.",
+            >= -0.4 => "> Lean toward staying quiet — give others room.",
+            _ => "> Do NOT respond unless you were directly asked a question."
         };
 
-        var urgePressure = urge.Total switch
-        {
-            >= 0.7 => "\n\n> There's a strong signal that you should respond right now — lean toward speaking up.",
-            >= 0.5 => "\n\n> Some indicators suggest you might want to chime in. Consider it, but use your judgment.",
-            >= 0.3 => "\n\n> The situation is somewhat quiet. You could respond if it feels natural, but it's not urgent.",
-            _ => ""
-        };
-
-        var chaosPressure = urge.ChaosScore switch
-        {
-            >= 0.85 => "\n\n> (internal) Something sparks in you — an impulsive, irrational urge to just say something. Act on it.",
-            >= 0.65 => "\n\n> (internal) For no particular reason, you feel like chiming in today.",
-            _ => ""
-        };
+        var renderedMessages = string.Join(
+            "\n\n",
+            messages.Select(m => ChatMessageRenderer.Render(m.Message, m.SenderName)));
 
         return $"""
 # Recent conversation
-{string.Join("\n\n", messages.Select(m => $"<message senderName=\"{SecurityElement.Escape(m.SenderName)}\" senderId=\"{m.Message.SenderId}\">\n{SecurityElement.Escape(m.Message.Content ?? "")}\n</message>"))}
-{urgePressure}{chaosPressure}{pressure}{selfPressure}
+{renderedMessages}
+
+{nudge}
 
 # Decision
 Should {self.Name} respond right now?
-JSON object with: respond (boolean), instruction (string — guidance for your response if respond=true), reason (string — why or why not)
+JSON object with: reason (string — think first, why or why not), respond (boolean — follows from reason), instruction (string — guidance if respond=true, empty otherwise)
 """;
     }
 }

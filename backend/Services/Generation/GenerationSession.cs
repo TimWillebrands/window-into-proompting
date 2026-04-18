@@ -1,4 +1,3 @@
-using System.Security;
 using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -15,7 +14,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         GenerationParticipant persona,
         IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? turnInstruction = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var messages = new List<LlmChatMessage>
@@ -23,17 +23,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             new()
             {
                 Role = "system",
-                Content = Instruction(
-                    """
-                    The headquarters of a stealth software startup producing a mobile app for
-                    the horticulture industry.
-                    'Stealth' meaning the company operates discreetly and does not reveal its
-                    existence until ready to launch; this in order to protect the revolutionary
-                    tech. At least, this is what employees are told, or is there more to it?
-                    """,
-                    persona.SystemPrompt ?? string.Empty,
-                    persona,
-                    others),
+                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others),
                 Name = persona.Id.ToString()
             }
         };
@@ -43,11 +33,22 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             Role = message.SenderId == persona.Id ? "assistant" : "user",
             Content = message.SenderId == persona.Id
                 ? (message.Content ?? string.Empty)
-                : ToUserScopedMessage(
+                : ChatMessageRenderer.Render(
                     message,
                     allParticipants.FirstOrDefault(p => p.Id == message.SenderId)?.Name ?? "Unknown"),
             Name = message.SenderId.ToString()
         }));
+
+        // Recency-position nudge from the decision step, if present.
+        if (!string.IsNullOrWhiteSpace(turnInstruction))
+        {
+            messages.Add(new LlmChatMessage
+            {
+                Role = "system",
+                Content = $"Guidance for this turn: {turnInstruction}",
+                Name = persona.Id.ToString()
+            });
+        }
 
         var builder = new StringBuilder();
         var reasoning = new StringBuilder();
@@ -83,19 +84,27 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
     }
 
-    private static string ToUserScopedMessage(ChatMessage message, string senderName)
-        => $"<message sender=\"{SecurityElement.Escape(senderName)}\" senderId=\"{message.SenderId}\">\n{SecurityElement.Escape(message.Content ?? "")}\n</message>";
-
-    private static string Instruction(string scenario, string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others)
+    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others)
     {
         var othersSection = others.Count == 0
             ? "(no other participants)"
-            : string.Join("\n", others.Select(p => $"- {p.Name}: {p.Bio ?? "No bio available"}"));
+            : string.Join("\n", others.Select(p =>
+                p.IsUser
+                    ? $"- {p.Name} (human)"
+                    : $"- {p.Name}: {p.Bio ?? "No bio available"}"));
 
+        // Persona identity block claims the primacy position; chat-style rules land after,
+        // so the model sees who it is before it sees generic etiquette.
         return $"""
-# Instruction
-You are in a (group) chat with other people. Stay completely in character
-as your persona — never acknowledge that you are an AI or playing a role.
+# You are: {self.Name} (ID: {self.Id})
+{personaPrompt}
+
+# Other participants
+{othersSection}
+
+# Style
+You are in a (group) chat with other people. Stay completely in character as
+your persona — never acknowledge that you are an AI or playing a role.
 
 Talk like a real person in a casual group chat: short, reactive, and natural.
 Actually respond to what others just said — agree, disagree, interrupt, joke,
@@ -106,15 +115,6 @@ Only go longer if you're genuinely explaining something or telling a story.
 
 You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
 *leans back*), but don't narrate elaborate scenes or stage directions.
-
-# You are: {self.Name} (ID: {self.Id})
-{personaPrompt}
-
-# Other participants
-{othersSection}
-
-# Scenario
-{scenario}
 """;
     }
 }
