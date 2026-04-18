@@ -30,7 +30,7 @@ docker compose down -v     # Stop and wipe DB
 - **Database**: localhost:${HOST_DB_PORT:-5455} (PostgreSQL + Apache AGE)
 - **Aspire Dashboard**: http://localhost:18888 (OpenTelemetry traces/metrics/logs)
 
-Frontend + backend hot-reload on changes.
+If development-docker runs, frontend + backend hot-reload on changes. This dev-docker is often running so check first before trying to start one of the services yourself/
 
 ## Commands
 
