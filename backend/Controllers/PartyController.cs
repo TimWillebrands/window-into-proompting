@@ -136,6 +136,65 @@ public sealed class PartyController(
         return Ok(current);
     }
 
+    /// <summary>
+    /// Updates the participants of a specific chat group within a party.
+    /// </summary>
+    /// <param name="id">The party identifier.</param>
+    /// <param name="chatGroupId">The chat group identifier.</param>
+    /// <param name="request">The participant list. Each id must exist in the party roster.</param>
+    /// <returns>
+    /// <c>200 OK</c> with the updated participant list;
+    /// <c>400 Bad Request</c> if any participant id is not in the party roster;
+    /// <c>404 Not Found</c> if the party does not exist.
+    /// </returns>
+    [HttpPut("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
+    public async Task<ActionResult<List<PartyParticipant>>> SetChatGroupParticipants(
+        Guid id,
+        Guid chatGroupId,
+        [FromBody] UpdatePartyParticipantsRequest request)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, id);
+        if (!await root.HasPartyId(id))
+        {
+            return NotFound();
+        }
+
+        var party = await grains.GetGrain<IPartyGrain>(id).GetParty();
+        var partyIds = party.Participants.Select(p => p.Id).ToHashSet();
+
+        var participants = (request.Participants ?? [])
+            .Where(p => p.Id != Guid.Empty)
+            .GroupBy(p => p.Id)
+            .Select(group =>
+            {
+                var p = group.First();
+                return new PartyParticipant
+                {
+                    Id = p.Id,
+                    Name = string.IsNullOrWhiteSpace(p.Name) ? p.Id.ToString() : p.Name.Trim(),
+                    IsUser = p.IsUser
+                };
+            })
+            .ToList();
+
+        var invalid = participants.Where(p => !partyIds.Contains(p.Id)).Select(p => p.Id).ToList();
+        if (invalid.Count > 0)
+        {
+            return BadRequest($"Participants not in party roster: {string.Join(", ", invalid)}");
+        }
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        await chatGroupGrain.SetParticipantsAsync(participants);
+        var updated = await chatGroupGrain.GetParticipantsAsync();
+        return Ok(updated);
+    }
+
     [HttpPut("{id:guid}/participants")]
     public async Task<ActionResult<PartyInfo>> SetParticipants(Guid id, [FromBody] UpdatePartyParticipantsRequest request)
     {

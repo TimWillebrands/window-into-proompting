@@ -142,6 +142,32 @@ public class PersonaController(
         var personaGrain = grains.GetGrain<IPersonaGrain>(personaId);
         var updated = await personaGrain.GetPersona();
 
+        // Single-party assumption: every persona is a member of the default party roster.
+        // Ensures new personas show up in the "+" invite dropdown across chat groups.
+        var defaultPartyGrain = grains.GetGrain<IPartyGrain>(Guid.Empty);
+        var defaultParty = await defaultPartyGrain.GetParty();
+        if (!defaultParty.Participants.Any(p => p.Id == personaId))
+        {
+            var roster = new List<PartyParticipant>(defaultParty.Participants)
+            {
+                new() { Id = personaId, Name = updated.Name ?? persona.Name, IsUser = false }
+            };
+            await defaultPartyGrain.SetParticipants(roster);
+        }
+        else
+        {
+            // Update the stored name if it changed
+            var roster = defaultParty.Participants
+                .Select(p => p.Id == personaId
+                    ? new PartyParticipant { Id = p.Id, Name = updated.Name ?? persona.Name, IsUser = p.IsUser }
+                    : p)
+                .ToList();
+            if (!roster.SequenceEqual(defaultParty.Participants))
+            {
+                await defaultPartyGrain.SetParticipants(roster);
+            }
+        }
+
         if (isNew)
         {
             logger.LogInformation("Persona created: {PersonaId}", personaId);
@@ -172,6 +198,17 @@ public class PersonaController(
 
         logger.LogInformation("Deleting persona: {PersonaId}", id);
         await root.RemovePersona(id);
+
+        // Cascade: remove from default party roster.
+        // PartyGrain.SetParticipants will cascade the removal to all chat groups.
+        var defaultPartyGrain = grains.GetGrain<IPartyGrain>(Guid.Empty);
+        var defaultParty = await defaultPartyGrain.GetParty();
+        if (defaultParty.Participants.Any(p => p.Id == id))
+        {
+            var roster = defaultParty.Participants.Where(p => p.Id != id).ToList();
+            await defaultPartyGrain.SetParticipants(roster);
+        }
+
         return NoContent();
     }
 

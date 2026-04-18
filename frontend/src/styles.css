@@ -82,54 +82,182 @@ body {
     background: #fff;
 }
 
-/* Participant sidebar */
-.participant-sidebar {
+/* ── Member sidebar (Discord-style member list, XP chrome) ── */
+.member-sidebar {
+    width: 200px;
+    min-width: 200px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     background: linear-gradient(180deg, #f5f5ed 0%, #ece9d8 100%);
     border-left: 1px solid #aca899;
+    overflow: hidden;
 }
 
-.participant-row {
+.member-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.member-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    width: 100%;
-    text-align: left;
-}
-
-.participant-row:hover {
-    background: rgba(49, 106, 197, 0.08);
-}
-
-.participant-row.active {
-    background: rgba(49, 106, 197, 0.06);
-}
-
-.participant-row.active:hover {
-    background: rgba(49, 106, 197, 0.12);
-}
-
-.participant-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    margin-left: auto;
+    justify-content: space-between;
+    padding: 6px 8px 4px;
+    border-bottom: 1px solid #d4d0c8;
     flex-shrink: 0;
 }
 
-.participant-status-dot.online {
+.member-header-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #808080;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.member-add-btn {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #aca899;
+    background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+    font-size: 14px;
+    font-weight: 700;
+    color: #316ac5;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+}
+
+.member-add-btn:hover {
+    background: linear-gradient(180deg, #fff 0%, #d6e4f9 100%);
+    border-color: #316ac5;
+}
+
+.member-add-btn:disabled {
+    color: #aca899;
+    cursor: default;
+}
+
+/* Add member dropdown (XP menu style) */
+.member-add-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 2px;
+    min-width: 180px;
+    max-height: 240px;
+    background: #fff;
+    border: 1px solid #404040;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-add-title {
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #808080;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #d4d0c8;
+    background: #f5f5ed;
+}
+
+.member-add-list {
+    overflow-y: auto;
+}
+
+.member-add-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    color: #000;
+    text-align: left;
+}
+
+.member-add-item:hover {
+    background: #316ac5;
+    color: #fff;
+}
+
+.member-add-empty {
+    padding: 12px 8px;
+    font-size: 10px;
+    color: #808080;
+    text-align: center;
+}
+
+/* Member list (scrollable) */
+.member-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2px 0;
+}
+
+/* Individual member row */
+.member-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 8px;
+    position: relative;
+}
+
+.member-row:hover {
+    background: rgba(49, 106, 197, 0.08);
+}
+
+.member-row.user-row {
+    padding: 4px 8px;
+}
+
+.member-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+}
+
+.member-status-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #ece9d8;
+}
+
+.member-status-dot.online {
     background: #00aa00;
 }
 
-.participant-status-dot.offline {
-    background: #c0c0c0;
+.member-status-dot.working {
+    background: #00aa00;
+    animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
-.participant-status-dot.working {
+.member-status-dot.deciding {
+    background: #cc8800;
     animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
@@ -143,6 +271,194 @@ body {
         opacity: 0.5;
         transform: scale(1.3);
     }
+}
+
+.member-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+}
+
+.member-name-user {
+    color: #003399;
+}
+
+/* Per-member hover actions */
+.member-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.member-action-btn {
+    width: 18px;
+    height: 18px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #808080;
+    border-radius: 2px;
+}
+
+.member-action-btn:hover {
+    border-color: #aca899;
+    background: #fff;
+}
+
+.member-action-btn.proceed:hover {
+    color: #316ac5;
+}
+
+.member-action-btn.remove:hover {
+    color: #cc0000;
+}
+
+.member-action-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.member-divider {
+    margin: 3px 8px;
+    border-top: 1px solid #d4d0c8;
+}
+
+.member-you-badge {
+    font-size: 9px;
+    color: #808080;
+    flex-shrink: 0;
+    padding: 1px 4px;
+    background: rgba(49, 106, 197, 0.08);
+    border-radius: 2px;
+}
+
+.member-empty {
+    padding: 12px 8px;
+    font-size: 10px;
+    color: #aca899;
+    text-align: center;
+    line-height: 1.6;
+}
+
+/* ── Thought Log section ── */
+.thought-section {
+    border-top: 1px solid #aca899;
+    display: flex;
+    flex-direction: column;
+    max-height: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.thought-header-btn {
+    width: 100%;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    text-align: left;
+}
+
+.thought-header-btn:hover {
+    background: rgba(49, 106, 197, 0.06);
+}
+
+.thought-chevron {
+    font-size: 10px;
+    color: #808080;
+    transition: transform 0.15s ease;
+}
+
+.thought-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background: #808080;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 0 3px;
+}
+
+.thought-entries {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.thought-entry {
+    padding: 4px 8px;
+    border-bottom: 1px solid #d4d0c8;
+}
+
+.thought-deciding {
+    background: #fffbea;
+    border-left: 3px solid #cc8800;
+    border-bottom-color: #e6d87a;
+}
+
+.thought-skip {
+    border-left: 3px solid #cc8800;
+}
+
+.thought-go {
+    border-left: 3px solid #009900;
+}
+
+.thought-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.thought-verdict {
+    font-size: 9px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.thought-verdict.skip {
+    color: #cc8800;
+}
+
+.thought-verdict.go {
+    color: #009900;
+}
+
+.thought-reason {
+    font-size: 9px;
+    color: #666;
+    font-style: italic;
+    line-height: 1.3;
+    margin-top: 1px;
+}
+
+.thought-instruction {
+    font-size: 9px;
+    color: #806600;
+    line-height: 1.3;
+}
+
+.thought-empty {
+    padding: 10px 8px;
+    font-size: 10px;
+    color: #aca899;
+    text-align: center;
 }
 
 /* Markdown rendered content inside chat bubbles */

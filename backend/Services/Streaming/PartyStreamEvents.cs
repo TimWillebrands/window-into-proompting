@@ -24,6 +24,9 @@ public sealed record class PartyStreamEvent
 
     [Id(4)]
     public MessageStreamEvent? MessageEvent { get; init; }
+
+    [Id(5)]
+    public List<PartyParticipant>? Participants { get; init; }
 }
 
 /// <summary>

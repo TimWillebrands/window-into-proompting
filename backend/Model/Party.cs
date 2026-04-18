@@ -47,6 +47,10 @@ public sealed record class ChatGroupInfo
 
     [Id(3)]
     public string? Scenario { get; set; }
+
+    // Hydrated at API boundary from ChatGroupGrain; not persisted in PartyState.
+    [Id(4)]
+    public List<PartyParticipant> Participants { get; set; } = [];
 }
 
 public sealed record class CreateChatGroupRequest

@@ -47,6 +47,10 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task SetParticipants(List<PartyParticipant> participants)
     {
+        var previousIds = State.Participants.Select(p => p.Id).ToHashSet();
+        var newIds = participants.Select(p => p.Id).ToHashSet();
+        var removedIds = previousIds.Except(newIds).ToHashSet();
+
         RaiseEvent(new ParticipantsSetEvent
         {
             Participants = [.. participants]
@@ -54,15 +58,37 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
         await ConfirmEvents();
 
-        // Propagate participants to all chat group grains
-        var tasks = State.ChatGroups.Select(cg =>
-            GrainFactory.GetGrain<IChatGroupGrain>(cg.Id)
-                .SetParticipantsAsync(participants));
-        await Task.WhenAll(tasks);
+        // Additions do NOT auto-propagate to chat groups — users invite per chat group.
+        // Removals cascade: a persona removed from the party is removed from every chat group.
+        if (removedIds.Count > 0)
+        {
+            var tasks = State.ChatGroups.Select(async cg =>
+            {
+                var grain = GrainFactory.GetGrain<IChatGroupGrain>(cg.Id);
+                var current = await grain.GetParticipantsAsync();
+                if (current.Any(p => removedIds.Contains(p.Id)))
+                {
+                    var filtered = current.Where(p => !removedIds.Contains(p.Id)).ToList();
+                    await grain.SetParticipantsAsync(filtered);
+                }
+            });
+            await Task.WhenAll(tasks);
+        }
     }
 
-    public Task<List<ChatGroupInfo>> GetChatGroups()
-        => Task.FromResult(State.ChatGroups.ToList());
+    public async Task<List<ChatGroupInfo>> GetChatGroups()
+    {
+        var groups = State.ChatGroups.ToList();
+        var hydrated = new List<ChatGroupInfo>(groups.Count);
+        foreach (var group in groups)
+        {
+            var participants = await GrainFactory
+                .GetGrain<IChatGroupGrain>(group.Id)
+                .GetParticipantsAsync();
+            hydrated.Add(group with { Participants = participants });
+        }
+        return hydrated;
+    }
 
     public async Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null)
     {

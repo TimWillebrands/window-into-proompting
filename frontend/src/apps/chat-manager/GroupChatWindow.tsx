@@ -8,11 +8,13 @@ import {
     getGetPartyIdChatGroupsQueryKey,
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
+    useGetPartyIdChatGroupsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
+    usePutPartyIdChatGroupsChatGroupIdParticipants,
     usePutPartyIdChatGroupsChatGroupIdScenario,
     usePutPartyIdParticipants,
 } from '../../api/party-zone';
@@ -76,13 +78,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     const [inputValue, setInputValue] = useState('');
     const [selectedPersonaId, setSelectedPersonaId] = useState('');
 
-    // Participant management – backed by actual party state
-    const [participantPersonaIds, setParticipantPersonaIds] = useState<
-        string[]
-    >([]);
-    const [savedParticipantPersonaIds, setSavedParticipantPersonaIds] =
-        useState<string[]>([]);
-    const participantsInitialized = useRef(false);
+    const userPersonaInitialized = useRef(false);
     const lastSavedUserPersonaId = useRef<string | null>(null);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -98,17 +94,31 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useRealtimeStoreActions();
 
     const partyDetailsQuery = useGetPartyIdSuspense(apiPartyId);
+    const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(apiPartyId);
 
-    // Seed participant state from server data on first load
-    useEffect(() => {
-        if (participantsInitialized.current) return;
-        if (partyDetailsQuery.data.status !== 200) return;
-        const serverIds = (partyDetailsQuery.data.data.party.participants ?? [])
+    // Chat-group participants: server-owned, scoped to this chat group. AI-only subset.
+    const participantPersonaIds = useMemo(() => {
+        if (chatGroupsQuery.data.status !== 200) return [] as string[];
+        const group = chatGroupsQuery.data.data.find(
+            (g) => g.id === chatGroupId,
+        );
+        return (group?.participants ?? [])
             .filter((p) => !p.isUser && p.id)
             .map((p) => p.id as string);
-        setParticipantPersonaIds(serverIds);
-        setSavedParticipantPersonaIds(serverIds);
-        participantsInitialized.current = true;
+    }, [chatGroupsQuery.data, chatGroupId]);
+
+    // Init user persona from party roster on first load
+    useEffect(() => {
+        if (userPersonaInitialized.current) return;
+        if (partyDetailsQuery.data.status !== 200) return;
+        const userParticipant = (
+            partyDetailsQuery.data.data.party.participants ?? []
+        ).find((p) => p.isUser);
+        if (userParticipant?.id) {
+            setSelectedPersonaId(userParticipant.id);
+            lastSavedUserPersonaId.current = userParticipant.id;
+        }
+        userPersonaInitialized.current = true;
     }, [partyDetailsQuery.data]);
 
     const promptParty = usePostPartyIdPrompt();
@@ -151,21 +161,26 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         target: textareaRef,
     });
 
-    const saveParticipantsMutation = usePutPartyIdParticipants({
+    const savePartyUserPersonaMutation = usePutPartyIdParticipants({
         mutation: {
-            onSuccess: (_data, variables) => {
-                const savedPersonaIds = (variables.data.participants ?? [])
-                    .filter((p) => !p.isUser && p.id !== null)
-                    .map(
-                        (p) => p.id ?? 'unreachable but tsc is being annoying',
-                    );
-                setSavedParticipantPersonaIds(savedPersonaIds);
+            onSuccess: () => {
                 queryClient.invalidateQueries({
                     queryKey: ['chat', 'party', apiPartyId],
                 });
             },
         },
     });
+
+    const saveChatGroupParticipantsMutation =
+        usePutPartyIdChatGroupsChatGroupIdParticipants({
+            mutation: {
+                onSuccess: () => {
+                    queryClient.invalidateQueries({
+                        queryKey: getGetPartyIdChatGroupsQueryKey(apiPartyId),
+                    });
+                },
+            },
+        });
 
     useEffect(() => {
         if (!chatGroupId) {
@@ -211,39 +226,35 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         }
     }, [isNearBottom, unreadCount]);
 
-    // Keep selected persona in sync: auto-select first promptable persona if current selection is unavailable
+    // Keep selected persona valid: fall back to first available if current selection disappears
     useEffect(() => {
         if (partyDetailsQuery.data.status !== 200) return;
         const personas = partyDetailsQuery.data.data.personaParticipants;
-        const promptable = personas.filter(
-            (p) => !participantPersonaIds.includes(p.id ?? ''),
-        );
+        if (personas.length === 0) return;
         const isValid =
             selectedPersonaId &&
-            promptable.some((p) => p.id === selectedPersonaId);
+            personas.some((p) => p.id === selectedPersonaId);
         if (!isValid) {
-            setSelectedPersonaId(promptable[0]?.id ?? '');
+            setSelectedPersonaId(personas[0]?.id ?? '');
         }
-    }, [partyDetailsQuery.data, participantPersonaIds, selectedPersonaId]);
+    }, [partyDetailsQuery.data, selectedPersonaId]);
 
-    // Auto-save user persona to backend whenever selection changes
+    // Auto-save user persona to the party roster whenever selection changes.
+    // Preserves AI roster; only swaps the isUser:true entry.
     useEffect(() => {
+        if (!userPersonaInitialized.current) return;
         if (lastSavedUserPersonaId.current === selectedPersonaId) return;
         if (partyDetailsQuery.data.status !== 200) return;
-        if (!participantsInitialized.current) return;
 
         lastSavedUserPersonaId.current = selectedPersonaId;
 
+        const party = partyDetailsQuery.data.data.party;
         const personas = partyDetailsQuery.data.data.personaParticipants;
         const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
-        const aiParticipants = savedParticipantPersonaIds.map((id) => ({
-            id,
-            name: personaNameMap.get(id) ?? id,
-            isUser: false,
-        }));
+        const aiRoster = (party.participants ?? []).filter((p) => !p.isUser);
         const participants = selectedPersonaId
             ? [
-                  ...aiParticipants,
+                  ...aiRoster,
                   {
                       id: selectedPersonaId,
                       name:
@@ -252,26 +263,71 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                       isUser: true,
                   },
               ]
-            : aiParticipants;
-        saveParticipantsMutation.mutate({
+            : aiRoster;
+        savePartyUserPersonaMutation.mutate({
             id: apiPartyId,
             data: { participants },
         });
     }, [
         selectedPersonaId,
         partyDetailsQuery.data,
-        savedParticipantPersonaIds,
         apiPartyId,
-        saveParticipantsMutation.mutate,
+        savePartyUserPersonaMutation.mutate,
     ]);
 
-    const hasParticipantChanges = useMemo(() => {
-        const a = new Set(participantPersonaIds);
-        const b = new Set(savedParticipantPersonaIds);
-        return (
-            a.size !== b.size || participantPersonaIds.some((id) => !b.has(id))
-        );
-    }, [participantPersonaIds, savedParticipantPersonaIds]);
+    const saveChatGroupParticipants = useCallback(
+        (nextAiIds: string[]) => {
+            if (partyDetailsQuery.data.status !== 200) return;
+            const personas = partyDetailsQuery.data.data.personaParticipants;
+            const personaNameMap = new Map(
+                personas.map((p) => [p.id, p.name]),
+            );
+            const participants = nextAiIds.map((id) => ({
+                id,
+                name: personaNameMap.get(id) ?? id,
+                isUser: false,
+            }));
+            saveChatGroupParticipantsMutation.mutate({
+                id: apiPartyId,
+                chatGroupId,
+                data: { participants },
+            });
+        },
+        [
+            partyDetailsQuery.data,
+            apiPartyId,
+            chatGroupId,
+            saveChatGroupParticipantsMutation.mutate,
+        ],
+    );
+
+    const addParticipant = useCallback(
+        (id: string) => {
+            if (participantPersonaIds.includes(id)) return;
+            saveChatGroupParticipants([...participantPersonaIds, id]);
+        },
+        [participantPersonaIds, saveChatGroupParticipants],
+    );
+
+    const removeParticipant = useCallback(
+        (id: string) => {
+            saveChatGroupParticipants(
+                participantPersonaIds.filter((pid) => pid !== id),
+            );
+        },
+        [participantPersonaIds, saveChatGroupParticipants],
+    );
+
+    const handleProceed = useCallback(() => {
+        if (busy) return;
+        proceedParty.mutateAsync({
+            id: apiPartyId,
+            data: {
+                chatGroupId,
+                senderId: selectedPersonaId || null,
+            },
+        });
+    }, [busy, proceedParty, apiPartyId, chatGroupId, selectedPersonaId]);
 
     const isStreaming = activeGenerations.length > 0;
     const activeGenerationSet = useMemo(
@@ -320,34 +376,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         return respondedAfter ? null : lastInstruction;
     }, [uniqueMessages, selectedPersonaId]);
 
-    const handleSaveParticipants = useCallback(() => {
-        if (partyDetailsQuery.data.status !== 200) return;
-
-        const personas = partyDetailsQuery.data.data.personaParticipants;
-        const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
-        const userParticipants = (
-            partyDetailsQuery.data.data.party.participants ?? []
-        ).filter((p) => p.isUser);
-        const personasToSave = participantPersonaIds.map((id) => ({
-            id,
-            name: personaNameMap.get(id) ?? id,
-            isUser: false,
-        }));
-        saveParticipantsMutation.mutate({
-            id: apiPartyId,
-            data: { participants: [...personasToSave, ...userParticipants] },
-        });
-    }, [
-        apiPartyId,
-        participantPersonaIds,
-        partyDetailsQuery.data,
-        saveParticipantsMutation.mutate,
-    ]);
-
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
-    const promptablePersonas = partyPersonas.filter(
-        (p) => !participantPersonaIds.includes(p.id ?? ''),
-    );
     const selectedPersonaName =
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??
         selectedPersonaId;
@@ -624,32 +653,12 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                                     )
                                 }
                             >
-                                {promptablePersonas.map((persona) => (
+                                {partyPersonas.map((persona) => (
                                     <option key={persona.id} value={persona.id}>
                                         {persona.name}
                                     </option>
                                 ))}
                             </select>
-                            <button
-                                type="button"
-                                disabled={busy}
-                                className="text-[11px]"
-                                style={{
-                                    padding: '2px 10px',
-                                    background: busy ? '#D4D0C8' : '#ECE9D8',
-                                }}
-                                onClick={() =>
-                                    proceedParty.mutateAsync({
-                                        id: apiPartyId,
-                                        data: {
-                                            chatGroupId,
-                                            senderId: selectedPersonaId || null,
-                                        },
-                                    })
-                                }
-                            >
-                                {busy ? '...' : 'Proceed'}
-                            </button>
                             <button
                                 type="submit"
                                 disabled={busy}
@@ -676,26 +685,11 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                 livePhases={generationPhases}
                 allMessages={uniqueMessages}
                 declinedDecisions={declinedDecisions}
-                hasChanges={hasParticipantChanges}
-                isSaving={saveParticipantsMutation.isPending}
-                saveError={
-                    saveParticipantsMutation.isError
-                        ? saveParticipantsMutation.error instanceof Error
-                            ? saveParticipantsMutation.error.message
-                            : 'Failed to save'
-                        : null
-                }
-                onToggleParticipant={(id) => {
-                    setParticipantPersonaIds((prev) =>
-                        prev.includes(id)
-                            ? prev.filter((pid) => pid !== id)
-                            : [...prev, id],
-                    );
-                }}
-                onSave={handleSaveParticipants}
-                onReset={() =>
-                    setParticipantPersonaIds(savedParticipantPersonaIds)
-                }
+                isSaving={saveChatGroupParticipantsMutation.isPending}
+                busy={busy}
+                onAddParticipant={addParticipant}
+                onRemoveParticipant={removeParticipant}
+                onProceed={handleProceed}
             />
         </div>
     );
@@ -710,12 +704,11 @@ function ParticipantsSidebar({
     livePhases,
     allMessages,
     declinedDecisions,
-    hasChanges,
     isSaving,
-    saveError,
-    onToggleParticipant,
-    onSave,
-    onReset,
+    busy,
+    onAddParticipant,
+    onRemoveParticipant,
+    onProceed,
 }: {
     personas: Persona[];
     participantPersonaIds: string[];
@@ -725,22 +718,55 @@ function ParticipantsSidebar({
     livePhases: ActiveGenerationPhase[];
     allMessages: RealtimeChatMessage[];
     declinedDecisions: DeclinedDecision[];
-    hasChanges: boolean;
     isSaving: boolean;
-    saveError: string | null;
-    onToggleParticipant: (id: string) => void;
-    onSave: () => void;
-    onReset: () => void;
+    busy: boolean;
+    onAddParticipant: (id: string) => void;
+    onRemoveParticipant: (id: string) => void;
+    onProceed: () => void;
 }) {
+    const [showAddMenu, setShowAddMenu] = useState(false);
+    const addMenuRef = useRef<HTMLDivElement>(null);
+    const addBtnRef = useRef<HTMLButtonElement>(null);
+    const [thoughtLogOpen, setThoughtLogOpen] = useState(true);
+
+    // Close add menu on outside click
+    useEffect(() => {
+        if (!showAddMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (
+                addMenuRef.current &&
+                !addMenuRef.current.contains(e.target as Node) &&
+                addBtnRef.current &&
+                !addBtnRef.current.contains(e.target as Node)
+            ) {
+                setShowAddMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showAddMenu]);
+
     const participantSet = new Set(participantPersonaIds);
-    const aiPersonas = personas.filter((p) => !p.isUser);
+    // Only active AI participants (exclude user persona from AI list to prevent duplicate)
+    const activeParticipants = personas.filter(
+        (p) =>
+            !p.isUser &&
+            participantSet.has(p.id ?? '') &&
+            p.id !== selectedPersonaId,
+    );
+    // Available to add: non-active, non-user personas not already the user's persona
+    const availableToAdd = personas.filter(
+        (p) =>
+            !p.isUser &&
+            !participantSet.has(p.id ?? '') &&
+            p.id !== selectedPersonaId,
+    );
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
     const totalActive =
-        participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
+        activeParticipants.length + (userPersona ? 1 : 0);
 
     const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
 
-    // Combined thought log: "go" decisions from persisted messages + "skip" decisions captured at runtime
     const thoughtLog = useMemo(() => {
         type LogEntry = {
             key: string;
@@ -748,13 +774,10 @@ function ParticipantsSidebar({
             personaName: string;
             reason: string | null;
             instruction: string | null;
-            skip: boolean; // true = declined to respond
+            skip: boolean;
             sortKey: number;
         };
-
         const entries: LogEntry[] = [];
-
-        // "go" decisions: messages that have appraisalComplete (stop:false)
         for (const msg of allMessages) {
             if (!msg.appraisal) continue;
             try {
@@ -775,8 +798,6 @@ function ParticipantsSidebar({
                 /* ignore */
             }
         }
-
-        // "skip" decisions: captured from declined events (ephemeral, session-only)
         for (const d of declinedDecisions) {
             const persona = personas.find((p) => p.id === d.personaId);
             entries.push({
@@ -790,395 +811,294 @@ function ParticipantsSidebar({
                 sortKey: d.timestamp,
             });
         }
-
         return entries.sort((a, b) => b.sortKey - a.sortKey);
     }, [allMessages, declinedDecisions, personas]);
 
-    const sectionLabel = (text: string, badge?: number) => (
-        <div
-            style={{
-                padding: '4px 8px 2px',
-                fontSize: 10,
-                fontWeight: 700,
-                color: '#808080',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-            }}
-        >
-            {text}
-            {badge !== undefined && badge > 0 && (
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 14,
-                        height: 14,
-                        borderRadius: '50%',
-                        background: '#808080',
-                        color: '#fff',
-                        fontSize: 8,
-                        fontWeight: 700,
-                    }}
-                >
-                    {badge}
-                </span>
-            )}
-        </div>
-    );
+    const thoughtCount = decidingPhases.length + thoughtLog.length;
 
     return (
-        <div
-            className="participant-sidebar"
-            style={{
-                width: 180,
-                minWidth: 180,
-                height: '100%',
-                display: 'grid',
-                gridTemplateRows: 'auto 1fr',
-                overflow: 'hidden',
-            }}
-        >
-            {/* ── Participants section (auto height row) ── */}
-            <div style={{ overflow: 'hidden auto' }}>
-                {sectionLabel(`Participants — ${totalActive}`)}
-
-                {/* AI list */}
-                {aiPersonas.map((persona) => {
-                    const id = persona.id ?? '';
-                    const isActive = participantSet.has(id);
-                    const isWorking = activePersonaIds.has(id);
-                    const phase = personaPhases.get(id);
-                    const isDeciding = phase?.phase === 'deciding';
-
-                    return (
+        <div className="member-sidebar">
+            {/* ── Members section ── */}
+            <div className="member-section">
+                <div className="member-header">
+                    <span className="member-header-label">
+                        Members — {totalActive}
+                    </span>
+                    <div style={{ position: 'relative' }}>
                         <button
-                            key={id}
+                            ref={addBtnRef}
                             type="button"
-                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
-                            onClick={() => onToggleParticipant(id)}
-                            title={
-                                isActive
-                                    ? 'Click to remove from chat'
-                                    : 'Click to add to chat'
-                            }
-                        >
-                            <img
-                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
-                                alt={persona.name ?? id}
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    flexShrink: 0,
-                                    imageRendering: 'pixelated',
-                                }}
-                            />
-                            <span
-                                className={isWorking ? 'animate-pulse' : ''}
-                                style={{
-                                    flex: 1,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 11,
-                                    fontWeight: isActive ? 600 : 400,
-                                    color: isActive ? '#000' : '#808080',
-                                }}
-                            >
-                                {persona.name ?? id.slice(0, 8)}
-                            </span>
-                            {isDeciding ? (
-                                <span
-                                    className="animate-pulse"
-                                    style={{
-                                        fontSize: 8,
-                                        color: '#CC8800',
-                                        flexShrink: 0,
-                                    }}
-                                    title="Deciding whether to respond"
-                                >
-                                    ●
-                                </span>
-                            ) : (
-                                <span
-                                    className={`participant-status-dot${isActive ? ' online' : ' offline'}${isWorking ? ' working' : ''}`}
-                                />
-                            )}
-                        </button>
-                    );
-                })}
-
-                {/* User row */}
-                {userPersona && (
-                    <>
-                        <div
-                            style={{
-                                margin: '4px 8px 0',
-                                borderTop: '1px solid #D4D0C8',
-                            }}
-                        />
-                        <div className="participant-row active">
-                            <img
-                                src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
-                                alt={userPersona.name ?? 'You'}
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    flexShrink: 0,
-                                    imageRendering: 'pixelated',
-                                }}
-                            />
-                            <span
-                                style={{
-                                    flex: 1,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    color: '#003399',
-                                }}
-                            >
-                                {userPersona.name ?? 'You'}
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: 8,
-                                    color: '#808080',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                you
-                            </span>
-                        </div>
-                    </>
-                )}
-
-                {/* Inline status / save controls */}
-                {participantPersonaIds.length === 0 &&
-                    aiPersonas.length > 0 && (
-                        <div
-                            style={{
-                                padding: '3px 8px',
-                                fontSize: 10,
-                                color: '#996600',
-                                background: '#FFFBEA',
-                                borderTop: '1px solid #E6D87A',
-                            }}
-                        >
-                            No AI participants — AI won't respond.
-                        </div>
-                    )}
-                {saveError && (
-                    <div
-                        style={{
-                            padding: '3px 8px',
-                            fontSize: 10,
-                            color: '#c00',
-                            borderTop: '1px solid #ACA899',
-                        }}
-                    >
-                        {saveError}
-                    </div>
-                )}
-                {hasChanges && (
-                    <div
-                        className="flex gap-1 p-1"
-                        style={{ borderTop: '1px solid #ACA899' }}
-                    >
-                        <button
-                            type="button"
+                            className="member-add-btn"
+                            onClick={() => setShowAddMenu((v) => !v)}
+                            title="Add participant"
                             disabled={isSaving}
-                            className="flex-1 text-[10px]"
-                            onClick={onReset}
                         >
-                            Reset
+                            +
                         </button>
-                        <button
-                            type="button"
-                            disabled={isSaving}
-                            className="flex-1 text-[10px]"
-                            onClick={onSave}
-                        >
-                            {isSaving ? 'Saving...' : 'Save'}
-                        </button>
+                        {showAddMenu && (
+                            <div ref={addMenuRef} className="member-add-dropdown">
+                                <div className="member-add-title">Add to chat</div>
+                                {availableToAdd.length === 0 ? (
+                                    <div className="member-add-empty">
+                                        Everyone's here!
+                                    </div>
+                                ) : (
+                                    <div className="member-add-list">
+                                        {availableToAdd.map((p) => (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                className="member-add-item"
+                                                onClick={() => {
+                                                    onAddParticipant(p.id!);
+                                                    setShowAddMenu(false);
+                                                }}
+                                            >
+                                                <img
+                                                    src={`https://robohash.org/${encodeURIComponent(p.id!)}?size=32x32`}
+                                                    alt={p.name ?? ''}
+                                                    style={{
+                                                        width: 20,
+                                                        height: 20,
+                                                        imageRendering: 'pixelated',
+                                                    }}
+                                                />
+                                                <span>{p.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
 
-            {/* ── Thought Log section (1fr grid row, always visible) ── */}
-            <div
-                style={{
-                    borderTop: '2px solid #ACA899',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                }}
-            >
-                {sectionLabel(
-                    'Thought Log',
-                    decidingPhases.length + thoughtLog.length,
-                )}
+                {/* Active member rows */}
+                <div className="member-list">
+                    {activeParticipants.map((persona) => {
+                        const id = persona.id ?? '';
+                        const isWorking = activePersonaIds.has(id);
+                        const phase = personaPhases.get(id);
+                        const isDeciding = phase?.phase === 'deciding';
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                    {/* Live: personas currently deciding */}
-                    {decidingPhases.map((phase) => {
-                        const personaId = phase.personaName;
-                        const persona = personas.find(
-                            (p) => p.id === personaId,
-                        );
-                        const name = persona?.name ?? personaId?.slice(0, 8);
-                        const decisionText =
-                            phase.phase === 'deciding'
-                                ? phase.decisionText
-                                : '';
                         return (
-                            <div
-                                key={phase.messageId ?? personaId}
-                                style={{
-                                    borderBottom: '1px solid #E6D87A',
-                                    background: '#FFFBEA',
-                                    borderLeft: '3px solid #CC8800',
-                                    padding: '5px 8px',
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5 mb-1">
+                            <div key={id} className="member-row group">
+                                <div className="member-avatar-wrap">
                                     <img
-                                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
-                                        alt={name}
+                                        src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                                        alt={persona.name ?? id}
                                         style={{
-                                            width: 14,
-                                            height: 14,
+                                            width: 26,
+                                            height: 26,
                                             imageRendering: 'pixelated',
-                                            flexShrink: 0,
                                         }}
                                     />
                                     <span
-                                        className="animate-pulse"
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                            color: '#806600',
-                                        }}
-                                    >
-                                        {name}…
-                                    </span>
+                                        className={`member-status-dot${isDeciding ? ' deciding' : isWorking ? ' working' : ' online'}`}
+                                    />
                                 </div>
-                                {decisionText && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#666',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-all',
-                                            maxHeight: 100,
-                                            overflowY: 'auto',
-                                            lineHeight: 1.4,
-                                        }}
+                                <span
+                                    className={`member-name${isWorking ? ' animate-pulse' : ''}`}
+                                >
+                                    {persona.name ?? id.slice(0, 8)}
+                                </span>
+                                <span className="member-actions opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        type="button"
+                                        className="member-action-btn proceed"
+                                        onClick={onProceed}
+                                        disabled={busy || isSaving}
+                                        title="Make them speak"
                                     >
-                                        {decisionText}
-                                    </div>
-                                )}
+                                        ▶
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="member-action-btn remove"
+                                        onClick={() =>
+                                            onRemoveParticipant(id)
+                                        }
+                                        disabled={isSaving}
+                                        title="Remove from chat"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
                             </div>
                         );
                     })}
 
-                    {/* Settled decisions (go + skip), newest first */}
-                    {thoughtLog.length === 0 && decidingPhases.length === 0 ? (
-                        <div
-                            style={{
-                                padding: '10px 8px',
-                                fontSize: 10,
-                                color: '#ACA899',
-                                textAlign: 'center',
-                                lineHeight: 1.5,
-                            }}
-                        >
-                            No decisions yet
+                    {/* User persona — single entry, no actions */}
+                    {userPersona && (
+                        <>
+                            {activeParticipants.length > 0 && (
+                                <div className="member-divider" />
+                            )}
+                            <div className="member-row user-row">
+                                <div className="member-avatar-wrap">
+                                    <img
+                                        src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
+                                        alt={userPersona.name ?? 'You'}
+                                        style={{
+                                            width: 26,
+                                            height: 26,
+                                            imageRendering: 'pixelated',
+                                        }}
+                                    />
+                                </div>
+                                <span className="member-name member-name-user">
+                                    {userPersona.name ?? 'You'}
+                                </span>
+                                <span className="member-you-badge">you</span>
+                            </div>
+                        </>
+                    )}
+
+                    {activeParticipants.length === 0 && (
+                        <div className="member-empty">
+                            No AI participants.
+                            <br />
+                            Click <strong>+</strong> to invite.
                         </div>
-                    ) : (
-                        thoughtLog.map((entry) => (
-                            <div
-                                key={entry.key}
-                                style={{
-                                    borderBottom: '1px solid #D4D0C8',
-                                    padding: '4px 8px',
-                                    borderLeft: entry.skip
-                                        ? '3px solid #CC8800'
-                                        : '3px solid #009900',
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5">
-                                    {entry.personaId && (
+                    )}
+                </div>
+            </div>
+
+            {/* ── Thought Log section ── */}
+            <div className="thought-section">
+                <button
+                    type="button"
+                    className="member-header thought-header-btn"
+                    onClick={() => setThoughtLogOpen((v) => !v)}
+                >
+                    <span className="member-header-label">
+                        Thought Log
+                        {thoughtCount > 0 && (
+                            <span className="thought-badge">{thoughtCount}</span>
+                        )}
+                    </span>
+                    <span
+                        className="thought-chevron"
+                        style={{
+                            transform: thoughtLogOpen
+                                ? 'rotate(0deg)'
+                                : 'rotate(-90deg)',
+                        }}
+                    >
+                        ▾
+                    </span>
+                </button>
+
+                {thoughtLogOpen && (
+                    <div className="thought-entries">
+                        {/* Live: personas currently deciding */}
+                        {decidingPhases.map((phase) => {
+                            const personaId = phase.personaName;
+                            const persona = personas.find(
+                                (p) => p.id === personaId,
+                            );
+                            const name =
+                                persona?.name ?? personaId?.slice(0, 8);
+                            const decisionText =
+                                phase.phase === 'deciding'
+                                    ? phase.decisionText
+                                    : '';
+                            return (
+                                <div
+                                    key={phase.messageId ?? personaId}
+                                    className="thought-entry thought-deciding"
+                                >
+                                    <div className="flex items-center gap-1.5 mb-0.5">
                                         <img
-                                            src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
-                                            alt={entry.personaName}
+                                            src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                                            alt={name}
                                             style={{
-                                                width: 13,
-                                                height: 13,
+                                                width: 14,
+                                                height: 14,
                                                 imageRendering: 'pixelated',
                                                 flexShrink: 0,
                                             }}
                                         />
+                                        <span
+                                            className="animate-pulse"
+                                            style={{
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                                color: '#806600',
+                                            }}
+                                        >
+                                            {name}…
+                                        </span>
+                                    </div>
+                                    {decisionText && (
+                                        <div
+                                            style={{
+                                                fontSize: 9,
+                                                color: '#666',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                maxHeight: 80,
+                                                overflowY: 'auto',
+                                                lineHeight: 1.3,
+                                            }}
+                                        >
+                                            {decisionText}
+                                        </div>
                                     )}
-                                    <span
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: 600,
-                                            color: '#333',
-                                            flex: 1,
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
-                                        {entry.personaName}
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: 9,
-                                            color: entry.skip
-                                                ? '#CC8800'
-                                                : '#009900',
-                                            fontWeight: 700,
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {entry.skip ? 'skip' : 'go'}
-                                    </span>
                                 </div>
-                                {entry.reason && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#666',
-                                            fontStyle: 'italic',
-                                            lineHeight: 1.3,
-                                            marginTop: 1,
-                                        }}
-                                    >
-                                        {entry.reason}
-                                    </div>
-                                )}
-                                {entry.instruction && entry.skip && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#806600',
-                                            lineHeight: 1.3,
-                                        }}
-                                    >
-                                        → {entry.instruction}
-                                    </div>
-                                )}
+                            );
+                        })}
+
+                        {thoughtLog.length === 0 &&
+                        decidingPhases.length === 0 ? (
+                            <div className="thought-empty">
+                                No decisions yet
                             </div>
-                        ))
-                    )}
-                </div>
+                        ) : (
+                            thoughtLog.map((entry) => (
+                                <div
+                                    key={entry.key}
+                                    className={`thought-entry ${entry.skip ? 'thought-skip' : 'thought-go'}`}
+                                >
+                                    <div className="flex items-center gap-1.5">
+                                        {entry.personaId && (
+                                            <img
+                                                src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                                alt={entry.personaName}
+                                                style={{
+                                                    width: 13,
+                                                    height: 13,
+                                                    imageRendering:
+                                                        'pixelated',
+                                                    flexShrink: 0,
+                                                }}
+                                            />
+                                        )}
+                                        <span className="thought-name">
+                                            {entry.personaName}
+                                        </span>
+                                        <span
+                                            className={`thought-verdict ${entry.skip ? 'skip' : 'go'}`}
+                                        >
+                                            {entry.skip ? 'skip' : 'go'}
+                                        </span>
+                                    </div>
+                                    {entry.reason && (
+                                        <div className="thought-reason">
+                                            {entry.reason}
+                                        </div>
+                                    )}
+                                    {entry.instruction && entry.skip && (
+                                        <div className="thought-instruction">
+                                            → {entry.instruction}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

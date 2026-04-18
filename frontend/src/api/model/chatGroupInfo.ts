@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { PartyParticipant } from './partyParticipant';
 
 export interface ChatGroupInfo {
     id?: string;
@@ -12,4 +13,5 @@ export interface ChatGroupInfo {
     createdAt?: number | string;
     /** @nullable */
     scenario?: string | null;
+    participants?: PartyParticipant[];
 }

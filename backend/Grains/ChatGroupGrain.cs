@@ -91,6 +91,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         RaiseEvent(new ChatGroupParticipantsSetEvent { Participants = [.. participants] });
         await ConfirmEvents();
+
+        await PublishPartyEvent(new PartyStreamEvent
+        {
+            Type = "chatGroupParticipants",
+            ChatGroupId = this.GetPrimaryKey(),
+            Participants = participants.ToList()
+        });
     }
 
     public async Task<ChatMessage> SendNewMessageAsync(

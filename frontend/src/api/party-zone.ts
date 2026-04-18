@@ -32,6 +32,7 @@ import type {
     LlmProviderEntry,
     PartyDetails,
     PartyInfo,
+    PartyParticipant,
     Persona,
     ProblemDetails,
     ProceedRequest,
@@ -2147,6 +2148,161 @@ export const usePostPartyIdResetParticipants = <
 > => {
     return useMutation(
         getPostPartyIdResetParticipantsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
+    {
+        data: PartyParticipant[];
+        status: 200;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess = (
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse =
+    putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess;
+
+export const getPutPartyIdChatGroupsChatGroupIdParticipantsUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/participants`;
+};
+
+export const putPartyIdChatGroupsChatGroupIdParticipants = async (
+    id: string,
+    chatGroupId: string,
+    updatePartyParticipantsRequest: UpdatePartyParticipantsRequest,
+    options?: RequestInit,
+): Promise<putPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
+    const res = await fetch(
+        getPutPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(updatePartyParticipantsRequest),
+        },
+    );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdChatGroupsChatGroupIdParticipantsResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdChatGroupsChatGroupIdParticipantsResponse;
+};
+
+export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+        TError,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdatePartyParticipantsRequest;
+        },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    TContext
+> => {
+    const mutationKey = ['putPartyIdChatGroupsChatGroupIdParticipants'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdatePartyParticipantsRequest;
+        }
+    > = (props) => {
+        const { id, chatGroupId, data } = props ?? {};
+
+        return putPartyIdChatGroupsChatGroupIdParticipants(
+            id,
+            chatGroupId,
+            data,
+            fetchOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>
+    >;
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationBody =
+    UpdatePartyParticipantsRequest;
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationError = unknown;
+
+export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>
+            >,
+            TError,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdatePartyParticipantsRequest;
+            },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions(options),
         queryClient,
     );
 };
