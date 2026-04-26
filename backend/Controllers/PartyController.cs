@@ -446,8 +446,45 @@ public sealed class PartyController(
             return NotFound();
         }
 
-        var chatGroup = await grains.GetGrain<IPartyGrain>(id).CreateChatGroup(request.Name.Trim());
+        var chatGroup = await grains.GetGrain<IPartyGrain>(id).CreateChatGroup(request.Name.Trim(), request.Scenario);
         return CreatedAtAction(nameof(GetChatGroups), new { id }, chatGroup);
+    }
+
+    /// <summary>
+    /// Updates the free-text scenario / setting for a chat group. Used to (re)establish the
+    /// in-fiction context that personas see in their system prompt during generation.
+    /// </summary>
+    /// <param name="id">The party identifier.</param>
+    /// <param name="chatGroupId">The chat group identifier.</param>
+    /// <param name="request">Scenario update payload (null/whitespace clears the scenario).</param>
+    /// <returns>
+    /// <c>204 No Content</c> on success;
+    /// <c>400 Bad Request</c> if the chat group id is empty;
+    /// <c>404 Not Found</c> if the party does not exist.
+    /// </returns>
+    [HttpPut("{id:guid}/chat-groups/{chatGroupId:guid}/scenario")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UpdateChatGroupScenario(
+        Guid id,
+        Guid chatGroupId,
+        [FromBody] UpdateChatGroupScenarioRequest request)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, id);
+        if (!await root.HasPartyId(id))
+        {
+            return NotFound();
+        }
+
+        await grains.GetGrain<IPartyGrain>(id).UpdateChatGroupScenario(chatGroupId, request.Scenario);
+        return NoContent();
     }
 
     /// <summary>

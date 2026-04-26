@@ -5,8 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CreateChatGroupRequest {
-    name?: string;
+export interface UpdateChatGroupScenarioRequest {
     /** @nullable */
     scenario?: string | null;
 }

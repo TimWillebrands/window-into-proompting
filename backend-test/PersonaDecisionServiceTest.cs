@@ -238,7 +238,7 @@ public class PersonaDecisionServiceTest
         };
 
         // JSON with a trailing comma — invalid syntax but repairable
-        var malformed = """{"respond": true, "instruction": "Go ahead", "reason": "natural",}""";
+        var malformed = """{"respond": true, "wouldSay": "Go ahead", "gutReaction": "natural",}""";
 
         var service = MakeService(EndpointReturningJson(malformed));
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
@@ -246,6 +246,62 @@ public class PersonaDecisionServiceTest
         // Repaired JSON should still parse as Respond=true
         Assert.True(result.Respond);
         Assert.False(result.Reason.StartsWith("Fallback"), "Expected repaired JSON, not the fail-closed fallback");
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_JsonWrappedInMarkdownCodeFence_ParsesCorrectly()
+    {
+        // Observed in production: models (despite schema constraints) frequently wrap their
+        // response in ```json … ``` fences. The first parse fails on the leading backtick,
+        // and JsonRepair also chokes on it — so the decision service must strip fences itself.
+        var self = MakeParticipant("Vlad");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var fenced = "```json\n{\"gutReaction\": \"Natural opening.\", \"respond\": true, \"wouldSay\": \"Greet back.\"}\n```";
+
+        var service = MakeService(EndpointReturningJson(fenced));
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Equal("Greet back.", result.Instruction);
+        Assert.False(result.Reason.StartsWith("Fallback"), "Expected fence-stripped JSON to parse, not the fail-closed fallback");
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_JsonWithRawNewlinesInsideStringValue_ParsesCorrectly()
+    {
+        // Second observed failure mode: LLMs emit literal newlines inside a multi-line `reason`
+        // field. JsonRepairSharp does not escape these — the service must normalize control
+        // chars inside string values before handing off to the parser.
+        var self = MakeParticipant("Vlad");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        // Raw 0x0A inside the "gutReaction" string — exactly the byte that triggered the prod error.
+        var broken = "{\"gutReaction\": \"First line.\nSecond line.\", \"respond\": true, \"wouldSay\": \"Reply.\"}";
+
+        var service = MakeService(EndpointReturningJson(broken));
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.False(result.Reason.StartsWith("Fallback"), "Expected escape-normalized JSON to parse, not the fail-closed fallback");
     }
 
     [Fact]

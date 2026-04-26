@@ -17,6 +17,7 @@ export default function ChatManagerApp() {
     const queryClient = useQueryClient();
     const [selectedChatGroupId, setSelectedChatGroupId] = useState<string>();
     const [newChatName, setNewChatName] = useState('');
+    const [newChatScenario, setNewChatScenario] = useState('');
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -38,6 +39,7 @@ export default function ChatManagerApp() {
                 });
                 setSelectedChatGroupId(created.data.id);
                 setNewChatName('');
+                setNewChatScenario('');
             },
         },
     });
@@ -72,36 +74,53 @@ export default function ChatManagerApp() {
 
                 {/* New chat form */}
                 <form
-                    className="p-2 flex gap-1"
+                    className="p-2 flex flex-col gap-1"
                     style={{ borderBottom: '1px solid #ACA899' }}
                     onSubmit={(e) => {
                         e.preventDefault();
                         const trimmed = newChatName.trim();
                         if (!trimmed || createMutation.isPending) return;
+                        const scenarioTrimmed = newChatScenario.trim();
                         createMutation.mutate({
                             id: ROOT_PARTY_ID,
                             data: {
                                 name: trimmed,
+                                scenario: scenarioTrimmed || null,
                             },
                         });
                     }}
                 >
-                    <input
-                        type="text"
-                        className="flex-1 text-[11px]"
-                        style={{ padding: '2px 4px' }}
-                        placeholder="Chat name..."
-                        value={newChatName}
-                        onChange={(e) => setNewChatName(e.currentTarget.value)}
-                    />
-                    <button
-                        type="submit"
-                        disabled={createMutation.isPending}
+                    <div className="flex gap-1">
+                        <input
+                            type="text"
+                            className="flex-1 text-[11px]"
+                            style={{ padding: '2px 4px' }}
+                            placeholder="Chat name..."
+                            value={newChatName}
+                            onChange={(e) =>
+                                setNewChatName(e.currentTarget.value)
+                            }
+                        />
+                        <button
+                            type="submit"
+                            disabled={createMutation.isPending}
+                            className="text-[11px]"
+                            style={{ padding: '2px 8px' }}
+                        >
+                            {createMutation.isPending ? '...' : '+ New'}
+                        </button>
+                    </div>
+                    <textarea
                         className="text-[11px]"
-                        style={{ padding: '2px 8px' }}
-                    >
-                        {createMutation.isPending ? '...' : '+ New'}
-                    </button>
+                        style={{ padding: '2px 4px', resize: 'vertical' }}
+                        rows={2}
+                        maxLength={500}
+                        placeholder="Scenario (optional) — e.g. 'Office of a stealth horticulture startup.'"
+                        value={newChatScenario}
+                        onChange={(e) =>
+                            setNewChatScenario(e.currentTarget.value)
+                        }
+                    />
                 </form>
 
                 {createMutation.isError && (
@@ -187,6 +206,7 @@ export default function ChatManagerApp() {
                         <ChatView
                             chatGroupId={selectedChatGroupId}
                             partyName={selectedGroup?.name}
+                            scenario={selectedGroup?.scenario ?? null}
                         />
                     </Suspense>
                 ) : (

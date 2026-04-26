@@ -21,4 +21,5 @@ export * from './problemDetails';
 export * from './proceedRequest';
 export * from './promptRequest';
 export * from './repromptRequest';
+export * from './updateChatGroupScenarioRequest';
 export * from './updatePartyParticipantsRequest';

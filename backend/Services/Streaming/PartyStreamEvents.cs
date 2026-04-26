@@ -38,6 +38,7 @@ public sealed record class MessageStreamEvent
     public const string PersonaEvaluationStreaming = "appraisal";
     public const string PersonaEvaluationComplete = "appraisalComplete";
     public const string GenerationError = "error";
+    public const string GenerationRetry = "retry";
     public const string ContentChunk = "message";
     public const string ReasoningChunk = "reasoning";
     public const string GenerationComplete = "finished";

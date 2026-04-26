@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
 import type { Persona } from '../../api/model';
 import {
+    getGetPartyIdChatGroupsQueryKey,
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
     useGetPartyIdSuspense,
@@ -12,6 +13,7 @@ import {
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
+    usePutPartyIdChatGroupsChatGroupIdScenario,
     usePutPartyIdParticipants,
 } from '../../api/party-zone';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
@@ -32,17 +34,20 @@ import {
 export interface ChatViewProps {
     chatGroupId: string;
     partyName?: string;
+    scenario?: string | null;
 }
 
 interface GroupChatWindowProps {
     partyId?: string;
     chatGroupId?: string;
     partyName?: string;
+    scenario?: string | null;
 }
 
 export default function GroupChatWindow({
     chatGroupId,
     partyName,
+    scenario,
 }: GroupChatWindowProps) {
     if (!chatGroupId) {
         return (
@@ -55,10 +60,16 @@ export default function GroupChatWindow({
         );
     }
 
-    return <ChatView chatGroupId={chatGroupId} partyName={partyName} />;
+    return (
+        <ChatView
+            chatGroupId={chatGroupId}
+            partyName={partyName}
+            scenario={scenario}
+        />
+    );
 }
 
-export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
+export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     const apiPartyId = ROOT_PARTY_ID;
     const queryClient = useQueryClient();
     const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
@@ -393,6 +404,11 @@ export function ChatView({ chatGroupId, partyName }: ChatViewProps) {
                             <span style={{ fontWeight: 600, color: '#000' }}>
                                 {partyName ?? apiPartyId}
                             </span>
+                            <ScenarioChip
+                                partyId={apiPartyId}
+                                chatGroupId={chatGroupId}
+                                scenario={scenario ?? null}
+                            />
                         </span>
                         <span className="flex items-center gap-2">
                             {isStreaming && (
@@ -1724,4 +1740,150 @@ function formatTime(iso: string | null | undefined): string {
     } catch {
         return '';
     }
+}
+
+function ScenarioChip({
+    partyId,
+    chatGroupId,
+    scenario,
+}: {
+    partyId: string;
+    chatGroupId: string;
+    scenario: string | null;
+}) {
+    const queryClient = useQueryClient();
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState(scenario ?? '');
+
+    useEffect(() => {
+        if (!isEditing) setDraft(scenario ?? '');
+    }, [scenario, isEditing]);
+
+    const updateScenario = usePutPartyIdChatGroupsChatGroupIdScenario({
+        mutation: {
+            onSuccess: () => {
+                queryClient.invalidateQueries({
+                    queryKey: getGetPartyIdChatGroupsQueryKey(partyId),
+                });
+                setIsEditing(false);
+            },
+        },
+    });
+
+    const handleSave = () => {
+        const trimmed = draft.trim();
+        updateScenario.mutate({
+            id: partyId,
+            chatGroupId,
+            data: { scenario: trimmed === '' ? null : trimmed },
+        });
+    };
+
+    const handleCancel = () => {
+        setDraft(scenario ?? '');
+        setIsEditing(false);
+    };
+
+    const truncated =
+        scenario && scenario.length > 40
+            ? `${scenario.slice(0, 40)}…`
+            : scenario;
+
+    return (
+        <span style={{ position: 'relative' }}>
+            <button
+                type="button"
+                onClick={() => setIsEditing((v) => !v)}
+                title={scenario ?? 'Set the in-fiction setting / scenario'}
+                style={{
+                    fontSize: 10,
+                    padding: '1px 6px',
+                    color: scenario ? '#000' : '#666',
+                    background: scenario ? '#FFF8E1' : '#F0F0F0',
+                    border: '1px solid #ACA899',
+                    fontStyle: scenario ? 'normal' : 'italic',
+                    maxWidth: 240,
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                }}
+            >
+                {scenario ? `🎬 ${truncated}` : '+ Add scenario'}
+            </button>
+            {isEditing && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        marginTop: 4,
+                        zIndex: 10,
+                        width: 320,
+                        background: '#FFFFFF',
+                        border: '1px solid #ACA899',
+                        boxShadow: '2px 2px 6px rgba(0,0,0,0.2)',
+                        padding: 8,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            marginBottom: 4,
+                            color: '#000',
+                        }}
+                    >
+                        Scenario
+                    </div>
+                    <textarea
+                        rows={4}
+                        maxLength={500}
+                        className="w-full text-[11px]"
+                        style={{
+                            padding: '4px',
+                            resize: 'vertical',
+                            border: '1px solid #ACA899',
+                        }}
+                        placeholder="In-fiction setting (optional). Leave blank to clear."
+                        value={draft}
+                        onChange={(e) => setDraft(e.currentTarget.value)}
+                    />
+                    <div
+                        className="flex justify-end gap-1"
+                        style={{ marginTop: 6 }}
+                    >
+                        <button
+                            type="button"
+                            onClick={handleCancel}
+                            disabled={updateScenario.isPending}
+                            className="text-[11px]"
+                            style={{ padding: '2px 8px' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={updateScenario.isPending}
+                            className="text-[11px]"
+                            style={{ padding: '2px 8px' }}
+                        >
+                            {updateScenario.isPending ? '...' : 'Save'}
+                        </button>
+                    </div>
+                    {updateScenario.isError && (
+                        <div
+                            style={{
+                                fontSize: 10,
+                                color: '#c00',
+                                marginTop: 4,
+                            }}
+                        >
+                            Failed to save scenario.
+                        </div>
+                    )}
+                </div>
+            )}
+        </span>
+    );
 }

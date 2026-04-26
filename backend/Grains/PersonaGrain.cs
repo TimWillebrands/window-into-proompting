@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Orleans.Concurrency;
 using PartyTown.Grains.Generation;
@@ -20,14 +21,23 @@ public sealed class PersonaGrain(
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
-    private CancellationTokenSource? _activeCts;
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+
+    // One CTS per *in-flight generation* (chatGroup, messageId), not per chat group.
+    // Earlier (per-chat-group) keying caused message N+1 to cancel message N's still-running
+    // decision/generation, surfacing as a phantom "cancelled" appraisal on legitimate work
+    // and an empty assistant slot for any persona slow enough to overlap a follow-up.
+    // CancelGenerationAsync still cancels every in-flight generation for this persona.
+    private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), CancellationTokenSource> _ctsByGeneration = new();
 
     public Task CancelGenerationAsync()
     {
-        _activeCts?.Cancel();
+        foreach (var cts in _ctsByGeneration.Values)
+        {
+            try { cts.Cancel(); } catch (ObjectDisposedException) { }
+        }
         return Task.CompletedTask;
     }
-    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
@@ -97,176 +107,99 @@ public sealed class PersonaGrain(
     {
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
-        _activeCts?.Cancel();
-        _activeCts = new CancellationTokenSource();
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _activeCts.Token);
-        CancellationToken linkedCt = linkedCts.Token;
+
+        // Defense-in-depth: also drop self-fan-out here. ChatGroupGrain filters first,
+        // but a stray direct-call shouldn't make Vlad ruminate on Vlad's last line.
+        if (triggeringMessage.SenderId == personaId)
+            return;
 
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
         var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
 
-        // Phase 1: Reserve a message slot early so we can stream decision events
+        // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
+        // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
+        // Reading int.MaxValue gives us the full current history without claiming a slot.
+        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
+        var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
+
+        var self = new GenerationParticipant
+        {
+            Id = personaId,
+            Name = persona.Name,
+            Bio = persona.Bio,
+            SystemPrompt = persona.SystemPrompt,
+            IsUser = false,
+            Chattiness = persona.Chattiness
+        };
+
+        var preUrge = PersonaDecisionService.CalculateResponseUrge(self, preHistory, preRounds);
+        var preRecentSelf = PersonaDecisionService.CountRecentSelfMessages(preHistory, personaId);
+        if (PersonaDecisionService.IsObviousSkip(preUrge, preRounds, preRecentSelf))
+        {
+            logger.LogDebug(
+                "Persona {PersonaName} silently skipped (urge={Urge:F2}, rounds={Rounds}, recentSelf={Self})",
+                persona.Name, preUrge.Total, preRounds, preRecentSelf);
+            return;
+        }
+
         var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
+
+        var newCts = new CancellationTokenSource();
+        _ctsByGeneration[(chatGroupId, messageId)] = newCts;
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
+        var linkedCt = linkedCts.Token;
 
         try
         {
-            // Resolve the LLM endpoint
-            var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
-
-            // Fetch context from the chat group
-            var history = await chatGroupGrain.GetMessagesUntilAsync(triggeringMessage.MessageId + 1);
+            // Single history snapshot, shared by decision + generation (issue #4).
+            // Taking the snapshot at `messageId` includes any messages other personas
+            // committed between our slot reservation and our read.
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
             var participants = await chatGroupGrain.GetParticipantsAsync();
+            var scenario = await chatGroupGrain.GetScenarioAsync();
 
-            var self = new GenerationParticipant
-            {
-                Id = personaId,
-                Name = persona.Name,
-                Bio = persona.Bio,
-                SystemPrompt = persona.SystemPrompt,
-                IsUser = false
-            };
+            var decisionParticipants = BuildDecisionParticipants(participants, personaId, self);
 
-            var allParticipants = participants.Select(p =>
-            {
-                if (p.Id == personaId)
-                    return self;
-                return new GenerationParticipant
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    IsUser = p.IsUser,
-                    Bio = null,
-                    SystemPrompt = null
-                };
-            }).ToList();
+            await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+                MessageStreamEvent.PersonaEvaluatingResponse, personaId.ToString(), false);
 
-            // Send attend event so frontend knows this persona is evaluating the conversation
-            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-            {
-                ChatGroupId = chatGroupId,
-                Event = MessageStreamEvent.PersonaEvaluatingResponse,
-                Data = personaId.ToString(),
-                Done = false
-            });
-
-            // Phase 2: Decide whether to respond (streaming decision reasoning)
-            var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
-            var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
-
-            var decision = await decisionService.ShouldRespondAsync(
-                self,
-                history,
-                allParticipants,
-                totalAiRounds,
-                onEvent: async (eventType, data, done) =>
-                {
-                    await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-                    {
-                        ChatGroupId = chatGroupId,
-                        Event = eventType,
-                        Data = data,
-                        Done = done
-                    });
-                },
-                cancellationToken: linkedCt);
+            var decision = await RunDecisionPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, linkedCt);
 
             if (!decision.Respond)
             {
                 logger.LogInformation("Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
-
-                // Make known that we didn't care to respond and why.
                 await chatGroupGrain.MarkGenerationStoppedAsync(messageId, decision.Reason);
-
-                // Notify frontend that this persona declined
-                await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-                {
-                    ChatGroupId = chatGroupId,
-                    Event = MessageStreamEvent.PersonaDeclinedResponse,
-                    Data = JsonSerializer.Serialize(new
-                    {
-                        personaId = personaId,
-                        reason = decision.Reason
-                    }, WebOptions),
-                    Done = true
-                });
+                await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+                    MessageStreamEvent.PersonaDeclinedResponse,
+                    JsonSerializer.Serialize(new { personaId, reason = decision.Reason }, WebOptions),
+                    true);
                 return;
             }
 
             logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
 
-            // Send appraisal complete — persona has decided to engage
-            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-            {
-                ChatGroupId = chatGroupId,
-                Event = MessageStreamEvent.PersonaEvaluationComplete,
-                Data = JsonSerializer.Serialize(new
+            await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+                MessageStreamEvent.PersonaEvaluationComplete,
+                JsonSerializer.Serialize(new
                 {
-                    personaId = personaId,
+                    personaId,
                     instruction = decision.Instruction,
                     reason = decision.Reason,
                     stop = false
                 }, WebOptions),
-                Done = false
-            });
+                false);
 
-            // Phase 3: Generate response
-            var session = new GenerationSession(router, allParticipants);
+            var fullParticipants = await BuildGenerationParticipantsAsync(participants, personaId);
+            var result = await RunGenerationPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history, decision.Instruction, scenario, persona.Name, linkedCt);
 
-            // Re-fetch history up to our reserved message
-            var generationHistory = await chatGroupGrain.GetMessagesUntilAsync(messageId);
-
-            // Build generation participants with full details
-            var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
-            var allPersonas = await personaRoot.GetAll();
-            var personaMap = allPersonas.ToDictionary(p => p.Id, p => p);
-
-            var fullParticipants = participants.Select(p =>
-            {
-                if (p.IsUser)
-                    return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = true, SystemPrompt = "this is a real human user", Bio = null };
-                if (personaMap.TryGetValue(p.Id, out var pm))
-                    return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, IsUser = false };
-                return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
-            }).ToList();
-
-            // Generate response — appraisal already decided to engage
-            // Retry up to 2 times on transient errors (e.g. provider unavailable mid-stream)
-            const int maxRetries = 2;
-            GenerationResult result = null!;
-            for (var attempt = 0; attempt <= maxRetries; attempt++)
-            {
-                try
-                {
-                    result = await session.GenerateResponseOnlyAsync(
-                        self,
-                        generationHistory,
-                        onEvent: async (eventType, data, done) =>
-                        {
-                            await chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
-                            {
-                                ChatGroupId = chatGroupId,
-                                Event = eventType,
-                                Data = data,
-                                Done = done
-                            });
-                        },
-                        linkedCt);
-                    break; // success
-                }
-                catch (OperationCanceledException) { throw; } // manual cancel — don't retry
-                catch (Exception ex) when (attempt < maxRetries)
-                {
-                    logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", persona.Name, attempt + 1);
-                    await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)), linkedCt);
-                }
-            }
-
-            // Phase 4: Store the completed response
             var appraisalJson = JsonSerializer.Serialize(new
             {
-                personaId = personaId,
+                personaId,
                 instruction = decision.Instruction,
                 reason = decision.Reason,
                 stop = false
@@ -292,7 +225,138 @@ public sealed class PersonaGrain(
             // FIXME: If at some point we go public, don't send exceptions over the wire
             await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.ToString());
         }
+        finally
+        {
+            _ctsByGeneration.TryRemove(new KeyValuePair<(Guid, int), CancellationTokenSource>((chatGroupId, messageId), newCts));
+            newCts.Dispose();
+        }
     }
+
+    private static List<GenerationParticipant> BuildDecisionParticipants(
+        IReadOnlyList<PartyParticipant> participants,
+        Guid personaId,
+        GenerationParticipant self)
+        => participants.Select(p => p.Id == personaId
+            ? self
+            : new GenerationParticipant
+            {
+                Id = p.Id,
+                Name = p.Name,
+                IsUser = p.IsUser,
+                Bio = null,
+                SystemPrompt = null
+            }).ToList();
+
+    private async Task<List<GenerationParticipant>> BuildGenerationParticipantsAsync(
+        IReadOnlyList<PartyParticipant> participants,
+        Guid personaId)
+    {
+        var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+        var allPersonas = await personaRoot.GetAll();
+        var personaMap = allPersonas.ToDictionary(p => p.Id, p => p);
+
+        return participants.Select(p =>
+        {
+            if (p.IsUser)
+            {
+                // SystemPrompt left null for users: IsUser carries the distinction, and a literal
+                // marker string risked leaking into concatenated prompts downstream (issue #9).
+                return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = true, SystemPrompt = null, Bio = null };
+            }
+            if (personaMap.TryGetValue(p.Id, out var pm))
+                return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, IsUser = false };
+            return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
+        }).ToList();
+    }
+
+    private async Task<ShouldRespondResult> RunDecisionPhaseAsync(
+        IChatGroupGrain chatGroupGrain,
+        Guid chatGroupId,
+        int messageId,
+        GenerationParticipant self,
+        IReadOnlyList<ChatMessage> history,
+        IReadOnlyList<GenerationParticipant> participants,
+        string? scenario,
+        CancellationToken ct)
+    {
+        var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+        var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
+        var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
+
+        return await decisionService.ShouldRespondAsync(
+            self,
+            history,
+            participants,
+            totalAiRounds,
+            onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
+            cancellationToken: ct,
+            scenario: scenario);
+    }
+
+    private async Task<GenerationResult> RunGenerationPhaseAsync(
+        IChatGroupGrain chatGroupGrain,
+        Guid chatGroupId,
+        int messageId,
+        GenerationParticipant self,
+        List<GenerationParticipant> fullParticipants,
+        IReadOnlyList<ChatMessage> history,
+        string? turnInstruction,
+        string? scenario,
+        string personaName,
+        CancellationToken ct)
+    {
+        var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+        var session = new GenerationSession(router, fullParticipants);
+
+        const int maxRetries = 2;
+        GenerationResult? result = null;
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                result = await session.GenerateResponseOnlyAsync(
+                    self,
+                    history,
+                    onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
+                    ct,
+                    turnInstruction,
+                    scenario);
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // manual cancel — don't retry, don't emit retry event
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", personaName, attempt + 1);
+                // Tell the frontend to clear any partial chunks it buffered during this attempt
+                // before the next attempt begins restreaming from scratch (issue #8).
+                await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+                    MessageStreamEvent.GenerationRetry,
+                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = 2 * (attempt + 1) }, WebOptions),
+                    false);
+                await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)), ct);
+            }
+        }
+
+        return result!;
+    }
+
+    private static Task NotifyStreamAsync(
+        IChatGroupGrain chatGroupGrain,
+        Guid chatGroupId,
+        int messageId,
+        string eventType,
+        string data,
+        bool done)
+        => chatGroupGrain.NotifyStreamChunkAsync(messageId, new MessageStreamEvent
+        {
+            ChatGroupId = chatGroupId,
+            Event = eventType,
+            Data = data,
+            Done = done
+        });
 
     private async Task UpdateStateAsync(Func<Persona, Persona> update)
     {

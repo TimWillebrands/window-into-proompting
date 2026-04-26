@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace PartyTown.Model;
 
 // Domain terminology:
@@ -42,11 +44,28 @@ public sealed record class ChatGroupInfo
 
     [Id(2)]
     public long CreatedAt { get; set; }
+
+    [Id(3)]
+    public string? Scenario { get; set; }
 }
 
 public sealed record class CreateChatGroupRequest
 {
     public string Name { get; set; } = string.Empty;
+
+    [MaxLength(ChatGroupLimits.MaxScenarioLength)]
+    public string? Scenario { get; set; }
+}
+
+public sealed record class UpdateChatGroupScenarioRequest
+{
+    [MaxLength(ChatGroupLimits.MaxScenarioLength)]
+    public string? Scenario { get; set; }
+}
+
+public static class ChatGroupLimits
+{
+    public const int MaxScenarioLength = 2000;
 }
 
 public sealed record class CreatePartyRequest
