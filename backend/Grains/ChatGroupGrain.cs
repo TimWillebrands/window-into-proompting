@@ -35,12 +35,16 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             throw new InvalidOperationException(
                 $"ChatGroupGrain {this.GetPrimaryKey()} not registered in any party.");
 
-        var party = await GrainFactory.GetGrain<IPartyGrain>(partyId.Value).GetParty();
+        var partyGrain = GrainFactory.GetGrain<IPartyGrain>(partyId.Value);
+        var party = await partyGrain.GetParty();
+        var chatGroups = await partyGrain.GetChatGroups();
+        var thisChatGroup = chatGroups.FirstOrDefault(g => g.Id == this.GetPrimaryKey());
 
         RaiseEvent(new ChatGroupInitializedEvent
         {
             PartyId = partyId.Value,
-            Participants = [.. party.Participants]
+            Participants = [.. party.Participants],
+            Scenario = thisChatGroup?.Scenario
         });
         await ConfirmEvents();
 
@@ -49,6 +53,15 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     public Task<Guid> GetPartyIdAsync() => Task.FromResult(State.PartyId);
+
+    public Task<string?> GetScenarioAsync() => Task.FromResult(State.Scenario);
+
+    public async Task SetScenarioAsync(string? scenario)
+    {
+        var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
+        RaiseEvent(new ChatGroupScenarioSetEvent { Scenario = normalized });
+        await ConfirmEvents();
+    }
 
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
@@ -303,6 +316,12 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
 
+    [Alias("GetScenarioAsync")]
+    Task<string?> GetScenarioAsync();
+
+    [Alias("SetScenarioAsync")]
+    Task SetScenarioAsync(string? scenario);
+
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
@@ -376,16 +395,25 @@ public sealed record class ChatGroupState
     [Id(4)]
     public bool Initialized { get; set; }
 
+    [Id(5)]
+    public string? Scenario { get; set; }
+
     public void Apply(ChatGroupInitializedEvent @event)
     {
         PartyId = @event.PartyId;
         Participants = [.. @event.Participants];
+        Scenario = @event.Scenario;
         Initialized = true;
     }
 
     public void Apply(ChatGroupParticipantsSetEvent @event)
     {
         Participants = [.. @event.Participants];
+    }
+
+    public void Apply(ChatGroupScenarioSetEvent @event)
+    {
+        Scenario = @event.Scenario;
     }
 
     public void Apply(ChatGroupMessageSlotReservedEvent @event)
@@ -466,6 +494,14 @@ public sealed record class ChatGroupInitializedEvent : ChatGroupEvent
 {
     [Id(0)] public Guid PartyId { get; set; }
     [Id(2)] public List<PartyParticipant> Participants { get; set; } = [];
+    [Id(3)] public string? Scenario { get; set; }
+}
+
+/// <summary>Raised when the chat group's scenario (free-text setting/context) is set or updated.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupScenarioSetEvent))]
+public sealed record class ChatGroupScenarioSetEvent : ChatGroupEvent
+{
+    [Id(0)] public string? Scenario { get; set; }
 }
 
 /// <summary>Raised when the participant list is replaced wholesale (e.g. personas added/removed from the group).</summary>

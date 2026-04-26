@@ -93,6 +93,46 @@ public class ChatGroupGrainTest
         Assert.Single(state.Participants);
     }
 
+    [Fact]
+    public void Apply_InitializedEvent_PopulatesScenarioWhenProvided()
+    {
+        var state = new ChatGroupState();
+        state.Apply(new ChatGroupInitializedEvent
+        {
+            PartyId = _partyId,
+            Participants = [],
+            Scenario = "Office of a stealth horticulture startup."
+        });
+
+        Assert.Equal("Office of a stealth horticulture startup.", state.Scenario);
+    }
+
+    [Fact]
+    public void Apply_ScenarioSetEvent_UpdatesOnlyScenario()
+    {
+        var existingParticipant = new PartyParticipant { Id = Guid.NewGuid(), Name = "Alice" };
+        var state = NewState([existingParticipant]);
+        state.Apply(new ChatGroupScenarioSetEvent { Scenario = "After-hours bar." });
+
+        Assert.Equal("After-hours bar.", state.Scenario);
+        // Other state must be untouched.
+        Assert.Equal(_partyId, state.PartyId);
+        Assert.Single(state.Participants);
+        Assert.Equal(existingParticipant.Id, state.Participants[0].Id);
+    }
+
+    [Fact]
+    public void Apply_ScenarioSetEvent_NullClearsExistingScenario()
+    {
+        var state = NewState();
+        state.Apply(new ChatGroupScenarioSetEvent { Scenario = "Previous setting." });
+        Assert.Equal("Previous setting.", state.Scenario);
+
+        state.Apply(new ChatGroupScenarioSetEvent { Scenario = null });
+
+        Assert.Null(state.Scenario);
+    }
+
     // ── Slot reservation / monotonic IDs ─────────────────────────────────────
 
     [Fact]

@@ -10,4 +10,6 @@ export interface ChatGroupInfo {
     name?: string;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     createdAt?: number | string;
+    /** @nullable */
+    scenario?: string | null;
 }

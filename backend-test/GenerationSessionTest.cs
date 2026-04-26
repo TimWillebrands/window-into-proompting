@@ -219,6 +219,82 @@ public class GenerationSessionTest
         yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "second"); // unreachable
     }
 
+    // ── Scenario rendering ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Captures the LlmGenerationJob passed to the endpoint so tests can assert on the
+    /// rendered system prompt without coupling to the streaming pump.
+    /// </summary>
+    private static (Mock<ILlmEndpointGrain> endpoint, Func<LlmGenerationJob?> getJob) CapturingEndpoint()
+    {
+        LlmGenerationJob? captured = null;
+        var endpoint = new Mock<ILlmEndpointGrain>();
+        endpoint
+            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+            {
+                captured = job;
+                return Emit([], ct);
+            });
+        return (endpoint, () => captured);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_WithScenario_RendersScenarioSectionInSystemPrompt()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None,
+            turnInstruction: null,
+            scenario: "Office of a stealth horticulture startup.");
+
+        var systemMessage = getJob()!.Messages[0];
+        Assert.Equal("system", systemMessage.Role);
+        Assert.Contains("# Scenario", systemMessage.Content);
+        Assert.Contains("Office of a stealth horticulture startup.", systemMessage.Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_NullScenario_OmitsScenarioSection()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None);
+
+        var systemMessage = getJob()!.Messages[0];
+        Assert.DoesNotContain("# Scenario", systemMessage.Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_WhitespaceScenario_OmitsScenarioSection()
+    {
+        // Whitespace-only scenario must be treated as "no scenario" so we don't emit an
+        // empty heading that confuses the model.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None,
+            turnInstruction: null,
+            scenario: "   \n  ");
+
+        var systemMessage = getJob()!.Messages[0];
+        Assert.DoesNotContain("# Scenario", systemMessage.Content);
+    }
+
     // ── Error propagation ─────────────────────────────────────────────────────
 
     [Fact]

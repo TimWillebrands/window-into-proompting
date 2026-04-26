@@ -37,6 +37,7 @@ import type {
     ProceedRequest,
     PromptRequest,
     RepromptRequest,
+    UpdateChatGroupScenarioRequest,
     UpdatePartyParticipantsRequest,
 } from './model';
 
@@ -1059,31 +1060,30 @@ export function useGetLlmConfigProvidersIdModelsSuspense<
     return { ...query, queryKey: queryOptions.queryKey };
 }
 
-export type putLlmConfigProvidersIdResponse200TextPlain = {
-    data: LlmProviderEntry;
-    status: 200;
+export type putLlmConfigProvidersIdResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
 };
 
-export type putLlmConfigProvidersIdResponse200ApplicationJson = {
-    data: LlmProviderEntry;
-    status: 200;
+export type putLlmConfigProvidersIdResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
 };
 
-export type putLlmConfigProvidersIdResponse200TextJson = {
-    data: LlmProviderEntry;
-    status: 200;
+export type putLlmConfigProvidersIdResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
 };
-
-export type putLlmConfigProvidersIdResponseSuccess = (
-    | putLlmConfigProvidersIdResponse200TextPlain
-    | putLlmConfigProvidersIdResponse200ApplicationJson
-    | putLlmConfigProvidersIdResponse200TextJson
+export type putLlmConfigProvidersIdResponseError = (
+    | putLlmConfigProvidersIdResponse404TextPlain
+    | putLlmConfigProvidersIdResponse404ApplicationJson
+    | putLlmConfigProvidersIdResponse404TextJson
 ) & {
     headers: Headers;
 };
 
 export type putLlmConfigProvidersIdResponse =
-    putLlmConfigProvidersIdResponseSuccess;
+    putLlmConfigProvidersIdResponseError;
 
 export const getPutLlmConfigProvidersIdUrl = (id: string) => {
     return `/api/LlmConfig/providers/${id}`;
@@ -1114,7 +1114,7 @@ export const putLlmConfigProvidersId = async (
 };
 
 export const getPutLlmConfigProvidersIdMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -1155,10 +1155,10 @@ export type PutLlmConfigProvidersIdMutationResult = NonNullable<
     Awaited<ReturnType<typeof putLlmConfigProvidersId>>
 >;
 export type PutLlmConfigProvidersIdMutationBody = LlmProviderEntry;
-export type PutLlmConfigProvidersIdMutationError = unknown;
+export type PutLlmConfigProvidersIdMutationError = ProblemDetails;
 
 export const usePutLlmConfigProvidersId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -1188,13 +1188,36 @@ export type deleteLlmConfigProvidersIdResponse204 = {
     status: 204;
 };
 
+export type deleteLlmConfigProvidersIdResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteLlmConfigProvidersIdResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteLlmConfigProvidersIdResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
 export type deleteLlmConfigProvidersIdResponseSuccess =
     deleteLlmConfigProvidersIdResponse204 & {
         headers: Headers;
     };
+export type deleteLlmConfigProvidersIdResponseError = (
+    | deleteLlmConfigProvidersIdResponse404TextPlain
+    | deleteLlmConfigProvidersIdResponse404ApplicationJson
+    | deleteLlmConfigProvidersIdResponse404TextJson
+) & {
+    headers: Headers;
+};
 
 export type deleteLlmConfigProvidersIdResponse =
-    deleteLlmConfigProvidersIdResponseSuccess;
+    | deleteLlmConfigProvidersIdResponseSuccess
+    | deleteLlmConfigProvidersIdResponseError;
 
 export const getDeleteLlmConfigProvidersIdUrl = (id: string) => {
     return `/api/LlmConfig/providers/${id}`;
@@ -1222,7 +1245,7 @@ export const deleteLlmConfigProvidersId = async (
 };
 
 export const getDeleteLlmConfigProvidersIdMutationOptions = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
@@ -1263,10 +1286,10 @@ export type DeleteLlmConfigProvidersIdMutationResult = NonNullable<
     Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>
 >;
 
-export type DeleteLlmConfigProvidersIdMutationError = unknown;
+export type DeleteLlmConfigProvidersIdMutationError = ProblemDetails;
 
 export const useDeleteLlmConfigProvidersId = <
-    TError = unknown,
+    TError = ProblemDetails,
     TContext = unknown,
 >(
     options?: {
@@ -4188,6 +4211,189 @@ export const usePostPartyIdChatGroups = <TError = unknown, TContext = unknown>(
 > => {
     return useMutation(
         getPostPartyIdChatGroupsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse204 = {
+    data: void;
+    status: 204;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponseSuccess =
+    putPartyIdChatGroupsChatGroupIdScenarioResponse204 & {
+        headers: Headers;
+    };
+export type putPartyIdChatGroupsChatGroupIdScenarioResponseError = (
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse400TextPlain
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse400ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse400TextJson
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse404TextPlain
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse404ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdScenarioResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type putPartyIdChatGroupsChatGroupIdScenarioResponse =
+    | putPartyIdChatGroupsChatGroupIdScenarioResponseSuccess
+    | putPartyIdChatGroupsChatGroupIdScenarioResponseError;
+
+export const getPutPartyIdChatGroupsChatGroupIdScenarioUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/scenario`;
+};
+
+export const putPartyIdChatGroupsChatGroupIdScenario = async (
+    id: string,
+    chatGroupId: string,
+    updateChatGroupScenarioRequest: UpdateChatGroupScenarioRequest,
+    options?: RequestInit,
+): Promise<putPartyIdChatGroupsChatGroupIdScenarioResponse> => {
+    const res = await fetch(
+        getPutPartyIdChatGroupsChatGroupIdScenarioUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(updateChatGroupScenarioRequest),
+        },
+    );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdChatGroupsChatGroupIdScenarioResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdChatGroupsChatGroupIdScenarioResponse;
+};
+
+export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
+        TError,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdateChatGroupScenarioRequest;
+        },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdateChatGroupScenarioRequest },
+    TContext
+> => {
+    const mutationKey = ['putPartyIdChatGroupsChatGroupIdScenario'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdateChatGroupScenarioRequest;
+        }
+    > = (props) => {
+        const { id, chatGroupId, data } = props ?? {};
+
+        return putPartyIdChatGroupsChatGroupIdScenario(
+            id,
+            chatGroupId,
+            data,
+            fetchOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutPartyIdChatGroupsChatGroupIdScenarioMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>
+>;
+export type PutPartyIdChatGroupsChatGroupIdScenarioMutationBody =
+    UpdateChatGroupScenarioRequest;
+export type PutPartyIdChatGroupsChatGroupIdScenarioMutationError =
+    ProblemDetails;
+
+export const usePutPartyIdChatGroupsChatGroupIdScenario = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
+            TError,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdateChatGroupScenarioRequest;
+            },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdateChatGroupScenarioRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions(options),
         queryClient,
     );
 };

@@ -133,6 +133,7 @@ public sealed class PersonaGrain(
             // committed between our slot reservation and our read.
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
             var participants = await chatGroupGrain.GetParticipantsAsync();
+            var scenario = await chatGroupGrain.GetScenarioAsync();
 
             var self = new GenerationParticipant
             {
@@ -177,7 +178,7 @@ public sealed class PersonaGrain(
 
             var fullParticipants = await BuildGenerationParticipantsAsync(participants, personaId);
             var result = await RunGenerationPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history, decision.Instruction, persona.Name, linkedCt);
+                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history, decision.Instruction, scenario, persona.Name, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -285,6 +286,7 @@ public sealed class PersonaGrain(
         List<GenerationParticipant> fullParticipants,
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
+        string? scenario,
         string personaName,
         CancellationToken ct)
     {
@@ -302,7 +304,8 @@ public sealed class PersonaGrain(
                     history,
                     onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
                     ct,
-                    turnInstruction);
+                    turnInstruction,
+                    scenario);
                 break;
             }
             catch (OperationCanceledException)

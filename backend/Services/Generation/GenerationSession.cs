@@ -15,7 +15,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
-        string? turnInstruction = null)
+        string? turnInstruction = null,
+        string? scenario = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var messages = new List<LlmChatMessage>
@@ -23,7 +24,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             new()
             {
                 Role = "system",
-                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others),
+                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario),
                 Name = persona.Id.ToString()
             }
         };
@@ -84,7 +85,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
     }
 
-    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others)
+    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario)
     {
         var othersSection = others.Count == 0
             ? "(no other participants)"
@@ -93,12 +94,18 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
                     ? $"- {p.Name} (human)"
                     : $"- {p.Name}: {p.Bio ?? "No bio available"}"));
 
+        // Scenario sits between identity and the participant roster: persona-self comes first
+        // (primacy), the in-fiction setting establishes context, then who else is there.
+        var scenarioSection = string.IsNullOrWhiteSpace(scenario)
+            ? string.Empty
+            : $"\n# Scenario\n{scenario.Trim()}\n";
+
         // Persona identity block claims the primacy position; chat-style rules land after,
         // so the model sees who it is before it sees generic etiquette.
         return $"""
 # You are: {self.Name} (ID: {self.Id})
 {personaPrompt}
-
+{scenarioSection}
 # Other participants
 {othersSection}
 

@@ -64,13 +64,14 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
     public Task<List<ChatGroupInfo>> GetChatGroups()
         => Task.FromResult(State.ChatGroups.ToList());
 
-    public async Task<ChatGroupInfo> CreateChatGroup(string name)
+    public async Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null)
     {
         var chatGroup = new ChatGroupInfo
         {
             Id = Guid.NewGuid(),
             Name = name,
-            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Scenario = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim()
         };
 
         RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
@@ -81,6 +82,20 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
 
         return chatGroup;
+    }
+
+    public async Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario)
+    {
+        var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
+
+        RaiseEvent(new ChatGroupScenarioUpdatedEvent
+        {
+            ChatGroupId = chatGroupId,
+            Scenario = normalized
+        });
+        await ConfirmEvents();
+
+        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId).SetScenarioAsync(normalized);
     }
 
     public async Task<List<ChatMessage>> DownloadMessages()
@@ -127,11 +142,15 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("SetParticipants")]
     Task SetParticipants(List<PartyParticipant> participants);
 
+    [AlwaysInterleave]
     [Alias("GetChatGroups")]
     Task<List<ChatGroupInfo>> GetChatGroups();
 
     [Alias("CreateChatGroup")]
-    Task<ChatGroupInfo> CreateChatGroup(string name);
+    Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
+
+    [Alias("UpdateChatGroupScenario")]
+    Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario);
 
     [Alias("DownloadMessages")]
     Task<List<ChatMessage>> DownloadMessages();
@@ -161,6 +180,13 @@ public sealed record class PartyState
     public void Apply(ChatGroupCreatedEvent @event)
     {
         ChatGroups.Add(@event.ChatGroup);
+    }
+
+    public void Apply(ChatGroupScenarioUpdatedEvent @event)
+    {
+        var idx = ChatGroups.FindIndex(g => g.Id == @event.ChatGroupId);
+        if (idx >= 0)
+            ChatGroups[idx] = ChatGroups[idx] with { Scenario = @event.Scenario };
     }
 
     public void Apply(PartySetEvent @event)
@@ -208,6 +234,16 @@ public sealed record class ChatGroupCreatedEvent : PartyEvent
 {
     [Id(0)]
     public ChatGroupInfo ChatGroup { get; set; } = new();
+}
+
+[GenerateSerializer, Alias(nameof(ChatGroupScenarioUpdatedEvent))]
+public sealed record class ChatGroupScenarioUpdatedEvent : PartyEvent
+{
+    [Id(0)]
+    public Guid ChatGroupId { get; set; }
+
+    [Id(1)]
+    public string? Scenario { get; set; }
 }
 
 [GenerateSerializer, Alias(nameof(PartyDeletedEvent))]

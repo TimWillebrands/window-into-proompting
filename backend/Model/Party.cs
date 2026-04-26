@@ -42,11 +42,20 @@ public sealed record class ChatGroupInfo
 
     [Id(2)]
     public long CreatedAt { get; set; }
+
+    [Id(3)]
+    public string? Scenario { get; set; }
 }
 
 public sealed record class CreateChatGroupRequest
 {
     public string Name { get; set; } = string.Empty;
+    public string? Scenario { get; set; }
+}
+
+public sealed record class UpdateChatGroupScenarioRequest
+{
+    public string? Scenario { get; set; }
 }
 
 public sealed record class CreatePartyRequest
