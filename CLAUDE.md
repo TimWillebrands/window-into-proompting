@@ -95,6 +95,8 @@ DB init scripts in `docker-entrypoint-initdb.d/`. Re-run: wipe volume (`docker c
 
 **Code style:** Biome for linting/formatting — 4-space indent, single quotes, trailing commas. No Prettier/ESLint.
 
+**After frontend changes:** run `npx biome check --write` (auto-fix lint/format) and `npx tsc --noEmit` (type-check) from `frontend/`. Vite hot-reload doesn't catch type errors or lint warnings — CI does. Fix before declaring task done.
+
 ### Infrastructure
 
 - **Caddy** reverse proxy routes API traffic to backend

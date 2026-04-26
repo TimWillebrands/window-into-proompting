@@ -494,8 +494,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         /* ignore */
                     }
                     const declined: DeclinedDecision = {
-                        personaId:
-                            declinedPersonaId || phantom?.senderId || '',
+                        personaId: declinedPersonaId || phantom?.senderId || '',
                         reason: declinedReason,
                         decisionText: (phantom?.appraisal ?? '').trim(),
                         timestamp: Date.now(),

@@ -6,6 +6,9 @@
  */
 
 export interface UpdateChatGroupScenarioRequest {
-    /** @nullable */
+    /**
+     * @maxLength 2000
+     * @nullable
+     */
     scenario?: string | null;
 }

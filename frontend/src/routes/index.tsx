@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { useDesktopStore } from '../lib/desktop-context';
 import { desktopLayoutSchema } from '../types/desktop';
 import DesktopExperience from '../views/DesktopExperience';
-import { useDesktopStore } from '../lib/desktop-context';
-import { useEffect } from 'react';
 
 export const Route = createFileRoute('/')({
     validateSearch: desktopLayoutSchema,

@@ -43,7 +43,7 @@ import type {
 } from './model';
 
 export type getUpResponse204 = {
-    data: void;
+    data: undefined;
     status: 204;
 };
 
@@ -1185,7 +1185,7 @@ export const usePutLlmConfigProvidersId = <
 };
 
 export type deleteLlmConfigProvidersIdResponse204 = {
-    data: void;
+    data: undefined;
     status: 204;
 };
 
@@ -2429,7 +2429,7 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
 };
 
 export type postPartyIdPromptResponse202 = {
-    data: void;
+    data: undefined;
     status: 202;
 };
 
@@ -2562,7 +2562,7 @@ export const usePostPartyIdPrompt = <
 };
 
 export type postPartyIdProceedResponse202 = {
-    data: void;
+    data: undefined;
     status: 202;
 };
 
@@ -2696,7 +2696,7 @@ export const usePostPartyIdProceed = <
 };
 
 export type postPartyIdCancelResponse204 = {
-    data: void;
+    data: undefined;
     status: 204;
 };
 
@@ -2799,7 +2799,7 @@ export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
 };
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 = {
-    data: void;
+    data: undefined;
     status: 204;
 };
 
@@ -2977,7 +2977,7 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
 
 export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 =
     {
-        data: void;
+        data: undefined;
         status: 204;
     };
 
@@ -3157,7 +3157,7 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
 };
 
 export type postPartyIdRepromptMessageIdResponse202 = {
-    data: void;
+    data: undefined;
     status: 202;
 };
 
@@ -3295,7 +3295,7 @@ export const usePostPartyIdRepromptMessageId = <
 };
 
 export type getPartyIdWsResponse200 = {
-    data: void;
+    data: undefined;
     status: 200;
 };
 
@@ -4372,7 +4372,7 @@ export const usePostPartyIdChatGroups = <TError = unknown, TContext = unknown>(
 };
 
 export type putPartyIdChatGroupsChatGroupIdScenarioResponse204 = {
-    data: void;
+    data: undefined;
     status: 204;
 };
 
@@ -5288,7 +5288,7 @@ export const usePutPersonaId = <TError = unknown, TContext = unknown>(
 };
 
 export type deletePersonaIdResponse200 = {
-    data: void;
+    data: undefined;
     status: 200;
 };
 
@@ -5689,7 +5689,7 @@ export function useGetPersonaDefaultsSuspense<
 }
 
 export type getPersonaWsResponse200 = {
-    data: void;
+    data: undefined;
     status: 200;
 };
 

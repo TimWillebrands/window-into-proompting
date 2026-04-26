@@ -1,17 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useState } from 'react';
-import { ChatView } from './GroupChatWindow';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
-import {
-    useRealtimeConnectionStatus,
-    useRealtimeStoreActions,
-} from '../../lib/realtime-store';
-import { useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import {
     getGetPartyIdChatGroupsQueryKey,
     useGetPartyIdChatGroupsSuspense,
     usePostPartyIdChatGroups,
 } from '../../api/party-zone';
+import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import {
+    useRealtimeConnectionStatus,
+    useRealtimeStoreActions,
+} from '../../lib/realtime-store';
+import { ChatView } from './GroupChatWindow';
 
 export default function ChatManagerApp() {
     const queryClient = useQueryClient();

@@ -434,7 +434,11 @@ function LlmProvidersSection() {
                     title={isNew ? 'Add Provider' : 'Edit Provider'}
                     onClose={close}
                 >
-                    <ProviderEditor entry={editing} isNew={isNew} onClose={close} />
+                    <ProviderEditor
+                        entry={editing}
+                        isNew={isNew}
+                        onClose={close}
+                    />
                 </ProviderModal>
             )}
         </div>
@@ -744,7 +748,6 @@ function ProviderEditor({
 
     return (
         <div>
-
             {/* Type */}
             <FormRow label="Type">
                 <select
@@ -848,11 +851,7 @@ function ProviderEditor({
                 >
                     {isPending ? 'Saving...' : 'Save'}
                 </button>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={isPending}
-                >
+                <button type="button" onClick={onClose} disabled={isPending}>
                     Cancel
                 </button>
             </div>

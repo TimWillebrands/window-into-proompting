@@ -279,9 +279,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         (nextAiIds: string[]) => {
             if (partyDetailsQuery.data.status !== 200) return;
             const personas = partyDetailsQuery.data.data.personaParticipants;
-            const personaNameMap = new Map(
-                personas.map((p) => [p.id, p.name]),
-            );
+            const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
             const participants = nextAiIds.map((id) => ({
                 id,
                 name: personaNameMap.get(id) ?? id,
@@ -756,14 +754,14 @@ function ParticipantsSidebar({
     );
     // Available to add: non-active, non-user personas not already the user's persona
     const availableToAdd = personas.filter(
-        (p) =>
+        (p): p is Persona & { id: string } =>
+            !!p.id &&
             !p.isUser &&
-            !participantSet.has(p.id ?? '') &&
+            !participantSet.has(p.id) &&
             p.id !== selectedPersonaId,
     );
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
-    const totalActive =
-        activeParticipants.length + (userPersona ? 1 : 0);
+    const totalActive = activeParticipants.length + (userPersona ? 1 : 0);
 
     const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
 
@@ -836,8 +834,13 @@ function ParticipantsSidebar({
                             +
                         </button>
                         {showAddMenu && (
-                            <div ref={addMenuRef} className="member-add-dropdown">
-                                <div className="member-add-title">Add to chat</div>
+                            <div
+                                ref={addMenuRef}
+                                className="member-add-dropdown"
+                            >
+                                <div className="member-add-title">
+                                    Add to chat
+                                </div>
                                 {availableToAdd.length === 0 ? (
                                     <div className="member-add-empty">
                                         Everyone's here!
@@ -850,17 +853,18 @@ function ParticipantsSidebar({
                                                 type="button"
                                                 className="member-add-item"
                                                 onClick={() => {
-                                                    onAddParticipant(p.id!);
+                                                    onAddParticipant(p.id);
                                                     setShowAddMenu(false);
                                                 }}
                                             >
                                                 <img
-                                                    src={`https://robohash.org/${encodeURIComponent(p.id!)}?size=32x32`}
+                                                    src={`https://robohash.org/${encodeURIComponent(p.id)}?size=32x32`}
                                                     alt={p.name ?? ''}
                                                     style={{
                                                         width: 20,
                                                         height: 20,
-                                                        imageRendering: 'pixelated',
+                                                        imageRendering:
+                                                            'pixelated',
                                                     }}
                                                 />
                                                 <span>{p.name}</span>
@@ -915,9 +919,7 @@ function ParticipantsSidebar({
                                     <button
                                         type="button"
                                         className="member-action-btn remove"
-                                        onClick={() =>
-                                            onRemoveParticipant(id)
-                                        }
+                                        onClick={() => onRemoveParticipant(id)}
                                         disabled={isSaving}
                                         title="Remove from chat"
                                     >
@@ -974,7 +976,9 @@ function ParticipantsSidebar({
                     <span className="member-header-label">
                         Thought Log
                         {thoughtCount > 0 && (
-                            <span className="thought-badge">{thoughtCount}</span>
+                            <span className="thought-badge">
+                                {thoughtCount}
+                            </span>
                         )}
                     </span>
                     <span
@@ -1069,8 +1073,7 @@ function ParticipantsSidebar({
                                                 style={{
                                                     width: 13,
                                                     height: 13,
-                                                    imageRendering:
-                                                        'pixelated',
+                                                    imageRendering: 'pixelated',
                                                     flexShrink: 0,
                                                 }}
                                             />
@@ -1649,8 +1652,8 @@ function ConnectionDot({ status }: { status: RealtimeConnectionStatus }) {
     );
 }
 
-function formatTime(iso: string | null | undefined): string {
-    if (!iso) return '';
+function formatTime(iso: string | number | null | undefined): string {
+    if (iso == null || iso === '') return '';
     try {
         const d = new Date(iso);
         return d.toLocaleTimeString([], {
