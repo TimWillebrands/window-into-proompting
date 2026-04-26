@@ -101,6 +101,13 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
             return;
 
         var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
+        if (normalized is { Length: > ChatGroupLimits.MaxScenarioLength })
+        {
+            logger.LogWarning(
+                "Scenario length {Length} exceeded cap {Cap} on UpdateChatGroupScenario for chat group {ChatGroupId}; truncating",
+                normalized.Length, ChatGroupLimits.MaxScenarioLength, chatGroupId);
+            normalized = normalized[..ChatGroupLimits.MaxScenarioLength];
+        }
 
         RaiseEvent(new ChatGroupScenarioUpdatedEvent
         {
