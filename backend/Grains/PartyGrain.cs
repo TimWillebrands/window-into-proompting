@@ -66,12 +66,21 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null)
     {
+        var normalizedScenario = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
+        if (normalizedScenario is { Length: > ChatGroupLimits.MaxScenarioLength })
+        {
+            logger.LogWarning(
+                "Scenario length {Length} exceeded cap {Cap} on CreateChatGroup; truncating",
+                normalizedScenario.Length, ChatGroupLimits.MaxScenarioLength);
+            normalizedScenario = normalizedScenario[..ChatGroupLimits.MaxScenarioLength];
+        }
+
         var chatGroup = new ChatGroupInfo
         {
             Id = Guid.NewGuid(),
             Name = name,
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Scenario = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim()
+            Scenario = normalizedScenario
         };
 
         RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });

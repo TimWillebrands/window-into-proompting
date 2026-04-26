@@ -59,6 +59,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public async Task SetScenarioAsync(string? scenario)
     {
         var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
+        if (normalized is { Length: > ChatGroupLimits.MaxScenarioLength })
+        {
+            logger.LogWarning(
+                "Scenario length {Length} exceeded cap {Cap} for chat group {ChatGroupId}; truncating",
+                normalized.Length, ChatGroupLimits.MaxScenarioLength, this.GetPrimaryKey());
+            normalized = normalized[..ChatGroupLimits.MaxScenarioLength];
+        }
         RaiseEvent(new ChatGroupScenarioSetEvent { Scenario = normalized });
         await ConfirmEvents();
     }
