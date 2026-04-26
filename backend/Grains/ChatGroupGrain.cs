@@ -285,9 +285,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var participants = State.Participants.ToList();
+        // Skip IsUser participants: the user's "persona" is not an LLM-driven character,
+        // so activating its grain would (a) waste an LLM call and (b) write a hallucinated
+        // user reply into the chat history that other personas then react to.
+        var participants = State.Participants.Where(p => !p.IsUser).ToList();
 
-        logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
+        logger.LogInformation("Fanning out to {Count} AI participants in chat group {ChatGroupId}",
             participants.Count, chatGroupId);
 
         foreach (var p in participants)

@@ -23,14 +23,16 @@ public sealed class PersonaGrain(
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
-    // One CTS per chat group so concurrent NotifyMessageAsync for different groups don't
-    // cancel each other. Reentrancy made the previous single _activeCts field a race:
-    // group B's call would cancel group A's in-flight generation and mark it "cancelled".
-    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _ctsByChatGroup = new();
+    // One CTS per *in-flight generation* (chatGroup, messageId), not per chat group.
+    // Earlier (per-chat-group) keying caused message N+1 to cancel message N's still-running
+    // decision/generation, surfacing as a phantom "cancelled" appraisal on legitimate work
+    // and an empty assistant slot for any persona slow enough to overlap a follow-up.
+    // CancelGenerationAsync still cancels every in-flight generation for this persona.
+    private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), CancellationTokenSource> _ctsByGeneration = new();
 
     public Task CancelGenerationAsync()
     {
-        foreach (var cts in _ctsByChatGroup.Values)
+        foreach (var cts in _ctsByGeneration.Values)
         {
             try { cts.Cancel(); } catch (ObjectDisposedException) { }
         }
@@ -106,25 +108,17 @@ public sealed class PersonaGrain(
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
 
-        var newCts = new CancellationTokenSource();
-        _ctsByChatGroup.AddOrUpdate(
-            chatGroupId,
-            _ => newCts,
-            (_, old) =>
-            {
-                try { old.Cancel(); } catch (ObjectDisposedException) { }
-                old.Dispose();
-                return newCts;
-            });
-
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
-        var linkedCt = linkedCts.Token;
-
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
         var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
         var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
+
+        var newCts = new CancellationTokenSource();
+        _ctsByGeneration[(chatGroupId, messageId)] = newCts;
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
+        var linkedCt = linkedCts.Token;
 
         try
         {
@@ -210,12 +204,8 @@ public sealed class PersonaGrain(
         }
         finally
         {
-            // Clear the slot only if we still own it (a later call may have replaced us).
-            if (_ctsByChatGroup.TryGetValue(chatGroupId, out var current) && ReferenceEquals(current, newCts))
-            {
-                _ctsByChatGroup.TryRemove(new KeyValuePair<Guid, CancellationTokenSource>(chatGroupId, newCts));
-                newCts.Dispose();
-            }
+            _ctsByGeneration.TryRemove(new KeyValuePair<(Guid, int), CancellationTokenSource>((chatGroupId, messageId), newCts));
+            newCts.Dispose();
         }
     }
 

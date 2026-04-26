@@ -116,9 +116,9 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task CancelAllGenerations(CancellationToken ct = default)
     {
-        // TODO: filter out IsUser participants — activating user persona grains here is wasteful (harmless but unnecessary).
-        var tasks = State.Participants.Select(p =>
-            GrainFactory.GetGrain<IPersonaGrain>(p.Id).CancelGenerationAsync());
+        var tasks = State.Participants
+            .Where(p => !p.IsUser)
+            .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).CancelGenerationAsync());
         await Task.WhenAll(tasks);
     }
 

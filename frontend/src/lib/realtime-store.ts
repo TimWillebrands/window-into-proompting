@@ -473,19 +473,27 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         ],
                     };
                 } else if (payload.event === 'declined') {
-                    // Persona decided not to respond — capture decision then remove phantom message
+                    // Persona decided not to respond — capture decision then remove phantom message.
+                    // Authoritative personaId lives in the payload JSON; the phantom's senderId is
+                    // a fallback only — the persisted slot's SenderId is cleared to Guid.Empty on
+                    // decline (see ChatGroupGenerationStoppedEvent), so falling through to it
+                    // surfaced "00000000" entries in the thought log.
                     const phantom = prev.messages.find(
                         (m) => m.messageId === messageId,
                     );
                     let declinedReason: string | null = null;
+                    let declinedPersonaId = '';
                     try {
                         const parsed = JSON.parse(payload.data ?? '{}');
                         declinedReason = parsed.reason ?? null;
+                        declinedPersonaId =
+                            parsed.personaId ?? parsed.PersonaId ?? '';
                     } catch {
                         /* ignore */
                     }
                     const declined: DeclinedDecision = {
-                        personaId: phantom?.senderId ?? payload.data ?? '',
+                        personaId:
+                            declinedPersonaId || phantom?.senderId || '',
                         reason: declinedReason,
                         decisionText: (phantom?.appraisal ?? '').trim(),
                         timestamp: Date.now(),
