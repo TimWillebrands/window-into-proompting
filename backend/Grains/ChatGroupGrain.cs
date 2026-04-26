@@ -288,7 +288,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         // Skip IsUser participants: the user's "persona" is not an LLM-driven character,
         // so activating its grain would (a) waste an LLM call and (b) write a hallucinated
         // user reply into the chat history that other personas then react to.
-        var participants = State.Participants.Where(p => !p.IsUser).ToList();
+        // Skip the sender persona too — re-evaluating one's own message produces a thought-log
+        // entry per turn for nothing (Vlad doesn't read Vlad's last line and decide to react).
+        var participants = State.Participants
+            .Where(p => !p.IsUser && p.Id != triggeringMessage.SenderId)
+            .ToList();
 
         logger.LogInformation("Fanning out to {Count} AI participants in chat group {ChatGroupId}",
             participants.Count, chatGroupId);

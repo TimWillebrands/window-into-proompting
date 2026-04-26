@@ -346,7 +346,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return sb.ToString();
     }
 
-    private static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
+    public static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
     {
         var count = 0;
         for (var i = history.Count - 1; i >= 0; i--)
@@ -357,6 +357,50 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                 count++;
         }
         return count;
+    }
+
+    /// <summary>
+    /// Net pressure = pull (urge total + chaos bonus) minus push (round penalty +
+    /// self-dominance penalty). Mirrors the bucketed nudge in the LLM-facing prompt.
+    /// Centralised so the pre-gate (PersonaGrain short-circuit) and the prompt agree.
+    /// </summary>
+    public static double CalculateNetPressure(ResponseUrge urge, int totalAiRoundsInGroup, int recentSelfMessageCount)
+    {
+        var roundPenalty = totalAiRoundsInGroup switch
+        {
+            <= 1 => 0.0,
+            2 => 0.15,
+            3 => 0.35,
+            4 => 0.6,
+            _ => 0.9
+        };
+        var selfPenalty = recentSelfMessageCount switch
+        {
+            0 => 0.0,
+            1 => 0.3,
+            _ => 0.7
+        };
+        var chaosBonus = urge.ChaosScore switch
+        {
+            >= 0.85 => 0.3,
+            >= 0.65 => 0.1,
+            _ => 0.0
+        };
+        return urge.Total - roundPenalty - selfPenalty + chaosBonus;
+    }
+
+    /// <summary>
+    /// True when the math is decisive enough to skip the LLM decision call entirely
+    /// (and skip reserving a thought-log slot). Requires no direct mention, no question,
+    /// and net pressure deep in the "pass" bucket. Cuts the ~1480-thought-per-1480-msgs
+    /// runaway visible in the UI when every persona deliberates on every cascade message.
+    /// </summary>
+    public static bool IsObviousSkip(ResponseUrge urge, int totalAiRoundsInGroup, int recentSelfMessageCount)
+    {
+        if (urge.MentionScore > 0 || urge.QuestionScore > 0)
+            return false;
+        var net = CalculateNetPressure(urge, totalAiRoundsInGroup, recentSelfMessageCount);
+        return net < -0.4;
     }
 
     private static string ShouldRespondSystemPrompt(
@@ -410,32 +454,7 @@ is worse than letting the room breathe. Use judgement.
         GenerationParticipant self,
         ResponseUrge urge)
     {
-        // Net pressure bucket. Previously four independent switches rendered contradictory lines
-        // like "lean toward speaking up" + "do NOT respond unless asked" in the same prompt.
-        // Here we collapse pull (urge, chaos) and push (rounds, self-dominance) into one signal
-        // so the model sees a single, coherent nudge.
-        var roundPenalty = totalAiRoundsInGroup switch
-        {
-            <= 1 => 0.0,
-            2 => 0.15,
-            3 => 0.35,
-            4 => 0.6,
-            _ => 0.9
-        };
-        var selfPenalty = recentSelfMessageCount switch
-        {
-            0 => 0.0,
-            1 => 0.3,
-            _ => 0.7
-        };
-        var chaosBonus = urge.ChaosScore switch
-        {
-            >= 0.85 => 0.3,
-            >= 0.65 => 0.1,
-            _ => 0.0
-        };
-
-        var net = urge.Total - roundPenalty - selfPenalty + chaosBonus;
+        var net = CalculateNetPressure(urge, totalAiRoundsInGroup, recentSelfMessageCount);
 
         // Math nudge framed as a social cue (room-state) rather than a directive — so the
         // model reads it as context, not as a command from the system that overrides character.

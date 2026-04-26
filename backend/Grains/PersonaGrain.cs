@@ -108,10 +108,42 @@ public sealed class PersonaGrain(
         var personaId = this.GetPrimaryKey();
         var persona = state.State with { Id = personaId };
 
+        // Defense-in-depth: also drop self-fan-out here. ChatGroupGrain filters first,
+        // but a stray direct-call shouldn't make Vlad ruminate on Vlad's last line.
+        if (triggeringMessage.SenderId == personaId)
+            return;
+
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
         var chatGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
+
+        // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
+        // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
+        // Reading int.MaxValue gives us the full current history without claiming a slot.
+        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
+        var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
+
+        var self = new GenerationParticipant
+        {
+            Id = personaId,
+            Name = persona.Name,
+            Bio = persona.Bio,
+            SystemPrompt = persona.SystemPrompt,
+            IsUser = false,
+            Chattiness = persona.Chattiness
+        };
+
+        var preUrge = PersonaDecisionService.CalculateResponseUrge(self, preHistory, preRounds);
+        var preRecentSelf = PersonaDecisionService.CountRecentSelfMessages(preHistory, personaId);
+        if (PersonaDecisionService.IsObviousSkip(preUrge, preRounds, preRecentSelf))
+        {
+            logger.LogDebug(
+                "Persona {PersonaName} silently skipped (urge={Urge:F2}, rounds={Rounds}, recentSelf={Self})",
+                persona.Name, preUrge.Total, preRounds, preRecentSelf);
+            return;
+        }
+
         var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
 
         var newCts = new CancellationTokenSource();
@@ -128,16 +160,6 @@ public sealed class PersonaGrain(
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
             var participants = await chatGroupGrain.GetParticipantsAsync();
             var scenario = await chatGroupGrain.GetScenarioAsync();
-
-            var self = new GenerationParticipant
-            {
-                Id = personaId,
-                Name = persona.Name,
-                Bio = persona.Bio,
-                SystemPrompt = persona.SystemPrompt,
-                IsUser = false,
-                Chattiness = persona.Chattiness
-            };
 
             var decisionParticipants = BuildDecisionParticipants(participants, personaId, self);
 
