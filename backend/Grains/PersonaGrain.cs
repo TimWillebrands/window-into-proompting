@@ -32,7 +32,7 @@ public sealed class PersonaGrain(
     {
         foreach (var cts in _ctsByChatGroup.Values)
         {
-            try { cts.Cancel(); } catch { /* already disposed */ }
+            try { cts.Cancel(); } catch (ObjectDisposedException) { }
         }
         return Task.CompletedTask;
     }
@@ -112,7 +112,7 @@ public sealed class PersonaGrain(
             _ => newCts,
             (_, old) =>
             {
-                try { old.Cancel(); } catch { }
+                try { old.Cancel(); } catch (ObjectDisposedException) { }
                 old.Dispose();
                 return newCts;
             });
