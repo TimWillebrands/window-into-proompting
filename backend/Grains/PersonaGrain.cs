@@ -135,7 +135,8 @@ public sealed class PersonaGrain(
                 Name = persona.Name,
                 Bio = persona.Bio,
                 SystemPrompt = persona.SystemPrompt,
-                IsUser = false
+                IsUser = false,
+                Chattiness = persona.Chattiness
             };
 
             var decisionParticipants = BuildDecisionParticipants(participants, personaId, self);
@@ -144,7 +145,7 @@ public sealed class PersonaGrain(
                 MessageStreamEvent.PersonaEvaluatingResponse, personaId.ToString(), false);
 
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, linkedCt);
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, linkedCt);
 
             if (!decision.Respond)
             {
@@ -253,6 +254,7 @@ public sealed class PersonaGrain(
         GenerationParticipant self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<GenerationParticipant> participants,
+        string? scenario,
         CancellationToken ct)
     {
         var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
@@ -265,7 +267,8 @@ public sealed class PersonaGrain(
             participants,
             totalAiRounds,
             onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
-            cancellationToken: ct);
+            cancellationToken: ct,
+            scenario: scenario);
     }
 
     private async Task<GenerationResult> RunGenerationPhaseAsync(

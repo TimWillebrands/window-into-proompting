@@ -238,7 +238,7 @@ public class PersonaDecisionServiceTest
         };
 
         // JSON with a trailing comma — invalid syntax but repairable
-        var malformed = """{"respond": true, "instruction": "Go ahead", "reason": "natural",}""";
+        var malformed = """{"respond": true, "wouldSay": "Go ahead", "gutReaction": "natural",}""";
 
         var service = MakeService(EndpointReturningJson(malformed));
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
@@ -266,7 +266,7 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        var fenced = "```json\n{\"reason\": \"Natural opening.\", \"respond\": true, \"instruction\": \"Greet back.\"}\n```";
+        var fenced = "```json\n{\"gutReaction\": \"Natural opening.\", \"respond\": true, \"wouldSay\": \"Greet back.\"}\n```";
 
         var service = MakeService(EndpointReturningJson(fenced));
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
@@ -294,8 +294,8 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        // Raw 0x0A inside the "reason" string — exactly the byte that triggered the prod error.
-        var broken = "{\"reason\": \"First line.\nSecond line.\", \"respond\": true, \"instruction\": \"Reply.\"}";
+        // Raw 0x0A inside the "gutReaction" string — exactly the byte that triggered the prod error.
+        var broken = "{\"gutReaction\": \"First line.\nSecond line.\", \"respond\": true, \"wouldSay\": \"Reply.\"}";
 
         var service = MakeService(EndpointReturningJson(broken));
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);

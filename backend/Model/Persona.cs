@@ -31,15 +31,24 @@ public sealed record class Persona : PersonaMetadata
     [Id(3)]
     public string? Bio { get; set; }
 
+    /// <summary>
+    /// 0..1 dial mixed into the chaos urge component in PersonaDecisionService.
+    /// 0 = brooding, only speaks when pulled; 1 = always wants to chime in.
+    /// Default 0.5 keeps existing personas behaviorally neutral on first run.
+    /// </summary>
+    [Id(4)]
+    public double Chattiness { get; set; } = 0.5;
+
     public Persona()
     {
     }
 
-    public Persona(Guid id, string name, string systemPrompt, string? bio)
+    public Persona(Guid id, string name, string systemPrompt, string? bio, double chattiness = 0.5)
         : base(id, name)
     {
         SystemPrompt = systemPrompt;
         Bio = bio;
+        Chattiness = chattiness;
     }
 }
 

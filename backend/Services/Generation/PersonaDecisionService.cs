@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using JsonRepairSharp;
 using PartyTown.Grains.Generation;
@@ -11,15 +12,23 @@ namespace PartyTown.Services.Generation;
 
 /// <summary>
 /// Per-persona decision service: each persona independently decides whether to respond.
-/// Replaces the global Overseer with a self-referential "should I speak?" LLM call.
+///
+/// Two axes are kept distinct:
+///   • Frequency control — how often a persona speaks (round penalty, self-dominance,
+///     chattiness-weighted chaos). Stays mathematical, prevents spam.
+///   • Engagement register — when the persona DOES engage, the prompt asks them to
+///     react in-character first ("gut reaction"), then judge whether it's worth airtime.
+///     This stops the "no signal / no clear prompt" assistant-restraint failure mode where
+///     personas decline cold-open user messages with bureaucratic justifications.
 /// </summary>
 public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
-    /// Calculates a response urge score (0.0 - 1.0) based on mention detection,
-    /// silence streak, and question presence. Used to auto-respond or add pressure.
+    /// Calculates a response urge score (0.0 - 1.0) from mention detection, silence streak,
+    /// question presence, cold-open (fresh user message into a quiet room), and chattiness-
+    /// weighted chaos.
     /// </summary>
     public static ResponseUrge CalculateResponseUrge(
         GenerationParticipant self,
@@ -29,9 +38,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         double mentionScore = 0;
         double questionScore = 0;
         double silenceStreakScore = 0;
+        double coldOpenScore = 0;
 
         if (history.Count == 0)
-            return new ResponseUrge(0, 0, 0, 0, Random.Shared.NextDouble());
+            return new ResponseUrge(0, 0, 0, 0, 0, Random.Shared.NextDouble() * self.Chattiness);
 
         var latest = history[^1];
         var content = latest.Content ?? "";
@@ -55,13 +65,24 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // Each round without a response increases urge slightly
         silenceStreakScore = Math.Min(0.4, totalAiRoundsInGroup * 0.1);
 
-        var chaosScore = Random.Shared.NextDouble();
-        var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore);
-        return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, chaosScore);
+        // Cold-open: a fresh user message landing in a quiet room (no AI activity yet).
+        // Without this floor, "hiya" yields urge≈0 and every persona declines with a
+        // politeness-flavoured justification. A bar with a new arrival should produce
+        // at least one reaction.
+        if (latest.SenderType == "user" && totalAiRoundsInGroup == 0)
+            coldOpenScore = 0.5;
+
+        // Chaos weighted by per-persona chattiness. Replaces pure random with
+        // character-driven variability — a chatty Denise pings more than a brooding Vlad.
+        var chaosScore = Random.Shared.NextDouble() * self.Chattiness;
+
+        var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore + coldOpenScore);
+        return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, coldOpenScore, chaosScore);
     }
 
     /// <summary>
-    /// Appraises whether the persona should respond based on the conversation history and participants.
+    /// Appraises whether the persona should respond based on the conversation history,
+    /// participants, and (optionally) the scenario the chat is set in.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
@@ -69,7 +90,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         IReadOnlyList<GenerationParticipant> participants,
         int totalAiRoundsInGroup,
         Func<string, string, bool, Task>? onEvent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? scenario = null)
     {
         var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
@@ -87,23 +109,25 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             return new ShouldRespondResult
             {
                 Respond = true,
-                Instruction = "You were directly addressed — respond naturally.",
-                Reason = $"Auto-respond: direct mention detected (urge={urge.Total:F2})"
+                Instruction = "React naturally — they spoke to you.",
+                Reason = $"Heard my name (urge={urge.Total:F2}). Worth a reply."
             };
         }
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
 
         var text = new StringBuilder();
 
-        // Schema field order drives generation order. Reason first → the model reasons before
-        // committing to a boolean, countering the confirmation-bias pattern where an early
-        // `respond` decision is then rationalized by a post-hoc `reason`.
+        // Schema field order drives generation order. gutReaction first → the model engages
+        // in-character before judging airtime. wouldSay next — the literal text they'd type
+        // (or empty). respond derives last from whether wouldSay is non-empty. This inverts
+        // the previous reason→respond order, which encouraged the model to write a justification
+        // frame absorbing the assistant-restraint prior.
         var responseFormat = new JsonObject
         {
             ["type"] = "json_schema",
@@ -116,11 +140,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                     ["type"] = "object",
                     ["properties"] = new JsonObject
                     {
-                        ["reason"] = new JsonObject { ["type"] = "string" },
-                        ["respond"] = new JsonObject { ["type"] = "boolean" },
-                        ["instruction"] = new JsonObject { ["type"] = "string" }
+                        ["gutReaction"] = new JsonObject { ["type"] = "string" },
+                        ["wouldSay"] = new JsonObject { ["type"] = "string" },
+                        ["respond"] = new JsonObject { ["type"] = "boolean" }
                     },
-                    ["required"] = new JsonArray("reason", "respond", "instruction")
+                    ["required"] = new JsonArray("gutReaction", "wouldSay", "respond")
                 }
             }
         };
@@ -148,8 +172,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
 
         var raw = text.ToString().Trim();
-        logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2} chaos={Chaos:F2}",
-            self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore, urge.ChaosScore);
+        logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2} coldOpen={ColdOpen:F2} chaos={Chaos:F2}",
+            self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore, urge.ColdOpenScore, urge.ChaosScore);
 
         ShouldRespondResult? parsed = null;
 
@@ -172,7 +196,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             //   1. Strip markdown code fences (```json … ```) that some models wrap output in.
             //   2. Escape raw control chars (newline, tab, etc.) found *inside* string values —
             //      JsonRepairSharp does not handle these, but the symptom appears often enough
-            //      in multi-line `reason` fields that we fix it before handing off.
+            //      in multi-line `gutReaction` fields that we fix it before handing off.
             var cleaned = ExtractJsonPayload(raw);
 
             try
@@ -198,9 +222,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         parsed ??= new ShouldRespondResult
         {
             Respond = false,
-            Instruction = "Do not send a message.",
+            Instruction = string.Empty,
             Reason = "Fallback — unparseable decision"
         };
+
+        // Coherence guard: model can emit respond=true with an empty wouldSay, or vice-versa.
+        // Trust the wouldSay payload — it's the actual text the persona would utter.
+        if (parsed.Respond && string.IsNullOrWhiteSpace(parsed.Instruction))
+        {
+            parsed = parsed with { Respond = false };
+        }
+        else if (!parsed.Respond && !string.IsNullOrWhiteSpace(parsed.Instruction))
+        {
+            parsed = parsed with { Respond = true };
+        }
 
         if (!parsed.Respond && parsed.Reason.StartsWith("Fallback"))
             logger.LogDebug("Persona {PersonaName} suppressed due to unparseable decision. Raw: {Raw}", self.Name, raw);
@@ -324,36 +359,49 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return count;
     }
 
-    private static string ShouldRespondSystemPrompt(GenerationParticipant self, IReadOnlyList<GenerationParticipant> participants)
-        => $"""
-# You are: {self.Name}
-Bio: {self.Bio ?? "No bio"}
+    private static string ShouldRespondSystemPrompt(
+        GenerationParticipant self,
+        IReadOnlyList<GenerationParticipant> participants,
+        string? scenario)
+    {
+        var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
+            ? string.Empty
+            : $"\n# Setting\n{scenario.Trim()}\n";
 
-# Task
-You are deciding whether YOU should respond to the latest message in a group chat.
-You are NOT generating a response — just deciding whether to speak.
-
-# Other participants
-{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
+        return $$"""
+# You are: {{self.Name}}
+{{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
+{{scenarioBlock}}
+# Other people in the room
+{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
     p.IsUser
         ? $"- {p.Name} (human)"
-        : $"- {p.Name}: {p.Bio ?? "No bio"}"))}
+        : $"- {p.Name}: {p.Bio ?? "no bio"}"))}}
 
-# How to decide
-Consider:
-- Were you directly addressed, mentioned, or asked a question?
-- Would you naturally react to what was just said, given your personality?
-- Would it be weird or forced if you jumped in right now?
-- Has someone else already said what you would say?
-- Have you been talking too much recently? Give others space.
+# What you're doing
+You're hanging out in a casual group chat. Someone just spoke. Read it
+the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
 
-Be honest — not everyone needs to respond to everything. Silence is fine.
+First: what's your honest gut reaction? A quick thought, feeling, eye-roll,
+laugh, disagreement, "huh, interesting" — whatever actually surfaces.
+Always write this. Be specific, in your voice — not a meta-summary.
 
-# Output
-Respond with a JSON object. Reason through the decision first; the `respond` boolean
-must follow from your reasoning, not precede it. If you decide to respond, provide
-a brief instruction (one sentence) to guide your response — a natural nudge, not a script.
+Second: would you actually say something out loud right now? Speak when
+your reaction is worth airtime — when you have a take, a feeling, a quip,
+a counterpoint, a question, a "yes and." Pass when you're just nodding
+along, when someone else is mid-flow, or when you've been doing all the
+talking. Boring silence is worse than a small chime-in; constant interjection
+is worse than letting the room breathe. Use judgement.
+
+# Output (JSON)
+- gutReaction: short, in-character first thought. Always written.
+- wouldSay: what you'd actually type into the chat right now, OR ""
+  (empty string) if you'd let it pass. This becomes your message verbatim
+  if you speak — write it as the chat message itself, not as a description
+  of what you'd say.
+- respond: true iff wouldSay is non-empty.
 """;
+    }
 
     private static string ShouldRespondUserPrompt(
         IEnumerable<ChatMessageWithSenderName> messages,
@@ -389,13 +437,15 @@ a brief instruction (one sentence) to guide your response — a natural nudge, n
 
         var net = urge.Total - roundPenalty - selfPenalty + chaosBonus;
 
+        // Math nudge framed as a social cue (room-state) rather than a directive — so the
+        // model reads it as context, not as a command from the system that overrides character.
         var nudge = net switch
         {
-            >= 0.7 => "> Strong pull to speak up — lean toward responding.",
-            >= 0.4 => "> Some pull to chime in. Use your judgment.",
-            >= 0.0 => "> No strong signal either way.",
-            >= -0.4 => "> Lean toward staying quiet — give others room.",
-            _ => "> Do NOT respond unless you were directly asked a question."
+            >= 0.7 => "(Room: people are looking at you — there's space and a pull to chime in.)",
+            >= 0.4 => "(Room: there's an opening if you've got something. No pressure either way.)",
+            >= 0.0 => "(Room: chatter's flowing — speak if it's worth airtime, otherwise let it ride.)",
+            >= -0.4 => "(Room: someone else just had the floor. Lean toward letting it breathe.)",
+            _ => "(Room: you've been dominating, or it's clearly not your moment. Pass unless directly addressed.)"
         };
 
         var renderedMessages = string.Join(
@@ -408,25 +458,45 @@ a brief instruction (one sentence) to guide your response — a natural nudge, n
 
 {nudge}
 
-# Decision
-Should {self.Name} respond right now?
-JSON object with: reason (string — think first, why or why not), respond (boolean — follows from reason), instruction (string — guidance if respond=true, empty otherwise)
+# Your turn ({self.Name})
+React first (gutReaction). Then decide if it's worth saying out loud (wouldSay).
+JSON only.
 """;
     }
 }
 
-public readonly record struct ResponseUrge(double Total, double MentionScore, double QuestionScore, double SilenceStreakScore, double ChaosScore);
+public readonly record struct ResponseUrge(
+    double Total,
+    double MentionScore,
+    double QuestionScore,
+    double SilenceStreakScore,
+    double ColdOpenScore,
+    double ChaosScore);
 
 [GenerateSerializer, Alias(nameof(ShouldRespondResult))]
 public sealed record class ShouldRespondResult
 {
     [Id(0)]
+    [JsonPropertyName("respond")]
     public bool Respond { get; init; }
 
+    /// <summary>
+    /// The literal text the persona would type into the chat — empty when declining.
+    /// Serialized as "wouldSay" in the LLM-facing JSON schema; field name retained as
+    /// Instruction so the downstream <c>turnInstruction</c> seed and frontend
+    /// <c>appraisal.instruction</c> consumer keep working.
+    /// </summary>
     [Id(1)]
+    [JsonPropertyName("wouldSay")]
     public string Instruction { get; init; } = string.Empty;
 
+    /// <summary>
+    /// In-character first reaction — always written. Serialized as "gutReaction" in the
+    /// LLM-facing JSON schema; field name retained as Reason so the thought-log UI
+    /// (which reads <c>appraisal.reason</c>) keeps surfacing it without a frontend change.
+    /// </summary>
     [Id(2)]
+    [JsonPropertyName("gutReaction")]
     public string Reason { get; init; } = string.Empty;
 }
 

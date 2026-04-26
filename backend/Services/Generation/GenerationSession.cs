@@ -133,6 +133,10 @@ public sealed record class GenerationParticipant
     public string? Bio { get; init; }
     public string? SystemPrompt { get; init; }
     public bool IsUser { get; init; }
+
+    /// <summary>0..1 dial controlling urge to chime in. Drives chaos-bonus weighting in
+    /// PersonaDecisionService. Defaults to 0.5 for users / unset personas.</summary>
+    public double Chattiness { get; init; } = 0.5;
 }
 
 public sealed record class GenerationResult
