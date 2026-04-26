@@ -467,6 +467,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         ...baseMessage,
                         content: '',
                         reasoning: null,
+                        error: null,
                         generationEvents: [
                             ...baseMessage.generationEvents,
                             eventEntry,

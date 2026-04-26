@@ -86,6 +86,11 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario)
     {
+        // Guard membership before raising the event — otherwise an unknown chatGroupId
+        // would persist a no-op event and activate an orphan ChatGroupGrain.
+        if (!State.ChatGroups.Any(g => g.Id == chatGroupId))
+            return;
+
         var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
 
         RaiseEvent(new ChatGroupScenarioUpdatedEvent
