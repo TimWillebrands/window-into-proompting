@@ -13,10 +13,7 @@ import styleCss from '../styles.css?url';
 
 export const Route = createRootRoute({
     head: () => ({
-        links: [
-            { rel: 'stylesheet', href: styleCss },
-            { rel: 'stylesheet', href: '/XP.css' },
-        ],
+        links: [{ rel: 'stylesheet', href: styleCss }],
     }),
     component: RootComponent,
 });

@@ -1,16 +1,31 @@
-import { useMemo, createElement } from 'react';
-import GridLayout from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
+import { createElement, useEffect, useMemo, useState } from 'react';
+import { Rnd } from 'react-rnd';
 import DesktopIcon from '../components/desktop/DesktopIcon';
 import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
+import StartMenu from '../components/desktop/StartMenu';
 import WindowFrame from '../components/desktop/WindowFrame';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
 
-/** Pixel size of one grid cell — kept large so windows snap to coarse grid */
-const GRID_CELL = 1;
-const GRID_COLS = 2000;
+const TASKBAR_HEIGHT = 30;
+const MIN_WIDTH = 360;
+const MIN_HEIGHT = 240;
+const DRAG_HANDLE = 'window-drag-handle';
+
+function useViewport() {
+    const [size, setSize] = useState(() => ({
+        width: typeof window === 'undefined' ? 1024 : window.innerWidth,
+        height: typeof window === 'undefined' ? 768 : window.innerHeight,
+    }));
+    useEffect(() => {
+        const handler = () =>
+            setSize({ width: window.innerWidth, height: window.innerHeight });
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
+    return size;
+}
 
 function DesktopWindowLayer() {
     const {
@@ -18,45 +33,32 @@ function DesktopWindowLayer() {
         openWindow,
         focusWindow,
         closeWindow,
+        minimizeWindow,
+        restoreWindow,
+        toggleMaximize,
         updateSize,
         updatePosition,
+        toggleStartMenu,
+        closeStartMenu,
     } = useDesktopContext();
+    const viewport = useViewport();
 
     const windowEntries = useMemo(
         () => Object.values(desktopState.windows),
         [desktopState.windows],
     );
 
-    const layout = useMemo(
-        () =>
-            windowEntries.map((w) => ({
-                i: w.id,
-                x: Math.round(w.x / GRID_CELL),
-                y: Math.round(w.y / GRID_CELL),
-                w: Math.round(w.width / GRID_CELL),
-                h: Math.round(w.height / GRID_CELL),
-                minW: Math.round(500 / GRID_CELL),
-                minH: Math.round(350 / GRID_CELL),
-            })),
-        [windowEntries],
-    );
-
-    const handleLayoutChange = (newLayout: GridLayout.Layout[]) => {
-        for (const item of newLayout) {
-            const existing = desktopState.windows[item.i];
-            if (!existing) continue;
-
-            const newX = item.x * GRID_CELL;
-            const newY = item.y * GRID_CELL;
-            const newW = item.w * GRID_CELL;
-            const newH = item.h * GRID_CELL;
-
-            if (existing.x !== newX || existing.y !== newY) {
-                updatePosition(item.i, { x: newX, y: newY });
-            }
-            if (existing.width !== newW || existing.height !== newH) {
-                updateSize(item.i, { width: newW, height: newH });
-            }
+    const handleTaskbarToggle = (id: string) => {
+        const window = desktopState.windows[id];
+        if (!window) return;
+        if (window.minimized) {
+            restoreWindow(id);
+            return;
+        }
+        if (desktopState.focusedId === id) {
+            minimizeWindow(id);
+        } else {
+            focusWindow(id);
         }
     };
 
@@ -74,21 +76,9 @@ function DesktopWindowLayer() {
                 ))}
             </div>
 
-            <GridLayout
+            <div
                 className="absolute inset-0 pointer-events-none"
-                layout={layout}
-                cols={GRID_COLS}
-                rowHeight={GRID_CELL}
-                width={GRID_COLS * GRID_CELL}
-                compactType={null}
-                allowOverlap={true}
-                isResizable={true}
-                isDraggable={true}
-                draggableHandle=".drag-handle"
-                onLayoutChange={handleLayoutChange}
-                margin={[0, 0]}
-                containerPadding={[0, 0]}
-                useCSSTransforms={true}
+                style={{ bottom: TASKBAR_HEIGHT }}
             >
                 {windowEntries.map((windowState) => {
                     const preset = WINDOW_PRESETS.find(
@@ -97,43 +87,114 @@ function DesktopWindowLayer() {
                     );
                     if (!preset) return null;
 
+                    if (windowState.minimized) {
+                        return null;
+                    }
+
+                    const isMaximized = windowState.maximized;
+                    const focused = desktopState.focusedId === windowState.id;
+
+                    const size = isMaximized
+                        ? {
+                              width: viewport.width,
+                              height: viewport.height - TASKBAR_HEIGHT,
+                          }
+                        : {
+                              width: windowState.width,
+                              height: windowState.height,
+                          };
+                    const position = isMaximized
+                        ? { x: 0, y: 0 }
+                        : { x: windowState.x, y: windowState.y };
+
                     return (
-                        <div
+                        <Rnd
                             key={windowState.id}
-                            className="pointer-events-auto"
-                            style={{ zIndex: windowState.zIndex }}
-                            onPointerDown={() => focusWindow(windowState.id)}
+                            size={size}
+                            position={position}
+                            minWidth={MIN_WIDTH}
+                            minHeight={MIN_HEIGHT}
+                            bounds="parent"
+                            dragHandleClassName={DRAG_HANDLE}
+                            disableDragging={isMaximized}
+                            enableResizing={!isMaximized}
+                            style={{
+                                zIndex: windowState.zIndex,
+                                pointerEvents: 'auto',
+                            }}
+                            onDragStart={() => focusWindow(windowState.id)}
+                            onDragStop={(_e, data) => {
+                                updatePosition(windowState.id, {
+                                    x: data.x,
+                                    y: data.y,
+                                });
+                            }}
+                            onResizeStart={() => focusWindow(windowState.id)}
+                            onResizeStop={(_e, _dir, ref, _delta, pos) => {
+                                updateSize(windowState.id, {
+                                    width: ref.offsetWidth,
+                                    height: ref.offsetHeight,
+                                });
+                                updatePosition(windowState.id, {
+                                    x: pos.x,
+                                    y: pos.y,
+                                });
+                            }}
                         >
-                            <WindowFrame
-                                id={windowState.id}
-                                title={preset.title}
-                                width={windowState.width}
-                                height={windowState.height}
-                                zIndex={windowState.zIndex}
-                                icon={preset.icon}
-                                onClose={() => closeWindow(windowState.id)}
-                                onMinimize={() => closeWindow(windowState.id)}
-                                onRestore={() => closeWindow(windowState.id)}
+                            <div
+                                className="h-full w-full"
+                                onPointerDown={() =>
+                                    focusWindow(windowState.id)
+                                }
                             >
-                                {createElement(
-                                    preset.component,
-                                    windowState.props ?? {},
-                                )}
-                            </WindowFrame>
-                        </div>
+                                <WindowFrame
+                                    id={windowState.id}
+                                    title={preset.title}
+                                    width={windowState.width}
+                                    height={windowState.height}
+                                    zIndex={windowState.zIndex}
+                                    icon={preset.icon}
+                                    focused={focused}
+                                    maximized={isMaximized}
+                                    dragHandleClassName={DRAG_HANDLE}
+                                    onClose={() => closeWindow(windowState.id)}
+                                    onMinimize={() =>
+                                        minimizeWindow(windowState.id)
+                                    }
+                                    onMaximize={() =>
+                                        toggleMaximize(windowState.id)
+                                    }
+                                >
+                                    {createElement(
+                                        preset.component,
+                                        windowState.props ?? {},
+                                    )}
+                                </WindowFrame>
+                            </div>
+                        </Rnd>
                     );
                 })}
-            </GridLayout>
+            </div>
+
+            {desktopState.startMenuOpen && (
+                <StartMenu
+                    onLaunch={(id) => openWindow(id)}
+                    onClose={closeStartMenu}
+                />
+            )}
 
             <DesktopTaskbar
-                windows={Object.values(desktopState.windows).map((window) => ({
+                windows={windowEntries.map((window) => ({
                     id: window.id,
                     title: window.title,
                     icon: window.icon,
+                    minimized: window.minimized,
                 }))}
                 focusedId={desktopState.focusedId}
-                onToggle={focusWindow}
+                startMenuOpen={desktopState.startMenuOpen}
+                onToggle={handleTaskbarToggle}
                 onClose={closeWindow}
+                onStartClick={toggleStartMenu}
             />
         </>
     );

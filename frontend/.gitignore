@@ -14,3 +14,7 @@ build
 
 # Tanstack
 .tanstack
+
+# Storybook
+storybook-static
+

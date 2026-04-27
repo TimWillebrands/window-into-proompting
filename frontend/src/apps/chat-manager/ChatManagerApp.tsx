@@ -1,21 +1,29 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useState } from 'react';
-import { ChatView } from './GroupChatWindow';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
-import {
-    useRealtimeConnectionStatus,
-    useRealtimeStoreActions,
-} from '../../lib/realtime-store';
-import { useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import {
     getGetPartyIdChatGroupsQueryKey,
     useGetPartyIdChatGroupsSuspense,
     usePostPartyIdChatGroups,
-} from '../../api/party-zone';
+} from '#api/party-zone';
+import {
+    useRealtimeConnectionStatus,
+    useRealtimeStoreActions,
+} from '#lib/realtime-store';
+import { useSetWindowTitleBar } from '../../components/desktop/window-titlebar-context';
+import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import DaccordSearchBar from './components/DaccordSearchBar';
+import DaccordSidebar from './components/DaccordSidebar';
+import DiscoverFeed from './components/DiscoverFeed';
+import ProfilePanel from './components/ProfilePanel';
+import { ChatView } from './GroupChatWindow';
+
+type View = { kind: 'hub' } | { kind: 'room'; chatGroupId: string };
 
 export default function ChatManagerApp() {
     const queryClient = useQueryClient();
-    const [selectedChatGroupId, setSelectedChatGroupId] = useState<string>();
+    const [view, setView] = useState<View>({ kind: 'hub' });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeCategory, setActiveCategory] = useState('home');
     const [newChatName, setNewChatName] = useState('');
     const [newChatScenario, setNewChatScenario] = useState('');
 
@@ -23,13 +31,28 @@ export default function ChatManagerApp() {
         useRealtimeStoreActions();
     const connectionStatus = useRealtimeConnectionStatus(ROOT_PARTY_ID);
 
-    // Single WebSocket connection to the default party
     useEffect(() => {
         connectPartyRealtime(ROOT_PARTY_ID);
         return () => disconnectPartyRealtime(ROOT_PARTY_ID);
     }, [connectPartyRealtime, disconnectPartyRealtime]);
 
     const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(ROOT_PARTY_ID);
+    const chatGroups = useMemo(
+        () =>
+            (chatGroupsQuery.data.data ?? []).flatMap((g) =>
+                g.id && g.name
+                    ? [
+                          {
+                              id: g.id,
+                              name: g.name,
+                              scenario: g.scenario ?? null,
+                              createdAt: g.createdAt ?? null,
+                          },
+                      ]
+                    : [],
+            ),
+        [chatGroupsQuery.data.data],
+    );
 
     const createMutation = usePostPartyIdChatGroups({
         mutation: {
@@ -37,197 +60,111 @@ export default function ChatManagerApp() {
                 queryClient.invalidateQueries({
                     queryKey: getGetPartyIdChatGroupsQueryKey(ROOT_PARTY_ID),
                 });
-                setSelectedChatGroupId(created.data.id);
+                if (created.data.id) {
+                    setView({
+                        kind: 'room',
+                        chatGroupId: created.data.id,
+                    });
+                }
                 setNewChatName('');
                 setNewChatScenario('');
             },
         },
     });
 
-    const chatGroups = chatGroupsQuery.data.data ?? [];
-    const selectedGroup = chatGroups.find((g) => g.id === selectedChatGroupId);
+    // Push search bar into the window title bar (only when on the hub view).
+    const titleBarNode = useMemo(() => {
+        if (view.kind !== 'hub') return null;
+        return (
+            <DaccordSearchBar value={searchQuery} onChange={setSearchQuery} />
+        );
+    }, [view.kind, searchQuery]);
+    useSetWindowTitleBar(titleBarNode);
 
-    return (
-        <div
-            className="app-surface flex h-full"
-            style={{ background: '#ECE9D8' }}
-        >
-            {/* Left sidebar */}
-            <div
-                className="flex flex-col"
-                style={{
-                    width: 220,
-                    minWidth: 220,
-                    borderRight: '1px solid #ACA899',
-                    background: '#F5F5ED',
-                }}
-            >
-                <div
-                    className="p-2 flex items-center justify-between"
-                    style={{ borderBottom: '1px solid #ACA899' }}
-                >
-                    <span style={{ fontWeight: 600, color: '#000' }}>
-                        Group Chats
+    if (view.kind === 'room') {
+        const selected = chatGroups.find((g) => g.id === view.chatGroupId);
+        return (
+            <div className="flex h-full flex-col bg-[#ECE9D8] dark:bg-slate-900">
+                <div className="flex items-center gap-2 border-b border-slate-300 dark:border-slate-700 bg-gradient-to-r from-indigo-100 to-sky-100 dark:from-indigo-950 dark:to-slate-900 px-3 py-1.5">
+                    <button
+                        type="button"
+                        onClick={() => setView({ kind: 'hub' })}
+                        className="rounded-lg bg-white/70 dark:bg-slate-800 px-2.5 py-1 text-[12px] font-semibold text-slate-700 dark:text-slate-100 shadow-sm hover:bg-white dark:hover:bg-slate-700"
+                    >
+                        ← Back to rooms
+                    </button>
+                    <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
+                        {selected?.name ?? 'Room'}
                     </span>
                     <ConnectionDot status={connectionStatus} />
                 </div>
-
-                {/* New chat form */}
-                <form
-                    className="p-2 flex flex-col gap-1"
-                    style={{ borderBottom: '1px solid #ACA899' }}
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        const trimmed = newChatName.trim();
-                        if (!trimmed || createMutation.isPending) return;
-                        const scenarioTrimmed = newChatScenario.trim();
-                        createMutation.mutate({
-                            id: ROOT_PARTY_ID,
-                            data: {
-                                name: trimmed,
-                                scenario: scenarioTrimmed || null,
-                            },
-                        });
-                    }}
-                >
-                    <div className="flex gap-1">
-                        <input
-                            type="text"
-                            className="flex-1 text-[11px]"
-                            style={{ padding: '2px 4px' }}
-                            placeholder="Chat name..."
-                            value={newChatName}
-                            onChange={(e) =>
-                                setNewChatName(e.currentTarget.value)
-                            }
-                        />
-                        <button
-                            type="submit"
-                            disabled={createMutation.isPending}
-                            className="text-[11px]"
-                            style={{ padding: '2px 8px' }}
-                        >
-                            {createMutation.isPending ? '...' : '+ New'}
-                        </button>
-                    </div>
-                    <textarea
-                        className="text-[11px]"
-                        style={{ padding: '2px 4px', resize: 'vertical' }}
-                        rows={2}
-                        maxLength={500}
-                        placeholder="Scenario (optional) — e.g. 'Office of a stealth horticulture startup.'"
-                        value={newChatScenario}
-                        onChange={(e) =>
-                            setNewChatScenario(e.currentTarget.value)
-                        }
-                    />
-                </form>
-
-                {createMutation.isError && (
-                    <div
-                        className="px-2 py-1 text-[10px]"
-                        style={{ color: '#c00' }}
-                    >
-                        {createMutation.error instanceof Error
-                            ? createMutation.error.message
-                            : 'Failed to create'}
-                    </div>
-                )}
-
-                {/* Chat group list */}
-                <div className="flex-1 overflow-y-auto">
-                    {chatGroupsQuery.isLoading && (
-                        <p
-                            className="p-2 text-[11px]"
-                            style={{ color: '#808080' }}
-                        >
-                            Loading...
-                        </p>
-                    )}
-                    {chatGroupsQuery.isError && (
-                        <p
-                            className="p-2 text-[11px]"
-                            style={{ color: '#c00' }}
-                        >
-                            Failed to load chat groups.
-                        </p>
-                    )}
-                    {chatGroups.length === 0 && !chatGroupsQuery.isLoading && (
-                        <p
-                            className="p-3 text-[11px]"
-                            style={{ color: '#808080' }}
-                        >
-                            No chats yet. Create one above.
-                        </p>
-                    )}
-                    {chatGroups.map((group) => (
-                        <button
-                            key={group.id}
-                            type="button"
-                            onClick={() => setSelectedChatGroupId(group.id)}
-                            className="w-full text-left px-2 py-1.5 text-[11px] block"
-                            style={{
-                                background:
-                                    selectedChatGroupId === group.id
-                                        ? '#316AC5'
-                                        : 'transparent',
-                                color:
-                                    selectedChatGroupId === group.id
-                                        ? '#fff'
-                                        : '#000',
-                                borderBottom: '1px solid #E8E8E0',
-                            }}
-                        >
-                            <div style={{ fontWeight: 600 }}>{group.name}</div>
-                            <div
-                                style={{
-                                    fontSize: 10,
-                                    color:
-                                        selectedChatGroupId === group.id
-                                            ? '#ccc'
-                                            : '#808080',
-                                }}
-                            >
-                                {group.createdAt != null
-                                    ? new Date(
-                                          group.createdAt,
-                                      ).toLocaleDateString()
-                                    : ''}
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right panel: chat view */}
-            <div className="flex-1 min-w-0">
-                {selectedChatGroupId ? (
+                <div className="flex-1 min-h-0">
                     <Suspense fallback={<ChatLoadingSpinner />}>
                         <ChatView
-                            chatGroupId={selectedChatGroupId}
-                            partyName={selectedGroup?.name}
-                            scenario={selectedGroup?.scenario ?? null}
+                            chatGroupId={view.chatGroupId}
+                            partyName={selected?.name}
+                            scenario={selected?.scenario ?? null}
                         />
                     </Suspense>
-                ) : (
-                    <div
-                        className="h-full flex items-center justify-center"
-                        style={{ color: '#808080' }}
-                    >
-                        Select or create a chat group to start messaging.
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="app-surface flex h-full overflow-hidden bg-white dark:bg-slate-900">
+            <DaccordSidebar
+                realRooms={chatGroups.map((g) => ({ id: g.id, name: g.name }))}
+                onSelectRoom={(id) =>
+                    setView({ kind: 'room', chatGroupId: id })
+                }
+                activeCategory={activeCategory}
+                onSelectCategory={setActiveCategory}
+            />
+            <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-4 py-1.5 backdrop-blur-sm">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Realtime:
+                    </span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        <ConnectionDot status={connectionStatus} />
+                        <span>{connectionStatus}</span>
+                    </div>
+                </div>
+                {createMutation.isError && (
+                    <div className="bg-red-100 dark:bg-red-950 px-4 py-1.5 text-xs text-red-700 dark:text-red-300">
+                        {createMutation.error instanceof Error
+                            ? createMutation.error.message
+                            : 'Failed to create room.'}
                     </div>
                 )}
-            </div>
+                <DiscoverFeed
+                    realRooms={chatGroups}
+                    onCreateRoom={(name, scenario) =>
+                        createMutation.mutate({
+                            id: ROOT_PARTY_ID,
+                            data: { name, scenario: scenario || null },
+                        })
+                    }
+                    creating={createMutation.isPending}
+                    searchQuery={searchQuery}
+                    onSelectRealRoom={(id) =>
+                        setView({ kind: 'room', chatGroupId: id })
+                    }
+                    inputName={newChatName}
+                    inputScenario={newChatScenario}
+                    onInputName={setNewChatName}
+                    onInputScenario={setNewChatScenario}
+                />
+            </main>
+            <ProfilePanel />
         </div>
     );
 }
 
 function ChatLoadingSpinner() {
     return (
-        <div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            style={{ background: '#ECE9D8', color: '#808080' }}
-        >
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#ECE9D8] dark:bg-slate-900 text-slate-500 dark:text-slate-400">
             <div
                 style={{
                     width: 24,
@@ -238,7 +175,7 @@ function ChatLoadingSpinner() {
                     animation: 'spin 0.7s linear infinite',
                 }}
             />
-            <span style={{ fontSize: 11 }}>Loading chat...</span>
+            <span className="text-[11px]">Loading chat...</span>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );

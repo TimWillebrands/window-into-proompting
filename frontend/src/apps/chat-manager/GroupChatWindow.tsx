@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
-import type { Persona } from '../../api/model';
 import {
     getGetPartyIdChatGroupsQueryKey,
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
@@ -15,8 +14,7 @@ import {
     usePostPartyIdRepromptMessageId,
     usePutPartyIdChatGroupsChatGroupIdScenario,
     usePutPartyIdParticipants,
-} from '../../api/party-zone';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
+} from '#api/party-zone';
 import {
     type ActiveGenerationPhase,
     type DeclinedDecision,
@@ -29,7 +27,9 @@ import {
     useDeclinedDecisions,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
-} from '../../lib/realtime-store';
+} from '#lib/realtime-store';
+import type { Persona } from '../../api/model';
+import { ROOT_PARTY_ID } from '../../lib/chat-api';
 
 export interface ChatViewProps {
     chatGroupId: string;
@@ -446,7 +446,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                                 target.clientHeight;
                             setIsNearBottom(distanceFromBottom < 48);
                         }}
-                        className="xp-sunken flex-1 overflow-y-auto p-2 space-y-2 m-1"
+                        className="flex-1 overflow-y-auto p-2 space-y-2 m-1 bg-white border border-xp-sunken-edge border-r-white border-b-white"
                     >
                         {uniqueMessages.map((message) => {
                             const generating = activeGenerationSet.has(
