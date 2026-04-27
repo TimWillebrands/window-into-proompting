@@ -60,27 +60,40 @@ body {
    Gradients/spritesheets traced from Cyanoxide/react-xp (frontend/src/components)
    ======================================================================== */
 
-/* Window outer shell: the colored frame around the title bar + content.
-   react-xp wraps its window in a div that gets bg #7f92d9 (inactive) or #162abe (active).
-   Padding 0.35rem ≈ 5px, border-radius 0.9rem 0.9rem 0.1rem 0.1rem. */
+/* Window outer shell: thin translucent frame (glass twist on the original
+   chunky XP shell). The dark blue / lavender frame becomes a 1px hairline
+   plus a soft backdrop-blur veil so the title bar floats over content. */
 .xp-window-shell {
-    background: #7f92d9;
-    padding: 5px 4px 4px 4px;
-    border-radius: 9px 9px 1px 1px;
-    box-shadow: inset 0 0 1px 1px #0004;
+    background: rgba(127, 146, 217, 0.55);
+    padding: 1px;
+    border-radius: 14px 14px 6px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 0 0 1px rgba(22, 42, 190, 0.18);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
 
 .xp-window-shell.xp-active {
-    background: #162abe;
-    box-shadow: none;
+    background: rgba(22, 42, 190, 0.55);
+    border-color: rgba(255, 255, 255, 0.55);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        0 0 0 1px rgba(22, 42, 190, 0.5);
 }
 
 .xp-window-shell.xp-maximized {
     padding: 0;
     border-radius: 0;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
 }
 
-/* Title bar: 29px tall, Trebuchet MS, white text with shadow. */
+/* Title bar: 29px tall, Trebuchet MS, white text with shadow.
+   Gradient unchanged; corner radius bumped to match the glass shell. */
 .xp-titlebar {
     background: linear-gradient(
         180deg,
@@ -91,12 +104,13 @@ body {
         #7f92d9 100%
     );
     box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
         inset 1px 0 3px #7f92d9,
         inset -1px 0 3px #7f92d9;
     text-shadow: 1px 1px 1px #7f92d9;
     color: #fff;
     height: 29px;
-    border-radius: 8px 8px 0 0;
+    border-radius: 13px 13px 0 0;
     font-family: "Trebuchet MS", "Tahoma", system-ui, sans-serif;
     font-weight: 600;
     font-size: 13px;
@@ -118,6 +132,7 @@ body {
         #1133a0 100%
     );
     box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
         inset 1px 0 3px #162abe,
         inset -1px 0 3px #162ab0;
     text-shadow: 1px 1px 1px #162abe;
@@ -229,31 +244,45 @@ body {
     background-position-x: -53.5px;
 }
 
-/* Content area immediately under the title bar — adds a thin halo so the
-   body looks fused to the frame. */
+/* Content area: translucent face so the glass shell and wallpaper bleed
+   through subtly. Hairline divider replaces the chunky #a5afeb halo. */
 .xp-window-content {
     position: relative;
-    background: var(--color-xp-face);
-    box-shadow: 0 0.5px 0 1px #a5afeb;
+    background: rgba(236, 233, 216, 0.92);
+    border-top: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 0 0 5px 5px;
     overflow: hidden;
     flex: 1;
     min-height: 0;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .xp-active .xp-window-content {
-    box-shadow: 0 0.5px 0 1px #2b5be0;
+    border-top-color: rgba(255, 255, 255, 0.55);
 }
 
-/* ----- Taskbar ----- */
+.xp-maximized .xp-window-content {
+    border-radius: 0;
+    background: var(--color-xp-face);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* ----- Taskbar (glass twist over the same XP gradient) ----- */
 .xp-taskbar {
     background: linear-gradient(
         180deg,
-        rgb(49, 104, 213) 0%,
-        rgb(82, 163, 255) 7%,
-        rgb(43, 112, 221) 18%,
-        rgb(47, 120, 231) 93%,
-        rgb(27, 82, 167) 100%
+        rgba(49, 104, 213, 0.78) 0%,
+        rgba(82, 163, 255, 0.78) 7%,
+        rgba(43, 112, 221, 0.78) 18%,
+        rgba(47, 120, 231, 0.78) 93%,
+        rgba(27, 82, 167, 0.85) 100%
     );
+    border-top: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
 }
 
 .xp-start-btn {
@@ -285,35 +314,34 @@ body {
 .xp-tray {
     background: linear-gradient(
         180deg,
-        rgba(0, 0, 0, 1) 0%,
-        rgba(22, 174, 240, 1) 3%,
-        rgba(22, 174, 240, 1) 9%,
-        rgba(13, 141, 234, 1) 16%,
-        rgba(13, 141, 234, 1) 92%,
-        rgba(22, 138, 222, 1) 97%,
-        rgba(9, 91, 201, 1) 100%
+        rgba(13, 141, 234, 0.55) 0%,
+        rgba(22, 174, 240, 0.6) 9%,
+        rgba(13, 141, 234, 0.6) 16%,
+        rgba(22, 138, 222, 0.6) 92%,
+        rgba(9, 91, 201, 0.7) 100%
     );
-    border-left: 1px solid #0a2e52;
-    box-shadow: inset 1px 0 1px #22c4f4;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 1px 0 1px rgba(255, 255, 255, 0.45);
     color: #fff;
     font-size: 11px;
-    padding: 2px 8px;
+    padding: 2px 10px;
     display: flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
+    border-radius: 8px 0 0 0;
 }
 
 .xp-task-item {
-    background: #3780f3;
-    border: 1px solid #1a51c688;
+    background: rgba(55, 128, 243, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     color: #fff;
     height: 100%;
     padding: 2px 10px;
-    border-radius: 3px;
+    border-radius: 8px;
     box-shadow:
-        1px 1px 1px #0004,
-        inset 1px 1px 1px #fff3;
+        0 1px 1px rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -324,46 +352,57 @@ body {
     white-space: nowrap;
     font-size: 11px;
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease;
 }
 
 .xp-task-item:hover {
-    background: #689ef8;
+    background: rgba(104, 158, 248, 0.7);
 }
 
 .xp-task-item.xp-active {
-    background: #2a4fb2;
+    background: rgba(42, 79, 178, 0.75);
+    border-color: rgba(255, 255, 255, 0.55);
     box-shadow:
-        1px 1px 1px #fff3,
-        inset 1px 1px 1px #0004;
+        0 1px 1px rgba(255, 255, 255, 0.25),
+        inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .xp-task-item.xp-active:hover {
-    background: #426de1;
+    background: rgba(66, 109, 225, 0.78);
 }
 
 /* ----- Start menu ----- */
 .xp-startmenu {
     width: 380px;
     max-width: 100%;
-    border-radius: 12px 12px 0 0;
-    box-shadow: 2px 2px 8px #0006;
+    border-radius: 14px 14px 6px 6px;
+    box-shadow:
+        0 18px 48px -12px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.35);
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
 }
 
 .xp-startmenu-header {
     background: linear-gradient(
         180deg,
-        #2d60c5 0%,
-        #71b4ff 2%,
-        #2d60c5 8%,
-        #578de3 100%
+        rgba(45, 96, 197, 0.85) 0%,
+        rgba(113, 180, 255, 0.85) 2%,
+        rgba(45, 96, 197, 0.85) 8%,
+        rgba(87, 141, 227, 0.85) 100%
     );
     box-shadow:
-        inset -1px 1px 2px #3c65ca,
-        inset 1px 1px 2px #3c65ca;
-    border: 1px solid #3c65ca;
-    border-top-color: #2e50a3;
-    border-radius: 12px 12px 0 0;
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset -1px 0 2px rgba(60, 101, 202, 0.6),
+        inset 1px 0 2px rgba(60, 101, 202, 0.6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 13px 13px 0 0;
     color: #fff;
     padding: 8px 12px;
     display: flex;
@@ -393,12 +432,12 @@ body {
 }
 
 .xp-startmenu-body {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.78);
     position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    border-left: 2px solid #3c65ca;
-    border-right: 2px solid #3c65ca;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
+    border-right: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .xp-startmenu-body::after {
@@ -413,7 +452,7 @@ body {
 }
 
 .xp-startmenu-section--system {
-    background: #d6e4f8;
+    background: rgba(214, 228, 248, 0.78);
     color: #112366;
 }
 
@@ -438,17 +477,23 @@ body {
 }
 
 .xp-startmenu-footer {
-    background: linear-gradient(180deg, #4980d9 1%, #306fcc 100%);
-    border-top: 2px solid #416cd6;
+    background: linear-gradient(
+        180deg,
+        rgba(73, 128, 217, 0.78) 1%,
+        rgba(48, 111, 204, 0.85) 100%
+    );
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
     box-shadow:
-        inset 2px 0 8px #3960c3,
-        inset -2px 0 8px #3960c3;
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 2px 0 8px rgba(57, 96, 195, 0.4),
+        inset -2px 0 8px rgba(57, 96, 195, 0.4);
     color: #fff;
     padding: 6px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 11px;
+    border-radius: 0 0 5px 5px;
 }
 
 /* App content surface — inherits XP font sizing for buttons/inputs inside any window. */

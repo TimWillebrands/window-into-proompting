@@ -85,7 +85,7 @@ export default function WindowFrame({
                 style={{
                     boxShadow: maximized
                         ? undefined
-                        : '0 10px 28px -6px rgba(0,0,0,0.55)',
+                        : '0 18px 42px -10px rgba(0,0,0,0.45), 0 4px 14px -4px rgba(0,0,0,0.25)',
                 }}
             >
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for window chrome — react-rnd needs a class on a static element */}
