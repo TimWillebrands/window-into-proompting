@@ -37,22 +37,22 @@ export default function ChatManagerApp() {
     }, [connectPartyRealtime, disconnectPartyRealtime]);
 
     const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(ROOT_PARTY_ID);
-    const chatGroups = useMemo(
-        () =>
-            (chatGroupsQuery.data.data ?? []).flatMap((g) =>
-                g.id && g.name
-                    ? [
-                          {
-                              id: g.id,
-                              name: g.name,
-                              scenario: g.scenario ?? null,
-                              createdAt: g.createdAt ?? null,
-                          },
-                      ]
-                    : [],
-            ),
-        [chatGroupsQuery.data.data],
-    );
+    const chatGroups = useMemo(() => {
+        const raw = chatGroupsQuery.data?.data;
+        if (!Array.isArray(raw)) return [];
+        return raw.flatMap((g) =>
+            g.id && g.name
+                ? [
+                      {
+                          id: g.id,
+                          name: g.name,
+                          scenario: g.scenario ?? null,
+                          createdAt: g.createdAt ?? null,
+                      },
+                  ]
+                : [],
+        );
+    }, [chatGroupsQuery.data?.data]);
 
     const createMutation = usePostPartyIdChatGroups({
         mutation: {
@@ -84,35 +84,62 @@ export default function ChatManagerApp() {
     if (view.kind === 'room') {
         const selected = chatGroups.find((g) => g.id === view.chatGroupId);
         return (
-            <div className="flex h-full flex-col bg-[#ECE9D8] dark:bg-slate-900">
-                <div className="flex items-center gap-2 border-b border-slate-300 dark:border-slate-700 bg-gradient-to-r from-indigo-100 to-sky-100 dark:from-indigo-950 dark:to-slate-900 px-3 py-1.5">
-                    <button
-                        type="button"
-                        onClick={() => setView({ kind: 'hub' })}
-                        className="rounded-lg bg-white/70 dark:bg-slate-800 px-2.5 py-1 text-[12px] font-semibold text-slate-700 dark:text-slate-100 shadow-sm hover:bg-white dark:hover:bg-slate-700"
-                    >
-                        ← Back to rooms
-                    </button>
-                    <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
-                        {selected?.name ?? 'Room'}
-                    </span>
-                    <ConnectionDot status={connectionStatus} />
-                </div>
-                <div className="flex-1 min-h-0">
-                    <Suspense fallback={<ChatLoadingSpinner />}>
-                        <ChatView
-                            chatGroupId={view.chatGroupId}
-                            partyName={selected?.name}
-                            scenario={selected?.scenario ?? null}
-                        />
-                    </Suspense>
-                </div>
+            <div className="app-surface no-xp-buttons @container flex h-full overflow-hidden bg-white dark:bg-slate-900">
+                <DaccordSidebar
+                    realRooms={chatGroups.map((g) => ({
+                        id: g.id,
+                        name: g.name,
+                    }))}
+                    onSelectRoom={(id) =>
+                        setView({ kind: 'room', chatGroupId: id })
+                    }
+                    activeRoomId={view.chatGroupId}
+                    activeCategory={activeCategory}
+                    onSelectCategory={setActiveCategory}
+                />
+                <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+                    {/* Glass header — back button + room title */}
+                    <div className="flex items-center gap-2 px-4 py-2">
+                        <button
+                            type="button"
+                            onClick={() => setView({ kind: 'hub' })}
+                            className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-br from-white to-blue-50 px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_4px_10px_-3px_rgba(46,92,202,0.3)] ring-1 ring-white/80 backdrop-blur-md transition-all hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_14px_-3px_rgba(46,92,202,0.4)] dark:bg-slate-800 dark:text-slate-100"
+                        >
+                            <span aria-hidden>←</span>
+                            Back to rooms
+                        </button>
+                        <span className="ml-1 truncate text-[13px] font-semibold text-slate-800 dark:text-slate-200">
+                            {selected?.name ?? 'Room'}
+                        </span>
+                        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 backdrop-blur-md">
+                            <ConnectionDot status={connectionStatus} />
+                            <span className="capitalize">
+                                {connectionStatus}
+                            </span>
+                        </span>
+                    </div>
+                    <div className="flex-1 min-h-0 px-2 pb-2">
+                        <div className="relative h-full overflow-hidden rounded-3xl bg-white/85 dark:bg-slate-900/80 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70 backdrop-blur-xl">
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-x-0 top-0 z-10 h-12 rounded-t-3xl bg-gradient-to-b from-white/60 to-transparent"
+                            />
+                            <Suspense fallback={<ChatLoadingSpinner />}>
+                                <ChatView
+                                    chatGroupId={view.chatGroupId}
+                                    partyName={selected?.name}
+                                    scenario={selected?.scenario ?? null}
+                                />
+                            </Suspense>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
 
     return (
-        <div className="app-surface flex h-full overflow-hidden bg-white dark:bg-slate-900">
+        <div className="app-surface no-xp-buttons @container flex h-full overflow-hidden bg-white dark:bg-slate-900">
             <DaccordSidebar
                 realRooms={chatGroups.map((g) => ({ id: g.id, name: g.name }))}
                 onSelectRoom={(id) =>
@@ -121,14 +148,14 @@ export default function ChatManagerApp() {
                 activeCategory={activeCategory}
                 onSelectCategory={setActiveCategory}
             />
-            <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 px-4 py-1.5 backdrop-blur-sm">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Realtime:
+            <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+                <div className="flex items-center justify-between px-4 py-2">
+                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        Realtime
                     </span>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 backdrop-blur-md">
                         <ConnectionDot status={connectionStatus} />
-                        <span>{connectionStatus}</span>
+                        <span className="capitalize">{connectionStatus}</span>
                     </div>
                 </div>
                 {createMutation.isError && (

@@ -11,7 +11,7 @@ export default function DaccordSearchBar({
         <div className="relative w-full max-w-md">
             <span
                 aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/80"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/85"
             >
                 🔍
             </span>
@@ -20,7 +20,7 @@ export default function DaccordSearchBar({
                 value={value}
                 onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder="Search Explore"
-                className="h-7 w-full rounded-full border border-white/30 bg-white/15 pl-8 pr-3 text-[12px] text-white placeholder:text-white/70 outline-none ring-0 backdrop-blur-sm focus:border-white/60 focus:bg-white/25"
+                className="h-7 w-full rounded-full bg-white/20 pl-8 pr-3 text-[12px] text-white placeholder:text-white/75 outline-none ring-1 ring-white/30 backdrop-blur-md transition-colors focus:bg-white/30 focus:ring-white/70"
             />
         </div>
     );

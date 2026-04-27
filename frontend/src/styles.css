@@ -67,9 +67,9 @@ body {
     background: rgba(127, 146, 217, 0.55);
     padding: 1px;
     border-radius: 14px 14px 6px 6px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid transparent;
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
         0 0 0 1px rgba(22, 42, 190, 0.18);
     backdrop-filter: blur(14px) saturate(1.2);
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -512,9 +512,9 @@ body {
     min-height: 0;
 }
 
-.app-surface input,
-.app-surface textarea,
-.app-surface select {
+.app-surface:not(.no-xp-buttons) input,
+.app-surface:not(.no-xp-buttons) textarea,
+.app-surface:not(.no-xp-buttons) select {
     background-color: #fff;
     color: #000;
     border: 1px solid var(--color-xp-sunken-edge);
@@ -523,7 +523,12 @@ body {
     padding: 2px 3px;
 }
 
-.app-surface button:not(.xp-bare) {
+/* XP grey-bevel button styling — opted out via `.no-xp-buttons` so app surfaces
+   that style buttons themselves (e.g. chat-manager) don't get clobbered. The
+   :not(.no-xp-buttons) scoping keeps specificity low enough that Tailwind's
+   `rounded-*`, `bg-*`, etc. utility classes apply unobstructed inside opted-out
+   surfaces. */
+.app-surface:not(.no-xp-buttons) button:not(.xp-bare) {
     background: linear-gradient(180deg, #ffffff 0%, #ece9d8 50%, #c9c5b6 100%);
     border: 1px solid #707070;
     border-radius: 3px;
@@ -532,47 +537,65 @@ body {
     cursor: default;
 }
 
-.app-surface button:not(.xp-bare):hover:not(:disabled) {
+.app-surface:not(.no-xp-buttons) button:not(.xp-bare):hover:not(:disabled) {
     border-color: #1f5fb0;
 }
 
-.app-surface button:not(.xp-bare):active:not(:disabled) {
+.app-surface:not(.no-xp-buttons) button:not(.xp-bare):active:not(:disabled) {
     background: linear-gradient(180deg, #c9c5b6 0%, #ece9d8 50%, #ffffff 100%);
 }
 
-.app-surface button:not(.xp-bare):disabled {
+.app-surface:not(.no-xp-buttons) button:not(.xp-bare):disabled {
     color: #888;
     background: linear-gradient(180deg, #f4f3eb 0%, #ece9d8 100%);
 }
 
-/* Participant sidebar (chat app) */
+/* Participant sidebar (chat app) — glass plate to match chat-manager skin */
 .participant-sidebar {
-    background: linear-gradient(180deg, #f5f5ed 0%, #ece9d8 100%);
-    border-left: 1px solid var(--color-xp-face-edge);
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.85) 0%,
+        rgba(241, 245, 249, 0.78) 100%
+    );
+    border-left: 1px solid rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.6);
 }
 
 .participant-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 8px;
+    padding: 5px 10px;
+    margin: 1px 6px;
     cursor: pointer;
     border: none;
+    border-radius: 10px;
     background: transparent;
-    width: 100%;
+    width: calc(100% - 12px);
     text-align: left;
+    transition:
+        background-color 120ms ease,
+        box-shadow 120ms ease;
 }
 
 .participant-row:hover {
-    background: rgba(49, 106, 197, 0.08);
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 2px 6px -2px rgba(31, 55, 148, 0.18);
 }
 
 .participant-row.active {
-    background: rgba(49, 106, 197, 0.06);
+    background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 4px 10px -3px rgba(46, 92, 202, 0.3);
 }
 
 .participant-row.active:hover {
-    background: rgba(49, 106, 197, 0.12);
+    background: linear-gradient(180deg, #ffffff 0%, #e3edff 100%);
 }
 
 .participant-status-dot {
