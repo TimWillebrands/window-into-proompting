@@ -15,6 +15,7 @@ services:
         ports:
             - "3000:3000"
             - "5173:5173"
+            - "6006:6006"
             - "42069:42069"
         volumes:
             - ./frontend:/app:delegated

@@ -7,7 +7,7 @@ const config: StorybookConfig = {
         name: '@storybook/react-vite',
         options: {},
     },
-    addons: [],
+    addons: ['@storybook/addon-mcp'],
     typescript: {
         reactDocgen: 'react-docgen',
     },

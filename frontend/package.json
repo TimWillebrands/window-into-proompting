@@ -33,7 +33,7 @@
         "lint": "biome lint --write",
         "check": "biome check",
         "api-generate": "orval",
-        "storybook": "storybook dev -p 6006",
+        "storybook": "storybook dev -p 6006 --host 0.0.0.0",
         "build-storybook": "storybook build"
     },
     "dependencies": {
@@ -62,6 +62,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.4",
+        "@storybook/addon-mcp": "^0.6.0",
         "@storybook/react-vite": "^10.3.5",
         "@tanstack/devtools-vite": "0.6.0",
         "@tanstack/react-router-ssr-query": "^1.166.10",

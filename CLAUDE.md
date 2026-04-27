@@ -95,6 +95,14 @@ DB init scripts in `docker-entrypoint-initdb.d/`. Re-run: wipe volume (`docker c
 
 **Code style:** Biome for linting/formatting — 4-space indent, single quotes, trailing commas. No Prettier/ESLint.
 
+**Storybook + MCP:** Stories live next to components (`*.stories.tsx`). Run `npm run storybook` (port 6006). Module mocks for app deps (`#api/party-zone`, `#lib/realtime-store`, etc.) are wired via `package.json` `imports` — point new mocks there.
+
+The `@storybook/addon-mcp` addon exposes a Model Context Protocol server at `http://localhost:6006/mcp` (registered for Claude Code via `.mcp.json` as `proompting-sb`). When working on UI:
+- Call `proompting-sb` tools (`list-all-documentation`, `get-documentation`, `get-documentation-for-story`) to discover existing components/stories before writing new UI.
+- Call `get-storybook-story-instructions` before authoring a new `.stories.tsx`.
+- Use `preview-stories` to render existing stories instead of guessing what they look like.
+Storybook must be running for the MCP server to respond.
+
 ### Infrastructure
 
 - **Caddy** reverse proxy routes API traffic to backend
