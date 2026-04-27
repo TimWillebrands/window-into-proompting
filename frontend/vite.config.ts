@@ -1,12 +1,11 @@
-import path from 'node:path';
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import { devtools } from '@tanstack/devtools-vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import viteReact from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import viteTsConfigPaths from 'vite-tsconfig-paths';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,11 +42,11 @@ function serveXpCss(): import('vite').Plugin {
 }
 
 export default defineConfig({
+    resolve: {
+        tsconfigPaths: true,
+    },
     plugins: [
         devtools(),
-        viteTsConfigPaths({
-            projects: ['./tsconfig.json'],
-        }),
         tailwindcss(),
         tanstackStart(),
         // React's vite plugin must come after start's vite plugin
