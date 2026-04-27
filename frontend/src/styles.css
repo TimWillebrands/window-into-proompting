@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v4 directive */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
     font-family: "Tahoma", "MS Sans Serif", system-ui, sans-serif;
     font-size: 11px;
