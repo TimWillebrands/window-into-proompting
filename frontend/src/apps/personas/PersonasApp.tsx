@@ -29,7 +29,7 @@ export default function PersonasApp() {
                 className="flex flex-col"
                 style={{ width: '200px', borderRight: '1px solid #ACA899' }}
             >
-                <div className="xp-section-header flex items-center justify-between">
+                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px] flex items-center justify-between">
                     <span>Personas</span>
                     <span
                         style={{

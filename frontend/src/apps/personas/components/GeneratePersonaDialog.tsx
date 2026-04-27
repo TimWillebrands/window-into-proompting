@@ -121,19 +121,10 @@ export default function GeneratePersonaDialog({
                 zIndex: 200,
             }}
         >
-            <div
-                className="xp-groupbox"
-                style={{
-                    background: '#ECE9D8',
-                    padding: '16px',
-                    width: '400px',
-                    boxShadow: '4px 4px 8px rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                }}
-            >
-                <div className="xp-section-header">Generate Persona</div>
+            <div className="border border-[#9db2c8] bg-xp-face p-4 w-[400px] shadow-[4px_4px_8px_rgba(0,0,0,0.3)] flex flex-col gap-2">
+                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px]">
+                    Generate Persona
+                </div>
                 <div>
                     <label
                         htmlFor={inputId}

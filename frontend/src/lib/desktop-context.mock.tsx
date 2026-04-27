@@ -7,6 +7,7 @@ const emptyLayout: DesktopLayoutState = {
     order: [],
     focusedId: null,
     zCounter: 0,
+    startMenuOpen: false,
 };
 
 export function DesktopProvider({ children }: { children: ReactNode }) {
@@ -18,8 +19,13 @@ export const useDesktopContext = fn(() => ({
     openWindow: fn(),
     focusWindow: fn(),
     closeWindow: fn(),
+    minimizeWindow: fn(),
+    restoreWindow: fn(),
+    toggleMaximize: fn(),
     updateSize: fn(),
     updatePosition: fn(),
+    toggleStartMenu: fn(),
+    closeStartMenu: fn(),
 }));
 
 export const useDesktopStore = Object.assign(
@@ -36,8 +42,13 @@ export const useDesktopStore = Object.assign(
             openWindow: () => {},
             focusWindow: () => {},
             closeWindow: () => {},
+            minimizeWindow: () => {},
+            restoreWindow: () => {},
+            toggleMaximize: () => {},
             updateSize: () => {},
             updatePosition: () => {},
+            toggleStartMenu: () => {},
+            closeStartMenu: () => {},
         }),
         setState: fn(),
         subscribe: fn(() => () => {}),

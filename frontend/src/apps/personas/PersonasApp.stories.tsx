@@ -26,7 +26,7 @@ const meta = {
                     height={480}
                     zIndex={1}
                     onMinimize={fn()}
-                    onRestore={fn()}
+                    onMaximize={fn()}
                     onClose={fn()}
                 >
                     <Story />

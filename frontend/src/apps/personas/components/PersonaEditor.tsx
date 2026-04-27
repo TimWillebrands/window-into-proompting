@@ -113,8 +113,10 @@ export default function PersonaEditor({
                 });
             }}
         >
-            <fieldset className="xp-groupbox">
-                <legend>Details</legend>
+            <fieldset className="border border-[#9db2c8] p-2 m-0">
+                <legend className="text-xp-legend font-semibold text-[11px] px-1">
+                    Details
+                </legend>
                 <div className="space-y-2 p-1">
                     <div>
                         <label
@@ -175,8 +177,10 @@ export default function PersonaEditor({
                 </div>
             </fieldset>
 
-            <fieldset className="xp-groupbox">
-                <legend>System Prompt</legend>
+            <fieldset className="border border-[#9db2c8] p-2 m-0">
+                <legend className="text-xp-legend font-semibold text-[11px] px-1">
+                    System Prompt
+                </legend>
                 <div className="p-1">
                     <textarea
                         id={promptId}

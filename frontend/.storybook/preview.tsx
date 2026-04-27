@@ -2,7 +2,6 @@ import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import '../src/styles.css';
-import 'xp.css/dist/XP.css';
 
 const queryClient = new QueryClient({
     defaultOptions: {

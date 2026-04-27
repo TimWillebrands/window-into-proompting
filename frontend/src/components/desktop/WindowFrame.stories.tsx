@@ -14,11 +14,12 @@ const meta = {
         height: 400,
         zIndex: 1,
         onMinimize: fn(),
-        onRestore: fn(),
+        onMaximize: fn(),
         onClose: fn(),
+        focused: true,
         children: (
             <div style={{ padding: 12 }}>
-                Window body content goes here. xp.css renders chrome.
+                Window body content goes here. Chrome is Tailwind-only.
             </div>
         ),
     },

@@ -19,8 +19,13 @@ interface DesktopContextInternal {
     ) => void;
     focusWindow: (id: string) => void;
     closeWindow: (id: string) => void;
+    minimizeWindow: (id: string) => void;
+    restoreWindow: (id: string) => void;
+    toggleMaximize: (id: string) => void;
     updateSize: (id: string, size: { width: number; height: number }) => void;
     updatePosition: (id: string, position: { x: number; y: number }) => void;
+    toggleStartMenu: () => void;
+    closeStartMenu: () => void;
 }
 
 interface DesktopStoreState {
@@ -38,8 +43,13 @@ interface DesktopStoreState {
     ) => void;
     focusWindow: (id: string) => void;
     closeWindow: (id: string) => void;
+    minimizeWindow: (id: string) => void;
+    restoreWindow: (id: string) => void;
+    toggleMaximize: (id: string) => void;
     updateSize: (id: string, size: { width: number; height: number }) => void;
     updatePosition: (id: string, position: { x: number; y: number }) => void;
+    toggleStartMenu: () => void;
+    closeStartMenu: () => void;
 }
 
 const findPreset = (id: string): WindowDescriptor | undefined =>
@@ -70,6 +80,7 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
             order: [],
             focusedId: null,
             zCounter: 0,
+            startMenuOpen: false,
         },
         navigate: null,
         setNavigate: (navigate) => set({ navigate }),
@@ -83,7 +94,6 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
 
             applyDesktopUpdate((prev) => {
                 if (prev.windows[runtimeId]) {
-                    // Push re-focus to nav history (dedup logic in push will skip if same)
                     if (!useNavHistoryStore.getState().isNavigating) {
                         useNavHistoryStore
                             .getState()
@@ -91,11 +101,13 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                     }
                     const nextZ = prev.zCounter + 1;
                     return {
+                        ...prev,
                         windows: {
                             ...prev.windows,
                             [runtimeId]: {
                                 ...prev.windows[runtimeId],
                                 zIndex: nextZ,
+                                minimized: false,
                             },
                         },
                         order: prev.order
@@ -103,10 +115,10 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                             .concat(runtimeId),
                         focusedId: runtimeId,
                         zCounter: nextZ,
+                        startMenuOpen: false,
                     };
                 }
 
-                // Push new window to nav history
                 if (!useNavHistoryStore.getState().isNavigating) {
                     useNavHistoryStore
                         .getState()
@@ -127,24 +139,29 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                     width: existing?.width ?? 720,
                     height: existing?.height ?? 480,
                     zIndex: nextZ,
+                    minimized: false,
+                    maximized: false,
+                    restoreBounds: null,
                     props: options?.props ?? {},
                 };
 
                 return {
+                    ...prev,
                     windows: { ...prev.windows, [runtimeId]: newWindow },
                     order: prev.order.concat(runtimeId),
                     focusedId: runtimeId,
                     zCounter: nextZ,
+                    startMenuOpen: false,
                 };
             });
         },
         focusWindow: (id: string) => {
             applyDesktopUpdate((prev) => {
-                if (!prev.windows[id]) {
+                const w = prev.windows[id];
+                if (!w) {
                     return prev;
                 }
 
-                // Push window switch to nav history (only when actually changing focus)
                 if (
                     prev.focusedId !== id &&
                     !useNavHistoryStore.getState().isNavigating
@@ -160,8 +177,9 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                     windows: {
                         ...prev.windows,
                         [id]: {
-                            ...prev.windows[id],
+                            ...w,
                             zIndex: nextZ,
+                            minimized: false,
                         },
                     },
                     focusedId: id,
@@ -186,10 +204,112 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                         : prev.focusedId;
 
                 return {
+                    ...prev,
                     windows: rest,
                     order: newOrder,
                     focusedId: newFocused,
                     zCounter: prev.zCounter,
+                };
+            });
+        },
+        minimizeWindow: (id: string) => {
+            applyDesktopUpdate((prev) => {
+                const w = prev.windows[id];
+                if (!w || w.minimized) return prev;
+
+                const remaining = prev.order.filter(
+                    (entry) => entry !== id && !prev.windows[entry]?.minimized,
+                );
+                const newFocused =
+                    prev.focusedId === id
+                        ? (remaining.at(-1) ?? null)
+                        : prev.focusedId;
+
+                return {
+                    ...prev,
+                    windows: {
+                        ...prev.windows,
+                        [id]: { ...w, minimized: true },
+                    },
+                    focusedId: newFocused,
+                };
+            });
+        },
+        restoreWindow: (id: string) => {
+            applyDesktopUpdate((prev) => {
+                const w = prev.windows[id];
+                if (!w) return prev;
+                const nextZ = prev.zCounter + 1;
+                return {
+                    ...prev,
+                    windows: {
+                        ...prev.windows,
+                        [id]: {
+                            ...w,
+                            minimized: false,
+                            zIndex: nextZ,
+                        },
+                    },
+                    focusedId: id,
+                    zCounter: nextZ,
+                    order: prev.order
+                        .filter((entry) => entry !== id)
+                        .concat(id),
+                };
+            });
+        },
+        toggleMaximize: (id: string) => {
+            applyDesktopUpdate((prev) => {
+                const w = prev.windows[id];
+                if (!w) return prev;
+                const nextZ = prev.zCounter + 1;
+
+                if (w.maximized) {
+                    const r = w.restoreBounds;
+                    return {
+                        ...prev,
+                        windows: {
+                            ...prev.windows,
+                            [id]: {
+                                ...w,
+                                maximized: false,
+                                restoreBounds: null,
+                                x: r?.x ?? w.x,
+                                y: r?.y ?? w.y,
+                                width: r?.width ?? w.width,
+                                height: r?.height ?? w.height,
+                                zIndex: nextZ,
+                            },
+                        },
+                        focusedId: id,
+                        zCounter: nextZ,
+                        order: prev.order
+                            .filter((entry) => entry !== id)
+                            .concat(id),
+                    };
+                }
+
+                return {
+                    ...prev,
+                    windows: {
+                        ...prev.windows,
+                        [id]: {
+                            ...w,
+                            maximized: true,
+                            restoreBounds: {
+                                x: w.x,
+                                y: w.y,
+                                width: w.width,
+                                height: w.height,
+                            },
+                            zIndex: nextZ,
+                        },
+                    },
+                    focusedId: id,
+                    zCounter: nextZ,
+                    order: prev.order
+                        .filter((entry) => entry !== id)
+                        .concat(id),
                 };
             });
         },
@@ -247,6 +367,17 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                 };
             });
         },
+        toggleStartMenu: () => {
+            applyDesktopUpdate((prev) => ({
+                ...prev,
+                startMenuOpen: !prev.startMenuOpen,
+            }));
+        },
+        closeStartMenu: () => {
+            applyDesktopUpdate((prev) =>
+                prev.startMenuOpen ? { ...prev, startMenuOpen: false } : prev,
+            );
+        },
     };
 });
 
@@ -267,15 +398,25 @@ export function useDesktopContext(): DesktopContextInternal {
     const openWindow = useDesktopStore((state) => state.openWindow);
     const focusWindow = useDesktopStore((state) => state.focusWindow);
     const closeWindow = useDesktopStore((state) => state.closeWindow);
+    const minimizeWindow = useDesktopStore((state) => state.minimizeWindow);
+    const restoreWindow = useDesktopStore((state) => state.restoreWindow);
+    const toggleMaximize = useDesktopStore((state) => state.toggleMaximize);
     const updateSize = useDesktopStore((state) => state.updateSize);
     const updatePosition = useDesktopStore((state) => state.updatePosition);
+    const toggleStartMenu = useDesktopStore((state) => state.toggleStartMenu);
+    const closeStartMenu = useDesktopStore((state) => state.closeStartMenu);
 
     return {
         desktopState,
         openWindow,
         focusWindow,
         closeWindow,
+        minimizeWindow,
+        restoreWindow,
+        toggleMaximize,
         updateSize,
         updatePosition,
+        toggleStartMenu,
+        closeStartMenu,
     };
 }

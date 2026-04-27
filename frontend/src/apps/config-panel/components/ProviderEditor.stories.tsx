@@ -13,12 +13,10 @@ const meta = {
     decorators: [
         (Story) => (
             <div
-                className="window"
-                style={{ width: 480, background: '#ECE9D8' }}
+                className="app-surface bg-xp-face"
+                style={{ width: 480, padding: 12 }}
             >
-                <div className="window-body" style={{ padding: 12 }}>
-                    <Story />
-                </div>
+                <Story />
             </div>
         ),
     ],

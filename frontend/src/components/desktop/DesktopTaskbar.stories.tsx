@@ -12,8 +12,10 @@ const meta = {
     args: {
         windows: [],
         focusedId: null,
+        startMenuOpen: false,
         onToggle: fn(),
         onClose: fn(),
+        onStartClick: fn(),
     },
     decorators: [
         (Story) => (

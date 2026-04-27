@@ -11,9 +11,13 @@ interface WindowFrameProps {
     height: number;
     zIndex: number;
     icon?: string;
+    focused?: boolean;
+    maximized?: boolean;
     onMinimize: () => void;
-    onRestore: () => void;
+    onMaximize?: () => void;
     onClose: () => void;
+    /** Class added to the title bar element so an external drag handler (e.g. react-rnd) can target it. */
+    dragHandleClassName?: string;
     children: ReactNode;
 }
 
@@ -21,7 +25,6 @@ function TitleBarSlotContent() {
     const slot = useWindowTitleBarSlot();
     const node = slot?.content;
     if (!node) return null;
-    // Stop drag handle from grabbing pointer events on slot content (e.g. inputs).
     return (
         // biome-ignore lint/a11y/noStaticElementInteractions: pure event-swallow wrapper, not interactive itself.
         <div
@@ -35,50 +38,114 @@ function TitleBarSlotContent() {
     );
 }
 
+function isImagePath(s: string) {
+    return /\.(png|jpe?g|webp|svg|ico|gif)$/i.test(s) || s.startsWith('/');
+}
+
+function TitleBarIcon({ icon }: { icon: string }) {
+    if (isImagePath(icon)) {
+        return (
+            <img src={icon} alt="" className="xp-titlebar-icon" aria-hidden />
+        );
+    }
+    return (
+        <span aria-hidden className="text-[14px] leading-none mx-1">
+            {icon}
+        </span>
+    );
+}
+
 export default function WindowFrame({
     id,
     title,
     icon = '📄',
+    focused = true,
+    maximized = false,
     onMinimize,
-    onRestore,
+    onMaximize,
     onClose,
+    dragHandleClassName = 'window-drag-handle',
     children,
 }: WindowFrameProps) {
+    const shellClasses = [
+        'xp-window-shell',
+        focused ? 'xp-active' : '',
+        maximized ? 'xp-maximized' : '',
+        'flex flex-col h-full w-full overflow-hidden',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
     return (
         <WindowTitleBarProvider>
             <div
-                className="window window-frame flex flex-col overflow-hidden"
                 data-window-id={id}
+                data-focused={focused ? 'true' : 'false'}
+                className={shellClasses}
                 style={{
-                    width: '100%',
-                    height: '100%',
+                    boxShadow: maximized
+                        ? undefined
+                        : '0 10px 28px -6px rgba(0,0,0,0.55)',
                 }}
             >
-                <div className="title-bar box-content cursor-grab select-none flex justify-between items-center px-1 drag-handle">
-                    <div className="title-bar-text flex items-center shrink-0">
-                        <span className="mr-1">{icon}</span>
-                        {title}
-                    </div>
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for window chrome — react-rnd needs a class on a static element */}
+                <div
+                    className={`${dragHandleClassName} xp-titlebar`}
+                    onDoubleClick={() => onMaximize?.()}
+                >
+                    <TitleBarIcon icon={icon} />
+                    <span className="xp-titlebar-title">{title}</span>
                     <TitleBarSlotContent />
-                    <div className="title-bar-controls flex shrink-0">
+                    <span className="xp-titlebar-controls">
                         <button
                             type="button"
+                            data-button="minimize"
+                            className="xp-titlebar-btn"
                             aria-label="Minimize"
-                            onClick={onMinimize}
-                        />
+                            title="Minimize"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onMinimize();
+                            }}
+                        >
+                            Minimize
+                        </button>
                         <button
                             type="button"
-                            aria-label="Restore"
-                            onClick={onRestore}
-                        />
+                            data-button="maximize"
+                            data-maximized={maximized ? 'true' : 'false'}
+                            className="xp-titlebar-btn"
+                            aria-label={maximized ? 'Restore' : 'Maximize'}
+                            title={maximized ? 'Restore' : 'Maximize'}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onMaximize?.();
+                            }}
+                        >
+                            {maximized ? 'Restore' : 'Maximize'}
+                        </button>
                         <button
                             type="button"
+                            data-button="close"
+                            className="xp-titlebar-btn"
                             aria-label="Close"
-                            onClick={onClose}
-                        />
-                    </div>
+                            title="Close"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                            }}
+                        >
+                            Close
+                        </button>
+                    </span>
                 </div>
-                <section className="window-body flex-1 overflow-hidden bg-[#ECE9D8] dark:bg-slate-900">
+                <section className="xp-window-content dark:bg-slate-900">
                     <Suspense fallback={<progress>Loading {title}</progress>}>
                         {children}
                     </Suspense>

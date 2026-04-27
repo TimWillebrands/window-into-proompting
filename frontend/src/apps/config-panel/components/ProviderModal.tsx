@@ -1,3 +1,5 @@
+import WindowFrame from '../../../components/desktop/WindowFrame';
+
 export default function ProviderModal({
     title,
     onClose,
@@ -11,15 +13,7 @@ export default function ProviderModal({
         // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses modal; real dialog is inside
         <div
             role="presentation"
-            style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 1000,
-                background: 'rgba(0,0,0,0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}
+            className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center"
             onClick={onClose}
             onKeyDown={(e) => {
                 if (e.key === 'Escape') {
@@ -30,34 +24,23 @@ export default function ProviderModal({
             <div
                 role="dialog"
                 aria-label={title}
-                className="window"
-                style={{
-                    width: 480,
-                    maxHeight: '85vh',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}
+                className="w-[480px] max-h-[85vh] flex flex-col app-surface"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
             >
-                <div className="title-bar box-content">
-                    <div className="title-bar-text">{title}</div>
-                    <div className="title-bar-controls">
-                        <button
-                            type="button"
-                            aria-label="Close"
-                            onClick={onClose}
-                        />
-                    </div>
-                </div>
-                <div
-                    className="window-body"
-                    style={{
-                        overflowY: 'auto',
-                    }}
+                <WindowFrame
+                    id={`provider-modal-${title}`}
+                    title={title}
+                    icon="🛠️"
+                    width={480}
+                    height={0}
+                    zIndex={1000}
+                    focused
+                    onMinimize={onClose}
+                    onClose={onClose}
                 >
-                    {children}
-                </div>
+                    <div className="overflow-y-auto p-3">{children}</div>
+                </WindowFrame>
             </div>
         </div>
     );
