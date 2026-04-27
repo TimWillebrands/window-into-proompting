@@ -18,10 +18,10 @@ interface DesktopTaskbarProps {
 }
 
 function useClock() {
-    const [now, setNow] = useState(() => new Date());
+    const [now, setNow] = useState<Date | null>(null);
     useEffect(() => {
-        const tick = () => setNow(new Date());
-        const id = setInterval(tick, 30_000);
+        setNow(new Date());
+        const id = setInterval(() => setNow(new Date()), 30_000);
         return () => clearInterval(id);
     }, []);
     return now;
@@ -133,11 +133,17 @@ export default function DesktopTaskbar({
                 >
                     {mode === 'dark' ? '☀️' : '🌙'}
                 </button>
-                <span title="Clock" className="tabular-nums select-none">
-                    {now.toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                    })}
+                <span
+                    title="Clock"
+                    className="tabular-nums select-none"
+                    suppressHydrationWarning
+                >
+                    {now
+                        ? now.toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                          })
+                        : ''}
                 </span>
             </div>
         </div>
