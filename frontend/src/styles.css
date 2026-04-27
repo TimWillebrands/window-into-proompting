@@ -245,21 +245,17 @@ body {
 }
 
 /* Content area: translucent face so the glass shell and wallpaper bleed
-   through subtly. Hairline divider replaces the chunky #a5afeb halo. */
+   through subtly. No top border — the title bar's bottom gradient stop
+   already provides the seam. */
 .xp-window-content {
     position: relative;
     background: rgba(236, 233, 216, 0.92);
-    border-top: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 0 0 5px 5px;
     overflow: hidden;
     flex: 1;
     min-height: 0;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-}
-
-.xp-active .xp-window-content {
-    border-top-color: rgba(255, 255, 255, 0.55);
 }
 
 .xp-maximized .xp-window-content {
