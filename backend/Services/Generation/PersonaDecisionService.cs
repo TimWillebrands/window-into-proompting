@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -5,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using JsonRepairSharp;
 using PartyTown.Grains.Generation;
+using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
 
@@ -156,7 +158,23 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             ResponseFormat = responseFormat.ToJsonString()
         };
 
+        using var thinkSpan = Tracing.Persona.StartActivity("persona.think", ActivityKind.Internal);
+        thinkSpan?.SetTag("persona.id", self.Id);
+        thinkSpan?.SetTag("persona.name", self.Name);
+        thinkSpan?.SetTag("urge.total", urge.Total);
+
         var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+
+        try
+        {
+            var attribution = await generation.GetAttributionAsync();
+            thinkSpan?.SetTag("llm.provider", attribution?.Provider);
+            thinkSpan?.SetTag("llm.model", attribution?.ModelName);
+        }
+        catch
+        {
+            // Attribution is best-effort instrumentation; don't fail the decision over it.
+        }
 
         await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
@@ -239,6 +257,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         if (!parsed.Respond && parsed.Reason.StartsWith("Fallback"))
             logger.LogDebug("Persona {PersonaName} suppressed due to unparseable decision. Raw: {Raw}", self.Name, raw);
+
+        thinkSpan?.SetTag("decision.respond", parsed.Respond);
+        thinkSpan?.SetTag("decision.gut_reaction", parsed.Reason);
 
         if (onEvent is not null)
         {

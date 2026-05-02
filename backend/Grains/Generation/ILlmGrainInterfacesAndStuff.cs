@@ -1,3 +1,5 @@
+using PartyTown.Model;
+
 namespace PartyTown.Grains.Generation;
 
 [Alias("PartyTown.Grains.Generation.ILlmEndpointGrain")]
@@ -13,6 +15,11 @@ public interface ILlmEndpointGrain : IGrainWithGuidKey
     // But this is how much backpressure (pending generations) the endpoint has
     [Alias("Pressure")]
     ValueTask<int> PressureAsync();
+
+    /// <summary>Provider/model identity used for the next generation. Routed-to-and-recorded
+    /// alongside the resulting <see cref="ChatMessage"/> as its papertrail metadata.</summary>
+    [Alias("GetAttributionAsync")]
+    Task<ChatMessageMetadata> GetAttributionAsync();
 }
 
 [Alias("PartyTown.Grains.Generation.IOllamaEndpointGrain")]

@@ -4,6 +4,7 @@ using System.Text.Json;
 using OpenAI;
 using OpenAI.Chat;
 using PartyTown.Logging;
+using PartyTown.Model;
 
 namespace PartyTown.Grains.Generation;
 
@@ -32,6 +33,9 @@ public class OpenRouterEndpointGrain(
     }
 
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
+
+    public Task<ChatMessageMetadata> GetAttributionAsync()
+        => Task.FromResult(new ChatMessageMetadata { Provider = "openrouter", ModelName = ModelName });
 
     private string ApiKey => _config?.ApiKey ?? string.Empty;
     private string BaseUrl => _config?.BaseUrl ?? "https://openrouter.ai/api/v1";

@@ -81,6 +81,9 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "HH:mm:ss ";
 });
 
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing.AddSource(Tracing.PersonaSourceName));
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
