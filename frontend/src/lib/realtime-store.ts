@@ -2,6 +2,11 @@ import deepEqual from 'fast-deep-equal';
 import { create } from 'zustand';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
 
+export interface ChatMessageMetadata {
+    provider: string | null;
+    modelName: string | null;
+}
+
 export interface RealtimeChatMessage {
     chatGroupId: string;
     messageId: number;
@@ -12,6 +17,7 @@ export interface RealtimeChatMessage {
     senderType: string;
     senderId: string;
     sendAt: number | null;
+    metadata: ChatMessageMetadata | null;
     generationEvents: Array<{ event: string; data: string; at: number }>;
 }
 
@@ -399,6 +405,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     senderType: 'assistant',
                     senderId: resolvedSenderId,
                     sendAt: null,
+                    metadata: null,
                     generationEvents: [],
                 };
 

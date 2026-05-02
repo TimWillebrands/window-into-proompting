@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using Orleans.Concurrency;
 using PartyTown.Grains.Generation;
+using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Generation;
 using PartyTown.Services.Streaming;
@@ -113,6 +115,16 @@ public sealed class PersonaGrain(
         if (triggeringMessage.SenderId == personaId)
             return;
 
+        // One root span per persona per triggering message. The fan-out at ChatGroupGrain
+        // does NOT wrap these in a parent span on purpose — each persona reaction is an
+        // independent root so the Aspire timeline shows them as siblings, mirroring reality.
+        using var turnSpan = Tracing.Persona.StartActivity("persona.turn", ActivityKind.Internal);
+        turnSpan?.SetTag("persona.id", personaId);
+        turnSpan?.SetTag("persona.name", persona.Name);
+        turnSpan?.SetTag("chat_group.id", chatGroupId);
+        turnSpan?.SetTag("triggered_by.message_id", triggeringMessage.MessageId);
+        turnSpan?.SetTag("triggered_by.sender_id", triggeringMessage.SenderId);
+
         logger.LogInformation("Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
@@ -136,15 +148,40 @@ public sealed class PersonaGrain(
 
         var preUrge = PersonaDecisionService.CalculateResponseUrge(self, preHistory, preRounds);
         var preRecentSelf = PersonaDecisionService.CountRecentSelfMessages(preHistory, personaId);
+        turnSpan?.SetTag("urge.total", preUrge.Total);
+        turnSpan?.SetTag("urge.mention", preUrge.MentionScore);
+        turnSpan?.SetTag("urge.question", preUrge.QuestionScore);
+        turnSpan?.SetTag("urge.silence_streak", preUrge.SilenceStreakScore);
+        turnSpan?.SetTag("urge.cold_open", preUrge.ColdOpenScore);
+        turnSpan?.SetTag("rounds.total_assistant", preRounds);
+        turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
+
         if (PersonaDecisionService.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
+            turnSpan?.SetTag("decision", "skip-obvious");
+            var skipReason = $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
             logger.LogDebug(
                 "Persona {PersonaName} silently skipped (urge={Urge:F2}, rounds={Rounds}, recentSelf={Self})",
                 persona.Name, preUrge.Total, preRounds, preRecentSelf);
+            // Persist the skip into the chat group so the papertrail can surface every
+            // persona's reaction to a triggering message, not just the ones that produced text.
+            try
+            {
+                await chatGroupGrain.RecordSkippedTurnAsync(
+                    personaId, persona.Name ?? string.Empty,
+                    triggeringMessage.MessageId, preUrge.Total, skipReason);
+            }
+            catch (Exception ex)
+            {
+                // Never let papertrail bookkeeping break the silence path.
+                logger.LogDebug(ex, "Failed to record skip for persona {PersonaName}", persona.Name);
+            }
             return;
         }
 
-        var messageId = await chatGroupGrain.GetNextMessageIdAsync(personaId);
+        var messageId = await chatGroupGrain.GetNextMessageIdAsync(
+            personaId, "assistant", triggeringMessage.MessageId);
+        turnSpan?.SetTag("result.message_id", messageId);
 
         var newCts = new CancellationTokenSource();
         _ctsByGeneration[(chatGroupId, messageId)] = newCts;
@@ -171,8 +208,20 @@ public sealed class PersonaGrain(
 
             if (!decision.Respond)
             {
+                turnSpan?.SetTag("decision", "skip-llm");
+                turnSpan?.SetTag("decision.reason", decision.Reason);
                 logger.LogInformation("Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
-                await chatGroupGrain.MarkGenerationStoppedAsync(messageId, decision.Reason);
+                // Mirror the success-path appraisal shape so the papertrail renderer can
+                // surface the gut reaction uniformly. Plain-string appraisal would fail
+                // TryParseAppraisal silently and drop the reason from the rendered output.
+                var declinedAppraisal = JsonSerializer.Serialize(new
+                {
+                    personaId,
+                    instruction = (string?)null,
+                    reason = decision.Reason,
+                    stop = true
+                }, WebOptions);
+                await chatGroupGrain.MarkGenerationStoppedAsync(messageId, declinedAppraisal, triggeringMessage.MessageId);
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                     MessageStreamEvent.PersonaDeclinedResponse,
                     JsonSerializer.Serialize(new { personaId, reason = decision.Reason }, WebOptions),
@@ -180,6 +229,8 @@ public sealed class PersonaGrain(
                 return;
             }
 
+            turnSpan?.SetTag("decision", "respond");
+            turnSpan?.SetTag("decision.reason", decision.Reason);
             logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
 
             await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
@@ -210,17 +261,27 @@ public sealed class PersonaGrain(
                 result.Message ?? string.Empty,
                 result.Reasoning,
                 appraisalJson,
+                result.Metadata,
+                triggeringMessage.MessageId,
                 linkedCt);
 
+            if (result.Metadata is not null)
+            {
+                turnSpan?.SetTag("llm.provider", result.Metadata.Provider);
+                turnSpan?.SetTag("llm.model", result.Metadata.ModelName);
+            }
             logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);
         }
         catch (OperationCanceledException)
         {
+            turnSpan?.SetTag("decision", "cancelled");
             logger.LogDebug("Persona {PersonaName} generation cancelled", persona.Name);
             await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
         }
         catch (Exception ex)
         {
+            turnSpan?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            turnSpan?.SetTag("decision", "error");
             logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
             // FIXME: If at some point we go public, don't send exceptions over the wire
             await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.ToString());

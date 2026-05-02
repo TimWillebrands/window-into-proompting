@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using OpenAI;
 using OpenAI.Chat;
 using PartyTown.Logging;
+using PartyTown.Model;
 
 namespace PartyTown.Grains.Generation;
 
@@ -34,6 +35,9 @@ public class OllamaEndpointGrain(
     }
 
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
+
+    public Task<ChatMessageMetadata> GetAttributionAsync()
+        => Task.FromResult(new ChatMessageMetadata { Provider = "ollama", ModelName = ModelName });
 
     private string BaseUrl => _config?.BaseUrl ?? "http://localhost:11434";
     private string ModelName => _config?.ModelName ?? string.Empty;

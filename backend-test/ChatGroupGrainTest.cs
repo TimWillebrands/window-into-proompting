@@ -182,7 +182,8 @@ public class ChatGroupGrainTest
             Reasoning = "internal reasoning",
             Appraisal = "sounded natural",
             SenderId = senderId,
-            SendAt = 1234567890L
+            SendAt = 1234567890L,
+            Metadata = new ChatMessageMetadata { Provider = "ollama", ModelName = "qwen2.5:14b" }
         });
 
         var msg = Assert.Single(state.Messages);
@@ -191,6 +192,32 @@ public class ChatGroupGrainTest
         Assert.Equal("sounded natural", msg.Appraisal);
         Assert.Equal(senderId, msg.SenderId);
         Assert.Equal(1234567890L, msg.SendAt);
+        Assert.Equal("ollama", msg.Metadata?.Provider);
+        Assert.Equal("qwen2.5:14b", msg.Metadata?.ModelName);
+    }
+
+    [Fact]
+    public void Apply_GenerationCompleted_LegacyEventWithoutMetadata_LeavesMetadataNull()
+    {
+        // Replay-safety net: events persisted before the papertrail migration carry no
+        // Metadata field. Orleans tag-versioning makes [Id(6)] default to null on
+        // deserialization, so historical messages must round-trip with Metadata == null
+        // and never throw.
+        var senderId = Guid.NewGuid();
+        var state = NewState();
+        var messageId = ReserveSlot(state, senderId);
+
+        state.Apply(new ChatGroupGenerationCompletedEvent
+        {
+            MessageId = messageId,
+            Content = "Pre-papertrail message",
+            SenderId = senderId,
+            SendAt = 1L
+            // Metadata intentionally omitted — mirrors a legacy on-disk event.
+        });
+
+        var msg = Assert.Single(state.Messages);
+        Assert.Null(msg.Metadata);
     }
 
     [Fact]

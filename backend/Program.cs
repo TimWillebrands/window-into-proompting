@@ -105,6 +105,7 @@ otel.WithTracing(tracing =>
 {
     tracing.AddAspNetCoreInstrumentation();
     tracing.AddHttpClientInstrumentation();
+    tracing.AddSource(Tracing.PersonaSourceName);
 });
 
 // Export OpenTelemetry data via OTLP, using env vars for the configuration

@@ -1258,7 +1258,10 @@ function ChatBubble({
     }, [message.senderId, isUser, personas]);
 
     const hasDetails = !!(
-        message.reasoning || (message.generationEvents?.length ?? 0) > 0
+        message.reasoning ||
+        (message.generationEvents?.length ?? 0) > 0 ||
+        message.metadata?.modelName ||
+        message.metadata?.provider
     );
 
     const appraisalData = useMemo(() => {
@@ -1493,6 +1496,26 @@ function ChatBubble({
                         border: '1px solid #D4D0C8',
                     }}
                 >
+                    {(message.metadata?.modelName ||
+                        message.metadata?.provider) && (
+                        <div className="mb-2">
+                            <div
+                                className="text-[10px] font-semibold"
+                                style={{ color: '#316AC5' }}
+                            >
+                                Model
+                            </div>
+                            <div
+                                className="text-[11px]"
+                                style={{ color: '#000' }}
+                            >
+                                {message.metadata?.provider
+                                    ? `${message.metadata.provider} / ${message.metadata.modelName ?? '?'}`
+                                    : (message.metadata?.modelName ?? '')}
+                            </div>
+                        </div>
+                    )}
+
                     {message.reasoning && (
                         <div className="mb-2">
                             <div
