@@ -26,14 +26,16 @@ function TitleBarSlotContent() {
     const node = slot?.content;
     if (!node) return null;
     return (
-        // biome-ignore lint/a11y/noStaticElementInteractions: pure event-swallow wrapper, not interactive itself.
-        <div
-            className="flex-1 min-w-0 flex items-center justify-center mx-2"
-            onPointerDown={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-        >
-            {node}
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 flex items-center justify-center max-w-[60%]">
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: event-swallow wrapper around the interactive slot child. */}
+            <div
+                className="pointer-events-auto"
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+            >
+                {node}
+            </div>
         </div>
     );
 }
@@ -90,7 +92,7 @@ export default function WindowFrame({
             >
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for window chrome — react-rnd needs a class on a static element */}
                 <div
-                    className={`${dragHandleClassName} xp-titlebar`}
+                    className={`${dragHandleClassName} xp-titlebar relative`}
                     onDoubleClick={() => onMaximize?.()}
                 >
                     <TitleBarIcon icon={icon} />

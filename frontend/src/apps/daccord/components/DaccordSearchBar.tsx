@@ -20,7 +20,7 @@ export default function DaccordSearchBar({
                 value={value}
                 onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder="Search Explore"
-                className="h-7 w-full rounded-full bg-white/20 pl-8 pr-3 text-[12px] text-white placeholder:text-white/75 outline-none ring-1 ring-white/30 backdrop-blur-md transition-colors focus:bg-white/30 focus:ring-white/70"
+                className="h-7 w-full rounded-full bg-white/20 pl-8 pr-3 text-[12px] text-white placeholder:text-white/75 outline-none ring-1 ring-white/30 transition-colors focus:bg-white/30 focus:ring-white/70"
             />
         </div>
     );

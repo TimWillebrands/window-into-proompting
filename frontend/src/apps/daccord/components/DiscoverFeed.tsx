@@ -197,7 +197,7 @@ export default function DiscoverFeed({
 
                     <div className="relative max-w-[70%]">
                         <h1 className="text-lg @[520px]:text-3xl font-bold leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
-                            Find Your Community on Daccord
+                            Find Your Community on D'Accord
                         </h1>
                         <p className="mt-1 max-w-md text-[11px] @[520px]:text-sm text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
                             Discover, connect, and create with people who share

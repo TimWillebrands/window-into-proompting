@@ -1,5 +1,5 @@
-import OpenPartyApp from '../apps/chat-manager/ChatManagerApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
+import DaccordApp from '../apps/daccord/DaccordApp';
 import PersonasApp from '../apps/personas/PersonasApp';
 import type { WindowDescriptor } from './types';
 
@@ -13,9 +13,9 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     },
     {
         id: 'open-party',
-        title: 'Group Chats',
+        title: "D'Accord — Chat Rooms",
         icon: '💬',
-        component: OpenPartyApp,
+        component: DaccordApp,
         initialPosition: { x: 360, y: 260 },
     },
     {
@@ -36,7 +36,7 @@ export const DESKTOP_ICONS = [
     },
     {
         id: 'open-party',
-        label: 'Group Chats',
+        label: 'Chat Rooms',
         icon: '/img/842.ico',
         windowId: 'open-party',
     },

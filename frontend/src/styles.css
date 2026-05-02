@@ -524,7 +524,7 @@ body {
 }
 
 /* XP grey-bevel button styling — opted out via `.no-xp-buttons` so app surfaces
-   that style buttons themselves (e.g. chat-manager) don't get clobbered. The
+   that style buttons themselves (e.g. daccord) don't get clobbered. The
    :not(.no-xp-buttons) scoping keeps specificity low enough that Tailwind's
    `rounded-*`, `bg-*`, etc. utility classes apply unobstructed inside opted-out
    surfaces. */
@@ -550,7 +550,7 @@ body {
     background: linear-gradient(180deg, #f4f3eb 0%, #ece9d8 100%);
 }
 
-/* Participant sidebar (chat app) — glass plate to match chat-manager skin */
+/* Participant sidebar (chat app) — glass plate to match daccord skin */
 .participant-sidebar {
     background: linear-gradient(
         180deg,

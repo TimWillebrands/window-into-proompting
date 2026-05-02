@@ -19,7 +19,7 @@ import { ChatView } from './GroupChatWindow';
 
 type View = { kind: 'hub' } | { kind: 'room'; chatGroupId: string };
 
-export default function ChatManagerApp() {
+export default function DaccordApp() {
     const queryClient = useQueryClient();
     const [view, setView] = useState<View>({ kind: 'hub' });
     const [searchQuery, setSearchQuery] = useState('');
