@@ -4,6 +4,8 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import viteReact from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+const backendTarget = process.env.VITE_API_URL ?? 'http://backend:5072';
+
 export default defineConfig({
     resolve: {
         tsconfigPaths: true,
@@ -17,5 +19,13 @@ export default defineConfig({
     ],
     css: {
         transformer: 'postcss',
+    },
+    server: {
+        proxy: {
+            '/api': {
+                target: backendTarget,
+                changeOrigin: true,
+            },
+        },
     },
 });

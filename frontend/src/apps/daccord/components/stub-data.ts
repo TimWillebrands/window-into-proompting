@@ -66,7 +66,7 @@ export const FEATURED_ROOMS: StubRoom[] = [
         online: 5786,
         members: 45098,
         gradient:
-            'from-violet-400 via-fuchsia-400 to-indigo-500 dark:from-violet-700 dark:via-fuchsia-700 dark:to-indigo-800',
+            'from-violet-500 via-fuchsia-500 to-indigo-600 dark:from-violet-700 dark:via-fuchsia-700 dark:to-indigo-800',
         badgeGradient:
             'from-violet-300 to-indigo-400 dark:from-violet-600 dark:to-indigo-700',
         emoji: '🥽',
@@ -79,7 +79,7 @@ export const FEATURED_ROOMS: StubRoom[] = [
         online: 1786,
         members: 101098,
         gradient:
-            'from-lime-400 via-emerald-400 to-green-600 dark:from-emerald-700 dark:via-green-700 dark:to-teal-800',
+            'from-lime-400 via-emerald-500 to-green-700 dark:from-emerald-700 dark:via-green-700 dark:to-teal-800',
         badgeGradient:
             'from-lime-300 to-emerald-400 dark:from-emerald-600 dark:to-green-700',
         emoji: '🎮',

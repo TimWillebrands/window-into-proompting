@@ -53,7 +53,7 @@ export default function GroupChatWindow({
         return (
             <div
                 className="app-surface h-full flex items-center justify-center"
-                style={{ background: '#ECE9D8', color: '#808080' }}
+                style={{ background: 'transparent', color: '#808080' }}
             >
                 Open a chat group from the Chat Launcher to start messaging.
             </div>
@@ -385,7 +385,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     return (
         <div
             className="app-surface flex h-full"
-            style={{ background: '#ECE9D8' }}
+            style={{ background: 'transparent' }}
         >
             {/* Main chat column */}
             <div className="flex-1 flex flex-col min-w-0 h-full">
@@ -393,9 +393,11 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                 <div
                     className="p-2"
                     style={{
-                        borderBottom: '1px solid #ACA899',
+                        borderBottom: '1px solid rgba(255,255,255,0.7)',
                         background:
-                            'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
+                            'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(241,245,249,0.55) 100%)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                     }}
                 >
                     <div className="flex items-center justify-between">

@@ -42,7 +42,7 @@ export const ManyWindows: Story = {
     args: {
         windows: [
             { id: 'w1', title: 'Personas', icon: '👤' },
-            { id: 'w2', title: 'Group Chats', icon: '💬' },
+            { id: 'w2', title: "D'Accord — Chat Rooms", icon: '💬' },
             { id: 'w3', title: 'Control Panel', icon: '⚙️' },
             { id: 'w4', title: 'Calculator', icon: '🧮' },
             { id: 'w5', title: 'Solitaire', icon: '🃏' },

@@ -1,11 +1,24 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+    createMemoryHistory,
+    createRootRoute,
+    createRouter,
+    RouterContextProvider,
+} from '@tanstack/react-router';
 import { fn } from 'storybook/test';
 import WindowFrame from '../../components/desktop/WindowFrame';
-import ChatManagerApp from './ChatManagerApp';
+import { WindowInstanceProvider } from '../../components/desktop/window-instance-context';
+import DaccordApp from './DaccordApp';
+
+const rootRoute = createRootRoute();
+const stubRouter = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+});
 
 const meta = {
-    title: 'Apps/ChatManagerApp',
-    component: ChatManagerApp,
+    title: 'Apps/DaccordApp',
+    component: DaccordApp,
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
@@ -20,7 +33,7 @@ const meta = {
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="open-party"
-                    title="Group Chats"
+                    title="D'Accord — Chat Rooms"
                     icon="💬"
                     width={840}
                     height={540}
@@ -29,12 +42,16 @@ const meta = {
                     onMaximize={fn()}
                     onClose={fn()}
                 >
-                    <Story />
+                    <RouterContextProvider router={stubRouter}>
+                        <WindowInstanceProvider windowId="open-party">
+                            <Story />
+                        </WindowInstanceProvider>
+                    </RouterContextProvider>
                 </WindowFrame>
             </div>
         ),
     ],
-} satisfies Meta<typeof ChatManagerApp>;
+} satisfies Meta<typeof DaccordApp>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

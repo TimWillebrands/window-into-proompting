@@ -54,7 +54,7 @@ export const Grid: Story = {
             />
             <DesktopIcon
                 {...args}
-                label="Group Chats"
+                label="Chat Rooms"
                 position={{ x: 20, y: 130 }}
             />
             <DesktopIcon
