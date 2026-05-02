@@ -7,6 +7,9 @@
 
 export interface CreateChatGroupRequest {
     name?: string;
-    /** @nullable */
+    /**
+     * @maxLength 2000
+     * @nullable
+     */
     scenario?: string | null;
 }

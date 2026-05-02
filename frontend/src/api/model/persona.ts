@@ -9,6 +9,8 @@ export interface Persona {
     systemPrompt?: string;
     /** @nullable */
     bio?: string | null;
+    /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
+    chattiness?: number | string;
     id?: string;
     name?: string;
     isUser?: boolean;

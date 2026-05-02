@@ -4,16 +4,18 @@ import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
 import {
+    getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey,
     getGetPartyIdChatGroupsQueryKey,
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
+    useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
+    usePutPartyIdChatGroupsChatGroupIdParticipants,
     usePutPartyIdChatGroupsChatGroupIdScenario,
-    usePutPartyIdParticipants,
 } from '#api/party-zone';
 import {
     type ActiveGenerationPhase,
@@ -82,7 +84,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     >([]);
     const [savedParticipantPersonaIds, setSavedParticipantPersonaIds] =
         useState<string[]>([]);
-    const participantsInitialized = useRef(false);
+    // Tracks which chatGroupId we've already seeded participant state for —
+    // resets when the user switches rooms so per-room cast loads correctly.
+    const initializedForChatGroupId = useRef<string | null>(null);
     const lastSavedUserPersonaId = useRef<string | null>(null);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -98,18 +102,29 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useRealtimeStoreActions();
 
     const partyDetailsQuery = useGetPartyIdSuspense(apiPartyId);
+    const chatGroupParticipantsQuery =
+        useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense(
+            apiPartyId,
+            chatGroupId,
+        );
 
-    // Seed participant state from server data on first load
+    // Seed participant state from per-chat-group server data on first load.
+    // Each chat group owns its own cast (AI participants + the user-persona
+    // marked with isUser:true), so reload from this room, not the party-level list.
     useEffect(() => {
-        if (participantsInitialized.current) return;
-        if (partyDetailsQuery.data.status !== 200) return;
-        const serverIds = (partyDetailsQuery.data.data.party.participants ?? [])
+        if (initializedForChatGroupId.current === chatGroupId) return;
+        if (chatGroupParticipantsQuery.data.status !== 200) return;
+        const roomParticipants = chatGroupParticipantsQuery.data.data ?? [];
+        const aiIds = roomParticipants
             .filter((p) => !p.isUser && p.id)
             .map((p) => p.id as string);
-        setParticipantPersonaIds(serverIds);
-        setSavedParticipantPersonaIds(serverIds);
-        participantsInitialized.current = true;
-    }, [partyDetailsQuery.data]);
+        const userId = roomParticipants.find((p) => p.isUser && p.id)?.id ?? '';
+        setParticipantPersonaIds(aiIds);
+        setSavedParticipantPersonaIds(aiIds);
+        setSelectedPersonaId(userId);
+        lastSavedUserPersonaId.current = userId;
+        initializedForChatGroupId.current = chatGroupId;
+    }, [chatGroupId, chatGroupParticipantsQuery.data]);
 
     const promptParty = usePostPartyIdPrompt();
     const repromptParty = usePostPartyIdRepromptMessageId();
@@ -151,21 +166,27 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         target: textareaRef,
     });
 
-    const saveParticipantsMutation = usePutPartyIdParticipants({
-        mutation: {
-            onSuccess: (_data, variables) => {
-                const savedPersonaIds = (variables.data.participants ?? [])
-                    .filter((p) => !p.isUser && p.id !== null)
-                    .map(
-                        (p) => p.id ?? 'unreachable but tsc is being annoying',
-                    );
-                setSavedParticipantPersonaIds(savedPersonaIds);
-                queryClient.invalidateQueries({
-                    queryKey: ['chat', 'party', apiPartyId],
-                });
+    const saveParticipantsMutation =
+        usePutPartyIdChatGroupsChatGroupIdParticipants({
+            mutation: {
+                onSuccess: (_data, variables) => {
+                    const savedPersonaIds = (variables.data.participants ?? [])
+                        .filter((p) => !p.isUser && p.id !== null)
+                        .map(
+                            (p) =>
+                                p.id ?? 'unreachable but tsc is being annoying',
+                        );
+                    setSavedParticipantPersonaIds(savedPersonaIds);
+                    queryClient.invalidateQueries({
+                        queryKey:
+                            getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(
+                                variables.id,
+                                variables.chatGroupId,
+                            ),
+                    });
+                },
             },
-        },
-    });
+        });
 
     useEffect(() => {
         if (!chatGroupId) {
@@ -211,8 +232,10 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         }
     }, [isNearBottom, unreadCount]);
 
-    // Keep selected persona in sync: auto-select first promptable persona if current selection is unavailable
+    // Keep selected persona in sync: auto-select first promptable persona if current selection is unavailable.
+    // Wait for the per-chat-group seed to land first so we don't race over a freshly-loaded user-persona.
     useEffect(() => {
+        if (initializedForChatGroupId.current !== chatGroupId) return;
         if (partyDetailsQuery.data.status !== 200) return;
         const personas = partyDetailsQuery.data.data.personaParticipants;
         const promptable = personas.filter(
@@ -224,13 +247,18 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         if (!isValid) {
             setSelectedPersonaId(promptable[0]?.id ?? '');
         }
-    }, [partyDetailsQuery.data, participantPersonaIds, selectedPersonaId]);
+    }, [
+        partyDetailsQuery.data,
+        participantPersonaIds,
+        selectedPersonaId,
+        chatGroupId,
+    ]);
 
     // Auto-save user persona to backend whenever selection changes
     useEffect(() => {
         if (lastSavedUserPersonaId.current === selectedPersonaId) return;
         if (partyDetailsQuery.data.status !== 200) return;
-        if (!participantsInitialized.current) return;
+        if (initializedForChatGroupId.current !== chatGroupId) return;
 
         lastSavedUserPersonaId.current = selectedPersonaId;
 
@@ -255,6 +283,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
             : aiParticipants;
         saveParticipantsMutation.mutate({
             id: apiPartyId,
+            chatGroupId,
             data: { participants },
         });
     }, [
@@ -262,6 +291,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         partyDetailsQuery.data,
         savedParticipantPersonaIds,
         apiPartyId,
+        chatGroupId,
         saveParticipantsMutation.mutate,
     ]);
 
@@ -325,21 +355,32 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
 
         const personas = partyDetailsQuery.data.data.personaParticipants;
         const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
-        const userParticipants = (
-            partyDetailsQuery.data.data.party.participants ?? []
-        ).filter((p) => p.isUser);
         const personasToSave = participantPersonaIds.map((id) => ({
             id,
             name: personaNameMap.get(id) ?? id,
             isUser: false,
         }));
+        const userParticipant = selectedPersonaId
+            ? [
+                  {
+                      id: selectedPersonaId,
+                      name:
+                          personaNameMap.get(selectedPersonaId) ??
+                          selectedPersonaId,
+                      isUser: true,
+                  },
+              ]
+            : [];
         saveParticipantsMutation.mutate({
             id: apiPartyId,
-            data: { participants: [...personasToSave, ...userParticipants] },
+            chatGroupId,
+            data: { participants: [...personasToSave, ...userParticipant] },
         });
     }, [
         apiPartyId,
+        chatGroupId,
         participantPersonaIds,
+        selectedPersonaId,
         partyDetailsQuery.data,
         saveParticipantsMutation.mutate,
     ]);

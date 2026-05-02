@@ -171,6 +171,95 @@ public sealed class PartyController(
     }
 
     /// <summary>
+    /// Returns the participant list for a single chat group (the per-room cast,
+    /// including the user-persona marked with <see cref="PartyParticipant.IsUser"/>).
+    /// </summary>
+    [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<PartyParticipant>>> GetChatGroupParticipants(Guid id, Guid chatGroupId)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, id);
+        if (!await root.HasPartyId(id))
+        {
+            return NotFound();
+        }
+
+        var partyGrain = grains.GetGrain<IPartyGrain>(id);
+        var chatGroups = await partyGrain.GetChatGroups();
+        if (!chatGroups.Any(g => g.Id == chatGroupId))
+        {
+            return NotFound();
+        }
+
+        var participants = await grains.GetGrain<IChatGroupGrain>(chatGroupId).GetParticipantsAsync();
+        return Ok(participants);
+    }
+
+    /// <summary>
+    /// Replaces the participant list for a single chat group. Other chat groups in the
+    /// same party are not affected. The party-level participant list (used to seed new
+    /// chat groups) is also untouched.
+    /// </summary>
+    [HttpPut("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<PartyParticipant>>> SetChatGroupParticipants(
+        Guid id,
+        Guid chatGroupId,
+        [FromBody] UpdatePartyParticipantsRequest request)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, id);
+        if (!await root.HasPartyId(id))
+        {
+            return NotFound();
+        }
+
+        var partyGrain = grains.GetGrain<IPartyGrain>(id);
+        var chatGroups = await partyGrain.GetChatGroups();
+        if (!chatGroups.Any(g => g.Id == chatGroupId))
+        {
+            return NotFound();
+        }
+
+        var participants = (request.Participants ?? [])
+            .Where(participant => participant.Id != Guid.Empty)
+            .GroupBy(participant => participant.Id)
+            .Select(group =>
+            {
+                var participant = group.First();
+                var fallbackName = participant.Id.ToString();
+                return new PartyParticipant
+                {
+                    Id = participant.Id,
+                    Name = string.IsNullOrWhiteSpace(participant.Name)
+                        ? fallbackName
+                        : participant.Name.Trim(),
+                    IsUser = participant.IsUser
+                };
+            })
+            .ToList();
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        await chatGroupGrain.SetParticipantsAsync(participants);
+        var updated = await chatGroupGrain.GetParticipantsAsync();
+        return Ok(updated);
+    }
+
+    /// <summary>
     /// Sends a user prompt into the party conversation.
     /// </summary>
     /// <param name="id">The party identifier.</param>

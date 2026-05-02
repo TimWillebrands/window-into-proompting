@@ -32,6 +32,7 @@ import type {
     LlmProviderEntry,
     PartyDetails,
     PartyInfo,
+    PartyParticipant,
     Persona,
     ProblemDetails,
     ProceedRequest,
@@ -2268,6 +2269,689 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
 > => {
     return useMutation(
         getPutPartyIdParticipantsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
+    {
+        data: PartyParticipant[];
+        status: 200;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess = (
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponseError = (
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPartyIdChatGroupsChatGroupIdParticipantsResponse =
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess
+    | getPartyIdChatGroupsChatGroupIdParticipantsResponseError;
+
+export const getGetPartyIdChatGroupsChatGroupIdParticipantsUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/participants`;
+};
+
+export const getPartyIdChatGroupsChatGroupIdParticipants = async (
+    id: string,
+    chatGroupId: string,
+    options?: RequestInit,
+): Promise<getPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
+    const res = await fetch(
+        getGetPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdChatGroupsChatGroupIdParticipantsResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdChatGroupsChatGroupIdParticipantsResponse;
+};
+
+export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return [
+        `/api/Party/${id}/chat-groups/${chatGroupId}/participants`,
+    ] as const;
+};
+
+export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+) => {
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(id, chatGroupId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
+    > = ({ signal }) =>
+        getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
+            signal,
+            ...fetchOptions,
+        });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!(id && chatGroupId),
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartyIdChatGroupsChatGroupIdParticipantsQueryResult =
+    NonNullable<
+        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
+    >;
+export type GetPartyIdChatGroupsChatGroupIdParticipantsQueryError =
+    ProblemDetails;
+
+export function useGetPartyIdChatGroupsChatGroupIdParticipants<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdParticipants
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdParticipants
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdParticipants<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdParticipants
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdParticipants
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdParticipants<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdChatGroupsChatGroupIdParticipants<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions(
+            id,
+            chatGroupId,
+            options,
+        );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions =
+    <
+        TData = Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+        >,
+        TError = ProblemDetails,
+    >(
+        id: string,
+        chatGroupId: string,
+        options?: {
+            query?: Partial<
+                UseSuspenseQueryOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdParticipants
+                        >
+                    >,
+                    TError,
+                    TData
+                >
+            >;
+            fetch?: RequestInit;
+        },
+    ) => {
+        const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+        const queryKey =
+            queryOptions?.queryKey ??
+            getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(
+                id,
+                chatGroupId,
+            );
+
+        const queryFn: QueryFunction<
+            Awaited<
+                ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+            >
+        > = ({ signal }) =>
+            getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
+                signal,
+                ...fetchOptions,
+            });
+
+        return {
+            queryKey,
+            queryFn,
+            ...queryOptions,
+        } as UseSuspenseQueryOptions<
+            Awaited<
+                ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+            >,
+            TError,
+            TData
+        > & { queryKey: DataTag<QueryKey, TData, TError> };
+    };
+
+export type GetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryResult =
+    NonNullable<
+        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
+    >;
+export type GetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryError =
+    ProblemDetails;
+
+export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdParticipants
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions(
+            id,
+            chatGroupId,
+            options,
+        );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
+    {
+        data: PartyParticipant[];
+        status: 200;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
+    data: PartyParticipant[];
+    status: 200;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess = (
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponseError = (
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextPlain
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextJson
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type putPartyIdChatGroupsChatGroupIdParticipantsResponse =
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess
+    | putPartyIdChatGroupsChatGroupIdParticipantsResponseError;
+
+export const getPutPartyIdChatGroupsChatGroupIdParticipantsUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/participants`;
+};
+
+export const putPartyIdChatGroupsChatGroupIdParticipants = async (
+    id: string,
+    chatGroupId: string,
+    updatePartyParticipantsRequest: UpdatePartyParticipantsRequest,
+    options?: RequestInit,
+): Promise<putPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
+    const res = await fetch(
+        getPutPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(updatePartyParticipantsRequest),
+        },
+    );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdChatGroupsChatGroupIdParticipantsResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdChatGroupsChatGroupIdParticipantsResponse;
+};
+
+export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+        TError,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdatePartyParticipantsRequest;
+        },
+        TContext
+    >;
+    fetch?: RequestInit;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    TContext
+> => {
+    const mutationKey = ['putPartyIdChatGroupsChatGroupIdParticipants'];
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, fetch: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdatePartyParticipantsRequest;
+        }
+    > = (props) => {
+        const { id, chatGroupId, data } = props ?? {};
+
+        return putPartyIdChatGroupsChatGroupIdParticipants(
+            id,
+            chatGroupId,
+            data,
+            fetchOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>
+    >;
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationBody =
+    UpdatePartyParticipantsRequest;
+export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationError =
+    ProblemDetails;
+
+export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>
+            >,
+            TError,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdatePartyParticipantsRequest;
+            },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
+    TError,
+    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions(options),
         queryClient,
     );
 };

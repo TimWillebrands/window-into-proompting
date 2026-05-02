@@ -47,18 +47,15 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task SetParticipants(List<PartyParticipant> participants)
     {
+        // Party-level participants are the seed cast for newly created chat groups
+        // (see ChatGroupGrain.OnActivateAsync). Existing chat groups own their own
+        // participants list per-room and are not mutated here.
         RaiseEvent(new ParticipantsSetEvent
         {
             Participants = [.. participants]
         });
 
         await ConfirmEvents();
-
-        // Propagate participants to all chat group grains
-        var tasks = State.ChatGroups.Select(cg =>
-            GrainFactory.GetGrain<IChatGroupGrain>(cg.Id)
-                .SetParticipantsAsync(participants));
-        await Task.WhenAll(tasks);
     }
 
     public Task<List<ChatGroupInfo>> GetChatGroups()
