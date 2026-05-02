@@ -812,7 +812,7 @@ function ParticipantsSidebar({
                     reason: raw.reason ?? raw.Reason ?? null,
                     instruction: raw.instruction ?? raw.Instruction ?? null,
                     skip: !!(raw.stop ?? raw.Stop),
-                    sortKey: msg.sendAt ?? msg.messageId,
+                    sortKey: msg.messageId,
                 });
             } catch {
                 /* ignore */
@@ -823,14 +823,14 @@ function ParticipantsSidebar({
         for (const d of declinedDecisions) {
             const persona = personas.find((p) => p.id === d.personaId);
             entries.push({
-                key: `declined-${d.personaId}-${d.timestamp}`,
+                key: `declined-${d.messageId}`,
                 personaId: d.personaId,
                 personaName:
                     persona?.name ?? d.personaId?.slice(0, 8) ?? 'Unknown',
                 reason: d.reason,
                 instruction: null,
                 skip: true,
-                sortKey: d.timestamp,
+                sortKey: d.messageId,
             });
         }
 

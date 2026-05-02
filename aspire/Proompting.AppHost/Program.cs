@@ -27,6 +27,12 @@ builder
     .WithNpm()
     .WithReference(backend)
     .WaitFor(backend)
-    .WithEnvironment("VITE_API_URL", backend.GetEndpoint("http"));
+    .WithEnvironment("VITE_API_URL", backend.GetEndpoint("http"))
+    .WithEndpoint("http", e =>
+    {
+        e.Port = 8080;
+        e.TargetPort = 8080;
+        e.IsProxied = false;
+    });
 
 builder.Build().Run();

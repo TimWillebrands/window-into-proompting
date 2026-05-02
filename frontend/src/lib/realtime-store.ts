@@ -47,6 +47,7 @@ export interface DeclinedDecision {
     personaId: string;
     reason: string | null;
     decisionText: string;
+    messageId: number;
     timestamp: number;
 }
 
@@ -503,6 +504,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         personaId: declinedPersonaId || phantom?.senderId || '',
                         reason: declinedReason,
                         decisionText: (phantom?.appraisal ?? '').trim(),
+                        messageId,
                         timestamp: Date.now(),
                     };
                     return {
