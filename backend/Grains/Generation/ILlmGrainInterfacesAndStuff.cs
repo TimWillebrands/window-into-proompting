@@ -70,7 +70,7 @@ public sealed record class LlmChatMessage
 [Alias("PartyTown.Grains.Generation.LlmGenerationJob")]
 public sealed record class LlmGenerationJob
 {
-    [Id(0)] public IReadOnlyList<LlmChatMessage> Messages { get; init; } = [];
+    [Id(0)] public IReadOnlyList<LlmChatMessage> Messages { get; init; } = Array.Empty<LlmChatMessage>();
     [Id(1)] public JobComplexity JobComplexity { get; init; }
     [Id(2)] public LlmModelParameters? ModelParameters { get; init; }
     [Id(3)] public Dictionary<string, string>? JobData { get; init; }

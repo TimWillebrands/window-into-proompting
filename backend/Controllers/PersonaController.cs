@@ -290,10 +290,11 @@ public class PersonaController(
 
                     await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
                     {
-                        Messages = [
+                        Messages = new List<LlmChatMessage>
+                        {
                             new() { Role = "system", Content = BioGenerationSystemPrompt },
                             new() { Role = "user", Content = systemPrompt }
-                        ],
+                        },
                         ModelParameters = new LlmModelParameters { Temperature = 0.7 }
                     }, ct))
                     {
@@ -339,10 +340,11 @@ public class PersonaController(
 
                     await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
                     {
-                        Messages = [
+                        Messages = new List<LlmChatMessage>
+                        {
                             new() { Role = "system", Content = generatorPrompt },
                             new() { Role = "user", Content = prompt }
-                        ],
+                        },
                         ModelParameters = new LlmModelParameters { Temperature = 0.85 }
                     }, ct))
                     {

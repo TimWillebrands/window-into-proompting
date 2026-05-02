@@ -7,7 +7,7 @@ var openRouterKey = builder.AddParameter("openrouter-api-key", secret: true);
 var postgres = builder
     .AddPostgres("age-db", userName: pgUser, password: pgPass, port: 5455)
     .WithImage("apache/age")
-    .WithImageTag("PG16_latest")
+    .WithImageTag("release_PG16_1.6.0")
     .WithDataVolume("partytown-pgdata")
     .WithBindMount("../../docker-entrypoint-initdb.d", "/docker-entrypoint-initdb.d", isReadOnly: true);
 
