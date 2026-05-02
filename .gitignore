@@ -28,6 +28,10 @@ frontend/.tanstack
 **/obj
 **/.nuget
 
+# Aspire
+aspire/**/.aspire/cache/
+aspire/**/*.user
+
 # IDE
 .idea/
 .vs/
