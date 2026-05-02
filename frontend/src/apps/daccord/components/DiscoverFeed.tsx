@@ -17,26 +17,16 @@ interface RealRoom {
 
 interface DiscoverFeedProps {
     realRooms: RealRoom[];
-    onCreateRoom: (name: string, scenario: string) => void;
-    creating: boolean;
     searchQuery: string;
     onSelectRealRoom: (id: string) => void;
-    inputName: string;
-    inputScenario: string;
-    onInputName: (v: string) => void;
-    onInputScenario: (v: string) => void;
+    onOpenCreate: () => void;
 }
 
 export default function DiscoverFeed({
     realRooms,
-    onCreateRoom,
-    creating,
     searchQuery,
     onSelectRealRoom,
-    inputName,
-    inputScenario,
-    onInputName,
-    onInputScenario,
+    onOpenCreate,
 }: DiscoverFeedProps) {
     const grassGradId = useId();
     const q = searchQuery.trim().toLowerCase();
@@ -294,47 +284,25 @@ export default function DiscoverFeed({
                 </>
             )}
 
-            {/* Create-room block (kept functional — uses real backend) */}
-            <SectionHeader title="Create a Room" />
-            <form
-                className="mb-10 flex flex-col gap-2 rounded-3xl bg-white/70 dark:bg-slate-800/70 p-4 shadow-[0_8px_24px_-8px_rgba(46,92,202,0.25)] ring-1 ring-white/60 dark:ring-slate-700 backdrop-blur-xl"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    if (creating) return;
-                    const name = inputName.trim();
-                    if (!name) return;
-                    onCreateRoom(name, inputScenario.trim());
-                }}
-            >
-                <input
-                    type="text"
-                    value={inputName}
-                    onChange={(e) => onInputName(e.currentTarget.value)}
-                    placeholder="Room name…"
-                    className="w-full rounded-full border border-slate-300/80 dark:border-slate-600 bg-white/90 dark:bg-slate-900 px-4 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-                <textarea
-                    value={inputScenario}
-                    onChange={(e) => onInputScenario(e.currentTarget.value)}
-                    rows={2}
-                    maxLength={500}
-                    placeholder="Scenario (optional) — e.g. 'Office of a stealth horticulture startup.'"
-                    className="w-full rounded-2xl border border-slate-300/80 dark:border-slate-600 bg-white/90 dark:bg-slate-900 px-4 py-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
+            {/* Create-room CTA — opens the modal */}
+            <SectionHeader title="Start Your Own Room" />
+            <div className="mb-10 flex flex-col items-start gap-3 rounded-3xl bg-white/70 dark:bg-slate-800/70 p-5 shadow-[0_8px_24px_-8px_rgba(46,92,202,0.25)] ring-1 ring-white/60 dark:ring-slate-700 backdrop-blur-xl">
+                <p className="text-[13px] text-slate-700 dark:text-slate-300">
+                    Spin up a fresh room with a title and an optional scenario
+                    to set the scene.
+                </p>
                 <button
-                    type="submit"
-                    disabled={creating || !inputName.trim()}
-                    className="relative self-start overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-[0_6px_14px_-4px_rgba(46,92,202,0.5)] ring-1 ring-white/50 ring-inset hover:from-blue-600 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    onClick={onOpenCreate}
+                    className="relative overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-[0_6px_14px_-4px_rgba(46,92,202,0.5)] ring-1 ring-white/50 ring-inset hover:from-blue-600 hover:to-indigo-700"
                 >
                     <span
                         aria-hidden
                         className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/35 to-transparent"
                     />
-                    <span className="relative">
-                        {creating ? 'Creating…' : '+ Create Room'}
-                    </span>
+                    <span className="relative">+ Create Room</span>
                 </button>
-            </form>
+            </div>
         </div>
     );
 }

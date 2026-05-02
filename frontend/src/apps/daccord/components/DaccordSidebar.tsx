@@ -20,6 +20,7 @@ interface DaccordSidebarProps {
     activeRoomId?: string;
     activeCategory: string;
     onSelectCategory: (id: string) => void;
+    onCreateRoom: () => void;
 }
 
 export default function DaccordSidebar({
@@ -28,6 +29,7 @@ export default function DaccordSidebar({
     activeRoomId,
     activeCategory,
     onSelectCategory,
+    onCreateRoom,
 }: DaccordSidebarProps) {
     const [yourRoomsOpen, setYourRoomsOpen] = useState(true);
 
@@ -75,10 +77,10 @@ export default function DaccordSidebar({
                             })}
                             <button
                                 type="button"
-                                disabled
-                                title="Create Hub"
-                                aria-label="Create Hub"
-                                className="relative mt-2 flex h-10 w-10 items-center justify-center self-start overflow-hidden rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_-2px_rgba(46,92,202,0.5)] ring-2 ring-white/60 opacity-90 cursor-not-allowed"
+                                onClick={onCreateRoom}
+                                title="Create Room"
+                                aria-label="Create Room"
+                                className="relative mt-2 flex h-10 w-10 items-center justify-center self-start overflow-hidden rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_-2px_rgba(46,92,202,0.5)] ring-2 ring-white/60 transition-transform hover:scale-110 hover:ring-white/80"
                             >
                                 <span
                                     className="text-lg leading-none"
@@ -104,11 +106,11 @@ export default function DaccordSidebar({
                                 <div className="mt-1 flex flex-col gap-0.5">
                                     {realRooms.length === 0 ? (
                                         <p className="px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                            No rooms yet. Create one in Discover
-                                            or the prompt below.
+                                            No rooms yet. Click + above to
+                                            create one.
                                         </p>
                                     ) : (
-                                        realRooms.slice(0, 6).map((r) => {
+                                        realRooms.map((r) => {
                                             const palette = paletteFor(r.id);
                                             const sub =
                                                 r.online != null
@@ -133,14 +135,6 @@ export default function DaccordSidebar({
                                                 />
                                             );
                                         })
-                                    )}
-                                    {realRooms.length > 6 && (
-                                        <button
-                                            type="button"
-                                            className="mt-1 px-3 py-1 text-left text-[11px] font-semibold text-blue-700 dark:text-blue-400 hover:underline"
-                                        >
-                                            See all rooms
-                                        </button>
                                     )}
                                 </div>
                             )}
