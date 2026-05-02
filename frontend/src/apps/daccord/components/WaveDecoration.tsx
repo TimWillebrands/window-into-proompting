@@ -14,6 +14,7 @@ export default function WaveDecoration({
     const gradB = `${baseId}-b`;
 
     if (variant === 'panel') {
+        const gradC = `${baseId}-c`;
         return (
             <div
                 aria-hidden
@@ -23,14 +24,31 @@ export default function WaveDecoration({
                     role="presentation"
                     viewBox="0 0 300 800"
                     preserveAspectRatio="xMidYMid slice"
-                    className="absolute inset-0 h-full w-full mix-blend-overlay opacity-70"
+                    className="absolute inset-0 h-full w-full"
                 >
                     <defs>
-                        <linearGradient id={gradA} x1="0" y1="0" x2="1" y2="1">
+                        <linearGradient id={gradA} x1="0" y1="0" x2="0.6" y2="1">
+                            <stop
+                                offset="0%"
+                                stopColor="#a5b4fc"
+                                stopOpacity="0.85"
+                            />
+                            <stop
+                                offset="55%"
+                                stopColor="#818cf8"
+                                stopOpacity="0.9"
+                            />
+                            <stop
+                                offset="100%"
+                                stopColor="#7c3aed"
+                                stopOpacity="0.95"
+                            />
+                        </linearGradient>
+                        <linearGradient id={gradB} x1="0" y1="0" x2="0" y2="1">
                             <stop
                                 offset="0%"
                                 stopColor="white"
-                                stopOpacity="0.7"
+                                stopOpacity="0.55"
                             />
                             <stop
                                 offset="100%"
@@ -38,43 +56,58 @@ export default function WaveDecoration({
                                 stopOpacity="0"
                             />
                         </linearGradient>
-                        <linearGradient id={gradB} x1="0" y1="1" x2="1" y2="0">
+                        <linearGradient id={gradC} x1="0" y1="0" x2="1" y2="0.6">
                             <stop
                                 offset="0%"
-                                stopColor="white"
-                                stopOpacity="0.5"
+                                stopColor="#c7d2fe"
+                                stopOpacity="0.55"
                             />
                             <stop
                                 offset="100%"
-                                stopColor="white"
+                                stopColor="#ddd6fe"
                                 stopOpacity="0"
                             />
                         </linearGradient>
                     </defs>
+                    {/* faint echo wash high above main wave */}
                     <path
-                        d="M-40,560 C 60,420 180,640 340,500 L340,820 L-40,820 Z"
+                        d="M-40,640 C 70,580 160,700 320,610 L320,660 C 200,720 80,640 -40,700 Z"
+                        fill={`url(#${gradC})`}
+                    />
+                    {/* main wave — bottom flourish only */}
+                    <path
+                        d="M-40,700 C 60,630 140,750 220,680 C 270,640 300,650 340,640 L340,820 L-40,820 Z"
                         fill={`url(#${gradA})`}
                     />
+                    {/* crest sheen */}
                     <path
-                        d="M-40,640 C 80,540 200,720 340,580 L340,820 L-40,820 Z"
+                        d="M-40,700 C 60,630 140,750 220,680 C 270,640 300,650 340,640 L340,740 C 250,720 150,790 60,750 Z"
                         fill={`url(#${gradB})`}
                     />
+                    {/* highlight ribbons inside wave */}
                     <path
-                        d="M-20,720 C 100,640 220,780 340,700"
+                        d="M-20,760 C 80,700 180,810 340,720"
                         fill="none"
                         stroke="white"
-                        strokeOpacity="0.55"
+                        strokeOpacity="0.4"
                         strokeWidth="1.5"
                     />
+                    <path
+                        d="M-20,795 C 100,750 220,830 340,765"
+                        fill="none"
+                        stroke="white"
+                        strokeOpacity="0.25"
+                        strokeWidth="1.25"
+                    />
                 </svg>
-                <span className="absolute right-3 top-6 text-base text-white/80 drop-shadow">
-                    ✦
-                </span>
-                <span className="absolute right-8 top-14 text-[10px] text-white/70">
-                    ✦
-                </span>
-                <span className="absolute left-6 bottom-24 text-sm text-white/70 drop-shadow">
+                <span className="absolute left-5 bottom-12 text-sm text-white/90 drop-shadow">
                     ✨
+                </span>
+                <span className="absolute left-12 bottom-24 text-[10px] text-white/75">
+                    ✦
+                </span>
+                <span className="absolute right-10 bottom-16 text-[11px] text-white/80">
+                    ✦
                 </span>
             </div>
         );

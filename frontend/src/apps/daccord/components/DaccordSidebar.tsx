@@ -32,31 +32,26 @@ export default function DaccordSidebar({
     const [yourRoomsOpen, setYourRoomsOpen] = useState(true);
 
     return (
-        <aside className="relative flex h-full w-14 @[640px]:w-[300px] shrink-0 flex-col overflow-hidden bg-gradient-to-b from-blue-600 via-indigo-600 to-purple-700 dark:from-indigo-950 dark:via-slate-900 dark:to-purple-950 text-slate-800 dark:text-slate-100 p-1.5 @[640px]:p-2 gap-2">
-            <WaveDecoration variant="panel" />
-
-            <div className="relative flex flex-1 min-h-0 gap-2">
-                {/* Server rail — narrow strip on saturated blue */}
+        <aside className="relative flex h-full w-14 @[640px]:w-[300px] shrink-0 flex-col overflow-hidden bg-gradient-to-b from-blue-500 via-blue-600 to-indigo-700 dark:from-indigo-950 dark:via-slate-900 dark:to-purple-950 text-slate-800 dark:text-slate-100 p-1.5 @[640px]:p-2 gap-2">
+            <div className="relative z-10 flex flex-1 min-h-0 gap-1.5">
+                {/* Server rail — saturated strip w/ glassy icon buttons */}
                 <div className="flex w-11 shrink-0 flex-col items-center gap-2.5 py-2">
                     {SERVER_RAIL.map((s) => (
                         <button
                             key={s.id}
                             type="button"
                             title={s.label}
-                            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-white/35 to-white/10 text-2xl ring-2 ring-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_-2px_rgba(0,0,0,0.3)] backdrop-blur-md transition-all duration-150 hover:from-white/55 hover:to-white/25 hover:scale-110 hover:ring-white/70"
+                            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-white/35 to-white/10 text-blue-700 text-2xl ring-2 ring-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_4px_10px_-2px_rgba(0,0,0,0.25)] backdrop-blur-md transition-all duration-150 hover:from-white/55 hover:to-white/25 hover:scale-110 hover:ring-white/80"
                         >
                             <span aria-hidden>{s.icon}</span>
                         </button>
                     ))}
                 </div>
 
-                {/* Floating glassy plate — categories + your rooms */}
-                <div className="relative hidden @[640px]:flex flex-1 min-w-0 flex-col gap-1 overflow-hidden rounded-3xl bg-gradient-to-b from-white/85 to-white/70 dark:from-slate-800/80 dark:to-slate-900/70 px-2 py-3 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70 backdrop-blur-xl">
-                    <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 top-0 h-20 rounded-t-3xl bg-gradient-to-b from-white/60 to-transparent"
-                    />
-                    <div className="flex flex-1 min-h-0 flex-col gap-1 overflow-y-auto pr-1">
+                {/* Right column — white panel w/ wave bleeding from bottom */}
+                <div className="relative hidden @[640px]:flex flex-1 min-w-0 flex-col gap-1 overflow-hidden rounded-3xl bg-gradient-to-b from-white via-white to-blue-50/80 dark:from-slate-800/90 dark:to-slate-900/80 px-2 py-3 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70">
+                    <WaveDecoration variant="panel" />
+                    <div className="relative z-10 flex flex-1 min-h-0 flex-col gap-1 overflow-y-auto pr-1">
                         <nav className="flex flex-col gap-0.5">
                             {NAV_CATEGORIES.map((c) => {
                                 const active = c.id === activeCategory;
@@ -68,7 +63,7 @@ export default function DaccordSidebar({
                                         className={`flex items-center gap-2.5 rounded-2xl px-3 py-2 text-[13px] font-medium transition-all ${
                                             active
                                                 ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_4px_10px_-3px_rgba(46,92,202,0.5)] ring-1 ring-white/50 ring-inset'
-                                                : 'text-slate-700 hover:bg-white/80 hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-700/60'
+                                                : 'text-slate-700 hover:bg-blue-100/70 hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-700/60'
                                         }`}
                                     >
                                         <span className="text-lg" aria-hidden>
@@ -154,8 +149,8 @@ export default function DaccordSidebar({
                 </div>
             </div>
 
-            {/* Profile dock — floating glassy card at bottom */}
-            <div className="relative flex items-center gap-2 overflow-hidden rounded-3xl bg-white/85 dark:bg-slate-800/80 p-2 shadow-[0_10px_24px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70 backdrop-blur-xl">
+            {/* Profile dock — white pill floating over purple wave */}
+            <div className="relative z-10 flex items-center gap-2 overflow-hidden rounded-3xl bg-white/95 dark:bg-slate-800/90 p-2 shadow-[0_14px_32px_-10px_rgba(46,46,148,0.55)] ring-1 ring-white/80 backdrop-blur-xl">
                 <span
                     aria-hidden
                     className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-3xl bg-gradient-to-b from-white/55 to-transparent"
