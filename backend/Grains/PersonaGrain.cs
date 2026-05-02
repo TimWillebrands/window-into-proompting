@@ -210,6 +210,7 @@ public sealed class PersonaGrain(
                 result.Message ?? string.Empty,
                 result.Reasoning,
                 appraisalJson,
+                result.Metadata,
                 linkedCt);
 
             logger.LogInformation("Persona {PersonaName} completed response for message {MessageId}", persona.Name, messageId);

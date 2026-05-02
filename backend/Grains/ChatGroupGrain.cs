@@ -140,6 +140,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string content,
         string? reasoning,
         string? appraisal,
+        ChatMessageMetadata? metadata,
         CancellationToken ct = default)
     {
 
@@ -153,7 +154,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Reasoning = reasoning,
             Appraisal = appraisal,
             SenderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty,
-            SendAt = sendAt
+            SendAt = sendAt,
+            Metadata = metadata
         });
         await ConfirmEvents();
         _ = NotifyAllParticipantsAsync(State.Messages.FirstOrDefault(m => m.MessageId == messageId)!, ct);
@@ -359,6 +361,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string content,
         string? reasoning = null,
         string? appraisal = null,
+        ChatMessageMetadata? metadata = null,
         CancellationToken cancellationToken = default);
 
     [Alias("MarkGenerationStoppedAsync")]
@@ -466,6 +469,7 @@ public sealed record class ChatGroupState
         target.Appraisal = @event.Appraisal;
         target.SenderId = @event.SenderId;
         target.SendAt = @event.SendAt;
+        target.Metadata = @event.Metadata;
     }
 
     public void Apply(ChatGroupGenerationStoppedEvent @event)
@@ -543,6 +547,7 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(3)] public string? Appraisal { get; set; }
     [Id(4)] public Guid SenderId { get; set; }
     [Id(5)] public long SendAt { get; set; }
+    [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
 }
 
 /// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>

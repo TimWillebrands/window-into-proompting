@@ -42,4 +42,20 @@ public record class ChatMessage
     /// <summary>Identifier of the chat group this message belongs to.</summary>
     [Id(9)]
     public Guid ChatGroupId { get; set; }
+
+    /// <summary>Generation papertrail (model, provider, etc.). Null for user messages and pre-papertrail history.</summary>
+    [Id(8)]
+    public ChatMessageMetadata? Metadata { get; set; }
+}
+
+/// <summary>Provenance metadata for an assistant message — which backend produced it.
+/// Persisted on <see cref="ChatMessage"/> and surfaced in the UI's Details panel.</summary>
+[GenerateSerializer, Alias(nameof(ChatMessageMetadata))]
+public sealed record class ChatMessageMetadata
+{
+    /// <summary>Provider backend that served the generation (e.g. "ollama", "openrouter").</summary>
+    [Id(0)] public string? Provider { get; set; }
+
+    /// <summary>Model that generated this message (e.g. "qwen2.5:14b").</summary>
+    [Id(1)] public string? ModelName { get; set; }
 }

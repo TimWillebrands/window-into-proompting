@@ -60,6 +60,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
 
         var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+        var metadata = await generation.GetAttributionAsync();
         await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
             if (chunk.Type == LlmGenerationEvent.ContentChunk)
@@ -81,7 +82,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             Stop = false,
             Message = builder.ToString(),
             Reasoning = reasoning.ToString(),
-            Persona = persona
+            Persona = persona,
+            Metadata = metadata
         };
     }
 
@@ -145,4 +147,5 @@ public sealed record class GenerationResult
     public string? Message { get; init; }
     public string? Reasoning { get; init; }
     public GenerationParticipant? Persona { get; init; }
+    public ChatMessageMetadata? Metadata { get; init; }
 }
