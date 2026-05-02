@@ -46,6 +46,11 @@ public record class ChatMessage
     /// <summary>Generation papertrail (model, provider, etc.). Null for user messages and pre-papertrail history.</summary>
     [Id(8)]
     public ChatMessageMetadata? Metadata { get; set; }
+
+    /// <summary>The message id this one is reacting to. Null for user-authored messages
+    /// and for assistant messages persisted before this field existed.</summary>
+    [Id(10)]
+    public int? TriggeredByMessageId { get; set; }
 }
 
 /// <summary>Provenance metadata for an assistant message — which backend produced it.

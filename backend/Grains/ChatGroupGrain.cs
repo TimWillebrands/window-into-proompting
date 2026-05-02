@@ -73,14 +73,18 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
-    public async Task<int> GetNextMessageIdAsync(Guid? senderId = null, string senderType = "assistant")
+    public async Task<int> GetNextMessageIdAsync(
+        Guid? senderId = null,
+        string senderType = "assistant",
+        int? triggeredByMessageId = null)
     {
 
         RaiseEvent(new ChatGroupMessageSlotReservedEvent
         {
             SenderId = senderId,
             SenderType = senderType,
-            ChatGroupId = this.GetPrimaryKey()
+            ChatGroupId = this.GetPrimaryKey(),
+            TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
         return State.NextMessageId;
@@ -141,6 +145,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         string? reasoning,
         string? appraisal,
         ChatMessageMetadata? metadata,
+        int? triggeredByMessageId = null,
         CancellationToken ct = default)
     {
 
@@ -155,7 +160,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Appraisal = appraisal,
             SenderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty,
             SendAt = sendAt,
-            Metadata = metadata
+            Metadata = metadata,
+            TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
         _ = NotifyAllParticipantsAsync(State.Messages.FirstOrDefault(m => m.MessageId == messageId)!, ct);
@@ -172,7 +178,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal)
+    public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -181,7 +187,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         {
             MessageId = messageId,
             Appraisal = appraisal,
-            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
 
@@ -270,6 +277,28 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<List<PartyParticipant>> GetParticipantsAsync()
         => Task.FromResult(new List<PartyParticipant>([.. State.Participants]));
 
+    public async Task RecordSkippedTurnAsync(
+        Guid personaId,
+        string personaName,
+        int triggeredByMessageId,
+        double urgeTotal,
+        string reason)
+    {
+        RaiseEvent(new ChatGroupPersonaSkippedEvent
+        {
+            PersonaId = personaId,
+            PersonaName = personaName,
+            TriggeredByMessageId = triggeredByMessageId,
+            UrgeTotal = urgeTotal,
+            Reason = reason,
+            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+        await ConfirmEvents();
+    }
+
+    public Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync()
+        => Task.FromResult<IReadOnlyList<SkippedTurn>>(State.SkippedTurns.ToList());
+
     public Task<int> CountTrailingAssistantMessagesAsync()
     {
         var count = 0;
@@ -342,7 +371,10 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
     [Alias("GetNextMessageIdAsync")]
-    Task<int> GetNextMessageIdAsync(Guid? senderId = null, string senderType = "assistant");
+    Task<int> GetNextMessageIdAsync(
+        Guid? senderId = null,
+        string senderType = "assistant",
+        int? triggeredByMessageId = null);
 
     [Alias("SetParticipantsAsync")]
     Task SetParticipantsAsync(List<PartyParticipant> participants);
@@ -362,10 +394,22 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string? reasoning = null,
         string? appraisal = null,
         ChatMessageMetadata? metadata = null,
+        int? triggeredByMessageId = null,
         CancellationToken cancellationToken = default);
 
     [Alias("MarkGenerationStoppedAsync")]
-    Task MarkGenerationStoppedAsync(int messageId, string? appraisal);
+    Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null);
+
+    [Alias("RecordSkippedTurnAsync")]
+    Task RecordSkippedTurnAsync(
+        Guid personaId,
+        string personaName,
+        int triggeredByMessageId,
+        double urgeTotal,
+        string reason);
+
+    [Alias("GetSkippedTurnsAsync")]
+    Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync();
 
     [Alias("MarkGenerationFailedAsync")]
     Task MarkGenerationFailedAsync(int messageId, string error);
@@ -415,6 +459,11 @@ public sealed record class ChatGroupState
     [Id(5)]
     public string? Scenario { get; set; }
 
+    /// <summary>Persona-turn skips (no slot reserved, no LLM call). Drives papertrail's
+    /// reactions-under-each-message tree without bloating the message log.</summary>
+    [Id(6)]
+    public List<SkippedTurn> SkippedTurns { get; set; } = [];
+
     public void Apply(ChatGroupInitializedEvent @event)
     {
         PartyId = @event.PartyId;
@@ -444,7 +493,8 @@ public sealed record class ChatGroupState
             SenderId = @event.SenderId ?? Guid.Empty,
             ChatGroupId = @event.ChatGroupId,
             Content = string.Empty,
-            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            TriggeredByMessageId = @event.TriggeredByMessageId
         };
         Messages.Add(stub);
     }
@@ -470,6 +520,10 @@ public sealed record class ChatGroupState
         target.SenderId = @event.SenderId;
         target.SendAt = @event.SendAt;
         target.Metadata = @event.Metadata;
+        // Slot-reserve already records this; preserve the slot value when present and
+        // only overwrite if the event carries one (legacy events leave it null).
+        if (@event.TriggeredByMessageId.HasValue)
+            target.TriggeredByMessageId = @event.TriggeredByMessageId;
     }
 
     public void Apply(ChatGroupGenerationStoppedEvent @event)
@@ -477,9 +531,12 @@ public sealed record class ChatGroupState
         var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
         if (target is null) return;
 
+        // Preserve the slot's reserved SenderId — papertrail needs it to resolve the
+        // persona name for "declined" entries. (Earlier code wiped it to Guid.Empty.)
         target.Appraisal = @event.Appraisal;
-        target.SenderId = Guid.Empty;
         target.SendAt = @event.SendAt;
+        if (@event.TriggeredByMessageId.HasValue)
+            target.TriggeredByMessageId = @event.TriggeredByMessageId;
     }
 
     public void Apply(ChatGroupGenerationFailedEvent @event)
@@ -498,7 +555,36 @@ public sealed record class ChatGroupState
     {
         Messages.RemoveAll(m => m.MessageId > @event.MessageId);
         NextMessageId = Messages.Count > 0 ? Messages.Max(m => m.MessageId) : 0;
+        // Skips referencing now-deleted triggers would dangle; drop them.
+        SkippedTurns.RemoveAll(s => s.TriggeredByMessageId > @event.MessageId);
     }
+
+    public void Apply(ChatGroupPersonaSkippedEvent @event)
+    {
+        SkippedTurns.Add(new SkippedTurn
+        {
+            PersonaId = @event.PersonaId,
+            PersonaName = @event.PersonaName,
+            TriggeredByMessageId = @event.TriggeredByMessageId,
+            UrgeTotal = @event.UrgeTotal,
+            Reason = @event.Reason,
+            SendAt = @event.SendAt
+        });
+    }
+}
+
+/// <summary>A persona-turn that ended in <c>IsObviousSkip</c>: no slot, no LLM call.
+/// Lives in <see cref="ChatGroupState.SkippedTurns"/> so the papertrail can show all
+/// reactions to a triggering message, not just the ones that produced output.</summary>
+[GenerateSerializer, Alias(nameof(SkippedTurn))]
+public sealed record class SkippedTurn
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+    [Id(1)] public string PersonaName { get; set; } = string.Empty;
+    [Id(2)] public int TriggeredByMessageId { get; set; }
+    [Id(3)] public double UrgeTotal { get; set; }
+    [Id(4)] public string Reason { get; set; } = string.Empty;
+    [Id(5)] public long SendAt { get; set; }
 }
 
 // ── Events ──
@@ -548,6 +634,7 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(4)] public Guid SenderId { get; set; }
     [Id(5)] public long SendAt { get; set; }
     [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
+    [Id(7)] public int? TriggeredByMessageId { get; set; }
 }
 
 /// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>
@@ -557,6 +644,7 @@ public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
     [Id(0)] public int MessageId { get; set; }
     [Id(1)] public string? Appraisal { get; set; }
     [Id(2)] public long SendAt { get; set; }
+    [Id(3)] public int? TriggeredByMessageId { get; set; }
 }
 
 /// <summary>Raised when LLM generation fails with an error. Records the error on the message for client display.</summary>
@@ -582,6 +670,7 @@ public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
     [Id(0)] public Guid? SenderId { get; set; }
     [Id(1)] public string? SenderType { get; set; }
     [Id(2)] public Guid ChatGroupId { get; set; }
+    [Id(3)] public int? TriggeredByMessageId { get; set; }
 }
 
 /// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>
@@ -589,4 +678,18 @@ public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
 public sealed record class ChatGroupMessagesAfterDeletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
+}
+
+/// <summary>Raised when a persona is notified of a message but pre-gate (<c>IsObviousSkip</c>)
+/// elects not to deliberate. No message slot is reserved and no LLM call is made;
+/// recording the skip preserves the causal record for the papertrail.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupPersonaSkippedEvent))]
+public sealed record class ChatGroupPersonaSkippedEvent : ChatGroupEvent
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+    [Id(1)] public string PersonaName { get; set; } = string.Empty;
+    [Id(2)] public int TriggeredByMessageId { get; set; }
+    [Id(3)] public double UrgeTotal { get; set; }
+    [Id(4)] public string Reason { get; set; } = string.Empty;
+    [Id(5)] public long SendAt { get; set; }
 }

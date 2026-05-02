@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Papertrail;
 using PartyTown.Services.Realtime;
 
 namespace PartyTown.Controllers;
@@ -574,6 +575,51 @@ public sealed class PartyController(
 
         await grains.GetGrain<IPartyGrain>(id).UpdateChatGroupScenario(chatGroupId, request.Scenario);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Returns a causal papertrail of every persona turn in this chat group: which message
+    /// triggered which thoughts, decisions, replies, and silent skips. Reconstructed from
+    /// durable event-sourced state so it survives silo restarts.
+    /// </summary>
+    /// <remarks>
+    /// Dev/debug endpoint — exposes raw persona "gut reactions" and skip reasons that are
+    /// not user-safe content. Gate with auth/RBAC before opening to non-admin clients.
+    /// Use <c>format=text</c> for an LLM-readable indented transcript (default), or
+    /// <c>format=json</c> for a structured tree.
+    /// </remarks>
+    [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/papertrail")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetPapertrail(
+        Guid id,
+        Guid chatGroupId,
+        [FromQuery] int? sinceMessageId = null,
+        [FromQuery] string? format = "text")
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, id);
+        if (!await root.HasPartyId(id))
+        {
+            return NotFound();
+        }
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var skipped = await chatGroupGrain.GetSkippedTurnsAsync();
+        var participants = await chatGroupGrain.GetParticipantsAsync();
+
+        var doc = PapertrailRenderer.Build(messages, skipped, participants, sinceMessageId);
+
+        return string.Equals(format, "json", StringComparison.OrdinalIgnoreCase)
+            ? Content(PapertrailRenderer.ToJson(doc), "application/json")
+            : Content(PapertrailRenderer.ToText(doc), "text/plain");
     }
 
     /// <summary>

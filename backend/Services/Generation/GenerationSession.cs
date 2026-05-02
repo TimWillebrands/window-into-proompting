@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text;
 using PartyTown.Grains.Generation;
+using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
 
@@ -59,8 +61,15 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             JobComplexity = JobComplexity.General
         };
 
+        using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);
+        generateSpan?.SetTag("persona.id", persona.Id);
+        generateSpan?.SetTag("persona.name", persona.Name);
+
         var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
         var metadata = await generation.GetAttributionAsync();
+        generateSpan?.SetTag("llm.provider", metadata?.Provider);
+        generateSpan?.SetTag("llm.model", metadata?.ModelName);
+
         await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
         {
             if (chunk.Type == LlmGenerationEvent.ContentChunk)
@@ -75,6 +84,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             await onEvent(chunk.Type, chunk.Data, false);
         }
 
+        generateSpan?.SetTag("output.length", builder.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
         return new GenerationResult
