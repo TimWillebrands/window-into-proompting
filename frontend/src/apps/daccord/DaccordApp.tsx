@@ -14,6 +14,7 @@ import { useWindowInstance } from '../../components/desktop/window-instance-cont
 import { useSetWindowTitleBar } from '../../components/desktop/window-titlebar-context';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { useDesktopContext, useDesktopStore } from '../../lib/desktop-context';
+import CreateRoomDialog from './components/CreateRoomDialog';
 import DaccordSearchBar from './components/DaccordSearchBar';
 import DaccordSidebar from './components/DaccordSidebar';
 import DiscoverFeed from './components/DiscoverFeed';
@@ -64,8 +65,7 @@ export default function DaccordApp() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('home');
-    const [newChatName, setNewChatName] = useState('');
-    const [newChatScenario, setNewChatScenario] = useState('');
+    const [createOpen, setCreateOpen] = useState(false);
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -80,7 +80,7 @@ export default function DaccordApp() {
     const chatGroups = useMemo(() => {
         const raw = chatGroupsQuery.data?.data;
         if (!Array.isArray(raw)) return [];
-        return raw.flatMap((g) =>
+        const mapped = raw.flatMap((g) =>
             g.id && g.name
                 ? [
                       {
@@ -92,6 +92,9 @@ export default function DaccordApp() {
                   ]
                 : [],
         );
+        const ts = (v: string | number | null) =>
+            v == null ? 0 : new Date(v).getTime() || 0;
+        return mapped.sort((a, b) => ts(b.createdAt) - ts(a.createdAt));
     }, [chatGroupsQuery.data?.data]);
 
     const createMutation = usePostPartyIdChatGroups({
@@ -100,14 +103,29 @@ export default function DaccordApp() {
                 queryClient.invalidateQueries({
                     queryKey: getGetPartyIdChatGroupsQueryKey(ROOT_PARTY_ID),
                 });
+                setCreateOpen(false);
                 if (created.data.id) {
                     enterRoom(created.data.id, false);
                 }
-                setNewChatName('');
-                setNewChatScenario('');
             },
         },
     });
+
+    const handleCreateRoom = useCallback(
+        (name: string, scenario: string) => {
+            createMutation.mutate({
+                id: ROOT_PARTY_ID,
+                data: { name, scenario: scenario || null },
+            });
+        },
+        [createMutation],
+    );
+
+    const createErrorMessage = createMutation.isError
+        ? createMutation.error instanceof Error
+            ? createMutation.error.message
+            : 'Failed to create room.'
+        : null;
 
     // Push search bar into the window title bar (only when on the hub view).
     const titleBarNode = useMemo(() => {
@@ -118,10 +136,20 @@ export default function DaccordApp() {
     }, [view.kind, searchQuery]);
     useSetWindowTitleBar(titleBarNode);
 
+    const dialog = (
+        <CreateRoomDialog
+            open={createOpen}
+            creating={createMutation.isPending}
+            errorMessage={createErrorMessage}
+            onClose={() => setCreateOpen(false)}
+            onSubmit={handleCreateRoom}
+        />
+    );
+
     if (view.kind === 'room') {
         const selected = chatGroups.find((g) => g.id === view.chatGroupId);
         return (
-            <div className="app-surface no-xp-buttons @container flex h-full overflow-hidden bg-white dark:bg-slate-900">
+            <div className="app-surface no-xp-buttons @container relative flex h-full overflow-hidden bg-white dark:bg-slate-900">
                 <DaccordSidebar
                     realRooms={chatGroups.map((g) => ({
                         id: g.id,
@@ -131,6 +159,7 @@ export default function DaccordApp() {
                     activeRoomId={view.chatGroupId}
                     activeCategory={activeCategory}
                     onSelectCategory={setActiveCategory}
+                    onCreateRoom={() => setCreateOpen(true)}
                 />
                 <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
                     {/* Glass header — back button + room title */}
@@ -169,17 +198,19 @@ export default function DaccordApp() {
                         </div>
                     </div>
                 </main>
+                {dialog}
             </div>
         );
     }
 
     return (
-        <div className="app-surface no-xp-buttons @container flex h-full overflow-hidden bg-white dark:bg-slate-900">
+        <div className="app-surface no-xp-buttons @container relative flex h-full overflow-hidden bg-white dark:bg-slate-900">
             <DaccordSidebar
                 realRooms={chatGroups.map((g) => ({ id: g.id, name: g.name }))}
                 onSelectRoom={(id) => enterRoom(id, false)}
                 activeCategory={activeCategory}
                 onSelectCategory={setActiveCategory}
+                onCreateRoom={() => setCreateOpen(true)}
             />
             <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
                 <div className="flex items-center justify-between px-4 py-2">
@@ -191,31 +222,15 @@ export default function DaccordApp() {
                         <span className="capitalize">{connectionStatus}</span>
                     </div>
                 </div>
-                {createMutation.isError && (
-                    <div className="bg-red-100 dark:bg-red-950 px-4 py-1.5 text-xs text-red-700 dark:text-red-300">
-                        {createMutation.error instanceof Error
-                            ? createMutation.error.message
-                            : 'Failed to create room.'}
-                    </div>
-                )}
                 <DiscoverFeed
                     realRooms={chatGroups}
-                    onCreateRoom={(name, scenario) =>
-                        createMutation.mutate({
-                            id: ROOT_PARTY_ID,
-                            data: { name, scenario: scenario || null },
-                        })
-                    }
-                    creating={createMutation.isPending}
                     searchQuery={searchQuery}
                     onSelectRealRoom={(id) => enterRoom(id, false)}
-                    inputName={newChatName}
-                    inputScenario={newChatScenario}
-                    onInputName={setNewChatName}
-                    onInputScenario={setNewChatScenario}
+                    onOpenCreate={() => setCreateOpen(true)}
                 />
             </main>
             <ProfilePanel />
+            {dialog}
         </div>
     );
 }
