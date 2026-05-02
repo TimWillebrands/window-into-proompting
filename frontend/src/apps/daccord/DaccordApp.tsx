@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter } from '@tanstack/react-router';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     getGetPartyIdChatGroupsQueryKey,
     useGetPartyIdChatGroupsSuspense,
@@ -9,8 +10,10 @@ import {
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
+import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { useSetWindowTitleBar } from '../../components/desktop/window-titlebar-context';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import { useDesktopContext, useDesktopStore } from '../../lib/desktop-context';
 import DaccordSearchBar from './components/DaccordSearchBar';
 import DaccordSidebar from './components/DaccordSidebar';
 import DiscoverFeed from './components/DiscoverFeed';
@@ -21,7 +24,44 @@ type View = { kind: 'hub' } | { kind: 'room'; chatGroupId: string };
 
 export default function DaccordApp() {
     const queryClient = useQueryClient();
-    const [view, setView] = useState<View>({ kind: 'hub' });
+    const router = useRouter();
+    const { windowId } = useWindowInstance();
+    const { setWindowProps } = useDesktopContext();
+    const roomIdFromProps = useDesktopStore((s) => {
+        const p = s.desktopState.windows[windowId]?.props;
+        const v = p?.roomId;
+        return typeof v === 'string' ? v : null;
+    });
+    const view: View = roomIdFromProps
+        ? { kind: 'room', chatGroupId: roomIdFromProps }
+        : { kind: 'hub' };
+
+    const enterRoom = useCallback(
+        (id: string, replace: boolean) => {
+            setWindowProps(windowId, (p) => ({ ...p, roomId: id }), {
+                replace,
+            });
+        },
+        [setWindowProps, windowId],
+    );
+    const exitRoom = useCallback(() => {
+        // Prefer consuming the existing browser entry (so forward re-enters).
+        // On a deep-link reload there is no entry to consume — fall back to
+        // a replace so we don't pollute history.
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.history.back();
+        } else {
+            setWindowProps(
+                windowId,
+                (p) => {
+                    const { roomId: _omit, ...rest } = p;
+                    return rest;
+                },
+                { replace: true },
+            );
+        }
+    }, [router, setWindowProps, windowId]);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('home');
     const [newChatName, setNewChatName] = useState('');
@@ -61,10 +101,7 @@ export default function DaccordApp() {
                     queryKey: getGetPartyIdChatGroupsQueryKey(ROOT_PARTY_ID),
                 });
                 if (created.data.id) {
-                    setView({
-                        kind: 'room',
-                        chatGroupId: created.data.id,
-                    });
+                    enterRoom(created.data.id, false);
                 }
                 setNewChatName('');
                 setNewChatScenario('');
@@ -90,9 +127,7 @@ export default function DaccordApp() {
                         id: g.id,
                         name: g.name,
                     }))}
-                    onSelectRoom={(id) =>
-                        setView({ kind: 'room', chatGroupId: id })
-                    }
+                    onSelectRoom={(id) => enterRoom(id, true)}
                     activeRoomId={view.chatGroupId}
                     activeCategory={activeCategory}
                     onSelectCategory={setActiveCategory}
@@ -102,7 +137,7 @@ export default function DaccordApp() {
                     <div className="flex items-center gap-2 px-4 py-2">
                         <button
                             type="button"
-                            onClick={() => setView({ kind: 'hub' })}
+                            onClick={exitRoom}
                             className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-br from-white to-blue-50 px-3 py-1.5 text-[12px] font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_4px_10px_-3px_rgba(46,92,202,0.3)] ring-1 ring-white/80 backdrop-blur-md transition-all hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_14px_-3px_rgba(46,92,202,0.4)] dark:bg-slate-800 dark:text-slate-100"
                         >
                             <span aria-hidden>←</span>
@@ -142,9 +177,7 @@ export default function DaccordApp() {
         <div className="app-surface no-xp-buttons @container flex h-full overflow-hidden bg-white dark:bg-slate-900">
             <DaccordSidebar
                 realRooms={chatGroups.map((g) => ({ id: g.id, name: g.name }))}
-                onSelectRoom={(id) =>
-                    setView({ kind: 'room', chatGroupId: id })
-                }
+                onSelectRoom={(id) => enterRoom(id, false)}
                 activeCategory={activeCategory}
                 onSelectCategory={setActiveCategory}
             />
@@ -175,9 +208,7 @@ export default function DaccordApp() {
                     }
                     creating={createMutation.isPending}
                     searchQuery={searchQuery}
-                    onSelectRealRoom={(id) =>
-                        setView({ kind: 'room', chatGroupId: id })
-                    }
+                    onSelectRealRoom={(id) => enterRoom(id, false)}
                     inputName={newChatName}
                     inputScenario={newChatScenario}
                     onInputName={setNewChatName}

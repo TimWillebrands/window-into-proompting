@@ -5,6 +5,7 @@ import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
 import StartMenu from '../components/desktop/StartMenu';
 import WindowFrame from '../components/desktop/WindowFrame';
+import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
 
@@ -165,10 +166,14 @@ function DesktopWindowLayer() {
                                         toggleMaximize(windowState.id)
                                     }
                                 >
-                                    {createElement(
-                                        preset.component,
-                                        windowState.props ?? {},
-                                    )}
+                                    <WindowInstanceProvider
+                                        windowId={windowState.id}
+                                    >
+                                        {createElement(
+                                            preset.component,
+                                            windowState.props ?? {},
+                                        )}
+                                    </WindowInstanceProvider>
                                 </WindowFrame>
                             </div>
                         </Rnd>

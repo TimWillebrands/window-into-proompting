@@ -24,14 +24,21 @@ interface DesktopContextInternal {
     toggleMaximize: (id: string) => void;
     updateSize: (id: string, size: { width: number; height: number }) => void;
     updatePosition: (id: string, position: { x: number; y: number }) => void;
+    setWindowProps: (
+        id: string,
+        update: (prev: Record<string, unknown>) => Record<string, unknown>,
+        opts?: { replace?: boolean },
+    ) => void;
     toggleStartMenu: () => void;
     closeStartMenu: () => void;
 }
 
 interface DesktopStoreState {
     desktopState: DesktopLayoutState;
-    navigate: null | ((args: { search: unknown }) => void);
-    setNavigate: (navigate: (args: { search: unknown }) => void) => void;
+    navigate: null | ((args: { search: unknown; replace?: boolean }) => void);
+    setNavigate: (
+        navigate: (args: { search: unknown; replace?: boolean }) => void,
+    ) => void;
     openWindow: (
         appId: string,
         options?: {
@@ -48,6 +55,11 @@ interface DesktopStoreState {
     toggleMaximize: (id: string) => void;
     updateSize: (id: string, size: { width: number; height: number }) => void;
     updatePosition: (id: string, position: { x: number; y: number }) => void;
+    setWindowProps: (
+        id: string,
+        update: (prev: Record<string, unknown>) => Record<string, unknown>,
+        opts?: { replace?: boolean },
+    ) => void;
     toggleStartMenu: () => void;
     closeStartMenu: () => void;
 }
@@ -58,6 +70,7 @@ const findPreset = (id: string): WindowDescriptor | undefined =>
 export const useDesktopStore = create<DesktopStoreState>((set, get) => {
     const applyDesktopUpdate = (
         update: (prev: DesktopLayoutState) => DesktopLayoutState,
+        opts?: { replace?: boolean },
     ) => {
         const prev = get().desktopState;
         const next = update(prev);
@@ -68,7 +81,7 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
 
         const navigate = get().navigate;
         if (navigate) {
-            navigate({ search: () => next });
+            navigate({ search: () => next, replace: opts?.replace });
         }
 
         set({ desktopState: next });
@@ -367,6 +380,22 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                 };
             });
         },
+        setWindowProps: (id, update, opts) => {
+            applyDesktopUpdate((prev) => {
+                const w = prev.windows[id];
+                if (!w) return prev;
+                const prevProps = w.props ?? {};
+                const nextProps = update(prevProps);
+                if (nextProps === prevProps) return prev;
+                return {
+                    ...prev,
+                    windows: {
+                        ...prev.windows,
+                        [id]: { ...w, props: nextProps },
+                    },
+                };
+            }, opts);
+        },
         toggleStartMenu: () => {
             applyDesktopUpdate((prev) => ({
                 ...prev,
@@ -387,7 +416,12 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         useDesktopStore
             .getState()
-            .setNavigate(navigate as (args: { search: unknown }) => void);
+            .setNavigate(
+                navigate as (args: {
+                    search: unknown;
+                    replace?: boolean;
+                }) => void,
+            );
     }, [navigate]);
 
     return <>{children}</>;
@@ -403,6 +437,7 @@ export function useDesktopContext(): DesktopContextInternal {
     const toggleMaximize = useDesktopStore((state) => state.toggleMaximize);
     const updateSize = useDesktopStore((state) => state.updateSize);
     const updatePosition = useDesktopStore((state) => state.updatePosition);
+    const setWindowProps = useDesktopStore((state) => state.setWindowProps);
     const toggleStartMenu = useDesktopStore((state) => state.toggleStartMenu);
     const closeStartMenu = useDesktopStore((state) => state.closeStartMenu);
 
@@ -416,6 +451,7 @@ export function useDesktopContext(): DesktopContextInternal {
         toggleMaximize,
         updateSize,
         updatePosition,
+        setWindowProps,
         toggleStartMenu,
         closeStartMenu,
     };

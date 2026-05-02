@@ -1,7 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+    createMemoryHistory,
+    createRootRoute,
+    createRouter,
+    RouterContextProvider,
+} from '@tanstack/react-router';
 import { fn } from 'storybook/test';
 import WindowFrame from '../../components/desktop/WindowFrame';
+import { WindowInstanceProvider } from '../../components/desktop/window-instance-context';
 import DaccordApp from './DaccordApp';
+
+const rootRoute = createRootRoute();
+const stubRouter = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+});
 
 const meta = {
     title: 'Apps/DaccordApp',
@@ -29,7 +42,11 @@ const meta = {
                     onMaximize={fn()}
                     onClose={fn()}
                 >
-                    <Story />
+                    <RouterContextProvider router={stubRouter}>
+                        <WindowInstanceProvider windowId="open-party">
+                            <Story />
+                        </WindowInstanceProvider>
+                    </RouterContextProvider>
                 </WindowFrame>
             </div>
         ),
