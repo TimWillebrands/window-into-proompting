@@ -99,12 +99,15 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
 
     private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario)
     {
+        // Names only. Bios used to live here but leaked theme/style across personas:
+        // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
+        // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
             : string.Join("\n", others.Select(p =>
                 p.IsUser
                     ? $"- {p.Name} (human)"
-                    : $"- {p.Name}: {p.Bio ?? "No bio available"}"));
+                    : $"- {p.Name} (persona)"));
 
         // Scenario sits between identity and the participant roster: persona-self comes first
         // (primacy), the in-fiction setting establishes context, then who else is there.
