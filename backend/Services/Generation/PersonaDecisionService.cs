@@ -85,6 +85,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// <summary>
     /// Appraises whether the persona should respond based on the conversation history,
     /// participants, and (optionally) the scenario the chat is set in.
+    /// <paramref name="repairHint"/> carries a Levelt-style speech-repair cue: when the
+    /// persona shipped its previous message past the point of no return *and* a relevant
+    /// new message was missed, the hint nudges the next decision toward acknowledgment.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
@@ -93,7 +96,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         int totalAiRoundsInGroup,
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken,
-        string? scenario = null)
+        string? scenario = null,
+        RepairHint? repairHint = null)
     {
         var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
@@ -118,7 +122,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -215,7 +219,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             //   2. Escape raw control chars (newline, tab, etc.) found *inside* string values —
             //      JsonRepairSharp does not handle these, but the symptom appears often enough
             //      in multi-line `gutReaction` fields that we fix it before handing off.
-            var cleaned = ExtractJsonPayload(raw);
+            var cleaned = LlmJsonParsing.ExtractJsonPayload(raw);
 
             try
             {
@@ -267,104 +271,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         }
 
         return parsed;
-    }
-
-    /// <summary>
-    /// Normalizes an LLM-produced JSON blob: strips markdown code fences and escapes raw
-    /// control characters (LF/CR/TAB) found *inside* string values. Safe to hand to
-    /// <see cref="JsonSerializer"/> or <see cref="JsonRepair"/>.
-    /// </summary>
-    internal static string ExtractJsonPayload(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return raw;
-
-        var s = raw.Trim();
-
-        // Strip markdown code fences: ```json … ``` or ``` … ```.
-        // Models very often wrap structured output this way despite being asked for JSON only.
-        if (s.StartsWith("```"))
-        {
-            // Drop the opening fence line (```json, ```JSON, ```, etc.)
-            var firstNewline = s.IndexOf('\n');
-            if (firstNewline >= 0)
-                s = s[(firstNewline + 1)..];
-            else
-                s = s[3..];
-
-            // Drop the trailing closing fence, if any
-            var closing = s.LastIndexOf("```", StringComparison.Ordinal);
-            if (closing >= 0)
-                s = s[..closing];
-
-            s = s.Trim();
-        }
-
-        // Narrow to the first balanced JSON object. Models sometimes prefix commentary
-        // (e.g. "Here is my decision:") or append stray text after the closing brace.
-        var firstBrace = s.IndexOf('{');
-        var lastBrace = s.LastIndexOf('}');
-        if (firstBrace >= 0 && lastBrace > firstBrace)
-            s = s[firstBrace..(lastBrace + 1)];
-
-        return EscapeControlCharsInStrings(s);
-    }
-
-    /// <summary>
-    /// Walks a JSON-ish string and replaces raw CR/LF/TAB characters that appear *inside*
-    /// double-quoted string values with their escape sequences. JsonRepairSharp does not
-    /// do this, yet LLMs frequently emit multi-line reason fields with literal newlines.
-    /// </summary>
-    private static string EscapeControlCharsInStrings(string json)
-    {
-        var sb = new StringBuilder(json.Length);
-        bool inString = false;
-        bool escaped = false;
-
-        foreach (var c in json)
-        {
-            if (inString)
-            {
-                if (escaped)
-                {
-                    sb.Append(c);
-                    escaped = false;
-                    continue;
-                }
-
-                switch (c)
-                {
-                    case '\\':
-                        sb.Append(c);
-                        escaped = true;
-                        break;
-                    case '"':
-                        sb.Append(c);
-                        inString = false;
-                        break;
-                    case '\n':
-                        sb.Append("\\n");
-                        break;
-                    case '\r':
-                        sb.Append("\\r");
-                        break;
-                    case '\t':
-                        sb.Append("\\t");
-                        break;
-                    default:
-                        sb.Append(c);
-                        break;
-                }
-            }
-            else
-            {
-                sb.Append(c);
-                if (c == '"')
-                    inString = true;
-            }
-        }
-
-        return sb.ToString();
     }
 
     public static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
@@ -427,11 +333,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     private static string ShouldRespondSystemPrompt(
         GenerationParticipant self,
         IReadOnlyList<GenerationParticipant> participants,
-        string? scenario)
+        string? scenario,
+        RepairHint? repairHint)
     {
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
             : $"\n# Setting\n{scenario.Trim()}\n";
+
+        // Levelt-style speech repair cue. Set when this persona finished an utterance
+        // *after* a relevant new message arrived — they couldn't see it at the time.
+        // Surfacing it here lets the persona acknowledge the miss naturally; whether
+        // they actually do so is left to character (low-impulsivity = tends to repair).
+        var repairBlock = repairHint is null
+            ? string.Empty
+            : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
 
         return $$"""
 # You are: {{self.Name}}
@@ -442,7 +357,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     p.IsUser
         ? $"- {p.Name} (human)"
         : $"- {p.Name}: {p.Bio ?? "no bio"}"))}}
-
+{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
@@ -512,6 +427,18 @@ public readonly record struct ResponseUrge(
     double SilenceStreakScore,
     double ColdOpenScore,
     double ChaosScore);
+
+/// <summary>
+/// One-shot Levelt-style speech-repair cue. Set by the race in <c>PersonaGrain</c> when a
+/// persona shipped its message past the point of no return *and* a relevant new message
+/// arrived during the in-flight generation. Consumed by the next <see cref="PersonaDecisionService.ShouldRespondAsync"/>
+/// call (the call site clears it regardless of decision outcome — see <c>PersonaGrain</c>).
+/// In-memory only; not persisted across grain deactivation.
+/// </summary>
+public readonly record struct RepairHint(
+    int MissedMessageId,
+    string MissedSenderName,
+    string MissedContent);
 
 [GenerateSerializer, Alias(nameof(ShouldRespondResult))]
 public sealed record class ShouldRespondResult

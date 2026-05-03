@@ -39,16 +39,27 @@ public sealed record class Persona : PersonaMetadata
     [Id(4)]
     public double Chattiness { get; set; } = 0.5;
 
+    /// <summary>
+    /// 0..1 dial controlling commitment-to-in-flight-utterance vs. responsiveness-to-new-info.
+    /// 0 = deliberative (easily interrupted by new info; cancels and re-decides; tends to repair
+    /// when ignored info turns out to matter). 1 = impulsive (commits hard once generation is
+    /// underway; barrels through; rarely repairs). Drives the stop-signal race in PersonaGrain
+    /// when a new message arrives during in-flight generation. Default 0.5.
+    /// </summary>
+    [Id(5)]
+    public double Impulsivity { get; set; } = 0.5;
+
     public Persona()
     {
     }
 
-    public Persona(Guid id, string name, string systemPrompt, string? bio, double chattiness = 0.5)
+    public Persona(Guid id, string name, string systemPrompt, string? bio, double chattiness = 0.5, double impulsivity = 0.5)
         : base(id, name)
     {
         SystemPrompt = systemPrompt;
         Bio = bio;
         Chattiness = chattiness;
+        Impulsivity = impulsivity;
     }
 }
 

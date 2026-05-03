@@ -88,10 +88,10 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup
             .Setup(g => g.AppendMessageAsync(
                 It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         chatGroup
-            .Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>()))
+            .Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()))
             .Returns(Task.CompletedTask);
         chatGroup
             .Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()))
@@ -184,9 +184,10 @@ public class PersonaGrainFeedbackTest : TestKitBase
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<ChatMessageMetadata?>(),
+                It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        chatGroup.Verify(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
+        chatGroup.Verify(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Never);
         chatGroup.Verify(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -204,9 +205,9 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup
             .Setup(g => g.AppendMessageAsync(
                 It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>()))
-            .Callback<int, string, string?, string?, ChatMessageMetadata?, CancellationToken>(
-                (_, content, _, _, _, _) => capturedContent = content)
+                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .Callback<int, string, string?, string?, ChatMessageMetadata?, int?, CancellationToken>(
+                (_, content, _, _, _, _, _) => capturedContent = content)
             .Returns(Task.CompletedTask);
 
         // Act
@@ -241,7 +242,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup.Setup(g => g.GetParticipantsAsync()).ReturnsAsync(new List<PartyParticipant> { new() { Id = _personaId, Name = PersonaName } });
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(0);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>())).Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>())).Returns(Task.CompletedTask);
         chatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
         var personaRoot = Silo.AddProbe<IPersonaRootGrain>(Guid.Empty);
@@ -260,8 +261,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
         await grain.NotifyMessageAsync(_chatGroupId, NeutralMessage(), CancellationToken.None);
 
         // Assert: persona decided NOT to respond
-        chatGroup.Verify(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>()), Times.Once);
-        chatGroup.Verify(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>()), Times.Never);
+        chatGroup.Verify(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Once);
+        chatGroup.Verify(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── Unhappy path — all endpoints permanently choked ──────────────────────
@@ -286,7 +287,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
 
         // Assert
         chatGroup.Verify(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Once);
-        chatGroup.Verify(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>()), Times.Never);
+        chatGroup.Verify(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── Unhappy path — cancellation mid-generation ───────────────────────────
@@ -309,8 +310,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup.Setup(g => g.GetParticipantsAsync()).ReturnsAsync(new List<PartyParticipant> { new() { Id = _personaId, Name = PersonaName } });
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(0);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>())).Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        chatGroup.Setup(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>())).Returns(Task.CompletedTask);
         chatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
         var personaRoot = Silo.AddProbe<IPersonaRootGrain>(Guid.Empty);
@@ -334,7 +335,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
             g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.Is<string>(s => s.Contains("cancel"))),
             Times.Once);
         chatGroup.Verify(
-            g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>()),
+            g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -367,6 +368,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<ChatMessageMetadata?>(),
+                It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         chatGroup.Verify(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
@@ -421,8 +423,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup.Setup(g => g.GetParticipantsAsync()).ReturnsAsync(new List<PartyParticipant> { new() { Id = _personaId, Name = PersonaName } });
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(0);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>())).Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        chatGroup.Setup(g => g.AppendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>())).Returns(Task.CompletedTask);
         chatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
         var personaRoot = Silo.AddProbe<IPersonaRootGrain>(Guid.Empty);
@@ -452,6 +454,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<ChatMessageMetadata?>(),
+                It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         chatGroup.Verify(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);

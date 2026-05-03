@@ -149,6 +149,11 @@ public sealed record class GenerationParticipant
     /// <summary>0..1 dial controlling urge to chime in. Drives chaos-bonus weighting in
     /// PersonaDecisionService. Defaults to 0.5 for users / unset personas.</summary>
     public double Chattiness { get; init; } = 0.5;
+
+    /// <summary>0..1 dial controlling commitment-to-in-flight-utterance. 0 = deliberative
+    /// (easily interrupted, repairs often); 1 = impulsive (commits hard, rarely repairs).
+    /// Drives the stop-signal race in PersonaGrain. Defaults to 0.5 for users / unset personas.</summary>
+    public double Impulsivity { get; init; } = 0.5;
 }
 
 public sealed record class GenerationResult
