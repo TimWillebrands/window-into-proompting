@@ -51,6 +51,12 @@ public record class ChatMessage
     /// and for assistant messages persisted before this field existed.</summary>
     [Id(10)]
     public int? TriggeredByMessageId { get; set; }
+
+    /// <summary>Discriminator for special message variants. Currently:
+    /// <c>"emote"</c> = race-cancelled abandonment line (italic action, not normal speech).
+    /// Null = normal message. Frontend uses this to pick distinct rendering.</summary>
+    [Id(11)]
+    public string? Kind { get; set; }
 }
 
 /// <summary>Provenance metadata for an assistant message — which backend produced it.

@@ -3,6 +3,7 @@ import type {
     ActiveGenerationPhase,
     DeclinedDecision,
     GenerationPhase,
+    RaceEvaluation,
     RealtimeChatMessage,
     RealtimeConnectionStatus,
 } from './realtime-store';
@@ -11,6 +12,7 @@ export type {
     ActiveGenerationPhase,
     DeclinedDecision,
     GenerationPhase,
+    RaceEvaluation,
     RealtimeChatMessage,
     RealtimeConnectionStatus,
 } from './realtime-store';
@@ -55,6 +57,10 @@ export const useChatGroupGenerationState = fn(
 
 export const useDeclinedDecisions = fn(
     (_chatGroupId: string): DeclinedDecision[] => [],
+);
+
+export const useRaceEvaluations = fn(
+    (_chatGroupId: string): RaceEvaluation[] => [],
 );
 
 export const useActiveGenerationInfo = fn(

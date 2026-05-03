@@ -24,6 +24,12 @@ public sealed record class PartyStreamEvent
 
     [Id(4)]
     public MessageStreamEvent? MessageEvent { get; init; }
+
+    /// <summary>Carried for <c>Type == "raceEvaluation"</c>: a single stop-signal race
+    /// outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>, fanned out to clients so
+    /// the thought-log can render race activity live.</summary>
+    [Id(5)]
+    public PartyTown.Grains.RaceEvaluation? RaceEvaluation { get; init; }
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PartyTown.Services.Generation;
 
@@ -48,8 +49,31 @@ internal static class LlmJsonParsing
         if (firstBrace >= 0 && lastBrace > firstBrace)
             s = s[firstBrace..(lastBrace + 1)];
 
+        // Collapse stray double-quote wrappers (`"key": ""value""`) BEFORE the control-char
+        // fixer runs — the latter is a quote-state walker, and a doubled-up wrapper would
+        // confuse its in-string/out-of-string tracking.
+        s = CollapseStrayDoubleQuoteWrappers(s);
+
         return EscapeControlCharsInStrings(s);
     }
+
+    /// <summary>
+    /// Strips the outer pair when an LLM wraps a string field in *literal* extra quotes:
+    /// <c>"wouldSay": ""Hi everyone""</c> → <c>"wouldSay": "Hi everyone"</c>.
+    /// Observed pattern when models treat <c>wouldSay</c> as a "quotation" field and add
+    /// decorative quotes around the chat content. JsonRepair doesn't recognise this;
+    /// without intervention the parser sees <c>""</c> as an empty string and chokes on the
+    /// trailing content. Non-greedy match scoped between <c>:</c> and <c>,</c>/<c>}</c>
+    /// so multiple wrapped fields in the same object are handled independently.
+    /// </summary>
+    private static readonly Regex StrayDoubleQuoteWrapperRegex = new(
+        @":\s*""""(?<inner>(?:[^""]|""(?!""))*?)""""(?=\s*[,}\]])",
+        RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static string CollapseStrayDoubleQuoteWrappers(string json)
+        => StrayDoubleQuoteWrapperRegex.Replace(
+            json,
+            m => $": \"{m.Groups["inner"].Value}\"");
 
     /// <summary>
     /// Walks a JSON-ish string and replaces raw CR/LF/TAB characters that appear inside

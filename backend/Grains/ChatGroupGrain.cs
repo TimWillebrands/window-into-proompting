@@ -226,6 +226,43 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
     }
 
+    /// <summary>
+    /// Race-cancelled generation: instead of leaving an empty slot with a red "cancelled"
+    /// error, ship a short in-character abandonment line ("emote") into the existing slot
+    /// so the chat reads as a beat of character behaviour rather than an error. The message
+    /// is marked <c>Kind="emote"</c> so the frontend can render it distinctly. Other personas
+    /// see it in history and may react.
+    /// </summary>
+    public async Task MarkGenerationCancelledAsEmoteAsync(
+        int messageId,
+        string emoteContent,
+        string? appraisal,
+        int? triggeredByMessageId = null)
+    {
+        var chatGroupId = this.GetPrimaryKey();
+
+        RaiseEvent(new ChatGroupGenerationCancelledAsEmoteEvent
+        {
+            MessageId = messageId,
+            Content = emoteContent,
+            Appraisal = appraisal,
+            TriggeredByMessageId = triggeredByMessageId,
+            SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+        await ConfirmEvents();
+
+        var updated = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
+        if (updated is not null)
+        {
+            await PublishPartyEvent(new PartyStreamEvent
+            {
+                Type = "message",
+                ChatGroupId = chatGroupId,
+                Message = updated
+            });
+        }
+    }
+
     public async Task DeleteMessageAsync(int messageId)
     {
 
@@ -298,6 +335,51 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync()
         => Task.FromResult<IReadOnlyList<SkippedTurn>>(State.SkippedTurns.ToList());
+
+    /// <summary>
+    /// Persist one stop-signal race outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>.
+    /// Mirrors <see cref="RecordSkippedTurnAsync"/> shape so the thought-log papertrail
+    /// can show race activity (cancel-decision / cancel-generation / past-pnr / continue)
+    /// alongside go and skip entries.
+    /// </summary>
+    public async Task RecordRaceEvaluationAsync(
+        Guid personaId,
+        string personaName,
+        int triggeredByMessageId,
+        string outcome,
+        double? salience,
+        double? cancelScore)
+    {
+        var sendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        RaiseEvent(new ChatGroupPersonaRaceEvaluationEvent
+        {
+            PersonaId = personaId,
+            PersonaName = personaName,
+            TriggeredByMessageId = triggeredByMessageId,
+            Outcome = outcome,
+            Salience = salience,
+            CancelScore = cancelScore,
+            SendAt = sendAt
+        });
+        await ConfirmEvents();
+
+        // Live update: surface the race outcome to subscribed UIs immediately. Persistence
+        // (above) is for replay/reload — without the stream event the thought log wouldn't
+        // refresh until the next page load.
+        var raced = State.RaceEvaluations.LastOrDefault();
+        if (raced is not null)
+        {
+            await PublishPartyEvent(new PartyStreamEvent
+            {
+                Type = "raceEvaluation",
+                ChatGroupId = this.GetPrimaryKey(),
+                RaceEvaluation = raced
+            });
+        }
+    }
+
+    public Task<IReadOnlyList<RaceEvaluation>> GetRaceEvaluationsAsync()
+        => Task.FromResult<IReadOnlyList<RaceEvaluation>>(State.RaceEvaluations.ToList());
 
     public Task<int> CountTrailingAssistantMessagesAsync()
     {
@@ -411,8 +493,27 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetSkippedTurnsAsync")]
     Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync();
 
+    [Alias("RecordRaceEvaluationAsync")]
+    Task RecordRaceEvaluationAsync(
+        Guid personaId,
+        string personaName,
+        int triggeredByMessageId,
+        string outcome,
+        double? salience,
+        double? cancelScore);
+
+    [Alias("GetRaceEvaluationsAsync")]
+    Task<IReadOnlyList<RaceEvaluation>> GetRaceEvaluationsAsync();
+
     [Alias("MarkGenerationFailedAsync")]
     Task MarkGenerationFailedAsync(int messageId, string error);
+
+    [Alias("MarkGenerationCancelledAsEmoteAsync")]
+    Task MarkGenerationCancelledAsEmoteAsync(
+        int messageId,
+        string emoteContent,
+        string? appraisal,
+        int? triggeredByMessageId = null);
 
     [Alias("DeleteMessageAsync")]
     Task DeleteMessageAsync(int messageId);
@@ -463,6 +564,13 @@ public sealed record class ChatGroupState
     /// reactions-under-each-message tree without bloating the message log.</summary>
     [Id(6)]
     public List<SkippedTurn> SkippedTurns { get; set; } = [];
+
+    /// <summary>Stop-signal race outcomes per (persona, triggering message). Drives the
+    /// race section of the thought-log: shows when an in-flight generation was cancelled,
+    /// shipped past PNR, or let-it-ride. Includes salience scores when the race went
+    /// through the LFM2 classifier.</summary>
+    [Id(7)]
+    public List<RaceEvaluation> RaceEvaluations { get; set; } = [];
 
     public void Apply(ChatGroupInitializedEvent @event)
     {
@@ -548,6 +656,23 @@ public sealed record class ChatGroupState
         target.SendAt = @event.SendAt;
     }
 
+    public void Apply(ChatGroupGenerationCancelledAsEmoteEvent @event)
+    {
+        var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
+        if (target is null) return;
+
+        // Treat the cancelled slot as a real (emote) message: real Content + Kind tag,
+        // appraisal preserved for the thought log, no Error so the frontend doesn't show
+        // the red error chrome.
+        target.Content = @event.Content;
+        target.Kind = "emote";
+        target.Appraisal = @event.Appraisal;
+        target.SendAt = @event.SendAt;
+        target.Error = null;
+        if (@event.TriggeredByMessageId.HasValue)
+            target.TriggeredByMessageId = @event.TriggeredByMessageId;
+    }
+
     public void Apply(ChatGroupMessageDeletedEvent @event)
         => Messages.RemoveAll(m => m.MessageId == @event.MessageId);
 
@@ -571,6 +696,20 @@ public sealed record class ChatGroupState
             SendAt = @event.SendAt
         });
     }
+
+    public void Apply(ChatGroupPersonaRaceEvaluationEvent @event)
+    {
+        RaceEvaluations.Add(new RaceEvaluation
+        {
+            PersonaId = @event.PersonaId,
+            PersonaName = @event.PersonaName,
+            TriggeredByMessageId = @event.TriggeredByMessageId,
+            Outcome = @event.Outcome,
+            Salience = @event.Salience,
+            CancelScore = @event.CancelScore,
+            SendAt = @event.SendAt
+        });
+    }
 }
 
 /// <summary>A persona-turn that ended in <c>IsObviousSkip</c>: no slot, no LLM call.
@@ -585,6 +724,27 @@ public sealed record class SkippedTurn
     [Id(3)] public double UrgeTotal { get; set; }
     [Id(4)] public string Reason { get; set; } = string.Empty;
     [Id(5)] public long SendAt { get; set; }
+}
+
+/// <summary>One stop-signal race outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>.
+/// Persisted alongside <see cref="SkippedTurn"/> so the thought-log can render the full
+/// taxonomy of persona reactions: go (Message.Appraisal), decline (Message.Appraisal stop=true),
+/// skip (SkippedTurn), race (this).</summary>
+[GenerateSerializer, Alias(nameof(RaceEvaluation))]
+public sealed record class RaceEvaluation
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+    [Id(1)] public string PersonaName { get; set; } = string.Empty;
+    [Id(2)] public int TriggeredByMessageId { get; set; }
+    /// <summary>One of: <c>cancel-decision</c>, <c>cancel-generation</c>, <c>past-pnr</c>, <c>continue</c>.</summary>
+    [Id(3)] public string Outcome { get; set; } = string.Empty;
+    /// <summary>LFM2 salience score (0..1). Null for branches that didn't call the classifier
+    /// (decision-phase cancel, past-PNR).</summary>
+    [Id(4)] public double? Salience { get; set; }
+    /// <summary>Computed <c>salience × (1 − impulsivity) × (1 − commitmentProgress)</c>.
+    /// Null for branches that didn't compute it.</summary>
+    [Id(5)] public double? CancelScore { get; set; }
+    [Id(6)] public long SendAt { get; set; }
 }
 
 // ── Events ──
@@ -692,4 +852,34 @@ public sealed record class ChatGroupPersonaSkippedEvent : ChatGroupEvent
     [Id(3)] public double UrgeTotal { get; set; }
     [Id(4)] public string Reason { get; set; } = string.Empty;
     [Id(5)] public long SendAt { get; set; }
+}
+
+/// <summary>Raised when the stop-signal race in <c>PersonaGrain</c> evaluates a new message
+/// against an in-flight generation. One event per (persona, in-flight generation, new
+/// triggering message) — surfaces the race in the user-facing thought log instead of
+/// leaving it in OTel spans only.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupPersonaRaceEvaluationEvent))]
+public sealed record class ChatGroupPersonaRaceEvaluationEvent : ChatGroupEvent
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+    [Id(1)] public string PersonaName { get; set; } = string.Empty;
+    [Id(2)] public int TriggeredByMessageId { get; set; }
+    [Id(3)] public string Outcome { get; set; } = string.Empty;
+    [Id(4)] public double? Salience { get; set; }
+    [Id(5)] public double? CancelScore { get; set; }
+    [Id(6)] public long SendAt { get; set; }
+}
+
+/// <summary>Raised when the stop-signal race elects to cancel an in-flight generation.
+/// Replaces the would-be <c>ChatGroupGenerationFailedEvent("cancelled")</c> with an
+/// in-character abandonment line ("emote") so the chat reads as character behaviour
+/// rather than an error.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupGenerationCancelledAsEmoteEvent))]
+public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupEvent
+{
+    [Id(0)] public int MessageId { get; set; }
+    [Id(1)] public string Content { get; set; } = string.Empty;
+    [Id(2)] public string? Appraisal { get; set; }
+    [Id(3)] public int? TriggeredByMessageId { get; set; }
+    [Id(4)] public long SendAt { get; set; }
 }

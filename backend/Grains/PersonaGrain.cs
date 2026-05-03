@@ -318,9 +318,70 @@ public sealed class PersonaGrain(
         }
         catch (OperationCanceledException)
         {
-            turnSpan?.SetTag("decision", "cancelled");
-            logger.LogDebug("Persona {PersonaName} generation cancelled", persona.Name);
-            await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
+            // Distinguish race-cancel (→ in-character emote) from external cancel via
+            // PartyGrain.CancelGenerationAsync (→ red error). The race sets RaceCancelled
+            // before tripping the CTS so this check is reliable.
+            var snap = inFlight.Snapshot();
+            if (snap.RaceCancelled)
+            {
+                turnSpan?.SetTag("decision", "race-cancelled");
+                logger.LogInformation(
+                    "Persona {PersonaName} race-cancelled (msg {MessageId}, drafted {Chars} chars)",
+                    persona.Name, messageId, snap.GeneratedText.Length);
+
+                string emote;
+                try
+                {
+                    var emoteService = new PersonaEmoteService(
+                        GrainFactory.GetGrain<ILlmRouterGrain>(0),
+                        loggerFactory.CreateLogger<PersonaEmoteService>());
+                    var selfForEmote = new GenerationParticipant
+                    {
+                        Id = personaId,
+                        Name = persona.Name,
+                        Bio = persona.Bio,
+                        SystemPrompt = persona.SystemPrompt,
+                        IsUser = false,
+                        Chattiness = persona.Chattiness,
+                        Impulsivity = persona.Impulsivity
+                    };
+                    // Use the parent ct (not linkedCt — linked is already cancelled by the race).
+                    // Stale draft, the race already paid the cost — we still want the emote.
+                    emote = await emoteService.GenerateAbandonmentEmoteAsync(
+                        selfForEmote,
+                        snap.GeneratedText,
+                        snap.InterruptingMessage,
+                        snap.InterruptingSenderName,
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Persona {PersonaName} emote generation threw — using literal fallback", persona.Name);
+                    emote = PersonaEmoteService.GenerationFailureFallback;
+                }
+
+                // Synthesize an appraisal so the thought-log entry shows the gut reaction
+                // and notes the race outcome that produced this emote.
+                var emoteAppraisal = JsonSerializer.Serialize(new
+                {
+                    personaId,
+                    instruction = (string?)null,
+                    reason = string.IsNullOrWhiteSpace(snap.GutReaction)
+                        ? "Race-cancelled before deciding."
+                        : snap.GutReaction,
+                    stop = false,
+                    raceCancelled = true
+                }, WebOptions);
+
+                await chatGroupGrain.MarkGenerationCancelledAsEmoteAsync(
+                    messageId, emote, emoteAppraisal, triggeringMessage.MessageId);
+            }
+            else
+            {
+                turnSpan?.SetTag("decision", "cancelled");
+                logger.LogDebug("Persona {PersonaName} generation cancelled (external)", persona.Name);
+                await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
+            }
         }
         catch (Exception ex)
         {
@@ -527,7 +588,12 @@ public sealed class PersonaGrain(
                 logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight DECISION (msg {Mid}) on new {NewMid}",
                     persona.Name, inFlightMessageId, triggeringMessage.MessageId);
+                gen.MarkRaceCancelled(
+                    triggeringMessage.Content ?? string.Empty,
+                    await ResolveSenderNameAsync());
                 try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
+                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
+                    triggeringMessage.MessageId, "cancel-decision", null, null);
                 continue;
             }
 
@@ -542,6 +608,8 @@ public sealed class PersonaGrain(
                     triggeringMessage.MessageId,
                     await ResolveSenderNameAsync(),
                     triggeringMessage.Content ?? string.Empty);
+                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
+                    triggeringMessage.MessageId, "past-pnr", null, null);
                 continue;
             }
 
@@ -593,7 +661,12 @@ public sealed class PersonaGrain(
                 logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight GENERATION (msg {Mid}, tokens {Tok}, salience {Sal:F2}, cancelScore {Cs:F2}) on new {NewMid}",
                     persona.Name, inFlightMessageId, snap.GeneratedTokens, salience.Value, cancelScore, triggeringMessage.MessageId);
+                gen.MarkRaceCancelled(
+                    triggeringMessage.Content ?? string.Empty,
+                    await ResolveSenderNameAsync());
                 try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
+                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
+                    triggeringMessage.MessageId, "cancel-generation", salience.Value, cancelScore);
             }
             else
             {
@@ -602,7 +675,38 @@ public sealed class PersonaGrain(
                     triggeringMessage.MessageId,
                     await ResolveSenderNameAsync(),
                     triggeringMessage.Content ?? string.Empty);
+                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
+                    triggeringMessage.MessageId, "continue", salience.Value, cancelScore);
             }
+        }
+    }
+
+    /// <summary>Persist a race outcome to the chat group's thought-log papertrail. Wraps
+    /// the call so a transient persistence failure can't bring down the race itself —
+    /// the cancel/continue decision has already been applied by this point.</summary>
+    private async Task RecordRaceOutcomeAsync(
+        IChatGroupGrain chatGroupGrain,
+        Persona persona,
+        int triggeredByMessageId,
+        string outcome,
+        double? salience,
+        double? cancelScore)
+    {
+        try
+        {
+            await chatGroupGrain.RecordRaceEvaluationAsync(
+                this.GetPrimaryKey(),
+                persona.Name ?? string.Empty,
+                triggeredByMessageId,
+                outcome,
+                salience,
+                cancelScore);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex,
+                "Failed to record race outcome {Outcome} for persona {PersonaName}",
+                outcome, persona.Name);
         }
     }
 
@@ -652,6 +756,13 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
     private readonly StringBuilder _generatedText = new();
     private int _generatedChars;
 
+    // Set by the race when it elects to cancel this generation; consumed in the
+    // OperationCanceledException catch to distinguish race-cancel (→ emote) from
+    // external cancel via PartyGrain.CancelGenerationAsync (→ red error).
+    private bool _raceCancelled;
+    private string _interruptingMessage = string.Empty;
+    private string _interruptingSenderName = string.Empty;
+
     public void MarkGenerationStarted(string gutReaction, string wouldSayPreview)
     {
         lock (_lock)
@@ -680,6 +791,19 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
         }
     }
 
+    /// <summary>Mark this generation as race-cancelled before triggering the CTS, so the
+    /// catch can route to the emote path. Captures the interrupting message context for
+    /// the emote-generation prompt.</summary>
+    public void MarkRaceCancelled(string interruptingMessage, string interruptingSenderName)
+    {
+        lock (_lock)
+        {
+            _raceCancelled = true;
+            _interruptingMessage = interruptingMessage ?? string.Empty;
+            _interruptingSenderName = interruptingSenderName ?? string.Empty;
+        }
+    }
+
     public InFlightSnapshot Snapshot()
     {
         lock (_lock)
@@ -689,7 +813,10 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
                 _gutReaction,
                 _wouldSayPreview,
                 _generatedText.ToString(),
-                _generatedChars / CharsPerTokenEstimate);
+                _generatedChars / CharsPerTokenEstimate,
+                _raceCancelled,
+                _interruptingMessage,
+                _interruptingSenderName);
         }
     }
 }
@@ -701,7 +828,10 @@ internal readonly record struct InFlightSnapshot(
     string GutReaction,
     string WouldSayPreview,
     string GeneratedText,
-    int GeneratedTokens);
+    int GeneratedTokens,
+    bool RaceCancelled,
+    string InterruptingMessage,
+    string InterruptingSenderName);
 
 /// <summary>
 /// Grain contract for managing a single persona.

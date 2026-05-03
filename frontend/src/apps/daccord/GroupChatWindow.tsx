@@ -21,12 +21,14 @@ import {
     type ActiveGenerationPhase,
     type DeclinedDecision,
     type GenerationPhase,
+    type RaceEvaluation,
     type RealtimeChatMessage,
     type RealtimeConnectionStatus,
     useActiveGenerationPhases,
     useChatGroupGenerationState,
     useChatGroupMessages,
     useDeclinedDecisions,
+    useRaceEvaluations,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
@@ -97,6 +99,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
     const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
     const declinedDecisions = useDeclinedDecisions(chatGroupId ?? '');
+    const raceEvaluations = useRaceEvaluations(chatGroupId ?? '');
     const realtimeMessages = useChatGroupMessages(chatGroupId ?? '');
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -719,6 +722,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                 livePhases={generationPhases}
                 allMessages={uniqueMessages}
                 declinedDecisions={declinedDecisions}
+                raceEvaluations={raceEvaluations}
                 hasChanges={hasParticipantChanges}
                 isSaving={saveParticipantsMutation.isPending}
                 saveError={
@@ -753,6 +757,7 @@ function ParticipantsSidebar({
     livePhases,
     allMessages,
     declinedDecisions,
+    raceEvaluations,
     hasChanges,
     isSaving,
     saveError,
@@ -768,6 +773,7 @@ function ParticipantsSidebar({
     livePhases: ActiveGenerationPhase[];
     allMessages: RealtimeChatMessage[];
     declinedDecisions: DeclinedDecision[];
+    raceEvaluations: RaceEvaluation[];
     hasChanges: boolean;
     isSaving: boolean;
     saveError: string | null;
@@ -783,7 +789,18 @@ function ParticipantsSidebar({
 
     const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
 
-    // Combined thought log: "go" decisions from persisted messages + "skip" decisions captured at runtime
+    // Combined thought log: "go" decisions from persisted messages + "skip" decisions
+    // captured at runtime + stop-signal "race" outcomes streamed live.
+    //
+    // Each entry carries a `kind` discriminator so the renderer can colour-code variants:
+    //   go               — persona decided to speak (LLM said yes)
+    //   decline          — persona decided NOT to speak (LLM said no)
+    //   skip-obvious     — pre-gate skip (math decisive, no LLM call)
+    //   race-cancel-decision   — race killed an in-flight decision phase
+    //   race-cancel-generation — race killed an in-flight generation
+    //   race-past-pnr          — past PNR; ship-as-is, repair queued
+    //   race-continue          — race let it ride
+    //   emote            — race-cancelled message that shipped as an in-character emote
     const thoughtLog = useMemo(() => {
         type LogEntry = {
             key: string;
@@ -791,19 +808,37 @@ function ParticipantsSidebar({
             personaName: string;
             reason: string | null;
             instruction: string | null;
-            skip: boolean; // true = declined to respond
+            kind:
+                | 'go'
+                | 'decline'
+                | 'skip-obvious'
+                | 'emote'
+                | 'race-cancel-decision'
+                | 'race-cancel-generation'
+                | 'race-past-pnr'
+                | 'race-continue';
+            salience: number | null;
+            cancelScore: number | null;
             sortKey: number;
         };
 
         const entries: LogEntry[] = [];
 
-        // "go" decisions: messages that have appraisalComplete (stop:false)
+        // Decisions persisted on messages: appraisal.stop discriminates go vs decline.
+        // Race-cancelled messages get kind=emote (the appraisal carries raceCancelled=true).
         for (const msg of allMessages) {
             if (!msg.appraisal) continue;
             try {
                 const raw = JSON.parse(msg.appraisal);
                 const personaId = raw.personaId ?? raw.PersonaId ?? null;
                 const persona = personas.find((p) => p.id === personaId);
+                const isStop = !!(raw.stop ?? raw.Stop);
+                const isRaceCancelled = raw.raceCancelled === true;
+                const kind: LogEntry['kind'] = isRaceCancelled
+                    ? 'emote'
+                    : isStop
+                      ? 'decline'
+                      : 'go';
                 entries.push({
                     key: `msg-${msg.messageId}`,
                     personaId,
@@ -811,7 +846,9 @@ function ParticipantsSidebar({
                         persona?.name ?? personaId?.slice(0, 8) ?? 'Unknown',
                     reason: raw.reason ?? raw.Reason ?? null,
                     instruction: raw.instruction ?? raw.Instruction ?? null,
-                    skip: !!(raw.stop ?? raw.Stop),
+                    kind,
+                    salience: null,
+                    cancelScore: null,
                     sortKey: msg.messageId,
                 });
             } catch {
@@ -819,7 +856,7 @@ function ParticipantsSidebar({
             }
         }
 
-        // "skip" decisions: captured from declined events (ephemeral, session-only)
+        // Pre-gate skips streamed via the declined event (ephemeral, in-memory).
         for (const d of declinedDecisions) {
             const persona = personas.find((p) => p.id === d.personaId);
             entries.push({
@@ -829,13 +866,44 @@ function ParticipantsSidebar({
                     persona?.name ?? d.personaId?.slice(0, 8) ?? 'Unknown',
                 reason: d.reason,
                 instruction: null,
-                skip: true,
+                kind: 'skip-obvious',
+                salience: null,
+                cancelScore: null,
                 sortKey: d.messageId,
             });
         }
 
+        // Race outcomes from the stop-signal classifier. Use sendAt for sorting since
+        // race events can fire multiple times per triggering message.
+        for (const r of raceEvaluations) {
+            const persona = personas.find((p) => p.id === r.personaId);
+            const kind: LogEntry['kind'] =
+                r.outcome === 'cancel-decision'
+                    ? 'race-cancel-decision'
+                    : r.outcome === 'cancel-generation'
+                      ? 'race-cancel-generation'
+                      : r.outcome === 'past-pnr'
+                        ? 'race-past-pnr'
+                        : 'race-continue';
+            entries.push({
+                key: `race-${r.personaId}-${r.triggeredByMessageId}-${r.sendAt}`,
+                personaId: r.personaId,
+                personaName:
+                    persona?.name ??
+                    r.personaName ??
+                    r.personaId?.slice(0, 8) ??
+                    'Unknown',
+                reason: null,
+                instruction: null,
+                kind,
+                salience: r.salience,
+                cancelScore: r.cancelScore,
+                sortKey: r.triggeredByMessageId + r.sendAt / 1e13,
+            });
+        }
+
         return entries.sort((a, b) => b.sortKey - a.sortKey);
-    }, [allMessages, declinedDecisions, personas]);
+    }, [allMessages, declinedDecisions, raceEvaluations, personas]);
 
     const sectionLabel = (text: string, badge?: number) => (
         <div
@@ -1144,82 +1212,119 @@ function ParticipantsSidebar({
                             No decisions yet
                         </div>
                     ) : (
-                        thoughtLog.map((entry) => (
-                            <div
-                                key={entry.key}
-                                style={{
-                                    borderBottom: '1px solid #D4D0C8',
-                                    padding: '4px 8px',
-                                    borderLeft: entry.skip
-                                        ? '3px solid #CC8800'
-                                        : '3px solid #009900',
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5">
-                                    {entry.personaId && (
-                                        <img
-                                            src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
-                                            alt={entry.personaName}
+                        thoughtLog.map((entry) => {
+                            // Per-variant colour: green = go, amber = decline/skip,
+                            // red = race-cancel, purple = past-pnr/continue/emote.
+                            const variantStyle = (() => {
+                                switch (entry.kind) {
+                                    case 'go':
+                                        return { color: '#009900', label: 'go' };
+                                    case 'decline':
+                                        return { color: '#CC8800', label: 'decline' };
+                                    case 'skip-obvious':
+                                        return { color: '#CC8800', label: 'skip' };
+                                    case 'race-cancel-decision':
+                                        return { color: '#C03030', label: 'race·cancel·dec' };
+                                    case 'race-cancel-generation':
+                                        return { color: '#C03030', label: 'race·cancel·gen' };
+                                    case 'race-past-pnr':
+                                        return { color: '#7A40C0', label: 'race·past-pnr' };
+                                    case 'race-continue':
+                                        return { color: '#7A40C0', label: 'race·continue' };
+                                    case 'emote':
+                                        return { color: '#7A40C0', label: 'emote' };
+                                }
+                            })();
+                            return (
+                                <div
+                                    key={entry.key}
+                                    style={{
+                                        borderBottom: '1px solid #D4D0C8',
+                                        padding: '4px 8px',
+                                        borderLeft: `3px solid ${variantStyle.color}`,
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1.5">
+                                        {entry.personaId && (
+                                            <img
+                                                src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                                alt={entry.personaName}
+                                                style={{
+                                                    width: 13,
+                                                    height: 13,
+                                                    imageRendering: 'pixelated',
+                                                    flexShrink: 0,
+                                                }}
+                                            />
+                                        )}
+                                        <span
                                             style={{
-                                                width: 13,
-                                                height: 13,
-                                                imageRendering: 'pixelated',
+                                                fontSize: 10,
+                                                fontWeight: 600,
+                                                color: '#333',
+                                                flex: 1,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                        >
+                                            {entry.personaName}
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontSize: 9,
+                                                color: variantStyle.color,
+                                                fontWeight: 700,
                                                 flexShrink: 0,
                                             }}
-                                        />
+                                        >
+                                            {variantStyle.label}
+                                        </span>
+                                    </div>
+                                    {entry.reason && (
+                                        <div
+                                            style={{
+                                                fontSize: 9,
+                                                color: '#666',
+                                                fontStyle: 'italic',
+                                                lineHeight: 1.3,
+                                                marginTop: 1,
+                                            }}
+                                        >
+                                            {entry.reason}
+                                        </div>
                                     )}
-                                    <span
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: 600,
-                                            color: '#333',
-                                            flex: 1,
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
-                                        {entry.personaName}
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: 9,
-                                            color: entry.skip
-                                                ? '#CC8800'
-                                                : '#009900',
-                                            fontWeight: 700,
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {entry.skip ? 'skip' : 'go'}
-                                    </span>
+                                    {entry.salience !== null && (
+                                        <div
+                                            style={{
+                                                fontSize: 9,
+                                                color: '#806600',
+                                                fontFamily: 'monospace',
+                                                lineHeight: 1.3,
+                                            }}
+                                        >
+                                            salience={entry.salience.toFixed(2)}
+                                            {entry.cancelScore !== null
+                                                ? ` cancel=${entry.cancelScore.toFixed(2)}`
+                                                : ''}
+                                        </div>
+                                    )}
+                                    {entry.instruction &&
+                                        (entry.kind === 'decline' ||
+                                            entry.kind === 'skip-obvious') && (
+                                            <div
+                                                style={{
+                                                    fontSize: 9,
+                                                    color: '#806600',
+                                                    lineHeight: 1.3,
+                                                }}
+                                            >
+                                                → {entry.instruction}
+                                            </div>
+                                        )}
                                 </div>
-                                {entry.reason && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#666',
-                                            fontStyle: 'italic',
-                                            lineHeight: 1.3,
-                                            marginTop: 1,
-                                        }}
-                                    >
-                                        {entry.reason}
-                                    </div>
-                                )}
-                                {entry.instruction && entry.skip && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#806600',
-                                            lineHeight: 1.3,
-                                        }}
-                                    >
-                                        → {entry.instruction}
-                                    </div>
-                                )}
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
@@ -1288,6 +1393,36 @@ function ChatBubble({
 
     const userPersonaName =
         personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
+
+    // Race-cancelled message — shipped as an in-character abandonment line. Render
+    // as a plain italic beat (grey, no avatar/bubble, no error chrome) so it reads as
+    // character behaviour rather than a system error or a normal speech turn.
+    if (message.kind === 'emote') {
+        return (
+            <div
+                className="p-2 group"
+                style={{
+                    borderBottom: '1px solid #E8E4D8',
+                    background: 'transparent',
+                    borderLeft: '3px solid transparent',
+                }}
+            >
+                <div
+                    style={{
+                        fontSize: 11,
+                        fontStyle: 'italic',
+                        color: '#888',
+                        lineHeight: 1.4,
+                    }}
+                >
+                    <span style={{ fontWeight: 600, marginRight: 6, color: '#999' }}>
+                        {senderName}
+                    </span>
+                    {message.content}
+                </div>
+            </div>
+        );
+    }
 
     if (isDirectedAtUser && appraisalData) {
         return (

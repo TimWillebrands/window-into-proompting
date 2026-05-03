@@ -277,6 +277,43 @@ public class PersonaDecisionServiceTest
     }
 
     [Fact]
+    public async Task ShouldRespondAsync_JsonWithStrayDoubleQuoteWrappersOnWouldSay_ParsesCorrectly()
+    {
+        // Observed in production traces (log_id 9199): models occasionally treat wouldSay
+        // as a quotation field and wrap the value in literal extra quotes — `"wouldSay": ""xxx""`
+        // — yielding two consecutive `"` that JSON parses as an empty string followed by junk.
+        // JsonRepair doesn't recognise this. LlmJsonParsing.CollapseStrayDoubleQuoteWrappers
+        // strips the outer pair before handing off.
+        var self = MakeParticipant("Hana");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        // Mirror the exact failure mode from the prod log: gutReaction normal, wouldSay
+        // wrapped in `""…""`, no internal escaping. JsonRepair alone fails here.
+        var broken = "{\"gutReaction\": \"Entropy here.\", \"wouldSay\": \"\"Denise, your noise wasn't noise. How do we *invite* it, not dissect?\"\", \"respond\": true}";
+
+        var service = MakeService(EndpointReturningJson(broken));
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.False(
+            result.Reason.StartsWith("Fallback"),
+            $"Expected stray-quote-wrapper repair to parse, not the fail-closed fallback. Got reason: {result.Reason}");
+        Assert.Contains("Denise, your noise", result.Instruction);
+        // Outer wrappers stripped — content shouldn't start/end with the literal extra quote.
+        Assert.False(result.Instruction.StartsWith("\""),
+            $"Expected leading wrapper quote stripped; instruction starts with quote: {result.Instruction}");
+    }
+
+    [Fact]
     public async Task ShouldRespondAsync_JsonWithRawNewlinesInsideStringValue_ParsesCorrectly()
     {
         // Second observed failure mode: LLMs emit literal newlines inside a multi-line `reason`
@@ -455,13 +492,12 @@ public class PersonaDecisionServiceTest
     }
 
     [Fact]
-    public async Task ShouldRespondAsync_WithRepairHint_AutoRespondPathStillSkipsLlm()
+    public async Task ShouldRespondAsync_WithRepairHint_BypassesAutoRespondAndCallsLlm()
     {
-        // When a direct mention triggers the auto-respond fast-path, the LLM is never called,
-        // so the repair hint isn't surfaced — that's by design (the hint is consumed by the
-        // call site regardless of which branch wins). Verify the auto-respond path still fires
-        // and routing is never invoked.
-        var router = new Mock<ILlmRouterGrain>();
+        // Auto-respond shortcut returns canned text and bypasses the system prompt's
+        // repairBlock entirely. When a repair hint is pending, that's wrong: the persona
+        // would barrel through name-mentions ignoring whatever they missed during the
+        // in-flight generation. Instead the slow path runs so the repair stanza injects.
         var self = MakeParticipant("Kai");
         var senderId = Guid.NewGuid();
         var participants = new List<GenerationParticipant>
@@ -473,14 +509,52 @@ public class PersonaDecisionServiceTest
         {
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hey kai, what say you?" }
         };
+        var json = """{"gutReaction":"name called","wouldSay":"yeah","respond":true}""";
+
+        var (endpoint, jobs) = EndpointCapturingJobs(json);
+        var service = MakeService(endpoint);
 
         var hint = new RepairHint(0, "Mira", "earlier point");
-        var service = MakeServiceWithRouter(router);
-        var result = await service.ShouldRespondAsync(
+        await service.ShouldRespondAsync(
             self, history, participants, 0, null, CancellationToken.None,
             repairHint: hint);
 
-        Assert.True(result.Respond);
-        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+        // LLM was called (we captured a job).
+        Assert.Single(jobs);
+
+        // System prompt contains the repair stanza.
+        var system = jobs.Single().Messages.Single(m => m.Role == "system").Content;
+        Assert.Contains("Just before you spoke", system);
+        Assert.Contains("Mira", system);
+
+        // User prompt surfaces the mention cue (so the model still feels the pull of being named).
+        var user = jobs.Single().Messages.Single(m => m.Role == "user").Content;
+        Assert.Contains("(They said your name.)", user);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_NoMention_UserPromptOmitsMentionCue()
+    {
+        // The mention cue is mention-score-gated. A neutral message must not get a fake
+        // "they said your name" cue or every prompt becomes the same.
+        var self = MakeParticipant("Lara");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "anyway, the rain again" }
+        };
+        var json = """{"gutReaction":"meh","wouldSay":"","respond":false}""";
+
+        var (endpoint, jobs) = EndpointCapturingJobs(json);
+        var service = MakeService(endpoint);
+        await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        var user = jobs.Single().Messages.Single(m => m.Role == "user").Content;
+        Assert.DoesNotContain("(They said your name.)", user);
     }
 }
