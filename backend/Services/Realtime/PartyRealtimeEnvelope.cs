@@ -36,10 +36,19 @@ public sealed record class PartyRealtimeEnvelope
 [JsonDerivedType(typeof(PersonaGenerationDeltaData), "persona_generation_delta")]
 [JsonDerivedType(typeof(PersonaGenerationCompletedData), "persona_generation_completed")]
 [JsonDerivedType(typeof(PersonaGenerationErrorData), "persona_generation_error")]
+[JsonDerivedType(typeof(PartyRaceEvaluationData), "party_race_evaluation")]
 public interface IPartyRealtimeData;
 
-/// <summary>Payload for the "party.snapshot" event: initial message backlog on connect.</summary>
-public sealed record class PartySnapshotData(Guid PartyId, Guid ChatGroupId, IReadOnlyList<ChatMessage> Messages) : IPartyRealtimeData;
+/// <summary>Payload for the "party.snapshot" event: initial backlog on connect.
+/// Includes messages and the two thought-log auxiliary streams (skipped turns +
+/// race evaluations) so a page reload rehydrates the full thought log instead of
+/// dropping every "negative" decision the moment the websocket reconnects.</summary>
+public sealed record class PartySnapshotData(
+    Guid PartyId,
+    Guid ChatGroupId,
+    IReadOnlyList<ChatMessage> Messages,
+    IReadOnlyList<PartyTown.Grains.SkippedTurn> SkippedTurns,
+    IReadOnlyList<PartyTown.Grains.RaceEvaluation> RaceEvaluations) : IPartyRealtimeData;
 
 /// <summary>Payload for the "party.message.created" event: a new message was added to the party.</summary>
 public sealed record class PartyMessageCreatedData(Guid PartyId, Guid ChatGroupId, ChatMessage? Message) : IPartyRealtimeData;
@@ -73,3 +82,7 @@ public sealed record class PersonaGenerationCompletedData(string? Name, string? 
 
 /// <summary>Payload for the "persona.generation.error" event.</summary>
 public sealed record class PersonaGenerationErrorData(string Message) : IPartyRealtimeData;
+
+/// <summary>Payload for the "party.race.evaluation" event: one stop-signal race outcome
+/// from <c>PersonaGrain.RunStopSignalRaceAsync</c>, surfaced live to the thought log.</summary>
+public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IPartyRealtimeData;

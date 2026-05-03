@@ -105,10 +105,22 @@ public sealed class PartyRealtimeSession(
 
         foreach (var chatGroupSnapshot in snapshotByChatGroup)
         {
+            // Pull the auxiliary thought-log streams alongside messages so reload
+            // rehydrates skip-obvious + race outcomes (otherwise wiped to [] in the
+            // frontend snapshot handler and never restored).
+            var chatGroupGrain = grainFactory.GetGrain<IChatGroupGrain>(chatGroupSnapshot.Key);
+            var skippedTurns = await chatGroupGrain.GetSkippedTurnsAsync();
+            var raceEvaluations = await chatGroupGrain.GetRaceEvaluationsAsync();
+
             await client.SendAsync(
                 CreateEnvelope(
                     "party.snapshot",
-                    new PartySnapshotData(partyId, chatGroupSnapshot.Key, chatGroupSnapshot.ToArray())),
+                    new PartySnapshotData(
+                        partyId,
+                        chatGroupSnapshot.Key,
+                        chatGroupSnapshot.ToArray(),
+                        skippedTurns,
+                        raceEvaluations)),
                 cancellationToken);
         }
     }
@@ -204,6 +216,13 @@ public sealed class PartyRealtimeSession(
 
             case "messageEvent" when evt.MessageId.HasValue && evt.MessageEvent is not null:
                 await HandleMessageEventAsync(evt.ChatGroupId, evt.MessageId.Value, evt.MessageEvent, cancellationToken);
+                break;
+
+            case "raceEvaluation" when evt.RaceEvaluation is not null:
+                await BroadcastAsync(
+                    CreateEnvelope("party.race.evaluation",
+                        new PartyRaceEvaluationData(partyId, evt.ChatGroupId, evt.RaceEvaluation)),
+                    cancellationToken);
                 break;
 
             default:
