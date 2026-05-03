@@ -19,6 +19,12 @@ export interface RealtimeChatMessage {
     sendAt: number | null;
     metadata: ChatMessageMetadata | null;
     generationEvents: Array<{ event: string; data: string; at: number }>;
+    /**
+     * Discriminator for special message variants. Currently:
+     *   "emote" — race-cancelled abandonment line (italic action, no bubble chrome).
+     * null/undefined for normal messages.
+     */
+    kind?: string | null;
 }
 
 export type RealtimeConnectionStatus =
@@ -47,7 +53,24 @@ export interface DeclinedDecision {
     personaId: string;
     reason: string | null;
     decisionText: string;
+    messageId: number;
     timestamp: number;
+}
+
+/**
+ * One stop-signal race outcome from a PersonaGrain. Mirrors backend RaceEvaluation
+ * exactly. Surfaced into the thought log with kind = `race-${outcome}` so the user
+ * can see when in-flight generations are cancelled, ship past PNR, or let-it-ride.
+ */
+export interface RaceEvaluation {
+    personaId: string;
+    personaName: string;
+    triggeredByMessageId: number;
+    /** "cancel-decision" | "cancel-generation" | "past-pnr" | "continue" */
+    outcome: string;
+    salience: number | null;
+    cancelScore: number | null;
+    sendAt: number;
 }
 
 interface ChatGroupRealtimeState {
@@ -55,6 +78,7 @@ interface ChatGroupRealtimeState {
     messages: RealtimeChatMessage[];
     activeGenerationMessageIds: number[];
     declinedDecisions: DeclinedDecision[];
+    raceEvaluations: RaceEvaluation[];
     lastSequence: number;
 }
 
@@ -72,6 +96,7 @@ const DEFAULT_CHAT_GROUP_STATE = (
     messages: [],
     activeGenerationMessageIds: [],
     declinedDecisions: [],
+    raceEvaluations: [],
     lastSequence: 0,
 });
 
@@ -252,14 +277,39 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
         }));
 
         if (envelope.type === 'party.snapshot') {
+            // Snapshot now carries the two thought-log auxiliary streams alongside
+            // messages — pre-gate skips (skipObvious-shaped, mapped into the same
+            // DeclinedDecision lane the live `declined` event feeds) and race outcomes.
+            // Without these the thought log on reload only shows persisted-message
+            // appraisals; every "negative" beat (skip / race-cancel / past-pnr / continue)
+            // would silently disappear.
             const payload = envelope.data as {
                 chatGroupId?: string;
                 messages?: RealtimeChatMessage[];
+                skippedTurns?: Array<{
+                    personaId: string;
+                    personaName?: string | null;
+                    triggeredByMessageId: number;
+                    urgeTotal?: number;
+                    reason?: string | null;
+                    sendAt?: number;
+                }>;
+                raceEvaluations?: RaceEvaluation[];
             };
 
             if (!payload.chatGroupId) {
                 return;
             }
+
+            const seededDeclined: DeclinedDecision[] = (
+                payload.skippedTurns ?? []
+            ).map((s) => ({
+                personaId: s.personaId,
+                reason: s.reason ?? null,
+                decisionText: '',
+                messageId: s.triggeredByMessageId,
+                timestamp: s.sendAt ?? 0,
+            }));
 
             updateChatGroup(payload.chatGroupId, envelope.sequence, (prev) => ({
                 ...prev,
@@ -267,7 +317,24 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     (a, b) => a.messageId - b.messageId,
                 ),
                 activeGenerationMessageIds: [],
-                declinedDecisions: [],
+                declinedDecisions: seededDeclined,
+                raceEvaluations: payload.raceEvaluations ?? [],
+            }));
+            return;
+        }
+
+        if (envelope.type === 'party.race.evaluation') {
+            // Stop-signal race outcome from PersonaGrain. Accumulate into thoughtLog
+            // alongside go/skip entries so race activity is visible in the sidebar.
+            const payload = envelope.data as {
+                chatGroupId?: string;
+                evaluation?: RaceEvaluation;
+            };
+            if (!payload.chatGroupId || !payload.evaluation) return;
+            const evaluation = payload.evaluation;
+            updateChatGroup(payload.chatGroupId, envelope.sequence, (prev) => ({
+                ...prev,
+                raceEvaluations: [...prev.raceEvaluations, evaluation],
             }));
             return;
         }
@@ -503,6 +570,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                         personaId: declinedPersonaId || phantom?.senderId || '',
                         reason: declinedReason,
                         decisionText: (phantom?.appraisal ?? '').trim(),
+                        messageId,
                         timestamp: Date.now(),
                     };
                     return {
@@ -766,6 +834,14 @@ export const useDeclinedDecisions = (chatGroupId: string): DeclinedDecision[] =>
     useRealtimeStore(
         (state) =>
             state.chatGroups[chatGroupId]?.declinedDecisions ?? EMPTY_DECLINED,
+    );
+
+const EMPTY_RACE_EVALUATIONS: RaceEvaluation[] = [];
+export const useRaceEvaluations = (chatGroupId: string): RaceEvaluation[] =>
+    useRealtimeStore(
+        (state) =>
+            state.chatGroups[chatGroupId]?.raceEvaluations ??
+            EMPTY_RACE_EVALUATIONS,
     );
 
 export function useRealtimeStoreActions() {

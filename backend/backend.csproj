@@ -5,8 +5,6 @@
     <RootNamespace>PartyTown</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RestorePackagesPath>$(MSBuildProjectDirectory)/.nuget</RestorePackagesPath>
-    <RestorePath>$(MSBuildProjectDirectory)/.nuget</RestorePath>
     <NoWarn>$(NoWarn);CA1873</NoWarn>
     <OpenApiDocumentsDirectory>.</OpenApiDocumentsDirectory>
     <OpenApiGenerateDocumentsOnBuild>false</OpenApiGenerateDocumentsOnBuild>
@@ -32,10 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-      <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.1" />
-      <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.1" />
-      <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
-      <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
-   </ItemGroup>
+    <ProjectReference Include="..\aspire\Proompting.ServiceDefaults\Proompting.ServiceDefaults.csproj" />
+  </ItemGroup>
 
 </Project>

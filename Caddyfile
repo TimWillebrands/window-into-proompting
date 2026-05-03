@@ -1,4 +1,0 @@
-http://localhost:8080 {
-    reverse_proxy /api/* backend:5072
-    reverse_proxy * frontend:3000
-}

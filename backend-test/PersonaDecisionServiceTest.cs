@@ -374,4 +374,113 @@ public class PersonaDecisionServiceTest
         // A terminal completion event must arrive after streaming ends
         Assert.True(completionFired, "Expected a terminal PersonaEvaluationComplete event");
     }
+
+    // ── ShouldRespondAsync — RepairHint injection ─────────────────────────────
+
+    /// <summary>
+    /// Mock helper that captures the <see cref="LlmGenerationJob"/> handed to GenerateAsync,
+    /// so a test can assert what the model actually saw (e.g., does the system prompt contain
+    /// the repair-hint stanza). Returns the canned JSON regardless of the input.
+    /// </summary>
+    private static (Mock<ILlmEndpointGrain> endpoint, List<LlmGenerationJob> capturedJobs) EndpointCapturingJobs(string json)
+    {
+        var captured = new List<LlmGenerationJob>();
+        var endpoint = new Mock<ILlmEndpointGrain>();
+        endpoint
+            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+            {
+                captured.Add(job);
+                return SingleChunk(json, ct);
+            });
+        return (endpoint, captured);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_NoRepairHint_SystemPromptOmitsRepairStanza()
+    {
+        var self = MakeParticipant("Iris");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+        var json = """{"gutReaction":"hi","wouldSay":"","respond":false}""";
+
+        var (endpoint, jobs) = EndpointCapturingJobs(json);
+        var service = MakeService(endpoint);
+        await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        var system = jobs.Single().Messages.Single(m => m.Role == "system").Content;
+        Assert.DoesNotContain("Just before you spoke", system);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_WithRepairHint_SystemPromptInjectsRepairStanza()
+    {
+        // The race trigger sets a repair hint when a relevant message arrived during in-flight
+        // generation but the persona shipped past the point of no return. The next decision
+        // pass should see the hint surfaced in the system prompt so the persona can choose
+        // (in-character) whether to acknowledge.
+        var self = MakeParticipant("Jules");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 5, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+        var json = """{"gutReaction":"hi","wouldSay":"","respond":false}""";
+
+        var (endpoint, jobs) = EndpointCapturingJobs(json);
+        var service = MakeService(endpoint);
+
+        var hint = new RepairHint(4, "Mira", "wait, wrong room");
+        await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            repairHint: hint);
+
+        var system = jobs.Single().Messages.Single(m => m.Role == "system").Content;
+        Assert.Contains("Just before you spoke", system);
+        Assert.Contains("Mira", system);
+        Assert.Contains("wait, wrong room", system);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_WithRepairHint_AutoRespondPathStillSkipsLlm()
+    {
+        // When a direct mention triggers the auto-respond fast-path, the LLM is never called,
+        // so the repair hint isn't surfaced — that's by design (the hint is consumed by the
+        // call site regardless of which branch wins). Verify the auto-respond path still fires
+        // and routing is never invoked.
+        var router = new Mock<ILlmRouterGrain>();
+        var self = MakeParticipant("Kai");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hey kai, what say you?" }
+        };
+
+        var hint = new RepairHint(0, "Mira", "earlier point");
+        var service = MakeServiceWithRouter(router);
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            repairHint: hint);
+
+        Assert.True(result.Respond);
+        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

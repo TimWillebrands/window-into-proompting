@@ -12,32 +12,38 @@ Proompting (aka Partytown) = Windows XP-themed AI chat. Multiple AI personas con
 
 ## Development Environment
 
-All via Docker Compose. No local .NET/Node/PostgreSQL.
+Dev runs on the host via .NET Aspire. The AppHost (`aspire/Proompting.AppHost`) orchestrates: backend (.NET project), frontend (Vite via npm), and Postgres+AGE (container). Aspire embeds its own dashboard for OTel logs/traces/metrics.
+
+**Host prerequisites:**
+- .NET SDK with .NET 10 runtime + .NET 11 preview SDK (the AppHost targets `net10.0`, the backend targets `net11.0` preview)
+- Node 22+ with npm
+- Docker (Aspire spins up the Postgres container; backend + frontend run as host processes)
 
 ```bash
-docker compose up          # Start all services (frontend, backend, db, caddy)
-docker compose down        # Stop (preserves DB)
-docker compose down -v     # Stop and wipe DB
+# From repo root
+dotnet run --project aspire/Proompting.AppHost     # start everything
+# Or: aspire run                                    # if Aspire CLI is installed
 ```
 
-`.env` at project root: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `HOST_DB_PORT`, `UID`, `GID`. `UID`/`GID` → backend container shares volume mounts (`.nuget`, `bin`, `obj`) w/ host for LSP.
+The dashboard URL is printed at startup (typically `http://localhost:15000`) and auto-opens in browser.
+
+`.env` at repo root: `POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`. AppHost reads `postgres-user`/`postgres-password`/`openrouter-api-key` parameters via `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or env vars (`PARAMETERS__postgres-password=...`).
 
 ### Service URLs (host)
 
-- **Frontend**: http://localhost:3000 (Vite dev server)
-- **Backend**: http://localhost:5072 (.NET)
-- **Caddy proxy**: http://localhost:8080 (routes `/api/*` → backend, `/*` → frontend)
-- **Database**: localhost:${HOST_DB_PORT:-5455} (PostgreSQL + Apache AGE)
-- **Aspire Dashboard**: http://localhost:18888 (OpenTelemetry traces/metrics/logs)
+- **Aspire Dashboard**: printed at startup (e.g., `http://localhost:15000`) — links to all resources, logs, traces
+- **Frontend**: http://localhost:5173 (Vite dev server)
+- **Backend**: http://localhost:5072 (.NET, OpenAPI at `/api/openapi/v1.json`, Swagger at `/swagger`)
+- **Database**: localhost:5455 (PostgreSQL + Apache AGE)
 
-Frontend + backend hot-reload on changes.
+Backend hot-reloads via `dotnet watch` (Aspire spawns it). Frontend hot-reloads via Vite. Frontend talks to backend through Vite's `/api` proxy (configured from `VITE_API_URL` env var injected by AppHost).
 
 ## Commands
 
-### Frontend (run inside `frontend/` or via `docker compose exec dev-frontend`)
+### Frontend (run from `frontend/`)
 
 ```bash
-npm run dev            # Vite dev server
+npm run dev            # Vite dev server (Aspire normally runs this for you)
 npm run build          # Production build
 npm run test           # Vitest
 npm run lint           # Biome lint
@@ -45,7 +51,7 @@ npm run check          # Biome check (lint + format)
 npm run api-generate   # Regenerate API client from OpenAPI spec (orval)
 ```
 
-`npm run api-generate` fetches OpenAPI spec from backend (via Caddy at localhost:8080). Requires `docker compose up` first.
+`npm run api-generate` fetches the OpenAPI spec from the backend at `http://localhost:5072/api/openapi/v1.json`. Requires AppHost (or just the backend) to be running.
 
 #### Storybook MCP
 
@@ -61,20 +67,25 @@ When working on UI components, always use the `proompting-party-sb-mcp` MCP tool
 
 Remember: A story name might not reflect the property name correctly, so always verify properties through documentation or example stories before using them.
 
-### Backend (run inside `backend/` or via `docker compose exec dev-backend`)
+### Backend (run from `backend/`)
 
 ```bash
-dotnet run --project backend.csproj --urls http://0.0.0.0:5072
-dotnet clean && dotnet build
+dotnet run --project backend.csproj            # run standalone (Aspire usually does this)
+dotnet build
 ```
+
+When the AppHost is running, the backend is launched with `dotnet watch` automatically.
 
 ### Database
 
+The Postgres container is managed by AppHost. To open a `psql` shell:
+
 ```bash
-docker compose exec age-db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+psql -h localhost -p 5455 -U partytown -d partytown
+# or via the Aspire dashboard → resources → age-db → console
 ```
 
-DB init scripts in `docker-entrypoint-initdb.d/`. Re-run: wipe volume (`docker compose down -v`).
+DB init scripts in `docker-entrypoint-initdb.d/` are bind-mounted into the container and run on first volume init. To re-run them, delete the Aspire-managed volume `partytown-pgdata` (`docker volume rm partytown-pgdata`) and restart AppHost.
 
 ## Architecture
 
@@ -111,10 +122,11 @@ DB init scripts in `docker-entrypoint-initdb.d/`. Re-run: wipe volume (`docker c
 
 ### Infrastructure
 
-- **Caddy** reverse proxy routes API traffic to backend
+- **.NET Aspire** (dev only): orchestrates backend, frontend, and Postgres. AppHost in `aspire/Proompting.AppHost`, shared OTel/health/service-discovery defaults in `aspire/Proompting.ServiceDefaults`.
 - **PostgreSQL + Apache AGE** for Orleans clustering, grain persistence, and graph data
 - **Orleans ports:** 11111 (silo-to-silo), 30000 (gateway)
+- **Frontend → backend routing:** Vite proxies `/api/*` to `VITE_API_URL` (set by Aspire to `http://localhost:5072`).
 
 ### Deployment
 
-Deployed via [Kamal](https://kamal-deploy.org/). Config: `config/deploy.yml`, `config/deploy.frontend.yml`. Target: `game.timwillebrands.nl`. Accessories: DB + Aspire dashboard.
+Deployed via [Kamal](https://kamal-deploy.org/). Config: `config/deploy.yml`, `config/deploy.frontend.yml`. Target: `game.timwillebrands.nl`. Accessories: DB + standalone Aspire dashboard. **Production does not use the AppHost** — Kamal builds `backend/Dockerfile` and `frontend/Dockerfile` directly. The backend image still emits OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT` (set by Kamal to the dashboard accessory), which `AddServiceDefaults()` honors.

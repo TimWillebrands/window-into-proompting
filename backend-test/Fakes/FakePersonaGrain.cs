@@ -94,10 +94,10 @@ public sealed class FakePersonaGrain
         switch (script)
         {
             case Script.Respond:
-                await grain.AppendMessageAsync(msgId, data, null, null, null, ct);
+                await grain.AppendMessageAsync(msgId, data, null, null, null, null, ct);
                 break;
             case Script.Decline:
-                await grain.MarkGenerationStoppedAsync(msgId, data);
+                await grain.MarkGenerationStoppedAsync(msgId, data, null);
                 break;
             case Script.Fail:
                 await grain.MarkGenerationFailedAsync(msgId, data);
