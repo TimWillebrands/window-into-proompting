@@ -1218,21 +1218,45 @@ function ParticipantsSidebar({
                             const variantStyle = (() => {
                                 switch (entry.kind) {
                                     case 'go':
-                                        return { color: '#009900', label: 'go' };
+                                        return {
+                                            color: '#009900',
+                                            label: 'go',
+                                        };
                                     case 'decline':
-                                        return { color: '#CC8800', label: 'decline' };
+                                        return {
+                                            color: '#CC8800',
+                                            label: 'decline',
+                                        };
                                     case 'skip-obvious':
-                                        return { color: '#CC8800', label: 'skip' };
+                                        return {
+                                            color: '#CC8800',
+                                            label: 'skip',
+                                        };
                                     case 'race-cancel-decision':
-                                        return { color: '#C03030', label: 'race·cancel·dec' };
+                                        return {
+                                            color: '#C03030',
+                                            label: 'race·cancel·dec',
+                                        };
                                     case 'race-cancel-generation':
-                                        return { color: '#C03030', label: 'race·cancel·gen' };
+                                        return {
+                                            color: '#C03030',
+                                            label: 'race·cancel·gen',
+                                        };
                                     case 'race-past-pnr':
-                                        return { color: '#7A40C0', label: 'race·past-pnr' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'race·past-pnr',
+                                        };
                                     case 'race-continue':
-                                        return { color: '#7A40C0', label: 'race·continue' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'race·continue',
+                                        };
                                     case 'emote':
-                                        return { color: '#7A40C0', label: 'emote' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'emote',
+                                        };
                                 }
                             })();
                             return (
@@ -1415,7 +1439,13 @@ function ChatBubble({
                         lineHeight: 1.4,
                     }}
                 >
-                    <span style={{ fontWeight: 600, marginRight: 6, color: '#999' }}>
+                    <span
+                        style={{
+                            fontWeight: 600,
+                            marginRight: 6,
+                            color: '#999',
+                        }}
+                    >
                         {senderName}
                     </span>
                     {message.content}

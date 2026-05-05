@@ -9,6 +9,7 @@ export * from './chatGroupInfo';
 export * from './createChatGroupRequest';
 export * from './createPartyRequest';
 export * from './defaultPersonaTemplate';
+export * from './getPartyIdChatGroupsChatGroupIdPapertrailParams';
 export * from './jobComplexity';
 export * from './llmModel';
 export * from './llmProviderEntry';

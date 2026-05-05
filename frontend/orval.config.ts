@@ -18,6 +18,10 @@ export default defineConfig({
                 query: {
                     useSuspenseQuery: true,
                 },
+                mutator: {
+                    path: './src/api/custom-fetch.ts',
+                    name: 'customFetch',
+                },
             },
         },
     },

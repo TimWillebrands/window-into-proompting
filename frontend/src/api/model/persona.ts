@@ -11,6 +11,8 @@ export interface Persona {
     bio?: string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
     chattiness?: number | string;
+    /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
+    impulsivity?: number | string;
     id?: string;
     name?: string;
     isUser?: boolean;
