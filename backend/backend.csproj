@@ -23,6 +23,7 @@
     <PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" Version="10.0.1" />
     <PackageReference Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
     <PackageReference Include="Npgsql" Version="9.0.2" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.4" />
     <PackageReference Include="OneOf" Version="3.0.271" />
     <PackageReference Include="OneOf.SourceGenerator" Version="3.0.271" />
     <PackageReference Include="OpenAI" Version="2.9.0" />

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using PartyTown.Configuration;
 using PartyTown.Logging;
+using PartyTown.Services.Graph;
 using PartyTown.Services.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
+
+builder.AddNpgsqlDbContext<GraphDbContext>(
+    "Default",
+    configureDbContextOptions: opts => opts.AddInterceptors(new AgeConnectionInterceptor()));
+builder.Services.AddScoped<IGraphService, GraphService>();
 
 builder.Host.UseOrleans(siloBuilder =>
 {
