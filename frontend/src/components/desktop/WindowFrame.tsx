@@ -1,4 +1,5 @@
 import { type ReactNode, Suspense } from 'react';
+import WindowErrorBoundary from './WindowErrorBoundary';
 import {
     useWindowTitleBarSlot,
     WindowTitleBarProvider,
@@ -148,9 +149,13 @@ export default function WindowFrame({
                     </span>
                 </div>
                 <section className="xp-window-content dark:bg-slate-900">
-                    <Suspense fallback={<progress>Loading {title}</progress>}>
-                        {children}
-                    </Suspense>
+                    <WindowErrorBoundary windowTitle={title} onClose={onClose}>
+                        <Suspense
+                            fallback={<progress>Loading {title}</progress>}
+                        >
+                            {children}
+                        </Suspense>
+                    </WindowErrorBoundary>
                 </section>
             </div>
         </WindowTitleBarProvider>
