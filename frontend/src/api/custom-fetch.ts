@@ -12,10 +12,13 @@ export class ProblemDetailsError extends Error implements ProblemDetails {
             problem.title ||
             problem.detail ||
             statusText ||
-            (problem.status != null ? `HTTP ${problem.status}` : 'Request failed');
-        const snippet = problem.detail && problem.detail !== headline
-            ? `: ${problem.detail.slice(0, 200)}`
-            : '';
+            (problem.status != null
+                ? `HTTP ${problem.status}`
+                : 'Request failed');
+        const snippet =
+            problem.detail && problem.detail !== headline
+                ? `: ${problem.detail.slice(0, 200)}`
+                : '';
         super(`${headline}${snippet}`.trim());
         this.name = 'ProblemDetailsError';
         this.type = problem.type;
@@ -84,7 +87,8 @@ export const customFetch = async <T>(
     if (!hasBody || !body) {
         data = undefined;
     } else if (isJsonContentType(contentType)) {
-        data = JSON.parse(body);
+        const parsed = tryParseJson(body);
+        data = parsed === undefined ? body : parsed;
     } else {
         data = body;
     }
