@@ -6,7 +6,7 @@ import {
     useId,
     useState,
 } from 'react';
-import { HttpError } from '../../api/custom-fetch';
+import { ProblemDetailsError } from '../../api/custom-fetch';
 
 interface InnerProps {
     children: ReactNode;
@@ -88,8 +88,17 @@ interface FallbackProps {
 }
 
 function summarize(error: Error): { headline: string; status?: number } {
-    if (error instanceof HttpError) {
-        return { headline: error.message, status: error.status };
+    if (error instanceof ProblemDetailsError) {
+        const status =
+            typeof error.status === 'number'
+                ? error.status
+                : typeof error.status === 'string'
+                  ? Number.parseInt(error.status, 10)
+                  : undefined;
+        return {
+            headline: error.message,
+            status: status !== undefined && !Number.isNaN(status) ? status : undefined,
+        };
     }
     return { headline: error.message || 'Unexpected error' };
 }
