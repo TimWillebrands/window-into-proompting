@@ -67,7 +67,7 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
                     .Select(m => m.Evidence)
                     .Where(e => !string.IsNullOrWhiteSpace(e))
                     .Distinct()
-                    .Take(3)
+                    .Take(5)
                     .ToList(),
                 role_hints = g
                     .Select(m => m.RoleHint)
@@ -82,9 +82,10 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
             .ToList();
 
         logger.LogInformation(
-            "Persona extraction: {DistinctMentions} distinct name(s) collected from {TotalMentions} raw mention(s).",
+            "Persona extraction: {DistinctMentions} distinct name(s) from {TotalMentions} raw mention(s). Names: {Names}",
             mentionsByName.Count,
-            mentions.Count);
+            mentions.Count,
+            string.Join(", ", mentionsByName.Select(x => $"{x.name}×{x.count}")));
 
         var mentionsJson = JsonSerializer.Serialize(mentionsByName, WebOptions);
         return await ReducePersonasAsync(systemInstructionText, mentionsJson, cancellationToken);
