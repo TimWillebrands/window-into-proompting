@@ -71,6 +71,22 @@ type Step =
 
 const SKIP_HEADER_RE = /^\s*#+\s*(history|checkpoint)/i;
 
+/**
+ * Heuristic for Gemini Pro/Flash "thinking aloud" preambles. Pattern: the first
+ * non-empty line is a bolded standalone heading like `**Observing Social Dynamics**`,
+ * authored by `role: model`, and the rest of the chunk is meta-analysis prose. These
+ * are typically not part of the in-fiction transcript — the user wants to toggle them
+ * out of an import as a group.
+ *
+ * False positives are tolerable: the user can re-check individual rows.
+ */
+function isReasoningChunk(chunk: ParsedChunk): boolean {
+    if (chunk.role !== 'model') return false;
+    const firstLine = chunk.text.trim().split('\n', 1)[0]?.trim();
+    if (!firstLine) return false;
+    return /^\*\*[^*\n]+\*\*\s*$/.test(firstLine);
+}
+
 function parseGeminiExport(rawText: string, fileName: string): ParsedFile {
     const json = JSON.parse(rawText);
     const sys = json?.systemInstruction?.text;
@@ -158,7 +174,11 @@ export default function ImportApp() {
                 setChatGroupName(file.name.replace(/\.json$/i, '').slice(0, 120));
                 const autoSelected = new Set(
                     result.chunks
-                        .filter((c) => !SKIP_HEADER_RE.test(c.text))
+                        .filter(
+                            (c) =>
+                                !SKIP_HEADER_RE.test(c.text) &&
+                                !isReasoningChunk(c),
+                        )
                         .map((c) => c.id),
                 );
                 setSelected(autoSelected);
@@ -179,7 +199,25 @@ export default function ImportApp() {
         const ac = new AbortController();
         abortRef.current = ac;
         try {
-            const extracted = await extractPersonas(parsed.systemInstruction, ac.signal);
+            // Pass selected chunks (in chunk order) as extraction context. The backend
+            // re-applies its own char budget, but we trim here first so we don't ship
+            // a 1MB JSON body for a big export — cap at 32 chunks / 50KB total.
+            const sample = parsed.chunks
+                .filter((c) => selected.has(c.id) && !isReasoningChunk(c))
+                .sort((a, b) => a.index - b.index)
+                .slice(0, 32);
+            let sampleBudget = 50_000;
+            const sampleChunks = sample.flatMap((c) => {
+                if (sampleBudget <= 0) return [];
+                const take = c.text.length > sampleBudget ? c.text.slice(0, sampleBudget) : c.text;
+                sampleBudget -= take.length;
+                return [{ role: c.role, text: take }];
+            });
+            const extracted = await extractPersonas(
+                parsed.systemInstruction,
+                sampleChunks,
+                ac.signal,
+            );
             const seen = new Map<string, string>();
             const drafts: PersonaDraft[] = extracted.map((p) => ({
                 placeholderId: placeholderForExtractedName(seen, p.name),
@@ -198,7 +236,7 @@ export default function ImportApp() {
         } finally {
             setExtracting(false);
         }
-    }, [parsed]);
+    }, [parsed, selected]);
 
     // ── Step 3: classify ───────────────────────────────────────────────────
     const ensureBuiltInPersonas = useCallback((current: PersonaDraft[]): PersonaDraft[] => {
@@ -443,6 +481,22 @@ export default function ImportApp() {
                         setSelected(new Set(parsed.chunks.map((c) => c.id)));
                     }}
                     onClearAll={() => setSelected(new Set())}
+                    onSetReasoningSelected={(checked) => {
+                        if (!parsed) return;
+                        const reasoningIds = new Set(
+                            parsed.chunks
+                                .filter(isReasoningChunk)
+                                .map((c) => c.id),
+                        );
+                        setSelected((prev) => {
+                            const next = new Set(prev);
+                            for (const id of reasoningIds) {
+                                if (checked) next.add(id);
+                                else next.delete(id);
+                            }
+                            return next;
+                        });
+                    }}
                     onContinue={onExtractPersonas}
                     extracting={extracting}
                 />
@@ -568,6 +622,7 @@ function PickPanel({
     onToggleChunk,
     onSelectAll,
     onClearAll,
+    onSetReasoningSelected,
     onContinue,
     extracting,
 }: {
@@ -577,9 +632,13 @@ function PickPanel({
     onToggleChunk: (id: string) => void;
     onSelectAll: () => void;
     onClearAll: () => void;
+    onSetReasoningSelected: (checked: boolean) => void;
     onContinue: () => void;
     extracting: boolean;
 }) {
+    const reasoningCount = parsed
+        ? parsed.chunks.filter(isReasoningChunk).length
+        : 0;
     return (
         <div className="flex flex-1 flex-col gap-2 overflow-hidden">
             <div className="flex items-center gap-2">
@@ -601,43 +660,69 @@ function PickPanel({
 
             {parsed && (
                 <>
-                    <div className="flex items-center gap-2 text-[10px]">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px]">
                         <button type="button" onClick={onSelectAll}>
                             Select all
                         </button>
                         <button type="button" onClick={onClearAll}>
                             Clear all
                         </button>
+                        {reasoningCount > 0 && (
+                            <>
+                                <span className="text-slate-300">|</span>
+                                <button
+                                    type="button"
+                                    onClick={() => onSetReasoningSelected(false)}
+                                    title="Uncheck every chunk detected as model reasoning preamble (bold standalone heading + analysis prose)."
+                                >
+                                    Deselect reasoning ({reasoningCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSetReasoningSelected(true)}
+                                >
+                                    Select reasoning
+                                </button>
+                            </>
+                        )}
                         <span className="text-slate-500">
-                            (History / Checkpoint chunks auto-deselected.)
+                            (History / Checkpoint / reasoning chunks auto-deselected.)
                         </span>
                     </div>
                     <ul className="flex-1 overflow-y-auto border border-slate-300 bg-white">
-                        {parsed.chunks.map((c) => (
-                            <li
-                                key={c.id}
-                                className="border-b border-slate-200 px-2 py-1"
-                            >
-                                <label className="flex cursor-pointer items-start gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={selected.has(c.id)}
-                                        onChange={() => onToggleChunk(c.id)}
-                                    />
-                                    <span className="flex-1">
-                                        <span className="font-mono text-[10px] text-slate-500">
-                                            #{c.index} · {c.role}
-                                            {c.tokenCount
-                                                ? ` · ${c.tokenCount}t`
-                                                : ''}
+                        {parsed.chunks.map((c) => {
+                            const reasoning = isReasoningChunk(c);
+                            return (
+                                <li
+                                    key={c.id}
+                                    className="border-b border-slate-200 px-2 py-1"
+                                >
+                                    <label className="flex cursor-pointer items-start gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={selected.has(c.id)}
+                                            onChange={() => onToggleChunk(c.id)}
+                                        />
+                                        <span className="flex-1">
+                                            <span className="font-mono text-[10px] text-slate-500">
+                                                #{c.index} · {c.role}
+                                                {c.tokenCount
+                                                    ? ` · ${c.tokenCount}t`
+                                                    : ''}
+                                                {reasoning && (
+                                                    <span className="ml-1 rounded bg-amber-100 px-1 text-amber-800">
+                                                        reasoning
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <div className="whitespace-pre-wrap text-[11px]">
+                                                {chunkPreview(c.text)}
+                                            </div>
                                         </span>
-                                        <div className="whitespace-pre-wrap text-[11px]">
-                                            {chunkPreview(c.text)}
-                                        </div>
-                                    </span>
-                                </label>
-                            </li>
-                        ))}
+                                    </label>
+                                </li>
+                            );
+                        })}
                     </ul>
                     <div className="flex justify-end">
                         <button

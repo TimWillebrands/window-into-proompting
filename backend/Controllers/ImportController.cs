@@ -43,7 +43,10 @@ public sealed class ImportController(
             return BadRequest("systemInstruction is required.");
         }
 
-        var personas = await importService.ExtractPersonasAsync(request.SystemInstruction, cancellationToken);
+        var personas = await importService.ExtractPersonasAsync(
+            request.SystemInstruction,
+            request.SampleChunks ?? [],
+            cancellationToken);
         return Ok(new ExtractPersonasResponse(personas.ToList()));
     }
 
@@ -290,6 +293,13 @@ public sealed record class ExtractPersonasRequest
 {
     [JsonPropertyName("systemInstruction")]
     public string SystemInstruction { get; init; } = string.Empty;
+
+    /// <summary>Optional transcript chunks (in order) that the extractor will use as
+    /// grounding context alongside the systemInstruction. Caller is responsible for
+    /// selecting an informative subset; the service applies its own char budget on
+    /// top of whatever is passed in.</summary>
+    [JsonPropertyName("sampleChunks")]
+    public List<ImportSampleChunk>? SampleChunks { get; init; }
 }
 
 public sealed record class ExtractPersonasResponse(

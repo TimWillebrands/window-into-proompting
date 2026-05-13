@@ -13,14 +13,20 @@ export type ExtractedPersona = {
     bio: string | null;
 };
 
+export type ExtractSampleChunk = {
+    role: 'user' | 'model';
+    text: string;
+};
+
 export async function extractPersonas(
     systemInstruction: string,
+    sampleChunks: ExtractSampleChunk[],
     signal?: AbortSignal,
 ): Promise<ExtractedPersona[]> {
     const res = await fetch('/api/Import/extract-personas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemInstruction }),
+        body: JSON.stringify({ systemInstruction, sampleChunks }),
         signal,
     });
     if (!res.ok) {

@@ -14,30 +14,45 @@ namespace PartyTown.Services.Generation;
 internal static class ImportPrompts
 {
     public const string PersonaExtractionSystem = """
-You extract roleplay character definitions from author-supplied prompts.
+You extract roleplay character definitions from author-supplied material.
 
-You will be given a markdown document that defines several characters for a
-group roleplay. Identify each distinct character. For each, produce:
+You will be given two sources:
+  1. A "character source" — usually a markdown document or system prompt that
+     defines several characters for a group roleplay.
+  2. A "transcript sample" — excerpts from the actual roleplay where the
+     characters speak and act. Use this to ground names, dialogue voice, and
+     observed personality even when the source document is sparse.
+
+Identify every distinct in-fiction character that speaks, acts, or is named.
+For each, produce:
 
 - name: The character's short call-name as it appears in dialogue
   (e.g. "Lena", not "Lena Stamatis-Brimm"). If only one form appears, use that.
 - archetype: One short noun phrase describing role
   (e.g. "anxious archivist"). Null if not derivable.
 - system_prompt: A 3-6 sentence description in third person describing the
-  character as if briefing an LLM to play them. Stay grounded in the source —
-  do NOT invent facts.
+  character as if briefing an LLM to play them. Stay grounded in the source
+  and transcript — do NOT invent facts.
 - bio: A 1-2 sentence card-style summary. Vivid, brief, third person.
 
-Do not include the narrator, the user, the GM, or out-of-character framing.
-Only named in-fiction characters.
+Do not include the narrator, the user (the human author), the GM, or
+out-of-character framing. Only named in-fiction characters.
 
-Output JSON only matching the schema. No prose before or after. No markdown fences.
+If the source defines characters but the transcript only shows some of them,
+still include the defined characters — they may appear later.
+
+Output JSON only matching the schema. No prose before or after. No markdown
+fences.
 """;
 
-    public static string PersonaExtractionUser(string systemInstructionText) => $"""
+    public static string PersonaExtractionUser(string systemInstructionText, string transcriptSample) => $"""
 # Character source
 
 {systemInstructionText}
+
+# Transcript sample
+
+{transcriptSample}
 
 # Your turn
 
