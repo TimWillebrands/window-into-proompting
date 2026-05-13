@@ -1,6 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PartyTown.Configuration;
+using PartyTown.Data;
 using PartyTown.Logging;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +39,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
+
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options
+        .UseNpgsql(connectionString)
+        .UseSnakeCaseNamingConvention());
+
+builder.Services.AddSingleton<MemoryExtractor>();
 
 builder.Host.UseOrleans(siloBuilder =>
 {
@@ -85,6 +95,12 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddSource(Tracing.PersonaSourceName));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await ctx.Database.MigrateAsync();
+}
 
 app.MapDefaultEndpoints();
 

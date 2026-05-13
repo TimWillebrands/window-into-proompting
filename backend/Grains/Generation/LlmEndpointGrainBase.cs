@@ -56,6 +56,35 @@ public static class LlmEndpointGrainUtils
         }
     }
 
+    public static async Task<string> CompleteOneShotAsync(
+        ILogger logger,
+        LlmGenerationJob parameters,
+        ChatClient chatClient,
+        Action onFinished,
+        CancellationToken cancellationToken = default)
+    {
+        var sw = Stopwatch.StartNew();
+        var messages = ToOpenAiChatMessages(parameters);
+        var completionOptions = ToChatCompletionOptions(parameters);
+
+        try
+        {
+            var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+            var text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
+
+            if (completion.Value.FinishReason != ChatFinishReason.Stop)
+                logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
+
+            return text;
+        }
+        finally
+        {
+            onFinished();
+            sw.Stop();
+            logger.LogInformation("LLM one-shot completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
+        }
+    }
+
     private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationJob parameters)
     {
         return parameters.Messages.Select(msg =>

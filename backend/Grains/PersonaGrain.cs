@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Orleans.Concurrency;
+using PartyTown.Data;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
@@ -476,7 +478,12 @@ public sealed class PersonaGrain(
         CancellationToken ct)
     {
         var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
-        var session = new GenerationSession(router, fullParticipants);
+        // Memory recall is opt-in: the host registers an AppDbContext factory in production
+        // (Program.cs). Test cluster leaves it unregistered, so GenerationSession sees null
+        // and skips memory loading entirely — keeps grain-level tests independent of EF.
+        var memoryDb = ServiceProvider.GetService<IDbContextFactory<AppDbContext>>();
+        var session = new GenerationSession(router, fullParticipants, memoryDb);
+        var partyId = await chatGroupGrain.GetPartyIdAsync();
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -505,7 +512,8 @@ public sealed class PersonaGrain(
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
-                    scenario);
+                    scenario,
+                    partyId);
                 break;
             }
             catch (OperationCanceledException)

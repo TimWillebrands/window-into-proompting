@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using PartyTown.Data;
+using PartyTown.Data.Entities;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Realtime;
 
@@ -21,6 +25,8 @@ public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
     IMemoryCache cache,
+    MemoryExtractor memoryExtractor,
+    IDbContextFactory<AppDbContext> appDbFactory,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -405,6 +411,95 @@ public sealed class PartyController(
     }
 
     /// <summary>
+    /// Marks a specific message as "remember-worthy" for each non-user persona present in the
+    /// chat group: produces one short, second-person memory snippet per persona via a cheap
+    /// LLM call and persists them. Snippets are later injected into the persona's system prompt
+    /// at generation time so they can reference prior events instead of hallucinating.
+    /// </summary>
+    [HttpPost("{id:guid}/chat-groups/{chatGroupId:guid}/messages/{messageId:int}/remember")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RememberResponse>> RememberMessage(
+        Guid id,
+        Guid chatGroupId,
+        int messageId,
+        CancellationToken cancellationToken)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        if (messageId < 0)
+        {
+            return BadRequest("Invalid message id");
+        }
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        var sourceMessage = messages.FirstOrDefault(m => m.MessageId == messageId);
+        if (sourceMessage is null)
+        {
+            return NotFound();
+        }
+
+        var participants = await chatGroupGrain.GetParticipantsAsync();
+        var personasToRemember = participants.Where(p => !p.IsUser).ToList();
+        if (personasToRemember.Count == 0)
+        {
+            return Accepted(new RememberResponse(0));
+        }
+
+        var nameById = participants.ToDictionary(p => p.Id, p => p.Name);
+        string ResolveName(Guid senderId) => nameById.TryGetValue(senderId, out var n) ? n : "Unknown";
+
+        var recentContext = messages
+            .Where(m => m.MessageId < messageId)
+            .OrderBy(m => m.MessageId)
+            .ToList();
+
+        var sourceAuthorName = ResolveName(sourceMessage.SenderId);
+
+        var extractionTasks = personasToRemember.Select(persona =>
+            memoryExtractor.ExtractForPersonaAsync(
+                persona.Name,
+                sourceMessage,
+                sourceAuthorName,
+                recentContext,
+                ResolveName,
+                cancellationToken)
+                .ContinueWith(t => (Persona: persona, Snippet: t.Result), cancellationToken));
+
+        var results = await Task.WhenAll(extractionTasks);
+
+        var rows = results
+            .Where(r => !string.IsNullOrWhiteSpace(r.Snippet))
+            .Select(r => new PersonaMemory
+            {
+                PersonaId = r.Persona.Id,
+                PartyId = id,
+                ChatGroupId = chatGroupId,
+                SourceMessageId = messageId,
+                Text = r.Snippet,
+            })
+            .ToList();
+
+        if (rows.Count > 0)
+        {
+            await using var ctx = await appDbFactory.CreateDbContextAsync(cancellationToken);
+            ctx.PersonaMemories.AddRange(rows);
+            await ctx.SaveChangesAsync(cancellationToken);
+        }
+
+        logger.LogInformation(
+            "Captured {Count} memory snippets for message {MessageId} in chat group {ChatGroupId}",
+            rows.Count, messageId, chatGroupId);
+
+        return Accepted(new RememberResponse(rows.Count));
+    }
+
+    /// <summary>
     /// Rewinds the conversation to a specific message and requests a new continuation.
     /// </summary>
     /// <param name="id">The party identifier.</param>
@@ -669,3 +764,5 @@ public sealed class PartyController(
 }
 
 public record PartyDetails(PartyInfo Party, PersonaMetadata[] PersonaParticipants);
+
+public record RememberResponse(int SnippetsCreated);

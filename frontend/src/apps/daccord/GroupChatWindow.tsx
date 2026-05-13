@@ -1,5 +1,5 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
@@ -137,6 +137,22 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId();
     const deletePartyMessage =
         useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId();
+    const rememberMessage = useMutation({
+        mutationFn: async (vars: {
+            id: string;
+            chatGroupId: string;
+            messageId: number;
+        }) => {
+            const res = await fetch(
+                `/api/${vars.id}/chat-groups/${vars.chatGroupId}/messages/${vars.messageId}/remember`,
+                { method: 'POST' },
+            );
+            if (!res.ok) {
+                throw new Error(`remember failed: ${res.status}`);
+            }
+            return (await res.json()) as { snippetsCreated: number };
+        },
+    });
 
     const busy = promptParty.isPending || proceedParty.isPending;
 
@@ -560,6 +576,14 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                                             },
                                         })
                                     }
+                                    onRemember={() =>
+                                        rememberMessage.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    rememberPending={rememberMessage.isPending}
                                 />
                             );
                         })}
@@ -1361,6 +1385,8 @@ function ChatBubble({
     onDelete,
     onTruncate,
     onReprompt,
+    onRemember,
+    rememberPending,
     busy,
     personas,
     userPersonaId,
@@ -1370,6 +1396,8 @@ function ChatBubble({
     onDelete: () => void;
     onTruncate: () => void;
     onReprompt: () => void;
+    onRemember: () => void;
+    rememberPending: boolean;
     busy: boolean;
     personas: Persona[];
     userPersonaId: string;
@@ -1636,6 +1664,15 @@ function ChatBubble({
                         style={{ fontSize: '10px' }}
                     >
                         del
+                    </button>
+                    <button
+                        type="button"
+                        disabled={busy || rememberPending}
+                        onClick={onRemember}
+                        style={{ fontSize: '10px' }}
+                        title="Capture as memory for personas present"
+                    >
+                        {rememberPending ? '...' : 'remember'}
                     </button>
                 </span>
             </div>

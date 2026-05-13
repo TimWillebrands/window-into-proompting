@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using PartyTown.Data;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
@@ -7,8 +9,13 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.Generation;
 
-public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
+public sealed class GenerationSession(
+    ILlmRouterGrain router,
+    List<GenerationParticipant> allParticipants,
+    IDbContextFactory<AppDbContext>? memoryDb = null)
 {
+    private const int MaxRecalledMemories = 50;
+
     /// <summary>
     /// Generates a response for a specific persona.
     /// </summary>
@@ -18,15 +25,18 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
         string? turnInstruction = null,
-        string? scenario = null)
+        string? scenario = null,
+        Guid partyId = default)
     {
+        var memoriesBlock = await LoadMemoriesBlockAsync(persona.Id, partyId, cancellationToken);
+
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var messages = new List<LlmChatMessage>
         {
             new()
             {
                 Role = "system",
-                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario),
+                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario, memoriesBlock),
                 Name = persona.Id.ToString()
             }
         };
@@ -97,7 +107,39 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
     }
 
-    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario)
+    private async Task<string> LoadMemoriesBlockAsync(Guid personaId, Guid partyId, CancellationToken ct)
+    {
+        if (memoryDb is null || partyId == Guid.Empty)
+            return string.Empty;
+
+        try
+        {
+            await using var ctx = await memoryDb.CreateDbContextAsync(ct);
+            var memories = await ctx.PersonaMemories
+                .Where(m => m.PersonaId == personaId && m.PartyId == partyId)
+                .OrderByDescending(m => m.EncodedAt)
+                .Take(MaxRecalledMemories)
+                .Select(m => m.Text)
+                .ToListAsync(ct);
+
+            if (memories.Count == 0)
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("# Things you remember");
+            foreach (var m in memories)
+                sb.AppendLine($"- {m}");
+            return sb.ToString();
+        }
+        catch (Exception)
+        {
+            // Memory recall is best-effort: a DB hiccup must not break generation.
+            return string.Empty;
+        }
+    }
+
+    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario, string memoriesBlock)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -120,7 +162,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         return $"""
 # You are: {self.Name} (ID: {self.Id})
 {personaPrompt}
-{scenarioSection}
+{scenarioSection}{memoriesBlock}
 # Other participants
 {othersSection}
 
