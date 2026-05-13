@@ -16,7 +16,9 @@ namespace PartyTown.Controllers;
 ///
 /// Flow (driven by the frontend Import app):
 ///   1. POST /api/Import/extract-personas — extract persona stubs from the export's
-///      systemInstruction text. One LLM call, ~5-10s.
+///      systemInstruction text + a transcript sample. Map-reduce: parallel "who appears
+///      here?" mention extraction across transcript windows, then one synthesis call.
+///      ~15-30s for a typical export.
 ///   2. GET  /api/Import/classify-ws       — open WebSocket, send chunks + roster,
 ///      stream back per-chunk segmentation results. Concurrency capped at 5
 ///      in-flight LLM calls.

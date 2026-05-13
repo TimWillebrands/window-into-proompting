@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 var pgUser = builder.AddParameter("postgres-user", "partytown");
@@ -22,7 +25,7 @@ var backend = builder
     .WithEndpoint(name: "orleans-silo", port: 11111, targetPort: 11111, scheme: "tcp", isProxied: false)
     .WithEndpoint(name: "orleans-gateway", port: 30000, targetPort: 30000, scheme: "tcp", isProxied: false);
 
-builder
+var frontend = builder
     .AddViteApp("frontend", "../../frontend")
     .WithNpm()
     .WithReference(backend)
@@ -33,6 +36,15 @@ builder
         e.Port = 8080;
         e.TargetPort = 8080;
         e.IsProxied = false;
-    });
+    })
+    .WithUrlForEndpoint("http", u => u.DisplayText = "Open Partytown");
+
+frontend.OnResourceReady((resource, evt, ct) =>
+{
+    var url = frontend.GetEndpoint("http").Url;
+    evt.Services.GetRequiredService<ILogger<Program>>()
+        .LogInformation("🎉 Frontend ready: {Url}", url);
+    return Task.CompletedTask;
+});
 
 builder.Build().Run();

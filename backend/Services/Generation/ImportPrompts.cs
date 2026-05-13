@@ -1,62 +1,110 @@
 namespace PartyTown.Services.Generation;
 
 /// <summary>
-/// Prompt templates used by <see cref="ImportService"/> to drive the two LLM stages of
+/// Prompt templates used by <see cref="ImportService"/> to drive the LLM stages of
 /// the chat-import flow:
-///   • Task A — extract roleplay character definitions from a Gemini-AI-Studio
-///     <c>systemInstruction.text</c> block into persona stubs.
-///   • Task B — split one chunk of a roleplay transcript into per-character segments.
+///   • Map (mention extraction) — scan ONE window of the transcript, report named
+///     characters that speak or act inside it. Runs in parallel across all windows.
+///   • Reduce (persona synthesis) — merge collected mentions with the
+///     <c>systemInstruction.text</c> source doc into a canonical roster.
+///   • Classify — split one chunk of the transcript into per-character segments.
 ///
-/// The two stages run as separate prompts (not stacked) to avoid task-switching cost
-/// and to keep the ~10 KB systemInstruction off the hot path of the per-chunk
-/// classifier, which runs hundreds of times per import.
+/// Map is split from Reduce because a single-pass extraction over a fixed-size
+/// transcript window misses late-appearing characters and over-anchors on whoever
+/// speaks loudest in the first few KB. Map is cheap (small output, no source doc)
+/// and parallel; Reduce sees the union of evidence + the full source.
 /// </summary>
 internal static class ImportPrompts
 {
-    public const string PersonaExtractionSystem = """
-You extract roleplay character definitions from author-supplied material.
+    public const string MentionExtractionSystem = """
+You scan ONE window of a roleplay transcript and report which named in-fiction
+characters appear inside it.
 
-You will be given two sources:
-  1. A "character source" — usually a markdown document or system prompt that
-     defines several characters for a group roleplay.
-  2. A "transcript sample" — excerpts from the actual roleplay where the
-     characters speak and act. Use this to ground names, dialogue voice, and
-     observed personality even when the source document is sparse.
+A window is a concatenation of one or more transcript chunks, each tagged with
+its author role like `[user]` or `[model]`. The text inside may contain dialogue
+(often in quotes), action / inner thought (often in italics), and narration.
 
-Identify every distinct in-fiction character that speaks, acts, or is named.
-For each, produce:
-
-- name: The character's short call-name as it appears in dialogue
+For each distinct named character that speaks, acts, or is directly addressed
+inside this window, output:
+- name: The character's short call-name as it appears in the prose
   (e.g. "Lena", not "Lena Stamatis-Brimm"). If only one form appears, use that.
-- archetype: One short noun phrase describing role
-  (e.g. "anxious archivist"). Null if not derivable.
-- system_prompt: A 3-6 sentence description in third person describing the
-  character as if briefing an LLM to play them. Stay grounded in the source
-  and transcript — do NOT invent facts.
-- bio: A 1-2 sentence card-style summary. Vivid, brief, third person.
+- evidence: One short verbatim quote (≤120 chars) from the window where this
+  character speaks or acts. Strip leading/trailing whitespace.
+- role_hint: A 2-4 word noun phrase guessing their role
+  (e.g. "anxious archivist"). Null if not derivable from this window alone.
 
-Do not include the narrator, the user (the human author), the GM, or
-out-of-character framing. Only named in-fiction characters.
+Do NOT include:
+- The narrator (pure scene description with no speaker).
+- The user (the human author) or the GM / out-of-character framing
+  (brackets, "[the next morning...]", stage directions).
+- Pronouns ("she", "him") — only proper names.
+- Names that appear only as mentions in someone else's dialogue without
+  themselves acting inside this window.
 
-If the source defines characters but the transcript only shows some of them,
-still include the defined characters — they may appear later.
+If no in-fiction named character speaks or acts in this window, return an
+empty list.
 
 Output JSON only matching the schema. No prose before or after. No markdown
 fences.
 """;
 
-    public static string PersonaExtractionUser(string systemInstructionText, string transcriptSample) => $"""
+    public static string MentionExtractionUser(string windowText) => $"""
+# Window
+
+{windowText}
+
+# Your turn
+
+List every named in-fiction character that speaks or acts inside this window.
+JSON only.
+""";
+
+    public const string PersonaExtractionSystem = """
+You synthesize a roleplay character roster from two sources:
+  1. A "character source" — a system prompt / markdown document that defines
+     the cast for a group roleplay. May be sparse, may name characters that
+     never actually appear, may omit characters that do appear.
+  2. "Observed mentions" — a list of names + evidence quotes collected from
+     across the actual transcript by a prior scan. Grouped by name with a
+     mention count and up to 3 short quotes per name.
+
+Produce one entry per distinct in-fiction character. For each, produce:
+
+- name: The character's short call-name as it appears in dialogue
+  (e.g. "Lena", not "Lena Stamatis-Brimm"). Use the shortest form that appears
+  in the transcript itself.
+- archetype: One short noun phrase describing role
+  (e.g. "anxious archivist"). Null if not derivable.
+- system_prompt: A 3-6 sentence description in third person describing the
+  character as if briefing an LLM to play them. Stay grounded in the source
+  and evidence — do NOT invent facts.
+- bio: A 1-2 sentence card-style summary. Vivid, brief, third person.
+
+Merging rules:
+- Treat name variants of the same person as one character ("Lena" and "Lena S."
+  → "Lena"). Pick the shortest form that occurs in the evidence quotes.
+- Include a character if EITHER the character source defines them OR they
+  appear in the mentions with count ≥ 2. Drop one-off names that are likely
+  typos or mis-extractions.
+- Do not include the narrator, the user, the GM, or out-of-character framing.
+  Only named in-fiction characters.
+
+Output JSON only matching the schema. No prose before or after. No markdown
+fences.
+""";
+
+    public static string PersonaExtractionUser(string systemInstructionText, string mentionsJson) => $"""
 # Character source
 
 {systemInstructionText}
 
-# Transcript sample
+# Observed mentions
 
-{transcriptSample}
+{mentionsJson}
 
 # Your turn
 
-Extract every distinct in-fiction character. JSON only.
+Synthesize the canonical roster. JSON only.
 """;
 
     public const string ChunkClassifySystem = """

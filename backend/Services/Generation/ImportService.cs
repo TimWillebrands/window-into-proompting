@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -8,11 +9,18 @@ using PartyTown.Grains.Generation;
 namespace PartyTown.Services.Generation;
 
 /// <summary>
-/// Two-stage LLM driver for the chat-import flow:
-///   • <see cref="ExtractPersonasAsync"/> — read the <c>systemInstruction</c> from a
-///     Gemini AI Studio export, propose persona stubs.
+/// LLM driver for the chat-import flow:
+///   • <see cref="ExtractPersonasAsync"/> — map-reduce persona extraction. Window the
+///     transcript, ask the cheap-tier model "who appears here?" per window in parallel,
+///     then reduce the mention list + the original character-source doc into a
+///     canonical persona roster via a single general-tier call.
 ///   • <see cref="ClassifyChunkAsync"/> — split one transcript chunk into
 ///     per-character segments tagged by kind.
+///
+/// Map-reduce on extraction (vs. single-pass concat) catches characters that appear
+/// past the first few KB of transcript, parallelizes across windows, and keeps the
+/// per-window prompt small (no character-source doc on the hot path). The reduce
+/// step is where the source doc is reintroduced and synthesis happens.
 ///
 /// Mirrors the <see cref="PersonaDecisionService"/> idiom: route via
 /// <see cref="ILlmRouterGrain"/>, consume the streaming generator to completion, parse
@@ -31,19 +39,140 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         IReadOnlyList<ImportSampleChunk>? sampleChunks,
         CancellationToken cancellationToken)
     {
-        // Build a token-budgeted transcript sample from the caller-selected chunks. We
-        // cap total characters (≈10 KB) so the persona-extraction prompt stays well
-        // within context, then format chunks as `[role] text` blocks separated by
-        // blank lines. If we run out of budget mid-chunk we hard-truncate and add an
-        // ellipsis — partial chunks still carry voice signal for name/personality
-        // grounding.
-        const int sampleBudgetChars = 10_000;
-        var transcriptSample = BuildTranscriptSample(sampleChunks, sampleBudgetChars);
+        // Window the transcript at ~5 KB each, capping any single oversized chunk at
+        // 8 KB. Typical exports of ~100 selected chunks produce ~20 windows; the map
+        // step runs them in parallel via Parallel.ForEachAsync (max 5 in flight).
+        var windows = BuildWindows(sampleChunks, targetCharsPerWindow: 5_000, maxWindowChars: 8_000);
 
+        logger.LogInformation(
+            "Persona extraction: mapping {WindowCount} window(s) from {ChunkCount} chunk(s).",
+            windows.Count,
+            sampleChunks?.Count ?? 0);
+
+        var mentions = windows.Count == 0
+            ? new List<Mention>()
+            : await MapMentionsAsync(windows, cancellationToken);
+
+        // Group mentions by case-insensitive name. Cap at top 40 most-mentioned to
+        // keep the reduce prompt token budget bounded; long-tail names are usually
+        // typos / mis-extractions and the merging rules already drop them.
+        var mentionsByName = mentions
+            .Where(m => !string.IsNullOrWhiteSpace(m.Name))
+            .GroupBy(m => m.Name.Trim().ToLowerInvariant())
+            .Select(g => new
+            {
+                name = g.First().Name.Trim(),
+                count = g.Count(),
+                evidence = g
+                    .Select(m => m.Evidence)
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Distinct()
+                    .Take(3)
+                    .ToList(),
+                role_hints = g
+                    .Select(m => m.RoleHint)
+                    .Where(h => !string.IsNullOrWhiteSpace(h))
+                    .Select(h => h!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(3)
+                    .ToList(),
+            })
+            .OrderByDescending(x => x.count)
+            .Take(40)
+            .ToList();
+
+        logger.LogInformation(
+            "Persona extraction: {DistinctMentions} distinct name(s) collected from {TotalMentions} raw mention(s).",
+            mentionsByName.Count,
+            mentions.Count);
+
+        var mentionsJson = JsonSerializer.Serialize(mentionsByName, WebOptions);
+        return await ReducePersonasAsync(systemInstructionText, mentionsJson, cancellationToken);
+    }
+
+    private async Task<List<Mention>> MapMentionsAsync(
+        List<string> windows,
+        CancellationToken cancellationToken)
+    {
+        var responseFormat = new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "mention_extraction",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["mentions"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["items"] = new JsonObject
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new JsonObject
+                                {
+                                    ["name"] = new JsonObject { ["type"] = "string" },
+                                    ["evidence"] = new JsonObject { ["type"] = "string" },
+                                    ["role_hint"] = new JsonObject { ["type"] = new JsonArray("string", "null") }
+                                },
+                                ["required"] = new JsonArray("name", "evidence", "role_hint")
+                            }
+                        }
+                    },
+                    ["required"] = new JsonArray("mentions")
+                }
+            }
+        };
+
+        var results = new ConcurrentBag<Mention>();
+        var opts = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 5,
+            CancellationToken = cancellationToken,
+        };
+
+        await Parallel.ForEachAsync(windows, opts, async (window, ct) =>
+        {
+            try
+            {
+                var messages = new List<LlmChatMessage>
+                {
+                    new() { Role = "system", Content = ImportPrompts.MentionExtractionSystem },
+                    new() { Role = "user", Content = ImportPrompts.MentionExtractionUser(window) }
+                };
+                var raw = await RunStructuredAsync(messages, JobComplexity.CharacterThoughts, responseFormat, ct);
+                var parsed = TryParse<MentionExtractionPayload>(raw, "MapMentions");
+                if (parsed?.Mentions is null) return;
+                foreach (var m in parsed.Mentions)
+                {
+                    results.Add(m);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Mention extraction failed for one window; skipping.");
+            }
+        });
+
+        return results.ToList();
+    }
+
+    private async Task<IReadOnlyList<ExtractedPersona>> ReducePersonasAsync(
+        string systemInstructionText,
+        string mentionsJson,
+        CancellationToken cancellationToken)
+    {
         var messages = new List<LlmChatMessage>
         {
             new() { Role = "system", Content = ImportPrompts.PersonaExtractionSystem },
-            new() { Role = "user", Content = ImportPrompts.PersonaExtractionUser(systemInstructionText, transcriptSample) }
+            new() { Role = "user", Content = ImportPrompts.PersonaExtractionUser(systemInstructionText, mentionsJson) }
         };
 
         var responseFormat = new JsonObject
@@ -81,12 +210,12 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         };
 
         var raw = await RunStructuredAsync(messages, JobComplexity.General, responseFormat, cancellationToken);
-        var parsed = TryParse<ExtractedPersonasPayload>(raw, "ExtractPersonas");
+        var parsed = TryParse<ExtractedPersonasPayload>(raw, "ReducePersonas");
 
         if (parsed?.Personas is null || parsed.Personas.Count == 0)
         {
             logger.LogWarning(
-                "Persona extraction returned empty (parsed null? {ParsedNull}). Raw output (truncated): {Raw}. Falling back to single Narrator stub.",
+                "Persona extraction reduce returned empty (parsed null? {ParsedNull}). Raw output (truncated): {Raw}. Falling back to single Narrator stub.",
                 parsed is null,
                 raw.Length > 600 ? raw[..600] : raw);
             return [new ExtractedPersona { Name = "Narrator", Archetype = null, SystemPrompt = "A neutral narrator who describes the scene and events.", Bio = null }];
@@ -95,23 +224,35 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         return parsed.Personas;
     }
 
-    private static string BuildTranscriptSample(IReadOnlyList<ImportSampleChunk>? chunks, int maxChars)
+    private static List<string> BuildWindows(
+        IReadOnlyList<ImportSampleChunk>? chunks,
+        int targetCharsPerWindow,
+        int maxWindowChars)
     {
-        if (chunks is null || chunks.Count == 0) return "(no transcript sample provided)";
+        var windows = new List<string>();
+        if (chunks is null || chunks.Count == 0) return windows;
+
         var sb = new StringBuilder();
-        var remaining = maxChars;
         foreach (var chunk in chunks)
         {
-            if (remaining <= 200) break;
-            var header = $"[{chunk.Role}]\n";
+            var role = string.IsNullOrWhiteSpace(chunk.Role) ? "user" : chunk.Role;
             var text = chunk.Text ?? string.Empty;
-            var blockBudget = remaining - header.Length - 2;
-            if (blockBudget <= 0) break;
-            var body = text.Length > blockBudget ? text[..blockBudget] + "…" : text;
-            sb.Append(header).Append(body).Append("\n\n");
-            remaining -= header.Length + body.Length + 2;
+
+            // Flush before adding if the current window already has content and the
+            // next chunk would push us past target. A single oversized chunk gets its
+            // own window (then immediately flushed) so it never blocks progress.
+            if (sb.Length > 0 && sb.Length + text.Length > targetCharsPerWindow)
+            {
+                windows.Add(sb.ToString().TrimEnd());
+                sb.Clear();
+            }
+
+            var body = text.Length > maxWindowChars ? text[..maxWindowChars] + "…" : text;
+            sb.Append('[').Append(role).Append(']').Append('\n').Append(body).Append("\n\n");
         }
-        return sb.Length > 0 ? sb.ToString().TrimEnd() : "(no transcript sample provided)";
+
+        if (sb.Length > 0) windows.Add(sb.ToString().TrimEnd());
+        return windows;
     }
 
     public async Task<ChunkClassification> ClassifyChunkAsync(
@@ -258,6 +399,24 @@ public sealed record class ImportSampleChunk
 
     [JsonPropertyName("text")]
     public string Text { get; init; } = string.Empty;
+}
+
+public sealed record class MentionExtractionPayload
+{
+    [JsonPropertyName("mentions")]
+    public List<Mention> Mentions { get; init; } = [];
+}
+
+public sealed record class Mention
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; init; } = string.Empty;
+
+    [JsonPropertyName("role_hint")]
+    public string? RoleHint { get; init; }
 }
 
 public sealed record class ExtractedPersonasPayload
