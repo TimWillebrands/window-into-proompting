@@ -1,5 +1,6 @@
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
+import ImportApp from '../apps/import/ImportApp';
 import PersonasApp from '../apps/personas/PersonasApp';
 import type { WindowDescriptor } from './types';
 
@@ -17,6 +18,13 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         icon: '💬',
         component: DaccordApp,
         initialPosition: { x: 360, y: 260 },
+    },
+    {
+        id: 'import',
+        title: 'Import Chat (Gemini JSON)',
+        icon: '📥',
+        component: ImportApp,
+        initialPosition: { x: 320, y: 220 },
     },
     {
         id: 'config-panel',
@@ -39,6 +47,12 @@ export const DESKTOP_ICONS = [
         label: 'Chat Rooms',
         icon: '/img/842.ico',
         windowId: 'open-party',
+    },
+    {
+        id: 'import',
+        label: 'Import Chat',
+        icon: '/img/842.ico',
+        windowId: 'import',
     },
     {
         id: 'config-panel',

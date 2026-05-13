@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using PartyTown.Configuration;
 using PartyTown.Logging;
+using PartyTown.Services.Generation;
 using PartyTown.Services.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
+builder.Services.AddSingleton<ImportService>();
 
 builder.Host.UseOrleans(siloBuilder =>
 {
