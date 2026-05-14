@@ -144,7 +144,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
             messageId: number;
         }) => {
             const res = await fetch(
-                `/api/${vars.id}/chat-groups/${vars.chatGroupId}/messages/${vars.messageId}/remember`,
+                `/api/Party/${vars.id}/chat-groups/${vars.chatGroupId}/messages/${vars.messageId}/remember`,
                 { method: 'POST' },
             );
             if (!res.ok) {
