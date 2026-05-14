@@ -169,7 +169,18 @@ Rules:
 - Preserve the original text verbatim per segment. Do not paraphrase.
 - Preserve order. Concatenating all segment texts reproduces the original chunk
   (modulo whitespace normalization).
-- Minimum granularity: one sentence. Do not split mid-sentence.
+- Minimum granularity: ONE COMPLETE SENTENCE. Never split inside a sentence.
+  A comma is NOT a segment boundary. A semicolon is NOT a segment boundary.
+  A line break inside a sentence is NOT a segment boundary. Only split where
+  the previous segment ends with a sentence terminator (`.`, `!`, `?`, `…`)
+  followed by whitespace OR with a closing quote / italics marker (`"`, `”`,
+  `*`, `_`) that itself follows a sentence terminator.
+- Never split inside paired markup. If a segment opens with `*` or `_` for
+  italics, the matching closing marker MUST be inside the same segment. If a
+  segment opens with `"`, the matching closing `"` MUST be inside the same
+  segment.
+- A speaker tag like `Lena murmurs,` belongs in the SAME segment as the
+  dialogue it introduces (or follows). Do NOT split it off as its own segment.
 - For each segment, pick exactly one of:
     persona_id        → id of an existing roster character
     new_persona_name  → a name not in the roster (use sparingly; only when the
@@ -179,6 +190,27 @@ Rules:
 - For author / GM scaffolding (brackets, "[the next morning...]", stage
   directions) use kind = "ooc" and new_persona_name = "GM".
 - kind must be one of: "dialogue", "action", "thought", "narration", "ooc".
+
+Example of WRONG splitting (commas treated as boundaries):
+  Input:  `"Johannes Vermeerstraat," Lena murmurs, "Of course. It couldn't just
+           be an apartment."`
+  WRONG segments:
+    1. `"Johannes Vermeerstraat,"`           ← cuts mid-sentence on a comma
+    2. `Lena murmurs,`                       ← speaker tag isolated
+    3. `"Of course. It couldn't just be an apartment."`
+  RIGHT segments:
+    1. `"Johannes Vermeerstraat," Lena murmurs, "Of course."`
+    2. `"It couldn't just be an apartment."`
+
+Example of WRONG splitting (italics broken across segments):
+  Input:  `*She adjusts the strap of her bag, feeling the phantom weight of
+           her professional armor slipping.*`
+  WRONG segments:
+    1. `*She adjusts the strap of her bag,`  ← splits on comma, italics open
+    2. `feeling the phantom weight of her professional armor slipping.*`
+  RIGHT segments:
+    1. `*She adjusts the strap of her bag, feeling the phantom weight of
+        her professional armor slipping.*`
 
 Output JSON only matching the schema. No prose before or after. No markdown fences.
 """;
@@ -195,5 +227,52 @@ Output JSON only matching the schema. No prose before or after. No markdown fenc
 # Your turn
 
 JSON only.
+""";
+
+    public const string PersonaMergeSystem = """
+You merge 2 or more persona stubs that the user has flagged as the same
+in-fiction character into a single canonical entry.
+
+The inputs may be duplicates (same character described twice), name variants
+("Lena" and "Lena S."), or partially overlapping records (one source captured
+the role, another captured the bio). One or more inputs may even be misnamed
+— the user, by selecting them together, is asserting they describe the same
+person.
+
+Produce ONE merged persona:
+- name: Pick the SHORTEST in-fiction call-name from the inputs. Prefer a name
+  that appears in the body text (system_prompt / bio) of the inputs over a
+  name in the `name` field, since the body text often carries the correct
+  name when the `name` field is mislabeled.
+- archetype: Combine compatible archetypes; pick the more specific one. Null
+  if none of the inputs supply one.
+- system_prompt: Synthesize the union of facts across the inputs. Drop
+  redundancy. Preserve concrete detail; drop abstract metaphor. Length must
+  match the available material — typically 3-6 sentences, fewer if inputs
+  are thin.
+- bio: 1-2 sentence card-style summary, concrete and factual, third person.
+
+Style rules (mandatory):
+- Stay grounded. Every claim must be supported by at least one input. Do NOT
+  invent backstory, relationships, or motivations the inputs do not state.
+- NO purple / abstract / poetic prose. Forbidden patterns include
+  "navigates X like Y", "oscillates between X and Y", "carries the presence
+  of X", "tests how belonging is negotiated in liminal spaces", and similar
+  thematic metaphor.
+- Prefer concrete observed facts (what they say, do, who they are in the
+  social structure) over interpretive prose.
+
+Output JSON only matching the schema. No prose before or after. No markdown
+fences.
+""";
+
+    public static string PersonaMergeUser(string personasJson) => $"""
+# Persona stubs to merge
+
+{personasJson}
+
+# Your turn
+
+Merge into ONE canonical persona. JSON only.
 """;
 }

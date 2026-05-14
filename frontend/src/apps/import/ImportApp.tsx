@@ -6,8 +6,10 @@ import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import {
     type CommitMessage,
     type CommitPersonaStub,
+    type ExtractedPersona,
     commitImport,
     extractPersonas,
+    mergePersonas,
 } from '../../lib/import-api';
 import {
     type ImportChunkInput,
@@ -752,6 +754,10 @@ function ReviewPersonasPanel({
     onBack: () => void;
     onContinue: () => void;
 }) {
+    const [mergeChecked, setMergeChecked] = useState<Set<string>>(new Set());
+    const [merging, setMerging] = useState(false);
+    const [mergeError, setMergeError] = useState<string | null>(null);
+
     const updateField = (
         placeholderId: string,
         patch: Partial<PersonaDraft>,
@@ -764,6 +770,12 @@ function ReviewPersonasPanel({
     };
     const removePersona = (placeholderId: string) => {
         setPersonas(personas.filter((p) => p.placeholderId !== placeholderId));
+        setMergeChecked((prev) => {
+            if (!prev.has(placeholderId)) return prev;
+            const next = new Set(prev);
+            next.delete(placeholderId);
+            return next;
+        });
     };
     const addBlank = () => {
         const newId = `p${personas.length + 1}`;
@@ -778,19 +790,85 @@ function ReviewPersonasPanel({
             },
         ]);
     };
+    const toggleMerge = (placeholderId: string) => {
+        setMergeChecked((prev) => {
+            const next = new Set(prev);
+            if (next.has(placeholderId)) next.delete(placeholderId);
+            else next.add(placeholderId);
+            return next;
+        });
+    };
+
+    const onMergeSelected = useCallback(async () => {
+        const ids = Array.from(mergeChecked);
+        if (ids.length < 2) return;
+        // Preserve original list order — the LLM merge prompt prefers names from
+        // body text but the first selected wins as a tie-breaker, so keep stable.
+        const inOrder = personas.filter((p) => mergeChecked.has(p.placeholderId));
+        const stubs: ExtractedPersona[] = inOrder.map((p) => ({
+            name: p.name,
+            archetype: p.archetype,
+            system_prompt: p.systemPrompt,
+            bio: p.bio,
+        }));
+        setMergeError(null);
+        setMerging(true);
+        try {
+            const result = await mergePersonas(stubs);
+            const survivor = inOrder[0];
+            const mergedDraft: PersonaDraft = {
+                placeholderId: survivor.placeholderId,
+                name: result.name,
+                archetype: result.archetype,
+                systemPrompt: result.system_prompt,
+                bio: result.bio,
+            };
+            // Replace the survivor with the merged draft and drop the rest in place.
+            const idsToDrop = new Set(inOrder.slice(1).map((p) => p.placeholderId));
+            setPersonas(
+                personas
+                    .map((p) =>
+                        p.placeholderId === survivor.placeholderId ? mergedDraft : p,
+                    )
+                    .filter((p) => !idsToDrop.has(p.placeholderId)),
+            );
+            setMergeChecked(new Set());
+        } catch (e) {
+            setMergeError(
+                e instanceof Error ? e.message : 'Merge failed.',
+            );
+        } finally {
+            setMerging(false);
+        }
+    }, [mergeChecked, personas, setPersonas]);
 
     return (
         <div className="flex flex-1 flex-col gap-2 overflow-hidden">
             <p className="text-[11px] text-slate-500">
                 Personas extracted from the systemInstruction. Edit names + system
                 prompts before classification — the classifier sees these names.
+                Tick the checkbox on two or more rows to merge duplicates / name
+                variants via the LLM.
             </p>
+            {mergeError && (
+                <div className="border border-red-400 bg-red-50 p-2 text-red-700">
+                    {mergeError}
+                </div>
+            )}
             <ul className="flex-1 overflow-y-auto border border-slate-300 bg-white">
                 {personas.map((p) => (
                     <li
                         key={p.placeholderId}
                         className="flex gap-2 border-b border-slate-200 p-2"
                     >
+                        <input
+                            type="checkbox"
+                            checked={mergeChecked.has(p.placeholderId)}
+                            onChange={() => toggleMerge(p.placeholderId)}
+                            disabled={merging}
+                            title="Select to merge with other ticked rows"
+                            className="mt-1"
+                        />
                         <img
                             src={`https://robohash.org/${encodeURIComponent(p.placeholderId)}?size=40x40`}
                             alt=""
@@ -840,17 +918,28 @@ function ReviewPersonasPanel({
             </ul>
             <div className="flex justify-between">
                 <div className="flex gap-2">
-                    <button type="button" onClick={onBack}>
+                    <button type="button" onClick={onBack} disabled={merging}>
                         ← Back
                     </button>
-                    <button type="button" onClick={addBlank}>
+                    <button type="button" onClick={addBlank} disabled={merging}>
                         + Add persona
                     </button>
+                    {mergeChecked.size >= 2 && (
+                        <button
+                            type="button"
+                            onClick={onMergeSelected}
+                            disabled={merging}
+                        >
+                            {merging
+                                ? 'Merging…'
+                                : `Merge selected (${mergeChecked.size}) →`}
+                        </button>
+                    )}
                 </div>
                 <button
                     type="button"
                     onClick={onContinue}
-                    disabled={personas.length === 0}
+                    disabled={personas.length === 0 || merging}
                 >
                     Classify chunks →
                 </button>

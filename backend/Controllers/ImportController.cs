@@ -53,6 +53,26 @@ public sealed class ImportController(
     }
 
     /// <summary>
+    /// Collapse 2+ persona stubs (the user multi-selects them in the review-personas
+    /// UI) into one canonical persona via a single LLM synthesis call.
+    /// </summary>
+    [HttpPost("merge-personas")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<MergePersonasResponse>> MergePersonas(
+        [FromBody] MergePersonasRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.Personas is null || request.Personas.Count < 2)
+        {
+            return BadRequest("merge requires at least 2 personas.");
+        }
+
+        var merged = await importService.MergePersonasAsync(request.Personas, cancellationToken);
+        return Ok(new MergePersonasResponse(merged));
+    }
+
+    /// <summary>
     /// WebSocket endpoint. Client opens connection, sends a single JSON message of
     /// shape <see cref="ClassifyRequest"/>, then reads streamed
     /// <see cref="ClassifyEnvelope"/> messages (one progress per completed chunk,
@@ -306,6 +326,15 @@ public sealed record class ExtractPersonasRequest
 
 public sealed record class ExtractPersonasResponse(
     [property: JsonPropertyName("personas")] List<ExtractedPersona> Personas);
+
+public sealed record class MergePersonasRequest
+{
+    [JsonPropertyName("personas")]
+    public List<ExtractedPersona>? Personas { get; init; }
+}
+
+public sealed record class MergePersonasResponse(
+    [property: JsonPropertyName("persona")] ExtractedPersona Persona);
 
 public sealed record class ClassifyRequest
 {

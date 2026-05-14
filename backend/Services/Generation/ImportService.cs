@@ -14,6 +14,10 @@ namespace PartyTown.Services.Generation;
 ///     transcript, ask the cheap-tier model "who appears here?" per window in parallel,
 ///     then reduce the mention list + the original character-source doc into a
 ///     canonical persona roster via a single general-tier call.
+///   • <see cref="MergePersonasAsync"/> — collapse 2+ user-flagged persona stubs into
+///     one canonical entry. Used by the review-personas UI to fix duplicates / name
+///     confusion that the extractor produces (e.g. "Lena" + "Lena S." actually being
+///     two different characters mis-grouped, or one character split across rows).
 ///   • <see cref="ClassifyChunkAsync"/> — split one transcript chunk into
 ///     per-character segments tagged by kind.
 ///
@@ -225,6 +229,62 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         return parsed.Personas;
     }
 
+    public async Task<ExtractedPersona> MergePersonasAsync(
+        IReadOnlyList<ExtractedPersona> personas,
+        CancellationToken cancellationToken)
+    {
+        if (personas.Count < 2)
+        {
+            throw new ArgumentException("Merge requires at least 2 personas.", nameof(personas));
+        }
+
+        var personasJson = JsonSerializer.Serialize(personas, WebOptions);
+
+        var messages = new List<LlmChatMessage>
+        {
+            new() { Role = "system", Content = ImportPrompts.PersonaMergeSystem },
+            new() { Role = "user", Content = ImportPrompts.PersonaMergeUser(personasJson) }
+        };
+
+        var responseFormat = new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "merged_persona",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["name"] = new JsonObject { ["type"] = "string" },
+                        ["archetype"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+                        ["system_prompt"] = new JsonObject { ["type"] = "string" },
+                        ["bio"] = new JsonObject { ["type"] = new JsonArray("string", "null") }
+                    },
+                    ["required"] = new JsonArray("name", "archetype", "system_prompt", "bio")
+                }
+            }
+        };
+
+        var raw = await RunStructuredAsync(messages, JobComplexity.General, responseFormat, cancellationToken);
+        var parsed = TryParse<ExtractedPersona>(raw, "MergePersonas");
+
+        if (parsed is null || string.IsNullOrWhiteSpace(parsed.Name))
+        {
+            // Fall back to the first input rather than failing the whole UI flow.
+            // The user can re-trigger the merge or edit by hand.
+            logger.LogWarning(
+                "Persona merge returned empty (parsed null? {ParsedNull}). Raw output (truncated): {Raw}. Falling back to first input.",
+                parsed is null,
+                raw.Length > 600 ? raw[..600] : raw);
+            return personas[0];
+        }
+
+        return parsed;
+    }
+
     private static List<string> BuildWindows(
         IReadOnlyList<ImportSampleChunk>? chunks,
         int targetCharsPerWindow,
@@ -317,7 +377,7 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
             {
                 return UnattributedFallback(chunkText);
             }
-            return parsed;
+            return parsed with { Segments = MergeMidSentenceFragments(parsed.Segments) };
         }
         catch (OperationCanceledException)
         {
@@ -387,6 +447,76 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
                 Kind = "narration"
             }]
         };
+
+    /// <summary>
+    /// Safety net for the small classifier that splits on commas / inside paired
+    /// markup despite the prompt's "minimum granularity = one sentence" rule.
+    /// Glues consecutive segments that share persona + kind when the previous one
+    /// does not end at a sentence boundary, OR when it has unclosed italic markers
+    /// (`*` or `_` count is odd). Preserves intentional sentence-boundary splits.
+    /// </summary>
+    private static List<ClassifiedSegment> MergeMidSentenceFragments(List<ClassifiedSegment> segments)
+    {
+        if (segments.Count <= 1) return segments;
+        var merged = new List<ClassifiedSegment>(segments.Count);
+        foreach (var seg in segments)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(seg);
+                continue;
+            }
+            var prev = merged[^1];
+            if (ShouldGlue(prev, seg))
+            {
+                merged[^1] = prev with { Text = $"{prev.Text} {seg.Text}".Trim() };
+            }
+            else
+            {
+                merged.Add(seg);
+            }
+        }
+        return merged;
+    }
+
+    private static bool ShouldGlue(ClassifiedSegment prev, ClassifiedSegment next)
+    {
+        var prevPersona = prev.PersonaId ?? prev.NewPersonaName ?? string.Empty;
+        var nextPersona = next.PersonaId ?? next.NewPersonaName ?? string.Empty;
+        if (!string.Equals(prevPersona, nextPersona, StringComparison.OrdinalIgnoreCase)) return false;
+        if (!string.Equals(prev.Kind, next.Kind, StringComparison.OrdinalIgnoreCase)) return false;
+        var prevText = prev.Text.TrimEnd();
+        if (prevText.Length == 0) return true;
+        return !EndsAtSentenceBoundary(prevText) || HasUnclosedInlineMarkers(prevText);
+    }
+
+    private static bool EndsAtSentenceBoundary(string text)
+    {
+        var last = text[^1];
+        if (last is '.' or '!' or '?' or '…') return true;
+        // Closing quote / italics / bracket — boundary only if preceded by a terminator.
+        if (last is '"' or '”' or ')' or ']' or '*' or '_')
+        {
+            if (text.Length >= 2)
+            {
+                var penult = text[^2];
+                return penult is '.' or '!' or '?' or '…';
+            }
+        }
+        return false;
+    }
+
+    private static bool HasUnclosedInlineMarkers(string text)
+    {
+        var stars = 0;
+        var unders = 0;
+        foreach (var c in text)
+        {
+            if (c == '*') stars++;
+            else if (c == '_') unders++;
+        }
+        return stars % 2 == 1 || unders % 2 == 1;
+    }
 }
 
 /// <summary>One transcript chunk passed to <see cref="ImportService.ExtractPersonasAsync"/>

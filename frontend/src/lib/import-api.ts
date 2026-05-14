@@ -38,6 +38,25 @@ export async function extractPersonas(
     return json.personas;
 }
 
+export async function mergePersonas(
+    personas: ExtractedPersona[],
+    signal?: AbortSignal,
+): Promise<ExtractedPersona> {
+    const res = await fetch('/api/Import/merge-personas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personas }),
+        signal,
+    });
+    if (!res.ok) {
+        throw new Error(
+            `merge-personas failed: ${res.status} ${await res.text()}`,
+        );
+    }
+    const json = (await res.json()) as { persona: ExtractedPersona };
+    return json.persona;
+}
+
 export type CommitPersonaStub = {
     placeholderId: string;
     name: string;
