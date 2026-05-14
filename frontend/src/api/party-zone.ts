@@ -22,7 +22,7 @@ import type {
     UseSuspenseQueryResult,
 } from '@tanstack/react-query';
 import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { customFetch } from './custom-fetch';
+
 import type {
     ChatGroupInfo,
     CreateChatGroupRequest,
@@ -43,8 +43,6 @@ import type {
     UpdatePartyParticipantsRequest,
 } from './model';
 
-type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
-
 export type getUpResponse204 = {
     data: void;
     status: 204;
@@ -61,10 +59,15 @@ export const getGetUpUrl = () => {
 };
 
 export const getUp = async (options?: RequestInit): Promise<getUpResponse> => {
-    return customFetch<getUpResponse>(getGetUpUrl(), {
+    const res = await fetch(getGetUpUrl(), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getUpResponse['data'] = body ? JSON.parse(body) : {};
+    return { data, status: res.status, headers: res.headers } as getUpResponse;
 };
 
 export const getGetUpQueryKey = () => {
@@ -78,15 +81,15 @@ export const getGetUpQueryOptions = <
     query?: Partial<
         UseQueryOptions<Awaited<ReturnType<typeof getUp>>, TError, TData>
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetUpQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getUp>>> = ({
         signal,
-    }) => getUp({ signal, ...requestOptions });
+    }) => getUp({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getUp>>,
@@ -114,7 +117,7 @@ export function useGetUp<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -136,7 +139,7 @@ export function useGetUp<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -150,7 +153,7 @@ export function useGetUp<
         query?: Partial<
             UseQueryOptions<Awaited<ReturnType<typeof getUp>>, TError, TData>
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -165,7 +168,7 @@ export function useGetUp<
         query?: Partial<
             UseQueryOptions<Awaited<ReturnType<typeof getUp>>, TError, TData>
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -192,15 +195,15 @@ export const getGetUpSuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetUpQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getUp>>> = ({
         signal,
-    }) => getUp({ signal, ...requestOptions });
+    }) => getUp({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getUp>>,
@@ -226,7 +229,7 @@ export function useGetUpSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -244,7 +247,7 @@ export function useGetUpSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -262,7 +265,7 @@ export function useGetUpSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -281,7 +284,7 @@ export function useGetUpSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -332,13 +335,21 @@ export const getGetLlmConfigProvidersUrl = () => {
 export const getLlmConfigProviders = async (
     options?: RequestInit,
 ): Promise<getLlmConfigProvidersResponse> => {
-    return customFetch<getLlmConfigProvidersResponse>(
-        getGetLlmConfigProvidersUrl(),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
+    const res = await fetch(getGetLlmConfigProvidersUrl(), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getLlmConfigProvidersResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getLlmConfigProvidersResponse;
 };
 
 export const getGetLlmConfigProvidersQueryKey = () => {
@@ -356,16 +367,16 @@ export const getGetLlmConfigProvidersQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetLlmConfigProvidersQueryKey();
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getLlmConfigProviders>>
-    > = ({ signal }) => getLlmConfigProviders({ signal, ...requestOptions });
+    > = ({ signal }) => getLlmConfigProviders({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getLlmConfigProviders>>,
@@ -399,7 +410,7 @@ export function useGetLlmConfigProviders<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -425,7 +436,7 @@ export function useGetLlmConfigProviders<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -443,7 +454,7 @@ export function useGetLlmConfigProviders<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -462,7 +473,7 @@ export function useGetLlmConfigProviders<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -489,16 +500,16 @@ export const getGetLlmConfigProvidersSuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetLlmConfigProvidersQueryKey();
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getLlmConfigProviders>>
-    > = ({ signal }) => getLlmConfigProviders({ signal, ...requestOptions });
+    > = ({ signal }) => getLlmConfigProviders({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getLlmConfigProviders>>,
@@ -524,7 +535,7 @@ export function useGetLlmConfigProvidersSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -542,7 +553,7 @@ export function useGetLlmConfigProvidersSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -560,7 +571,7 @@ export function useGetLlmConfigProvidersSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -579,7 +590,7 @@ export function useGetLlmConfigProvidersSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -631,18 +642,23 @@ export const postLlmConfigProviders = async (
     llmProviderEntry: LlmProviderEntry,
     options?: RequestInit,
 ): Promise<postLlmConfigProvidersResponse> => {
-    return customFetch<postLlmConfigProvidersResponse>(
-        getPostLlmConfigProvidersUrl(),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(llmProviderEntry),
-        },
-    );
+    const res = await fetch(getPostLlmConfigProvidersUrl(), {
+        ...options,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(llmProviderEntry),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postLlmConfigProvidersResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postLlmConfigProvidersResponse;
 };
 
 export const getPostLlmConfigProvidersMutationOptions = <
@@ -655,7 +671,7 @@ export const getPostLlmConfigProvidersMutationOptions = <
         { data: LlmProviderEntry },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postLlmConfigProviders>>,
     TError,
@@ -663,13 +679,13 @@ export const getPostLlmConfigProvidersMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postLlmConfigProviders'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postLlmConfigProviders>>,
@@ -677,7 +693,7 @@ export const getPostLlmConfigProvidersMutationOptions = <
     > = (props) => {
         const { data } = props ?? {};
 
-        return postLlmConfigProviders(data, requestOptions);
+        return postLlmConfigProviders(data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -697,7 +713,7 @@ export const usePostLlmConfigProviders = <TError = unknown, TContext = unknown>(
             { data: LlmProviderEntry },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -746,13 +762,21 @@ export const getLlmConfigProvidersIdModels = async (
     id: string,
     options?: RequestInit,
 ): Promise<getLlmConfigProvidersIdModelsResponse> => {
-    return customFetch<getLlmConfigProvidersIdModelsResponse>(
-        getGetLlmConfigProvidersIdModelsUrl(id),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
+    const res = await fetch(getGetLlmConfigProvidersIdModelsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getLlmConfigProvidersIdModelsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getLlmConfigProvidersIdModelsResponse;
 };
 
 export const getGetLlmConfigProvidersIdModelsQueryKey = (id: string) => {
@@ -772,10 +796,10 @@ export const getGetLlmConfigProvidersIdModelsQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetLlmConfigProvidersIdModelsQueryKey(id);
@@ -783,7 +807,7 @@ export const getGetLlmConfigProvidersIdModelsQueryOptions = <
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
     > = ({ signal }) =>
-        getLlmConfigProvidersIdModels(id, { signal, ...requestOptions });
+        getLlmConfigProvidersIdModels(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -823,7 +847,7 @@ export function useGetLlmConfigProvidersIdModels<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -850,7 +874,7 @@ export function useGetLlmConfigProvidersIdModels<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -869,7 +893,7 @@ export function useGetLlmConfigProvidersIdModels<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -889,7 +913,7 @@ export function useGetLlmConfigProvidersIdModels<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -921,10 +945,10 @@ export const getGetLlmConfigProvidersIdModelsSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetLlmConfigProvidersIdModelsQueryKey(id);
@@ -932,7 +956,7 @@ export const getGetLlmConfigProvidersIdModelsSuspenseQueryOptions = <
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>
     > = ({ signal }) =>
-        getLlmConfigProvidersIdModels(id, { signal, ...requestOptions });
+        getLlmConfigProvidersIdModels(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getLlmConfigProvidersIdModels>>,
@@ -959,7 +983,7 @@ export function useGetLlmConfigProvidersIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -978,7 +1002,7 @@ export function useGetLlmConfigProvidersIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -997,7 +1021,7 @@ export function useGetLlmConfigProvidersIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1017,7 +1041,7 @@ export function useGetLlmConfigProvidersIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1072,18 +1096,23 @@ export const putLlmConfigProvidersId = async (
     llmProviderEntry: LlmProviderEntry,
     options?: RequestInit,
 ): Promise<putLlmConfigProvidersIdResponse> => {
-    return customFetch<putLlmConfigProvidersIdResponse>(
-        getPutLlmConfigProvidersIdUrl(id),
-        {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(llmProviderEntry),
-        },
-    );
+    const res = await fetch(getPutLlmConfigProvidersIdUrl(id), {
+        ...options,
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(llmProviderEntry),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putLlmConfigProvidersIdResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putLlmConfigProvidersIdResponse;
 };
 
 export const getPutLlmConfigProvidersIdMutationOptions = <
@@ -1096,7 +1125,7 @@ export const getPutLlmConfigProvidersIdMutationOptions = <
         { id: string; data: LlmProviderEntry },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
     TError,
@@ -1104,13 +1133,13 @@ export const getPutLlmConfigProvidersIdMutationOptions = <
     TContext
 > => {
     const mutationKey = ['putLlmConfigProvidersId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof putLlmConfigProvidersId>>,
@@ -1118,7 +1147,7 @@ export const getPutLlmConfigProvidersIdMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return putLlmConfigProvidersId(id, data, requestOptions);
+        return putLlmConfigProvidersId(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -1141,7 +1170,7 @@ export const usePutLlmConfigProvidersId = <
             { id: string; data: LlmProviderEntry },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -1200,13 +1229,21 @@ export const deleteLlmConfigProvidersId = async (
     id: string,
     options?: RequestInit,
 ): Promise<deleteLlmConfigProvidersIdResponse> => {
-    return customFetch<deleteLlmConfigProvidersIdResponse>(
-        getDeleteLlmConfigProvidersIdUrl(id),
-        {
-            ...options,
-            method: 'DELETE',
-        },
-    );
+    const res = await fetch(getDeleteLlmConfigProvidersIdUrl(id), {
+        ...options,
+        method: 'DELETE',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: deleteLlmConfigProvidersIdResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as deleteLlmConfigProvidersIdResponse;
 };
 
 export const getDeleteLlmConfigProvidersIdMutationOptions = <
@@ -1219,7 +1256,7 @@ export const getDeleteLlmConfigProvidersIdMutationOptions = <
         { id: string },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
     TError,
@@ -1227,13 +1264,13 @@ export const getDeleteLlmConfigProvidersIdMutationOptions = <
     TContext
 > => {
     const mutationKey = ['deleteLlmConfigProvidersId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof deleteLlmConfigProvidersId>>,
@@ -1241,7 +1278,7 @@ export const getDeleteLlmConfigProvidersIdMutationOptions = <
     > = (props) => {
         const { id } = props ?? {};
 
-        return deleteLlmConfigProvidersId(id, requestOptions);
+        return deleteLlmConfigProvidersId(id, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -1264,7 +1301,7 @@ export const useDeleteLlmConfigProvidersId = <
             { id: string },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -1311,10 +1348,19 @@ export const getGetPartyUrl = () => {
 export const getParty = async (
     options?: RequestInit,
 ): Promise<getPartyResponse> => {
-    return customFetch<getPartyResponse>(getGetPartyUrl(), {
+    const res = await fetch(getGetPartyUrl(), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyResponse;
 };
 
 export const getGetPartyQueryKey = () => {
@@ -1328,15 +1374,15 @@ export const getGetPartyQueryOptions = <
     query?: Partial<
         UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getParty>>> = ({
         signal,
-    }) => getParty({ signal, ...requestOptions });
+    }) => getParty({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getParty>>,
@@ -1366,7 +1412,7 @@ export function useGetParty<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -1388,7 +1434,7 @@ export function useGetParty<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1402,7 +1448,7 @@ export function useGetParty<
         query?: Partial<
             UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1417,7 +1463,7 @@ export function useGetParty<
         query?: Partial<
             UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1444,15 +1490,15 @@ export const getGetPartySuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getParty>>> = ({
         signal,
-    }) => getParty({ signal, ...requestOptions });
+    }) => getParty({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getParty>>,
@@ -1478,7 +1524,7 @@ export function useGetPartySuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1496,7 +1542,7 @@ export function useGetPartySuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1514,7 +1560,7 @@ export function useGetPartySuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1533,7 +1579,7 @@ export function useGetPartySuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1584,12 +1630,21 @@ export const postPartyCreate = async (
     createPartyRequest: CreatePartyRequest,
     options?: RequestInit,
 ): Promise<postPartyCreateResponse> => {
-    return customFetch<postPartyCreateResponse>(getPostPartyCreateUrl(), {
+    const res = await fetch(getPostPartyCreateUrl(), {
         ...options,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
         body: JSON.stringify(createPartyRequest),
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyCreateResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyCreateResponse;
 };
 
 export const getPostPartyCreateMutationOptions = <
@@ -1602,7 +1657,7 @@ export const getPostPartyCreateMutationOptions = <
         { data: CreatePartyRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyCreate>>,
     TError,
@@ -1610,13 +1665,13 @@ export const getPostPartyCreateMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyCreate'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyCreate>>,
@@ -1624,7 +1679,7 @@ export const getPostPartyCreateMutationOptions = <
     > = (props) => {
         const { data } = props ?? {};
 
-        return postPartyCreate(data, requestOptions);
+        return postPartyCreate(data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -1644,7 +1699,7 @@ export const usePostPartyCreate = <TError = unknown, TContext = unknown>(
             { data: CreatePartyRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -1689,10 +1744,19 @@ export const getPartyId = async (
     id: string,
     options?: RequestInit,
 ): Promise<getPartyIdResponse> => {
-    return customFetch<getPartyIdResponse>(getGetPartyIdUrl(id), {
+    const res = await fetch(getGetPartyIdUrl(id), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdResponse;
 };
 
 export const getGetPartyIdQueryKey = (id: string) => {
@@ -1712,16 +1776,16 @@ export const getGetPartyIdQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartyId>>> = ({
         signal,
-    }) => getPartyId(id, { signal, ...requestOptions });
+    }) => getPartyId(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -1761,7 +1825,7 @@ export function useGetPartyId<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -1788,7 +1852,7 @@ export function useGetPartyId<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1807,7 +1871,7 @@ export function useGetPartyId<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1827,7 +1891,7 @@ export function useGetPartyId<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -1856,16 +1920,16 @@ export const getGetPartyIdSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartyId>>> = ({
         signal,
-    }) => getPartyId(id, { signal, ...requestOptions });
+    }) => getPartyId(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPartyId>>,
@@ -1892,7 +1956,7 @@ export function useGetPartyIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1911,7 +1975,7 @@ export function useGetPartyIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1930,7 +1994,7 @@ export function useGetPartyIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -1950,7 +2014,7 @@ export function useGetPartyIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -2002,13 +2066,21 @@ export const postPartyIdResetParticipants = async (
     id: string,
     options?: RequestInit,
 ): Promise<postPartyIdResetParticipantsResponse> => {
-    return customFetch<postPartyIdResetParticipantsResponse>(
-        getPostPartyIdResetParticipantsUrl(id),
-        {
-            ...options,
-            method: 'POST',
-        },
-    );
+    const res = await fetch(getPostPartyIdResetParticipantsUrl(id), {
+        ...options,
+        method: 'POST',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdResetParticipantsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdResetParticipantsResponse;
 };
 
 export const getPostPartyIdResetParticipantsMutationOptions = <
@@ -2021,7 +2093,7 @@ export const getPostPartyIdResetParticipantsMutationOptions = <
         { id: string },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdResetParticipants>>,
     TError,
@@ -2029,13 +2101,13 @@ export const getPostPartyIdResetParticipantsMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdResetParticipants'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdResetParticipants>>,
@@ -2043,7 +2115,7 @@ export const getPostPartyIdResetParticipantsMutationOptions = <
     > = (props) => {
         const { id } = props ?? {};
 
-        return postPartyIdResetParticipants(id, requestOptions);
+        return postPartyIdResetParticipants(id, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -2066,7 +2138,7 @@ export const usePostPartyIdResetParticipants = <
             { id: string },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -2116,18 +2188,23 @@ export const putPartyIdParticipants = async (
     updatePartyParticipantsRequest: UpdatePartyParticipantsRequest,
     options?: RequestInit,
 ): Promise<putPartyIdParticipantsResponse> => {
-    return customFetch<putPartyIdParticipantsResponse>(
-        getPutPartyIdParticipantsUrl(id),
-        {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(updatePartyParticipantsRequest),
-        },
-    );
+    const res = await fetch(getPutPartyIdParticipantsUrl(id), {
+        ...options,
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(updatePartyParticipantsRequest),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdParticipantsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdParticipantsResponse;
 };
 
 export const getPutPartyIdParticipantsMutationOptions = <
@@ -2140,7 +2217,7 @@ export const getPutPartyIdParticipantsMutationOptions = <
         { id: string; data: UpdatePartyParticipantsRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putPartyIdParticipants>>,
     TError,
@@ -2148,13 +2225,13 @@ export const getPutPartyIdParticipantsMutationOptions = <
     TContext
 > => {
     const mutationKey = ['putPartyIdParticipants'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof putPartyIdParticipants>>,
@@ -2162,7 +2239,7 @@ export const getPutPartyIdParticipantsMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return putPartyIdParticipants(id, data, requestOptions);
+        return putPartyIdParticipants(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -2182,7 +2259,7 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
             { id: string; data: UpdatePartyParticipantsRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -2260,13 +2337,23 @@ export const getPartyIdChatGroupsChatGroupIdParticipants = async (
     chatGroupId: string,
     options?: RequestInit,
 ): Promise<getPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
-    return customFetch<getPartyIdChatGroupsChatGroupIdParticipantsResponse>(
+    const res = await fetch(
         getGetPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
         {
             ...options,
             method: 'GET',
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdChatGroupsChatGroupIdParticipantsResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdChatGroupsChatGroupIdParticipantsResponse;
 };
 
 export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey = (
@@ -2298,10 +2385,10 @@ export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ??
@@ -2312,7 +2399,7 @@ export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions = <
     > = ({ signal }) =>
         getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
             signal,
-            ...requestOptions,
+            ...fetchOptions,
         });
 
     return {
@@ -2370,7 +2457,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipants<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -2412,7 +2499,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipants<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -2438,7 +2525,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipants<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -2465,7 +2552,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipants<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -2507,10 +2594,10 @@ export const getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions 
                     TData
                 >
             >;
-            request?: SecondParameter<typeof customFetch>;
+            fetch?: RequestInit;
         },
     ) => {
-        const { query: queryOptions, request: requestOptions } = options ?? {};
+        const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
         const queryKey =
             queryOptions?.queryKey ??
@@ -2526,7 +2613,7 @@ export const getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions 
         > = ({ signal }) =>
             getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
                 signal,
-                ...requestOptions,
+                ...fetchOptions,
             });
 
         return {
@@ -2569,7 +2656,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -2595,7 +2682,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -2621,7 +2708,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -2648,7 +2735,7 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -2754,7 +2841,7 @@ export const putPartyIdChatGroupsChatGroupIdParticipants = async (
     updatePartyParticipantsRequest: UpdatePartyParticipantsRequest,
     options?: RequestInit,
 ): Promise<putPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
-    return customFetch<putPartyIdChatGroupsChatGroupIdParticipantsResponse>(
+    const res = await fetch(
         getPutPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
         {
             ...options,
@@ -2766,6 +2853,16 @@ export const putPartyIdChatGroupsChatGroupIdParticipants = async (
             body: JSON.stringify(updatePartyParticipantsRequest),
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdChatGroupsChatGroupIdParticipantsResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdChatGroupsChatGroupIdParticipantsResponse;
 };
 
 export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
@@ -2782,7 +2879,7 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
         },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
     TError,
@@ -2790,13 +2887,13 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
     TContext
 > => {
     const mutationKey = ['putPartyIdChatGroupsChatGroupIdParticipants'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
@@ -2812,7 +2909,7 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
             id,
             chatGroupId,
             data,
-            requestOptions,
+            fetchOptions,
         );
     };
 
@@ -2845,7 +2942,7 @@ export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
             },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -2904,12 +3001,23 @@ export const postPartyIdPrompt = async (
     promptRequest: PromptRequest,
     options?: RequestInit,
 ): Promise<postPartyIdPromptResponse> => {
-    return customFetch<postPartyIdPromptResponse>(getPostPartyIdPromptUrl(id), {
+    const res = await fetch(getPostPartyIdPromptUrl(id), {
         ...options,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
         body: JSON.stringify(promptRequest),
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdPromptResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdPromptResponse;
 };
 
 export const getPostPartyIdPromptMutationOptions = <
@@ -2922,7 +3030,7 @@ export const getPostPartyIdPromptMutationOptions = <
         { id: string; data: PromptRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdPrompt>>,
     TError,
@@ -2930,13 +3038,13 @@ export const getPostPartyIdPromptMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdPrompt'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdPrompt>>,
@@ -2944,7 +3052,7 @@ export const getPostPartyIdPromptMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return postPartyIdPrompt(id, data, requestOptions);
+        return postPartyIdPrompt(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -2967,7 +3075,7 @@ export const usePostPartyIdPrompt = <
             { id: string; data: PromptRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3027,18 +3135,23 @@ export const postPartyIdProceed = async (
     proceedRequest: ProceedRequest,
     options?: RequestInit,
 ): Promise<postPartyIdProceedResponse> => {
-    return customFetch<postPartyIdProceedResponse>(
-        getPostPartyIdProceedUrl(id),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(proceedRequest),
-        },
-    );
+    const res = await fetch(getPostPartyIdProceedUrl(id), {
+        ...options,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(proceedRequest),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdProceedResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdProceedResponse;
 };
 
 export const getPostPartyIdProceedMutationOptions = <
@@ -3051,7 +3164,7 @@ export const getPostPartyIdProceedMutationOptions = <
         { id: string; data: ProceedRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdProceed>>,
     TError,
@@ -3059,13 +3172,13 @@ export const getPostPartyIdProceedMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdProceed'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdProceed>>,
@@ -3073,7 +3186,7 @@ export const getPostPartyIdProceedMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return postPartyIdProceed(id, data, requestOptions);
+        return postPartyIdProceed(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -3096,7 +3209,7 @@ export const usePostPartyIdProceed = <
             { id: string; data: ProceedRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3130,10 +3243,21 @@ export const postPartyIdCancel = async (
     id: string,
     options?: RequestInit,
 ): Promise<postPartyIdCancelResponse> => {
-    return customFetch<postPartyIdCancelResponse>(getPostPartyIdCancelUrl(id), {
+    const res = await fetch(getPostPartyIdCancelUrl(id), {
         ...options,
         method: 'POST',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdCancelResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdCancelResponse;
 };
 
 export const getPostPartyIdCancelMutationOptions = <
@@ -3146,7 +3270,7 @@ export const getPostPartyIdCancelMutationOptions = <
         { id: string },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdCancel>>,
     TError,
@@ -3154,13 +3278,13 @@ export const getPostPartyIdCancelMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdCancel'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdCancel>>,
@@ -3168,7 +3292,7 @@ export const getPostPartyIdCancelMutationOptions = <
     > = (props) => {
         const { id } = props ?? {};
 
-        return postPartyIdCancel(id, requestOptions);
+        return postPartyIdCancel(id, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -3188,7 +3312,7 @@ export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
             { id: string },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3256,7 +3380,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesMessageId = async (
     messageId: number,
     options?: RequestInit,
 ): Promise<deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse> => {
-    return customFetch<deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse>(
+    const res = await fetch(
         getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdUrl(
             id,
             chatGroupId,
@@ -3267,6 +3391,16 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesMessageId = async (
             method: 'DELETE',
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse;
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptions =
@@ -3281,7 +3415,7 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptio
             { id: string; chatGroupId: string; messageId: number },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     }): UseMutationOptions<
         Awaited<
             ReturnType<
@@ -3295,13 +3429,13 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptio
         const mutationKey = [
             'deletePartyIdChatGroupsChatGroupIdMessagesMessageId',
         ];
-        const { mutation: mutationOptions, request: requestOptions } = options
+        const { mutation: mutationOptions, fetch: fetchOptions } = options
             ? options.mutation &&
               'mutationKey' in options.mutation &&
               options.mutation.mutationKey
                 ? options
                 : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
+            : { mutation: { mutationKey }, fetch: undefined };
 
         const mutationFn: MutationFunction<
             Awaited<
@@ -3317,7 +3451,7 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptio
                 id,
                 chatGroupId,
                 messageId,
-                requestOptions,
+                fetchOptions,
             );
         };
 
@@ -3351,7 +3485,7 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
             { id: string; chatGroupId: string; messageId: number },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3425,7 +3559,7 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = async (
     messageId: number,
     options?: RequestInit,
 ): Promise<deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse> => {
-    return customFetch<deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse>(
+    const res = await fetch(
         getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdUrl(
             id,
             chatGroupId,
@@ -3436,6 +3570,16 @@ export const deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = async (
             method: 'DELETE',
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse;
 };
 
 export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions =
@@ -3450,7 +3594,7 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutation
             { id: string; chatGroupId: string; messageId: number },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     }): UseMutationOptions<
         Awaited<
             ReturnType<
@@ -3464,13 +3608,13 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutation
         const mutationKey = [
             'deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId',
         ];
-        const { mutation: mutationOptions, request: requestOptions } = options
+        const { mutation: mutationOptions, fetch: fetchOptions } = options
             ? options.mutation &&
               'mutationKey' in options.mutation &&
               options.mutation.mutationKey
                 ? options
                 : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
+            : { mutation: { mutationKey }, fetch: undefined };
 
         const mutationFn: MutationFunction<
             Awaited<
@@ -3486,7 +3630,7 @@ export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutation
                 id,
                 chatGroupId,
                 messageId,
-                requestOptions,
+                fetchOptions,
             );
         };
 
@@ -3520,7 +3664,7 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
             { id: string; chatGroupId: string; messageId: number },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3535,6 +3679,208 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
 > => {
     return useMutation(
         getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions(
+            options,
+        ),
+        queryClient,
+    );
+};
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 =
+    {
+        data: void;
+        status: 202;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess =
+    postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 & {
+        headers: Headers;
+    };
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError =
+    (
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse =
+    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess
+    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError;
+
+export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl = (
+    id: string,
+    chatGroupId: string,
+    messageId: number,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/messages/${messageId}/remember`;
+};
+
+export const postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = async (
+    id: string,
+    chatGroupId: string,
+    messageId: number,
+    options?: RequestInit,
+): Promise<postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse> => {
+    const res = await fetch(
+        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl(
+            id,
+            chatGroupId,
+            messageId,
+        ),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse['data'] =
+        body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse;
+};
+
+export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            TError,
+            { id: string; chatGroupId: string; messageId: number },
+            TContext
+        >;
+        fetch?: RequestInit;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+            >
+        >,
+        TError,
+        { id: string; chatGroupId: string; messageId: number },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember',
+        ];
+        const { mutation: mutationOptions, fetch: fetchOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, fetch: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            { id: string; chatGroupId: string; messageId: number }
+        > = (props) => {
+            const { id, chatGroupId, messageId } = props ?? {};
+
+            return postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember(
+                id,
+                chatGroupId,
+                messageId,
+                fetchOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+            >
+        >
+    >;
+
+export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationError =
+    ProblemDetails;
+
+export const usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            TError,
+            { id: string; chatGroupId: string; messageId: number },
+            TContext
+        >;
+        fetch?: RequestInit;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<
+        ReturnType<
+            typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+        >
+    >,
+    TError,
+    { id: string; chatGroupId: string; messageId: number },
+    TContext
+> => {
+    return useMutation(
+        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions(
             options,
         ),
         queryClient,
@@ -3590,18 +3936,23 @@ export const postPartyIdRepromptMessageId = async (
     repromptRequest: RepromptRequest,
     options?: RequestInit,
 ): Promise<postPartyIdRepromptMessageIdResponse> => {
-    return customFetch<postPartyIdRepromptMessageIdResponse>(
-        getPostPartyIdRepromptMessageIdUrl(id, messageId),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(repromptRequest),
-        },
-    );
+    const res = await fetch(getPostPartyIdRepromptMessageIdUrl(id, messageId), {
+        ...options,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(repromptRequest),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdRepromptMessageIdResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdRepromptMessageIdResponse;
 };
 
 export const getPostPartyIdRepromptMessageIdMutationOptions = <
@@ -3614,7 +3965,7 @@ export const getPostPartyIdRepromptMessageIdMutationOptions = <
         { id: string; messageId: number; data: RepromptRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
     TError,
@@ -3622,13 +3973,13 @@ export const getPostPartyIdRepromptMessageIdMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdRepromptMessageId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
@@ -3636,12 +3987,7 @@ export const getPostPartyIdRepromptMessageIdMutationOptions = <
     > = (props) => {
         const { id, messageId, data } = props ?? {};
 
-        return postPartyIdRepromptMessageId(
-            id,
-            messageId,
-            data,
-            requestOptions,
-        );
+        return postPartyIdRepromptMessageId(id, messageId, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -3664,7 +4010,7 @@ export const usePostPartyIdRepromptMessageId = <
             { id: string; messageId: number; data: RepromptRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -3698,10 +4044,19 @@ export const getPartyIdWs = async (
     id: string,
     options?: RequestInit,
 ): Promise<getPartyIdWsResponse> => {
-    return customFetch<getPartyIdWsResponse>(getGetPartyIdWsUrl(id), {
+    const res = await fetch(getGetPartyIdWsUrl(id), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdWsResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdWsResponse;
 };
 
 export const getGetPartyIdWsQueryKey = (id: string) => {
@@ -3721,16 +4076,16 @@ export const getGetPartyIdWsQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdWsQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartyIdWs>>> = ({
         signal,
-    }) => getPartyIdWs(id, { signal, ...requestOptions });
+    }) => getPartyIdWs(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -3770,7 +4125,7 @@ export function useGetPartyIdWs<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -3797,7 +4152,7 @@ export function useGetPartyIdWs<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -3816,7 +4171,7 @@ export function useGetPartyIdWs<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -3836,7 +4191,7 @@ export function useGetPartyIdWs<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -3865,16 +4220,16 @@ export const getGetPartyIdWsSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdWsQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartyIdWs>>> = ({
         signal,
-    }) => getPartyIdWs(id, { signal, ...requestOptions });
+    }) => getPartyIdWs(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPartyIdWs>>,
@@ -3901,7 +4256,7 @@ export function useGetPartyIdWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -3920,7 +4275,7 @@ export function useGetPartyIdWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -3939,7 +4294,7 @@ export function useGetPartyIdWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -3959,7 +4314,7 @@ export function useGetPartyIdWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4010,10 +4365,19 @@ export const getPartyIdModels = async (
     id: string,
     options?: RequestInit,
 ): Promise<getPartyIdModelsResponse> => {
-    return customFetch<getPartyIdModelsResponse>(getGetPartyIdModelsUrl(id), {
+    const res = await fetch(getGetPartyIdModelsUrl(id), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdModelsResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdModelsResponse;
 };
 
 export const getGetPartyIdModelsQueryKey = (id: string) => {
@@ -4033,16 +4397,16 @@ export const getGetPartyIdModelsQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdModelsQueryKey(id);
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPartyIdModels>>
-    > = ({ signal }) => getPartyIdModels(id, { signal, ...requestOptions });
+    > = ({ signal }) => getPartyIdModels(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -4082,7 +4446,7 @@ export function useGetPartyIdModels<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -4109,7 +4473,7 @@ export function useGetPartyIdModels<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4128,7 +4492,7 @@ export function useGetPartyIdModels<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4148,7 +4512,7 @@ export function useGetPartyIdModels<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4177,16 +4541,16 @@ export const getGetPartyIdModelsSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPartyIdModelsQueryKey(id);
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPartyIdModels>>
-    > = ({ signal }) => getPartyIdModels(id, { signal, ...requestOptions });
+    > = ({ signal }) => getPartyIdModels(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPartyIdModels>>,
@@ -4213,7 +4577,7 @@ export function useGetPartyIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4232,7 +4596,7 @@ export function useGetPartyIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4251,7 +4615,7 @@ export function useGetPartyIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4271,7 +4635,7 @@ export function useGetPartyIdModelsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4322,13 +4686,21 @@ export const getPartyIdChatGroups = async (
     id: string,
     options?: RequestInit,
 ): Promise<getPartyIdChatGroupsResponse> => {
-    return customFetch<getPartyIdChatGroupsResponse>(
-        getGetPartyIdChatGroupsUrl(id),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
+    const res = await fetch(getGetPartyIdChatGroupsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdChatGroupsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdChatGroupsResponse;
 };
 
 export const getGetPartyIdChatGroupsQueryKey = (id: string) => {
@@ -4348,17 +4720,17 @@ export const getGetPartyIdChatGroupsQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetPartyIdChatGroupsQueryKey(id);
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPartyIdChatGroups>>
-    > = ({ signal }) => getPartyIdChatGroups(id, { signal, ...requestOptions });
+    > = ({ signal }) => getPartyIdChatGroups(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -4398,7 +4770,7 @@ export function useGetPartyIdChatGroups<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -4425,7 +4797,7 @@ export function useGetPartyIdChatGroups<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4444,7 +4816,7 @@ export function useGetPartyIdChatGroups<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4464,7 +4836,7 @@ export function useGetPartyIdChatGroups<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -4493,17 +4865,17 @@ export const getGetPartyIdChatGroupsSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ?? getGetPartyIdChatGroupsQueryKey(id);
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPartyIdChatGroups>>
-    > = ({ signal }) => getPartyIdChatGroups(id, { signal, ...requestOptions });
+    > = ({ signal }) => getPartyIdChatGroups(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPartyIdChatGroups>>,
@@ -4530,7 +4902,7 @@ export function useGetPartyIdChatGroupsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4549,7 +4921,7 @@ export function useGetPartyIdChatGroupsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4568,7 +4940,7 @@ export function useGetPartyIdChatGroupsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4588,7 +4960,7 @@ export function useGetPartyIdChatGroupsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -4644,18 +5016,23 @@ export const postPartyIdChatGroups = async (
     createChatGroupRequest: CreateChatGroupRequest,
     options?: RequestInit,
 ): Promise<postPartyIdChatGroupsResponse> => {
-    return customFetch<postPartyIdChatGroupsResponse>(
-        getPostPartyIdChatGroupsUrl(id),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(createChatGroupRequest),
-        },
-    );
+    const res = await fetch(getPostPartyIdChatGroupsUrl(id), {
+        ...options,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: JSON.stringify(createChatGroupRequest),
+    });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: postPartyIdChatGroupsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as postPartyIdChatGroupsResponse;
 };
 
 export const getPostPartyIdChatGroupsMutationOptions = <
@@ -4668,7 +5045,7 @@ export const getPostPartyIdChatGroupsMutationOptions = <
         { id: string; data: CreateChatGroupRequest },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof postPartyIdChatGroups>>,
     TError,
@@ -4676,13 +5053,13 @@ export const getPostPartyIdChatGroupsMutationOptions = <
     TContext
 > => {
     const mutationKey = ['postPartyIdChatGroups'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof postPartyIdChatGroups>>,
@@ -4690,7 +5067,7 @@ export const getPostPartyIdChatGroupsMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return postPartyIdChatGroups(id, data, requestOptions);
+        return postPartyIdChatGroups(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -4710,7 +5087,7 @@ export const usePostPartyIdChatGroups = <TError = unknown, TContext = unknown>(
             { id: string; data: CreateChatGroupRequest },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -4794,7 +5171,7 @@ export const putPartyIdChatGroupsChatGroupIdScenario = async (
     updateChatGroupScenarioRequest: UpdateChatGroupScenarioRequest,
     options?: RequestInit,
 ): Promise<putPartyIdChatGroupsChatGroupIdScenarioResponse> => {
-    return customFetch<putPartyIdChatGroupsChatGroupIdScenarioResponse>(
+    const res = await fetch(
         getPutPartyIdChatGroupsChatGroupIdScenarioUrl(id, chatGroupId),
         {
             ...options,
@@ -4806,6 +5183,17 @@ export const putPartyIdChatGroupsChatGroupIdScenario = async (
             body: JSON.stringify(updateChatGroupScenarioRequest),
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPartyIdChatGroupsChatGroupIdScenarioResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPartyIdChatGroupsChatGroupIdScenarioResponse;
 };
 
 export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
@@ -4822,7 +5210,7 @@ export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
         },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
     TError,
@@ -4830,13 +5218,13 @@ export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
     TContext
 > => {
     const mutationKey = ['putPartyIdChatGroupsChatGroupIdScenario'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
@@ -4852,7 +5240,7 @@ export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
             id,
             chatGroupId,
             data,
-            requestOptions,
+            fetchOptions,
         );
     };
 
@@ -4882,7 +5270,7 @@ export const usePutPartyIdChatGroupsChatGroupIdScenario = <
             },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -4982,7 +5370,7 @@ export const getPartyIdChatGroupsChatGroupIdPapertrail = async (
     params?: GetPartyIdChatGroupsChatGroupIdPapertrailParams,
     options?: RequestInit,
 ): Promise<getPartyIdChatGroupsChatGroupIdPapertrailResponse> => {
-    return customFetch<getPartyIdChatGroupsChatGroupIdPapertrailResponse>(
+    const res = await fetch(
         getGetPartyIdChatGroupsChatGroupIdPapertrailUrl(
             id,
             chatGroupId,
@@ -4993,6 +5381,17 @@ export const getPartyIdChatGroupsChatGroupIdPapertrail = async (
             method: 'GET',
         },
     );
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPartyIdChatGroupsChatGroupIdPapertrailResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPartyIdChatGroupsChatGroupIdPapertrailResponse;
 };
 
 export const getGetPartyIdChatGroupsChatGroupIdPapertrailQueryKey = (
@@ -5025,10 +5424,10 @@ export const getGetPartyIdChatGroupsChatGroupIdPapertrailQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey =
         queryOptions?.queryKey ??
@@ -5043,7 +5442,7 @@ export const getGetPartyIdChatGroupsChatGroupIdPapertrailQueryOptions = <
     > = ({ signal }) =>
         getPartyIdChatGroupsChatGroupIdPapertrail(id, chatGroupId, params, {
             signal,
-            ...requestOptions,
+            ...fetchOptions,
         });
 
     return {
@@ -5099,7 +5498,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrail<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -5140,7 +5539,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrail<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5165,7 +5564,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrail<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5191,7 +5590,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrail<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5235,10 +5634,10 @@ export const getGetPartyIdChatGroupsChatGroupIdPapertrailSuspenseQueryOptions =
                     TData
                 >
             >;
-            request?: SecondParameter<typeof customFetch>;
+            fetch?: RequestInit;
         },
     ) => {
-        const { query: queryOptions, request: requestOptions } = options ?? {};
+        const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
         const queryKey =
             queryOptions?.queryKey ??
@@ -5255,7 +5654,7 @@ export const getGetPartyIdChatGroupsChatGroupIdPapertrailSuspenseQueryOptions =
         > = ({ signal }) =>
             getPartyIdChatGroupsChatGroupIdPapertrail(id, chatGroupId, params, {
                 signal,
-                ...requestOptions,
+                ...fetchOptions,
             });
 
         return {
@@ -5297,7 +5696,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrailSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5322,7 +5721,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrailSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5347,7 +5746,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrailSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5373,7 +5772,7 @@ export function useGetPartyIdChatGroupsChatGroupIdPapertrailSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5429,10 +5828,19 @@ export const getGetPersonaUrl = () => {
 export const getPersona = async (
     options?: RequestInit,
 ): Promise<getPersonaResponse> => {
-    return customFetch<getPersonaResponse>(getGetPersonaUrl(), {
+    const res = await fetch(getGetPersonaUrl(), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaResponse;
 };
 
 export const getGetPersonaQueryKey = () => {
@@ -5446,15 +5854,15 @@ export const getGetPersonaQueryOptions = <
     query?: Partial<
         UseQueryOptions<Awaited<ReturnType<typeof getPersona>>, TError, TData>
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersona>>> = ({
         signal,
-    }) => getPersona({ signal, ...requestOptions });
+    }) => getPersona({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getPersona>>,
@@ -5488,7 +5896,7 @@ export function useGetPersona<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -5514,7 +5922,7 @@ export function useGetPersona<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5532,7 +5940,7 @@ export function useGetPersona<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5551,7 +5959,7 @@ export function useGetPersona<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5578,15 +5986,15 @@ export const getGetPersonaSuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersona>>> = ({
         signal,
-    }) => getPersona({ signal, ...requestOptions });
+    }) => getPersona({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPersona>>,
@@ -5612,7 +6020,7 @@ export function useGetPersonaSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5630,7 +6038,7 @@ export function useGetPersonaSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5648,7 +6056,7 @@ export function useGetPersonaSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5667,7 +6075,7 @@ export function useGetPersonaSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5718,10 +6126,19 @@ export const getPersonaId = async (
     id: string,
     options?: RequestInit,
 ): Promise<getPersonaIdResponse> => {
-    return customFetch<getPersonaIdResponse>(getGetPersonaIdUrl(id), {
+    const res = await fetch(getGetPersonaIdUrl(id), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaIdResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaIdResponse;
 };
 
 export const getGetPersonaIdQueryKey = (id: string) => {
@@ -5741,16 +6158,16 @@ export const getGetPersonaIdQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaIdQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaId>>> = ({
         signal,
-    }) => getPersonaId(id, { signal, ...requestOptions });
+    }) => getPersonaId(id, { signal, ...fetchOptions });
 
     return {
         queryKey,
@@ -5790,7 +6207,7 @@ export function useGetPersonaId<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -5817,7 +6234,7 @@ export function useGetPersonaId<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5836,7 +6253,7 @@ export function useGetPersonaId<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5856,7 +6273,7 @@ export function useGetPersonaId<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -5885,16 +6302,16 @@ export const getGetPersonaIdSuspenseQueryOptions = <
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
 ) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaIdQueryKey(id);
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaId>>> = ({
         signal,
-    }) => getPersonaId(id, { signal, ...requestOptions });
+    }) => getPersonaId(id, { signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPersonaId>>,
@@ -5921,7 +6338,7 @@ export function useGetPersonaIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5940,7 +6357,7 @@ export function useGetPersonaIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5959,7 +6376,7 @@ export function useGetPersonaIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -5979,7 +6396,7 @@ export function useGetPersonaIdSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6031,12 +6448,21 @@ export const putPersonaId = async (
     persona: Persona,
     options?: RequestInit,
 ): Promise<putPersonaIdResponse> => {
-    return customFetch<putPersonaIdResponse>(getPutPersonaIdUrl(id), {
+    const res = await fetch(getPutPersonaIdUrl(id), {
         ...options,
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
         body: JSON.stringify(persona),
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: putPersonaIdResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as putPersonaIdResponse;
 };
 
 export const getPutPersonaIdMutationOptions = <
@@ -6049,7 +6475,7 @@ export const getPutPersonaIdMutationOptions = <
         { id: string; data: Persona },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putPersonaId>>,
     TError,
@@ -6057,13 +6483,13 @@ export const getPutPersonaIdMutationOptions = <
     TContext
 > => {
     const mutationKey = ['putPersonaId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof putPersonaId>>,
@@ -6071,7 +6497,7 @@ export const getPutPersonaIdMutationOptions = <
     > = (props) => {
         const { id, data } = props ?? {};
 
-        return putPersonaId(id, data, requestOptions);
+        return putPersonaId(id, data, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -6091,7 +6517,7 @@ export const usePutPersonaId = <TError = unknown, TContext = unknown>(
             { id: string; data: Persona },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -6122,10 +6548,19 @@ export const deletePersonaId = async (
     id: string,
     options?: RequestInit,
 ): Promise<deletePersonaIdResponse> => {
-    return customFetch<deletePersonaIdResponse>(getDeletePersonaIdUrl(id), {
+    const res = await fetch(getDeletePersonaIdUrl(id), {
         ...options,
         method: 'DELETE',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: deletePersonaIdResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as deletePersonaIdResponse;
 };
 
 export const getDeletePersonaIdMutationOptions = <
@@ -6138,7 +6573,7 @@ export const getDeletePersonaIdMutationOptions = <
         { id: string },
         TContext
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }): UseMutationOptions<
     Awaited<ReturnType<typeof deletePersonaId>>,
     TError,
@@ -6146,13 +6581,13 @@ export const getDeletePersonaIdMutationOptions = <
     TContext
 > => {
     const mutationKey = ['deletePersonaId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
+    const { mutation: mutationOptions, fetch: fetchOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
           options.mutation.mutationKey
             ? options
             : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
+        : { mutation: { mutationKey }, fetch: undefined };
 
     const mutationFn: MutationFunction<
         Awaited<ReturnType<typeof deletePersonaId>>,
@@ -6160,7 +6595,7 @@ export const getDeletePersonaIdMutationOptions = <
     > = (props) => {
         const { id } = props ?? {};
 
-        return deletePersonaId(id, requestOptions);
+        return deletePersonaId(id, fetchOptions);
     };
 
     return { mutationFn, ...mutationOptions };
@@ -6180,7 +6615,7 @@ export const useDeletePersonaId = <TError = unknown, TContext = unknown>(
             { id: string },
             TContext
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
@@ -6224,10 +6659,21 @@ export const getGetPersonaDefaultsUrl = () => {
 export const getPersonaDefaults = async (
     options?: RequestInit,
 ): Promise<getPersonaDefaultsResponse> => {
-    return customFetch<getPersonaDefaultsResponse>(getGetPersonaDefaultsUrl(), {
+    const res = await fetch(getGetPersonaDefaultsUrl(), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaDefaultsResponse['data'] = body
+        ? JSON.parse(body)
+        : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaDefaultsResponse;
 };
 
 export const getGetPersonaDefaultsQueryKey = () => {
@@ -6245,15 +6691,15 @@ export const getGetPersonaDefaultsQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaDefaultsQueryKey();
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPersonaDefaults>>
-    > = ({ signal }) => getPersonaDefaults({ signal, ...requestOptions });
+    > = ({ signal }) => getPersonaDefaults({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getPersonaDefaults>>,
@@ -6287,7 +6733,7 @@ export function useGetPersonaDefaults<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -6313,7 +6759,7 @@ export function useGetPersonaDefaults<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6331,7 +6777,7 @@ export function useGetPersonaDefaults<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6350,7 +6796,7 @@ export function useGetPersonaDefaults<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6377,15 +6823,15 @@ export const getGetPersonaDefaultsSuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaDefaultsQueryKey();
 
     const queryFn: QueryFunction<
         Awaited<ReturnType<typeof getPersonaDefaults>>
-    > = ({ signal }) => getPersonaDefaults({ signal, ...requestOptions });
+    > = ({ signal }) => getPersonaDefaults({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPersonaDefaults>>,
@@ -6411,7 +6857,7 @@ export function useGetPersonaDefaultsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6429,7 +6875,7 @@ export function useGetPersonaDefaultsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6447,7 +6893,7 @@ export function useGetPersonaDefaultsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6466,7 +6912,7 @@ export function useGetPersonaDefaultsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6502,10 +6948,19 @@ export const getGetPersonaWsUrl = () => {
 export const getPersonaWs = async (
     options?: RequestInit,
 ): Promise<getPersonaWsResponse> => {
-    return customFetch<getPersonaWsResponse>(getGetPersonaWsUrl(), {
+    const res = await fetch(getGetPersonaWsUrl(), {
         ...options,
         method: 'GET',
     });
+
+    const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+    const data: getPersonaWsResponse['data'] = body ? JSON.parse(body) : {};
+    return {
+        data,
+        status: res.status,
+        headers: res.headers,
+    } as getPersonaWsResponse;
 };
 
 export const getGetPersonaWsQueryKey = () => {
@@ -6519,15 +6974,15 @@ export const getGetPersonaWsQueryOptions = <
     query?: Partial<
         UseQueryOptions<Awaited<ReturnType<typeof getPersonaWs>>, TError, TData>
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaWsQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaWs>>> = ({
         signal,
-    }) => getPersonaWs({ signal, ...requestOptions });
+    }) => getPersonaWs({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
         Awaited<ReturnType<typeof getPersonaWs>>,
@@ -6561,7 +7016,7 @@ export function useGetPersonaWs<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & {
@@ -6587,7 +7042,7 @@ export function useGetPersonaWs<
                 >,
                 'initialData'
             >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6605,7 +7060,7 @@ export function useGetPersonaWs<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6624,7 +7079,7 @@ export function useGetPersonaWs<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & {
@@ -6651,15 +7106,15 @@ export const getGetPersonaWsSuspenseQueryOptions = <
             TData
         >
     >;
-    request?: SecondParameter<typeof customFetch>;
+    fetch?: RequestInit;
 }) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
+    const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
     const queryKey = queryOptions?.queryKey ?? getGetPersonaWsQueryKey();
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonaWs>>> = ({
         signal,
-    }) => getPersonaWs({ signal, ...requestOptions });
+    }) => getPersonaWs({ signal, ...fetchOptions });
 
     return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
         Awaited<ReturnType<typeof getPersonaWs>>,
@@ -6685,7 +7140,7 @@ export function useGetPersonaWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6703,7 +7158,7 @@ export function useGetPersonaWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6721,7 +7176,7 @@ export function useGetPersonaWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {
@@ -6740,7 +7195,7 @@ export function useGetPersonaWsSuspense<
                 TData
             >
         >;
-        request?: SecondParameter<typeof customFetch>;
+        fetch?: RequestInit;
     },
     queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & {

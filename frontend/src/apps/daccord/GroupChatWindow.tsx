@@ -1,5 +1,5 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
@@ -11,6 +11,7 @@ import {
     useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
+    usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember,
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
@@ -137,22 +138,8 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId();
     const deletePartyMessage =
         useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId();
-    const rememberMessage = useMutation({
-        mutationFn: async (vars: {
-            id: string;
-            chatGroupId: string;
-            messageId: number;
-        }) => {
-            const res = await fetch(
-                `/api/Party/${vars.id}/chat-groups/${vars.chatGroupId}/messages/${vars.messageId}/remember`,
-                { method: 'POST' },
-            );
-            if (!res.ok) {
-                throw new Error(`remember failed: ${res.status}`);
-            }
-            return (await res.json()) as { snippetsCreated: number };
-        },
-    });
+    const rememberMessage =
+        usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember();
 
     const busy = promptParty.isPending || proceedParty.isPending;
 
