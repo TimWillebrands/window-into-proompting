@@ -109,7 +109,10 @@ public sealed class GenerationSession(
 
     private async Task<string> LoadMemoriesBlockAsync(Guid personaId, Guid partyId, CancellationToken ct)
     {
-        if (memoryDb is null || partyId == Guid.Empty)
+        // The default party legitimately has Guid.Empty as its ID, so we cannot use that as a
+        // "no party" sentinel — the only opt-out is when the host did not register a DbContext
+        // factory (i.e. unit-test cluster).
+        if (memoryDb is null)
             return string.Empty;
 
         try
