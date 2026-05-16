@@ -4897,6 +4897,198 @@ export const usePutPartyIdChatGroupsChatGroupIdScenario = <
     );
 };
 
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 =
+    {
+        data: void;
+        status: 202;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess =
+    postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 & {
+        headers: Headers;
+    };
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError =
+    (
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson
+        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse =
+    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess
+    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError;
+
+export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl = (
+    id: string,
+    chatGroupId: string,
+    messageId: number,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/messages/${messageId}/remember`;
+};
+
+export const postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = async (
+    id: string,
+    chatGroupId: string,
+    messageId: number,
+    options?: RequestInit,
+): Promise<postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse> => {
+    return customFetch<postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse>(
+        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl(
+            id,
+            chatGroupId,
+            messageId,
+        ),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            TError,
+            { id: string; chatGroupId: string; messageId: number },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+            >
+        >,
+        TError,
+        { id: string; chatGroupId: string; messageId: number },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember',
+        ];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            { id: string; chatGroupId: string; messageId: number }
+        > = (props) => {
+            const { id, chatGroupId, messageId } = props ?? {};
+
+            return postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember(
+                id,
+                chatGroupId,
+                messageId,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+            >
+        >
+    >;
+
+export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationError =
+    ProblemDetails;
+
+export const usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+                >
+            >,
+            TError,
+            { id: string; chatGroupId: string; messageId: number },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<
+        ReturnType<
+            typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
+        >
+    >,
+    TError,
+    { id: string; chatGroupId: string; messageId: number },
+    TContext
+> => {
+    return useMutation(
+        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions(
+            options,
+        ),
+        queryClient,
+    );
+};
+
 export type getPartyIdChatGroupsChatGroupIdPapertrailResponse200 = {
     data: void;
     status: 200;

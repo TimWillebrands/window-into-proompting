@@ -11,6 +11,7 @@ import {
     useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
+    usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember,
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
@@ -137,6 +138,8 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId();
     const deletePartyMessage =
         useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId();
+    const rememberMessage =
+        usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember();
 
     const busy = promptParty.isPending || proceedParty.isPending;
 
@@ -560,6 +563,14 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                                             },
                                         })
                                     }
+                                    onRemember={() =>
+                                        rememberMessage.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    rememberPending={rememberMessage.isPending}
                                 />
                             );
                         })}
@@ -1361,6 +1372,8 @@ function ChatBubble({
     onDelete,
     onTruncate,
     onReprompt,
+    onRemember,
+    rememberPending,
     busy,
     personas,
     userPersonaId,
@@ -1370,6 +1383,8 @@ function ChatBubble({
     onDelete: () => void;
     onTruncate: () => void;
     onReprompt: () => void;
+    onRemember: () => void;
+    rememberPending: boolean;
     busy: boolean;
     personas: Persona[];
     userPersonaId: string;
@@ -1636,6 +1651,15 @@ function ChatBubble({
                         style={{ fontSize: '10px' }}
                     >
                         del
+                    </button>
+                    <button
+                        type="button"
+                        disabled={busy || rememberPending}
+                        onClick={onRemember}
+                        style={{ fontSize: '10px' }}
+                        title="Capture as memory for personas present"
+                    >
+                        {rememberPending ? '...' : 'remember'}
                     </button>
                 </span>
             </div>
