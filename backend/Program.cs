@@ -10,8 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-var connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+// Skip Orleans + DB wiring when emitting the OpenAPI document at build time —
+// the GetDocument.Insider tool starts hosted services, and the silo would try
+// to reach Postgres. Controllers + AddOpenApi() are enough for spec emission.
+var openApiBuild = Environment.GetEnvironmentVariable("OPENAPI_GENERATE") == "1";
 
 builder.Services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
 {
@@ -40,49 +42,53 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
-builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
-
-builder.Host.UseOrleans(siloBuilder =>
+if (!openApiBuild)
 {
-    siloBuilder.UseAdoNetClustering(options =>
+    var connectionString = builder.Configuration.GetConnectionString("Default")
+        ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+
+    builder.Services.AddDbContextFactory<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
+
+    builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
+    builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
+
+    builder.Host.UseOrleans(siloBuilder =>
     {
-        options.Invariant = "Npgsql";
-        options.ConnectionString = connectionString;
+        siloBuilder.UseAdoNetClustering(options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+
+        siloBuilder.AddAdoNetGrainStorage("urls", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+        siloBuilder.AddAdoNetGrainStorage("personas", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+
+        siloBuilder.AddAdoNetGrainStorage("parties", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+
+        siloBuilder.AddStateStorageBasedLogConsistencyProvider("PartyStateStorage");
+
+        siloBuilder
+            .AddMemoryStreams("party-streams")
+            .AddMemoryGrainStorage("PubSubStore");
+
+        siloBuilder.AddIncomingGrainCallFilter<GrainLoggingFilter>();
+
+        siloBuilder.AddActivityPropagation();
     });
-
-    siloBuilder.AddAdoNetGrainStorage("urls", options =>
-    {
-        options.Invariant = "Npgsql";
-        options.ConnectionString = connectionString;
-    });
-    siloBuilder.AddAdoNetGrainStorage("personas", options =>
-    {
-        options.Invariant = "Npgsql";
-        options.ConnectionString = connectionString;
-    });
-
-    siloBuilder.AddAdoNetGrainStorage("parties", options =>
-    {
-        options.Invariant = "Npgsql";
-        options.ConnectionString = connectionString;
-    });
-
-    siloBuilder.AddStateStorageBasedLogConsistencyProvider("PartyStateStorage");
-
-    siloBuilder
-        .AddMemoryStreams("party-streams")
-        .AddMemoryGrainStorage("PubSubStore");
-
-    // Add grain call logging interceptor
-    siloBuilder.AddIncomingGrainCallFilter<GrainLoggingFilter>();
-
-    // Enable distributed tracing (ActivityPropagation)
-    siloBuilder.AddActivityPropagation();
-});
+}
 
 builder.Logging.AddSimpleConsole(options =>
 {

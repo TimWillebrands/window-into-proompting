@@ -1,0 +1,6 @@
+language: en-US
+reviews:
+  path_filters:
+    - "!backend/openapi.json"
+    - "!frontend/src/api/party-zone.ts"
+    - "!frontend/src/api/model/**"
