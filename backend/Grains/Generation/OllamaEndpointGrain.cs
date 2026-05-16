@@ -71,6 +71,29 @@ public class OllamaEndpointGrain(
             cancellationToken);
     }
 
+    public Task<string> CompleteOneShotAsync(
+        LlmGenerationJob parameters,
+        CancellationToken cancellationToken = default)
+    {
+        var modelName = ModelName;
+        Interlocked.Increment(ref _activeGenerations);
+
+        using var _ = logger.BeginGenerationScope(modelName, ProviderDescription);
+        logger.LogDebug("LLM one-shot starting: {Model}", modelName);
+
+        var chatClient = new ChatClient(
+            modelName,
+            new ApiKeyCredential("ollama"),
+            OpenAiOptions);
+
+        return LlmEndpointGrainUtils.CompleteOneShotAsync(
+            logger,
+            parameters,
+            chatClient,
+            () => Interlocked.Decrement(ref _activeGenerations),
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         try

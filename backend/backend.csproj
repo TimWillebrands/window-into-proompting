@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="JsonRepairSharp" Version="1.2.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.1.26104.118" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0-preview.3.26207.106" />
     <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -22,7 +23,8 @@
     <PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" Version="10.0.1" />
     <PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" Version="10.0.1" />
     <PackageReference Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
-    <PackageReference Include="Npgsql" Version="9.0.2" />
+    <PackageReference Include="Npgsql" Version="10.0.2" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0-preview.3" />
     <PackageReference Include="OneOf" Version="3.0.271" />
     <PackageReference Include="OneOf.SourceGenerator" Version="3.0.271" />
     <PackageReference Include="OpenAI" Version="2.9.0" />

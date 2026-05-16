@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Realtime;
 
@@ -21,6 +22,7 @@ public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
     IMemoryCache cache,
+    IMemoryRepository memoryRepository,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -578,6 +580,70 @@ public sealed class PartyController(
     }
 
     /// <summary>
+    /// Marks a specific message as "remember-worthy" for the Room: extracts a neutral Event
+    /// description and Concept tags via one LLM call, fans out per-Participant Recollection
+    /// snippets in parallel, and persists everything to the memory graph (see ADR 0006/0007).
+    /// </summary>
+    /// <remarks>
+    /// Recall is not wired up yet — slice 1 captures only. Returns the count of Recollections
+    /// and Concepts the capture produced so the UI can confirm something happened.
+    /// </remarks>
+    [HttpPost("{id:guid}/chat-groups/{chatGroupId:guid}/messages/{messageId:int}/remember")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RememberResponse>> RememberMessage(
+        Guid id,
+        Guid chatGroupId,
+        int messageId,
+        CancellationToken cancellationToken)
+    {
+        if (chatGroupId == Guid.Empty)
+        {
+            return BadRequest("Invalid chat group id");
+        }
+
+        if (messageId < 0)
+        {
+            return BadRequest("Invalid message id");
+        }
+
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        var messages = await chatGroupGrain.GetMessagesAsync();
+        if (!messages.Any(m => m.MessageId == messageId))
+        {
+            return NotFound();
+        }
+
+        var participants = await chatGroupGrain.GetParticipantsAsync();
+        var snapshots = participants
+            .Select(p => new ParticipantSnapshot(p.Id, p.Name, p.IsUser))
+            .ToList();
+
+        var contextWindow = messages
+            .Where(m => m.MessageId <= messageId)
+            .OrderBy(m => m.MessageId)
+            .ToList();
+
+        var result = await memoryRepository.CaptureMomentAsync(
+            partyId: id,
+            roomId: chatGroupId,
+            messageId: messageId,
+            presentParticipants: snapshots,
+            recentContext: contextWindow,
+            ct: cancellationToken);
+
+        logger.LogInformation(
+            "Remember: message {MessageId} in room {RoomId} → event={EventCreated} recollections={RecollectionCount} concepts={ConceptCount}",
+            messageId, chatGroupId, result.EventCreated, result.RecollectionsCreated, result.ConceptsTouched);
+
+        return Accepted(new RememberResponse(
+            EventCreated: result.EventCreated,
+            RecollectionsCreated: result.RecollectionsCreated,
+            ConceptsTouched: result.ConceptsTouched));
+    }
+
+    /// <summary>
     /// Returns a causal papertrail of every persona turn in this chat group: which message
     /// triggered which thoughts, decisions, replies, and silent skips. Reconstructed from
     /// durable event-sourced state so it survives silo restarts.
@@ -669,3 +735,5 @@ public sealed class PartyController(
 }
 
 public record PartyDetails(PartyInfo Party, PersonaMetadata[] PersonaParticipants);
+
+public record RememberResponse(bool EventCreated, int RecollectionsCreated, int ConceptsTouched);
