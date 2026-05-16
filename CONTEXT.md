@@ -42,6 +42,48 @@ A Persona's baseline urge to speak. Low = brooding, only chimes in when directly
 **Impulsivity** (0..1):
 How committed the Persona is to a reply once they've started forming one. Low = deliberative, easily interrupted by something new in the room. High = impulsive, barrels through their thought once committed.
 
+### Memory
+
+A Persona's memory is the set of edges from a **Participant** (or the underlying **Persona**) to entities in **Reality**. The edges carry the personal view — the entities themselves do not.
+
+**Recollection**:
+A **Participant**'s edge to an **Event** in **Reality**. Carries a short, second-person snippet ("you saw Vlad cut Hana off"). One Event can have many Recollections — one per Participant who remembers it, each with their own spin. Snippet-only for now; if a recollection *changes how the Persona feels* about someone or something, that lives as a separate **Stance**.
+_Avoid_: episode, snippet, memory-line, recall.
+
+**Stance**:
+A Persona's feeling/opinion/orientation toward a target — another **Participant** ("Vlad is impatient"), a **Concept** ("Lisp is elegant"), or themselves. Carries valence and free-text reasoning. First-class entity — *not* prose buried in a bio.
+_Avoid_: opinion, attitude, feeling, take, belief.
+
+**Intrinsic Stance**:
+A **Stance** attached at the **Persona** library level — part of who the Persona *is*. Travels into every **Party** the Persona joins. Authored in persona-management UI, or **promoted** from an **Acquired Stance**.
+_Avoid_: baseline-stance, default-stance, hardcoded-stance.
+
+**Acquired Stance**:
+A **Stance** formed during play, attached to a **Participant** — local to one **Party**. Stays there unless **promoted**.
+_Avoid_: learned-stance, runtime-stance, in-party-stance.
+
+**Promotion**:
+The act of lifting an **Acquired Stance** to an **Intrinsic Stance** — "this is now part of who Denise is, not just Denise-in-this-Party." Author-driven, not automatic. Concretely: a new edge at **Persona** scope is written, capturing the *current projection* of the Acquired stance at the moment of promotion. The original Acquired observations stay where they happened.
+_Avoid_: ascend, lift, propagate, graduate.
+
+> Note: **Stance** is append-only — each capture writes a new edge with a timestamp, valence, and reasoning. The "current" stance is just the latest edge wins (per (Persona, Target)), unioned across Participant-scope and Persona-scope. No materialised projection table.
+
+**Consolidation**:
+A background pass that walks a **Participant**'s recent **Recollections** involving a target (a **Concept** or another **Participant**) and emits new **Stance** edges where a coherent belief has crystallised. Author-triggered (button or schedule) — *not* coupled to generation. Loose analogue to memory consolidation in sleep: episodes accumulate, beliefs crystallise later.
+_Avoid_: digest, summarisation, reflection, dream.
+
+### Reality
+
+The shared, objective layer that **Personas** and **Participants** form **Stances** toward. Entities in Reality live independently of any Persona — multiple Personas can attach different Stances (and other edges) to the same entity. Think of Reality as the world; Memory is each Persona's view of that world.
+
+**Concept**:
+A "thing in reality" — abstract or concrete — that a Persona can have a **Stance** toward. "Lisp", "Software", "kindness". Flat for now (no hierarchy — see flagged ambiguities). Auto-created on first reference, mergeable in UI.
+_Avoid_: topic, tag, thing, subject.
+
+**Event**:
+A crystallized moment in **Reality** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message reality (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
+_Avoid_: episode, fact, occurrence, snapshot.
+
 ## Relationships
 
 - A **Party** contains zero or more **Rooms**.
