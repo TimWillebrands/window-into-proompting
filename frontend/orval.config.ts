@@ -5,6 +5,7 @@ export default defineConfig({
         input: {
             target: [
                 'http://localhost:8080/api/openapi/v1.json',
+                'http://localhost:5072/api/openapi/v1.json',
                 'http://backend:5072/api/openapi/v1.json',
             ],
         },
