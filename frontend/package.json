@@ -32,7 +32,7 @@
         "format": "biome format --write",
         "lint": "biome lint --write",
         "check": "biome check",
-        "api-generate": "orval",
+        "api-generate": "OPENAPI_GENERATE=1 dotnet build ../backend/backend.csproj --nologo -v quiet && orval",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build"
     },
