@@ -243,10 +243,10 @@ public class ChatGroupGrainTest
     // ── Generation stopped ────────────────────────────────────────────────────
 
     [Fact]
-    public void Apply_GenerationStopped_ClearsSenderIdAndSetsAppraisal()
+    public void Apply_GenerationStopped_PreservesSenderIdAndSetsAppraisal()
     {
-        // When a persona decides not to respond after reserving a slot, the SenderId is
-        // cleared to Guid.Empty so the client knows the slot is "declined" vs. still pending.
+        // Decline path: SenderId is preserved so the papertrail can resolve the persona
+        // name for the "declined" entry; Appraisal is recorded as the reason.
         var senderId = Guid.NewGuid();
         var state = NewState();
         var messageId = ReserveSlot(state, senderId);
@@ -259,7 +259,7 @@ public class ChatGroupGrainTest
         });
 
         var msg = Assert.Single(state.Messages);
-        Assert.Equal(Guid.Empty, msg.SenderId);
+        Assert.Equal(senderId, msg.SenderId);
         Assert.Equal("nothing worth saying", msg.Appraisal);
     }
 
