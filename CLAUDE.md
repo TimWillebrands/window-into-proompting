@@ -130,3 +130,17 @@ DB init scripts in `docker-entrypoint-initdb.d/` are bind-mounted into the conta
 ### Deployment
 
 Deployed via [Kamal](https://kamal-deploy.org/). Config: `config/deploy.yml`, `config/deploy.frontend.yml`. Target: `game.timwillebrands.nl`. Accessories: DB + standalone Aspire dashboard. **Production does not use the AppHost** — Kamal builds `backend/Dockerfile` and `frontend/Dockerfile` directly. The backend image still emits OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT` (set by Kamal to the dashboard accessory), which `AddServiceDefaults()` honors.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at `TimWillebrands/window-into-proompting` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical names — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` and `docs/adr/` at repo root. See `docs/agents/domain.md`.
