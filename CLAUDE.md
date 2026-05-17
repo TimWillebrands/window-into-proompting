@@ -51,7 +51,7 @@ npm run check          # Biome check (lint + format)
 npm run api-generate   # Regenerate API client from OpenAPI spec (orval)
 ```
 
-`npm run api-generate` fetches the OpenAPI spec from the backend at `http://localhost:5072/api/openapi/v1.json`. Requires AppHost (or just the backend) to be running.
+`npm run api-generate` builds the backend with `OPENAPI_GENERATE=1` to emit `backend/openapi.json` (via `Microsoft.Extensions.ApiDescription.Server`), then runs orval against that file. The backend does not need to be running. The sentinel env var skips Orleans + DB wiring during the build so the GetDocument tool doesn't try to reach Postgres. `backend/openapi.json` is committed. Regenerate via `npm run api-generate` after any change to the HTTP surface (controller routes, method signatures, request/response DTOs, status codes, OpenAPI metadata). Never hand-edit `backend/openapi.json`, `frontend/src/api/party-zone.ts`, or `frontend/src/api/model/**` — those files are regenerated from the backend controllers.
 
 #### Storybook MCP
 
