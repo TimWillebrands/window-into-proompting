@@ -7,6 +7,7 @@ using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Generation;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
@@ -21,6 +22,7 @@ public sealed class PersonaGrain(
     [PersistentState(stateName: "persona", storageName: "personas")]
     IPersistentState<Persona> state,
     ILoggerFactory loggerFactory,
+    IMemoryRepository memoryRepository,
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
@@ -242,8 +244,25 @@ public sealed class PersonaGrain(
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
+            // ADR 0009 MVP recall: top-10 most recent Recollections for this Persona scoped
+            // to the Party (cross-Room within one Party). The decision LLM judges relevance
+            // in context. Recall failure is non-fatal — log + continue with an empty list so
+            // a memory outage never blocks the persona from responding.
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            IReadOnlyList<string> recollections;
+            try
+            {
+                recollections = await memoryRepository.RecallRecentSnippetsAsync(personaId, partyId, limit: 10, linkedCt);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Recall failed for persona {PersonaName} in party {PartyId}; proceeding without recollections", persona.Name, partyId);
+                recollections = Array.Empty<string>();
+            }
+            turnSpan?.SetTag("recall.snippet_count", recollections.Count);
+
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, linkedCt,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, recollections, linkedCt,
                 repairHint);
 
             if (!decision.Respond)
@@ -444,6 +463,7 @@ public sealed class PersonaGrain(
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<GenerationParticipant> participants,
         string? scenario,
+        IReadOnlyList<string> recollections,
         CancellationToken ct,
         RepairHint? repairHint = null)
     {
@@ -459,7 +479,8 @@ public sealed class PersonaGrain(
             onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
             cancellationToken: ct,
             scenario: scenario,
-            repairHint: repairHint);
+            repairHint: repairHint,
+            recollections: recollections);
     }
 
     private async Task<GenerationResult> RunGenerationPhaseAsync(

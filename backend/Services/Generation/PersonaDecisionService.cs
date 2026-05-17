@@ -88,6 +88,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// <paramref name="repairHint"/> carries a Levelt-style speech-repair cue: when the
     /// persona shipped its previous message past the point of no return *and* a relevant
     /// new message was missed, the hint nudges the next decision toward acknowledgment.
+    /// <paramref name="recollections"/> is the top-N most recent Recollection snippets
+    /// for this persona in this party (ADR 0009 MVP recall) — rendered as a "what you
+    /// remember" block in the system prompt so the persona can naturally bring up past
+    /// moments. Empty list = no block rendered.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
@@ -97,7 +101,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken,
         string? scenario = null,
-        RepairHint? repairHint = null)
+        RepairHint? repairHint = null,
+        IReadOnlyList<string>? recollections = null)
     {
         var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
@@ -128,7 +133,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -346,7 +351,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         GenerationParticipant self,
         IReadOnlyList<GenerationParticipant> participants,
         string? scenario,
-        RepairHint? repairHint)
+        RepairHint? repairHint,
+        IReadOnlyList<string>? recollections)
     {
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
@@ -360,6 +366,14 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             ? string.Empty
             : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
 
+        // ADR 0009: top-N recent Recollection snippets for this Persona in this Party,
+        // across all Rooms. No matching, no ranking beyond recency — the model is left to
+        // judge in-context whether a memory is relevant to the current beat. Block is
+        // omitted entirely when empty so it never reads as a void "you remember nothing".
+        var recollectionsBlock = recollections is null || recollections.Count == 0
+            ? string.Empty
+            : $"\n# What you remember\n{string.Join("\n", recollections.Select(s => $"- {s}"))}\n";
+
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
@@ -369,7 +383,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     p.IsUser
         ? $"- {p.Name} (human)"
         : $"- {p.Name} (persona)"))}}
-{{repairBlock}}
+{{recollectionsBlock}}{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.

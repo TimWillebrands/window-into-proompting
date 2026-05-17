@@ -84,7 +84,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
               RETURN count(e)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(1, anchoredCount);
 
@@ -93,7 +93,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
               MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}}),
                     (e)-[:ABOUT]->(c:Concept {name: '{{conceptName}}'})
               RETURN count(c)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(1, conceptCount);
 
@@ -102,7 +102,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
               MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}}),
                     (e)-[:ABOUT]->(p:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})
               RETURN count(p)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(1, aboutVladCount);
 
@@ -110,7 +110,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {party_id: '{{partyId}}'})-[:RECOLLECTS]->(e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
               RETURN count(part)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(2, recollectionCount);
 
@@ -118,7 +118,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {persona_id: '{{userBob.Id}}', party_id: '{{partyId}}'})-[:RECOLLECTS]->(e:Event)
               RETURN count(part)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(0, userRecollectionCount);
 
@@ -126,7 +126,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (persona:Persona {id: '{{personaVlad.Id}}'})-[:HAS_PARTICIPANT]->(part:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})-[:IN_PARTY]->(party:Party {id: '{{partyId}}'})
               RETURN count(persona)
-            $cy$) AS (n ag_catalog.agtype);
+            $cy$) AS (n int);
             """);
         Assert.Equal(1, hasParticipantCount);
 
@@ -134,7 +134,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
               RETURN r.snippet
-            $cy$) AS (s ag_catalog.agtype);
+            $cy$) AS (s text);
             """);
         Assert.Equal("you defended Lisp from Vlad's eye-roll", snippet);
 
@@ -142,20 +142,80 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
               RETURN e.description
-            $cy$) AS (s ag_catalog.agtype);
+            $cy$) AS (s text);
             """);
         Assert.Equal(description, description2);
     }
 
+    [Fact]
+    public async Task Recall_ReturnsSnippetsCapturedForPersona()
+    {
+        if (!fixture.IsAvailable)
+        {
+            throw new InvalidOperationException(
+                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
+                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+        }
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var messageId = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
+        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
+        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
+
+        const string hanaSnippet = "you defended Lisp from Vlad's eye-roll";
+        const string vladSnippet = "you watched Hana double down on Lisp after you cut in";
+
+        var sourceMessage = new ChatMessage
+        {
+            MessageId = messageId,
+            Content = "Lisp is elegant once you get the hang of it.",
+            SenderId = personaHana.Id,
+            SenderType = "assistant",
+            ChatGroupId = roomId,
+        };
+
+        var fake = new FakeMemoryExtractor(
+            extraction: new EventExtraction(
+                "Hana defended Lisp after Vlad's interruption.",
+                Concepts: new List<ConceptTag>(),
+                ParticipantIds: new List<Guid>()),
+            recollectionByPersona: new Dictionary<string, string>
+            {
+                ["Hana"] = hanaSnippet,
+                ["Vlad"] = vladSnippet,
+            });
+
+        var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
+
+        var capture = await repo.CaptureMomentAsync(
+            partyId, roomId, messageId,
+            presentParticipants: new[] { personaHana, personaVlad },
+            recentContext: new[] { sourceMessage },
+            ct: CancellationToken.None);
+
+        Assert.True(capture.EventCreated);
+        Assert.Equal(2, capture.RecollectionsCreated);
+
+        var hanaRecall = await repo.RecallRecentSnippetsAsync(personaHana.Id, partyId, limit: 5, CancellationToken.None);
+        var vladRecall = await repo.RecallRecentSnippetsAsync(personaVlad.Id, partyId, limit: 5, CancellationToken.None);
+
+        Assert.Contains(hanaSnippet, hanaRecall);
+        Assert.Contains(vladSnippet, hanaRecall.Concat(vladRecall).ToList());
+        Assert.DoesNotContain(vladSnippet, hanaRecall);
+        Assert.DoesNotContain(hanaSnippet, vladRecall);
+    }
+
+    // Each caller types the cypher() output column as `int` / `text` (instead of `agtype`)
+    // so Postgres applies AGE's agtype output cast — unquoting/unescaping string scalars —
+    // and Npgsql reads through its built-in converters. Reading agtype directly throws
+    // InvalidCastException; no default reader is registered for ag_catalog.agtype.
     private static async Task<int> QueryAgtypeIntAsync(NpgsqlConnection conn, string sql)
     {
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
         var raw = await cmd.ExecuteScalarAsync();
-        if (raw is null) return 0;
-        var text = raw.ToString() ?? "";
-        text = text.Trim().Trim('"');
-        return int.Parse(text, CultureInfo.InvariantCulture);
+        return raw is null ? 0 : Convert.ToInt32(raw, CultureInfo.InvariantCulture);
     }
 
     private static async Task<string?> QueryAgtypeStringAsync(NpgsqlConnection conn, string sql)
@@ -163,15 +223,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
         var raw = await cmd.ExecuteScalarAsync();
-        if (raw is null) return null;
-        var text = raw.ToString() ?? "";
-        text = text.Trim();
-        if (text.Length >= 2 && text[0] == '"' && text[^1] == '"')
-        {
-            // agtype quotes string values; un-quote and unescape standard JSON escapes.
-            text = System.Text.Json.JsonSerializer.Deserialize<string>(text) ?? "";
-        }
-        return text;
+        return raw as string;
     }
 
     private sealed class FakeMemoryExtractor(
@@ -188,6 +240,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         public Task<string> ExtractRecollectionAsync(
             string personaName,
+            bool isSpeaker,
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,

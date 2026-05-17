@@ -3,8 +3,9 @@ using PartyTown.Model;
 namespace PartyTown.Services.Memory;
 
 /// <summary>
-/// Memory subsystem write seam. Slice 1 exposes <see cref="CaptureMomentAsync"/> only —
-/// recall, Stance, and Consolidation arrive in later slices.
+/// Memory subsystem seam. Slice 1 ships <see cref="CaptureMomentAsync"/>; slice 2 adds
+/// <see cref="RecallRecentSnippetsAsync"/> (top-N recent Recollection snippets — see ADR 0009).
+/// Stance and Consolidation arrive in later slices.
 /// </summary>
 /// <remarks>
 /// Per ADR 0006, the implementation runs Cypher against Apache AGE directly through
@@ -35,5 +36,20 @@ public interface IMemoryRepository
         int messageId,
         IReadOnlyList<ParticipantSnapshot> presentParticipants,
         IReadOnlyList<ChatMessage> recentContext,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Return the most recent Recollection snippets for a Participant — the Persona's first-
+    /// person memory in this Party, across all Rooms. Ordered newest-first. MVP retrieval
+    /// (ADR 0009): no concept matching, no embeddings; relevance is judged in-context by the
+    /// generating LLM. Empty list if nothing has been remembered yet.
+    /// </summary>
+    /// <param name="personaId">The Persona's library id (Persona.Id, not Participant pkey).</param>
+    /// <param name="partyId">Scope: only Recollections inside this Party.</param>
+    /// <param name="limit">Maximum number of snippets to return. Caller picks the budget.</param>
+    Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
+        Guid personaId,
+        Guid partyId,
+        int limit,
         CancellationToken ct);
 }

@@ -23,6 +23,7 @@ public interface IMemoryExtractor
 
     Task<string> ExtractRecollectionAsync(
         string personaName,
+        bool isSpeaker,
         ChatMessage sourceMessage,
         string sourceAuthorName,
         IReadOnlyList<ChatMessage> recentContext,
@@ -183,6 +184,7 @@ The marked moment:
 
     public async Task<string> ExtractRecollectionAsync(
         string personaName,
+        bool isSpeaker,
         ChatMessage sourceMessage,
         string sourceAuthorName,
         IReadOnlyList<ChatMessage> recentContext,
@@ -192,7 +194,21 @@ The marked moment:
         var router = grains.GetGrain<ILlmRouterGrain>(0);
         var endpoint = await router.RouteAsync(JobComplexity.General, cancellationToken);
 
-        var system = $$"""
+        // Observer-verb prompt (you saw / heard / watched) doesn't fit when {personaName} IS
+        // the speaker of the marked moment — the LLM tends to return NONE because nothing
+        // was "observed". For the speaker we ask for their own first-person framing instead,
+        // preserving how *they* would remember saying it.
+        var system = isSpeaker
+            ? $$"""
+You are summarizing what {{personaName}} would actually remember about something THEY just said in a chat conversation.
+
+Output a SHORT sentence from {{personaName}}'s point of view, in second person addressing them ("you said...", "you admitted...", "you brought up..."). Capture their own interpretation — what they meant, what they were aiming at, how they framed it. Max 25 words.
+
+If the moment was throwaway/mundane (a "yeah", a "lol") and not worth remembering a day later, output the single word: NONE
+
+Do not add commentary, do not address the user, do not narrate. Output just the snippet text or NONE.
+"""
+            : $$"""
 You are summarizing what {{personaName}} would actually remember from this moment in a chat conversation.
 
 Output a SHORT sentence from {{personaName}}'s point of view, in second person addressing them ("you saw...", "you heard...", "you watched..."). Max 25 words.

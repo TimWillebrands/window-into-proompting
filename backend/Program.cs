@@ -47,8 +47,11 @@ if (!openApiBuild)
     var connectionString = builder.Configuration.GetConnectionString("Default")
         ?? throw new InvalidOperationException("Connection string 'Default' not found.");
 
-    builder.Services.AddDbContextFactory<AppDbContext>(options =>
-        options.UseNpgsql(connectionString));
+    builder.Services.AddSingleton<AgeOperatorInterceptor>();
+    builder.Services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        options
+            .UseNpgsql(connectionString)
+            .AddInterceptors(sp.GetRequiredService<AgeOperatorInterceptor>()));
 
     builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
     builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();

@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
     <UserSecretsId>proompting-apphost</UserSecretsId>
+    <NoWarn>$(NoWarn);ASPIREMCP001;ASPIREPOSTGRES001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
