@@ -11,6 +11,10 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
 {
     /// <summary>
     /// Generates a response for a specific persona.
+    /// <paramref name="memoryToReference"/> is the single recollection the decision phase
+    /// picked to carry into this beat (or null). Rendered at the recency position of the
+    /// system prompt so it's the last thing the model sees before drafting — the contract
+    /// is "decision selects, speaking executes".
     /// </summary>
     public async Task<GenerationResult> GenerateResponseOnlyAsync(
         GenerationParticipant persona,
@@ -18,7 +22,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
         string? turnInstruction = null,
-        string? scenario = null)
+        string? scenario = null,
+        string? memoryToReference = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var messages = new List<LlmChatMessage>
@@ -26,7 +31,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
             new()
             {
                 Role = "system",
-                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario),
+                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario, memoryToReference),
                 Name = persona.Id.ToString()
             }
         };
@@ -97,7 +102,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         };
     }
 
-    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario)
+    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario, string? memoryToReference)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -114,6 +119,26 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         var scenarioSection = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
             : $"\n# Scenario\n{scenario.Trim()}\n";
+
+        // Memory block lands LAST in the system prompt (recency-positioned), after the
+        // style rules — so a memory cue isn't drowned by general etiquette and is the
+        // last thing the model sees before reading the conversation history. Decision
+        // phase already picked this single recollection; we don't re-pass the full list,
+        // because the contract is "decision selects, speaking executes". Active framing
+        // ("surfacing for you", "bring it into your reply") invites use rather than just
+        // listing facts. Block omitted entirely when no memory was selected.
+        var memorySection = string.IsNullOrWhiteSpace(memoryToReference)
+            ? string.Empty
+            : $"""
+
+
+                # A memory surfacing for you
+                {memoryToReference.Trim()}
+
+                This is on your mind right now. Bring it into your reply the way a callback
+                drops into real conversation — naturally, in passing, maybe just an aside.
+                Don't quote it; let it shape what you say.
+                """;
 
         // Persona identity block claims the primacy position; chat-style rules land after,
         // so the model sees who it is before it sees generic etiquette.
@@ -137,6 +162,7 @@ Only go longer if you're genuinely explaining something or telling a story.
 
 You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
 *leans back*), but don't narrate elaborate scenes or stage directions.
+{memorySection}
 """;
     }
 }

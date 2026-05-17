@@ -308,8 +308,12 @@ public sealed class PersonaGrain(
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
             var fullParticipants = await BuildGenerationParticipantsAsync(participants, personaId);
+            // decision.MemoryToReference is the recollection the decision LLM picked to weave
+            // into this beat (null when nothing fit). Passing it as a dedicated argument keeps
+            // the contract explicit: decision phase selects, speaking phase executes.
             var result = await RunGenerationPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history, decision.Instruction, scenario, persona.Name, inFlight, linkedCt);
+                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history,
+                decision.Instruction, scenario, decision.MemoryToReference, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -492,6 +496,7 @@ public sealed class PersonaGrain(
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
         string? scenario,
+        string? memoryToReference,
         string personaName,
         InFlightGeneration inFlight,
         CancellationToken ct)
@@ -526,7 +531,8 @@ public sealed class PersonaGrain(
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
-                    scenario);
+                    scenario,
+                    memoryToReference);
                 break;
             }
             catch (OperationCanceledException)

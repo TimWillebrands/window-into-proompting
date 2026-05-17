@@ -141,10 +141,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         var text = new StringBuilder();
 
         // Schema field order drives generation order. gutReaction first → the model engages
-        // in-character before judging airtime. wouldSay next — the literal text they'd type
-        // (or empty). respond derives last from whether wouldSay is non-empty. This inverts
-        // the previous reason→respond order, which encouraged the model to write a justification
-        // frame absorbing the assistant-restraint prior.
+        // in-character before judging airtime. memoryToReference next — having just felt the
+        // moment, the model decides whether a past memory belongs in it (and which one),
+        // before drafting the literal reply. wouldSay then carries the sketch shaped by both;
+        // respond derives last from whether wouldSay is non-empty.
         var responseFormat = new JsonObject
         {
             ["type"] = "json_schema",
@@ -158,10 +158,16 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                     ["properties"] = new JsonObject
                     {
                         ["gutReaction"] = new JsonObject { ["type"] = "string" },
+                        ["memoryToReference"] = new JsonObject
+                        {
+                            // Strict mode requires every field in `required`; use the nullable
+                            // type-array form so the model can legitimately decline to pick.
+                            ["type"] = new JsonArray("string", "null")
+                        },
                         ["wouldSay"] = new JsonObject { ["type"] = "string" },
                         ["respond"] = new JsonObject { ["type"] = "boolean" }
                     },
-                    ["required"] = new JsonArray("gutReaction", "wouldSay", "respond")
+                    ["required"] = new JsonArray("gutReaction", "memoryToReference", "wouldSay", "respond")
                 }
             }
         };
@@ -401,6 +407,11 @@ is worse than letting the room breathe. Use judgement.
 
 # Output (JSON)
 - gutReaction: short, in-character first thought. Always written.
+- memoryToReference: if "# What you remember" is shown above AND one
+  of those memories genuinely fits the current beat, copy that memory's
+  text verbatim into this field. Otherwise null. Be picky — better to
+  skip than force a callback. When set, this memory will travel with you
+  into the speaking phase and shape what you actually type.
 - wouldSay: what you'd actually type into the chat right now, OR ""
   (empty string) if you'd let it pass. This becomes your message verbatim
   if you speak — write it as the chat message itself, not as a description
@@ -502,6 +513,17 @@ public sealed record class ShouldRespondResult
     [Id(2)]
     [JsonPropertyName("gutReaction")]
     public string Reason { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The decision phase's pick (verbatim, from the persona's recollections) of which
+    /// past moment to weave into this beat — or null when nothing fit. Forwarded to the
+    /// speaking phase as a recency-positioned cue so the visible reply is shaped by the
+    /// same memory that shaped the thought. Null on the auto-respond shortcut (decision
+    /// LLM never ran, so no memory was selected).
+    /// </summary>
+    [Id(3)]
+    [JsonPropertyName("memoryToReference")]
+    public string? MemoryToReference { get; init; }
 }
 
 public readonly record struct ChatMessageWithSenderName(ChatMessage Message, string SenderName);
