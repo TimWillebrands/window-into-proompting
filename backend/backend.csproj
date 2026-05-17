@@ -7,7 +7,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>$(NoWarn);CA1873</NoWarn>
     <OpenApiDocumentsDirectory>.</OpenApiDocumentsDirectory>
-    <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
+    <!--
+      Spec emission only runs when `npm run api-generate` sets OPENAPI_GENERATE=1
+      so it pairs with the matching gate in Program.cs that skips Orleans + the DB
+      connection-string check. Regular `dotnet build` and `aspire run` invocations
+      do not regenerate the spec.
+    -->
+    <OpenApiGenerateDocumentsOnBuild Condition="'$(OPENAPI_GENERATE)' == '1'">true</OpenApiGenerateDocumentsOnBuild>
+    <OpenApiGenerateDocumentsOnBuild Condition="'$(OPENAPI_GENERATE)' != '1'">false</OpenApiGenerateDocumentsOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
