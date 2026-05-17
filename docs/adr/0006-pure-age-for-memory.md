@@ -1,6 +1,8 @@
 # Pure AGE for memory data, EF only as a connection holder
 
-The memory subsystem (**Concept**, **Event**, **Stance**, **Recollection**) stores its canonical state as **Apache AGE** vertices and edges. There are **no EF Core entities** for memory and **no EF migrations** on the memory schema. The existing `AppDbContext` is kept solely to host `Database.SqlQueryRaw<T>` — Cypher is the query language, EF is just the connection holder and DTO mapper. The memory subsystem accesses the database **directly** from services, not via Orleans grains.
+> Status: accepted, **partially superseded by [ADR 0008](0008-ef-migrations-for-memory-schema.md)** — specifically the "Schema lives in Cypher DDL, not EF migrations / manage in `docker-entrypoint-initdb.d/`" consequence below. The schema-management portion now uses EF migrations holding raw `migrationBuilder.Sql(...)` blocks; the rest of this ADR (pure AGE, no entity model, `AppDbContext` as connection holder) remains in force.
+
+The memory subsystem (**Concept**, **Event**, **Stance**, **Recollection**) stores its canonical state as **Apache AGE** vertices and edges. There are **no EF Core entities** for memory — EF's model snapshot stays empty for memory. The existing `AppDbContext` is kept solely to host `Database.SqlQueryRaw<T>` and to run schema migrations (see [ADR 0008](0008-ef-migrations-for-memory-schema.md)) — Cypher is the query language, EF is just the connection holder, DTO mapper, and migration runner. The memory subsystem accesses the database **directly** from services, not via Orleans grains.
 
 This builds on the bet in [ADR 0004](0004-postgres-age-for-persona-memories.md).
 
@@ -35,7 +37,7 @@ There are **no `DbSet<>`s for memory entities**. The context is an execution sur
 
 ## Consequences
 
-- **Schema lives in Cypher DDL**, not EF migrations. Manage it in `docker-entrypoint-initdb.d/` (or an equivalent versioned init script). EF's `dotnet ef migrations` will not see memory entities.
+- **Schema lives in Cypher DDL**, not EF entity models — but is *versioned through EF migrations* holding raw `migrationBuilder.Sql(...)` blocks (see [ADR 0008](0008-ef-migrations-for-memory-schema.md)). EF's `dotnet ef migrations` will not see memory *entities*, but every memory schema change is a hand-written migration file under `backend/Data/Migrations/`.
 - **Ad-hoc inspection is harder.** No LINQ; admin queries are Cypher. Worth a small helper layer in the backend (`IMemoryRepository` with a few common projections) so callers don't write raw Cypher everywhere.
 - **`agtype` casts in every query.** AGE returns its own graph type by default; every `RETURN` needs explicit casts to `text` / `int` / `uuid` for `SqlQueryRaw<T>` to map cleanly. Boilerplate is real but contained.
 - **Orleans serialization stays out of the memory path.** Memory DTOs cross the service boundary as plain records, never as grain method returns. Avoids the Orleans codec footguns flagged in `CLAUDE.md`.
