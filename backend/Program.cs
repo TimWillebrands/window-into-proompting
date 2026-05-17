@@ -1,6 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PartyTown.Configuration;
+using PartyTown.Data;
 using PartyTown.Logging;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +46,15 @@ if (!openApiBuild)
 {
     var connectionString = builder.Configuration.GetConnectionString("Default")
         ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+
+    builder.Services.AddSingleton<AgeOperatorInterceptor>();
+    builder.Services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        options
+            .UseNpgsql(connectionString)
+            .AddInterceptors(sp.GetRequiredService<AgeOperatorInterceptor>()));
+
+    builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
+    builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
 
     builder.Host.UseOrleans(siloBuilder =>
     {

@@ -7,6 +7,7 @@ using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Generation;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
@@ -21,6 +22,7 @@ public sealed class PersonaGrain(
     [PersistentState(stateName: "persona", storageName: "personas")]
     IPersistentState<Persona> state,
     ILoggerFactory loggerFactory,
+    IMemoryRepository memoryRepository,
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
@@ -35,16 +37,16 @@ public sealed class PersonaGrain(
 
     // One CTS per *in-flight generation* (chatGroup, messageId), not per chat group.
     // Earlier (per-chat-group) keying caused message N+1 to cancel message N's still-running
-    // decision/generation, surfacing as a phantom "cancelled" appraisal on legitimate work
+    // decision/speaking, surfacing as a phantom "cancelled" appraisal on legitimate work
     // and an empty assistant slot for any persona slow enough to overlap a follow-up.
     // CancelGenerationAsync still cancels every in-flight generation for this persona.
     private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), CancellationTokenSource> _ctsByGeneration = new();
 
     // Parallel structure to _ctsByGeneration carrying race-relevant state for each
-    // in-flight generation: which phase (decision/generation), the gut reaction +
+    // in-flight generation: which phase (decision/speaking), the gut reaction +
     // wouldSay preview captured after decision, and the streaming text + token count
-    // updated during generation. Read by RunStopSignalRaceAsync to score new messages
-    // against the in-flight utterance.
+    // updated during the speaking phase. Read by RunStopSignalRaceAsync to score new
+    // messages against the in-flight utterance.
     private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), InFlightGeneration> _inFlight = new();
 
     // Levelt-style repair hints, keyed by chat group. Set when a new message arrives
@@ -242,8 +244,25 @@ public sealed class PersonaGrain(
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
+            // ADR 0009 MVP recall: top-10 most recent Recollections for this Persona scoped
+            // to the Party (cross-Room within one Party). The decision LLM judges relevance
+            // in context. Recall failure is non-fatal — log + continue with an empty list so
+            // a memory outage never blocks the persona from responding.
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            IReadOnlyList<string> recollections;
+            try
+            {
+                recollections = await memoryRepository.RecallRecentSnippetsAsync(personaId, partyId, limit: 10, linkedCt);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Recall failed for persona {PersonaName} in party {PartyId}; proceeding without recollections", persona.Name, partyId);
+                recollections = Array.Empty<string>();
+            }
+            turnSpan?.SetTag("recall.snippet_count", recollections.Count);
+
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, linkedCt,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, recollections, linkedCt,
                 repairHint);
 
             if (!decision.Respond)
@@ -285,12 +304,18 @@ public sealed class PersonaGrain(
                 false);
 
             // Decision committed to "speak". Promote the in-flight record so the race
-            // sees it as Generation phase and has the gut/preview to feed salience.
+            // sees it as Speaking phase and has the gut/preview to feed salience.
+            // (The InFlightPhase enum still spells the value `Generation` — see ADR 0010
+            // legacy-spelling note; rename deferred to a structural-cleanup PR.)
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
             var fullParticipants = await BuildGenerationParticipantsAsync(participants, personaId);
-            var result = await RunGenerationPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history, decision.Instruction, scenario, persona.Name, inFlight, linkedCt);
+            // decision.MemoryToReference is the recollection the decision LLM picked to weave
+            // into this beat (null when nothing fit). Passing it as a dedicated argument keeps
+            // the contract explicit: decision phase selects, speaking phase executes.
+            var result = await RunSpeakingPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history,
+                decision.Instruction, scenario, decision.MemoryToReference, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -444,6 +469,7 @@ public sealed class PersonaGrain(
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<GenerationParticipant> participants,
         string? scenario,
+        IReadOnlyList<string> recollections,
         CancellationToken ct,
         RepairHint? repairHint = null)
     {
@@ -459,10 +485,11 @@ public sealed class PersonaGrain(
             onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
             cancellationToken: ct,
             scenario: scenario,
-            repairHint: repairHint);
+            repairHint: repairHint,
+            recollections: recollections);
     }
 
-    private async Task<GenerationResult> RunGenerationPhaseAsync(
+    private async Task<GenerationResult> RunSpeakingPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
         int messageId,
@@ -471,6 +498,7 @@ public sealed class PersonaGrain(
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
         string? scenario,
+        string? memoryToReference,
         string personaName,
         InFlightGeneration inFlight,
         CancellationToken ct)
@@ -505,7 +533,8 @@ public sealed class PersonaGrain(
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
-                    scenario);
+                    scenario,
+                    memoryToReference);
                 break;
             }
             catch (OperationCanceledException)
@@ -532,8 +561,8 @@ public sealed class PersonaGrain(
     /// Stop-signal race: when a new message arrives, walk this persona's in-flight
     /// generations in this chat group and decide cancel-vs-continue per generation.
     ///   • Decision phase → always cancel (cheap; no public artifact yet).
-    ///   • Generation past PNR → cannot cancel; record a repair hint for next turn.
-    ///   • Generation pre-PNR → score salience via LFM2; cancel if cancelScore > 0.5,
+    ///   • Speaking phase past PNR → cannot cancel; record a repair hint for next turn.
+    ///   • Speaking phase pre-PNR → score salience via LFM2; cancel if cancelScore > 0.5,
     ///     otherwise record a repair hint.
     /// Salience or routing failures default to "let it ride" (no cancel, no repair) —
     /// preserves current behavior rather than introducing a new failure surface.
@@ -597,7 +626,7 @@ public sealed class PersonaGrain(
                 continue;
             }
 
-            // Generation phase
+            // Speaking phase (InFlightPhase.Generation is the legacy enum spelling per ADR 0010)
             if (snap.GeneratedTokens >= PnrTokens)
             {
                 // Past point of no return. Stash repair hint without burning a salience call —

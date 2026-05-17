@@ -42,6 +42,20 @@ A Persona's baseline urge to speak. Low = brooding, only chimes in when directly
 **Impulsivity** (0..1):
 How committed the Persona is to a reply once they've started forming one. Low = deliberative, easily interrupted by something new in the room. High = impulsive, barrels through their thought once committed.
 
+### Response pipeline
+
+The two-phase process a **Persona** runs when a new message arrives in a **Room**: a **Decision phase** that judges whether and how to engage, then (conditionally) a **Speaking phase** that drafts the visible message. The two phases run as separate LLM calls so the persona reacts in-character before committing to airtime, and so the decision can be skipped when it's clearly not warranted. The pipeline as a whole is what's torn down by a stop-signal race (see ADR 0001) or by `CancelGenerationAsync`.
+
+**Decision phase**:
+The first phase of the **Response pipeline**. The Persona considers what's been said, forms a **gut reaction** in-character, decides whether they have something worth saying, and — if so — picks which past **Recollection** (if any) is on their mind. Output is consulted, never displayed directly: it shapes the **Speaking phase**.
+_Avoid_: appraisal, thinking, evaluation, pre-generation.
+
+**Speaking phase**:
+The second phase of the **Response pipeline**, conditional on the **Decision phase** choosing to respond. The Persona drafts the actual chat message — shaped by the gut reaction and the **Recollection** carried forward from the Decision phase. Output is the visible reply.
+_Avoid_: generation, response, output, reply-phase.
+
+> Note: the code spelling `Generation` (the `Services/Generation/` namespace, `GenerationSession`, `GenerationResult`, `GenerationParticipant`, `InFlightPhase.Generation`, `_ctsByGeneration`, `CancelGenerationAsync`, etc.) predates the **Response pipeline** vocabulary — treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Existing `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
+
 ### Memory
 
 A Persona's memory is the set of edges from a **Participant** (or the underlying **Persona**) to entities in **Reality**. The edges carry the personal view — the entities themselves do not.

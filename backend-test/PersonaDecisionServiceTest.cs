@@ -412,6 +412,128 @@ public class PersonaDecisionServiceTest
         Assert.True(completionFired, "Expected a terminal PersonaEvaluationComplete event");
     }
 
+    // ── ShouldRespondAsync — memoryToReference (decision→speaking handoff) ───
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPicksMemory_ReturnsMemoryToReference()
+    {
+        // The decision LLM selects one of the persona's recollections to weave into the
+        // upcoming reply. The selected text travels forward on ShouldRespondResult so the
+        // speaking phase can render it at the recency position of its system prompt.
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {
+              "gutReaction": "Reminds me of yesterday.",
+              "memoryToReference": "you watched Denise pivot toward CTO ambition",
+              "wouldSay": "Funny — yesterday you sounded ready to walk away from corporate.",
+              "respond": true
+            }
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["you watched Denise pivot toward CTO ambition"]);
+
+        Assert.True(result.Respond);
+        Assert.Equal("you watched Denise pivot toward CTO ambition", result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPicksNullMemory_ReturnsNullMemoryToReference()
+    {
+        // The schema permits memoryToReference to be null when no memory fits the beat.
+        // Parser must accept null and surface it as a null .NET reference (not "null"
+        // string or empty) so downstream code's null check is correct.
+        var self = MakeParticipant("Lev");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hi","memoryToReference":null,"wouldSay":"Hey.","respond":true}
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LegacyJsonWithoutMemoryField_DefaultsToNull()
+    {
+        // Older traces (and the auto-respond shortcut) omit memoryToReference entirely.
+        // Backward compat: missing field deserialises as null, downstream behavior identical
+        // to an explicit null pick.
+        var self = MakeParticipant("Mira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """{"gutReaction":"hi","wouldSay":"Hey.","respond":true}""";
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_AutoRespondShortcut_LeavesMemoryToReferenceNull()
+    {
+        // Auto-respond bypasses the decision LLM entirely, so no memory selection ever
+        // happens. The speaking phase will see null and omit the memory block — matching
+        // the shortcut's "react immediately, recall data wasn't loaded" semantics.
+        var router = new Mock<ILlmRouterGrain>();
+        var self = MakeParticipant("Noor");
+        var senderId = Guid.NewGuid();
+        var participants = new List<GenerationParticipant>
+        {
+            self,
+            new() { Id = senderId, Name = "User", IsUser = true },
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hey noor, quick one?" }
+        };
+
+        var service = MakeServiceWithRouter(router);
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
     // ── ShouldRespondAsync — RepairHint injection ─────────────────────────────
 
     /// <summary>

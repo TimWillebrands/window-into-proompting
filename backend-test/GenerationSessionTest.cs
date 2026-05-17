@@ -295,6 +295,79 @@ public class GenerationSessionTest
         Assert.DoesNotContain("# Scenario", systemMessage.Content);
     }
 
+    // ── Memory cue from decision phase ───────────────────────────────────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_WithMemoryToReference_RendersMemoryBlockAtRecencyPosition()
+    {
+        // The decision phase picked a memory; the speaking phase must render it as a
+        // dedicated block AFTER the # Style section so it lands in the recency slot of the
+        // system prompt — the last thing the model sees before the conversation history.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Eiko");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None,
+            turnInstruction: null,
+            scenario: null,
+            memoryToReference: "you watched Denise pivot toward CTO ambition");
+
+        var systemContent = getJob()!.Messages[0].Content;
+        Assert.Contains("# A memory surfacing for you", systemContent);
+        Assert.Contains("you watched Denise pivot toward CTO ambition", systemContent);
+
+        // Recency check: memory block must come after the Style block, not before.
+        var styleIdx = systemContent.IndexOf("# Style", StringComparison.Ordinal);
+        var memoryIdx = systemContent.IndexOf("# A memory surfacing for you", StringComparison.Ordinal);
+        Assert.True(styleIdx >= 0, "Expected # Style block in system prompt");
+        Assert.True(memoryIdx > styleIdx,
+            $"Expected memory block after # Style (recency position). style={styleIdx}, memory={memoryIdx}");
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_NullMemoryToReference_OmitsMemoryBlock()
+    {
+        // No memory selected → no block. Avoids priming the model with an empty "memory"
+        // heading that would otherwise invite confabulation.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Eiko");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None,
+            turnInstruction: null,
+            scenario: null,
+            memoryToReference: null);
+
+        var systemContent = getJob()!.Messages[0].Content;
+        Assert.DoesNotContain("# A memory surfacing for you", systemContent);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_WhitespaceMemoryToReference_OmitsMemoryBlock()
+    {
+        // Same as null — a whitespace-only memory string must not produce an empty heading.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Eiko");
+        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [],
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None,
+            turnInstruction: null,
+            scenario: null,
+            memoryToReference: "  \n  ");
+
+        var systemContent = getJob()!.Messages[0].Content;
+        Assert.DoesNotContain("# A memory surfacing for you", systemContent);
+    }
+
     // ── Error propagation ─────────────────────────────────────────────────────
 
     [Fact]

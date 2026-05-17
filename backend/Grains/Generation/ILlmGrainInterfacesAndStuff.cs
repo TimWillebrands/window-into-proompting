@@ -11,6 +11,13 @@ public interface ILlmEndpointGrain : IGrainWithGuidKey
     [Alias("GenerateStreamAsync")]
     IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(LlmGenerationJob parameters, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// One-shot non-streaming completion. Used by short helper extractions (memory, salience,
+    /// emotes) that want the final text in a single await without subscribing to chunks.
+    /// </summary>
+    [Alias("CompleteOneShotAsync")]
+    Task<string> CompleteOneShotAsync(LlmGenerationJob parameters, CancellationToken cancellationToken = default);
+
     // NOTE: Not sure if this is sufficient info for the router to make a decision
     // But this is how much backpressure (pending generations) the endpoint has
     [Alias("Pressure")]

@@ -88,6 +88,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// <paramref name="repairHint"/> carries a Levelt-style speech-repair cue: when the
     /// persona shipped its previous message past the point of no return *and* a relevant
     /// new message was missed, the hint nudges the next decision toward acknowledgment.
+    /// <paramref name="recollections"/> is the top-N most recent Recollection snippets
+    /// for this persona in this party (ADR 0009 MVP recall) — rendered as a "what you
+    /// remember" block in the system prompt so the persona can naturally bring up past
+    /// moments. Empty list = no block rendered.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         GenerationParticipant self,
@@ -97,7 +101,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken,
         string? scenario = null,
-        RepairHint? repairHint = null)
+        RepairHint? repairHint = null,
+        IReadOnlyList<string>? recollections = null)
     {
         var urge = CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = CountRecentSelfMessages(history, self.Id);
@@ -128,7 +133,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -136,10 +141,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         var text = new StringBuilder();
 
         // Schema field order drives generation order. gutReaction first → the model engages
-        // in-character before judging airtime. wouldSay next — the literal text they'd type
-        // (or empty). respond derives last from whether wouldSay is non-empty. This inverts
-        // the previous reason→respond order, which encouraged the model to write a justification
-        // frame absorbing the assistant-restraint prior.
+        // in-character before judging airtime. memoryToReference next — having just felt the
+        // moment, the model decides whether a past memory belongs in it (and which one),
+        // before drafting the literal reply. wouldSay then carries the sketch shaped by both;
+        // respond derives last from whether wouldSay is non-empty.
         var responseFormat = new JsonObject
         {
             ["type"] = "json_schema",
@@ -153,10 +158,16 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                     ["properties"] = new JsonObject
                     {
                         ["gutReaction"] = new JsonObject { ["type"] = "string" },
+                        ["memoryToReference"] = new JsonObject
+                        {
+                            // Strict mode requires every field in `required`; use the nullable
+                            // type-array form so the model can legitimately decline to pick.
+                            ["type"] = new JsonArray("string", "null")
+                        },
                         ["wouldSay"] = new JsonObject { ["type"] = "string" },
                         ["respond"] = new JsonObject { ["type"] = "boolean" }
                     },
-                    ["required"] = new JsonArray("gutReaction", "wouldSay", "respond")
+                    ["required"] = new JsonArray("gutReaction", "memoryToReference", "wouldSay", "respond")
                 }
             }
         };
@@ -346,7 +357,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         GenerationParticipant self,
         IReadOnlyList<GenerationParticipant> participants,
         string? scenario,
-        RepairHint? repairHint)
+        RepairHint? repairHint,
+        IReadOnlyList<string>? recollections)
     {
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
@@ -360,6 +372,14 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             ? string.Empty
             : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
 
+        // ADR 0009: top-N recent Recollection snippets for this Persona in this Party,
+        // across all Rooms. No matching, no ranking beyond recency — the model is left to
+        // judge in-context whether a memory is relevant to the current beat. Block is
+        // omitted entirely when empty so it never reads as a void "you remember nothing".
+        var recollectionsBlock = recollections is null || recollections.Count == 0
+            ? string.Empty
+            : $"\n# What you remember\n{string.Join("\n", recollections.Select(s => $"- {s}"))}\n";
+
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
@@ -369,7 +389,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     p.IsUser
         ? $"- {p.Name} (human)"
         : $"- {p.Name} (persona)"))}}
-{{repairBlock}}
+{{recollectionsBlock}}{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
@@ -387,6 +407,11 @@ is worse than letting the room breathe. Use judgement.
 
 # Output (JSON)
 - gutReaction: short, in-character first thought. Always written.
+- memoryToReference: if "# What you remember" is shown above AND one
+  of those memories genuinely fits the current beat, copy that memory's
+  text verbatim into this field. Otherwise null. Be picky — better to
+  skip than force a callback. When set, this memory will travel with you
+  into the speaking phase and shape what you actually type.
 - wouldSay: what you'd actually type into the chat right now, OR ""
   (empty string) if you'd let it pass. This becomes your message verbatim
   if you speak — write it as the chat message itself, not as a description
@@ -488,6 +513,17 @@ public sealed record class ShouldRespondResult
     [Id(2)]
     [JsonPropertyName("gutReaction")]
     public string Reason { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The decision phase's pick (verbatim, from the persona's recollections) of which
+    /// past moment to weave into this beat — or null when nothing fit. Forwarded to the
+    /// speaking phase as a recency-positioned cue so the visible reply is shaped by the
+    /// same memory that shaped the thought. Null on the auto-respond shortcut (decision
+    /// LLM never ran, so no memory was selected).
+    /// </summary>
+    [Id(3)]
+    [JsonPropertyName("memoryToReference")]
+    public string? MemoryToReference { get; init; }
 }
 
 public readonly record struct ChatMessageWithSenderName(ChatMessage Message, string SenderName);
