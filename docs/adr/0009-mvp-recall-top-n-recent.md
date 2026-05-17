@@ -4,7 +4,7 @@
 
 Slice 2 of the memory feature wires **Recollection** retrieval into persona generation. The MVP query is intentionally the simplest possible: **the N most recent Recollection snippets for a `(Persona, Party)` pair, ordered by timestamp DESC**. No concept matching, no embedding similarity, no relevance scoring. The decision LLM is left to judge which snippets matter in the current beat, in-context.
 
-The retrieval seam is `IMemoryRepository.RecallRecentSnippetsAsync(personaId, partyId, limit, ct)`. The orchestrator (`PersonaGrain.NotifyMessageAsync`) calls it once per turn before `RunDecisionPhaseAsync` and threads the snippets into the system prompt via a `# What you remember` block.
+The retrieval seam is `IMemoryRepository.RecallRecentSnippetsAsync(personaId, partyId, limit, ct)`. The orchestrator (`PersonaGrain.NotifyMessageAsync`) calls it once per turn before `RunDecisionPhaseAsync` and threads the snippets into the system prompt via a `# What you remember` block. The Decision phase selects one snippet (or none) to traverse the Decision→Speaking boundary; the selection mechanics live in [ADR 0010](0010-two-phase-persona-response.md).
 
 ## Why top-N recent (and not matching)
 
