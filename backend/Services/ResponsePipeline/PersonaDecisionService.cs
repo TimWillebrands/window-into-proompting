@@ -10,7 +10,7 @@ using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Per-persona decision service: each persona independently decides whether to respond.

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Streaming;
 
 namespace BackendTest;

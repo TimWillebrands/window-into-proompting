@@ -1,7 +1,7 @@
 using System.Security;
 using PartyTown.Model;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Shared XML rendering for chat messages handed to the LLM. Both decision and generation

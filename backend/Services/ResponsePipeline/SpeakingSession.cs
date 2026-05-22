@@ -5,9 +5,9 @@ using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
-public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
+public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
 {
     /// <summary>
     /// Generates a response for a specific persona.
@@ -16,7 +16,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
     /// system prompt so it's the last thing the model sees before drafting — the contract
     /// is "decision selects, speaking executes".
     /// </summary>
-    public async Task<GenerationResult> GenerateResponseOnlyAsync(
+    public async Task<SpeakingResult> GenerateResponseOnlyAsync(
         GenerationParticipant persona,
         IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
@@ -92,7 +92,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         generateSpan?.SetTag("output.length", builder.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
-        return new GenerationResult
+        return new SpeakingResult
         {
             Stop = false,
             Message = builder.ToString(),
@@ -185,7 +185,7 @@ public sealed record class GenerationParticipant
     public double Impulsivity { get; init; } = 0.5;
 }
 
-public sealed record class GenerationResult
+public sealed record class SpeakingResult
 {
     public bool Stop { get; init; }
     public string? Message { get; init; }
