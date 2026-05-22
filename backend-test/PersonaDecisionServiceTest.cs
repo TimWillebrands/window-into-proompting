@@ -10,29 +10,24 @@ using PartyTown.Services.Streaming;
 namespace BackendTest;
 
 /// <summary>
-/// Tests for <see cref="PersonaDecisionService"/> — the per-persona "should I respond?" evaluator.
+/// Tests for <see cref="PersonaDecisionService.ShouldRespondAsync"/> — the per-persona
+/// "should I respond?" evaluator's end-to-end LLM path.
 ///
 /// Coverage areas:
-///   • <see cref="PersonaDecisionService.CalculateResponseUrge"/> static scoring:
-///       - Direct mention in latest message → mentionScore = 1.0 → total ≥ 0.9 (auto-respond)
-///       - Question mark at end of latest message → questionScore = 0.6
-///       - Silence streak contribution (capped at 0.4)
-///       - Empty history returns a zero-score urge (aside from the random chaos component)
+///   - Auto-respond shortcut fires when mentionScore pushes urge total ≥ 0.9 (skips LLM call)
+///   - Well-formed JSON from the LLM is parsed into ShouldRespondResult
+///   - Malformed-but-repairable JSON falls back to JsonRepair and is still parsed
+///   - Completely unparseable JSON fails closed: Respond=false, Reason starts with "Fallback"
+///   - RepairHint injection into the system prompt; bypasses the auto-respond shortcut
+///   - memoryToReference decision→speaking handoff
 ///
-///   • <see cref="PersonaDecisionService.ShouldRespondAsync"/> async decision path:
-///       - Auto-respond shortcut fires when mentionScore pushes total ≥ 0.9 (skips LLM call)
-///       - Well-formed JSON from the LLM is parsed into ShouldRespondResult
-///       - Malformed-but-repairable JSON falls back to JsonRepair and is still parsed
-///       - Completely unparseable JSON fails closed: Respond=false, Reason starts with "Fallback"
+/// Pure pre-gate math (mention / question / silence / cold-open scoring) lives in
+/// <see cref="UrgeMath"/> and is covered by <see cref="UrgeMathTest"/>.
 ///
 /// Testing strategy:
 ///   PersonaDecisionService is a plain class — no Orleans grain, no TestKit silo.
 ///   The async path mocks ILlmRouterGrain (→ ILlmEndpointGrain → scripted IAsyncEnumerable).
 ///   NullLogger.Instance is used instead of a mock to avoid setting up IsEnabled() on every test.
-///
-///   Note on non-determinism: CalculateResponseUrge uses Random.Shared for the chaos score.
-///   Tests avoid asserting exact total values and instead assert on the deterministic components
-///   (mentionScore, questionScore, silenceStreakScore) or on boolean outcomes (Respond, auto-respond).
 /// </summary>
 public class PersonaDecisionServiceTest
 {
@@ -86,73 +81,6 @@ public class PersonaDecisionServiceTest
 
     private PersonaDecisionService MakeServiceWithRouter(Mock<ILlmRouterGrain> router)
         => new PersonaDecisionService(router.Object, NullLogger.Instance);
-
-    // ── CalculateResponseUrge (static, pure) ──────────────────────────────────
-
-    [Fact]
-    public void CalculateResponseUrge_EmptyHistory_ReturnsZeroScores()
-    {
-        var self = MakeParticipant("Alice");
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, [], 0);
-
-        Assert.Equal(0, urge.MentionScore);
-        Assert.Equal(0, urge.QuestionScore);
-        Assert.Equal(0, urge.SilenceStreakScore);
-        Assert.Equal(0, urge.Total);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_DirectMentionInLatestMessage_SetsMentionScoreToOne()
-    {
-        // A message containing the persona's name (case-insensitive) triggers mention detection.
-        // With mentionScore = 1.0, the total will be ≥ 0.9 triggering the auto-respond shortcut.
-        var self = MakeParticipant("Alice");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "Hey alice, what do you think?") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(1.0, urge.MentionScore);
-        Assert.True(urge.Total >= 0.9, $"Expected total ≥ 0.9 for direct mention, got {urge.Total}");
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_QuestionMarkAtEndOfMessage_SetsQuestionScore()
-    {
-        var self = MakeParticipant("Bob");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "What do you think?") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(0.6, urge.QuestionScore);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_QuestionMarkNotAtEnd_DoesNotSetQuestionScore()
-    {
-        // Only a trailing '?' counts — a '?' mid-sentence should not trigger it.
-        var self = MakeParticipant("Bob");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "I wonder? Anyway, let's move on.") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(0, urge.QuestionScore);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_SilenceStreak_CapsAtPointFour()
-    {
-        // silenceStreakScore = min(0.4, rounds * 0.1), so 5+ rounds should be capped.
-        var self = MakeParticipant("Charlie");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "Hello.") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 10);
-
-        Assert.Equal(0.4, urge.SilenceStreakScore);
-    }
 
     // ── ShouldRespondAsync — auto-respond shortcut ────────────────────────────
 
