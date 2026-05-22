@@ -6,7 +6,7 @@ using Orleans.Concurrency;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Streaming;
 
@@ -489,7 +489,7 @@ public sealed class PersonaGrain(
             recollections: recollections);
     }
 
-    private async Task<GenerationResult> RunSpeakingPhaseAsync(
+    private async Task<SpeakingResult> RunSpeakingPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
         int messageId,
@@ -504,7 +504,7 @@ public sealed class PersonaGrain(
         CancellationToken ct)
     {
         var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
-        var session = new GenerationSession(router, fullParticipants);
+        var session = new SpeakingSession(router, fullParticipants);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -517,7 +517,7 @@ public sealed class PersonaGrain(
         }
 
         const int maxRetries = 2;
-        GenerationResult? result = null;
+        SpeakingResult? result = null;
         for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
             try
@@ -626,7 +626,7 @@ public sealed class PersonaGrain(
                 continue;
             }
 
-            // Speaking phase (InFlightPhase.Generation is the legacy enum spelling per ADR 0010)
+            // Speaking phase
             if (snap.GeneratedTokens >= PnrTokens)
             {
                 // Past point of no return. Stash repair hint without burning a salience call —
@@ -796,7 +796,7 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
     {
         lock (_lock)
         {
-            _phase = InFlightPhase.Generation;
+            _phase = InFlightPhase.Speaking;
             _gutReaction = gutReaction ?? string.Empty;
             _wouldSayPreview = wouldSayPreview ?? string.Empty;
         }
@@ -850,7 +850,7 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
     }
 }
 
-internal enum InFlightPhase { Decision, Generation }
+internal enum InFlightPhase { Decision, Speaking }
 
 internal readonly record struct InFlightSnapshot(
     InFlightPhase Phase,

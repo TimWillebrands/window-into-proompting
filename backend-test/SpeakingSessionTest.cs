@@ -2,18 +2,18 @@ using System.Runtime.CompilerServices;
 using Moq;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
 /// <summary>
-/// Tests for <see cref="GenerationSession"/> — the single-use streaming pump that drives one
+/// Tests for <see cref="SpeakingSession"/> — the single-use streaming pump that drives one
 /// LLM response for a specific persona.
 ///
 /// Coverage areas:
 ///   • Content and reasoning chunks are accumulated into separate StringBuilders and returned
-///     in <see cref="GenerationResult"/> (the two token types must not bleed into each other)
+///     in <see cref="SpeakingResult"/> (the two token types must not bleed into each other)
 ///   • <c>onEvent</c> is called once per chunk (including a terminal <c>isDone=true</c> event
 ///     after the stream ends)
 ///   • Cancellation propagates: a cancelled token causes <see cref="OperationCanceledException"/>
@@ -21,11 +21,11 @@ namespace BackendTest;
 ///   • Router exceptions bubble up to the caller (PersonaGrain owns retry)
 ///
 /// Testing strategy:
-///   GenerationSession is a plain class with no Orleans dependency, so no TestKit silo is needed.
+///   SpeakingSession is a plain class with no Orleans dependency, so no TestKit silo is needed.
 ///   ILlmRouterGrain and ILlmEndpointGrain are mocked with Moq. Scripted IAsyncEnumerable
 ///   implementations supply deterministic chunk sequences.
 /// </summary>
-public class GenerationSessionTest
+public class SpeakingSessionTest
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -80,8 +80,8 @@ public class GenerationSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_AccumulatesContentAndReasoningSeparately()
     {
-        // ContentChunk tokens go to GenerationResult.Message; ReasoningChunk tokens go to
-        // GenerationResult.Reasoning. The two streams must not bleed into each other.
+        // ContentChunk tokens go to SpeakingResult.Message; ReasoningChunk tokens go to
+        // SpeakingResult.Reasoning. The two streams must not bleed into each other.
         var chunks = new[]
         {
             new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "Hello"),
@@ -91,7 +91,7 @@ public class GenerationSessionTest
 
         var endpoint = EndpointWith(chunks);
         var persona = MakeParticipant("Alice");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         var result = await session.GenerateResponseOnlyAsync(
             persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
@@ -116,7 +116,7 @@ public class GenerationSessionTest
 
         var endpoint = EndpointWith(chunks);
         var persona = MakeParticipant("Bob");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         var events = new List<(string type, string data, bool done)>();
         await session.GenerateResponseOnlyAsync(
@@ -139,7 +139,7 @@ public class GenerationSessionTest
         // downstream clients can close their generation subscription.
         var endpoint = EndpointWith([]);
         var persona = MakeParticipant("Charlie");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         var events = new List<(string type, string data, bool done)>();
         var result = await session.GenerateResponseOnlyAsync(
@@ -168,7 +168,7 @@ public class GenerationSessionTest
             new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "unreachable"),
         ]);
         var persona = MakeParticipant("Dana");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         var events = new List<(string, string, bool)>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
@@ -194,7 +194,7 @@ public class GenerationSessionTest
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => TwoChunksThenCancel(cts, ct));
 
         var persona = MakeParticipant("Eve");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         var events = new List<(string, string, bool)>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
@@ -244,7 +244,7 @@ public class GenerationSessionTest
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -264,7 +264,7 @@ public class GenerationSessionTest
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -282,7 +282,7 @@ public class GenerationSessionTest
         // empty heading that confuses the model.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -305,7 +305,7 @@ public class GenerationSessionTest
         // system prompt — the last thing the model sees before the conversation history.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -334,7 +334,7 @@ public class GenerationSessionTest
         // heading that would otherwise invite confabulation.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -354,7 +354,7 @@ public class GenerationSessionTest
         // Same as null — a whitespace-only memory string must not produce an empty heading.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new GenerationSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -373,7 +373,7 @@ public class GenerationSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_RouterThrows_ExceptionBubblesUp()
     {
-        // GenerationSession does not retry — exceptions from the router propagate directly.
+        // SpeakingSession does not retry — exceptions from the router propagate directly.
         // PersonaGrain is responsible for retry/backoff logic.
         var router = new Mock<ILlmRouterGrain>();
         router
@@ -381,7 +381,7 @@ public class GenerationSessionTest
             .ThrowsAsync(new InvalidOperationException("no endpoints available"));
 
         var persona = MakeParticipant("Frank");
-        var session = new GenerationSession(router.Object, [persona]);
+        var session = new SpeakingSession(router.Object, [persona]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             session.GenerateResponseOnlyAsync(

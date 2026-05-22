@@ -3,7 +3,7 @@ using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Generates a short in-character "abandonment emote" for a generation that the

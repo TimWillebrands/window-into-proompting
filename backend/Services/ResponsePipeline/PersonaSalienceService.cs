@@ -8,7 +8,7 @@ using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Stop-signal salience classifier. When a new message lands at a persona that already
