@@ -25,7 +25,7 @@ var backend = builder
 
 builder
     .AddViteApp("frontend", "../../frontend")
-    .WithNpm()
+    .WithPnpm()
     .WithReference(backend)
     .WaitFor(backend)
     .WithEnvironment("VITE_API_URL", backend.GetEndpoint("http"))

@@ -7,7 +7,7 @@ This project uses [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/) to o
 ### Prerequisites
 
 - .NET SDK with .NET 10 runtime + .NET 11 preview SDK (AppHost targets `net10.0`; backend targets `net11.0` preview)
-- Node 22+ with npm
+- Node 22+ with pnpm (install globally: `npm install -g pnpm`)
 - Docker (Aspire spins up the Postgres container; backend + frontend run as host processes)
 - Git
 - Optional: the [Aspire CLI](https://learn.microsoft.com/dotnet/aspire/fundamentals/aspire-cli) for the shorter `aspire run` command
@@ -131,7 +131,7 @@ If ports 5173, 5072, 5455, 11111, 30000, or the dashboard port are in use, stop 
 
 ```bash
 cd frontend
-npm install
+pnpm install
 ```
 
 Then restart `aspire run`.
