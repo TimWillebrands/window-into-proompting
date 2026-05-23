@@ -7,7 +7,7 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
+public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<ParticipantView> allParticipants)
 {
     /// <summary>
     /// Generates a response for a specific persona.
@@ -17,7 +17,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParti
     /// is "decision selects, speaking executes".
     /// </summary>
     public async Task<SpeakingResult> GenerateResponseOnlyAsync(
-        GenerationParticipant persona,
+        SelfView persona,
         IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
@@ -26,6 +26,10 @@ public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParti
         string? memoryToReference = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
+        // Build sender-name lookup once. ParticipantView is a struct, so
+        // FirstOrDefault would return default(struct) on miss (Name = null,
+        // typed non-nullable) — robust dictionary lookup avoids that footgun.
+        var nameById = allParticipants.ToDictionary(p => p.Id, p => p.Name);
         var messages = new List<LlmChatMessage>
         {
             new()
@@ -43,7 +47,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParti
                 ? (message.Content ?? string.Empty)
                 : ChatMessageRenderer.Render(
                     message,
-                    allParticipants.FirstOrDefault(p => p.Id == message.SenderId)?.Name ?? "Unknown"),
+                    nameById.TryGetValue(message.SenderId, out var n) ? n : "Unknown"),
             Name = message.SenderId.ToString()
         }));
 
@@ -97,12 +101,11 @@ public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParti
             Stop = false,
             Message = builder.ToString(),
             Reasoning = reasoning.ToString(),
-            Persona = persona,
             Metadata = metadata
         };
     }
 
-    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario, string? memoryToReference)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -110,7 +113,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, List<GenerationParti
         var othersSection = others.Count == 0
             ? "(no other participants)"
             : string.Join("\n", others.Select(p =>
-                p.IsUser
+                p.Driver == DriverKind.User
                     ? $"- {p.Name} (human)"
                     : $"- {p.Name} (persona)"));
 
@@ -167,29 +170,10 @@ You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
     }
 }
 
-public sealed record class GenerationParticipant
-{
-    public Guid Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string? Bio { get; init; }
-    public string? SystemPrompt { get; init; }
-    public bool IsUser { get; init; }
-
-    /// <summary>0..1 dial controlling urge to chime in. Drives chaos-bonus weighting in
-    /// PersonaDecisionService. Defaults to 0.5 for users / unset personas.</summary>
-    public double Chattiness { get; init; } = 0.5;
-
-    /// <summary>0..1 dial controlling commitment-to-in-flight-utterance. 0 = deliberative
-    /// (easily interrupted, repairs often); 1 = impulsive (commits hard, rarely repairs).
-    /// Drives the stop-signal race in PersonaGrain. Defaults to 0.5 for users / unset personas.</summary>
-    public double Impulsivity { get; init; } = 0.5;
-}
-
 public sealed record class SpeakingResult
 {
     public bool Stop { get; init; }
     public string? Message { get; init; }
     public string? Reasoning { get; init; }
-    public GenerationParticipant? Persona { get; init; }
     public ChatMessageMetadata? Metadata { get; init; }
 }

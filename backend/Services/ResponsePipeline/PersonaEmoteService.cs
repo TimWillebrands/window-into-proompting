@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
+using PartyTown.Model;
 
 namespace PartyTown.Services.ResponsePipeline;
 
@@ -31,7 +32,7 @@ public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
     private const int MaxEmoteChars = 160;
 
     public async Task<string> GenerateAbandonmentEmoteAsync(
-        GenerationParticipant self,
+        SelfView self,
         string partialDraft,
         string interruptingMessage,
         string interruptingSenderName,

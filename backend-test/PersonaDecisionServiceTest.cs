@@ -33,12 +33,11 @@ public class PersonaDecisionServiceTest
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static GenerationParticipant MakeParticipant(string name, Guid? id = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        Name = name,
-        Bio = $"Test bio for {name}",
-    };
+    private static SelfView MakeParticipant(string name, Guid? id = null) =>
+        new(id ?? Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", null, 0.5, 0.5);
+
+    private static ParticipantView AsView(SelfView s) => new(s.Id, s.Name, s.Driver);
+    private static ParticipantView UserPv(Guid id, string name) => new(id, name, DriverKind.User);
 
     private static ChatMessage UserMessage(Guid senderId, string content) => new()
     {
@@ -92,10 +91,10 @@ public class PersonaDecisionServiceTest
         var router = new Mock<ILlmRouterGrain>();
         var self = MakeParticipant("Diana");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -124,10 +123,10 @@ public class PersonaDecisionServiceTest
         // parsed directly without falling through to JsonRepair.
         var self = MakeParticipant("Eve");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -155,10 +154,10 @@ public class PersonaDecisionServiceTest
         // JsonRepair should recover it rather than failing closed.
         var self = MakeParticipant("Frank");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -184,10 +183,10 @@ public class PersonaDecisionServiceTest
         // and JsonRepair also chokes on it — so the decision service must strip fences itself.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -214,10 +213,10 @@ public class PersonaDecisionServiceTest
         // strips the outer pair before handing off.
         var self = MakeParticipant("Hana");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -249,10 +248,10 @@ public class PersonaDecisionServiceTest
         // chars inside string values before handing off to the parser.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -276,10 +275,10 @@ public class PersonaDecisionServiceTest
         // Respond=false so that a garbled LLM output never causes an unwanted AI turn.
         var self = MakeParticipant("Grace");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -303,10 +302,10 @@ public class PersonaDecisionServiceTest
         // clients can display the persona's "thinking" state in real time.
         var self = MakeParticipant("Henry");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -350,10 +349,10 @@ public class PersonaDecisionServiceTest
         // speaking phase can render it at the recency position of its system prompt.
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -386,10 +385,10 @@ public class PersonaDecisionServiceTest
         // string or empty) so downstream code's null check is correct.
         var self = MakeParticipant("Lev");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -416,10 +415,10 @@ public class PersonaDecisionServiceTest
         // to an explicit null pick.
         var self = MakeParticipant("Mira");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -445,10 +444,10 @@ public class PersonaDecisionServiceTest
         var router = new Mock<ILlmRouterGrain>();
         var self = MakeParticipant("Noor");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -488,10 +487,10 @@ public class PersonaDecisionServiceTest
     {
         var self = MakeParticipant("Iris");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -516,10 +515,10 @@ public class PersonaDecisionServiceTest
         // (in-character) whether to acknowledge.
         var self = MakeParticipant("Jules");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -550,10 +549,10 @@ public class PersonaDecisionServiceTest
         // in-flight generation. Instead the slow path runs so the repair stanza injects.
         var self = MakeParticipant("Kai");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -589,10 +588,10 @@ public class PersonaDecisionServiceTest
         // "they said your name" cue or every prompt becomes the same.
         var self = MakeParticipant("Lara");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {

@@ -41,9 +41,9 @@ public class SimulatorTest
         if (ids.Count != distinctIds.Count)
             return $"Duplicate message IDs in log: [{string.Join(", ", ids)}]";
 
-        // 5. Participants list not null
-        if (state.Participants is null)
-            return "Participants list is null";
+        // 5. ParticipantIds set not null
+        if (state.ParticipantIds is null)
+            return "ParticipantIds set is null";
 
         return null;
     }
@@ -69,11 +69,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = partyId,
-            Participants =
-            [
-                new() { Id = alice, Name = "Alice" },
-                new() { Id = bob,   Name = "Bob" },
-            ]
+            ParticipantIds = new HashSet<Guid> { alice, bob }
         });
 
         var prevId = state.NextMessageId;
@@ -169,7 +165,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = partyId,
-            Participants = personas.Select(id => new PartyParticipant { Id = id, Name = id.ToString("N")[..4] }).ToList()
+            ParticipantIds = new HashSet<Guid>(personas)
         });
 
         var prevNextId = 0;
@@ -304,11 +300,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = Guid.NewGuid(),
-            Participants =
-            [
-                new() { Id = alice, Name = "Alice" },
-                new() { Id = bob,   Name = "Bob" },
-            ]
+            ParticipantIds = new HashSet<Guid> { alice, bob }
         });
         return state;
     }

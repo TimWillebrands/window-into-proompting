@@ -32,8 +32,11 @@ namespace BackendTest;
 ///   • <see cref="ChatGroupState.Apply(ChatGroupMessageDeletedEvent)"/> — single message removal
 ///   • <see cref="ChatGroupState.Apply(ChatGroupMessagesAfterDeletedEvent)"/> — bulk trim and
 ///     NextMessageId reset (the reprompt path)
-///   • <see cref="ChatGroupState.Apply(ChatGroupParticipantsSetEvent)"/> — wholesale participant
-///     list replacement
+///   • <see cref="ChatGroupState.Apply(ChatGroupParticipantIdsSetEvent)"/> — wholesale Room
+///     membership replacement
+///   • <see cref="ChatGroupState.Apply(ChatGroupDriverOverrideSetEvent)"/> and
+///     <see cref="ChatGroupState.Apply(ChatGroupDriverOverrideClearedEvent)"/> — sparse
+///     per-Persona Driver override map mutation
 ///   • <see cref="ChatGroupState.Apply(ChatGroupUserMessageEvent)"/> — insert-or-update by MessageId
 ///
 /// NOTE: Grain-level tests (fan-out to IPersonaGrain, stream event publication, reentrant
@@ -47,13 +50,15 @@ public class ChatGroupGrainTest
     /// <summary>
     /// Creates a freshly initialized state, equivalent to what OnActivateAsync does on first run.
     /// </summary>
-    private ChatGroupState NewState(List<PartyParticipant>? participants = null)
+    private ChatGroupState NewState(IEnumerable<Guid>? participantIds = null)
     {
         var state = new ChatGroupState();
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = _partyId,
-            Participants = participants ?? []
+            ParticipantIds = participantIds is null
+                ? new HashSet<Guid>()
+                : new HashSet<Guid>(participantIds)
         });
         return state;
     }
@@ -82,15 +87,17 @@ public class ChatGroupGrainTest
         var state = new ChatGroupState();
         Assert.False(state.Initialized);
 
+        var alice = Guid.NewGuid();
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = _partyId,
-            Participants = [new() { Id = Guid.NewGuid(), Name = "Alice" }]
+            ParticipantIds = new HashSet<Guid> { alice }
         });
 
         Assert.True(state.Initialized);
         Assert.Equal(_partyId, state.PartyId);
-        Assert.Single(state.Participants);
+        Assert.Single(state.ParticipantIds);
+        Assert.Contains(alice, state.ParticipantIds);
     }
 
     [Fact]
@@ -100,7 +107,7 @@ public class ChatGroupGrainTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = _partyId,
-            Participants = [],
+            ParticipantIds = new HashSet<Guid>(),
             Scenario = "Office of a stealth horticulture startup."
         });
 
@@ -110,15 +117,15 @@ public class ChatGroupGrainTest
     [Fact]
     public void Apply_ScenarioSetEvent_UpdatesOnlyScenario()
     {
-        var existingParticipant = new PartyParticipant { Id = Guid.NewGuid(), Name = "Alice" };
-        var state = NewState([existingParticipant]);
+        var existing = Guid.NewGuid();
+        var state = NewState([existing]);
         state.Apply(new ChatGroupScenarioSetEvent { Scenario = "After-hours bar." });
 
         Assert.Equal("After-hours bar.", state.Scenario);
         // Other state must be untouched.
         Assert.Equal(_partyId, state.PartyId);
-        Assert.Single(state.Participants);
-        Assert.Equal(existingParticipant.Id, state.Participants[0].Id);
+        Assert.Single(state.ParticipantIds);
+        Assert.Contains(existing, state.ParticipantIds);
     }
 
     [Fact]
@@ -339,26 +346,70 @@ public class ChatGroupGrainTest
     // ── Participants ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void Apply_ParticipantsSet_ReplacesEntireList()
+    public void Apply_ParticipantIdsSet_ReplacesEntireSet()
     {
-        var state = NewState(
-        [
-            new() { Id = Guid.NewGuid(), Name = "Alice" }
-        ]);
+        var aliceId = Guid.NewGuid();
+        var charlieId = Guid.NewGuid();
+        var danaId = Guid.NewGuid();
+        var state = NewState([aliceId]);
 
-        state.Apply(new ChatGroupParticipantsSetEvent
+        state.Apply(new ChatGroupParticipantIdsSetEvent
         {
-            Participants =
-            [
-                new() { Id = Guid.NewGuid(), Name = "Charlie" },
-                new() { Id = Guid.NewGuid(), Name = "Dana" },
-            ]
+            ParticipantIds = new HashSet<Guid> { charlieId, danaId }
         });
 
-        Assert.Equal(2, state.Participants.Count);
-        Assert.Contains(state.Participants, p => p.Name == "Charlie");
-        Assert.Contains(state.Participants, p => p.Name == "Dana");
-        Assert.DoesNotContain(state.Participants, p => p.Name == "Alice");
+        Assert.Equal(2, state.ParticipantIds.Count);
+        Assert.Contains(charlieId, state.ParticipantIds);
+        Assert.Contains(danaId, state.ParticipantIds);
+        Assert.DoesNotContain(aliceId, state.ParticipantIds);
+    }
+
+    [Fact]
+    public void Apply_DriverOverrideSet_AddsEntryToMap()
+    {
+        var personaId = Guid.NewGuid();
+        var state = NewState([personaId]);
+
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.User });
+
+        Assert.Single(state.DriverOverrides);
+        Assert.Equal(DriverKind.User, state.DriverOverrides[personaId]);
+    }
+
+    [Fact]
+    public void Apply_DriverOverrideSet_TwiceOnSamePersona_OverwritesValue()
+    {
+        var personaId = Guid.NewGuid();
+        var state = NewState([personaId]);
+
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.User });
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.LLM });
+
+        Assert.Equal(DriverKind.LLM, state.DriverOverrides[personaId]);
+    }
+
+    [Fact]
+    public void Apply_DriverOverrideCleared_RemovesEntry()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var state = NewState([a, b]);
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = a, Kind = DriverKind.User });
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = b, Kind = DriverKind.User });
+
+        state.Apply(new ChatGroupDriverOverrideClearedEvent { PersonaId = a });
+
+        Assert.Single(state.DriverOverrides);
+        Assert.False(state.DriverOverrides.ContainsKey(a));
+        Assert.Equal(DriverKind.User, state.DriverOverrides[b]);
+    }
+
+    [Fact]
+    public void Apply_DriverOverrideCleared_OnUnknownPersona_IsNoOp()
+    {
+        var state = NewState();
+        state.Apply(new ChatGroupDriverOverrideClearedEvent { PersonaId = Guid.NewGuid() });
+        Assert.Empty(state.DriverOverrides);
     }
 
     // ── User message ──────────────────────────────────────────────────────────

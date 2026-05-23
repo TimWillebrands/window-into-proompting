@@ -15,12 +15,8 @@ namespace BackendTest;
 /// </summary>
 public class UrgeMathTest
 {
-    private static GenerationParticipant MakeParticipant(string name, Guid? id = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        Name = name,
-        Bio = $"Test bio for {name}",
-    };
+    private static SelfView MakeParticipant(string name, Guid? id = null) =>
+        new(id ?? Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", null, 0.5, 0.5);
 
     private static ChatMessage UserMessage(Guid senderId, string content) => new()
     {

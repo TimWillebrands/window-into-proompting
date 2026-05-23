@@ -29,9 +29,9 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var partyId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var messageId = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
-        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
-        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
-        var userBob = new ParticipantSnapshot(Guid.NewGuid(), "Bob", IsUser: true);
+        var personaVlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
+        var personaHana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var userBob = new ParticipantView(Guid.NewGuid(), "Bob", Driver: DriverKind.User);
 
         var conceptDisplay = $"Lisp-{Guid.NewGuid():N}";
         var conceptName = conceptDisplay.ToLowerInvariant();
@@ -308,16 +308,16 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     }
 
     private async Task<(Guid partyId, Guid roomId, int messageId,
-        ParticipantSnapshot vlad, ParticipantSnapshot hana, ParticipantSnapshot userBob,
+        ParticipantView vlad, ParticipantView hana, ParticipantView userBob,
         string conceptName, string conceptDisplay,
         string snippetHana, string snippetVlad)> SeedFullCaptureAsync(string? conceptName = null, string? conceptDisplay = null)
     {
         var partyId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var messageId = unchecked((int)((DateTimeOffset.UtcNow.Ticks + Environment.TickCount) & 0x7FFFFFFF));
-        var vlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
-        var hana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
-        var userBob = new ParticipantSnapshot(Guid.NewGuid(), "Bob", IsUser: true);
+        var vlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var userBob = new ParticipantView(Guid.NewGuid(), "Bob", Driver: DriverKind.User);
 
         conceptDisplay ??= $"Lisp-{Guid.NewGuid():N}";
         conceptName ??= conceptDisplay.ToLowerInvariant();
@@ -383,7 +383,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
-            IReadOnlyList<ParticipantSnapshot> presentParticipants,
+            IReadOnlyList<ParticipantView> presentParticipants,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult<EventExtraction?>(null);
 
@@ -410,8 +410,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var partyId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var messageId = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
-        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
-        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
+        var personaHana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var personaVlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
 
         const string hanaSnippet = "you defended Lisp from Vlad's eye-roll";
         const string vladSnippet = "you watched Hana double down on Lisp after you cut in";
@@ -484,7 +484,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
-            IReadOnlyList<ParticipantSnapshot> presentParticipants,
+            IReadOnlyList<ParticipantView> presentParticipants,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult(extraction);
 

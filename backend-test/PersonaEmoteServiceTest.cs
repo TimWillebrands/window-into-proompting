@@ -25,13 +25,8 @@ namespace BackendTest;
 /// </summary>
 public class PersonaEmoteServiceTest
 {
-    private static GenerationParticipant MakeSelf() => new()
-    {
-        Id = Guid.NewGuid(),
-        Name = "Vlad",
-        Bio = "Reluctant philosopher",
-        Impulsivity = 0.3,
-    };
+    private static SelfView MakeSelf() =>
+        new(Guid.NewGuid(), "Vlad", DriverKind.LLM, "Reluctant philosopher", null, 0.5, 0.3);
 
     private static async IAsyncEnumerable<LlmGenerationEvent> SingleChunk(
         string data,

@@ -28,18 +28,20 @@ import type {
     CreateChatGroupRequest,
     CreatePartyRequest,
     DefaultPersonaTemplate,
+    DriverOverrideEntry,
     GetPartyIdChatGroupsChatGroupIdPapertrailParams,
     LlmModel,
     LlmProviderEntry,
     MemoryGraphDto,
     PartyDetails,
     PartyInfo,
-    PartyParticipant,
     Persona,
     ProblemDetails,
     ProceedRequest,
     PromptRequest,
     RepromptRequest,
+    UpdateChatGroupDriverOverridesRequest,
+    UpdateChatGroupParticipantIdsRequest,
     UpdateChatGroupScenarioRequest,
     UpdatePartyParticipantsRequest,
 } from './model';
@@ -2527,18 +2529,18 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
 };
 
 export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
-    data: PartyParticipant[];
+    data: string[];
     status: 200;
 };
 
 export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
     {
-        data: PartyParticipant[];
+        data: string[];
         status: 200;
     };
 
 export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
-    data: PartyParticipant[];
+    data: string[];
     status: 200;
 };
 
@@ -3001,18 +3003,18 @@ export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
 }
 
 export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
-    data: PartyParticipant[];
+    data: string[];
     status: 200;
 };
 
 export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
     {
-        data: PartyParticipant[];
+        data: string[];
         status: 200;
     };
 
 export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
-    data: PartyParticipant[];
+    data: string[];
     status: 200;
 };
 
@@ -3080,7 +3082,7 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsUrl = (
 export const putPartyIdChatGroupsChatGroupIdParticipants = async (
     id: string,
     chatGroupId: string,
-    updatePartyParticipantsRequest: UpdatePartyParticipantsRequest,
+    updateChatGroupParticipantIdsRequest: UpdateChatGroupParticipantIdsRequest,
     options?: RequestInit,
 ): Promise<putPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
     return customFetch<putPartyIdChatGroupsChatGroupIdParticipantsResponse>(
@@ -3092,7 +3094,7 @@ export const putPartyIdChatGroupsChatGroupIdParticipants = async (
                 'Content-Type': 'application/json',
                 ...options?.headers,
             },
-            body: JSON.stringify(updatePartyParticipantsRequest),
+            body: JSON.stringify(updateChatGroupParticipantIdsRequest),
         },
     );
 };
@@ -3107,7 +3109,7 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
         {
             id: string;
             chatGroupId: string;
-            data: UpdatePartyParticipantsRequest;
+            data: UpdateChatGroupParticipantIdsRequest;
         },
         TContext
     >;
@@ -3115,7 +3117,11 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
 }): UseMutationOptions<
     Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
     TError,
-    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    {
+        id: string;
+        chatGroupId: string;
+        data: UpdateChatGroupParticipantIdsRequest;
+    },
     TContext
 > => {
     const mutationKey = ['putPartyIdChatGroupsChatGroupIdParticipants'];
@@ -3132,7 +3138,7 @@ export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
         {
             id: string;
             chatGroupId: string;
-            data: UpdatePartyParticipantsRequest;
+            data: UpdateChatGroupParticipantIdsRequest;
         }
     > = (props) => {
         const { id, chatGroupId, data } = props ?? {};
@@ -3153,7 +3159,7 @@ export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationResult =
         Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>
     >;
 export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationBody =
-    UpdatePartyParticipantsRequest;
+    UpdateChatGroupParticipantIdsRequest;
 export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationError =
     ProblemDetails;
 
@@ -3170,7 +3176,7 @@ export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
             {
                 id: string;
                 chatGroupId: string;
-                data: UpdatePartyParticipantsRequest;
+                data: UpdateChatGroupParticipantIdsRequest;
             },
             TContext
         >;
@@ -3180,11 +3186,725 @@ export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
 ): UseMutationResult<
     Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
     TError,
-    { id: string; chatGroupId: string; data: UpdatePartyParticipantsRequest },
+    {
+        id: string;
+        chatGroupId: string;
+        data: UpdateChatGroupParticipantIdsRequest;
+    },
     TContext
 > => {
     return useMutation(
         getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess = (
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponseError = (
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse =
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess
+    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponseError;
+
+export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`;
+};
+
+export const getPartyIdChatGroupsChatGroupIdDriverOverrides = async (
+    id: string,
+    chatGroupId: string,
+    options?: RequestInit,
+): Promise<getPartyIdChatGroupsChatGroupIdDriverOverridesResponse> => {
+    return customFetch<getPartyIdChatGroupsChatGroupIdDriverOverridesResponse>(
+        getGetPartyIdChatGroupsChatGroupIdDriverOverridesUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return [
+        `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`,
+    ] as const;
+};
+
+export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey(
+            id,
+            chatGroupId,
+        );
+
+    const queryFn: QueryFunction<
+        Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >
+    > = ({ signal }) =>
+        getPartyIdChatGroupsChatGroupIdDriverOverrides(id, chatGroupId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!(id && chatGroupId),
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartyIdChatGroupsChatGroupIdDriverOverridesQueryResult =
+    NonNullable<
+        Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >
+    >;
+export type GetPartyIdChatGroupsChatGroupIdDriverOverridesQueryError =
+    ProblemDetails;
+
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryOptions(
+            id,
+            chatGroupId,
+            options,
+        );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryOptions =
+    <
+        TData = Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >,
+        TError = ProblemDetails,
+    >(
+        id: string,
+        chatGroupId: string,
+        options?: {
+            query?: Partial<
+                UseSuspenseQueryOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                        >
+                    >,
+                    TError,
+                    TData
+                >
+            >;
+            request?: SecondParameter<typeof customFetch>;
+        },
+    ) => {
+        const { query: queryOptions, request: requestOptions } = options ?? {};
+
+        const queryKey =
+            queryOptions?.queryKey ??
+            getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey(
+                id,
+                chatGroupId,
+            );
+
+        const queryFn: QueryFunction<
+            Awaited<
+                ReturnType<
+                    typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                >
+            >
+        > = ({ signal }) =>
+            getPartyIdChatGroupsChatGroupIdDriverOverrides(id, chatGroupId, {
+                signal,
+                ...requestOptions,
+            });
+
+        return {
+            queryKey,
+            queryFn,
+            ...queryOptions,
+        } as UseSuspenseQueryOptions<
+            Awaited<
+                ReturnType<
+                    typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                >
+            >,
+            TError,
+            TData
+        > & { queryKey: DataTag<QueryKey, TData, TError> };
+    };
+
+export type GetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryResult =
+    NonNullable<
+        Awaited<
+            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >
+    >;
+export type GetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryError =
+    ProblemDetails;
+
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
+    >,
+    TError = ProblemDetails,
+>(
+    id: string,
+    chatGroupId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryOptions(
+            id,
+            chatGroupId,
+            options,
+        );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson =
+    {
+        data: DriverOverrideEntry[];
+        status: 200;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess = (
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponseError = (
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextPlain
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextJson
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse =
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess
+    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponseError;
+
+export const getPutPartyIdChatGroupsChatGroupIdDriverOverridesUrl = (
+    id: string,
+    chatGroupId: string,
+) => {
+    return `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`;
+};
+
+export const putPartyIdChatGroupsChatGroupIdDriverOverrides = async (
+    id: string,
+    chatGroupId: string,
+    updateChatGroupDriverOverridesRequest: UpdateChatGroupDriverOverridesRequest,
+    options?: RequestInit,
+): Promise<putPartyIdChatGroupsChatGroupIdDriverOverridesResponse> => {
+    return customFetch<putPartyIdChatGroupsChatGroupIdDriverOverridesResponse>(
+        getPutPartyIdChatGroupsChatGroupIdDriverOverridesUrl(id, chatGroupId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(updateChatGroupDriverOverridesRequest),
+        },
+    );
+};
+
+export const getPutPartyIdChatGroupsChatGroupIdDriverOverridesMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
+                >
+            >,
+            TError,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdateChatGroupDriverOverridesRequest;
+            },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >,
+        TError,
+        {
+            id: string;
+            chatGroupId: string;
+            data: UpdateChatGroupDriverOverridesRequest;
+        },
+        TContext
+    > => {
+        const mutationKey = ['putPartyIdChatGroupsChatGroupIdDriverOverrides'];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
+                >
+            >,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdateChatGroupDriverOverridesRequest;
+            }
+        > = (props) => {
+            const { id, chatGroupId, data } = props ?? {};
+
+            return putPartyIdChatGroupsChatGroupIdDriverOverrides(
+                id,
+                chatGroupId,
+                data,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>
+        >
+    >;
+export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationBody =
+    UpdateChatGroupDriverOverridesRequest;
+export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationError =
+    ProblemDetails;
+
+export const usePutPartyIdChatGroupsChatGroupIdDriverOverrides = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
+                >
+            >,
+            TError,
+            {
+                id: string;
+                chatGroupId: string;
+                data: UpdateChatGroupDriverOverridesRequest;
+            },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>>,
+    TError,
+    {
+        id: string;
+        chatGroupId: string;
+        data: UpdateChatGroupDriverOverridesRequest;
+    },
+    TContext
+> => {
+    return useMutation(
+        getPutPartyIdChatGroupsChatGroupIdDriverOverridesMutationOptions(
+            options,
+        ),
         queryClient,
     );
 };

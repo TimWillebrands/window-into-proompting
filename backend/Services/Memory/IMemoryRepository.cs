@@ -23,8 +23,8 @@ public interface IMemoryRepository
     /// <param name="roomId">Room (legacy: ChatGroup) the Message was sent in.</param>
     /// <param name="messageId">The marked message inside <paramref name="recentContext"/>.</param>
     /// <param name="presentParticipants">
-    /// Cast present when the moment was marked. Non-user participants each get a Recollection
-    /// attempt; user-driven participants are skipped.
+    /// Cast present when the moment was marked. LLM-Effective participants each get a
+    /// Recollection attempt; User-Effective participants are skipped.
     /// </param>
     /// <param name="recentContext">
     /// The conversation slice the extractors see, ordered oldest-to-newest, and including
@@ -34,7 +34,7 @@ public interface IMemoryRepository
         Guid partyId,
         Guid roomId,
         int messageId,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
+        IReadOnlyList<ParticipantView> presentParticipants,
         IReadOnlyList<ChatMessage> recentContext,
         CancellationToken ct);
 

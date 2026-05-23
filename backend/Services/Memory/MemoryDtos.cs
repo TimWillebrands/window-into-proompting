@@ -1,13 +1,6 @@
 namespace PartyTown.Services.Memory;
 
 /// <summary>
-/// Minimal projection of a Participant as seen at capture time — id plus display name plus
-/// whether they are user-driven. Used by extractors to ground per-Persona snippets and by
-/// the repository to wire <c>RECOLLECTS</c> edges from non-user participants.
-/// </summary>
-public sealed record ParticipantSnapshot(Guid Id, string Name, bool IsUser);
-
-/// <summary>
 /// Concept tag produced by the event-describer extractor. <see cref="Name"/> is the
 /// normalised form used for <c>MERGE</c> deduplication; <see cref="Display"/> preserves
 /// the label as the LLM first surfaced it for UI rendering.
