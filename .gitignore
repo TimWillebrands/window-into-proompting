@@ -6,7 +6,7 @@
 
 # Dependencies
 frontend/node_modules
-frontend/pnpm-lock.yaml
+frontend/package-lock.json
 frontend/yarn.lock
 frontend/bun.lock
 

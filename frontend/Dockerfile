@@ -1,20 +1,18 @@
 FROM node:24.12.0-bookworm-slim AS build
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package-related files first to leverage Docker's caching mechanism
-COPY package.json package-lock.json* ./
+RUN npm install -g pnpm@10.8.0
 
-# Install project dependencies
-RUN npm install
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-# Copy the rest of the application source code into the container
+RUN pnpm install --frozen-lockfile
+
 COPY . .
 
-RUN npm run build
+RUN pnpm run build
 
-FROM node:24.12.0-bookworm-slim 
+FROM node:24.12.0-bookworm-slim
 
 WORKDIR /app
 
