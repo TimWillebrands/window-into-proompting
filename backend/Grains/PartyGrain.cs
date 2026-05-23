@@ -3,6 +3,7 @@ using Orleans.EventSourcing;
 using Orleans.Providers;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
 
 namespace PartyTown.Grains;
 
@@ -11,7 +12,9 @@ namespace PartyTown.Grains;
 // The Guid.Empty party is the default universe, auto-initialized on first use.
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
-public sealed class PartyGrain(ILogger<PartyGrain> logger)
+public sealed class PartyGrain(
+    IMemoryRepository memoryRepository,
+    ILogger<PartyGrain> logger)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
 {
     public override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -86,6 +89,21 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         // Register mapping so ChatGroupGrain can self-initialize on activation
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+
+        // Eagerly tag the AGE Room node with its owning party_id so the memory-graph
+        // debug viz (issue #58) can scope from Room {party_id} outward, and so empty
+        // Rooms with no Events still appear. Failures must not break Room creation —
+        // the memory schema is a downstream consumer, not a constraint.
+        try
+        {
+            await memoryRepository.EnsureRoomAsync(this.GetPrimaryKey(), chatGroup.Id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "EnsureRoomAsync failed for Room {RoomId} in Party {PartyId}; Room creation succeeded but the AGE node is untagged",
+                chatGroup.Id, this.GetPrimaryKey());
+        }
 
         return chatGroup;
     }

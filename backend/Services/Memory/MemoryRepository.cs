@@ -164,10 +164,13 @@ public sealed class MemoryRepository(
         Guid eventId, string description, string nowIso,
         CancellationToken ct)
     {
+        // Defensive SET room.party_id picks up Rooms that pre-date the eager EnsureRoomAsync
+        // path (issue #58). Idempotent — a Room created via EnsureRoom already has it.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MERGE (party:Party {id: '{{partyId}}'})
               MERGE (room:Room {id: '{{roomId}}'})
+              SET room.party_id = '{{partyId}}'
               MERGE (msg:Message {room_id: '{{roomId}}', id: {{messageId.ToString(CultureInfo.InvariantCulture)}}})
               CREATE (e:Event {event_id: '{{eventId}}', description: {{CypherStr(description)}}, created_at: '{{nowIso}}', anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}})
               CREATE (e)-[:ANCHORED_TO]->(msg)
@@ -175,6 +178,238 @@ public sealed class MemoryRepository(
             $cy$) AS (event_id ag_catalog.agtype)
             """;
         return ExecuteCypherAsync(db, sql, ct);
+    }
+
+    public async Task EnsureRoomAsync(Guid partyId, Guid roomId, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (room:Room {id: '{{roomId}}'})
+                  SET room.party_id = '{{partyId}}'
+                  RETURN room.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    public async Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+
+            var nodes = new Dictionary<string, MemoryGraphNode>(StringComparer.Ordinal);
+            var links = new HashSet<string>(StringComparer.Ordinal);
+            var orderedLinks = new List<MemoryGraphLink>();
+
+            void AddNode(MemoryGraphNode node)
+            {
+                if (!nodes.TryGetValue(node.Id, out var existing))
+                {
+                    nodes[node.Id] = node;
+                    return;
+                }
+                // Merge in any new non-null scalars (e.g. Event.description from one row,
+                // Concept.display from another) without churning the dedup key.
+                nodes[node.Id] = existing with
+                {
+                    Description = existing.Description ?? node.Description,
+                    Display = existing.Display ?? node.Display,
+                    CreatedAt = existing.CreatedAt ?? node.CreatedAt,
+                };
+            }
+
+            void AddLink(MemoryGraphLink link)
+            {
+                var key = $"{link.Source}\0{link.Target}\0{link.Kind}\0{link.Snippet}\0{link.Ts}";
+                if (links.Add(key))
+                {
+                    orderedLinks.Add(link);
+                }
+            }
+
+            // 1. Anchor: every Room in this Party becomes a node, even if it has no Events.
+            //    Without this branch a freshly-created Room would be invisible.
+            const string roomSqlTemplate = """
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (room:Room {party_id: '__PARTY__'})
+                  RETURN room.id
+                $cy$) AS (room_id text);
+                """;
+            var roomSql = roomSqlTemplate.Replace("__PARTY__", partyId.ToString());
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = roomSql;
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    if (reader.IsDBNull(0)) continue;
+                    var roomId = reader.GetString(0);
+                    AddNode(new MemoryGraphNode($"room:{roomId}", "Room"));
+                }
+            }
+
+            if (nodes.Count == 0)
+            {
+                return new MemoryGraphDto(Array.Empty<MemoryGraphNode>(), Array.Empty<MemoryGraphLink>());
+            }
+
+            // 2. Events anchored to a Message in an in-party Room, plus :ABOUT Concepts,
+            //    :ABOUT Participants, RECOLLECTS Participants and their Personas. Single
+            //    OPTIONAL-MATCH-driven Cypher; wide rows with nulls dedup'd above.
+            //    Projected scalars cast to text/int per the AGE agtype reader footgun.
+            const string graphSqlTemplate = """
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (room:Room {party_id: '__PARTY__'})
+                  MATCH (e:Event)-[:ANCHORED_TO]->(msg:Message)
+                  WHERE msg.room_id = room.id
+                  OPTIONAL MATCH (e)-[:ABOUT]->(c:Concept)
+                  OPTIONAL MATCH (e)-[:ABOUT]->(p_about:Participant {party_id: '__PARTY__'})
+                  OPTIONAL MATCH (persona_about:Persona)-[:HAS_PARTICIPANT]->(p_about)
+                  OPTIONAL MATCH (part:Participant {party_id: '__PARTY__'})-[rec:RECOLLECTS]->(e)
+                  OPTIONAL MATCH (persona_rec:Persona)-[:HAS_PARTICIPANT]->(part)
+                  RETURN room.id,
+                         msg.room_id, msg.id,
+                         e.event_id, e.description, e.created_at,
+                         c.name, c.display,
+                         p_about.persona_id,
+                         persona_about.id,
+                         part.persona_id,
+                         persona_rec.id,
+                         rec.snippet, rec.ts
+                $cy$) AS (
+                  room_id text,
+                  msg_room_id text, msg_id int,
+                  event_id text, event_description text, event_created_at text,
+                  concept_name text, concept_display text,
+                  p_about_persona_id text,
+                  persona_about_id text,
+                  part_persona_id text,
+                  persona_rec_id text,
+                  rec_snippet text, rec_ts text
+                );
+                """;
+            var graphSql = graphSqlTemplate.Replace("__PARTY__", partyId.ToString());
+
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = graphSql;
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                    var roomId = Get(0);
+                    var msgRoomId = Get(1);
+                    var msgId = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
+                    var eventId = Get(3);
+                    var eventDescription = Get(4);
+                    var eventCreatedAt = Get(5);
+                    var conceptName = Get(6);
+                    var conceptDisplay = Get(7);
+                    var pAboutPersonaId = Get(8);
+                    var personaAboutId = Get(9);
+                    var partPersonaId = Get(10);
+                    var personaRecId = Get(11);
+                    var recSnippet = Get(12);
+                    var recTs = Get(13);
+
+                    if (roomId is not null)
+                    {
+                        AddNode(new MemoryGraphNode($"room:{roomId}", "Room"));
+                    }
+
+                    string? messageNodeId = null;
+                    if (msgRoomId is not null && msgId is not null)
+                    {
+                        messageNodeId = $"msg:{msgRoomId}:{msgId.Value.ToString(CultureInfo.InvariantCulture)}";
+                        AddNode(new MemoryGraphNode(messageNodeId, "Message"));
+                    }
+
+                    string? eventNodeId = null;
+                    if (eventId is not null)
+                    {
+                        eventNodeId = $"event:{eventId}";
+                        AddNode(new MemoryGraphNode(
+                            eventNodeId, "Event",
+                            Description: eventDescription,
+                            CreatedAt: eventCreatedAt));
+
+                        if (messageNodeId is not null)
+                        {
+                            AddLink(new MemoryGraphLink(eventNodeId, messageNodeId, "ANCHORED_TO"));
+                        }
+                    }
+
+                    if (conceptName is not null)
+                    {
+                        var conceptNodeId = $"concept:{conceptName}";
+                        AddNode(new MemoryGraphNode(conceptNodeId, "Concept", Display: conceptDisplay));
+                        if (eventNodeId is not null)
+                        {
+                            AddLink(new MemoryGraphLink(eventNodeId, conceptNodeId, "ABOUT"));
+                        }
+                    }
+
+                    if (pAboutPersonaId is not null)
+                    {
+                        var aboutNodeId = $"part:{pAboutPersonaId}:{partyId}";
+                        AddNode(new MemoryGraphNode(aboutNodeId, "Participant"));
+                        if (eventNodeId is not null)
+                        {
+                            AddLink(new MemoryGraphLink(eventNodeId, aboutNodeId, "ABOUT"));
+                        }
+                        if (personaAboutId is not null)
+                        {
+                            var personaNodeId = $"persona:{personaAboutId}";
+                            AddNode(new MemoryGraphNode(personaNodeId, "Persona"));
+                            AddLink(new MemoryGraphLink(personaNodeId, aboutNodeId, "HAS_PARTICIPANT"));
+                        }
+                    }
+
+                    if (partPersonaId is not null)
+                    {
+                        var partNodeId = $"part:{partPersonaId}:{partyId}";
+                        AddNode(new MemoryGraphNode(partNodeId, "Participant"));
+                        if (eventNodeId is not null && recSnippet is not null)
+                        {
+                            AddLink(new MemoryGraphLink(
+                                partNodeId, eventNodeId, "RECOLLECTS",
+                                Snippet: recSnippet, Ts: recTs));
+                        }
+                        if (personaRecId is not null)
+                        {
+                            var personaNodeId = $"persona:{personaRecId}";
+                            AddNode(new MemoryGraphNode(personaNodeId, "Persona"));
+                            AddLink(new MemoryGraphLink(personaNodeId, partNodeId, "HAS_PARTICIPANT"));
+                        }
+                    }
+                }
+            }
+
+            return new MemoryGraphDto(
+                nodes.Values.ToList(),
+                orderedLinks);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
     }
 
     private static Task AddConceptEdgeAsync(AppDbContext db, Guid eventId, ConceptTag concept, CancellationToken ct)

@@ -3,6 +3,7 @@ import type {
     ChatGroupInfo,
     DefaultPersonaTemplate,
     LlmProviderEntry,
+    MemoryGraphDto,
     Persona,
 } from './model';
 
@@ -160,6 +161,78 @@ export const useDeletePersonaId = fn(() => noopMutationResult());
 export const useGetPartyIdChatGroupsSuspense = fn(() =>
     suspenseQueryResult({
         data: mockChatGroups,
+        status: 200,
+        headers: new Headers(),
+    }),
+);
+
+// Memory graph debug viz (issue #58). Hand-crafted dataset covering all six node kinds
+// and all four edge kinds so the MemoryGraphApp story exercises every code path in the
+// visual encoding without standing up Postgres+AGE.
+export const mockMemoryGraph: MemoryGraphDto = {
+    nodes: [
+        { id: 'room:cg-1', kind: 'Room' },
+        { id: 'msg:cg-1:42', kind: 'Message' },
+        { id: 'msg:cg-1:43', kind: 'Message' },
+        {
+            id: 'event:ev-1',
+            kind: 'Event',
+            description: 'Denise pitched a stealth horticulture demo.',
+            createdAt: '2026-05-10T10:00:00Z',
+        },
+        {
+            id: 'event:ev-2',
+            kind: 'Event',
+            description: 'Vlad reframed the standup as a kanban.',
+            createdAt: '2026-05-10T10:05:00Z',
+        },
+        { id: 'concept:horticulture', kind: 'Concept', display: 'Horticulture' },
+        { id: 'concept:kanban', kind: 'Concept', display: 'Kanban' },
+        { id: 'part:persona-1:00000000-0000-0000-0000-000000000000', kind: 'Participant' },
+        { id: 'part:persona-2:00000000-0000-0000-0000-000000000000', kind: 'Participant' },
+        { id: 'persona:persona-1', kind: 'Persona' },
+        { id: 'persona:persona-2', kind: 'Persona' },
+    ],
+    links: [
+        { source: 'event:ev-1', target: 'msg:cg-1:42', kind: 'ANCHORED_TO' },
+        { source: 'event:ev-2', target: 'msg:cg-1:43', kind: 'ANCHORED_TO' },
+        { source: 'event:ev-1', target: 'concept:horticulture', kind: 'ABOUT' },
+        { source: 'event:ev-2', target: 'concept:kanban', kind: 'ABOUT' },
+        {
+            source: 'event:ev-1',
+            target: 'part:persona-2:00000000-0000-0000-0000-000000000000',
+            kind: 'ABOUT',
+        },
+        {
+            source: 'part:persona-1:00000000-0000-0000-0000-000000000000',
+            target: 'event:ev-1',
+            kind: 'RECOLLECTS',
+            snippet: 'you pitched horticulture to a sceptical Vlad',
+            ts: '2026-05-10T10:00:01Z',
+        },
+        {
+            source: 'part:persona-2:00000000-0000-0000-0000-000000000000',
+            target: 'event:ev-2',
+            kind: 'RECOLLECTS',
+            snippet: "you turned Denise's pitch into a kanban",
+            ts: '2026-05-10T10:05:01Z',
+        },
+        {
+            source: 'persona:persona-1',
+            target: 'part:persona-1:00000000-0000-0000-0000-000000000000',
+            kind: 'HAS_PARTICIPANT',
+        },
+        {
+            source: 'persona:persona-2',
+            target: 'part:persona-2:00000000-0000-0000-0000-000000000000',
+            kind: 'HAS_PARTICIPANT',
+        },
+    ],
+};
+
+export const useGetPartiesPartyIdMemoryGraphSuspense = fn(() =>
+    suspenseQueryResult({
+        data: mockMemoryGraph,
         status: 200,
         headers: new Headers(),
     }),
