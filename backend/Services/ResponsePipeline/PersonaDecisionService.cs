@@ -38,9 +38,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// moments. Empty list = no block rendered.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
-        GenerationParticipant self,
+        SelfView self,
         IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<GenerationParticipant> participants,
+        IReadOnlyList<ParticipantView> participants,
         int totalAiRoundsInGroup,
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken,
@@ -241,8 +241,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     }
 
     private static string ShouldRespondSystemPrompt(
-        GenerationParticipant self,
-        IReadOnlyList<GenerationParticipant> participants,
+        SelfView self,
+        IReadOnlyList<ParticipantView> participants,
         string? scenario,
         RepairHint? repairHint,
         IReadOnlyList<string>? recollections)
@@ -273,7 +273,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 {{scenarioBlock}}
 # Other people in the room
 {{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
-    p.IsUser
+    p.Driver == DriverKind.User
         ? $"- {p.Name} (human)"
         : $"- {p.Name} (persona)"))}}
 {{recollectionsBlock}}{{repairBlock}}
@@ -312,7 +312,7 @@ is worse than letting the room breathe. Use judgement.
         IEnumerable<ChatMessageWithSenderName> messages,
         int totalAiRoundsInGroup,
         int recentSelfMessageCount,
-        GenerationParticipant self,
+        SelfView self,
         ResponseUrge urge)
     {
         var net = UrgeMath.CalculateNetPressure(urge, totalAiRoundsInGroup, recentSelfMessageCount);

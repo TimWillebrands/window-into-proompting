@@ -54,23 +54,19 @@ public class RaceTriggerTest
         Content = content,
     };
 
+    private static readonly Guid PartyId = Guid.NewGuid();
+
     /// <summary>
     /// Build a mocked <see cref="IChatGroupGrain"/> that:
-    ///   • returns a single non-self participant from GetParticipantsAsync (for sender-name resolution)
+    ///   • returns the test PartyId from GetPartyIdAsync (so the sender-name resolution path
+    ///     routes through PartyGrain.GetCastAsync)
     ///   • records every RecordRaceEvaluationAsync call into the provided outcomes list
     /// </summary>
     private static Mock<IChatGroupGrain> MakeChatGroup(
-        Guid otherParticipantId,
-        string otherParticipantName,
         List<(string outcome, double? salience, double? cancelScore)> outcomes)
     {
         var mock = new Mock<IChatGroupGrain>();
-        mock.Setup(g => g.GetParticipantsAsync())
-            .ReturnsAsync(new List<PartyParticipant>
-            {
-                new() { Id = PersonaId, Name = PersonaName, IsUser = false },
-                new() { Id = otherParticipantId, Name = otherParticipantName, IsUser = true },
-            });
+        mock.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(PartyId);
         mock.Setup(g => g.RecordRaceEvaluationAsync(
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
                 It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()))
@@ -85,13 +81,24 @@ public class RaceTriggerTest
 
     /// <summary>
     /// Build a fake grain factory whose <c>GetGrain&lt;ILlmRouterGrain&gt;(0, null)</c> returns
-    /// the supplied router mock. Other GetGrain overloads/types throw — only the salience
-    /// path needs the router, and we want surprises to be loud.
+    /// the supplied router mock and whose <c>GetGrain&lt;IPartyGrain&gt;(PartyId, null)</c>
+    /// returns a party grain mock with the test cast (used for sender-name resolution).
     /// </summary>
-    private static Mock<IGrainFactory> MakeGrainFactory(Mock<ILlmRouterGrain> router)
+    private static Mock<IGrainFactory> MakeGrainFactory(Mock<ILlmRouterGrain> router, Guid otherParticipantId, string otherParticipantName)
     {
+        var partyGrain = new Mock<IPartyGrain>();
+        partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
+        {
+            CastMember.Create(
+                new PartyParticipant { Id = PersonaId, Name = PersonaName, IsUser = false },
+                new Persona { Id = PersonaId, Name = PersonaName, SystemPrompt = "You are Vlad.", Bio = "Reluctant philosopher" }),
+            CastMember.Create(
+                new PartyParticipant { Id = otherParticipantId, Name = otherParticipantName, IsUser = true },
+                persona: null),
+        });
         var factory = new Mock<IGrainFactory>();
         factory.Setup(f => f.GetGrain<ILlmRouterGrain>(0L, null)).Returns(router.Object);
+        factory.Setup(f => f.GetGrain<IPartyGrain>(PartyId, null)).Returns(partyGrain.Object);
         return factory;
     }
 
@@ -136,9 +143,9 @@ public class RaceTriggerTest
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
-        var chatGroup = MakeChatGroup(senderId, "Mira", outcomes);
+        var chatGroup = MakeChatGroup(outcomes);
         var router = MakeRouterWithSalience("""{"salience":0.0,"kind":"irrelevant"}""");
-        var factory = MakeGrainFactory(router);
+        var factory = MakeGrainFactory(router, senderId, "Mira");
         var trigger = MakeTrigger(factory);
 
         // Act
@@ -171,9 +178,9 @@ public class RaceTriggerTest
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
-        var chatGroup = MakeChatGroup(senderId, "Mira", outcomes);
+        var chatGroup = MakeChatGroup(outcomes);
         var router = MakeRouterWithSalience("""{"salience":1.0,"kind":"contradict"}""");
-        var factory = MakeGrainFactory(router);
+        var factory = MakeGrainFactory(router, senderId, "Mira");
         var trigger = MakeTrigger(factory);
 
         // Act
@@ -207,9 +214,9 @@ public class RaceTriggerTest
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
-        var chatGroup = MakeChatGroup(senderId, "Mira", outcomes);
+        var chatGroup = MakeChatGroup(outcomes);
         var router = MakeRouterWithSalience("""{"salience":0.95,"kind":"contradict"}""");
-        var factory = MakeGrainFactory(router);
+        var factory = MakeGrainFactory(router, senderId, "Mira");
         var trigger = MakeTrigger(factory);
 
         // Act
@@ -240,9 +247,9 @@ public class RaceTriggerTest
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
-        var chatGroup = MakeChatGroup(senderId, "Mira", outcomes);
+        var chatGroup = MakeChatGroup(outcomes);
         var router = MakeRouterWithSalience("""{"salience":0.1,"kind":"tangent"}""");
-        var factory = MakeGrainFactory(router);
+        var factory = MakeGrainFactory(router, senderId, "Mira");
         var trigger = MakeTrigger(factory);
 
         // Act
@@ -275,12 +282,12 @@ public class RaceTriggerTest
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
-        var chatGroup = MakeChatGroup(senderId, "Mira", outcomes);
+        var chatGroup = MakeChatGroup(outcomes);
 
         var router = new Mock<ILlmRouterGrain>();
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("no CharacterThoughts provider"));
-        var factory = MakeGrainFactory(router);
+        var factory = MakeGrainFactory(router, senderId, "Mira");
         var trigger = MakeTrigger(factory);
 
         // Act

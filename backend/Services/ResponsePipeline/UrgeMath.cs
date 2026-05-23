@@ -17,7 +17,7 @@ public static class UrgeMath
     /// weighted chaos.
     /// </summary>
     public static ResponseUrge CalculateResponseUrge(
-        GenerationParticipant self,
+        SelfView self,
         IReadOnlyList<ChatMessage> history,
         int totalAiRoundsInGroup)
     {

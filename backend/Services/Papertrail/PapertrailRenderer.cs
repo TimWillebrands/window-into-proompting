@@ -23,7 +23,7 @@ public static class PapertrailRenderer
     public static PapertrailDocument Build(
         IReadOnlyList<ChatMessage> messages,
         IReadOnlyList<SkippedTurn> skippedTurns,
-        IReadOnlyList<PartyParticipant> participants,
+        IReadOnlyList<ParticipantView> participants,
         int? sinceMessageId = null)
     {
         var nameById = participants.ToDictionary(p => p.Id, p => p.Name);

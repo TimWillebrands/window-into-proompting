@@ -59,14 +59,14 @@ public class ResponsePipelineTest
     private static Fixture BuildFixture()
     {
         var store = new InFlightStore();
+        var partyId = Guid.NewGuid();
 
         var chatGroup = new Mock<IChatGroupGrain>();
-        chatGroup.Setup(g => g.GetParticipantsAsync())
-            .ReturnsAsync(new List<PartyParticipant>
-            {
-                new() { Id = PersonaId, Name = PersonaName, IsUser = false }
-            });
-        chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(Guid.NewGuid());
+        chatGroup.Setup(g => g.GetParticipantIdsAsync())
+            .ReturnsAsync((IReadOnlySet<Guid>)new HashSet<Guid> { PersonaId });
+        chatGroup.Setup(g => g.GetDriverOverridesAsync())
+            .ReturnsAsync((IReadOnlyDictionary<Guid, DriverKind>)new Dictionary<Guid, DriverKind>());
+        chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
         chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
         chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage>());
@@ -101,9 +101,18 @@ public class ResponsePipelineTest
             new() { Id = PersonaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null }
         });
 
+        var partyGrain = new Mock<IPartyGrain>();
+        partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
+        {
+            CastMember.Create(
+                new PartyParticipant { Id = PersonaId, Name = PersonaName, IsUser = false },
+                new Persona { Id = PersonaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
+        });
+
         var factory = new Mock<IGrainFactory>();
         factory.Setup(f => f.GetGrain<ILlmRouterGrain>(0L, null)).Returns(router.Object);
         factory.Setup(f => f.GetGrain<IPersonaRootGrain>(Guid.Empty, null)).Returns(personaRoot.Object);
+        factory.Setup(f => f.GetGrain<IPartyGrain>(partyId, null)).Returns(partyGrain.Object);
 
         var memoryRepo = new Mock<IMemoryRepository>();
         memoryRepo.Setup(m => m.RecallRecentSnippetsAsync(

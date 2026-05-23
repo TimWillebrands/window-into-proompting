@@ -15,5 +15,4 @@ export interface Persona {
     impulsivity?: number | string;
     id?: string;
     name?: string;
-    isUser?: boolean;
 }
