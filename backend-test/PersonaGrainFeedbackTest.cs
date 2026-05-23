@@ -8,6 +8,7 @@ using Orleans.TestKit;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Streaming;
 
 namespace BackendTest;
@@ -110,6 +111,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         // TestKit's auto-wired logger factory can produce loggers with null internals;
         // NullLoggerFactory is safe.
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
+        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
 
         // Router probe: routes all job complexities to the same fake endpoint
         endpoint.RegisterOn(Silo);
@@ -249,6 +251,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         personaRoot.Setup(g => g.GetAll()).ReturnsAsync(new Persona[] { new() { Id = _personaId, Name = PersonaName, SystemPrompt = "..." } });
 
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
+        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
 
         var router = Silo.AddProbe<ILlmRouterGrain>(0L);
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
@@ -318,6 +321,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         personaRoot.Setup(g => g.GetAll()).ReturnsAsync(new Persona[] { new() { Id = _personaId, Name = PersonaName, SystemPrompt = "..." } });
 
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
+        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
 
         var router = Silo.AddProbe<ILlmRouterGrain>(0L);
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
@@ -431,6 +435,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         personaRoot.Setup(g => g.GetAll()).ReturnsAsync(new Persona[] { new() { Id = _personaId, Name = PersonaName, SystemPrompt = "..." } });
 
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
+        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
 
         var router = Silo.AddProbe<ILlmRouterGrain>(0L);
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))

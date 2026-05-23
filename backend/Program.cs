@@ -5,6 +5,7 @@ using PartyTown.Data;
 using PartyTown.Logging;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
+using PartyTown.Services.ResponsePipeline;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
+builder.Services.AddSingleton<RaceTrigger>();
 
 if (!openApiBuild)
 {

@@ -21,17 +21,11 @@ public sealed class PersonaGrain(
     IPersistentState<Persona> state,
     ILoggerFactory loggerFactory,
     IMemoryRepository memoryRepository,
+    RaceTrigger raceTrigger,
     ILogger<PersonaGrain> logger)
     : Grain, IPersonaGrain
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
-
-    // Stop-signal race tunables. PNR is the absolute generated-token count past which an
-    // in-flight generation cannot be cancelled (only repaired on the next turn). Cancel
-    // threshold is the cancelScore above which the race elects to cancel.
-    // See plans/well-i-controll-henk-eventual-stearns.md for derivation.
-    private const int PnrTokens = 80;
-    private const double CancelThreshold = 0.5;
 
     private readonly InFlightStore _store = new();
 
@@ -130,7 +124,7 @@ public sealed class PersonaGrain(
         // group, decide cancel-vs-continue against the new message. Runs BEFORE the
         // pre-gate so the in-flight work is interrupted even when this persona would
         // ultimately skip the new message itself (correctness > saved compute).
-        await RunStopSignalRaceAsync(chatGroupId, triggeringMessage, persona, chatGroupGrain, ct);
+        await raceTrigger.EvaluateAsync(persona, chatGroupId, triggeringMessage, chatGroupGrain, _store, ct);
 
         // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
         // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
@@ -521,185 +515,6 @@ public sealed class PersonaGrain(
         }
 
         return result!;
-    }
-
-    /// <summary>
-    /// Stop-signal race: when a new message arrives, walk this persona's in-flight
-    /// generations in this chat group and decide cancel-vs-continue per generation.
-    ///   • Decision phase → always cancel (cheap; no public artifact yet).
-    ///   • Speaking phase past PNR → cannot cancel; record a repair hint for next turn.
-    ///   • Speaking phase pre-PNR → score salience via LFM2; cancel if cancelScore > 0.5,
-    ///     otherwise record a repair hint.
-    /// Salience or routing failures default to "let it ride" (no cancel, no repair) —
-    /// preserves current behavior rather than introducing a new failure surface.
-    /// </summary>
-    private async Task RunStopSignalRaceAsync(
-        Guid chatGroupId,
-        ChatMessage triggeringMessage,
-        Persona persona,
-        IChatGroupGrain chatGroupGrain,
-        CancellationToken ct)
-    {
-        var snapshot = _store.SnapshotForChatGroup(chatGroupId);
-
-        if (snapshot.Count == 0)
-            return;
-
-        string? senderName = null;
-        async Task<string> ResolveSenderNameAsync()
-        {
-            if (senderName is not null) return senderName;
-            try
-            {
-                var participants = await chatGroupGrain.GetParticipantsAsync();
-                senderName = participants.FirstOrDefault(p => p.Id == triggeringMessage.SenderId)?.Name
-                             ?? triggeringMessage.SenderId.ToString();
-            }
-            catch
-            {
-                senderName = triggeringMessage.SenderId.ToString();
-            }
-            return senderName;
-        }
-
-        foreach (var (inFlightMessageId, gen) in snapshot)
-        {
-            using var raceSpan = Tracing.Persona.StartActivity("persona.race", ActivityKind.Internal);
-            raceSpan?.SetTag("persona.id", this.GetPrimaryKey());
-            raceSpan?.SetTag("persona.name", persona.Name);
-            raceSpan?.SetTag("in_flight.message_id", inFlightMessageId);
-            raceSpan?.SetTag("triggered_by.message_id", triggeringMessage.MessageId);
-
-            var snap = gen.Snapshot();
-            raceSpan?.SetTag("in_flight.phase", snap.Phase.ToString());
-            raceSpan?.SetTag("in_flight.tokens", snap.GeneratedTokens);
-
-            if (snap.Phase == InFlightPhase.Decision)
-            {
-                raceSpan?.SetTag("race.outcome", "cancel-decision");
-                logger.LogInformation(
-                    "Race: persona {Name} cancelling in-flight DECISION (msg {Mid}) on new {NewMid}",
-                    persona.Name, inFlightMessageId, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
-                    triggeringMessage.Content ?? string.Empty,
-                    await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
-                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
-                    triggeringMessage.MessageId, "cancel-decision", null, null);
-                continue;
-            }
-
-            // Speaking phase
-            if (snap.GeneratedTokens >= PnrTokens)
-            {
-                // Past point of no return. Stash repair hint without burning a salience call —
-                // the message will ship regardless, and the next decision pass will see the
-                // hint and the new message in history.
-                raceSpan?.SetTag("race.outcome", "past-pnr");
-                _store.SetRepairHint(chatGroupId, new RepairHint(
-                    triggeringMessage.MessageId,
-                    await ResolveSenderNameAsync(),
-                    triggeringMessage.Content ?? string.Empty));
-                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
-                    triggeringMessage.MessageId, "past-pnr", null, null);
-                continue;
-            }
-
-            // Pre-PNR: race
-            SalienceScore salience;
-            try
-            {
-                var salienceService = new PersonaSalienceService(
-                    GrainFactory.GetGrain<ILlmRouterGrain>(0),
-                    loggerFactory.CreateLogger<PersonaSalienceService>());
-                var selfParticipant = new GenerationParticipant
-                {
-                    Id = this.GetPrimaryKey(),
-                    Name = persona.Name,
-                    Bio = persona.Bio,
-                    SystemPrompt = persona.SystemPrompt,
-                    IsUser = false,
-                    Chattiness = persona.Chattiness,
-                    Impulsivity = persona.Impulsivity
-                };
-                salience = await salienceService.ScoreAsync(
-                    selfParticipant,
-                    snap.GutReaction,
-                    snap.WouldSayPreview,
-                    snap.GeneratedText,
-                    triggeringMessage,
-                    await ResolveSenderNameAsync(),
-                    ct);
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Race salience call failed for persona {Name}", persona.Name);
-                salience = SalienceScore.LetItRide;
-            }
-
-            var commitmentProgress = Math.Min(1.0, snap.GeneratedTokens / (double)PnrTokens);
-            var cancelScore = salience.Value * (1.0 - persona.Impulsivity) * (1.0 - commitmentProgress);
-
-            raceSpan?.SetTag("race.salience", salience.Value);
-            raceSpan?.SetTag("race.salience.kind", salience.Kind);
-            raceSpan?.SetTag("race.impulsivity", persona.Impulsivity);
-            raceSpan?.SetTag("race.commitment_progress", commitmentProgress);
-            raceSpan?.SetTag("race.cancel_score", cancelScore);
-
-            if (cancelScore > CancelThreshold)
-            {
-                raceSpan?.SetTag("race.outcome", "cancel-generation");
-                logger.LogInformation(
-                    "Race: persona {Name} cancelling in-flight GENERATION (msg {Mid}, tokens {Tok}, salience {Sal:F2}, cancelScore {Cs:F2}) on new {NewMid}",
-                    persona.Name, inFlightMessageId, snap.GeneratedTokens, salience.Value, cancelScore, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
-                    triggeringMessage.Content ?? string.Empty,
-                    await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
-                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
-                    triggeringMessage.MessageId, "cancel-generation", salience.Value, cancelScore);
-            }
-            else
-            {
-                raceSpan?.SetTag("race.outcome", "continue");
-                _store.SetRepairHint(chatGroupId, new RepairHint(
-                    triggeringMessage.MessageId,
-                    await ResolveSenderNameAsync(),
-                    triggeringMessage.Content ?? string.Empty));
-                await RecordRaceOutcomeAsync(chatGroupGrain, persona,
-                    triggeringMessage.MessageId, "continue", salience.Value, cancelScore);
-            }
-        }
-    }
-
-    /// <summary>Persist a race outcome to the chat group's thought-log papertrail. Wraps
-    /// the call so a transient persistence failure can't bring down the race itself —
-    /// the cancel/continue decision has already been applied by this point.</summary>
-    private async Task RecordRaceOutcomeAsync(
-        IChatGroupGrain chatGroupGrain,
-        Persona persona,
-        int triggeredByMessageId,
-        string outcome,
-        double? salience,
-        double? cancelScore)
-    {
-        try
-        {
-            await chatGroupGrain.RecordRaceEvaluationAsync(
-                this.GetPrimaryKey(),
-                persona.Name ?? string.Empty,
-                triggeredByMessageId,
-                outcome,
-                salience,
-                cancelScore);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex,
-                "Failed to record race outcome {Outcome} for persona {PersonaName}",
-                outcome, persona.Name);
-        }
     }
 
     private static Task NotifyStreamAsync(

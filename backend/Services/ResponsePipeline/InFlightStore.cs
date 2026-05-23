@@ -10,7 +10,7 @@ namespace PartyTown.Services.ResponsePipeline;
 /// loop also acquire the lock so concurrent reads see coherent (gut, preview, text,
 /// tokens) tuples.
 /// </summary>
-internal sealed class InFlightGeneration(CancellationTokenSource cts)
+public sealed class InFlightGeneration(CancellationTokenSource cts)
 {
     // Char-to-token approximation (~4 chars per token, English-leaning). Crude but stable
     // — the race math only needs this for "are we past PNR yet?" not exact accounting.
@@ -91,9 +91,9 @@ internal sealed class InFlightGeneration(CancellationTokenSource cts)
     }
 }
 
-internal enum InFlightPhase { Decision, Speaking }
+public enum InFlightPhase { Decision, Speaking }
 
-internal readonly record struct InFlightSnapshot(
+public readonly record struct InFlightSnapshot(
     InFlightPhase Phase,
     string GutReaction,
     string WouldSayPreview,
@@ -107,7 +107,7 @@ internal readonly record struct InFlightSnapshot(
 /// Per-PersonaGrain in-flight generation tracker. One instance per activation.
 /// Thread-safe — ConcurrentDictionary operations are lock-free for readers.
 /// </summary>
-internal sealed class InFlightStore
+public sealed class InFlightStore
 {
     // Keyed per *generation* (chatGroupId, messageId), not per chat group. Earlier
     // (per-chat-group) keying caused message N+1 to cancel message N's still-running
