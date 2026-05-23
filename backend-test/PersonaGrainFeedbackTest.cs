@@ -122,7 +122,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         // CancelGenerationAsync against an in-flight NotifyMessageAsync we need to leave
         // the test's awaiter free, so the grain proxy's continuation can fire while we
         // sit on startedSpeaking. Task.Run hops to the threadpool for that.
-        _ = Task.Run(async () =>
+        var cancelTask = Task.Run(async () =>
         {
             await startedSpeaking.Task.ConfigureAwait(false);
             await grain.CancelGenerationAsync().ConfigureAwait(false);
@@ -130,6 +130,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
 
         await grain.NotifyMessageAsync(_chatGroupId, triggering, CancellationToken.None)
             .WaitAsync(TimeSpan.FromSeconds(15));
+        await cancelTask.WaitAsync(TimeSpan.FromSeconds(15));
 
         // Assert: pipeline's external-cancel branch ran — no terminal write, no emote,
         // MarkGenerationFailedAsync called with "cancelled".

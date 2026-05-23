@@ -141,6 +141,10 @@ public sealed class ResponsePipeline(
             {
                 recollections = await memoryRepository.RecallRecentSnippetsAsync(persona.Id, partyId, limit: 10, linkedCt);
             }
+            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 logger.LogWarning(ex,
@@ -400,6 +404,24 @@ public sealed class ResponsePipeline(
         return result!;
     }
 
+    /// <summary>
+    /// Mirrors <see cref="IChatGroupGrain.CountTrailingAssistantMessagesAsync"/> against an
+    /// in-hand history snapshot. Skips empty-content stubs (reserved slots) and stops at the
+    /// first non-assistant message.
+    /// </summary>
+    private static int CountTrailingAssistantMessages(IReadOnlyList<ChatMessage> history)
+    {
+        var count = 0;
+        for (var i = history.Count - 1; i >= 0; i--)
+        {
+            var msg = history[i];
+            if (msg.SenderType != "assistant") break;
+            if (string.IsNullOrEmpty(msg.Content)) continue;
+            count++;
+        }
+        return count;
+    }
+
     private static List<GenerationParticipant> BuildDecisionParticipants(
         IReadOnlyList<PartyParticipant> participants,
         Guid personaId,
@@ -429,7 +451,10 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
-        var totalAiRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
+        // Derive from the same snapshot as `history` so the decision sees a consistent
+        // view — re-reading live grain state here could count a sibling persona's append
+        // that isn't in `history`.
+        var totalAiRounds = CountTrailingAssistantMessages(history);
 
         return await decisionService.ShouldRespondAsync(
             self,

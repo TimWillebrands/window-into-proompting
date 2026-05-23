@@ -150,7 +150,14 @@ public class ResponsePipelineTest
 
         var idx = 0;
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => endpoints[Math.Min(idx++, endpoints.Count - 1)]);
+            .ReturnsAsync(() =>
+            {
+                var next = Interlocked.Increment(ref idx) - 1;
+                if (next >= endpoints.Count)
+                    throw new Xunit.Sdk.XunitException(
+                        $"Unexpected extra RouteAsync call (#{next + 1}) — scripted only {endpoints.Count}.");
+                return endpoints[next];
+            });
     }
 
     private static async IAsyncEnumerable<LlmGenerationEvent> StreamChunks(
