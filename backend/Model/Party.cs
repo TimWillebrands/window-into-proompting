@@ -80,6 +80,30 @@ public sealed record class UpdatePartyParticipantsRequest
     public List<PartyParticipant> Participants { get; set; } = [];
 }
 
+/// <summary>
+/// Replace the Room's membership (Personas present in this Room). Driver lives on the
+/// Participant (Party scope) or in the Room's Driver override map — not here.
+/// </summary>
+public sealed record class UpdateChatGroupParticipantIdsRequest
+{
+    public List<Guid> ParticipantIds { get; set; } = [];
+}
+
+/// <summary>
+/// Replace the Room's Driver override map wholesale. Each entry says
+/// "in this Room, Persona X is driven by Y". Empty list clears all overrides.
+/// </summary>
+public sealed record class UpdateChatGroupDriverOverridesRequest
+{
+    public List<DriverOverrideEntry> Overrides { get; set; } = [];
+}
+
+public sealed record class DriverOverrideEntry
+{
+    public Guid PersonaId { get; set; }
+    public DriverKind Kind { get; set; }
+}
+
 public sealed record class PromptRequest
 {
     public Guid ChatGroupId { get; set; }

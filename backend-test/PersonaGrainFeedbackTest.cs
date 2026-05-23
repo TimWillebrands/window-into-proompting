@@ -84,12 +84,19 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .ReturnsAsync(() => ++msgIdSeq);
         chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
-        chatGroup.Setup(g => g.GetParticipantsAsync()).ReturnsAsync(new List<PartyParticipant>
-        {
-            new() { Id = _personaId, Name = PersonaName, IsUser = false }
-        });
-        chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(Guid.NewGuid());
+        var partyId = Guid.NewGuid();
+        chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
+        chatGroup.Setup(g => g.GetDriverOverridesAsync())
+            .ReturnsAsync((IReadOnlyDictionary<Guid, DriverKind>)new Dictionary<Guid, DriverKind>());
         chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
+
+        var partyGrain = Silo.AddProbe<IPartyGrain>(partyId);
+        partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
+        {
+            CastMember.Create(
+                new PartyParticipant { Id = _personaId, Name = PersonaName, IsUser = false },
+                new Persona { Id = _personaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
+        });
         // Two prior assistant rounds → no cold-open bump. Stays under the obvious-skip
         // threshold too (no recent self-messages).
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(2);

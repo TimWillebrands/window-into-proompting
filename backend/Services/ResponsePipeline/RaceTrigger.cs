@@ -48,8 +48,9 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
             if (senderName is not null) return senderName;
             try
             {
-                var participants = await chatGroupGrain.GetParticipantsAsync();
-                senderName = participants.FirstOrDefault(p => p.Id == triggeringMessage.SenderId)?.Name
+                var partyId = await chatGroupGrain.GetPartyIdAsync();
+                var cast = await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+                senderName = cast.FirstOrDefault(c => c.Id == triggeringMessage.SenderId)?.Name
                              ?? triggeringMessage.SenderId.ToString();
             }
             catch
@@ -109,18 +110,12 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
                 var salienceService = new PersonaSalienceService(
                     grainFactory.GetGrain<ILlmRouterGrain>(0),
                     loggerFactory.CreateLogger<PersonaSalienceService>());
-                var selfParticipant = new GenerationParticipant
-                {
-                    Id = persona.Id,
-                    Name = persona.Name,
-                    Bio = persona.Bio,
-                    SystemPrompt = persona.SystemPrompt,
-                    IsUser = false,
-                    Chattiness = persona.Chattiness,
-                    Impulsivity = persona.Impulsivity
-                };
+                var selfView = new SelfView(
+                    persona.Id, persona.Name, DriverKind.LLM,
+                    persona.Bio, persona.SystemPrompt,
+                    persona.Chattiness, persona.Impulsivity);
                 salience = await salienceService.ScoreAsync(
-                    selfParticipant,
+                    selfView,
                     snap.GutReaction,
                     snap.WouldSayPreview,
                     snap.GeneratedText,

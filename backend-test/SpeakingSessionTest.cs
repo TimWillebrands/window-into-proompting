@@ -29,13 +29,10 @@ public class SpeakingSessionTest
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static GenerationParticipant MakeParticipant(string name) => new()
-    {
-        Id = Guid.NewGuid(),
-        Name = name,
-        Bio = $"Test bio for {name}",
-        SystemPrompt = $"You are {name}.",
-    };
+    private static SelfView MakeParticipant(string name) =>
+        new(Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", $"You are {name}.", 0.5, 0.5);
+
+    private static ParticipantView AsView(SelfView s) => new(s.Id, s.Name, s.Driver);
 
     /// <summary>
     /// Builds a mocked router that routes to the given endpoint grain mock.
@@ -91,7 +88,7 @@ public class SpeakingSessionTest
 
         var endpoint = EndpointWith(chunks);
         var persona = MakeParticipant("Alice");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         var result = await session.GenerateResponseOnlyAsync(
             persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
@@ -116,7 +113,7 @@ public class SpeakingSessionTest
 
         var endpoint = EndpointWith(chunks);
         var persona = MakeParticipant("Bob");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         var events = new List<(string type, string data, bool done)>();
         await session.GenerateResponseOnlyAsync(
@@ -139,7 +136,7 @@ public class SpeakingSessionTest
         // downstream clients can close their generation subscription.
         var endpoint = EndpointWith([]);
         var persona = MakeParticipant("Charlie");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         var events = new List<(string type, string data, bool done)>();
         var result = await session.GenerateResponseOnlyAsync(
@@ -168,7 +165,7 @@ public class SpeakingSessionTest
             new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "unreachable"),
         ]);
         var persona = MakeParticipant("Dana");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         var events = new List<(string, string, bool)>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
@@ -194,7 +191,7 @@ public class SpeakingSessionTest
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => TwoChunksThenCancel(cts, ct));
 
         var persona = MakeParticipant("Eve");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         var events = new List<(string, string, bool)>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
@@ -244,7 +241,7 @@ public class SpeakingSessionTest
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -264,7 +261,7 @@ public class SpeakingSessionTest
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -282,7 +279,7 @@ public class SpeakingSessionTest
         // empty heading that confuses the model.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -305,7 +302,7 @@ public class SpeakingSessionTest
         // system prompt — the last thing the model sees before the conversation history.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -334,7 +331,7 @@ public class SpeakingSessionTest
         // heading that would otherwise invite confabulation.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -354,7 +351,7 @@ public class SpeakingSessionTest
         // Same as null — a whitespace-only memory string must not produce an empty heading.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, [persona]);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
 
         await session.GenerateResponseOnlyAsync(
             persona, [],
@@ -381,7 +378,7 @@ public class SpeakingSessionTest
             .ThrowsAsync(new InvalidOperationException("no endpoints available"));
 
         var persona = MakeParticipant("Frank");
-        var session = new SpeakingSession(router.Object, [persona]);
+        var session = new SpeakingSession(router.Object, new ParticipantView[] { AsView(persona) });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             session.GenerateResponseOnlyAsync(

@@ -39,6 +39,37 @@ public sealed class ResponsePipeline(
         if (triggeringMessage.SenderId == persona.Id)
             return;
 
+        // Self-as-User short-circuits here — the User-Effective rule lives in exactly one
+        // place rather than at every fan-out site (per ADR 0011).
+        var partyId = await chatGroupGrain.GetPartyIdAsync();
+        var partyGrain = grainFactory.GetGrain<IPartyGrain>(partyId);
+        var castTask = partyGrain.GetCastAsync();
+        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
+        await Task.WhenAll(castTask, overridesTask);
+        var cast = castTask.Result;
+        var overrides = overridesTask.Result;
+
+        var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
+        if (selfCast is null)
+        {
+            logger.LogDebug(
+                "Persona {PersonaName} not in cast for party {PartyId}; skipping notify",
+                persona.Name, partyId);
+            return;
+        }
+
+        var selfEffective = selfCast.EffectiveIn(overrides);
+        if (selfEffective == DriverKind.User)
+        {
+            logger.LogDebug(
+                "Persona {PersonaName} is User-Effective in chat group {ChatGroupId}; skipping pipeline",
+                persona.Name, chatGroupId);
+            return;
+        }
+
+        var self = selfCast.ToSelfView(selfEffective);
+        var participantViews = cast.Select(c => c.ToView(c.EffectiveIn(overrides))).ToList();
+
         // One root span per persona per triggering message. The fan-out at ChatGroupGrain
         // does NOT wrap these in a parent span on purpose — each persona reaction is an
         // independent root so the Aspire timeline shows them as siblings, mirroring reality.
@@ -57,17 +88,6 @@ public sealed class ResponsePipeline(
         // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
         var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
-
-        var self = new GenerationParticipant
-        {
-            Id = persona.Id,
-            Name = persona.Name,
-            Bio = persona.Bio,
-            SystemPrompt = persona.SystemPrompt,
-            IsUser = false,
-            Chattiness = persona.Chattiness,
-            Impulsivity = persona.Impulsivity
-        };
 
         var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds);
         var preRecentSelf = UrgeMath.CountRecentSelfMessages(preHistory, persona.Id);
@@ -117,10 +137,11 @@ public sealed class ResponsePipeline(
             // Taking the snapshot at `messageId` includes any messages other personas
             // committed between our slot reservation and our read.
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
-            var participants = await chatGroupGrain.GetParticipantsAsync();
             var scenario = await chatGroupGrain.GetScenarioAsync();
 
-            var decisionParticipants = BuildDecisionParticipants(participants, persona.Id, self);
+            // Info-isolation is a property of ParticipantView (identity + Driver only),
+            // not a runtime contract — same roster is safe for both Decision and Speaking.
+            var decisionParticipants = participantViews;
 
             await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                 MessageStreamEvent.PersonaEvaluatingResponse, persona.Id.ToString(), false);
@@ -135,7 +156,6 @@ public sealed class ResponsePipeline(
             // to the Party (cross-Room within one Party). The decision LLM judges relevance
             // in context. Recall failure is non-fatal — log + continue with an empty list so
             // a memory outage never blocks the persona from responding.
-            var partyId = await chatGroupGrain.GetPartyIdAsync();
             IReadOnlyList<string> recollections;
             try
             {
@@ -201,12 +221,11 @@ public sealed class ResponsePipeline(
             // sees it as Speaking phase and has the gut/preview to feed salience.
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
-            var fullParticipants = await BuildGenerationParticipantsAsync(participants, persona.Id);
             // decision.MemoryToReference is the recollection the decision LLM picked to weave
             // into this beat (null when nothing fit). Passing it as a dedicated argument keeps
             // the contract explicit: decision phase selects, speaking phase executes.
             var result = await RunSpeakingPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, fullParticipants, history,
+                chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 decision.Instruction, scenario, decision.MemoryToReference, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
@@ -252,20 +271,10 @@ public sealed class ResponsePipeline(
                     var emoteService = new PersonaEmoteService(
                         grainFactory.GetGrain<ILlmRouterGrain>(0),
                         loggerFactory.CreateLogger<PersonaEmoteService>());
-                    var selfForEmote = new GenerationParticipant
-                    {
-                        Id = persona.Id,
-                        Name = persona.Name,
-                        Bio = persona.Bio,
-                        SystemPrompt = persona.SystemPrompt,
-                        IsUser = false,
-                        Chattiness = persona.Chattiness,
-                        Impulsivity = persona.Impulsivity
-                    };
                     // Use the parent ct (not linkedCt — linked is already cancelled by the race).
                     // Stale draft, the race already paid the cost — we still want the emote.
                     emote = await emoteService.GenerateAbandonmentEmoteAsync(
-                        selfForEmote,
+                        self,
                         snap.GeneratedText,
                         snap.InterruptingMessage,
                         snap.InterruptingSenderName,
@@ -314,34 +323,12 @@ public sealed class ResponsePipeline(
         }
     }
 
-    private async Task<List<GenerationParticipant>> BuildGenerationParticipantsAsync(
-        IReadOnlyList<PartyParticipant> participants,
-        Guid personaId)
-    {
-        var personaRoot = grainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
-        var allPersonas = await personaRoot.GetAll();
-        var personaMap = allPersonas.ToDictionary(p => p.Id, p => p);
-
-        return participants.Select(p =>
-        {
-            if (p.IsUser)
-            {
-                // SystemPrompt left null for users: IsUser carries the distinction, and a literal
-                // marker string risked leaking into concatenated prompts downstream.
-                return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = true, SystemPrompt = null, Bio = null };
-            }
-            if (personaMap.TryGetValue(p.Id, out var pm))
-                return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, IsUser = false };
-            return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
-        }).ToList();
-    }
-
     private async Task<SpeakingResult> RunSpeakingPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
         int messageId,
-        GenerationParticipant self,
-        List<GenerationParticipant> fullParticipants,
+        SelfView self,
+        IReadOnlyList<ParticipantView> fullParticipants,
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
         string? scenario,
@@ -422,28 +409,13 @@ public sealed class ResponsePipeline(
         return count;
     }
 
-    private static List<GenerationParticipant> BuildDecisionParticipants(
-        IReadOnlyList<PartyParticipant> participants,
-        Guid personaId,
-        GenerationParticipant self)
-        => participants.Select(p => p.Id == personaId
-            ? self
-            : new GenerationParticipant
-            {
-                Id = p.Id,
-                Name = p.Name,
-                IsUser = p.IsUser,
-                Bio = null,
-                SystemPrompt = null
-            }).ToList();
-
     private async Task<ShouldRespondResult> RunDecisionPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
         int messageId,
-        GenerationParticipant self,
+        SelfView self,
         IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<GenerationParticipant> participants,
+        IReadOnlyList<ParticipantView> participants,
         string? scenario,
         IReadOnlyList<string> recollections,
         CancellationToken ct,

@@ -140,6 +140,17 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         await Task.WhenAll(tasks);
     }
 
+    public async Task<IReadOnlyList<CastMember>> GetCastAsync()
+    {
+        var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+        var library = await personaRoot.GetAll();
+        var byId = library.ToDictionary(p => p.Id, p => p);
+
+        return State.Participants
+            .Select(link => CastMember.Create(link, byId.GetValueOrDefault(link.Id)))
+            .ToList();
+    }
+
     public async Task DeleteParty()
     {
         RaiseEvent(new PartyDeletedEvent());
@@ -175,6 +186,16 @@ public interface IPartyGrain : IGrainWithGuidKey
 
     [Alias("CancelAllGenerations")]
     Task CancelAllGenerations(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Build the canonical CastMember list for one pipeline run by joining the Party's
+    /// PartyParticipant links against the Persona library. Result lives in process memory;
+    /// not persisted. Consumers project to ParticipantView / SelfView before passing to
+    /// Decision / Speaking / Memory phases.
+    /// </summary>
+    [AlwaysInterleave]
+    [Alias("GetCastAsync")]
+    Task<IReadOnlyList<CastMember>> GetCastAsync();
 
     [Alias("DeleteParty")]
     Task DeleteParty();

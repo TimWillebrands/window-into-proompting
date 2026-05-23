@@ -5,7 +5,6 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface PersonaMetadata {
-    id?: string;
-    name?: string;
+export interface UpdateChatGroupParticipantIdsRequest {
+    participantIds?: string[];
 }
