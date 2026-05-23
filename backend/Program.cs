@@ -43,6 +43,7 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 builder.Services.AddSingleton<RaceTrigger>();
+builder.Services.AddSingleton<ResponsePipeline>();
 
 if (!openApiBuild)
 {

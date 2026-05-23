@@ -1,10 +1,14 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Orleans.Hosting;
 using Orleans.Runtime;
 using Orleans.TestingHost;
 using PartyTown.Grains;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
+using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest.Infrastructure;
 
@@ -71,6 +75,25 @@ public sealed class ChatGroupClusterFixture : IAsyncLifetime
                 .AddMemoryStreams("party-streams");
 
             siloBuilder.AddIncomingGrainCallFilter<FanoutInterceptor>();
+
+            // PersonaGrain pulls RaceTrigger + ResponsePipeline + IMemoryRepository
+            // through DI on activation. FanoutInterceptor short-circuits the grain
+            // call but only AFTER activation — so the ctor still has to resolve.
+            // No real LLM or memory traffic happens here because the filter returns
+            // before the grain body runs; these are pure activation enablers.
+            siloBuilder.ConfigureServices(services =>
+            {
+                services.AddSingleton<RaceTrigger>();
+                services.AddSingleton<ResponsePipeline>();
+                services.AddSingleton<IMemoryRepository>(_ =>
+                {
+                    var mock = new Mock<IMemoryRepository>();
+                    mock.Setup(m => m.RecallRecentSnippetsAsync(
+                            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(Array.Empty<string>());
+                    return mock.Object;
+                });
+            });
         }
     }
 }
