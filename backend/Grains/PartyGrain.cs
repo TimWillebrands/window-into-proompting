@@ -90,10 +90,9 @@ public sealed class PartyGrain(
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
 
-        // Eagerly tag the AGE Room node with its owning party_id so the memory-graph
-        // debug viz (issue #58) can scope from Room {party_id} outward, and so empty
-        // Rooms with no Events still appear. Failures must not break Room creation —
-        // the memory schema is a downstream consumer, not a constraint.
+        // Eagerly tag the AGE Room node with party_id so the memory-graph debug viz can
+        // scope from Room {party_id} outward and empty Rooms still appear. Failures must
+        // not break Room creation — memory is a downstream consumer, not a constraint.
         try
         {
             await memoryRepository.EnsureRoomAsync(this.GetPrimaryKey(), chatGroup.Id, CancellationToken.None);

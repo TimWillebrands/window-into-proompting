@@ -6,27 +6,23 @@ export type MemoryNodeKind =
     | 'Event'
     | 'Concept'
     | 'Participant'
-    | 'Persona'
-    | string;
+    | 'Persona';
 
 export type MemoryEdgeKind =
     | 'RECOLLECTS'
     | 'ABOUT'
     | 'ANCHORED_TO'
-    | 'HAS_PARTICIPANT'
-    | string;
+    | 'HAS_PARTICIPANT';
 
 export interface MemoryGraphData {
     nodes: MemoryGraphNode[];
     links: MemoryGraphLink[];
 }
 
-// React-force-graph mutates the node objects it renders (adds x/y/vx/vy fields).
-// Keep our enriched node shape distinct from the wire DTO so consumers never accidentally
-// send rendering state back to the backend.
+// react-force-graph mutates rendered node objects (x/y/vx/vy). Keep the enriched shape
+// distinct from the wire DTO so rendering state never round-trips back to the backend.
 export interface EnrichedMemoryNode extends MemoryGraphNode {
     label: string;
-    authorName?: string;
 }
 
 export interface EnrichedMemoryGraph {
@@ -37,5 +33,4 @@ export interface EnrichedMemoryGraph {
 export interface NameDirectory {
     personas: Array<{ id: string; name: string }>;
     rooms: Array<{ id: string; name: string }>;
-    messages: Array<{ id: number; body?: string; authorName?: string }>;
 }

@@ -28,7 +28,6 @@ describe('enrichGraph', () => {
                 { id: personaB, name: 'Vlad' },
             ],
             rooms: [],
-            messages: [],
         });
 
         const hana = enriched.nodes.find((n) => n.id === `persona:${personaA}`);
@@ -41,7 +40,6 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [],
             rooms: [],
-            messages: [],
         });
 
         const hana = enriched.nodes.find((n) => n.id === `persona:${personaA}`);
@@ -52,7 +50,6 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [],
             rooms: [{ id: roomA, name: 'general' }],
-            messages: [],
         });
 
         const room = enriched.nodes.find((n) => n.id === `room:${roomA}`);
@@ -63,7 +60,6 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [],
             rooms: [],
-            messages: [],
         });
 
         const concept = enriched.nodes.find((n) => n.id === 'concept:lisp');
@@ -74,19 +70,16 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [],
             rooms: [],
-            messages: [{ id: 42, body: 'Lisp is elegant.', authorName: 'Hana' }],
         });
 
         const msg = enriched.nodes.find((n) => n.id === `msg:${roomA}:42`);
         expect(msg?.label).toBe('#42');
-        expect(msg?.authorName).toBe('Hana');
     });
 
     it('labels Participant nodes by their backing Persona name', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [{ id: personaA, name: 'Hana' }],
             rooms: [],
-            messages: [],
         });
 
         const part = enriched.nodes.find(
@@ -103,7 +96,6 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(graph, {
             personas: [],
             rooms: [],
-            messages: [],
         });
 
         const node = enriched.nodes.find((n) => n.id === 'mystery:xyz');
@@ -115,7 +107,11 @@ describe('enrichGraph', () => {
         const graph: MemoryGraphData = {
             nodes: baseGraph.nodes,
             links: [
-                { source: 'event:e1', target: `msg:${roomA}:42`, kind: 'ANCHORED_TO' },
+                {
+                    source: 'event:e1',
+                    target: `msg:${roomA}:42`,
+                    kind: 'ANCHORED_TO',
+                },
                 {
                     source: `part:${personaA}:${partyId}`,
                     target: 'event:e1',
@@ -127,7 +123,6 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(graph, {
             personas: [],
             rooms: [],
-            messages: [],
         });
 
         expect(enriched.links).toEqual(graph.links);

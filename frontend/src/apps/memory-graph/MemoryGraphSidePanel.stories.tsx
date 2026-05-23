@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import MemoryGraphSidePanel from './MemoryGraphSidePanel';
-import type { EnrichedMemoryNode } from './types';
 import type { MemoryGraphLink } from '../../api/model';
+import MemoryGraphSidePanel from './MemoryGraphSidePanel';
+import type { EnrichedMemoryGraph, EnrichedMemoryNode } from './types';
 
 const partyId = '00000000-0000-0000-0000-000000000000';
 
@@ -72,8 +72,10 @@ const meta = {
     ],
     args: {
         node: eventNode,
-        allNodes,
-        allLinks,
+        graph: {
+            nodes: allNodes,
+            links: allLinks,
+        } satisfies EnrichedMemoryGraph,
         onSelectNode: fn(),
     },
 } satisfies Meta<typeof MemoryGraphSidePanel>;

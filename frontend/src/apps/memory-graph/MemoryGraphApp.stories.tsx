@@ -3,9 +3,6 @@ import { fn } from 'storybook/test';
 import WindowFrame from '../../components/desktop/WindowFrame';
 import MemoryGraphApp from './MemoryGraphApp';
 
-// Story sees the storybook variant of `#api/party-zone` (party-zone.mock.ts), which
-// already exports a hand-crafted `mockMemoryGraph` covering all six node kinds and all
-// four edge kinds — exactly the dataset PRD user-story #32 calls for.
 const meta = {
     title: 'Apps/MemoryGraphApp',
     component: MemoryGraphApp,

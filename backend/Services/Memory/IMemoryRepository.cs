@@ -54,11 +54,11 @@ public interface IMemoryRepository
         CancellationToken ct);
 
     /// <summary>
-    /// Tag the AGE Room node for a freshly-created Room with its owning <paramref name="partyId"/>.
-    /// Idempotent: re-running with the same <paramref name="roomId"/> overwrites
-    /// <c>party_id</c> (a Room belongs to exactly one Party). Called eagerly from
-    /// <see cref="Grains.PartyGrain"/> on Room creation so the memory-graph debug view can
-    /// scope cleanly from <c>Room {party_id}</c> outward — see issue #58 / PRD.
+    /// Tag the AGE Room node for a freshly-created Room with its owning
+    /// <paramref name="partyId"/>. Idempotent: re-running with the same
+    /// <paramref name="roomId"/> overwrites <c>party_id</c> — a Room belongs to exactly
+    /// one Party. Called eagerly from <see cref="Grains.PartyGrain"/> so the memory-graph
+    /// debug view can scope from <c>Room {party_id}</c> outward.
     /// </summary>
     Task EnsureRoomAsync(Guid partyId, Guid roomId, CancellationToken ct);
 
@@ -68,7 +68,7 @@ public interface IMemoryRepository
     /// Participants who recollect (or are talked about by) those Events, the Personas
     /// behind those Participants, and the Concepts those Events are about. Silent
     /// Participants are not enumerated; the Party node and <c>IN_PARTY</c> edges are
-    /// excluded. Snapshot only — no streaming. See issue #58.
+    /// excluded. Snapshot only — no streaming.
     /// </summary>
     Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct);
 }

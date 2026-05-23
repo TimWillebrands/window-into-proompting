@@ -150,7 +150,8 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                     x: existing?.x ?? preset.initialPosition?.x ?? 160,
                     y: existing?.y ?? preset.initialPosition?.y ?? 120,
                     width: existing?.width ?? preset.initialSize?.width ?? 720,
-                    height: existing?.height ?? preset.initialSize?.height ?? 480,
+                    height:
+                        existing?.height ?? preset.initialSize?.height ?? 480,
                     zIndex: nextZ,
                     minimized: false,
                     maximized: false,

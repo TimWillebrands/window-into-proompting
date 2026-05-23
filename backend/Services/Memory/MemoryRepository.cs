@@ -165,7 +165,7 @@ public sealed class MemoryRepository(
         CancellationToken ct)
     {
         // Defensive SET room.party_id picks up Rooms that pre-date the eager EnsureRoomAsync
-        // path (issue #58). Idempotent — a Room created via EnsureRoom already has it.
+        // path. Idempotent — a Room created via EnsureRoom already has it.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MERGE (party:Party {id: '{{partyId}}'})
@@ -243,15 +243,14 @@ public sealed class MemoryRepository(
                 }
             }
 
-            // 1. Anchor: every Room in this Party becomes a node, even if it has no Events.
-            //    Without this branch a freshly-created Room would be invisible.
-            const string roomSqlTemplate = """
+            // Anchor: every Room in this Party becomes a node, even if it has no Events.
+            // Without this branch a freshly-created Room would be invisible.
+            var roomSql = $$"""
                 SELECT * FROM cypher('memory', $cy$
-                  MATCH (room:Room {party_id: '__PARTY__'})
+                  MATCH (room:Room {party_id: '{{partyId}}'})
                   RETURN room.id
                 $cy$) AS (room_id text);
                 """;
-            var roomSql = roomSqlTemplate.Replace("__PARTY__", partyId.ToString());
             await using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = roomSql;
@@ -269,19 +268,19 @@ public sealed class MemoryRepository(
                 return new MemoryGraphDto(Array.Empty<MemoryGraphNode>(), Array.Empty<MemoryGraphLink>());
             }
 
-            // 2. Events anchored to a Message in an in-party Room, plus :ABOUT Concepts,
-            //    :ABOUT Participants, RECOLLECTS Participants and their Personas. Single
-            //    OPTIONAL-MATCH-driven Cypher; wide rows with nulls dedup'd above.
-            //    Projected scalars cast to text/int per the AGE agtype reader footgun.
-            const string graphSqlTemplate = """
+            // Events anchored to a Message in an in-party Room, plus :ABOUT Concepts,
+            // :ABOUT Participants, RECOLLECTS Participants and their Personas. Single
+            // OPTIONAL-MATCH-driven Cypher; wide rows with nulls dedup'd in C#. Projected
+            // scalars cast to text/int per the AGE agtype reader footgun.
+            var graphSql = $$"""
                 SELECT * FROM cypher('memory', $cy$
-                  MATCH (room:Room {party_id: '__PARTY__'})
+                  MATCH (room:Room {party_id: '{{partyId}}'})
                   MATCH (e:Event)-[:ANCHORED_TO]->(msg:Message)
                   WHERE msg.room_id = room.id
                   OPTIONAL MATCH (e)-[:ABOUT]->(c:Concept)
-                  OPTIONAL MATCH (e)-[:ABOUT]->(p_about:Participant {party_id: '__PARTY__'})
+                  OPTIONAL MATCH (e)-[:ABOUT]->(p_about:Participant {party_id: '{{partyId}}'})
                   OPTIONAL MATCH (persona_about:Persona)-[:HAS_PARTICIPANT]->(p_about)
-                  OPTIONAL MATCH (part:Participant {party_id: '__PARTY__'})-[rec:RECOLLECTS]->(e)
+                  OPTIONAL MATCH (part:Participant {party_id: '{{partyId}}'})-[rec:RECOLLECTS]->(e)
                   OPTIONAL MATCH (persona_rec:Persona)-[:HAS_PARTICIPANT]->(part)
                   RETURN room.id,
                          msg.room_id, msg.id,
@@ -304,7 +303,6 @@ public sealed class MemoryRepository(
                   rec_snippet text, rec_ts text
                 );
                 """;
-            var graphSql = graphSqlTemplate.Replace("__PARTY__", partyId.ToString());
 
             await using (var cmd = conn.CreateCommand())
             {

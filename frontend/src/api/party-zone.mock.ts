@@ -166,9 +166,9 @@ export const useGetPartyIdChatGroupsSuspense = fn(() =>
     }),
 );
 
-// Memory graph debug viz (issue #58). Hand-crafted dataset covering all six node kinds
-// and all four edge kinds so the MemoryGraphApp story exercises every code path in the
-// visual encoding without standing up Postgres+AGE.
+// Hand-crafted dataset covering all six node kinds and all four edge kinds so the
+// MemoryGraphApp story exercises every code path in the visual encoding without
+// standing up Postgres+AGE.
 export const mockMemoryGraph: MemoryGraphDto = {
     nodes: [
         { id: 'room:cg-1', kind: 'Room' },

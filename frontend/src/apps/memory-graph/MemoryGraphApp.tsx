@@ -31,20 +31,34 @@ function MemoryGraphInner() {
     const partyId = ROOT_PARTY_ID;
     const queryClient = useQueryClient();
 
-    const graphQuery = useGetPartiesPartyIdMemoryGraphSuspense(partyId);
-    const personasQuery = useGetPersonaSuspense();
-    const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(partyId);
+    // PRD: snapshot + manual refresh only. Disable focus refetches so window/tab
+    // switches don't quietly re-fire the queries while the user inspects the graph.
+    const snapshotOptions = {
+        query: {
+            staleTime: Number.POSITIVE_INFINITY,
+            refetchOnWindowFocus: false,
+        },
+    };
+    const graphQuery = useGetPartiesPartyIdMemoryGraphSuspense(
+        partyId,
+        snapshotOptions,
+    );
+    const personasQuery = useGetPersonaSuspense(snapshotOptions);
+    const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(
+        partyId,
+        snapshotOptions,
+    );
 
     const enriched = useMemo(() => {
-        const raw: MemoryGraphData = (graphQuery.data?.data as MemoryGraphData)
-            ?? { nodes: [], links: [] };
+        const raw: MemoryGraphData = (graphQuery.data
+            ?.data as MemoryGraphData) ?? { nodes: [], links: [] };
         const personas = (personasQuery.data?.data ?? [])
             .filter((p) => p.id && p.name)
             .map((p) => ({ id: p.id as string, name: p.name as string }));
         const rooms = (chatGroupsQuery.data?.data ?? [])
             .filter((r) => r.id && r.name)
             .map((r) => ({ id: r.id as string, name: r.name as string }));
-        return enrichGraph(raw, { personas, rooms, messages: [] });
+        return enrichGraph(raw, { personas, rooms });
     }, [graphQuery.data, personasQuery.data, chatGroupsQuery.data]);
 
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -109,8 +123,7 @@ function MemoryGraphInner() {
                 </div>
                 <MemoryGraphSidePanel
                     node={selectedNode}
-                    allNodes={enriched.nodes}
-                    allLinks={enriched.links}
+                    graph={enriched}
                     onSelectNode={setSelectedId}
                 />
             </div>
@@ -165,8 +178,8 @@ function EmptyState() {
             style={{ color: '#808080', fontSize: 12, padding: 24 }}
         >
             <p style={{ maxWidth: 360, textAlign: 'center' }}>
-                No memory captured yet. Send some messages, then mark a “remember
-                this” moment.
+                No memory captured yet. Send some messages, then mark a
+                “remember this” moment.
             </p>
         </div>
     );

@@ -1,37 +1,33 @@
 import { useMemo } from 'react';
 import type { MemoryGraphLink } from '../../api/model';
-import type { EnrichedMemoryNode } from './types';
+import type { EnrichedMemoryGraph, EnrichedMemoryNode } from './types';
 
 interface MemoryGraphSidePanelProps {
     node: EnrichedMemoryNode | null;
-    allNodes: EnrichedMemoryNode[];
-    allLinks: MemoryGraphLink[];
+    graph: EnrichedMemoryGraph;
     onSelectNode: (id: string) => void;
 }
 
-// Read-only inspection panel. Groups in/out edges by kind so the user can navigate the
-// graph relationally instead of squinting at the canvas (PRD user-story #13–14).
 export default function MemoryGraphSidePanel({
     node,
-    allNodes,
-    allLinks,
+    graph,
     onSelectNode,
 }: MemoryGraphSidePanelProps) {
     const nodeById = useMemo(
-        () => new Map(allNodes.map((n) => [n.id, n])),
-        [allNodes],
+        () => new Map(graph.nodes.map((n) => [n.id, n])),
+        [graph.nodes],
     );
 
     const { outgoing, incoming } = useMemo(() => {
         const out: MemoryGraphLink[] = [];
         const inc: MemoryGraphLink[] = [];
         if (!node) return { outgoing: out, incoming: inc };
-        for (const link of allLinks) {
+        for (const link of graph.links) {
             if (link.source === node.id) out.push(link);
             else if (link.target === node.id) inc.push(link);
         }
         return { outgoing: out, incoming: inc };
-    }, [node, allLinks]);
+    }, [node, graph.links]);
 
     if (!node) {
         return (
@@ -43,36 +39,27 @@ export default function MemoryGraphSidePanel({
         );
     }
 
+    const fields: Array<
+        [string, string | null | undefined, React.CSSProperties?]
+    > = [
+        ['label', node.label],
+        ['id', node.id, { wordBreak: 'break-all' }],
+        ['description', node.description],
+        ['display', node.display],
+        ['created_at', node.createdAt],
+    ];
+
     return (
         <div style={panelStyle}>
             <SectionHeader>{node.kind}</SectionHeader>
             <div style={{ padding: 8, fontSize: 11 }}>
-                <div>
-                    <strong>label:</strong> {node.label}
-                </div>
-                <div style={{ wordBreak: 'break-all' }}>
-                    <strong>id:</strong> {node.id}
-                </div>
-                {node.description ? (
-                    <div>
-                        <strong>description:</strong> {node.description}
-                    </div>
-                ) : null}
-                {node.display ? (
-                    <div>
-                        <strong>display:</strong> {node.display}
-                    </div>
-                ) : null}
-                {node.createdAt ? (
-                    <div>
-                        <strong>created_at:</strong> {node.createdAt}
-                    </div>
-                ) : null}
-                {node.authorName ? (
-                    <div>
-                        <strong>author:</strong> {node.authorName}
-                    </div>
-                ) : null}
+                {fields.map(([k, v, style]) =>
+                    v ? (
+                        <div key={k} style={style}>
+                            <strong>{k}:</strong> {v}
+                        </div>
+                    ) : null,
+                )}
             </div>
 
             <EdgeList
@@ -149,7 +136,9 @@ function EdgeList({
                         >
                             {kind} ({edges.length})
                         </div>
-                        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                        <ul
+                            style={{ listStyle: 'none', margin: 0, padding: 0 }}
+                        >
                             {edges.map((edge, i) => {
                                 const otherId = edge[endpointKey];
                                 const other = nodeById.get(otherId);
@@ -159,7 +148,9 @@ function EdgeList({
                                     >
                                         <button
                                             type="button"
-                                            onClick={() => onSelectNode(otherId)}
+                                            onClick={() =>
+                                                onSelectNode(otherId)
+                                            }
                                             style={{
                                                 background: 'none',
                                                 border: 'none',
