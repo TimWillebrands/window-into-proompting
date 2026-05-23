@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 using Orleans.Concurrency;
 using PartyTown.Grains.Generation;
@@ -35,34 +33,9 @@ public sealed class PersonaGrain(
     private const int PnrTokens = 80;
     private const double CancelThreshold = 0.5;
 
-    // One CTS per *in-flight generation* (chatGroup, messageId), not per chat group.
-    // Earlier (per-chat-group) keying caused message N+1 to cancel message N's still-running
-    // decision/speaking, surfacing as a phantom "cancelled" appraisal on legitimate work
-    // and an empty assistant slot for any persona slow enough to overlap a follow-up.
-    // CancelGenerationAsync still cancels every in-flight generation for this persona.
-    private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), CancellationTokenSource> _ctsByGeneration = new();
+    private readonly InFlightStore _store = new();
 
-    // Parallel structure to _ctsByGeneration carrying race-relevant state for each
-    // in-flight generation: which phase (decision/speaking), the gut reaction +
-    // wouldSay preview captured after decision, and the streaming text + token count
-    // updated during the speaking phase. Read by RunStopSignalRaceAsync to score new
-    // messages against the in-flight utterance.
-    private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), InFlightGeneration> _inFlight = new();
-
-    // Levelt-style repair hints, keyed by chat group. Set when a new message arrives
-    // during in-flight generation and the race elects NOT to cancel (either past PNR
-    // or salience didn't justify interruption). Consumed once on the next decision pass
-    // for that chat group, then cleared regardless of decision outcome.
-    private readonly ConcurrentDictionary<Guid, RepairHint> _pendingRepairByGroup = new();
-
-    public Task CancelGenerationAsync()
-    {
-        foreach (var cts in _ctsByGeneration.Values)
-        {
-            try { cts.Cancel(); } catch (ObjectDisposedException) { }
-        }
-        return Task.CompletedTask;
-    }
+    public Task CancelGenerationAsync() => _store.CancelAllAsync();
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
@@ -213,13 +186,10 @@ public sealed class PersonaGrain(
             personaId, "assistant", triggeringMessage.MessageId);
         turnSpan?.SetTag("result.message_id", messageId);
 
-        var newCts = new CancellationTokenSource();
-        _ctsByGeneration[(chatGroupId, messageId)] = newCts;
-
         // Race-trigger state: register before any awaits so a concurrent NotifyMessageAsync
         // can race against this one. Mutated in-place as decision → generation → done.
-        var inFlight = new InFlightGeneration(newCts);
-        _inFlight[(chatGroupId, messageId)] = inFlight;
+        var newCts = new CancellationTokenSource();
+        var inFlight = _store.Register(chatGroupId, messageId, newCts);
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
         var linkedCt = linkedCts.Token;
@@ -240,7 +210,7 @@ public sealed class PersonaGrain(
 
             // Consume any pending repair hint for this group — one-shot, cleared regardless
             // of decision outcome so it can't double-fire.
-            RepairHint? repairHint = _pendingRepairByGroup.TryRemove(chatGroupId, out var hint) ? hint : null;
+            RepairHint? repairHint = _store.ConsumeRepairHint(chatGroupId);
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
@@ -305,8 +275,6 @@ public sealed class PersonaGrain(
 
             // Decision committed to "speak". Promote the in-flight record so the race
             // sees it as Speaking phase and has the gut/preview to feed salience.
-            // (The InFlightPhase enum still spells the value `Generation` — see ADR 0010
-            // legacy-spelling note; rename deferred to a structural-cleanup PR.)
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
             var fullParticipants = await BuildGenerationParticipantsAsync(participants, personaId);
@@ -418,9 +386,7 @@ public sealed class PersonaGrain(
         }
         finally
         {
-            _ctsByGeneration.TryRemove(new KeyValuePair<(Guid, int), CancellationTokenSource>((chatGroupId, messageId), newCts));
-            _inFlight.TryRemove(new KeyValuePair<(Guid, int), InFlightGeneration>((chatGroupId, messageId), inFlight));
-            newCts.Dispose();
+            _store.Remove(chatGroupId, messageId);
         }
     }
 
@@ -574,10 +540,7 @@ public sealed class PersonaGrain(
         IChatGroupGrain chatGroupGrain,
         CancellationToken ct)
     {
-        var snapshot = _inFlight
-            .Where(kv => kv.Key.chatGroupId == chatGroupId)
-            .Select(kv => (kv.Key.messageId, kv.Value))
-            .ToList();
+        var snapshot = _store.SnapshotForChatGroup(chatGroupId);
 
         if (snapshot.Count == 0)
             return;
@@ -633,10 +596,10 @@ public sealed class PersonaGrain(
                 // the message will ship regardless, and the next decision pass will see the
                 // hint and the new message in history.
                 raceSpan?.SetTag("race.outcome", "past-pnr");
-                _pendingRepairByGroup[chatGroupId] = new RepairHint(
+                _store.SetRepairHint(chatGroupId, new RepairHint(
                     triggeringMessage.MessageId,
                     await ResolveSenderNameAsync(),
-                    triggeringMessage.Content ?? string.Empty);
+                    triggeringMessage.Content ?? string.Empty));
                 await RecordRaceOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "past-pnr", null, null);
                 continue;
@@ -700,10 +663,10 @@ public sealed class PersonaGrain(
             else
             {
                 raceSpan?.SetTag("race.outcome", "continue");
-                _pendingRepairByGroup[chatGroupId] = new RepairHint(
+                _store.SetRepairHint(chatGroupId, new RepairHint(
                     triggeringMessage.MessageId,
                     await ResolveSenderNameAsync(),
-                    triggeringMessage.Content ?? string.Empty);
+                    triggeringMessage.Content ?? string.Empty));
                 await RecordRaceOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "continue", salience.Value, cancelScore);
             }
@@ -761,106 +724,6 @@ public sealed class PersonaGrain(
         await state.WriteStateAsync();
     }
 }
-
-/// <summary>
-/// Race-relevant state for one in-flight generation. Mutated in place as the work
-/// progresses through Decision → Generation → done. <see cref="Snapshot"/> takes a
-/// consistent read under lock for the race trigger; mutations from the streaming
-/// loop also acquire the lock so concurrent reads see coherent (gut, preview, text,
-/// tokens) tuples.
-/// </summary>
-internal sealed class InFlightGeneration(CancellationTokenSource cts)
-{
-    // Char-to-token approximation (~4 chars per token, English-leaning). Crude but stable
-    // — the race math only needs this for "are we past PNR yet?" not exact accounting.
-    // Replace with a real tokenizer only if traces show wrong PNR triggers.
-    private const int CharsPerTokenEstimate = 4;
-
-    public CancellationTokenSource Cts { get; } = cts;
-
-    private readonly object _lock = new();
-    private InFlightPhase _phase = InFlightPhase.Decision;
-    private string _gutReaction = string.Empty;
-    private string _wouldSayPreview = string.Empty;
-    private readonly StringBuilder _generatedText = new();
-    private int _generatedChars;
-
-    // Set by the race when it elects to cancel this generation; consumed in the
-    // OperationCanceledException catch to distinguish race-cancel (→ emote) from
-    // external cancel via PartyGrain.CancelGenerationAsync (→ red error).
-    private bool _raceCancelled;
-    private string _interruptingMessage = string.Empty;
-    private string _interruptingSenderName = string.Empty;
-
-    public void MarkGenerationStarted(string gutReaction, string wouldSayPreview)
-    {
-        lock (_lock)
-        {
-            _phase = InFlightPhase.Speaking;
-            _gutReaction = gutReaction ?? string.Empty;
-            _wouldSayPreview = wouldSayPreview ?? string.Empty;
-        }
-    }
-
-    public void AppendChunk(string chunk)
-    {
-        lock (_lock)
-        {
-            _generatedText.Append(chunk);
-            _generatedChars = _generatedText.Length;
-        }
-    }
-
-    public void ResetGeneratedText()
-    {
-        lock (_lock)
-        {
-            _generatedText.Clear();
-            _generatedChars = 0;
-        }
-    }
-
-    /// <summary>Mark this generation as race-cancelled before triggering the CTS, so the
-    /// catch can route to the emote path. Captures the interrupting message context for
-    /// the emote-generation prompt.</summary>
-    public void MarkRaceCancelled(string interruptingMessage, string interruptingSenderName)
-    {
-        lock (_lock)
-        {
-            _raceCancelled = true;
-            _interruptingMessage = interruptingMessage ?? string.Empty;
-            _interruptingSenderName = interruptingSenderName ?? string.Empty;
-        }
-    }
-
-    public InFlightSnapshot Snapshot()
-    {
-        lock (_lock)
-        {
-            return new InFlightSnapshot(
-                _phase,
-                _gutReaction,
-                _wouldSayPreview,
-                _generatedText.ToString(),
-                _generatedChars / CharsPerTokenEstimate,
-                _raceCancelled,
-                _interruptingMessage,
-                _interruptingSenderName);
-        }
-    }
-}
-
-internal enum InFlightPhase { Decision, Speaking }
-
-internal readonly record struct InFlightSnapshot(
-    InFlightPhase Phase,
-    string GutReaction,
-    string WouldSayPreview,
-    string GeneratedText,
-    int GeneratedTokens,
-    bool RaceCancelled,
-    string InterruptingMessage,
-    string InterruptingSenderName);
 
 /// <summary>
 /// Grain contract for managing a single persona.

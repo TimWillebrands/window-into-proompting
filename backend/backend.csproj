@@ -18,6 +18,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="backend-test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="JsonRepairSharp" Version="1.2.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.3.26207.106" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0-preview.3.26207.106" />
