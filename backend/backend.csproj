@@ -8,7 +8,7 @@
     <NoWarn>$(NoWarn);CA1873</NoWarn>
     <OpenApiDocumentsDirectory>.</OpenApiDocumentsDirectory>
     <!--
-      Spec emission only runs when `npm run api-generate` sets OPENAPI_GENERATE=1
+      Spec emission only runs when `pnpm api-generate` sets OPENAPI_GENERATE=1
       so it pairs with the matching gate in Program.cs that skips Orleans + the DB
       connection-string check. Regular `dotnet build` and `aspire run` invocations
       do not regenerate the spec.
