@@ -252,6 +252,46 @@
         }
       }
     },
+    "/parties/{partyId}/memory/graph": {
+      "get": {
+        "tags": [
+          "Memory"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryGraphDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryGraphDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryGraphDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/Party": {
       "get": {
         "tags": [
@@ -2064,6 +2104,91 @@
           }
         }
       },
+      "MemoryGraphDto": {
+        "required": [
+          "nodes",
+          "links"
+        ],
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGraphNode"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGraphLink"
+            }
+          }
+        }
+      },
+      "MemoryGraphLink": {
+        "required": [
+          "source",
+          "target",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ts": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MemoryGraphNode": {
+        "required": [
+          "id",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "display": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PartyDetails": {
         "required": [
           "party",
@@ -2313,6 +2438,9 @@
     },
     {
       "name": "LlmConfig"
+    },
+    {
+      "name": "Memory"
     },
     {
       "name": "Party"

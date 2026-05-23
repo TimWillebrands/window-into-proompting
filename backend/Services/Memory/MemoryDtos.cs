@@ -25,3 +25,34 @@ public sealed record MemoryCaptureResult(
     bool EventCreated,
     int RecollectionsCreated,
     int ConceptsTouched);
+
+/// <summary>
+/// Per-Party memory subgraph payload for the debug viz. Backend emits only what AGE
+/// stores; display-name enrichment for Personas / Rooms is client-side.
+/// </summary>
+public sealed record MemoryGraphDto(
+    IReadOnlyList<MemoryGraphNode> Nodes,
+    IReadOnlyList<MemoryGraphLink> Links);
+
+/// <summary>
+/// <see cref="Id"/> is a kind-prefixed stable string (e.g. <c>room:&lt;guid&gt;</c>,
+/// <c>event:&lt;guid&gt;</c>) used as the canonical join key on both ends of every
+/// <see cref="MemoryGraphLink"/>.
+/// </summary>
+public sealed record MemoryGraphNode(
+    string Id,
+    string Kind,
+    string? Description = null,
+    string? Display = null,
+    string? CreatedAt = null);
+
+/// <summary>
+/// <see cref="Kind"/> is one of <c>RECOLLECTS</c>, <c>ABOUT</c>, <c>ANCHORED_TO</c>,
+/// <c>HAS_PARTICIPANT</c>.
+/// </summary>
+public sealed record MemoryGraphLink(
+    string Source,
+    string Target,
+    string Kind,
+    string? Snippet = null,
+    string? Ts = null);

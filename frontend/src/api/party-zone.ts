@@ -32,6 +32,7 @@ import type {
     GetPartyIdChatGroupsChatGroupIdPapertrailParams,
     LlmModel,
     LlmProviderEntry,
+    MemoryGraphDto,
     PartyDetails,
     PartyInfo,
     Persona,
@@ -1280,6 +1281,334 @@ export const useDeleteLlmConfigProvidersId = <
         queryClient,
     );
 };
+
+export type getPartiesPartyIdMemoryGraphResponse200TextPlain = {
+    data: MemoryGraphDto;
+    status: 200;
+};
+
+export type getPartiesPartyIdMemoryGraphResponse200ApplicationJson = {
+    data: MemoryGraphDto;
+    status: 200;
+};
+
+export type getPartiesPartyIdMemoryGraphResponse200TextJson = {
+    data: MemoryGraphDto;
+    status: 200;
+};
+
+export type getPartiesPartyIdMemoryGraphResponseSuccess = (
+    | getPartiesPartyIdMemoryGraphResponse200TextPlain
+    | getPartiesPartyIdMemoryGraphResponse200ApplicationJson
+    | getPartiesPartyIdMemoryGraphResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPartiesPartyIdMemoryGraphResponse =
+    getPartiesPartyIdMemoryGraphResponseSuccess;
+
+export const getGetPartiesPartyIdMemoryGraphUrl = (partyId: string) => {
+    return `/api/parties/${partyId}/memory/graph`;
+};
+
+export const getPartiesPartyIdMemoryGraph = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<getPartiesPartyIdMemoryGraphResponse> => {
+    return customFetch<getPartiesPartyIdMemoryGraphResponse>(
+        getGetPartiesPartyIdMemoryGraphUrl(partyId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetPartiesPartyIdMemoryGraphQueryKey = (partyId: string) => {
+    return [`/api/parties/${partyId}/memory/graph`] as const;
+};
+
+export const getGetPartiesPartyIdMemoryGraphQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPartiesPartyIdMemoryGraphQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+    > = ({ signal }) =>
+        getPartiesPartyIdMemoryGraph(partyId, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!partyId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartiesPartyIdMemoryGraphQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+>;
+export type GetPartiesPartyIdMemoryGraphQueryError = unknown;
+
+export function useGetPartiesPartyIdMemoryGraph<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryGraph<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryGraph<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartiesPartyIdMemoryGraph<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPartiesPartyIdMemoryGraphQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPartiesPartyIdMemoryGraphSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPartiesPartyIdMemoryGraphQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+    > = ({ signal }) =>
+        getPartiesPartyIdMemoryGraph(partyId, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPartiesPartyIdMemoryGraphSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>
+>;
+export type GetPartiesPartyIdMemoryGraphSuspenseQueryError = unknown;
+
+export function useGetPartiesPartyIdMemoryGraphSuspense<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryGraphSuspense<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryGraphSuspense<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartiesPartyIdMemoryGraphSuspense<
+    TData = Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPartiesPartyIdMemoryGraph>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPartiesPartyIdMemoryGraphSuspenseQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export type getPartyResponse200TextPlain = {
     data: PartyInfo[];

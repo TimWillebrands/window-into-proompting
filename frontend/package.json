@@ -52,6 +52,7 @@
         "posthog-node": "^5.11.2",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
+        "react-force-graph-2d": "^1.29.1",
         "react-rnd": "^10.5.3",
         "srvx": "^0.11.15",
         "streaming-markdown": "^0.2.15",
@@ -72,6 +73,7 @@
         "@vitejs/plugin-react": "^6.0.1",
         "orval": "^8.5.3",
         "storybook": "^10.3.5",
-        "typescript": "^5.7.2"
+        "typescript": "^5.7.2",
+        "vitest": "^3.0.0"
     }
 }
