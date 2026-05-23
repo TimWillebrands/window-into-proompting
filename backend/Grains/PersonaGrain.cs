@@ -149,8 +149,8 @@ public sealed class PersonaGrain(
             Impulsivity = persona.Impulsivity
         };
 
-        var preUrge = PersonaDecisionService.CalculateResponseUrge(self, preHistory, preRounds);
-        var preRecentSelf = PersonaDecisionService.CountRecentSelfMessages(preHistory, personaId);
+        var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds);
+        var preRecentSelf = UrgeMath.CountRecentSelfMessages(preHistory, personaId);
         turnSpan?.SetTag("urge.total", preUrge.Total);
         turnSpan?.SetTag("urge.mention", preUrge.MentionScore);
         turnSpan?.SetTag("urge.question", preUrge.QuestionScore);
@@ -159,7 +159,7 @@ public sealed class PersonaGrain(
         turnSpan?.SetTag("rounds.total_assistant", preRounds);
         turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
 
-        if (PersonaDecisionService.IsObviousSkip(preUrge, preRounds, preRecentSelf))
+        if (UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
             turnSpan?.SetTag("decision", "skip-obvious");
             var skipReason = $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
