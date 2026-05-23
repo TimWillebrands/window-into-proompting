@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
+    lazy,
     Suspense,
     useCallback,
     useEffect,
@@ -15,9 +16,12 @@ import {
 } from '#api/party-zone';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { enrichGraph } from './enrichGraph';
-import MemoryGraphCanvas from './MemoryGraphCanvas';
 import MemoryGraphSidePanel from './MemoryGraphSidePanel';
 import type { EnrichedMemoryNode, MemoryGraphData } from './types';
+
+// force-graph touches `window` at module load → blow up under SSR. Defer the
+// import until after the component mounts in the browser.
+const MemoryGraphCanvas = lazy(() => import('./MemoryGraphCanvas'));
 
 export default function MemoryGraphApp() {
     return (
@@ -75,6 +79,11 @@ function MemoryGraphInner() {
 
     const isEmpty = enriched.nodes.length === 0;
 
+    const [isClient, setIsClient] = useState(false);
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 600, height: 400 });
     useEffect(() => {
@@ -111,14 +120,18 @@ function MemoryGraphInner() {
                 >
                     {isEmpty ? (
                         <EmptyState />
+                    ) : isClient ? (
+                        <Suspense fallback={<LoadingState />}>
+                            <MemoryGraphCanvas
+                                graph={enriched}
+                                width={canvasSize.width}
+                                height={canvasSize.height}
+                                selectedNodeId={selectedId}
+                                onNodeClick={(node) => setSelectedId(node.id)}
+                            />
+                        </Suspense>
                     ) : (
-                        <MemoryGraphCanvas
-                            graph={enriched}
-                            width={canvasSize.width}
-                            height={canvasSize.height}
-                            selectedNodeId={selectedId}
-                            onNodeClick={(node) => setSelectedId(node.id)}
-                        />
+                        <LoadingState />
                     )}
                 </div>
                 <MemoryGraphSidePanel
