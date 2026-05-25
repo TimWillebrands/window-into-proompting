@@ -1,13 +1,12 @@
 /**
- * WebSocket helper for /api/Import/classify-ws.
+ * WebSocket helpers for /api/Import/classify-ws and /api/Import/identify-ws.
  *
- * Mirrors {@link personaWsStream} — opens the connection, sends the request as the
- * first message, then yields incoming envelopes (`import.classify.progress`,
- * `import.classify.completed`, `import.classify.error`) until the connection closes.
+ * Both endpoints follow the same lifecycle: open, send a single JSON request as
+ * the first frame, then read a stream of envelopes until the server closes.
+ * Envelope shape:  { type, sequence, timestamp, data }.
  *
- * The classifier endpoint runs N chunks in parallel server-side (capped at 5);
- * progress envelopes arrive as each chunk completes, not in the order chunks were
- * sent. The consumer must key results by `chunkId`.
+ * Server runs the heavy LLM calls in parallel (cap=5); envelopes arrive in
+ * completion order, NOT request order. Consumers must key by id.
  */
 type WsEnvelope = {
     type: string;
@@ -29,11 +28,18 @@ export type ImportRosterEntry = {
     summary: string;
 };
 
-export async function* importClassifyWsStream(
-    request: { chunks: ImportChunkInput[]; roster: ImportRosterEntry[] },
+export type ImportIdentifyMsg = {
+    id: string;
+    role: 'user' | 'model' | 'system';
+    text: string;
+};
+
+async function* runWsStream(
+    pathname: string,
+    request: unknown,
     signal?: AbortSignal,
 ): AsyncGenerator<WsEnvelope, void, unknown> {
-    const httpUrl = new URL('/api/Import/classify-ws', window.location.href);
+    const httpUrl = new URL(pathname, window.location.href);
     const wsUrl = `${httpUrl.protocol === 'https:' ? 'wss:' : 'ws:'}//${httpUrl.host}${httpUrl.pathname}`;
 
     const ws = new WebSocket(wsUrl);
@@ -93,4 +99,18 @@ export async function* importClassifyWsStream(
             ws.close();
         }
     }
+}
+
+export function importClassifyWsStream(
+    request: { chunks: ImportChunkInput[]; roster: ImportRosterEntry[] },
+    signal?: AbortSignal,
+): AsyncGenerator<WsEnvelope, void, unknown> {
+    return runWsStream('/api/Import/classify-ws', request, signal);
+}
+
+export function importIdentifyWsStream(
+    request: { systemInstructionText: string; msgs: ImportIdentifyMsg[] },
+    signal?: AbortSignal,
+): AsyncGenerator<WsEnvelope, void, unknown> {
+    return runWsStream('/api/Import/identify-ws', request, signal);
 }

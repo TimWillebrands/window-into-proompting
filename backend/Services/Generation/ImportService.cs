@@ -316,6 +316,209 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         return windows;
     }
 
+    /// <summary>
+    /// Per-message mention extraction. One call = one msg = one window. The controller
+    /// runs many of these concurrently (cap=5) for the live identify stream.
+    /// </summary>
+    public async Task<MentionExtractionPayload?> IdentifyMentionsForMsgAsync(
+        string msgText,
+        string role,
+        CancellationToken cancellationToken)
+    {
+        var responseFormat = new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "mention_extraction",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["mentions"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["items"] = new JsonObject
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new JsonObject
+                                {
+                                    ["name"] = new JsonObject { ["type"] = "string" },
+                                    ["evidence"] = new JsonObject { ["type"] = "string" },
+                                    ["role_hint"] = new JsonObject { ["type"] = new JsonArray("string", "null") }
+                                },
+                                ["required"] = new JsonArray("name", "evidence", "role_hint")
+                            }
+                        }
+                    },
+                    ["required"] = new JsonArray("mentions")
+                }
+            }
+        };
+
+        var safeRole = string.IsNullOrWhiteSpace(role) ? "user" : role;
+        var window = $"[{safeRole}]\n{msgText}";
+
+        var messages = new List<LlmChatMessage>
+        {
+            new() { Role = "system", Content = ImportPrompts.MentionExtractionSystem },
+            new() { Role = "user", Content = ImportPrompts.MentionExtractionUser(window) }
+        };
+
+        try
+        {
+            var raw = await RunStructuredAsync(messages, JobComplexity.CharacterThoughts, responseFormat, cancellationToken);
+            return TryParse<MentionExtractionPayload>(raw, "IdentifyMentionsForMsg");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Per-msg mention extraction failed; treating as empty.");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Single general-tier reduce step that collapses cross-msg name groups into a
+    /// canonical character list (with name-variant merges). The controller post-
+    /// processes the response to map mentions → canonical char ids by case-insensitive
+    /// name match.
+    /// </summary>
+    public async Task<RosterMergeResult?> MergeRosterAsync(
+        IReadOnlyList<MentionGroupDto> groups,
+        CancellationToken cancellationToken)
+    {
+        if (groups.Count == 0)
+        {
+            return new RosterMergeResult();
+        }
+
+        var groupsJson = JsonSerializer.Serialize(groups, WebOptions);
+
+        var responseFormat = new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "roster_merge",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["characters"] = new JsonObject
+                        {
+                            ["type"] = "array",
+                            ["items"] = new JsonObject
+                            {
+                                ["type"] = "object",
+                                ["properties"] = new JsonObject
+                                {
+                                    ["id"] = new JsonObject { ["type"] = "string" },
+                                    ["primary_name"] = new JsonObject { ["type"] = "string" },
+                                    ["names"] = new JsonObject
+                                    {
+                                        ["type"] = "array",
+                                        ["items"] = new JsonObject { ["type"] = "string" }
+                                    },
+                                    ["archetype"] = new JsonObject { ["type"] = new JsonArray("string", "null") }
+                                },
+                                ["required"] = new JsonArray("id", "primary_name", "names", "archetype")
+                            }
+                        }
+                    },
+                    ["required"] = new JsonArray("characters")
+                }
+            }
+        };
+
+        var messages = new List<LlmChatMessage>
+        {
+            new() { Role = "system", Content = ImportPrompts.RosterMergeSystem },
+            new() { Role = "user", Content = ImportPrompts.RosterMergeUser(groupsJson) }
+        };
+
+        var raw = await RunStructuredAsync(messages, JobComplexity.General, responseFormat, cancellationToken);
+        var parsed = TryParse<RosterMergeResult>(raw, "MergeRoster");
+
+        if (parsed?.Characters is null || parsed.Characters.Count == 0)
+        {
+            logger.LogWarning(
+                "Roster merge returned empty (parsed null? {ParsedNull}). Raw output (truncated): {Raw}.",
+                parsed is null,
+                raw.Length > 600 ? raw[..600] : raw);
+            return null;
+        }
+
+        return parsed;
+    }
+
+    /// <summary>
+    /// Synthesize one character's prompt + bio from evidence + the source doc.
+    /// Used by both the per-char reduce step in identify-ws and the standalone
+    /// regenerate-char-detail endpoint.
+    /// </summary>
+    public async Task<CharDetailResult?> SynthesizeCharDetailAsync(
+        string primaryName,
+        IReadOnlyList<string> nameVariants,
+        IReadOnlyList<string> evidence,
+        string? archetype,
+        string systemInstructionText,
+        string mode,
+        CancellationToken cancellationToken)
+    {
+        var safeMode = mode is "prompt" or "bio" or "both" ? mode : "both";
+
+        var charPayload = JsonSerializer.Serialize(new
+        {
+            primary_name = primaryName,
+            names = nameVariants,
+            archetype,
+            evidence,
+        }, WebOptions);
+
+        var responseFormat = new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "char_detail",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["prompt"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+                        ["bio"] = new JsonObject { ["type"] = new JsonArray("string", "null") }
+                    },
+                    ["required"] = new JsonArray("prompt", "bio")
+                }
+            }
+        };
+
+        var messages = new List<LlmChatMessage>
+        {
+            new() { Role = "system", Content = ImportPrompts.CharDetailSynthSystem },
+            new() { Role = "user", Content = ImportPrompts.CharDetailSynthUser(charPayload, systemInstructionText, safeMode) }
+        };
+
+        try
+        {
+            var raw = await RunStructuredAsync(messages, JobComplexity.General, responseFormat, cancellationToken);
+            return TryParse<CharDetailResult>(raw, "SynthesizeCharDetail");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Per-char detail synth failed for {Name}.", primaryName);
+            return null;
+        }
+    }
+
     public async Task<ChunkClassification> ClassifyChunkAsync(
         string chunkText,
         string chunkRole,
@@ -607,4 +810,68 @@ public sealed record class ClassifiedSegment
 
     [JsonPropertyName("kind")]
     public string Kind { get; init; } = "narration";
+}
+
+/// <summary>One observed name across the transcript. The list of refs records every
+/// (msgId, mentionId) pair where this name appeared, plus an evidence quote per ref.
+/// Sent into the roster-merge LLM call — the model groups variants of the same person
+/// into one canonical character.</summary>
+public sealed record class MentionGroupDto
+{
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; init; } = string.Empty;
+
+    [JsonPropertyName("count")]
+    public int Count { get; init; }
+
+    [JsonPropertyName("refs")]
+    public List<MentionRefDto> Refs { get; init; } = [];
+
+    [JsonPropertyName("role_hints")]
+    public List<string> RoleHints { get; init; } = [];
+}
+
+public sealed record class MentionRefDto
+{
+    [JsonPropertyName("msg_id")]
+    public string MsgId { get; init; } = string.Empty;
+
+    [JsonPropertyName("mention_id")]
+    public string MentionId { get; init; } = string.Empty;
+
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; init; } = string.Empty;
+
+    [JsonPropertyName("role_hint")]
+    public string? RoleHint { get; init; }
+}
+
+public sealed record class RosterMergeResult
+{
+    [JsonPropertyName("characters")]
+    public List<RosterCharacter> Characters { get; init; } = [];
+}
+
+public sealed record class RosterCharacter
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("primary_name")]
+    public string PrimaryName { get; init; } = string.Empty;
+
+    [JsonPropertyName("names")]
+    public List<string> Names { get; init; } = [];
+
+    [JsonPropertyName("archetype")]
+    public string? Archetype { get; init; }
+}
+
+public sealed record class CharDetailResult
+{
+    [JsonPropertyName("prompt")]
+    public string? Prompt { get; init; }
+
+    [JsonPropertyName("bio")]
+    public string? Bio { get; init; }
 }

@@ -275,4 +275,99 @@ fences.
 
 Merge into ONE canonical persona. JSON only.
 """;
+
+    public const string RosterMergeSystem = """
+You receive a list of name groups gathered by scanning a roleplay transcript for
+named in-fiction characters. Each group is one observed name with its evidence
+quotes.
+
+Your job: collapse name variants of the SAME character into one canonical entry.
+
+Rules:
+- INCLUDE every distinct character in the input groups. Do NOT drop anyone.
+- MERGE obvious name variants of the same person ("Lena" and "Lena S." → one
+  character; "Sienna" and "Sienna Z." → one character). Pick the SHORTEST form
+  as primary_name. Only merge when the evidence is clear they refer to the
+  same person (overlapping voice / setting / role).
+- DO NOT merge two distinct people with similar-sounding names. When in doubt,
+  keep separate.
+- Assign each canonical character a stable id of the form "char-1", "char-2",
+  numbered in the order you produce them.
+- For each canonical character produce:
+    id           → "char-N"
+    primary_name → shortest in-fiction call-name
+    names        → array of EVERY observed name variant merged into this char
+                   (use the exact strings from the input — they will be matched
+                   case-insensitively to map mentions onto this character)
+    archetype    → ≤4 word noun phrase guessing their role; null if unclear
+
+Output JSON only matching the schema. No prose before or after. No markdown
+fences.
+""";
+
+    public static string RosterMergeUser(string groupsJson) => $"""
+# Observed name groups
+
+{groupsJson}
+
+# Your turn
+
+Produce the canonical character list with merged name variants. JSON only.
+""";
+
+    public const string CharDetailSynthSystem = """
+You synthesize ONE roleplay character's profile from evidence quotes gathered
+across a transcript and a character source document.
+
+Given:
+  - The character's primary name and observed name variants.
+  - Evidence quotes from the transcript where this character appears.
+  - A character source — a system prompt / markdown that defines the cast.
+    Use ONLY as reference material to flesh out this character's profile;
+    do NOT add other characters' details.
+
+Produce:
+  - prompt: A description in third person briefing an LLM to play this
+    character. Length must match available evidence — typically 3-6 sentences
+    when richly covered, as short as 1-2 sentences when evidence is thin.
+    PADDING IS WORSE THAN BREVITY.
+  - bio: A 1-2 sentence card-style summary. Concrete, factual, third person.
+
+Style rules (mandatory):
+- Stay grounded. Every claim must be traceable to the character source or
+  the evidence quotes. Do NOT invent backstory, relationships, motivations,
+  or traits the sources do not support.
+- NO purple / abstract / poetic prose. Forbidden patterns include
+  "navigates X like Y", "oscillates between X and Y", "carries the presence
+  of X", "tests how belonging is negotiated in liminal spaces", and similar
+  thematic metaphor.
+- Prefer concrete observed facts: what they say, what they do, who they are
+  in the social structure, what language they speak, what role they serve.
+
+Mode rules:
+- mode = "prompt" → fill `prompt`, leave `bio` null.
+- mode = "bio"    → fill `bio`,    leave `prompt` null.
+- mode = "both"   → fill both.
+
+Output JSON only matching the schema. No prose before or after. No markdown
+fences.
+""";
+
+    public static string CharDetailSynthUser(string charJson, string sysInstructionText, string mode) => $"""
+# Character
+
+{charJson}
+
+# Character source (reference only)
+
+{sysInstructionText}
+
+# Mode
+
+{mode}
+
+# Your turn
+
+JSON only.
+""";
 }

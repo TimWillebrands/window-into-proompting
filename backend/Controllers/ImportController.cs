@@ -163,6 +163,323 @@ public sealed class ImportController(
         }
     }
 
+    /// <summary>
+    /// WebSocket endpoint for the per-msg identify pipeline.
+    /// Client sends one <see cref="IdentifyRequest"/>; server streams envelopes:
+    ///   • import.identify.map_progress   — per msg, as each map call completes
+    ///   • import.identify.roster_sync    — once, after all maps; canonical roster + links
+    ///   • import.identify.reduce_progress — per char, as each detail synth completes
+    ///   • import.identify.completed      — terminal
+    ///   • import.identify.error          — terminal on failure
+    ///
+    /// Phases are serialized server-side (all maps → roster_sync → all reduces) so the
+    /// client never sees a reduce_progress for a char that hasn't appeared in roster_sync.
+    /// </summary>
+    [HttpGet("identify-ws")]
+    public async Task IdentifyWs()
+    {
+        if (!HttpContext.WebSockets.IsWebSocketRequest)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+        var ct = HttpContext.RequestAborted;
+
+        IdentifyRequest? request;
+        try
+        {
+            request = await ReadJsonRequestAsync<IdentifyRequest>(socket, ct);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to read identify request from socket");
+            await SendEnvelopeAsync(socket, "import.identify.error",
+                new { error = "Bad request payload" }, ct);
+            await CloseAsync(socket, ct);
+            return;
+        }
+
+        if (request is null || request.Msgs is null || request.Msgs.Count == 0)
+        {
+            await SendEnvelopeAsync(socket, "import.identify.error",
+                new { error = "msgs is required" }, ct);
+            await CloseAsync(socket, ct);
+            return;
+        }
+
+        var sysInstruction = request.SystemInstructionText ?? string.Empty;
+        var total = request.Msgs.Count;
+        var completed = 0;
+        var mentionsByMsg = new System.Collections.Concurrent.ConcurrentDictionary<string, List<MentionWithIdDto>>();
+
+        // Phase 1: parallel per-msg map.
+        using var mapSem = new SemaphoreSlim(MaxConcurrentClassifications);
+        var mapTasks = request.Msgs.Select(async msg =>
+        {
+            await mapSem.WaitAsync(ct);
+            try
+            {
+                var result = await importService.IdentifyMentionsForMsgAsync(msg.Text, msg.Role, ct);
+                var raw = result?.Mentions ?? [];
+                var indexed = raw
+                    .Select((m, i) => new MentionWithIdDto
+                    {
+                        MentionId = $"{msg.Id}:{i}",
+                        Name = m.Name,
+                        Evidence = m.Evidence,
+                        RoleHint = m.RoleHint,
+                    })
+                    .ToList();
+                mentionsByMsg[msg.Id] = indexed;
+
+                var done = Interlocked.Increment(ref completed);
+                await SendEnvelopeAsync(socket, "import.identify.map_progress", new
+                {
+                    msgId = msg.Id,
+                    completed = done,
+                    total,
+                    mentions = indexed,
+                }, ct);
+            }
+            finally
+            {
+                mapSem.Release();
+            }
+        }).ToArray();
+
+        try
+        {
+            await Task.WhenAll(mapTasks);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Identify map phase failed");
+            if (socket.State == WebSocketState.Open)
+            {
+                await SendEnvelopeAsync(socket, "import.identify.error",
+                    new { error = ex.Message }, ct);
+            }
+            await CloseAsync(socket, ct);
+            return;
+        }
+
+        // Phase 2: roster merge (single LLM call).
+        var groups = mentionsByMsg
+            .SelectMany(kv => kv.Value.Select(m => new { MsgId = kv.Key, Mention = m }))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Mention.Name))
+            .GroupBy(x => x.Mention.Name.Trim().ToLowerInvariant())
+            .Select(g => new MentionGroupDto
+            {
+                DisplayName = g.First().Mention.Name.Trim(),
+                Count = g.Count(),
+                Refs = g
+                    .Select(x => new MentionRefDto
+                    {
+                        MsgId = x.MsgId,
+                        MentionId = x.Mention.MentionId,
+                        Evidence = x.Mention.Evidence,
+                        RoleHint = x.Mention.RoleHint,
+                    })
+                    .ToList(),
+                RoleHints = g
+                    .Select(x => x.Mention.RoleHint)
+                    .Where(h => !string.IsNullOrWhiteSpace(h))
+                    .Select(h => h!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(3)
+                    .ToList(),
+            })
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        if (groups.Count == 0)
+        {
+            await SendEnvelopeAsync(socket, "import.identify.roster_sync",
+                new { characters = Array.Empty<object>(), links = Array.Empty<object>() }, ct);
+            await SendEnvelopeAsync(socket, "import.identify.completed", new { }, ct);
+            await CloseAsync(socket, ct);
+            return;
+        }
+
+        RosterMergeResult? merged;
+        try
+        {
+            merged = await importService.MergeRosterAsync(groups, ct);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Roster merge failed");
+            if (socket.State == WebSocketState.Open)
+            {
+                await SendEnvelopeAsync(socket, "import.identify.error",
+                    new { error = ex.Message }, ct);
+            }
+            await CloseAsync(socket, ct);
+            return;
+        }
+
+        // Fallback: each unique observed name → its own char so the UI doesn't stall.
+        if (merged?.Characters is null || merged.Characters.Count == 0)
+        {
+            merged = new RosterMergeResult
+            {
+                Characters = groups
+                    .Select((g, i) => new RosterCharacter
+                    {
+                        Id = $"char-{i + 1}",
+                        PrimaryName = g.DisplayName,
+                        Names = new List<string> { g.DisplayName },
+                        Archetype = g.RoleHints.FirstOrDefault(),
+                    })
+                    .ToList(),
+            };
+        }
+
+        // Build mention → char-id link map by case-insensitive name match.
+        var nameToChar = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in merged.Characters)
+        {
+            foreach (var n in c.Names ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(n))
+                {
+                    nameToChar[n.Trim()] = c.Id;
+                }
+            }
+            // Always include primary as a key, even if not in names[].
+            if (!string.IsNullOrWhiteSpace(c.PrimaryName))
+            {
+                nameToChar.TryAdd(c.PrimaryName.Trim(), c.Id);
+            }
+        }
+        // Fallback char for unmatched mentions (shouldn't happen if LLM follows rules).
+        var fallbackCharId = merged.Characters[0].Id;
+
+        var links = new List<object>();
+        foreach (var g in groups)
+        {
+            var charId = nameToChar.GetValueOrDefault(g.DisplayName) ?? fallbackCharId;
+            foreach (var r in g.Refs)
+            {
+                links.Add(new
+                {
+                    msgId = r.MsgId,
+                    mentionId = r.MentionId,
+                    charId,
+                });
+            }
+        }
+
+        await SendEnvelopeAsync(socket, "import.identify.roster_sync", new
+        {
+            characters = merged.Characters,
+            links,
+        }, ct);
+
+        // Phase 3: per-char detail synth in parallel.
+        // Collect evidence per char by walking groups whose displayName lives in char.names.
+        var evidenceByChar = new Dictionary<string, List<string>>();
+        foreach (var c in merged.Characters)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in c.Names ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(n)) names.Add(n.Trim());
+            }
+            if (!string.IsNullOrWhiteSpace(c.PrimaryName)) names.Add(c.PrimaryName.Trim());
+
+            var ev = groups
+                .Where(g => names.Contains(g.DisplayName))
+                .SelectMany(g => g.Refs.Select(r => r.Evidence))
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Distinct()
+                .Take(8)
+                .ToList();
+            evidenceByChar[c.Id] = ev;
+        }
+
+        using var reduceSem = new SemaphoreSlim(MaxConcurrentClassifications);
+        var reduceTasks = merged.Characters.Select(async c =>
+        {
+            await reduceSem.WaitAsync(ct);
+            try
+            {
+                var detail = await importService.SynthesizeCharDetailAsync(
+                    c.PrimaryName,
+                    c.Names ?? new List<string> { c.PrimaryName },
+                    evidenceByChar[c.Id],
+                    c.Archetype,
+                    sysInstruction,
+                    "both",
+                    ct);
+                await SendEnvelopeAsync(socket, "import.identify.reduce_progress", new
+                {
+                    characterId = c.Id,
+                    prompt = detail?.Prompt ?? string.Empty,
+                    bio = detail?.Bio,
+                }, ct);
+            }
+            finally
+            {
+                reduceSem.Release();
+            }
+        }).ToArray();
+
+        try
+        {
+            await Task.WhenAll(reduceTasks);
+            await SendEnvelopeAsync(socket, "import.identify.completed", new { }, ct);
+        }
+        catch (OperationCanceledException) { /* client disconnected */ }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Identify reduce phase failed");
+            if (socket.State == WebSocketState.Open)
+            {
+                await SendEnvelopeAsync(socket, "import.identify.error",
+                    new { error = ex.Message }, ct);
+            }
+        }
+        finally
+        {
+            await CloseAsync(socket, ct);
+        }
+    }
+
+    /// <summary>
+    /// Single-shot regeneration of one character's prompt and/or bio. Used by the
+    /// CharDetailWindow's "Regen prompt" / "Regen bio" buttons.
+    /// </summary>
+    [HttpPost("regenerate-char-detail")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<RegenerateCharDetailResponse>> RegenerateCharDetail(
+        [FromBody] RegenerateCharDetailRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.PrimaryName))
+            return BadRequest("primaryName is required.");
+        var mode = string.IsNullOrWhiteSpace(request.Mode) ? "both" : request.Mode;
+        if (mode is not "prompt" and not "bio" and not "both")
+            return BadRequest("mode must be 'prompt', 'bio', or 'both'.");
+
+        var detail = await importService.SynthesizeCharDetailAsync(
+            request.PrimaryName,
+            request.Names ?? [],
+            request.Evidence ?? [],
+            request.Archetype,
+            request.SystemInstructionText ?? string.Empty,
+            mode,
+            cancellationToken);
+
+        return Ok(new RegenerateCharDetailResponse(detail?.Prompt, detail?.Bio));
+    }
+
     [HttpPost("commit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -267,7 +584,10 @@ public sealed class ImportController(
         return Ok(new CommitImportResponse(chatGroup.Id, mintedIds, written));
     }
 
-    private static async Task<ClassifyRequest?> ReadRequestAsync(WebSocket socket, CancellationToken ct)
+    private static Task<ClassifyRequest?> ReadRequestAsync(WebSocket socket, CancellationToken ct)
+        => ReadJsonRequestAsync<ClassifyRequest>(socket, ct);
+
+    private static async Task<T?> ReadJsonRequestAsync<T>(WebSocket socket, CancellationToken ct)
     {
         using var messageStream = new MemoryStream();
         var frameBuffer = new byte[64 * 1024];
@@ -275,11 +595,11 @@ public sealed class ImportController(
         do
         {
             receiveResult = await socket.ReceiveAsync(frameBuffer, ct);
-            if (receiveResult.MessageType == WebSocketMessageType.Close) return null;
+            if (receiveResult.MessageType == WebSocketMessageType.Close) return default;
             messageStream.Write(frameBuffer.AsSpan(0, receiveResult.Count));
         } while (!receiveResult.EndOfMessage);
 
-        return JsonSerializer.Deserialize<ClassifyRequest>(messageStream.ToArray(), WsJsonOptions);
+        return JsonSerializer.Deserialize<T>(messageStream.ToArray(), WsJsonOptions);
     }
 
     private async Task SendEnvelopeAsync(WebSocket socket, string type, object data, CancellationToken ct)
@@ -441,3 +761,67 @@ public sealed record class CommitImportResponse(
     [property: JsonPropertyName("chatGroupId")] Guid ChatGroupId,
     [property: JsonPropertyName("createdPersonaIds")] List<Guid> CreatedPersonaIds,
     [property: JsonPropertyName("messagesWritten")] int MessagesWritten);
+
+public sealed record class IdentifyRequest
+{
+    [JsonPropertyName("systemInstructionText")]
+    public string SystemInstructionText { get; init; } = string.Empty;
+
+    [JsonPropertyName("msgs")]
+    public List<IdentifyMsgInput> Msgs { get; init; } = [];
+}
+
+public sealed record class IdentifyMsgInput
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; init; } = "user";
+
+    [JsonPropertyName("text")]
+    public string Text { get; init; } = string.Empty;
+}
+
+/// <summary>One mention with its server-assigned stable id, sent on each
+/// import.identify.map_progress envelope.</summary>
+public sealed record class MentionWithIdDto
+{
+    [JsonPropertyName("mentionId")]
+    public string MentionId { get; init; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; init; } = string.Empty;
+
+    [JsonPropertyName("roleHint")]
+    public string? RoleHint { get; init; }
+}
+
+public sealed record class RegenerateCharDetailRequest
+{
+    [JsonPropertyName("primaryName")]
+    public string PrimaryName { get; init; } = string.Empty;
+
+    [JsonPropertyName("names")]
+    public List<string>? Names { get; init; }
+
+    [JsonPropertyName("evidence")]
+    public List<string>? Evidence { get; init; }
+
+    [JsonPropertyName("archetype")]
+    public string? Archetype { get; init; }
+
+    [JsonPropertyName("systemInstructionText")]
+    public string? SystemInstructionText { get; init; }
+
+    /// <summary>"prompt" | "bio" | "both". Default "both".</summary>
+    [JsonPropertyName("mode")]
+    public string Mode { get; init; } = "both";
+}
+
+public sealed record class RegenerateCharDetailResponse(
+    [property: JsonPropertyName("prompt")] string? Prompt,
+    [property: JsonPropertyName("bio")] string? Bio);

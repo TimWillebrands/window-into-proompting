@@ -89,6 +89,39 @@ export type CommitImportResponse = {
     messagesWritten: number;
 };
 
+export type RegenerateCharDetailRequest = {
+    primaryName: string;
+    names: string[];
+    evidence: string[];
+    archetype: string | null;
+    systemInstructionText: string;
+    /** "prompt" | "bio" | "both" */
+    mode: 'prompt' | 'bio' | 'both';
+};
+
+export type RegenerateCharDetailResponse = {
+    prompt: string | null;
+    bio: string | null;
+};
+
+export async function regenerateCharDetail(
+    body: RegenerateCharDetailRequest,
+    signal?: AbortSignal,
+): Promise<RegenerateCharDetailResponse> {
+    const res = await fetch('/api/Import/regenerate-char-detail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+    });
+    if (!res.ok) {
+        throw new Error(
+            `regenerate-char-detail failed: ${res.status} ${await res.text()}`,
+        );
+    }
+    return (await res.json()) as RegenerateCharDetailResponse;
+}
+
 export async function commitImport(
     body: CommitImportRequest,
     signal?: AbortSignal,
@@ -100,9 +133,7 @@ export async function commitImport(
         signal,
     });
     if (!res.ok) {
-        throw new Error(
-            `commit failed: ${res.status} ${await res.text()}`,
-        );
+        throw new Error(`commit failed: ${res.status} ${await res.text()}`);
     }
     return (await res.json()) as CommitImportResponse;
 }
