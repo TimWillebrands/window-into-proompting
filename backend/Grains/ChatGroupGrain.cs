@@ -198,7 +198,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         CancellationToken ct = default)
     {
         if (messages.Count == 0) return 0;
-        RaiseEvent(new ChatGroupMessagesImportedEvent { Messages = [.. messages] });
+        // Pin ChatGroupId to this grain's key so a caller mistake (or attacker) cannot
+        // smuggle messages tagged for a different room into our event log.
+        var chatGroupId = this.GetPrimaryKey();
+        var normalized = messages
+            .Select(m => m with { ChatGroupId = chatGroupId })
+            .ToList();
+        RaiseEvent(new ChatGroupMessagesImportedEvent { Messages = normalized });
         await ConfirmEvents();
         return messages.Count;
     }

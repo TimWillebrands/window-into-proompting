@@ -39,6 +39,10 @@ async function* runWsStream(
     request: unknown,
     signal?: AbortSignal,
 ): AsyncGenerator<WsEnvelope, void, unknown> {
+    if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+    }
+
     const httpUrl = new URL(pathname, window.location.href);
     const wsUrl = `${httpUrl.protocol === 'https:' ? 'wss:' : 'ws:'}//${httpUrl.host}${httpUrl.pathname}`;
 
@@ -73,7 +77,8 @@ async function* runWsStream(
         wake();
     });
 
-    signal?.addEventListener('abort', () => ws.close());
+    const onAbort = () => ws.close();
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     try {
         while (!closed && !wsError) {
@@ -92,6 +97,7 @@ async function* runWsStream(
         }
         if (wsError) throw wsError;
     } finally {
+        signal?.removeEventListener('abort', onAbort);
         if (
             ws.readyState === WebSocket.OPEN ||
             ws.readyState === WebSocket.CONNECTING

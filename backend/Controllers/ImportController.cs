@@ -32,6 +32,7 @@ public sealed class ImportController(
     ILogger<ImportController> logger) : ControllerBase
 {
     private const int MaxConcurrentClassifications = 5;
+    private const int MaxWsRequestBytes = 4 * 1024 * 1024; // 4 MiB
 
     [HttpPost("extract-personas")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -561,15 +562,28 @@ public sealed class ImportController(
         // Step 4: bulk-import messages. Rewrite each message's senderId from
         // placeholder → minted GUID via idRemap. Drop messages whose placeholder didn't
         // resolve (caller bug; safer to skip than to attribute to Guid.Empty).
+        // The imported user has no persona-stub entry in idRemap; resolve user-typed
+        // messages against UserParticipant.Id directly so they aren't dropped.
+        var importedUserId = request.UserParticipant is { } up && up.Id != Guid.Empty
+            ? (Guid?)up.Id
+            : null;
         var imported = new List<ImportedMessage>(request.Messages.Count);
         foreach (var m in request.Messages)
         {
             if (!idRemap.TryGetValue(m.SenderPlaceholderId ?? string.Empty, out var senderId))
             {
-                logger.LogWarning(
-                    "Import: dropping message with unresolved sender placeholder '{Placeholder}'",
-                    m.SenderPlaceholderId);
-                continue;
+                if (importedUserId is Guid uid &&
+                    string.Equals(m.SenderType, "user", StringComparison.OrdinalIgnoreCase))
+                {
+                    senderId = uid;
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "Import: dropping message with unresolved sender placeholder '{Placeholder}'",
+                        m.SenderPlaceholderId);
+                    continue;
+                }
             }
             imported.Add(new ImportedMessage
             {
@@ -604,6 +618,11 @@ public sealed class ImportController(
             receiveResult = await socket.ReceiveAsync(frameBuffer, ct);
             if (receiveResult.MessageType == WebSocketMessageType.Close) return default;
             messageStream.Write(frameBuffer.AsSpan(0, receiveResult.Count));
+            if (messageStream.Length > MaxWsRequestBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Request payload exceeds {MaxWsRequestBytes} bytes.");
+            }
         } while (!receiveResult.EndOfMessage);
 
         return JsonSerializer.Deserialize<T>(messageStream.ToArray(), WsJsonOptions);
@@ -620,7 +639,17 @@ public sealed class ImportController(
             data
         };
         var payload = JsonSerializer.SerializeToUtf8Bytes(envelope, WsJsonOptions);
-        await socket.SendAsync(payload, WebSocketMessageType.Text, true, ct);
+        // WebSocket.SendAsync is not safe for concurrent callers; classify/identify
+        // run LLM tasks in parallel and emit progress envelopes from each.
+        await _sendGate.WaitAsync(ct);
+        try
+        {
+            await socket.SendAsync(payload, WebSocketMessageType.Text, true, ct);
+        }
+        finally
+        {
+            _sendGate.Release();
+        }
     }
 
     private static async Task CloseAsync(WebSocket socket, CancellationToken ct)
@@ -634,6 +663,7 @@ public sealed class ImportController(
 
     private static readonly JsonSerializerOptions WsJsonOptions = new(JsonSerializerDefaults.Web);
     private long _wsSequence;
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
 }
 
 // ── Wire DTOs ──

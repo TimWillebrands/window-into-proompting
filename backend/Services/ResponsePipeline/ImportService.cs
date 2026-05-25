@@ -220,9 +220,9 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         if (parsed?.Personas is null || parsed.Personas.Count == 0)
         {
             logger.LogWarning(
-                "Persona extraction reduce returned empty (parsed null? {ParsedNull}). Raw output (truncated): {Raw}. Falling back to single Narrator stub.",
+                "Persona extraction reduce returned empty (parsed null? {ParsedNull}, rawLength={RawLength}). Falling back to single Narrator stub.",
                 parsed is null,
-                raw.Length > 600 ? raw[..600] : raw);
+                raw.Length);
             return [new ExtractedPersona { Name = "Narrator", Archetype = null, SystemPrompt = "A neutral narrator who describes the scene and events.", Bio = null }];
         }
 
@@ -633,8 +633,8 @@ public sealed class ImportService(IGrainFactory grains, ILogger<ImportService> l
         }
         catch (Exception ex)
         {
-            logger.LogError("{Label} JSON repair failed: {Error}. Raw (truncated): {Raw}",
-                label, ex.Message, raw.Length > 400 ? raw[..400] : raw);
+            logger.LogError("{Label} JSON repair failed: {Error}. RawLength={RawLength}",
+                label, ex.Message, raw.Length);
             return null;
         }
     }
