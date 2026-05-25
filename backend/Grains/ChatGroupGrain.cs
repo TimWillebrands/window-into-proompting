@@ -179,6 +179,36 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return message;
     }
 
+    /// <summary>
+    /// Bulk-imports historical messages (e.g. from an external chat export). Unlike
+    /// <see cref="SendNewMessageAsync"/>, this method:
+    ///   • Honors the caller-supplied <c>SendAt</c> (no UtcNow stamp), so imported
+    ///     messages keep their assigned chronological order.
+    ///   • Honors the caller-supplied <c>SenderType</c> ("user" or "assistant").
+    ///   • Does NOT publish a party stream event — open D'Accord windows would otherwise
+    ///     spam-render 300+ messages mid-import. Clients reload the room normally on
+    ///     navigation after commit returns.
+    ///   • Does NOT fan out to PersonaGrains — historical messages shouldn't trigger
+    ///     live LLM replies.
+    /// All messages are appended under a single Orleans event so the round-trip cost is
+    /// O(1), not O(n).
+    /// </summary>
+    public async Task<int> ImportMessagesAsync(
+        List<ImportedMessage> messages,
+        CancellationToken ct = default)
+    {
+        if (messages.Count == 0) return 0;
+        // Pin ChatGroupId to this grain's key so a caller mistake (or attacker) cannot
+        // smuggle messages tagged for a different room into our event log.
+        var chatGroupId = this.GetPrimaryKey();
+        var normalized = messages
+            .Select(m => m with { ChatGroupId = chatGroupId })
+            .ToList();
+        RaiseEvent(new ChatGroupMessagesImportedEvent { Messages = normalized });
+        await ConfirmEvents();
+        return messages.Count;
+    }
+
     public async Task AppendMessageAsync(
         int messageId,
         string content,
@@ -536,6 +566,11 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         int? triggeredByMessageId = null,
         CancellationToken cancellationToken = default);
 
+    [Alias("ImportMessagesAsync")]
+    Task<int> ImportMessagesAsync(
+        List<ImportedMessage> messages,
+        CancellationToken cancellationToken = default);
+
     [Alias("MarkGenerationStoppedAsync")]
     Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null);
 
@@ -786,6 +821,25 @@ public sealed record class ChatGroupState
             SendAt = @event.SendAt
         });
     }
+
+    public void Apply(ChatGroupMessagesImportedEvent @event)
+    {
+        foreach (var imported in @event.Messages)
+        {
+            NextMessageId++;
+            Messages.Add(new ChatMessage
+            {
+                ChatGroupId = imported.ChatGroupId,
+                MessageId = NextMessageId,
+                Content = imported.Content,
+                SenderType = imported.SenderType,
+                SenderId = imported.SenderId,
+                SendAt = imported.SendAt,
+                Kind = imported.Kind,
+                Metadata = imported.Metadata
+            });
+        }
+    }
 }
 
 /// <summary>A persona-turn that ended in <c>IsObviousSkip</c>: no slot, no LLM call.
@@ -983,4 +1037,29 @@ public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupE
     [Id(2)] public string? Appraisal { get; set; }
     [Id(3)] public int? TriggeredByMessageId { get; set; }
     [Id(4)] public long SendAt { get; set; }
+}
+
+/// <summary>One historical chat message being bulk-imported. Caller assigns sender,
+/// timestamp, and kind. <see cref="ChatMessage.MessageId"/> is assigned by the state
+/// projection at apply time, not by the caller.</summary>
+[GenerateSerializer, Alias(nameof(ImportedMessage))]
+public sealed record class ImportedMessage
+{
+    [Id(0)] public Guid SenderId { get; set; }
+    [Id(1)] public string SenderType { get; set; } = "user";
+    [Id(2)] public string Content { get; set; } = string.Empty;
+    [Id(3)] public long SendAt { get; set; }
+    [Id(4)] public string? Kind { get; set; }
+    [Id(5)] public Guid ChatGroupId { get; set; }
+    [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
+}
+
+/// <summary>Raised when a batch of historical messages is bulk-imported. Single event
+/// per import so the journaled-grain round-trip cost stays O(1). Messages are appended
+/// in array order with sequential <see cref="ChatMessage.MessageId"/> values starting
+/// from the current <see cref="ChatGroupState.NextMessageId"/>.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupMessagesImportedEvent))]
+public sealed record class ChatGroupMessagesImportedEvent : ChatGroupEvent
+{
+    [Id(0)] public List<ImportedMessage> Messages { get; set; } = [];
 }

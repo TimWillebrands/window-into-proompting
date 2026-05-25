@@ -20,12 +20,15 @@ _Avoid_: chat-group, chat-room, channel, thread.
 A character with a name, bio, system prompt, and behavioural dials (**Chattiness**, **Impulsivity**). Lives outside any Party — Personas are library entries that can join multiple Parties (eventually) and accumulate per-Party **Memories**. A Persona is a definition, not a membership.
 _Avoid_: character, agent, bot, NPC, user.
 
+**Narrator**:
+The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (imports, scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
+
 **Participant**:
 A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
 _Avoid_: member, attendee, party-member.
 
 **Driver**:
-The thing currently operating a **Participant** in a given **Room**. One of two kinds: `User` (a human types the messages) or `LLM` (the agent stack generates them). Driver is contextual: every reference to "the Driver" in a Room means the **Effective Driver** for that (Participant, Room) pair. Two flavours of stored Driver back this up:
+The thing currently operating a **Participant** in a given **Room**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (a sentinel for un-personed voices — narration, scenario-voice, scripted NPCs — that the **Response pipeline** never auto-generates from). Driver is contextual: every reference to "the Driver" in a Room means the **Effective Driver** for that (Participant, Room) pair. Two flavours of stored Driver back this up:
 _Avoid_: operator, pilot, controller, agent.
 
 **Default Driver**:
@@ -39,7 +42,7 @@ _Avoid_: room-driver, local-driver, room-override.
 The resolution rule consulted by the **Response pipeline** and any other consumer that needs to know "who is operating this Participant *right now*": `Driver override` for this (Persona, Room) if present, else the Participant's `Default Driver`. Always defined. Consumers see the Effective Driver only; the distinction between default and overridden is invisible to them.
 _Avoid_: resolved-driver, current-driver.
 
-> Note: backend storage spelling for **Default Driver** is `bool IsUser` on `PartyParticipant` — kept until a third kind appears or auth lands. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and the Room-level override storage use the `DriverKind` enum.
+> Note: backend storage spelling for **Default Driver** is `bool IsUser` on `PartyParticipant`. The **Narrator** import work introduces the third kind (`System`) and triggers the migration to a `DriverKind` enum at storage scope; pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already use `DriverKind`.
 
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.

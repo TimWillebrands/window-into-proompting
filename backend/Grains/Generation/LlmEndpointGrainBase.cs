@@ -107,7 +107,15 @@ public static class LlmEndpointGrainUtils
             Temperature = mp?.Temperature is null ? null : (float)mp.Temperature.Value
         };
 
-        if (TryGetJsonSchemaResponseFormat(mp?.ResponseFormat, out var responseFormat))
+        // ResponseFormat can be set on either LlmGenerationJob (top-level, the modern
+        // shape used by structured-output callers like PersonaDecisionService and
+        // ImportService) or LlmModelParameters (legacy). Top-level takes precedence.
+        // Historical footgun: pre-fix, only the nested ModelParameters slot was wired
+        // through, so all callers using the top-level field had their JSON schemas
+        // silently dropped — output happened to mostly parse because JsonRepair caught
+        // it, but strict schemas weren't actually enforced.
+        var responseFormatJson = parameters.ResponseFormat ?? mp?.ResponseFormat;
+        if (TryGetJsonSchemaResponseFormat(responseFormatJson, out var responseFormat))
         {
             options.ResponseFormat = responseFormat;
         }
