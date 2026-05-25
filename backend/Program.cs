@@ -5,6 +5,7 @@ using PartyTown.Data;
 using PartyTown.Logging;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
+using PartyTown.Services.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +92,10 @@ if (!openApiBuild)
 
         siloBuilder.AddActivityPropagation();
     });
+
+    // Seed the singleton Narrator library Persona and back-fill Narrator-Participant on
+    // every Party on startup. Idempotent — safe to run every boot. See ADR 0012.
+    builder.Services.AddHostedService<NarratorSeederHostedService>();
 }
 
 builder.Logging.AddSimpleConsole(options =>

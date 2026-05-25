@@ -1755,6 +1755,9 @@
           }
         }
       },
+      "DriverKind": {
+        "type": "integer"
+      },
       "JobComplexity": {
         "type": "integer"
       },
@@ -1892,8 +1895,8 @@
           "name": {
             "type": "string"
           },
-          "isUser": {
-            "type": "boolean"
+          "driver": {
+            "$ref": "#/components/schemas/DriverKind"
           }
         }
       },
@@ -1932,8 +1935,8 @@
           "name": {
             "type": "string"
           },
-          "isUser": {
-            "type": "boolean"
+          "driver": {
+            "$ref": "#/components/schemas/DriverKind"
           }
         }
       },
@@ -1947,8 +1950,8 @@
           "name": {
             "type": "string"
           },
-          "isUser": {
-            "type": "boolean"
+          "driver": {
+            "$ref": "#/components/schemas/DriverKind"
           }
         }
       },

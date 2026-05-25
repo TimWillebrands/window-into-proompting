@@ -1,11 +1,14 @@
+using PartyTown.Model;
+
 namespace PartyTown.Services.Memory;
 
 /// <summary>
 /// Minimal projection of a Participant as seen at capture time — id plus display name plus
-/// whether they are user-driven. Used by extractors to ground per-Persona snippets and by
-/// the repository to wire <c>RECOLLECTS</c> edges from non-user participants.
+/// the Driver kind. Used by extractors to ground per-Persona snippets and by the repository
+/// to wire <c>RECOLLECTS</c> edges from non-user participants (LLM and System both
+/// accumulate memory; only User does not).
 /// </summary>
-public sealed record ParticipantSnapshot(Guid Id, string Name, bool IsUser);
+public sealed record ParticipantSnapshot(Guid Id, string Name, DriverKind Driver);
 
 /// <summary>
 /// Concept tag produced by the event-describer extractor. <see cref="Name"/> is the

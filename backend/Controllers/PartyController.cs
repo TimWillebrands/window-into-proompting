@@ -162,7 +162,7 @@ public sealed class PartyController(
                     Name = string.IsNullOrWhiteSpace(participant.Name)
                         ? fallbackName
                         : participant.Name.Trim(),
-                    IsUser = participant.IsUser
+                    Driver = participant.Driver
                 };
             })
             .ToList();
@@ -175,7 +175,7 @@ public sealed class PartyController(
 
     /// <summary>
     /// Returns the participant list for a single chat group (the per-room cast,
-    /// including the user-persona marked with <see cref="PartyParticipant.IsUser"/>).
+    /// including any User-driven and System-driven Participants).
     /// </summary>
     [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -251,7 +251,7 @@ public sealed class PartyController(
                     Name = string.IsNullOrWhiteSpace(participant.Name)
                         ? fallbackName
                         : participant.Name.Trim(),
-                    IsUser = participant.IsUser
+                    Driver = participant.Driver
                 };
             })
             .ToList();
@@ -617,7 +617,7 @@ public sealed class PartyController(
 
         var participants = await chatGroupGrain.GetParticipantsAsync();
         var snapshots = participants
-            .Select(p => new ParticipantSnapshot(p.Id, p.Name, p.IsUser))
+            .Select(p => new ParticipantSnapshot(p.Id, p.Name, p.Driver))
             .ToList();
 
         var contextWindow = messages
@@ -712,12 +712,14 @@ public sealed class PartyController(
     private async Task<List<PartyParticipant>> BuildDefaultParticipants(Guid? userId, string? userName)
     {
         var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
-        var participants = personas.Select(persona => new PartyParticipant
-        {
-            Id = persona.Id,
-            Name = persona.Name,
-            IsUser = false
-        }).ToList();
+        var participants = personas
+            .Where(persona => persona.Id != Narrator.PersonaId) // Narrator is added separately as a System-driven Participant on every Party
+            .Select(persona => new PartyParticipant
+            {
+                Id = persona.Id,
+                Name = persona.Name,
+                Driver = DriverKind.LLM
+            }).ToList();
 
         if (userId.HasValue && userId.Value != Guid.Empty)
         {
@@ -725,7 +727,7 @@ public sealed class PartyController(
             {
                 Id = userId.Value,
                 Name = string.IsNullOrWhiteSpace(userName) ? userId.Value.ToString() : userName,
-                IsUser = true
+                Driver = DriverKind.User
             });
         }
 

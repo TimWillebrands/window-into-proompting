@@ -29,9 +29,9 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var partyId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var messageId = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
-        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
-        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
-        var userBob = new ParticipantSnapshot(Guid.NewGuid(), "Bob", IsUser: true);
+        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
+        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var userBob = new ParticipantSnapshot(Guid.NewGuid(), "Bob", Driver: DriverKind.User);
 
         var conceptDisplay = $"Lisp-{Guid.NewGuid():N}";
         var conceptName = conceptDisplay.ToLowerInvariant();
@@ -160,8 +160,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var partyId = Guid.NewGuid();
         var roomId = Guid.NewGuid();
         var messageId = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
-        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", IsUser: false);
-        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", IsUser: false);
+        var personaHana = new ParticipantSnapshot(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var personaVlad = new ParticipantSnapshot(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
 
         const string hanaSnippet = "you defended Lisp from Vlad's eye-roll";
         const string vladSnippet = "you watched Hana double down on Lisp after you cut in";

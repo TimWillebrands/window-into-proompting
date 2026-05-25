@@ -9,7 +9,7 @@ public record class PersonaMetadata : IPartyActor
     [Id(1)]
     public string Name { get; set; } = string.Empty;
 
-    public bool IsUser => false;
+    public DriverKind Driver => DriverKind.LLM;
 
     public PersonaMetadata()
     {
@@ -75,7 +75,7 @@ public sealed record class User : IPartyActor
     [Id(2)]
     public string? Bio { get; set; }
 
-    public bool IsUser => true;
+    public DriverKind Driver => DriverKind.User;
 
     public User()
     {
@@ -93,5 +93,5 @@ interface IPartyActor
 {
     Guid Id { get; }
     string Name { get; }
-    bool IsUser { get; }
+    DriverKind Driver { get; }
 }

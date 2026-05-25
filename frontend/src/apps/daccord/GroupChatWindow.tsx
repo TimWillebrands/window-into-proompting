@@ -35,6 +35,12 @@ import {
 } from '#lib/realtime-store';
 import type { Persona } from '../../api/model';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import {
+    Driver,
+    NARRATOR_PERSONA_ID,
+    isLlmDriven,
+    isUserDriven,
+} from '../../lib/driver';
 
 export interface ChatViewProps {
     chatGroupId: string;
@@ -113,16 +119,20 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         );
 
     // Seed participant state from per-chat-group server data on first load.
-    // Each chat group owns its own cast (AI participants + the user-persona
-    // marked with isUser:true), so reload from this room, not the party-level list.
+    // Each chat group owns its own cast (LLM-driven personas + at most one User-driven
+    // participant + the System-driven Narrator), so reload from this room, not the
+    // party-level list.
     useEffect(() => {
         if (initializedForChatGroupId.current === chatGroupId) return;
         if (chatGroupParticipantsQuery.data.status !== 200) return;
         const roomParticipants = chatGroupParticipantsQuery.data.data ?? [];
+        // The AI ID list drives the "who is in this room" toggle UI; the Narrator is
+        // always present (server invariant) and not editable, so exclude it here.
         const aiIds = roomParticipants
-            .filter((p) => !p.isUser && p.id)
+            .filter((p) => isLlmDriven(p) && p.id && p.id !== NARRATOR_PERSONA_ID)
             .map((p) => p.id as string);
-        const userId = roomParticipants.find((p) => p.isUser && p.id)?.id ?? '';
+        const userId =
+            roomParticipants.find((p) => isUserDriven(p) && p.id)?.id ?? '';
         setParticipantPersonaIds(aiIds);
         setSavedParticipantPersonaIds(aiIds);
         setSelectedPersonaId(userId);
@@ -177,7 +187,12 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
             mutation: {
                 onSuccess: (_data, variables) => {
                     const savedPersonaIds = (variables.data.participants ?? [])
-                        .filter((p) => !p.isUser && p.id !== null)
+                        .filter(
+                            (p) =>
+                                isLlmDriven(p) &&
+                                p.id !== null &&
+                                p.id !== NARRATOR_PERSONA_ID,
+                        )
                         .map(
                             (p) =>
                                 p.id ?? 'unreachable but tsc is being annoying',
@@ -273,7 +288,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         const aiParticipants = savedParticipantPersonaIds.map((id) => ({
             id,
             name: personaNameMap.get(id) ?? id,
-            isUser: false,
+            driver: Driver.LLM,
         }));
         const participants = selectedPersonaId
             ? [
@@ -283,10 +298,12 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                       name:
                           personaNameMap.get(selectedPersonaId) ??
                           selectedPersonaId,
-                      isUser: true,
+                      driver: Driver.User,
                   },
               ]
             : aiParticipants;
+        // PartyGrain enforces a Narrator-Participant on every save (ADR 0012), so we
+        // don't have to include it in this payload.
         saveParticipantsMutation.mutate({
             id: apiPartyId,
             chatGroupId,
@@ -364,7 +381,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         const personasToSave = participantPersonaIds.map((id) => ({
             id,
             name: personaNameMap.get(id) ?? id,
-            isUser: false,
+            driver: Driver.LLM,
         }));
         const userParticipant = selectedPersonaId
             ? [
@@ -373,7 +390,7 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                       name:
                           personaNameMap.get(selectedPersonaId) ??
                           selectedPersonaId,
-                      isUser: true,
+                      driver: Driver.User,
                   },
               ]
             : [];
@@ -793,7 +810,11 @@ function ParticipantsSidebar({
     onReset: () => void;
 }) {
     const participantSet = new Set(participantPersonaIds);
-    const aiPersonas = personas.filter((p) => !p.isUser);
+    // PersonaMetadata only contains library Personas; the Narrator lives in the same
+    // registry but must not appear in the user-picker or the participant toggle column.
+    const aiPersonas = personas.filter(
+        (p) => isLlmDriven(p) && p.id !== NARRATOR_PERSONA_ID,
+    );
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
     const totalActive =
         participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
@@ -1074,6 +1095,62 @@ function ParticipantsSidebar({
                                 }}
                             >
                                 you
+                            </span>
+                        </div>
+                    </>
+                )}
+
+                {/* Narrator row (System driver) — always present, non-toggleable, no driver
+                    flip affordance. Rendered after the User row so the cast section reads
+                    "AI personas / you / system". Source of truth = library Persona registry
+                    (the singleton Narrator entry). */}
+                {personas.some((p) => p.id === NARRATOR_PERSONA_ID) && (
+                    <>
+                        <div
+                            style={{
+                                margin: '4px 8px 0',
+                                borderTop: '1px solid #D4D0C8',
+                            }}
+                        />
+                        <div
+                            className="participant-row active"
+                            title="Narrator — System driver, never auto-speaks"
+                            style={{ cursor: 'default' }}
+                        >
+                            <img
+                                src={`https://robohash.org/${NARRATOR_PERSONA_ID}?size=32x32&set=set3`}
+                                alt="Narrator"
+                                style={{
+                                    width: 24,
+                                    height: 24,
+                                    flexShrink: 0,
+                                    imageRendering: 'pixelated',
+                                }}
+                            />
+                            <span
+                                style={{
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: '#806600',
+                                    fontStyle: 'italic',
+                                }}
+                            >
+                                Narrator
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: 8,
+                                    color: '#806600',
+                                    flexShrink: 0,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                }}
+                            >
+                                system
                             </span>
                         </div>
                     </>

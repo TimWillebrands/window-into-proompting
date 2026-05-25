@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { DriverKind } from './driverKind';
 
 export interface Persona {
     systemPrompt?: string;
@@ -15,5 +16,5 @@ export interface Persona {
     impulsivity?: number | string;
     id?: string;
     name?: string;
-    isUser?: boolean;
+    driver?: DriverKind;
 }

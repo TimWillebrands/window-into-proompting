@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
 using Orleans.Hosting;
 using Orleans.Runtime;
 using Orleans.TestingHost;
@@ -43,10 +42,22 @@ public sealed class ChatGroupClusterFixture : IAsyncLifetime
     public async Task<(Guid partyId, Guid chatGroupId, List<PartyParticipant> participants)>
         CreatePartyWithChatGroupAsync(params string[] personaNames)
     {
-        var partyId = Guid.NewGuid();
         var participants = personaNames
-            .Select(n => new PartyParticipant { Id = Guid.NewGuid(), Name = n })
+            .Select(n => new PartyParticipant { Id = Guid.NewGuid(), Name = n, Driver = DriverKind.LLM })
             .ToList();
+        return await CreatePartyWithExplicitParticipantsAsync(participants);
+    }
+
+    /// <summary>
+    /// Same as <see cref="CreatePartyWithChatGroupAsync"/> but lets the caller supply a fully-built
+    /// participant list. Returned <c>participants</c> is the original input — the grain may have
+    /// added invariants like the Narrator-Participant on top (ADR 0012), but tests typically
+    /// only want to reason about the cast they passed in.
+    /// </summary>
+    public async Task<(Guid partyId, Guid chatGroupId, List<PartyParticipant> participants)>
+        CreatePartyWithExplicitParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var partyId = Guid.NewGuid();
 
         var root = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await root.AddParty(new PartyInfo { Id = partyId, Name = "test-party", Participants = participants });
@@ -63,14 +74,8 @@ public sealed class ChatGroupClusterFixture : IAsyncLifetime
         public void Configure(ISiloBuilder siloBuilder)
         {
             siloBuilder
-                .AddMemoryGrainStorage("parties")
-                .AddMemoryGrainStorage("personas")
-                .AddMemoryGrainStorage("urls")
-                .AddMemoryGrainStorage("PubSubStore")
-                .AddStateStorageBasedLogConsistencyProvider("PartyStateStorage")
-                .AddMemoryStreams("party-streams");
-
-            siloBuilder.AddIncomingGrainCallFilter<FanoutInterceptor>();
+                .ConfigureDefaults()
+                .AddIncomingGrainCallFilter<FanoutInterceptor>();
         }
     }
 }

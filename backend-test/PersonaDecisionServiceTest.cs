@@ -167,7 +167,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -199,7 +199,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -230,7 +230,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -259,7 +259,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -289,7 +289,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -324,7 +324,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -351,7 +351,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -378,7 +378,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -425,7 +425,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -461,7 +461,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -491,7 +491,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -520,7 +520,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -563,7 +563,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -591,7 +591,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -625,7 +625,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {
@@ -664,7 +664,7 @@ public class PersonaDecisionServiceTest
         var participants = new List<GenerationParticipant>
         {
             self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            new() { Id = senderId, Name = "User", Driver = DriverKind.User },
         };
         var history = new List<ChatMessage>
         {

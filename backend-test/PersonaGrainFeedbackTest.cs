@@ -77,7 +77,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .Setup(g => g.GetParticipantsAsync())
             .ReturnsAsync(new List<PartyParticipant>(extraParticipants ?? [])
             {
-                new() { Id = _personaId, Name = PersonaName, IsUser = false }
+                new() { Id = _personaId, Name = PersonaName, Driver = DriverKind.LLM }
             });
         chatGroup
             .Setup(g => g.CountTrailingAssistantMessagesAsync())

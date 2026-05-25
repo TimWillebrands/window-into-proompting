@@ -109,10 +109,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
-            : string.Join("\n", others.Select(p =>
-                p.IsUser
-                    ? $"- {p.Name} (human)"
-                    : $"- {p.Name} (persona)"));
+            : string.Join("\n", others.Select(p => p.RosterLine()));
 
         // Scenario sits between identity and the participant roster: persona-self comes first
         // (primacy), the in-fiction setting establishes context, then who else is there.
@@ -173,7 +170,7 @@ public sealed record class GenerationParticipant
     public string Name { get; init; } = string.Empty;
     public string? Bio { get; init; }
     public string? SystemPrompt { get; init; }
-    public bool IsUser { get; init; }
+    public DriverKind Driver { get; init; } = DriverKind.LLM;
 
     /// <summary>0..1 dial controlling urge to chime in. Drives chaos-bonus weighting in
     /// PersonaDecisionService. Defaults to 0.5 for users / unset personas.</summary>
@@ -183,6 +180,15 @@ public sealed record class GenerationParticipant
     /// (easily interrupted, repairs often); 1 = impulsive (commits hard, rarely repairs).
     /// Drives the stop-signal race in PersonaGrain. Defaults to 0.5 for users / unset personas.</summary>
     public double Impulsivity { get; init; } = 0.5;
+
+    /// <summary>Roster-line render shared by every prompt builder so the two LLM calls (decide
+    /// + speak) can't disagree about who is who.</summary>
+    public string RosterLine() => Driver switch
+    {
+        DriverKind.User => $"- {Name} (human)",
+        DriverKind.System => $"- {Name} (narrator)",
+        _ => $"- {Name} (persona)",
+    };
 }
 
 public sealed record class GenerationResult

@@ -50,12 +50,72 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         // Party-level participants are the seed cast for newly created chat groups
         // (see ChatGroupGrain.OnActivateAsync). Existing chat groups own their own
         // participants list per-room and are not mutated here.
+        var normalized = WithNarratorEnforced(participants);
+
+        // No-op short-circuit: NarratorSeeder re-asserts SetParticipants on every Party
+        // at boot. Without this guard, every silo start writes a journal event per party
+        // even when nothing changed — permanent monotonic growth in the event store.
+        if (ParticipantsEqual(State.Participants, normalized))
+            return;
+
         RaiseEvent(new ParticipantsSetEvent
         {
-            Participants = [.. participants]
+            Participants = [.. normalized]
         });
 
         await ConfirmEvents();
+    }
+
+    private static bool ParticipantsEqual(List<PartyParticipant> a, List<PartyParticipant> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (a[i].Id != b[i].Id || a[i].Name != b[i].Name || a[i].Driver != b[i].Driver)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Invariant: every Party carries the singleton <see cref="Narrator"/> as a
+    /// <see cref="DriverKind.System"/> Participant (ADR 0012, issue #75). Auto-grow it here
+    /// rather than relying on each caller to remember — and normalise the Driver kind back
+    /// to <c>System</c> if a caller mislabels it, so the pipeline-guard invariant holds
+    /// even under sloppy input.
+    /// </summary>
+    private static List<PartyParticipant> WithNarratorEnforced(List<PartyParticipant> participants)
+    {
+        var result = new List<PartyParticipant>(participants.Count + 1);
+        var narratorSeen = false;
+        foreach (var p in participants)
+        {
+            if (p.Id == Narrator.PersonaId)
+            {
+                if (narratorSeen) continue; // de-dupe if caller submitted multiple
+                narratorSeen = true;
+                result.Add(new PartyParticipant
+                {
+                    Id = Narrator.PersonaId,
+                    Name = Narrator.DisplayName,
+                    Driver = DriverKind.System,
+                });
+            }
+            else
+            {
+                result.Add(p);
+            }
+        }
+        if (!narratorSeen)
+        {
+            result.Add(new PartyParticipant
+            {
+                Id = Narrator.PersonaId,
+                Name = Narrator.DisplayName,
+                Driver = DriverKind.System,
+            });
+        }
+        return result;
     }
 
     public Task<List<ChatGroupInfo>> GetChatGroups()
@@ -134,11 +194,18 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
 
     public async Task CancelAllGenerations(CancellationToken ct = default)
     {
-        var tasks = State.Participants
-            .Where(p => !p.IsUser)
+        var tasks = SelectCancelTargets(State.Participants)
             .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).CancelGenerationAsync());
         await Task.WhenAll(tasks);
     }
+
+    /// <summary>
+    /// Pure filter for who's eligible to have an in-flight generation cancelled. Only LLM-
+    /// driven Participants ever run generation; User and System never do (User is human-typed,
+    /// System never auto-speaks — ADR 0012). Extracted so the guard is unit-testable.
+    /// </summary>
+    public static IEnumerable<PartyParticipant> SelectCancelTargets(IEnumerable<PartyParticipant> participants)
+        => participants.Where(p => p.Driver == DriverKind.LLM);
 
     public async Task DeleteParty()
     {

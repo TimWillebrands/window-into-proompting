@@ -405,14 +405,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
-        // Skip IsUser participants: the user's "persona" is not an LLM-driven character,
-        // so activating its grain would (a) waste an LLM call and (b) write a hallucinated
-        // user reply into the chat history that other personas then react to.
-        // Skip the sender persona too — re-evaluating one's own message produces a thought-log
-        // entry per turn for nothing (Vlad doesn't read Vlad's last line and decide to react).
-        var participants = State.Participants
-            .Where(p => !p.IsUser && p.Id != triggeringMessage.SenderId)
-            .ToList();
+        var participants = SelectAutoRespondTargets(State.Participants, triggeringMessage.SenderId);
 
         logger.LogInformation("Fanning out to {Count} AI participants in chat group {ChatGroupId}",
             participants.Count, chatGroupId);
@@ -425,6 +418,17 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         return Task.CompletedTask;
     }
+
+    // System driver is a hard guard, not chattiness=0 — Narrator must never auto-speak
+    // (ADR 0012). Sender exclusion avoids the thought-log-per-turn no-op of re-reacting
+    // to one's own message. Public-static so the guard is unit-testable without the
+    // TestCluster fanout interceptor.
+    public static List<PartyParticipant> SelectAutoRespondTargets(
+        IEnumerable<PartyParticipant> participants,
+        Guid? senderId)
+        => participants
+            .Where(p => p.Driver == DriverKind.LLM && p.Id != senderId)
+            .ToList();
 
     private Task PublishPartyEvent(PartyStreamEvent evt)
     {

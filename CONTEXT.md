@@ -25,10 +25,14 @@ A **Persona**'s membership in a **Party**. The link object that says "Persona X 
 _Avoid_: member, attendee, party-member.
 
 **Driver**:
-The thing currently operating a **Participant**. Today, one of two kinds: `User` (a human types the messages) or `LLM` (the agent stack generates them). Driver lives on the Participant, not the Persona — so a Persona can have different Drivers in different Parties.
+The thing currently operating a **Participant**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (the system speaks on this Participant's behalf — the response pipeline never auto-generates a turn for `System` Participants). Driver lives on the Participant, not the Persona — so a Persona can have different Drivers in different Parties.
 _Avoid_: operator, pilot, controller, agent.
 
-> Note: today the backend expresses this as a `bool IsUser` flag on `PartyParticipant`. That flag is the current crude form of `Driver` — promote to a `DriverKind` enum (or equivalent) when a third kind appears.
+> Encoded on the backend as `enum DriverKind` (`User | LLM | System`) on `PartyParticipant`. Before ADR 0012 this was a `bool IsUser` — the third kind (`System`) arrived together with the Narrator (see below). See [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md).
+
+**Narrator**:
+Singleton library **Persona** representing un-personed speech — ambient description, stage direction, scene-setting. Joins every **Party** as a **Participant** with `Driver = System`, so the response pipeline never asks it to speak unprompted; it only appears when explicitly invoked (e.g., during import to attribute narration lines). Accumulates **Memories** like any other Participant. Reserved Persona id is stable across deployments. See [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md).
+_Avoid_: narrator-persona, system-persona, omniscient-voice.
 
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
@@ -105,7 +109,8 @@ _Avoid_: episode, fact, occurrence, snapshot.
 - A **Participant** refers to exactly one **Persona**.
 - A **Persona** can be a **Participant** in zero or more **Parties** (one Participant per Party).
 - A **Room** draws its cast from its **Party**'s **Participants**.
-- A **Participant** has exactly one **Driver** (`User` or `LLM`).
+- A **Participant** has exactly one **Driver** (`User`, `LLM`, or `System`).
+- Every **Party** auto-carries the singleton **Narrator** as a **Participant** with `Driver = System`.
 
 ## Example dialogue
 
@@ -121,5 +126,5 @@ _Avoid_: episode, fact, occurrence, snapshot.
 ## Flagged ambiguities
 
 - **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Room** — resolved: **Room** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
-- **`IsUser` flag** on `PartyParticipant` is the current crude form of **Driver** — resolved in vocabulary (`Driver` is canonical, `IsUser` is the legacy field), code rename deferred until a third `DriverKind` appears or auth lands.
+- ~~**`IsUser` flag** on `PartyParticipant` is the current crude form of **Driver**~~ — **resolved by [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md)**: storage migrated to `enum DriverKind` (`User | LLM | System`) when the third kind arrived alongside the Narrator.
 - **Persona deletion semantics** are not yet defined. If a Persona is deleted from the library, what happens to Participants referencing it (and to the messages they sent)? Soft-delete with tombstones? Hard delete with orphaned messages? Block deletion while participating? **Undecided.** Not blocking today — only set when this feature is built.

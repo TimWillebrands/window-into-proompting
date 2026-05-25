@@ -171,7 +171,7 @@ public sealed class PersonaGrain(
             Name = persona.Name,
             Bio = persona.Bio,
             SystemPrompt = persona.SystemPrompt,
-            IsUser = false,
+            Driver = DriverKind.LLM,
             Chattiness = persona.Chattiness,
             Impulsivity = persona.Impulsivity
         };
@@ -366,7 +366,7 @@ public sealed class PersonaGrain(
                         Name = persona.Name,
                         Bio = persona.Bio,
                         SystemPrompt = persona.SystemPrompt,
-                        IsUser = false,
+                        Driver = DriverKind.LLM,
                         Chattiness = persona.Chattiness,
                         Impulsivity = persona.Impulsivity
                     };
@@ -434,7 +434,7 @@ public sealed class PersonaGrain(
             {
                 Id = p.Id,
                 Name = p.Name,
-                IsUser = p.IsUser,
+                Driver = p.Driver,
                 Bio = null,
                 SystemPrompt = null
             }).ToList();
@@ -449,15 +449,14 @@ public sealed class PersonaGrain(
 
         return participants.Select(p =>
         {
-            if (p.IsUser)
-            {
-                // SystemPrompt left null for users: IsUser carries the distinction, and a literal
-                // marker string risked leaking into concatenated prompts downstream (issue #9).
-                return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = true, SystemPrompt = null, Bio = null };
-            }
+            // SystemPrompt left null for non-LLM drivers (User, System): Driver carries the
+            // distinction, and a literal marker string risked leaking into concatenated
+            // prompts downstream (issue #9).
+            if (p.Driver != DriverKind.LLM)
+                return new GenerationParticipant { Id = p.Id, Name = p.Name, Driver = p.Driver, SystemPrompt = null, Bio = null };
             if (personaMap.TryGetValue(p.Id, out var pm))
-                return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, IsUser = false };
-            return new GenerationParticipant { Id = p.Id, Name = p.Name, IsUser = false };
+                return new GenerationParticipant { Id = pm.Id, Name = pm.Name, Bio = pm.Bio, SystemPrompt = pm.SystemPrompt, Driver = DriverKind.LLM };
+            return new GenerationParticipant { Id = p.Id, Name = p.Name, Driver = DriverKind.LLM };
         }).ToList();
     }
 
@@ -655,7 +654,7 @@ public sealed class PersonaGrain(
                     Name = persona.Name,
                     Bio = persona.Bio,
                     SystemPrompt = persona.SystemPrompt,
-                    IsUser = false,
+                    Driver = DriverKind.LLM,
                     Chattiness = persona.Chattiness,
                     Impulsivity = persona.Impulsivity
                 };
