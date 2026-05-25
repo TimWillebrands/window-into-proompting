@@ -279,7 +279,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         if (partyDetailsQuery.data.status !== 200) return;
         const personas = partyDetailsQuery.data.data.personaParticipants;
         const promptable = personas.filter(
-            (p) => !participantPersonaIds.includes(p.id ?? ''),
+            (p) =>
+                p.id !== NARRATOR_PERSONA_ID &&
+                !participantPersonaIds.includes(p.id ?? ''),
         );
         const isValid =
             selectedPersonaId &&
@@ -406,8 +408,11 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
+    // Narrator is System-driven; never offer it as a User-driver sender option.
     const promptablePersonas = partyPersonas.filter(
-        (p) => !participantPersonaIds.includes(p.id ?? ''),
+        (p) =>
+            p.id !== NARRATOR_PERSONA_ID &&
+            !participantPersonaIds.includes(p.id ?? ''),
     );
     const selectedPersonaName =
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??

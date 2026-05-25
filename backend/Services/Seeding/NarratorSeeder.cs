@@ -32,9 +32,17 @@ public sealed class NarratorSeeder
         // that already do.
         var partyRoot = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
         var parties = await partyRoot.GetAll();
-        var tasks = parties.Select(party => grains.GetGrain<IPartyGrain>(party.Id)
-            .SetParticipants(party.Participants ?? new List<PartyParticipant>()));
-        await Task.WhenAll(tasks);
+        // Bounded parallelism: a fleet boot with many parties would otherwise spawn one
+        // concurrent SetParticipants call per party, each touching the journal store.
+        // 8 keeps the storage backend honest without serialising the back-fill.
+        await Parallel.ForEachAsync(
+            parties,
+            new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = ct },
+            async (party, _) =>
+            {
+                await grains.GetGrain<IPartyGrain>(party.Id)
+                    .SetParticipants(party.Participants ?? new List<PartyParticipant>());
+            });
     }
 }
 
