@@ -205,6 +205,43 @@ public sealed class PartyController(
         if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
 
         var idsSet = new HashSet<Guid>((request.ParticipantIds ?? []).Where(g => g != Guid.Empty));
+
+        // Room ⊆ Party cast invariant: any id added to the Room that isn't already a
+        // Party Participant gets auto-promoted to the Party cast with Default Driver = LLM.
+        // Without this, fan-out targets a Persona that GetCastAsync doesn't return, and the
+        // ResponsePipeline silently drops the turn ("not in cast for party").
+        //
+        // NOTE, TODO:
+        // This is kinda a cope since adding a participant to a party doesnt have UI yet and
+        // this way things _just work (tm)_. At some point this code should probably be
+        // removed.
+        var partyGrain = grains.GetGrain<IPartyGrain>(id);
+        var party = await partyGrain.GetParty();
+        var existingCastIds = party.Participants.Select(p => p.Id).ToHashSet();
+        var missing = idsSet.Where(pid => !existingCastIds.Contains(pid)).ToList();
+        if (missing.Count > 0)
+        {
+            var personaMetadata = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
+            var byId = personaMetadata.ToDictionary(p => p.Id, p => p);
+
+            var unknown = missing.Where(pid => !byId.ContainsKey(pid)).ToList();
+            if (unknown.Count > 0)
+            {
+                return BadRequest($"Unknown persona id(s): {string.Join(", ", unknown)}");
+            }
+
+            var promoted = missing
+                .Select(pid => new PartyParticipant
+                {
+                    Id = pid,
+                    Name = byId[pid].Name,
+                    Driver = DriverKind.LLM,
+                })
+                .ToList();
+            var nextCast = party.Participants.Concat(promoted).ToList();
+            await partyGrain.SetParticipants(nextCast);
+        }
+
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
         await chatGroupGrain.SetParticipantIdsAsync(idsSet);
         var updated = await chatGroupGrain.GetParticipantIdsAsync();
