@@ -105,7 +105,7 @@ public class ResponsePipelineTest
         partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
         {
             CastMember.Create(
-                new PartyParticipant { Id = PersonaId, Name = PersonaName, IsUser = false },
+                new PartyParticipant { Id = PersonaId, Name = PersonaName, Driver = DriverKind.LLM },
                 new Persona { Id = PersonaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
         });
 

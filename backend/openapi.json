@@ -17,6 +17,326 @@
         }
       }
     },
+    "/Import/extract-personas": {
+      "post": {
+        "tags": [
+          "Import"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractPersonasRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractPersonasRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractPersonasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Import/merge-personas": {
+      "post": {
+        "tags": [
+          "Import"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergePersonasRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergePersonasRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergePersonasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergePersonasResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergePersonasResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergePersonasResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Import/classify-ws": {
+      "get": {
+        "tags": [
+          "Import"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Import/identify-ws": {
+      "get": {
+        "tags": [
+          "Import"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Import/regenerate-char-detail": {
+      "post": {
+        "tags": [
+          "Import"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Import/commit": {
+      "post": {
+        "tags": [
+          "Import"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitImportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitImportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitImportResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitImportResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/LlmConfig/providers": {
       "get": {
         "tags": [
@@ -1940,6 +2260,75 @@
           }
         }
       },
+      "CommitImportRequest": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "chatGroupName": {
+            "type": "string"
+          },
+          "scenario": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "personas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaStubForCommit"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportedMessageForCommit"
+            }
+          },
+          "userParticipant": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserParticipantStub"
+              }
+            ]
+          }
+        }
+      },
+      "CommitImportResponse": {
+        "required": [
+          "chatGroupId",
+          "createdPersonaIds",
+          "messagesWritten"
+        ],
+        "type": "object",
+        "properties": {
+          "chatGroupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdPersonaIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "messagesWritten": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CreateChatGroupRequest": {
         "type": "object",
         "properties": {
@@ -1998,7 +2387,8 @@
       "DriverKind": {
         "enum": [
           "User",
-          "LLM"
+          "LLM",
+          "System"
         ]
       },
       "DriverOverrideEntry": {
@@ -2010,6 +2400,105 @@
           },
           "kind": {
             "$ref": "#/components/schemas/DriverKind"
+          }
+        }
+      },
+      "ExtractedPersona": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "archetype": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "system_prompt": {
+            "type": "string"
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ExtractPersonasRequest": {
+        "type": "object",
+        "properties": {
+          "systemInstruction": {
+            "type": "string"
+          },
+          "sampleChunks": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ImportSampleChunk"
+            }
+          }
+        }
+      },
+      "ExtractPersonasResponse": {
+        "required": [
+          "personas"
+        ],
+        "type": "object",
+        "properties": {
+          "personas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtractedPersona"
+            }
+          }
+        }
+      },
+      "ImportedMessageForCommit": {
+        "type": "object",
+        "properties": {
+          "senderPlaceholderId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "senderType": {
+            "type": "string"
+          },
+          "content": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sendAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ImportSampleChunk": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -2189,6 +2678,31 @@
           }
         }
       },
+      "MergePersonasRequest": {
+        "type": "object",
+        "properties": {
+          "personas": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ExtractedPersona"
+            }
+          }
+        }
+      },
+      "MergePersonasResponse": {
+        "required": [
+          "persona"
+        ],
+        "type": "object",
+        "properties": {
+          "persona": {
+            "$ref": "#/components/schemas/ExtractedPersona"
+          }
+        }
+      },
       "PartyDetails": {
         "required": [
           "party",
@@ -2235,8 +2749,8 @@
           "name": {
             "type": "string"
           },
-          "isUser": {
-            "type": "boolean"
+          "driver": {
+            "$ref": "#/components/schemas/DriverKind"
           }
         }
       },
@@ -2286,6 +2800,36 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "PersonaStubForCommit": {
+        "type": "object",
+        "properties": {
+          "placeholderId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "systemPrompt": {
+            "type": "string"
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isNew": {
+            "type": "boolean"
+          },
+          "preExistingId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -2362,6 +2906,68 @@
           }
         }
       },
+      "RegenerateCharDetailRequest": {
+        "type": "object",
+        "properties": {
+          "primaryName": {
+            "type": "string"
+          },
+          "names": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "archetype": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "systemInstructionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          }
+        }
+      },
+      "RegenerateCharDetailResponse": {
+        "required": [
+          "prompt",
+          "bio"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RepromptRequest": {
         "type": "object",
         "properties": {
@@ -2429,12 +3035,27 @@
             }
           }
         }
+      },
+      "UserParticipantStub": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       }
     }
   },
   "tags": [
     {
       "name": "backend"
+    },
+    {
+      "name": "Import"
     },
     {
       "name": "LlmConfig"

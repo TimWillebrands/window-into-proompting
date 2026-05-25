@@ -45,7 +45,8 @@ public sealed class MemoryRepository(
             return new MemoryCaptureResult(EventCreated: false, RecollectionsCreated: 0, ConceptsTouched: 0);
         }
 
-        var recollectionTargets = presentParticipants.Where(p => p.Driver == DriverKind.LLM).ToList();
+        // Narrator (System driver) accumulates memory like any other observer — only User-driven Participants skip.
+        var recollectionTargets = presentParticipants.Where(p => p.Driver != DriverKind.User).ToList();
         var recollectionTasks = recollectionTargets.Select(p =>
             extractor.ExtractRecollectionAsync(p.Name, isSpeaker: p.Id == sourceMessage.SenderId, sourceMessage, sourceAuthor, recentContext, ResolveName, ct)
                 .ContinueWith(t => (Participant: p, Snippet: t.Result), ct, TaskContinuationOptions.None, TaskScheduler.Default));

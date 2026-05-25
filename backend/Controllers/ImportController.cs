@@ -537,7 +537,7 @@ public sealed class ImportController(
                 {
                     Id = pid,
                     Name = stub.Name,
-                    IsUser = false
+                    Driver = DriverKind.LLM
                 });
             }
         }
@@ -547,10 +547,10 @@ public sealed class ImportController(
             {
                 Id = userP.Id,
                 Name = string.IsNullOrWhiteSpace(userP.Name) ? "You" : userP.Name,
-                IsUser = true
+                Driver = DriverKind.User
             });
         }
-        // Participants now live on the Party (full record: id/name/IsUser); the Room only
+        // Participants now live on the Party (full record: id/name/Driver); the Room only
         // stores the id set. Merge imported personas into the party-wide list (dedup by id),
         // then narrow the room to just this import's cast.
         var existingParty = await partyGrain.GetParty();

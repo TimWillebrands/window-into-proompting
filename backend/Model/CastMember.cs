@@ -1,17 +1,6 @@
-using System.Text.Json.Serialization;
-
 namespace PartyTown.Model;
 
-/// <summary>
-/// Who is currently operating a Participant in a Room. See CONTEXT.md "Driver".
-/// </summary>
-[GenerateSerializer, Alias(nameof(DriverKind))]
-[JsonConverter(typeof(JsonStringEnumConverter<DriverKind>))]
-public enum DriverKind
-{
-    User = 0,
-    LLM = 1
-}
+// DriverKind is defined in Party.cs alongside PartyParticipant — its primary storage home.
 
 /// <summary>
 /// Internal materialised join of a Participant link with its Persona library entry,
@@ -38,12 +27,14 @@ public sealed record class CastMember
     /// </summary>
     public static CastMember Create(PartyParticipant link, Persona? persona)
     {
-        if (link.IsUser)
+        // Non-LLM drivers (User, System) yield a sparse CastMember (identity + default driver only):
+        // the User Participant is human-typed, the System Participant (Narrator) never auto-speaks.
+        if (link.Driver != DriverKind.LLM)
             return new CastMember
             {
                 Id = link.Id,
                 Name = link.Name,
-                DefaultDriver = DriverKind.User
+                DefaultDriver = link.Driver
             };
 
         if (persona is null)

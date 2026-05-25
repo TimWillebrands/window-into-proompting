@@ -272,10 +272,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
 {{scenarioBlock}}
 # Other people in the room
-{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p =>
-    p.Driver == DriverKind.User
-        ? $"- {p.Name} (human)"
-        : $"- {p.Name} (persona)"))}}
+{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => p.Driver switch
+{
+    DriverKind.User => $"- {p.Name} (human)",
+    DriverKind.System => $"- {p.Name} (narrator)",
+    _ => $"- {p.Name} (persona)",
+}))}}
 {{recollectionsBlock}}{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it

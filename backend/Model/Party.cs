@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace PartyTown.Model;
 
@@ -6,6 +7,28 @@ namespace PartyTown.Model;
 //   Party      = root-of-universe (top-level container for participants, chat groups, and state)
 //   Persona    = inhabitant-of-said-universe (AI character with name/bio/system prompt)
 //   ChatGroup  = app where personas and user(s) talk within a universe (named conversation thread)
+
+/// <summary>
+/// The thing currently operating a <see cref="PartyParticipant"/>. Lives on the Participant,
+/// not the Persona — so the same Persona can be User-driven in one Party and LLM-driven
+/// in another. See CONTEXT.md (Driver) and ADR 0012.
+/// </summary>
+[GenerateSerializer, Alias(nameof(DriverKind))]
+[JsonConverter(typeof(JsonStringEnumConverter<DriverKind>))]
+public enum DriverKind
+{
+    /// <summary>A human types the messages for this Participant.</summary>
+    User = 0,
+
+    /// <summary>The agent stack generates messages for this Participant.</summary>
+    LLM = 1,
+
+    /// <summary>
+    /// The system speaks on behalf of this Participant. Response pipeline never auto-generates
+    /// turns for <c>System</c>-driven Participants. Today only the singleton Narrator uses this.
+    /// </summary>
+    System = 2,
+}
 
 [GenerateSerializer, Alias(nameof(PartyParticipant))]
 public sealed record class PartyParticipant
@@ -16,8 +39,10 @@ public sealed record class PartyParticipant
     [Id(1)]
     public string Name { get; set; } = string.Empty;
 
-    [Id(2)]
-    public bool IsUser { get; set; }
+    // [Id(2)] retired: was `bool IsUser` pre-ADR 0012. Do not reuse the slot — old
+    // serialized payloads may still carry it. New fields take [Id(3)] and above.
+    [Id(3)]
+    public DriverKind Driver { get; set; } = DriverKind.LLM;
 }
 
 [GenerateSerializer, Alias(nameof(PartyInfo))]

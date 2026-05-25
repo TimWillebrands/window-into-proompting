@@ -162,7 +162,7 @@ public sealed class PartyController(
                     Name = string.IsNullOrWhiteSpace(participant.Name)
                         ? fallbackName
                         : participant.Name.Trim(),
-                    IsUser = participant.IsUser
+                    Driver = participant.Driver
                 };
             })
             .ToList();
@@ -732,7 +732,7 @@ public sealed class PartyController(
         {
             Id = persona.Id,
             Name = persona.Name,
-            IsUser = false
+            Driver = DriverKind.LLM
         }).ToList();
 
         if (userId.HasValue && userId.Value != Guid.Empty)
@@ -741,7 +741,7 @@ public sealed class PartyController(
             {
                 Id = userId.Value,
                 Name = string.IsNullOrWhiteSpace(userName) ? userId.Value.ToString() : userName,
-                IsUser = true
+                Driver = DriverKind.User
             });
         }
 

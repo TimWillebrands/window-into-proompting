@@ -94,7 +94,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
         {
             CastMember.Create(
-                new PartyParticipant { Id = _personaId, Name = PersonaName, IsUser = false },
+                new PartyParticipant { Id = _personaId, Name = PersonaName, Driver = DriverKind.LLM },
                 new Persona { Id = _personaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
         });
         // Two prior assistant rounds → no cold-open bump. Stays under the obvious-skip

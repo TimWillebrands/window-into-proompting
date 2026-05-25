@@ -42,7 +42,7 @@ _Avoid_: room-driver, local-driver, room-override.
 The resolution rule consulted by the **Response pipeline** and any other consumer that needs to know "who is operating this Participant *right now*": `Driver override` for this (Persona, Room) if present, else the Participant's `Default Driver`. Always defined. Consumers see the Effective Driver only; the distinction between default and overridden is invisible to them.
 _Avoid_: resolved-driver, current-driver.
 
-> Note: backend storage spelling for **Default Driver** is `bool IsUser` on `PartyParticipant`. The **Narrator** import work introduces the third kind (`System`) and triggers the migration to a `DriverKind` enum at storage scope; pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already use `DriverKind`.
+> Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
 
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
@@ -130,8 +130,9 @@ _Avoid_: episode, fact, occurrence, snapshot.
 - A **Persona** can be a **Participant** in zero or more **Parties** (one Participant per Party).
 - A **Room** draws its cast from its **Party**'s **Participants**.
 - A **Room** may carry zero or more **Driver overrides**, one per overridden Persona.
-- A **Participant** has exactly one **Default Driver** (`User` or `LLM`).
+- A **Participant** has exactly one **Default Driver** (`User`, `LLM`, or `System`).
 - The **Effective Driver** in a given Room is that Room's **Driver override** for the Persona if present, else the Participant's **Default Driver**.
+- Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
 
 ## Example dialogue
 
@@ -147,5 +148,5 @@ _Avoid_: episode, fact, occurrence, snapshot.
 ## Flagged ambiguities
 
 - **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Room** — resolved: **Room** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
-- **`IsUser` flag** on `PartyParticipant` is the storage form of **Default Driver** — pipeline-internal types use `DriverKind` (`User` / `LLM`); the `bool IsUser` field on the stored Participant record is kept until a third kind appears or auth lands.
+- ~~**`IsUser` flag** on `PartyParticipant` is the storage form of **Default Driver**~~ — **resolved by [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md)**: storage migrated to `enum DriverKind` (`User | LLM | System`) when the third kind arrived alongside the Narrator.
 - **Persona deletion semantics** are not yet defined. If a Persona is deleted from the library, what happens to Participants referencing it (and to the messages they sent)? Soft-delete with tombstones? Hard delete with orphaned messages? Block deletion while participating? **Undecided.** Not blocking today — only set when this feature is built.

@@ -6,6 +6,7 @@ using PartyTown.Logging;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
 using PartyTown.Services.ResponsePipeline;
+using PartyTown.Services.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,6 +96,8 @@ if (!openApiBuild)
 
         siloBuilder.AddActivityPropagation();
     });
+
+    builder.Services.AddHostedService<NarratorSeederHostedService>();
 }
 
 builder.Logging.AddSimpleConsole(options =>

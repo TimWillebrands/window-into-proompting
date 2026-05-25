@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
 import { DriverKind } from '../../api/model';
+import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
     getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey,
     getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey,
@@ -133,7 +134,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         const overrides = chatGroupDriverOverridesQuery.data.data ?? [];
         const userOverride = overrides.find((o) => o.kind === DriverKind.User);
         const userId = userOverride?.personaId ?? '';
-        const aiIds = ids.filter((id) => id !== userId);
+        // Narrator (System-driven) is hard-filtered: PartyGrain keeps it in the cast
+        // server-side, but it never appears in the AI-toggle UI.
+        const aiIds = ids.filter((id) => id !== userId && id !== NARRATOR_PERSONA_ID);
         setParticipantPersonaIds(aiIds);
         setSavedParticipantPersonaIds(aiIds);
         setSelectedPersonaId(userId);
@@ -195,7 +198,8 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                     // Persona is set separately via the driver-overrides endpoint.
                     const userId = lastSavedUserPersonaId.current ?? '';
                     const ids = (variables.data.participantIds ?? []).filter(
-                        (id): id is string => !!id && id !== userId,
+                        (id): id is string =>
+                            !!id && id !== userId && id !== NARRATOR_PERSONA_ID,
                     );
                     setSavedParticipantPersonaIds(ids);
                     queryClient.invalidateQueries({
@@ -275,7 +279,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         if (partyDetailsQuery.data.status !== 200) return;
         const personas = partyDetailsQuery.data.data.personaParticipants;
         const promptable = personas.filter(
-            (p) => !participantPersonaIds.includes(p.id ?? ''),
+            (p) =>
+                p.id !== NARRATOR_PERSONA_ID &&
+                !participantPersonaIds.includes(p.id ?? ''),
         );
         const isValid =
             selectedPersonaId &&
@@ -402,8 +408,11 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
+    // Narrator is System-driven; never offer it as a User-driver sender option.
     const promptablePersonas = partyPersonas.filter(
-        (p) => !participantPersonaIds.includes(p.id ?? ''),
+        (p) =>
+            p.id !== NARRATOR_PERSONA_ID &&
+            !participantPersonaIds.includes(p.id ?? ''),
     );
     const selectedPersonaName =
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??

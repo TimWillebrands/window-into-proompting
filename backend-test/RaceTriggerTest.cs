@@ -90,10 +90,10 @@ public class RaceTriggerTest
         partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
         {
             CastMember.Create(
-                new PartyParticipant { Id = PersonaId, Name = PersonaName, IsUser = false },
+                new PartyParticipant { Id = PersonaId, Name = PersonaName, Driver = DriverKind.LLM },
                 new Persona { Id = PersonaId, Name = PersonaName, SystemPrompt = "You are Vlad.", Bio = "Reluctant philosopher" }),
             CastMember.Create(
-                new PartyParticipant { Id = otherParticipantId, Name = otherParticipantName, IsUser = true },
+                new PartyParticipant { Id = otherParticipantId, Name = otherParticipantName, Driver = DriverKind.User },
                 persona: null),
         });
         var factory = new Mock<IGrainFactory>();

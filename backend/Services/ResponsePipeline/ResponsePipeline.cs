@@ -59,11 +59,14 @@ public sealed class ResponsePipeline(
         }
 
         var selfEffective = selfCast.EffectiveIn(overrides);
-        if (selfEffective == DriverKind.User)
+        // Only LLM-Effective Participants run the response pipeline. User-Effective is
+        // human-typed; System-Effective (Narrator) is authored content that never
+        // auto-speaks (ADR 0012). Both short-circuit here so the rule lives in one place.
+        if (selfEffective != DriverKind.LLM)
         {
             logger.LogDebug(
-                "Persona {PersonaName} is User-Effective in chat group {ChatGroupId}; skipping pipeline",
-                persona.Name, chatGroupId);
+                "Persona {PersonaName} is {Driver}-Effective in chat group {ChatGroupId}; skipping pipeline",
+                persona.Name, selfEffective, chatGroupId);
             return;
         }
 

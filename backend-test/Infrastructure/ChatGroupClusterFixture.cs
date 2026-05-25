@@ -1,14 +1,9 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
 using Orleans.Hosting;
 using Orleans.Runtime;
 using Orleans.TestingHost;
 using PartyTown.Grains;
 using PartyTown.Model;
-using PartyTown.Services.Memory;
-using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest.Infrastructure;
 
@@ -47,10 +42,22 @@ public sealed class ChatGroupClusterFixture : IAsyncLifetime
     public async Task<(Guid partyId, Guid chatGroupId, List<PartyParticipant> participants)>
         CreatePartyWithChatGroupAsync(params string[] personaNames)
     {
-        var partyId = Guid.NewGuid();
         var participants = personaNames
-            .Select(n => new PartyParticipant { Id = Guid.NewGuid(), Name = n })
+            .Select(n => new PartyParticipant { Id = Guid.NewGuid(), Name = n, Driver = DriverKind.LLM })
             .ToList();
+        return await CreatePartyWithExplicitParticipantsAsync(participants);
+    }
+
+    /// <summary>
+    /// Same as <see cref="CreatePartyWithChatGroupAsync"/> but lets the caller supply a fully-built
+    /// participant list. Returned <c>participants</c> is the original input — the grain may have
+    /// added invariants like the Narrator-Participant on top (ADR 0012), but tests typically
+    /// only want to reason about the cast they passed in.
+    /// </summary>
+    public async Task<(Guid partyId, Guid chatGroupId, List<PartyParticipant> participants)>
+        CreatePartyWithExplicitParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var partyId = Guid.NewGuid();
 
         var root = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await root.AddParty(new PartyInfo { Id = partyId, Name = "test-party", Participants = participants });
@@ -67,33 +74,8 @@ public sealed class ChatGroupClusterFixture : IAsyncLifetime
         public void Configure(ISiloBuilder siloBuilder)
         {
             siloBuilder
-                .AddMemoryGrainStorage("parties")
-                .AddMemoryGrainStorage("personas")
-                .AddMemoryGrainStorage("urls")
-                .AddMemoryGrainStorage("PubSubStore")
-                .AddStateStorageBasedLogConsistencyProvider("PartyStateStorage")
-                .AddMemoryStreams("party-streams");
-
-            siloBuilder.AddIncomingGrainCallFilter<FanoutInterceptor>();
-
-            // PersonaGrain pulls RaceTrigger + ResponsePipeline + IMemoryRepository
-            // through DI on activation. FanoutInterceptor short-circuits the grain
-            // call but only AFTER activation — so the ctor still has to resolve.
-            // No real LLM or memory traffic happens here because the filter returns
-            // before the grain body runs; these are pure activation enablers.
-            siloBuilder.ConfigureServices(services =>
-            {
-                services.AddSingleton<RaceTrigger>();
-                services.AddSingleton<ResponsePipeline>();
-                services.AddSingleton<IMemoryRepository>(_ =>
-                {
-                    var mock = new Mock<IMemoryRepository>();
-                    mock.Setup(m => m.RecallRecentSnippetsAsync(
-                            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(Array.Empty<string>());
-                    return mock.Object;
-                });
-            });
+                .ConfigureDefaults()
+                .AddIncomingGrainCallFilter<FanoutInterceptor>();
         }
     }
 }

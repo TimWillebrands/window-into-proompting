@@ -18,7 +18,7 @@ public class CastMemberTest
         // A User-driven link is sparse — bio and system prompt are intentionally null even
         // when a library entry exists, because the human types the messages.
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Tim", IsUser = true };
+        var link = new PartyParticipant { Id = id, Name = "Tim", Driver = DriverKind.User };
         var libraryHit = LibraryPersona(id, "Tim-the-Persona");
 
         var sparseNoLib = CastMember.Create(link, persona: null);
@@ -43,7 +43,7 @@ public class CastMemberTest
         // entry's library name. Locks the deliberate behaviour change from the old
         // BuildGenerationParticipantsAsync which used the library entry's name.
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Vlad in this Party", IsUser = false };
+        var link = new PartyParticipant { Id = id, Name = "Vlad in this Party", Driver = DriverKind.LLM };
         var lib = LibraryPersona(id, "Vlad-library-name", bio: "broody");
 
         var c = CastMember.Create(link, lib);
@@ -64,7 +64,7 @@ public class CastMemberTest
         // race during reload, etc.). Sparse, but still LLM-default — the pipeline can
         // skip it via the User-Effective short-circuit only if explicitly overridden.
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Mystery", IsUser = false };
+        var link = new PartyParticipant { Id = id, Name = "Mystery", Driver = DriverKind.LLM };
 
         var c = CastMember.Create(link, persona: null);
 
@@ -84,7 +84,7 @@ public class CastMemberTest
         // Room override map). The CastMember does not "know" it; ToView accepts the
         // resolved value verbatim.
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Vlad", IsUser = false };
+        var link = new PartyParticipant { Id = id, Name = "Vlad", Driver = DriverKind.LLM };
         var c = CastMember.Create(link, LibraryPersona(id, "Vlad"));
 
         var asUser = c.ToView(DriverKind.User);
@@ -100,7 +100,7 @@ public class CastMemberTest
     public void ToSelfView_CarriesSuppliedEffectiveDriverAndFullLibraryPayload()
     {
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Vlad", IsUser = false };
+        var link = new PartyParticipant { Id = id, Name = "Vlad", Driver = DriverKind.LLM };
         var c = CastMember.Create(link, LibraryPersona(id, "Vlad", bio: "deep"));
 
         var s = c.ToSelfView(DriverKind.LLM);
