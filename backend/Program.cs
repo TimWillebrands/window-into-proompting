@@ -5,6 +5,7 @@ using PartyTown.Data;
 using PartyTown.Logging;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +43,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
+builder.Services.AddSingleton<ImportService>();
+builder.Services.AddSingleton<RaceTrigger>();
+builder.Services.AddSingleton<ResponsePipeline>();
 
 if (!openApiBuild)
 {
@@ -93,8 +97,6 @@ if (!openApiBuild)
         siloBuilder.AddActivityPropagation();
     });
 
-    // Seed the singleton Narrator library Persona and back-fill Narrator-Participant on
-    // every Party on startup. Idempotent — safe to run every boot. See ADR 0012.
     builder.Services.AddHostedService<NarratorSeederHostedService>();
 }
 

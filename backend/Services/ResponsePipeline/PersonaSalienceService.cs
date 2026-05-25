@@ -8,7 +8,8 @@ using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 
-namespace PartyTown.Services.Generation;
+
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Stop-signal salience classifier. When a new message lands at a persona that already
@@ -35,7 +36,7 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
     /// Returns 0.0 (irrelevant) to 1.0 (must-redirect).
     /// </summary>
     public async Task<SalienceScore> ScoreAsync(
-        GenerationParticipant self,
+        SelfView self,
         string inFlightGutReaction,
         string inFlightWouldSay,
         string inFlightGeneratedSoFar,

@@ -174,93 +174,99 @@ public sealed class PartyController(
     }
 
     /// <summary>
-    /// Returns the participant list for a single chat group (the per-room cast,
-    /// including any User-driven and System-driven Participants).
+    /// Returns the per-Room membership: the set of Persona ids currently in this Room.
+    /// Driver lives elsewhere (on the Participant, or in the override map) — see
+    /// <see cref="GetChatGroupDriverOverrides"/>.
     /// </summary>
     [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<PartyParticipant>>> GetChatGroupParticipants(Guid id, Guid chatGroupId)
+    public async Task<ActionResult<List<Guid>>> GetChatGroupParticipants(Guid id, Guid chatGroupId)
     {
-        if (chatGroupId == Guid.Empty)
-        {
-            return BadRequest("Invalid chat group id");
-        }
+        if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
 
-        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
-        await EnsureDefaultParty(root, id);
-        if (!await root.HasPartyId(id))
-        {
-            return NotFound();
-        }
-
-        var partyGrain = grains.GetGrain<IPartyGrain>(id);
-        var chatGroups = await partyGrain.GetChatGroups();
-        if (!chatGroups.Any(g => g.Id == chatGroupId))
-        {
-            return NotFound();
-        }
-
-        var participants = await grains.GetGrain<IChatGroupGrain>(chatGroupId).GetParticipantsAsync();
-        return Ok(participants);
+        var ids = await grains.GetGrain<IChatGroupGrain>(chatGroupId).GetParticipantIdsAsync();
+        return Ok(ids.ToList());
     }
 
     /// <summary>
-    /// Replaces the participant list for a single chat group. Other chat groups in the
-    /// same party are not affected. The party-level participant list (used to seed new
-    /// chat groups) is also untouched.
+    /// Replace the Room's membership (ids only). Driver overrides are unaffected — use
+    /// <see cref="SetChatGroupDriverOverrides"/> for that.
     /// </summary>
     [HttpPut("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<PartyParticipant>>> SetChatGroupParticipants(
+    public async Task<ActionResult<List<Guid>>> SetChatGroupParticipants(
         Guid id,
         Guid chatGroupId,
-        [FromBody] UpdatePartyParticipantsRequest request)
+        [FromBody] UpdateChatGroupParticipantIdsRequest request)
     {
-        if (chatGroupId == Guid.Empty)
-        {
-            return BadRequest("Invalid chat group id");
-        }
+        if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
 
-        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
-        await EnsureDefaultParty(root, id);
-        if (!await root.HasPartyId(id))
-        {
-            return NotFound();
-        }
+        var idsSet = new HashSet<Guid>((request.ParticipantIds ?? []).Where(g => g != Guid.Empty));
+        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
+        await chatGroupGrain.SetParticipantIdsAsync(idsSet);
+        var updated = await chatGroupGrain.GetParticipantIdsAsync();
+        return Ok(updated.ToList());
+    }
 
-        var partyGrain = grains.GetGrain<IPartyGrain>(id);
-        var chatGroups = await partyGrain.GetChatGroups();
-        if (!chatGroups.Any(g => g.Id == chatGroupId))
-        {
-            return NotFound();
-        }
+    /// <summary>
+    /// Returns the Room's sparse Driver override map. A missing entry means that
+    /// Persona's Default Driver (from its Party Participant) applies in this Room.
+    /// </summary>
+    [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/driver-overrides")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<DriverOverrideEntry>>> GetChatGroupDriverOverrides(Guid id, Guid chatGroupId)
+    {
+        if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
 
-        var participants = (request.Participants ?? [])
-            .Where(participant => participant.Id != Guid.Empty)
-            .GroupBy(participant => participant.Id)
-            .Select(group =>
-            {
-                var participant = group.First();
-                var fallbackName = participant.Id.ToString();
-                return new PartyParticipant
-                {
-                    Id = participant.Id,
-                    Name = string.IsNullOrWhiteSpace(participant.Name)
-                        ? fallbackName
-                        : participant.Name.Trim(),
-                    Driver = participant.Driver
-                };
-            })
-            .ToList();
+        var overrides = await grains.GetGrain<IChatGroupGrain>(chatGroupId).GetDriverOverridesAsync();
+        return Ok(ToEntries(overrides));
+    }
+
+    /// <summary>
+    /// Replace the Room's Driver override map wholesale. Empty list clears all overrides
+    /// — every Persona falls back to its Participant's Default Driver in this Room.
+    /// </summary>
+    [HttpPut("{id:guid}/chat-groups/{chatGroupId:guid}/driver-overrides")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<DriverOverrideEntry>>> SetChatGroupDriverOverrides(
+        Guid id,
+        Guid chatGroupId,
+        [FromBody] UpdateChatGroupDriverOverridesRequest request)
+    {
+        if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
+
+        var deduped = (request.Overrides ?? [])
+            .Where(o => o.PersonaId != Guid.Empty)
+            .GroupBy(o => o.PersonaId)
+            .ToDictionary(g => g.Key, g => g.First().Kind);
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
-        await chatGroupGrain.SetParticipantsAsync(participants);
-        var updated = await chatGroupGrain.GetParticipantsAsync();
-        return Ok(updated);
+        await chatGroupGrain.SetDriverOverridesAsync(deduped);
+        var updated = await chatGroupGrain.GetDriverOverridesAsync();
+        return Ok(ToEntries(updated));
     }
+
+    private async Task<ActionResult?> ValidateChatGroupAsync(Guid partyId, Guid chatGroupId)
+    {
+        if (chatGroupId == Guid.Empty) return BadRequest("Invalid chat group id");
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await EnsureDefaultParty(root, partyId);
+        if (!await root.HasPartyId(partyId)) return NotFound();
+        var chatGroups = await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups();
+        if (!chatGroups.Any(g => g.Id == chatGroupId)) return NotFound();
+        return null;
+    }
+
+    private static List<DriverOverrideEntry> ToEntries(IReadOnlyDictionary<Guid, DriverKind> overrides)
+        => overrides
+            .Select(kv => new DriverOverrideEntry { PersonaId = kv.Key, Kind = kv.Value })
+            .ToList();
 
     /// <summary>
     /// Sends a user prompt into the party conversation.
@@ -615,10 +621,7 @@ public sealed class PartyController(
             return NotFound();
         }
 
-        var participants = await chatGroupGrain.GetParticipantsAsync();
-        var snapshots = participants
-            .Select(p => new ParticipantSnapshot(p.Id, p.Name, p.Driver))
-            .ToList();
+        var presentParticipants = await BuildRoomViewsAsync(id, chatGroupGrain);
 
         var contextWindow = messages
             .Where(m => m.MessageId <= messageId)
@@ -629,7 +632,7 @@ public sealed class PartyController(
             partyId: id,
             roomId: chatGroupId,
             messageId: messageId,
-            presentParticipants: snapshots,
+            presentParticipants: presentParticipants,
             recentContext: contextWindow,
             ct: cancellationToken);
 
@@ -679,7 +682,7 @@ public sealed class PartyController(
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
         var messages = await chatGroupGrain.GetMessagesAsync();
         var skipped = await chatGroupGrain.GetSkippedTurnsAsync();
-        var participants = await chatGroupGrain.GetParticipantsAsync();
+        var participants = await BuildRoomViewsAsync(id, chatGroupGrain);
 
         var doc = PapertrailRenderer.Build(messages, skipped, participants, sinceMessageId);
 
@@ -702,24 +705,35 @@ public sealed class PartyController(
     }
 
     /// <summary>
-    /// Builds the default participant list from persona metadata and an optional user participant.
+    /// Build the Room's <see cref="ParticipantView"/> list — Personas currently in the
+    /// Room with their Effective Driver. Filters the canonical cast by Room membership
+    /// and projects through the override map via <see cref="CastMember.EffectiveIn"/>.
     /// </summary>
-    /// <param name="userId">Optional user identifier to append as a participant.</param>
-    /// <param name="userName">Optional user display name; falls back to <paramref name="userId"/>'s string representation.</param>
-    /// <returns>
-    /// A participant list containing all available personas plus the optional user participant.
-    /// </returns>
+    private async Task<List<ParticipantView>> BuildRoomViewsAsync(Guid partyId, IChatGroupGrain chatGroupGrain)
+    {
+        var partyGrain = grains.GetGrain<IPartyGrain>(partyId);
+        var castTask = partyGrain.GetCastAsync();
+        var idsTask = chatGroupGrain.GetParticipantIdsAsync();
+        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
+        await Task.WhenAll(castTask, idsTask, overridesTask);
+        var cast = castTask.Result;
+        var ids = idsTask.Result;
+        var overrides = overridesTask.Result;
+        return cast
+            .Where(c => ids.Contains(c.Id))
+            .Select(c => c.ToView(c.EffectiveIn(overrides)))
+            .ToList();
+    }
+
     private async Task<List<PartyParticipant>> BuildDefaultParticipants(Guid? userId, string? userName)
     {
         var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
-        var participants = personas
-            .Where(persona => persona.Id != Narrator.PersonaId) // Narrator is added separately as a System-driven Participant on every Party
-            .Select(persona => new PartyParticipant
-            {
-                Id = persona.Id,
-                Name = persona.Name,
-                Driver = DriverKind.LLM
-            }).ToList();
+        var participants = personas.Select(persona => new PartyParticipant
+        {
+            Id = persona.Id,
+            Name = persona.Name,
+            Driver = DriverKind.LLM
+        }).ToList();
 
         if (userId.HasValue && userId.Value != Guid.Empty)
         {

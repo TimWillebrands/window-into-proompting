@@ -1,15 +1,13 @@
 namespace PartyTown.Model;
 
 [GenerateSerializer, Alias(nameof(PersonaMetadata))]
-public record class PersonaMetadata : IPartyActor
+public record class PersonaMetadata
 {
     [Id(0)]
     public Guid Id { get; set; } = Guid.Empty;
 
     [Id(1)]
     public string Name { get; set; } = string.Empty;
-
-    public DriverKind Driver => DriverKind.LLM;
 
     public PersonaMetadata()
     {
@@ -61,37 +59,4 @@ public sealed record class Persona : PersonaMetadata
         Chattiness = chattiness;
         Impulsivity = impulsivity;
     }
-}
-
-[GenerateSerializer, Alias(nameof(User))]
-public sealed record class User : IPartyActor
-{
-    [Id(0)]
-    public Guid Id { get; set; } = Guid.Empty;
-
-    [Id(1)]
-    public string Name { get; set; } = string.Empty;
-
-    [Id(2)]
-    public string? Bio { get; set; }
-
-    public DriverKind Driver => DriverKind.User;
-
-    public User()
-    {
-    }
-
-    public User(Guid id, string name, string? bio)
-    {
-        Id = id;
-        Name = name;
-        Bio = bio;
-    }
-}
-
-interface IPartyActor
-{
-    Guid Id { get; }
-    string Name { get; }
-    DriverKind Driver { get; }
 }

@@ -5,4 +5,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type DriverKind = number;
+export type DriverKind = (typeof DriverKind)[keyof typeof DriverKind];
+
+export const DriverKind = {
+    User: 'User',
+    LLM: 'LLM',
+    System: 'System',
+} as const;

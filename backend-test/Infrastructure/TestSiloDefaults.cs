@@ -1,14 +1,17 @@
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Orleans.Hosting;
-using PartyTown.Model;
 using PartyTown.Services.Memory;
+using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest.Infrastructure;
 
 /// <summary>
 /// Shared silo wiring used by every in-proc <c>TestCluster</c> fixture: memory storage
-/// providers for the journaled grains, memory streams, and a no-op <see cref="IMemoryRepository"/>
-/// so <c>PersonaGrain</c> can activate without the real graph DB.
+/// providers for the journaled grains, memory streams, and the DI registrations
+/// (<c>RaceTrigger</c>, <c>ResponsePipeline</c>, a mocked <see cref="IMemoryRepository"/>)
+/// that <c>PersonaGrain</c> activation pulls through DI even when the test never
+/// exercises them.
 /// </summary>
 internal static class TestSiloDefaults
 {
@@ -23,25 +26,19 @@ internal static class TestSiloDefaults
             .AddMemoryStreams("party-streams");
 
         siloBuilder.ConfigureServices(services =>
-            services.AddSingleton<IMemoryRepository, NoopMemoryRepository>());
+        {
+            services.AddSingleton<RaceTrigger>();
+            services.AddSingleton<ResponsePipeline>();
+            services.AddSingleton<IMemoryRepository>(_ =>
+            {
+                var mock = new Mock<IMemoryRepository>();
+                mock.Setup(m => m.RecallRecentSnippetsAsync(
+                        It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(Array.Empty<string>());
+                return mock.Object;
+            });
+        });
 
         return siloBuilder;
     }
-}
-
-/// <summary>
-/// Test stub. <c>PersonaGrain</c> takes <see cref="IMemoryRepository"/> in its primary ctor,
-/// so the silo must have a registration even when the test never exercises the memory path.
-/// </summary>
-internal sealed class NoopMemoryRepository : IMemoryRepository
-{
-    public Task<MemoryCaptureResult> CaptureMomentAsync(
-        Guid partyId, Guid roomId, int messageId,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
-        IReadOnlyList<ChatMessage> recentContext, CancellationToken ct)
-        => Task.FromResult(new MemoryCaptureResult(false, 0, 0));
-
-    public Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
-        Guid personaId, Guid partyId, int limit, CancellationToken ct)
-        => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
 }

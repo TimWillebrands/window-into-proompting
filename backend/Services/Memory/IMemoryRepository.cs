@@ -23,8 +23,8 @@ public interface IMemoryRepository
     /// <param name="roomId">Room (legacy: ChatGroup) the Message was sent in.</param>
     /// <param name="messageId">The marked message inside <paramref name="recentContext"/>.</param>
     /// <param name="presentParticipants">
-    /// Cast present when the moment was marked. Non-user participants each get a Recollection
-    /// attempt; user-driven participants are skipped.
+    /// Cast present when the moment was marked. LLM-Effective participants each get a
+    /// Recollection attempt; User-Effective participants are skipped.
     /// </param>
     /// <param name="recentContext">
     /// The conversation slice the extractors see, ordered oldest-to-newest, and including
@@ -34,7 +34,7 @@ public interface IMemoryRepository
         Guid partyId,
         Guid roomId,
         int messageId,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
+        IReadOnlyList<ParticipantView> presentParticipants,
         IReadOnlyList<ChatMessage> recentContext,
         CancellationToken ct);
 
@@ -52,4 +52,23 @@ public interface IMemoryRepository
         Guid partyId,
         int limit,
         CancellationToken ct);
+
+    /// <summary>
+    /// Tag the AGE Room node for a freshly-created Room with its owning
+    /// <paramref name="partyId"/>. Idempotent: re-running with the same
+    /// <paramref name="roomId"/> overwrites <c>party_id</c> — a Room belongs to exactly
+    /// one Party. Called eagerly from <see cref="Grains.PartyGrain"/> so the memory-graph
+    /// debug view can scope from <c>Room {party_id}</c> outward.
+    /// </summary>
+    Task EnsureRoomAsync(Guid partyId, Guid roomId, CancellationToken ct);
+
+    /// <summary>
+    /// Read the per-Party memory subgraph for the debug viz: every Room with
+    /// <c>party_id = partyId</c>, the Messages/Events anchored to those Rooms, the
+    /// Participants who recollect (or are talked about by) those Events, the Personas
+    /// behind those Participants, and the Concepts those Events are about. Silent
+    /// Participants are not enumerated; the Party node and <c>IN_PARTY</c> edges are
+    /// excluded. Snapshot only — no streaming.
+    /// </summary>
+    Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct);
 }

@@ -11,7 +11,7 @@ _Avoid_: server, workspace, tenant, world, desktop.
 > Note: today the frontend always opens the default Party (id = `Guid.Empty`, exposed as `ROOT_PARTY_ID`). The API is fully multi-party; that surface is intentional, not dead code.
 
 **Room**:
-A named conversation thread inside a **Party** that a small cast of **Participants** talks in. Has its own message log, participant list, and optional **Scenario** text.
+A named conversation thread inside a **Party** that a small cast of **Participants** talks in. Has its own message log, optional **Scenario** text, a subset of the Party's **Participants** as cast, and zero or more **Driver overrides**.
 _Avoid_: chat-group, chat-room, channel, thread.
 
 > Note: the backend code currently spells this `ChatGroup` (`ChatGroupGrain`, `ChatGroupEvent`, `chatGroupId` in API paths). That spelling is legacy — treat `Room` as the canonical name in all new code, comments, issues, and docs. Existing code can be renamed opportunistically.
@@ -20,19 +20,29 @@ _Avoid_: chat-group, chat-room, channel, thread.
 A character with a name, bio, system prompt, and behavioural dials (**Chattiness**, **Impulsivity**). Lives outside any Party — Personas are library entries that can join multiple Parties (eventually) and accumulate per-Party **Memories**. A Persona is a definition, not a membership.
 _Avoid_: character, agent, bot, NPC, user.
 
+**Narrator**:
+The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (imports, scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
+
 **Participant**:
-A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, driven by Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Driver** — the same Persona can be User-driven in one Party and LLM-driven in another.
+A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
 _Avoid_: member, attendee, party-member.
 
 **Driver**:
-The thing currently operating a **Participant**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (the system speaks on this Participant's behalf — the response pipeline never auto-generates a turn for `System` Participants). Driver lives on the Participant, not the Persona — so a Persona can have different Drivers in different Parties.
+The thing currently operating a **Participant** in a given **Room**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (a sentinel for un-personed voices — narration, scenario-voice, scripted NPCs — that the **Response pipeline** never auto-generates from). Driver is contextual: every reference to "the Driver" in a Room means the **Effective Driver** for that (Participant, Room) pair. Two flavours of stored Driver back this up:
 _Avoid_: operator, pilot, controller, agent.
 
-> Encoded on the backend as `enum DriverKind` (`User | LLM | System`) on `PartyParticipant`. Before ADR 0012 this was a `bool IsUser` — the third kind (`System`) arrived together with the Narrator (see below). See [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md).
+**Default Driver**:
+The **Driver** stored on a **Participant** — what applies in every Room of the Party unless that Room overrides it. Lives at Party scope. Set when the Participant is created (or edited via Party-level UI).
 
-**Narrator**:
-Singleton library **Persona** representing un-personed speech — ambient description, stage direction, scene-setting. Joins every **Party** as a **Participant** with `Driver = System`, so the response pipeline never asks it to speak unprompted; it only appears when explicitly invoked (e.g., during import to attribute narration lines). Accumulates **Memories** like any other Participant. Reserved Persona id is stable across deployments. See [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md).
-_Avoid_: narrator-persona, system-persona, omniscient-voice.
+**Driver override**:
+A per-Persona override stored on a **Room** — "in *this* Room, Persona X is driven differently from the Party default." Sparse: present only where the Room intentionally diverges. Lets the same Participant be User-driven in one Room and LLM-driven in another within the same Party (e.g. drop into the kitchen Room and watch Vlad-as-LLM chat with Denise even though Vlad is normally your User character).
+_Avoid_: room-driver, local-driver, room-override.
+
+**Effective Driver**:
+The resolution rule consulted by the **Response pipeline** and any other consumer that needs to know "who is operating this Participant *right now*": `Driver override` for this (Persona, Room) if present, else the Participant's `Default Driver`. Always defined. Consumers see the Effective Driver only; the distinction between default and overridden is invisible to them.
+_Avoid_: resolved-driver, current-driver.
+
+> Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
 
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
@@ -57,6 +67,16 @@ _Avoid_: appraisal, thinking, evaluation, pre-generation.
 **Speaking phase**:
 The second phase of the **Response pipeline**, conditional on the **Decision phase** choosing to respond. The Persona drafts the actual chat message — shaped by the gut reaction and the **Recollection** carried forward from the Decision phase. Output is the visible reply.
 _Avoid_: generation, response, output, reply-phase.
+
+> Note: the code spelling `Generation` (e.g. `GenerationParticipant`, `_ctsByGeneration`, `CancelGenerationAsync`, log/tracing tags) predates the **Response pipeline** vocabulary. The umbrella namespace is now `Services/ResponsePipeline/`, the per-beat session is `SpeakingSession`/`SpeakingResult`, and the in-flight phase enum is `InFlightPhase.Speaking`. Treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Remaining `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
+
+**Stop-signal race**:
+When a new message arrives in a **Room** while a **Persona** has an in-flight **Response pipeline**, the persona evaluates whether the new message warrants interrupting their own draft. Outcomes: cancel the **Decision phase** (cheap, no public artifact yet), cancel the **Speaking phase** before the point-of-no-return (the in-flight draft is discarded and replaced with an emote about being interrupted), or commit and acknowledge the missed message on the next turn via a **Repair hint**. Per-persona; one race evaluation per in-flight pipeline per new message. See ADR 0001.
+_Avoid_: interruption, preemption, barge-in.
+
+**Repair hint**:
+A one-shot Levelt-style speech-repair cue stashed by the **Stop-signal race** when a **Persona** committed past the point-of-no-return (or chose to continue) while a relevant message arrived. Consumed by the next **Decision phase** for that **Room** and cleared regardless of outcome — surfaces the missed message to the persona so they can acknowledge it naturally. In-memory only.
+_Avoid_: catch-up, backlog, missed-message-marker.
 
 > Note: the code spelling `Generation` (the `Services/Generation/` namespace, `GenerationSession`, `GenerationResult`, `GenerationParticipant`, `InFlightPhase.Generation`, `_ctsByGeneration`, `CancelGenerationAsync`, etc.) predates the **Response pipeline** vocabulary — treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Existing `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
 
@@ -109,8 +129,10 @@ _Avoid_: episode, fact, occurrence, snapshot.
 - A **Participant** refers to exactly one **Persona**.
 - A **Persona** can be a **Participant** in zero or more **Parties** (one Participant per Party).
 - A **Room** draws its cast from its **Party**'s **Participants**.
-- A **Participant** has exactly one **Driver** (`User`, `LLM`, or `System`).
-- Every **Party** auto-carries the singleton **Narrator** as a **Participant** with `Driver = System`.
+- A **Room** may carry zero or more **Driver overrides**, one per overridden Persona.
+- A **Participant** has exactly one **Default Driver** (`User`, `LLM`, or `System`).
+- The **Effective Driver** in a given Room is that Room's **Driver override** for the Persona if present, else the Participant's **Default Driver**.
+- Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
 
 ## Example dialogue
 
@@ -126,5 +148,5 @@ _Avoid_: episode, fact, occurrence, snapshot.
 ## Flagged ambiguities
 
 - **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Room** — resolved: **Room** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
-- ~~**`IsUser` flag** on `PartyParticipant` is the current crude form of **Driver**~~ — **resolved by [ADR 0012](docs/adr/0012-driver-system-and-narrator-foundation.md)**: storage migrated to `enum DriverKind` (`User | LLM | System`) when the third kind arrived alongside the Narrator.
+- ~~**`IsUser` flag** on `PartyParticipant` is the storage form of **Default Driver**~~ — **resolved by [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md)**: storage migrated to `enum DriverKind` (`User | LLM | System`) when the third kind arrived alongside the Narrator.
 - **Persona deletion semantics** are not yet defined. If a Persona is deleted from the library, what happens to Participants referencing it (and to the messages they sent)? Soft-delete with tombstones? Hard delete with orphaned messages? Block deletion while participating? **Undecided.** Not blocking today — only set when this feature is built.

@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
 /// Cleanup helpers for JSON produced by LLMs. Models routinely wrap structured output

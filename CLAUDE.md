@@ -12,11 +12,11 @@ Proompting (aka Partytown) = Windows XP-themed AI chat. Multiple AI personas con
 
 ## Development Environment
 
-Dev runs on the host via .NET Aspire. The AppHost (`aspire/Proompting.AppHost`) orchestrates: backend (.NET project), frontend (Vite via npm), and Postgres+AGE (container). Aspire embeds its own dashboard for OTel logs/traces/metrics.
+Dev runs on the host via .NET Aspire. The AppHost (`aspire/Proompting.AppHost`) orchestrates: backend (.NET project), frontend (Vite via pnpm), and Postgres+AGE (container). Aspire embeds its own dashboard for OTel logs/traces/metrics.
 
 **Host prerequisites:**
 - .NET SDK with .NET 10 runtime + .NET 11 preview SDK (the AppHost targets `net10.0`, the backend targets `net11.0` preview)
-- Node 22+ with npm
+- Node 22+ with pnpm (install globally: `npm install -g pnpm`)
 - Docker (Aspire spins up the Postgres container; backend + frontend run as host processes)
 
 ```bash
@@ -43,15 +43,15 @@ Backend hot-reloads via `dotnet watch` (Aspire spawns it). Frontend hot-reloads 
 ### Frontend (run from `frontend/`)
 
 ```bash
-npm run dev            # Vite dev server (Aspire normally runs this for you)
-npm run build          # Production build
-npm run test           # Vitest
-npm run lint           # Biome lint
-npm run check          # Biome check (lint + format)
-npm run api-generate   # Regenerate API client from OpenAPI spec (orval)
+pnpm dev               # Vite dev server (Aspire normally runs this for you)
+pnpm build             # Production build
+pnpm test              # Vitest
+pnpm lint              # Biome lint
+pnpm check             # Biome check (lint + format)
+pnpm api-generate      # Regenerate API client from OpenAPI spec (orval)
 ```
 
-`npm run api-generate` builds the backend with `OPENAPI_GENERATE=1` to emit `backend/openapi.json` (via `Microsoft.Extensions.ApiDescription.Server`), then runs orval against that file. The backend does not need to be running. The sentinel env var skips Orleans + DB wiring during the build so the GetDocument tool doesn't try to reach Postgres. `backend/openapi.json` is committed. Regenerate via `npm run api-generate` after any change to the HTTP surface (controller routes, method signatures, request/response DTOs, status codes, OpenAPI metadata). Never hand-edit `backend/openapi.json`, `frontend/src/api/party-zone.ts`, or `frontend/src/api/model/**` — those files are regenerated from the backend controllers.
+`pnpm api-generate` builds the backend with `OPENAPI_GENERATE=1` to emit `backend/openapi.json` (via `Microsoft.Extensions.ApiDescription.Server`), then runs orval against that file. The backend does not need to be running. The sentinel env var skips Orleans + DB wiring during the build so the GetDocument tool doesn't try to reach Postgres. `backend/openapi.json` is committed. Regenerate via `pnpm api-generate` after any change to the HTTP surface (controller routes, method signatures, request/response DTOs, status codes, OpenAPI metadata). Never hand-edit `backend/openapi.json`, `frontend/src/api/party-zone.ts`, or `frontend/src/api/model/**` — those files are regenerated from the backend controllers.
 
 #### Storybook MCP
 
@@ -110,7 +110,7 @@ DB init scripts in `docker-entrypoint-initdb.d/` are bind-mounted into the conta
 
 **Routing:** File-based via TanStack Router in `src/routes/`. Single route (`index.tsx`) renders desktop. Search params store window layout state.
 
-**API client:** Auto-gen React Query hooks in `src/api/party-zone.ts` via Orval. Regen with `npm run api-generate` on backend changes. Default: `useSuspenseQuery`.
+**API client:** Auto-gen React Query hooks in `src/api/party-zone.ts` via Orval. Regen with `pnpm api-generate` on backend changes. Default: `useSuspenseQuery`.
 
 **State management:**
 - `desktop-context.tsx` — Zustand store, window mgmt (open/close/focus/drag, z-ordering)

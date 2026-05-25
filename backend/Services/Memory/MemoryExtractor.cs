@@ -17,7 +17,7 @@ public interface IMemoryExtractor
         ChatMessage sourceMessage,
         string sourceAuthorName,
         IReadOnlyList<ChatMessage> recentContext,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
+        IReadOnlyList<ParticipantView> presentParticipants,
         Func<Guid, string> resolveAuthorName,
         CancellationToken cancellationToken);
 
@@ -45,7 +45,7 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
         ChatMessage sourceMessage,
         string sourceAuthorName,
         IReadOnlyList<ChatMessage> recentContext,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
+        IReadOnlyList<ParticipantView> presentParticipants,
         Func<Guid, string> resolveAuthorName,
         CancellationToken cancellationToken)
     {

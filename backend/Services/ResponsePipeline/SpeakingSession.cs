@@ -5,9 +5,9 @@ using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
 
-namespace PartyTown.Services.Generation;
+namespace PartyTown.Services.ResponsePipeline;
 
-public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationParticipant> allParticipants)
+public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<ParticipantView> allParticipants)
 {
     /// <summary>
     /// Generates a response for a specific persona.
@@ -16,8 +16,8 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
     /// system prompt so it's the last thing the model sees before drafting — the contract
     /// is "decision selects, speaking executes".
     /// </summary>
-    public async Task<GenerationResult> GenerateResponseOnlyAsync(
-        GenerationParticipant persona,
+    public async Task<SpeakingResult> GenerateResponseOnlyAsync(
+        SelfView persona,
         IReadOnlyList<ChatMessage> history,
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
@@ -26,6 +26,10 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         string? memoryToReference = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
+        // Build sender-name lookup once. ParticipantView is a struct, so
+        // FirstOrDefault would return default(struct) on miss (Name = null,
+        // typed non-nullable) — robust dictionary lookup avoids that footgun.
+        var nameById = allParticipants.ToDictionary(p => p.Id, p => p.Name);
         var messages = new List<LlmChatMessage>
         {
             new()
@@ -43,7 +47,7 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
                 ? (message.Content ?? string.Empty)
                 : ChatMessageRenderer.Render(
                     message,
-                    allParticipants.FirstOrDefault(p => p.Id == message.SenderId)?.Name ?? "Unknown"),
+                    nameById.TryGetValue(message.SenderId, out var n) ? n : "Unknown"),
             Name = message.SenderId.ToString()
         }));
 
@@ -92,24 +96,28 @@ public sealed class GenerationSession(ILlmRouterGrain router, List<GenerationPar
         generateSpan?.SetTag("output.length", builder.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
-        return new GenerationResult
+        return new SpeakingResult
         {
             Stop = false,
             Message = builder.ToString(),
             Reasoning = reasoning.ToString(),
-            Persona = persona,
             Metadata = metadata
         };
     }
 
-    private static string Instruction(string personaPrompt, GenerationParticipant self, List<GenerationParticipant> others, string? scenario, string? memoryToReference)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
         // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
-            : string.Join("\n", others.Select(p => p.RosterLine()));
+            : string.Join("\n", others.Select(p => p.Driver switch
+            {
+                DriverKind.User => $"- {p.Name} (human)",
+                DriverKind.System => $"- {p.Name} (narrator)",
+                _ => $"- {p.Name} (persona)",
+            }));
 
         // Scenario sits between identity and the participant roster: persona-self comes first
         // (primacy), the in-fiction setting establishes context, then who else is there.
@@ -164,38 +172,10 @@ You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
     }
 }
 
-public sealed record class GenerationParticipant
-{
-    public Guid Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string? Bio { get; init; }
-    public string? SystemPrompt { get; init; }
-    public DriverKind Driver { get; init; } = DriverKind.LLM;
-
-    /// <summary>0..1 dial controlling urge to chime in. Drives chaos-bonus weighting in
-    /// PersonaDecisionService. Defaults to 0.5 for users / unset personas.</summary>
-    public double Chattiness { get; init; } = 0.5;
-
-    /// <summary>0..1 dial controlling commitment-to-in-flight-utterance. 0 = deliberative
-    /// (easily interrupted, repairs often); 1 = impulsive (commits hard, rarely repairs).
-    /// Drives the stop-signal race in PersonaGrain. Defaults to 0.5 for users / unset personas.</summary>
-    public double Impulsivity { get; init; } = 0.5;
-
-    /// <summary>Roster-line render shared by every prompt builder so the two LLM calls (decide
-    /// + speak) can't disagree about who is who.</summary>
-    public string RosterLine() => Driver switch
-    {
-        DriverKind.User => $"- {Name} (human)",
-        DriverKind.System => $"- {Name} (narrator)",
-        _ => $"- {Name} (persona)",
-    };
-}
-
-public sealed record class GenerationResult
+public sealed record class SpeakingResult
 {
     public bool Stop { get; init; }
     public string? Message { get; init; }
     public string? Reasoning { get; init; }
-    public GenerationParticipant? Persona { get; init; }
     public ChatMessageMetadata? Metadata { get; init; }
 }
