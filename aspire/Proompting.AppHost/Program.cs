@@ -15,6 +15,7 @@ var postgres = builder
     .WithBindMount("../../docker-entrypoint-initdb.d", "/docker-entrypoint-initdb.d", isReadOnly: true);
 
 var partydb = postgres.AddDatabase("partydb", databaseName: "partytown");
+partydb.WithPostgresMcp();
 
 var backend = builder
     .AddProject<Projects.backend>("backend")
@@ -27,7 +28,7 @@ var backend = builder
 
 var frontend = builder
     .AddViteApp("frontend", "../../frontend")
-    .WithNpm()
+    .WithPnpm()
     .WithReference(backend)
     .WaitFor(backend)
     .WithEnvironment("VITE_API_URL", backend.GetEndpoint("http"))

@@ -27,7 +27,13 @@ export default function WaveDecoration({
                     className="absolute inset-0 h-full w-full"
                 >
                     <defs>
-                        <linearGradient id={gradA} x1="0" y1="0" x2="0.6" y2="1">
+                        <linearGradient
+                            id={gradA}
+                            x1="0"
+                            y1="0"
+                            x2="0.6"
+                            y2="1"
+                        >
                             <stop
                                 offset="0%"
                                 stopColor="#a5b4fc"
@@ -56,7 +62,13 @@ export default function WaveDecoration({
                                 stopOpacity="0"
                             />
                         </linearGradient>
-                        <linearGradient id={gradC} x1="0" y1="0" x2="1" y2="0.6">
+                        <linearGradient
+                            id={gradC}
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0.6"
+                        >
                             <stop
                                 offset="0%"
                                 stopColor="#c7d2fe"

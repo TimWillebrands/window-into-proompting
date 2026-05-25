@@ -14,11 +14,8 @@ namespace BackendTest;
 ///
 /// Invariants checked after every step:
 ///   1. <c>NextMessageId</c> is monotonically non-decreasing (never goes backwards).
-///   2. Every reserved slot is either pending (fire-and-forget still in flight) or
-///      terminal (has non-empty Content, non-null Error, or SenderId == Guid.Empty).
-///   3. After quiescence (all personas have responded), no empty stubs remain.
-///   4. Message IDs in the log are unique.
-///   5. Participants list is never null.
+///   2. Message IDs in the log are unique.
+///   3. Participants list is never null.
 ///
 /// Scope: exercises <see cref="ChatGroupState.Apply"/> overloads directly — no Orleans
 /// silo needed.  The "personas" here are pure C# lambdas that call Apply in a scripted
@@ -44,29 +41,11 @@ public class SimulatorTest
         if (ids.Count != distinctIds.Count)
             return $"Duplicate message IDs in log: [{string.Join(", ", ids)}]";
 
-        // 5. Participants list not null
-        if (state.Participants is null)
-            return "Participants list is null";
+        // 5. ParticipantIds set not null
+        if (state.ParticipantIds is null)
+            return "ParticipantIds set is null";
 
         return null;
-    }
-
-    /// <summary>
-    /// After quiescence (all expected terminal events have been applied), assert
-    /// no message is left in empty-stub state.
-    /// </summary>
-    private static void AssertNoEmptyStubs(ChatGroupState state, int seed)
-    {
-        var emptyStubs = state.Messages
-            .Where(m => m.SenderType == "assistant"
-                        && string.IsNullOrEmpty(m.Content)
-                        && string.IsNullOrEmpty(m.Error)
-                        && m.SenderId != Guid.Empty)
-            .ToList();
-
-        Assert.True(emptyStubs.Count == 0,
-            $"[seed={seed}] {emptyStubs.Count} empty stubs remain after quiescence: " +
-            $"IDs=[{string.Join(", ", emptyStubs.Select(m => m.MessageId))}]");
     }
 
     private static void AssertInvariant(ChatGroupState state, int prevId, int seed)
@@ -79,7 +58,7 @@ public class SimulatorTest
     // ── Fixed scenario: all personas respond ──────────────────────────────────
 
     [Fact]
-    public void Scenario_AllPersonasRespond_NoEmptyStubs_MonotonicIds()
+    public void Scenario_AllPersonasRespond_MonotonicIds()
     {
         var partyId = Guid.NewGuid();
         var chatGroupId = Guid.NewGuid();
@@ -90,11 +69,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = partyId,
-            Participants =
-            [
-                new() { Id = alice, Name = "Alice" },
-                new() { Id = bob,   Name = "Bob" },
-            ]
+            ParticipantIds = new HashSet<Guid> { alice, bob }
         });
 
         var prevId = state.NextMessageId;
@@ -131,46 +106,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = bobSlot, Content = "Hey!", SenderId = bob, SendAt = 2L });
         AssertInvariant(state, prevId, seed: 0);
 
-        AssertNoEmptyStubs(state, seed: 0);
         Assert.Equal(3, state.Messages.Count); // user + alice + bob
-    }
-
-    [Fact]
-    public void Scenario_OneRespondsOneFails_NoEmptyStubs()
-    {
-        var state = InitTwoPersonaState(out var alice, out var bob, out var chatGroupId);
-        var prevId = state.NextMessageId;
-
-        state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = chatGroupId, SenderId = alice, SenderType = "assistant" });
-        var aliceSlot = state.NextMessageId; prevId = aliceSlot;
-        state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = chatGroupId, SenderId = bob, SenderType = "assistant" });
-        var bobSlot = state.NextMessageId; prevId = bobSlot;
-
-        state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = aliceSlot, Content = "Hi!", SenderId = alice, SendAt = 1 });
-        AssertInvariant(state, prevId, seed: 0);
-
-        state.Apply(new ChatGroupGenerationFailedEvent { MessageId = bobSlot, Error = "provider timeout", SendAt = 2 });
-        AssertInvariant(state, prevId, seed: 0);
-
-        AssertNoEmptyStubs(state, seed: 0);
-    }
-
-    [Fact]
-    public void Scenario_OneRespondsOneDeclines_NoEmptyStubs()
-    {
-        var state = InitTwoPersonaState(out var alice, out var bob, out var chatGroupId);
-        var prevId = state.NextMessageId;
-
-        state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = chatGroupId, SenderId = alice, SenderType = "assistant" });
-        var aliceSlot = state.NextMessageId; prevId = aliceSlot;
-        state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = chatGroupId, SenderId = bob, SenderType = "assistant" });
-        var bobSlot = state.NextMessageId; prevId = bobSlot;
-
-        state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = aliceSlot, Content = "Hi!", SenderId = alice, SendAt = 1 });
-        state.Apply(new ChatGroupGenerationStoppedEvent   { MessageId = bobSlot,   Appraisal = "silent", SendAt = 2 });
-
-        AssertInvariant(state, prevId, seed: 0);
-        AssertNoEmptyStubs(state, seed: 0);
     }
 
     [Fact]
@@ -229,7 +165,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = partyId,
-            Participants = personas.Select(id => new PartyParticipant { Id = id, Name = id.ToString("N")[..4] }).ToList()
+            ParticipantIds = new HashSet<Guid>(personas)
         });
 
         var prevNextId = 0;
@@ -298,8 +234,6 @@ public class SimulatorTest
                 AssertInvariant(state, prevNextId, seed);
             }
 
-            AssertNoEmptyStubs(state, seed);
-
             // Occasionally simulate a reprompt (delete messages after random point)
             if (state.Messages.Count > 3 && rng.NextDouble() < 0.15)
             {
@@ -366,11 +300,7 @@ public class SimulatorTest
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = Guid.NewGuid(),
-            Participants =
-            [
-                new() { Id = alice, Name = "Alice" },
-                new() { Id = bob,   Name = "Bob" },
-            ]
+            ParticipantIds = new HashSet<Guid> { alice, bob }
         });
         return state;
     }

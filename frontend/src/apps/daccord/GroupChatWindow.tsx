@@ -3,17 +3,22 @@ import { useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
+import { DriverKind } from '../../api/model';
 import {
+    getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey,
     getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey,
     getGetPartyIdChatGroupsQueryKey,
     useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId,
     useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId,
+    useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense,
     useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense,
     useGetPartyIdSuspense,
     usePostPartyIdCancel,
+    usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember,
     usePostPartyIdProceed,
     usePostPartyIdPrompt,
     usePostPartyIdRepromptMessageId,
+    usePutPartyIdChatGroupsChatGroupIdDriverOverrides,
     usePutPartyIdChatGroupsChatGroupIdParticipants,
     usePutPartyIdChatGroupsChatGroupIdScenario,
 } from '#api/party-zone';
@@ -110,24 +115,35 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
             apiPartyId,
             chatGroupId,
         );
+    const chatGroupDriverOverridesQuery =
+        useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense(
+            apiPartyId,
+            chatGroupId,
+        );
 
-    // Seed participant state from per-chat-group server data on first load.
-    // Each chat group owns its own cast (AI participants + the user-persona
-    // marked with isUser:true), so reload from this room, not the party-level list.
+    // Seed participant state from per-room server data on first load. Membership
+    // (ids only) comes from the participants endpoint; the user-driven Persona is
+    // resolved from the Room's Driver override map (any entry with kind="User"
+    // means that Persona is User-Effective in this Room).
     useEffect(() => {
         if (initializedForChatGroupId.current === chatGroupId) return;
         if (chatGroupParticipantsQuery.data.status !== 200) return;
-        const roomParticipants = chatGroupParticipantsQuery.data.data ?? [];
-        const aiIds = roomParticipants
-            .filter((p) => !p.isUser && p.id)
-            .map((p) => p.id as string);
-        const userId = roomParticipants.find((p) => p.isUser && p.id)?.id ?? '';
+        if (chatGroupDriverOverridesQuery.data.status !== 200) return;
+        const ids = chatGroupParticipantsQuery.data.data ?? [];
+        const overrides = chatGroupDriverOverridesQuery.data.data ?? [];
+        const userOverride = overrides.find((o) => o.kind === DriverKind.User);
+        const userId = userOverride?.personaId ?? '';
+        const aiIds = ids.filter((id) => id !== userId);
         setParticipantPersonaIds(aiIds);
         setSavedParticipantPersonaIds(aiIds);
         setSelectedPersonaId(userId);
         lastSavedUserPersonaId.current = userId;
         initializedForChatGroupId.current = chatGroupId;
-    }, [chatGroupId, chatGroupParticipantsQuery.data]);
+    }, [
+        chatGroupId,
+        chatGroupParticipantsQuery.data,
+        chatGroupDriverOverridesQuery.data,
+    ]);
 
     const promptParty = usePostPartyIdPrompt();
     const repromptParty = usePostPartyIdRepromptMessageId();
@@ -137,6 +153,8 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId();
     const deletePartyMessage =
         useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId();
+    const rememberMessage =
+        usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember();
 
     const busy = promptParty.isPending || proceedParty.isPending;
 
@@ -173,16 +191,31 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         usePutPartyIdChatGroupsChatGroupIdParticipants({
             mutation: {
                 onSuccess: (_data, variables) => {
-                    const savedPersonaIds = (variables.data.participants ?? [])
-                        .filter((p) => !p.isUser && p.id !== null)
-                        .map(
-                            (p) =>
-                                p.id ?? 'unreachable but tsc is being annoying',
-                        );
-                    setSavedParticipantPersonaIds(savedPersonaIds);
+                    // Strip the user-Persona id from the AI cast — the User-driven
+                    // Persona is set separately via the driver-overrides endpoint.
+                    const userId = lastSavedUserPersonaId.current ?? '';
+                    const ids = (variables.data.participantIds ?? []).filter(
+                        (id): id is string => !!id && id !== userId,
+                    );
+                    setSavedParticipantPersonaIds(ids);
                     queryClient.invalidateQueries({
                         queryKey:
                             getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(
+                                variables.id,
+                                variables.chatGroupId,
+                            ),
+                    });
+                },
+            },
+        });
+
+    const saveDriverOverridesMutation =
+        usePutPartyIdChatGroupsChatGroupIdDriverOverrides({
+            mutation: {
+                onSuccess: (_data, variables) => {
+                    queryClient.invalidateQueries({
+                        queryKey:
+                            getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey(
                                 variables.id,
                                 variables.chatGroupId,
                             ),
@@ -257,45 +290,50 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         chatGroupId,
     ]);
 
-    // Auto-save user persona to backend whenever selection changes
+    // The user-driven Persona is both membership and a Driver override: it's in the
+    // Room's cast and it carries an override of kind=User so the Response pipeline
+    // short-circuits.
+    const saveRoomCast = useCallback(
+        (aiPersonaIds: string[], userPersonaId: string) => {
+            const participantIds = userPersonaId
+                ? [...aiPersonaIds, userPersonaId]
+                : aiPersonaIds;
+            saveParticipantsMutation.mutate({
+                id: apiPartyId,
+                chatGroupId,
+                data: { participantIds },
+            });
+
+            const overrides = userPersonaId
+                ? [{ personaId: userPersonaId, kind: DriverKind.User }]
+                : [];
+            saveDriverOverridesMutation.mutate({
+                id: apiPartyId,
+                chatGroupId,
+                data: { overrides },
+            });
+        },
+        [
+            apiPartyId,
+            chatGroupId,
+            saveParticipantsMutation.mutate,
+            saveDriverOverridesMutation.mutate,
+        ],
+    );
+
     useEffect(() => {
         if (lastSavedUserPersonaId.current === selectedPersonaId) return;
         if (partyDetailsQuery.data.status !== 200) return;
         if (initializedForChatGroupId.current !== chatGroupId) return;
 
         lastSavedUserPersonaId.current = selectedPersonaId;
-
-        const personas = partyDetailsQuery.data.data.personaParticipants;
-        const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
-        const aiParticipants = savedParticipantPersonaIds.map((id) => ({
-            id,
-            name: personaNameMap.get(id) ?? id,
-            isUser: false,
-        }));
-        const participants = selectedPersonaId
-            ? [
-                  ...aiParticipants,
-                  {
-                      id: selectedPersonaId,
-                      name:
-                          personaNameMap.get(selectedPersonaId) ??
-                          selectedPersonaId,
-                      isUser: true,
-                  },
-              ]
-            : aiParticipants;
-        saveParticipantsMutation.mutate({
-            id: apiPartyId,
-            chatGroupId,
-            data: { participants },
-        });
+        saveRoomCast(savedParticipantPersonaIds, selectedPersonaId);
     }, [
         selectedPersonaId,
         partyDetailsQuery.data,
         savedParticipantPersonaIds,
-        apiPartyId,
         chatGroupId,
-        saveParticipantsMutation.mutate,
+        saveRoomCast,
     ]);
 
     const hasParticipantChanges = useMemo(() => {
@@ -355,37 +393,12 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
 
     const handleSaveParticipants = useCallback(() => {
         if (partyDetailsQuery.data.status !== 200) return;
-
-        const personas = partyDetailsQuery.data.data.personaParticipants;
-        const personaNameMap = new Map(personas.map((p) => [p.id, p.name]));
-        const personasToSave = participantPersonaIds.map((id) => ({
-            id,
-            name: personaNameMap.get(id) ?? id,
-            isUser: false,
-        }));
-        const userParticipant = selectedPersonaId
-            ? [
-                  {
-                      id: selectedPersonaId,
-                      name:
-                          personaNameMap.get(selectedPersonaId) ??
-                          selectedPersonaId,
-                      isUser: true,
-                  },
-              ]
-            : [];
-        saveParticipantsMutation.mutate({
-            id: apiPartyId,
-            chatGroupId,
-            data: { participants: [...personasToSave, ...userParticipant] },
-        });
+        saveRoomCast(participantPersonaIds, selectedPersonaId);
     }, [
-        apiPartyId,
-        chatGroupId,
         participantPersonaIds,
         selectedPersonaId,
         partyDetailsQuery.data,
-        saveParticipantsMutation.mutate,
+        saveRoomCast,
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
@@ -560,6 +573,14 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                                             },
                                         })
                                     }
+                                    onRemember={() =>
+                                        rememberMessage.mutateAsync({
+                                            id: apiPartyId,
+                                            chatGroupId,
+                                            messageId: message.messageId,
+                                        })
+                                    }
+                                    rememberPending={rememberMessage.isPending}
                                 />
                             );
                         })}
@@ -782,7 +803,9 @@ function ParticipantsSidebar({
     onReset: () => void;
 }) {
     const participantSet = new Set(participantPersonaIds);
-    const aiPersonas = personas.filter((p) => !p.isUser);
+    // All library Personas are LLM-driven by definition; the user-driven Persona is
+    // expressed as a Driver override on the Room, not as a Persona-library flag.
+    const aiPersonas = personas;
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
     const totalActive =
         participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
@@ -1218,21 +1241,45 @@ function ParticipantsSidebar({
                             const variantStyle = (() => {
                                 switch (entry.kind) {
                                     case 'go':
-                                        return { color: '#009900', label: 'go' };
+                                        return {
+                                            color: '#009900',
+                                            label: 'go',
+                                        };
                                     case 'decline':
-                                        return { color: '#CC8800', label: 'decline' };
+                                        return {
+                                            color: '#CC8800',
+                                            label: 'decline',
+                                        };
                                     case 'skip-obvious':
-                                        return { color: '#CC8800', label: 'skip' };
+                                        return {
+                                            color: '#CC8800',
+                                            label: 'skip',
+                                        };
                                     case 'race-cancel-decision':
-                                        return { color: '#C03030', label: 'race·cancel·dec' };
+                                        return {
+                                            color: '#C03030',
+                                            label: 'race·cancel·dec',
+                                        };
                                     case 'race-cancel-generation':
-                                        return { color: '#C03030', label: 'race·cancel·gen' };
+                                        return {
+                                            color: '#C03030',
+                                            label: 'race·cancel·gen',
+                                        };
                                     case 'race-past-pnr':
-                                        return { color: '#7A40C0', label: 'race·past-pnr' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'race·past-pnr',
+                                        };
                                     case 'race-continue':
-                                        return { color: '#7A40C0', label: 'race·continue' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'race·continue',
+                                        };
                                     case 'emote':
-                                        return { color: '#7A40C0', label: 'emote' };
+                                        return {
+                                            color: '#7A40C0',
+                                            label: 'emote',
+                                        };
                                 }
                             })();
                             return (
@@ -1337,6 +1384,8 @@ function ChatBubble({
     onDelete,
     onTruncate,
     onReprompt,
+    onRemember,
+    rememberPending,
     busy,
     personas,
     userPersonaId,
@@ -1346,6 +1395,8 @@ function ChatBubble({
     onDelete: () => void;
     onTruncate: () => void;
     onReprompt: () => void;
+    onRemember: () => void;
+    rememberPending: boolean;
     busy: boolean;
     personas: Persona[];
     userPersonaId: string;
@@ -1415,7 +1466,13 @@ function ChatBubble({
                         lineHeight: 1.4,
                     }}
                 >
-                    <span style={{ fontWeight: 600, marginRight: 6, color: '#999' }}>
+                    <span
+                        style={{
+                            fontWeight: 600,
+                            marginRight: 6,
+                            color: '#999',
+                        }}
+                    >
                         {senderName}
                     </span>
                     {message.content}
@@ -1606,6 +1663,15 @@ function ChatBubble({
                         style={{ fontSize: '10px' }}
                     >
                         del
+                    </button>
+                    <button
+                        type="button"
+                        disabled={busy || rememberPending}
+                        onClick={onRemember}
+                        style={{ fontSize: '10px' }}
+                        title="Capture as memory for personas present"
+                    >
+                        {rememberPending ? '...' : 'remember'}
                     </button>
                 </span>
             </div>

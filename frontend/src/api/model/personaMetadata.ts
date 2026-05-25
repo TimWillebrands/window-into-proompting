@@ -8,5 +8,4 @@
 export interface PersonaMetadata {
     id?: string;
     name?: string;
-    isUser?: boolean;
 }

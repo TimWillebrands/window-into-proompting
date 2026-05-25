@@ -3,6 +3,7 @@ using Orleans.EventSourcing;
 using Orleans.Providers;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
 
 namespace PartyTown.Grains;
 
@@ -11,7 +12,9 @@ namespace PartyTown.Grains;
 // The Guid.Empty party is the default universe, auto-initialized on first use.
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
-public sealed class PartyGrain(ILogger<PartyGrain> logger)
+public sealed class PartyGrain(
+    IMemoryRepository memoryRepository,
+    ILogger<PartyGrain> logger)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
 {
     public override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -87,6 +90,20 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
 
+        // Eagerly tag the AGE Room node with party_id so the memory-graph debug viz can
+        // scope from Room {party_id} outward and empty Rooms still appear. Failures must
+        // not break Room creation — memory is a downstream consumer, not a constraint.
+        try
+        {
+            await memoryRepository.EnsureRoomAsync(this.GetPrimaryKey(), chatGroup.Id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "EnsureRoomAsync failed for Room {RoomId} in Party {PartyId}; Room creation succeeded but the AGE node is untagged",
+                chatGroup.Id, this.GetPrimaryKey());
+        }
+
         return chatGroup;
     }
 
@@ -140,6 +157,17 @@ public sealed class PartyGrain(ILogger<PartyGrain> logger)
         await Task.WhenAll(tasks);
     }
 
+    public async Task<IReadOnlyList<CastMember>> GetCastAsync()
+    {
+        var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+        var library = await personaRoot.GetAll();
+        var byId = library.ToDictionary(p => p.Id, p => p);
+
+        return State.Participants
+            .Select(link => CastMember.Create(link, byId.GetValueOrDefault(link.Id)))
+            .ToList();
+    }
+
     public async Task DeleteParty()
     {
         RaiseEvent(new PartyDeletedEvent());
@@ -175,6 +203,16 @@ public interface IPartyGrain : IGrainWithGuidKey
 
     [Alias("CancelAllGenerations")]
     Task CancelAllGenerations(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Build the canonical CastMember list for one pipeline run by joining the Party's
+    /// PartyParticipant links against the Persona library. Result lives in process memory;
+    /// not persisted. Consumers project to ParticipantView / SelfView before passing to
+    /// Decision / Speaking / Memory phases.
+    /// </summary>
+    [AlwaysInterleave]
+    [Alias("GetCastAsync")]
+    Task<IReadOnlyList<CastMember>> GetCastAsync();
 
     [Alias("DeleteParty")]
     Task DeleteParty();

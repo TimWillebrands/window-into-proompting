@@ -1,13 +1,16 @@
 # Contributing to Partytown
 
-This project uses Docker Compose for the entire development environment. You don't need to install .NET, Node.js, Bun, PostgreSQL, or any other dependencies locally.
+This project uses [.NET Aspire](https://learn.microsoft.com/dotnet/aspire/) to orchestrate the dev environment. The AppHost runs the backend (.NET), frontend (Vite), and Postgres+AGE (container) as a single distributed app, with an embedded dashboard for logs, traces, and metrics.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- .NET SDK with .NET 10 runtime + .NET 11 preview SDK (AppHost targets `net10.0`; backend targets `net11.0` preview)
+- Node 22+ with pnpm (install globally: `npm install -g pnpm`)
+- Docker (Aspire spins up the Postgres container; backend + frontend run as host processes)
 - Git
+- Optional: the [Aspire CLI](https://learn.microsoft.com/dotnet/aspire/fundamentals/aspire-cli) for the shorter `aspire run` command
 
 ### 1. Clone the Repository
 
@@ -16,89 +19,78 @@ git clone <repository-url>
 cd partytown
 ```
 
-### 2. Start All Services
+### 2. Configure secrets
 
-```bash
-docker compose up
+Create a `.env` at the repo root:
+
+```env
+POSTGRES_PASSWORD=your_password
+OPENROUTER_API_KEY=your_key
 ```
 
-This will start three services:
+The AppHost reads `postgres-user` / `postgres-password` / `openrouter-api-key` parameters via `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or env vars (`PARAMETERS__postgres-password=...`).
 
-- **Frontend** (SolidJS + Vite): http://localhost:3000
-- **Backend** (.NET 11 + Orleans): http://localhost:5072
+### 3. Start All Services
+
+```bash
+aspire run
+# or, without the Aspire CLI:
+dotnet run --project aspire/Proompting.AppHost
+```
+
+The dashboard URL is printed at startup (typically `http://localhost:15000`) and auto-opens in your browser. From there you can reach every resource, follow logs, and inspect traces.
+
+Service endpoints:
+
+- **Aspire Dashboard**: http://localhost:15000 (or whatever is printed)
+- **Frontend** (React + Vite): http://localhost:5173
+- **Backend** (.NET 11 + Orleans): http://localhost:5072 (OpenAPI at `/api/openapi/v1.json`, Swagger at `/swagger`)
 - **Database** (PostgreSQL + Apache AGE): localhost:5455
-
-The first startup will download Docker images and install dependencies, which may take a few minutes.
 
 ## Development Workflow
 
 ### Hot Reloading
 
-Both frontend and backend support hot reloading:
+Both frontend and backend hot-reload automatically:
 
-- **Frontend**: Edit files in `frontend/src/` - changes appear instantly in the browser
-- **Backend**: Edit files in `backend/` - `dotnet watch` automatically rebuilds and restarts
+- **Frontend**: edit files in `frontend/src/` — Vite refreshes the browser instantly.
+- **Backend**: edit files in `backend/` — `dotnet watch` (spawned by AppHost) rebuilds and restarts.
 
-### Running Services in Background
+### Viewing Logs
 
-```bash
-# Start detached (run in background)
-docker compose up -d
-
-# View logs
-docker compose logs -f
-
-# View logs for specific service
-docker compose logs -f backend
-```
+Use the Aspire dashboard — each resource has a Logs tab with structured OTel output. For the raw stdout of a single resource, the dashboard's "Console" tab works too.
 
 ### Stopping Services
 
-```bash
-# Stop gracefully (preserves database)
-docker compose down
+Hit `Ctrl+C` in the terminal running `aspire run`. The Postgres volume (`partytown-pgdata`) is preserved across restarts.
 
-# Stop and remove database volume (start fresh)
-docker compose down -v
-
-# Stop specific service
-docker compose stop backend
-```
-
-### Viewing Service Logs
+To wipe the database, stop AppHost and remove the volume:
 
 ```bash
-# All services
-docker compose logs
-
-# Specific service
-docker compose logs age-db
-docker compose logs dev-backend
-docker compose logs dev-frontend
-
-# Follow logs (live tail)
-docker compose logs -f backend
+docker volume rm partytown-pgdata
 ```
 
 ## Database Access
 
 ### Connection Details
 
-The database is accessible at `localhost:5455` with the credentials defined in your `.env` file:
+The database is accessible at `localhost:5455` with the credentials from your `.env` / user-secrets:
 
 ```
 Host: localhost
 Port: 5455
-Database: (from POSTGRES_DB env var)
-Username: (from POSTGRES_USER env var)
-Password: (from POSTGRES_PASSWORD env var)
+Database: partytown
+Username: partytown
+Password: (from POSTGRES_PASSWORD)
 ```
 
 ### Connecting with psql
 
 ```bash
-docker compose exec age-db psql -U $POSTGRES_USER -d $POSTGRES_DB
+psql -h localhost -p 5455 -U partytown -d partytown
 ```
+
+Or via the Aspire dashboard → resources → `age-db` → console.
 
 ### Apache AGE Graph Database
 
@@ -127,64 +119,55 @@ $$) AS (n agtype);
 
 ### Database Initialization
 
-SQL files in `docker-entrypoint-initdb.d/` are executed when the database is first created. Modify these to set up initial schema, extensions, or seed data.
+SQL files in `docker-entrypoint-initdb.d/` are bind-mounted into the Postgres container and executed on first volume init. To re-run them, remove the `partytown-pgdata` volume and restart AppHost.
 
 ## Troubleshooting
 
 ### "Port already in use" Errors
 
-If ports 3000, 5072, 5455, 11111, or 30000 are in use, either:
-1. Stop the conflicting service, or
-2. Edit `compose.yml` to use different ports
+If ports 5173, 5072, 5455, 11111, 30000, or the dashboard port are in use, stop the conflicting process or adjust the AppHost configuration in `aspire/Proompting.AppHost/Program.cs`.
 
 ### Frontend dependencies not updating
 
 ```bash
-# Rebuild the frontend container
-docker compose down
-docker compose up --build frontend
+cd frontend
+pnpm install
 ```
 
-Or manually enter the container:
-```bash
-docker compose exec dev-frontend bun install
-docker compose restart dev-frontend
-```
+Then restart `aspire run`.
 
 ### Backend build errors
 
 ```bash
-# Clean and rebuild
-docker compose exec dev-backend dotnet clean
-docker compose restart dev-backend
+dotnet clean backend/backend.csproj
 ```
+
+Then restart `aspire run`. The dashboard shows the build output under the `backend` resource.
 
 ### Database won't start
 
-```bash
-# Reset database (WARNING: deletes all data)
-docker compose down -v age-db
-docker compose up
-```
+Inspect the `age-db` resource logs in the Aspire dashboard. To reset (WARNING: deletes all data), stop AppHost and run `docker volume rm partytown-pgdata`.
 
 ### Orleans silo connection issues
 
 Ensure these ports are available and not blocked:
-- 11111 (Silo-to-silo communication)
+- 11111 (silo-to-silo)
 - 30000 (Orleans gateway)
 
 ## Project Structure
 
 ```
 partytown/
-├── compose.yml              # Docker Compose configuration
-├── .env                     # Environment variables (database credentials)
-├── docker-entrypoint-initdb.d/  # Database initialization scripts
-├── frontend/                # SolidJS frontend
+├── aspire/                          # .NET Aspire orchestration
+│   ├── Proompting.AppHost/          # AppHost (entry point for `aspire run`)
+│   └── Proompting.ServiceDefaults/  # Shared OTel/health/service-discovery
+├── .env                             # Secrets (POSTGRES_PASSWORD, OPENROUTER_API_KEY)
+├── docker-entrypoint-initdb.d/      # Database initialization scripts
+├── frontend/                        # React 19 + TanStack Start frontend
 │   ├── src/
 │   ├── package.json
 │   └── vite.config.ts
-└── backend/                 # .NET 11 + Orleans backend
+└── backend/                         # .NET 11 + Orleans backend
     ├── Program.cs
     ├── backend.csproj
     └── Properties/
@@ -195,69 +178,29 @@ partytown/
 ### Frontend Development
 
 1. Edit files in `frontend/src/`
-2. Changes auto-reload in the browser
-3. Access at http://localhost:3000
+2. Vite hot-reloads in the browser
+3. Access at http://localhost:5173
 
-The frontend is configured with:
-- SolidJS for reactive UI
-- TanStack Router for routing
-- TanStack Query for data fetching
-- Tailwind CSS for styling
-- Vite for fast dev server
+Stack: React 19, TanStack Router/Query/Start, xp.css, Vite. Biome for lint/format.
 
 ### Backend Development
 
 1. Edit files in `backend/`
-2. `dotnet watch` automatically rebuilds on save
+2. `dotnet watch` rebuilds on save
 3. Access API at http://localhost:5072
 
-The backend includes:
-- ASP.NET Core 11
-- Microsoft Orleans for distributed computing
-- Connection to PostgreSQL via Npgsql
+Stack: ASP.NET Core (.NET 11 preview), Microsoft Orleans 10, Npgsql.
 
 ### Adding Database Migrations
 
-Since we use Apache AGE (graph database), traditional EF Core migrations don't apply. Instead:
+Since we use Apache AGE, traditional EF Core migrations don't apply. Instead:
 
-1. Add initialization SQL to `docker-entrypoint-initdb.d/`
-2. Reset database: `docker compose down -v age-db && docker compose up`
-3. Or use psql to run migrations manually
-
-## Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-POSTGRES_USER=your_username
-POSTGRES_PASSWORD=your_password
-POSTGRES_DB=your_database
-HOST_DB_PORT=5455
-```
-
-These variables are used by both the database container and backend connection string.
-
-## Optional: pgAdmin
-
-Uncomment the pgadmin service in `compose.yml` to add a web-based database admin interface:
-
-```yaml
-pgadmin:
-  image: dpage/pgadmin4
-  container_name: dev-pgadmin
-  environment:
-    PGADMIN_DEFAULT_EMAIL: admin@local.dev
-    PGADMIN_DEFAULT_PASSWORD: admin
-  ports:
-    - "5050:80"
-  depends_on:
-    - age-db
-```
-
-Access at http://localhost:5050 after restarting with `docker compose up`
+1. Add SQL to `docker-entrypoint-initdb.d/`
+2. Reset the volume: `docker volume rm partytown-pgdata` and restart `aspire run`
+3. Or apply changes manually via `psql`
 
 ## Questions?
 
-- Check the logs: `docker compose logs -f [service]`
-- Review this guide's troubleshooting section
-- Open an issue with the error message and steps to reproduce
+- Open the Aspire dashboard and check the relevant resource's logs.
+- Review this guide's troubleshooting section.
+- Open an issue with the error message and steps to reproduce.

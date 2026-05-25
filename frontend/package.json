@@ -32,7 +32,7 @@
         "format": "biome format --write",
         "lint": "biome lint --write",
         "check": "biome check",
-        "api-generate": "orval",
+        "api-generate": "OPENAPI_GENERATE=1 dotnet build ../backend/backend.csproj --nologo -v quiet && orval",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build"
     },
@@ -54,6 +54,7 @@
         "posthog-node": "^5.11.2",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
+        "react-force-graph-2d": "^1.29.1",
         "react-rnd": "^10.5.3",
         "srvx": "^0.11.15",
         "streaming-markdown": "^0.2.15",
@@ -74,6 +75,7 @@
         "@vitejs/plugin-react": "^6.0.1",
         "orval": "^8.5.3",
         "storybook": "^10.3.5",
-        "typescript": "^5.7.2"
+        "typescript": "^5.7.2",
+        "vitest": "^3.0.0"
     }
 }

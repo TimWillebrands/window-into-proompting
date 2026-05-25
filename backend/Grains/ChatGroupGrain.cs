@@ -40,10 +40,15 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var chatGroups = await partyGrain.GetChatGroups();
         var thisChatGroup = chatGroups.FirstOrDefault(g => g.Id == this.GetPrimaryKey());
 
+        // Seed Room membership from the Party's current participant set, ids only.
+        // Driver overrides start empty — by default every Persona's Effective Driver
+        // in this Room equals its Participant's Default Driver.
+        var seedIds = new HashSet<Guid>(party.Participants.Select(p => p.Id));
+
         RaiseEvent(new ChatGroupInitializedEvent
         {
             PartyId = partyId.Value,
-            Participants = [.. party.Participants],
+            ParticipantIds = seedIds,
             Scenario = thisChatGroup?.Scenario
         });
         await ConfirmEvents();
@@ -90,10 +95,45 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return State.NextMessageId;
     }
 
-    public async Task SetParticipantsAsync(List<PartyParticipant> participants)
+    public async Task SetParticipantIdsAsync(IReadOnlySet<Guid> participantIds)
     {
+        var deduped = new HashSet<Guid>(participantIds.Where(id => id != Guid.Empty));
+        if (State.ParticipantIds.SetEquals(deduped)) return;
+        RaiseEvent(new ChatGroupParticipantIdsSetEvent { ParticipantIds = deduped });
+        await ConfirmEvents();
+    }
 
-        RaiseEvent(new ChatGroupParticipantsSetEvent { Participants = [.. participants] });
+    // Orleans serializes the return value across the grain boundary, so an in-grain
+    // defensive copy would be wasted work.
+    public Task<IReadOnlySet<Guid>> GetParticipantIdsAsync()
+        => Task.FromResult<IReadOnlySet<Guid>>(State.ParticipantIds);
+
+    public Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync()
+        => Task.FromResult<IReadOnlyDictionary<Guid, DriverKind>>(State.DriverOverrides);
+
+    public async Task SetDriverOverrideAsync(Guid personaId, DriverKind kind)
+    {
+        if (State.DriverOverrides.TryGetValue(personaId, out var existing) && existing == kind) return;
+        RaiseEvent(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = kind });
+        await ConfirmEvents();
+    }
+
+    public async Task ClearDriverOverrideAsync(Guid personaId)
+    {
+        if (!State.DriverOverrides.ContainsKey(personaId)) return;
+        RaiseEvent(new ChatGroupDriverOverrideClearedEvent { PersonaId = personaId });
+        await ConfirmEvents();
+    }
+
+    public async Task SetDriverOverridesAsync(IReadOnlyDictionary<Guid, DriverKind> overrides)
+    {
+        var deduped = overrides
+            .Where(kv => kv.Key != Guid.Empty)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (State.DriverOverrides.Count == deduped.Count
+            && deduped.All(kv => State.DriverOverrides.TryGetValue(kv.Key, out var v) && v == kv.Value))
+            return;
+        RaiseEvent(new ChatGroupDriverOverridesReplacedEvent { Overrides = deduped });
         await ConfirmEvents();
     }
 
@@ -335,9 +375,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return Task.FromResult(messages);
     }
 
-    public Task<List<PartyParticipant>> GetParticipantsAsync()
-        => Task.FromResult(new List<PartyParticipant>([.. State.Participants]));
-
     public async Task RecordSkippedTurnAsync(
         Guid personaId,
         string personaName,
@@ -421,29 +458,24 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     /// <summary>
-    /// Fan out a message notification to all participants in parallel.
-    /// Each PersonaGrain independently decides whether to respond.
-    /// Fire and forget - we don't await because PersonaGrains call back into this
-    /// grain (GetMessagesUntilAsync) which would cause a deadlock on a non-reentrant grain.
+    /// Fan out a message notification to every Participant in this Room (except the sender).
+    /// No Effective-Driver filter is applied here: the User-Effective short-circuit lives in
+    /// PersonaGrain so the single rule for "User-driven personas don't run Decide/Speak"
+    /// has one home, not many. Fire-and-forget because PersonaGrain re-enters this grain.
     /// </summary>
     public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
-        // Skip IsUser participants: the user's "persona" is not an LLM-driven character,
-        // so activating its grain would (a) waste an LLM call and (b) write a hallucinated
-        // user reply into the chat history that other personas then react to.
-        // Skip the sender persona too — re-evaluating one's own message produces a thought-log
-        // entry per turn for nothing (Vlad doesn't read Vlad's last line and decide to react).
-        var participants = State.Participants
-            .Where(p => !p.IsUser && p.Id != triggeringMessage.SenderId)
+        var targets = State.ParticipantIds
+            .Where(id => id != triggeringMessage.SenderId)
             .ToList();
 
-        logger.LogInformation("Fanning out to {Count} AI participants in chat group {ChatGroupId}",
-            participants.Count, chatGroupId);
+        logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
+            targets.Count, chatGroupId);
 
-        foreach (var p in participants)
+        foreach (var id in targets)
         {
-            _ = GrainFactory.GetGrain<IPersonaGrain>(p.Id)
+            _ = GrainFactory.GetGrain<IPersonaGrain>(id)
                 .NotifyMessageAsync(chatGroupId, triggeringMessage, ct);
         }
 
@@ -482,8 +514,33 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string senderType = "assistant",
         int? triggeredByMessageId = null);
 
-    [Alias("SetParticipantsAsync")]
-    Task SetParticipantsAsync(List<PartyParticipant> participants);
+    /// <summary>Replace the Room's membership wholesale (ids only).</summary>
+    [Alias("SetParticipantIdsAsync")]
+    Task SetParticipantIdsAsync(IReadOnlySet<Guid> participantIds);
+
+    /// <summary>The Personas currently in this Room. Driver is *not* carried here —
+    /// it lives on the Participant (Default Driver) and the Room override map.</summary>
+    [Alias("GetParticipantIdsAsync")]
+    Task<IReadOnlySet<Guid>> GetParticipantIdsAsync();
+
+    /// <summary>The sparse per-Persona Driver override map for this Room. A missing
+    /// entry means the Participant's Default Driver applies.</summary>
+    [Alias("GetDriverOverridesAsync")]
+    Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync();
+
+    /// <summary>Set the Driver override for one Persona in this Room.</summary>
+    [Alias("SetDriverOverrideAsync")]
+    Task SetDriverOverrideAsync(Guid personaId, DriverKind kind);
+
+    /// <summary>Clear the Driver override for one Persona — falls back to the
+    /// Participant's Default Driver.</summary>
+    [Alias("ClearDriverOverrideAsync")]
+    Task ClearDriverOverrideAsync(Guid personaId);
+
+    /// <summary>Replace the Room's Driver override map wholesale in one event +
+    /// one storage write. Empty map clears all overrides.</summary>
+    [Alias("SetDriverOverridesAsync")]
+    Task SetDriverOverridesAsync(IReadOnlyDictionary<Guid, DriverKind> overrides);
 
     [Alias("SendNewMessageAsync")]
     Task<ChatMessage> SendNewMessageAsync(
@@ -556,9 +613,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesUntilAsync")]
     Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId);
 
-    [Alias("GetParticipantsAsync")]
-    Task<List<PartyParticipant>> GetParticipantsAsync();
-
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
 
@@ -580,8 +634,10 @@ public sealed record class ChatGroupState
     [Id(2)]
     public int NextMessageId { get; set; }
 
+    /// <summary>Personas currently in this Room. Membership only; Driver lives on the
+    /// Participant (Party scope) or in <see cref="DriverOverrides"/> (Room scope).</summary>
     [Id(3)]
-    public List<PartyParticipant> Participants { get; set; } = [];
+    public HashSet<Guid> ParticipantIds { get; set; } = new();
 
     [Id(4)]
     public bool Initialized { get; set; }
@@ -601,17 +657,37 @@ public sealed record class ChatGroupState
     [Id(7)]
     public List<RaceEvaluation> RaceEvaluations { get; set; } = [];
 
+    /// <summary>Sparse per-Persona Driver override map. A missing entry means the
+    /// Participant's Default Driver applies for that Persona in this Room.</summary>
+    [Id(8)]
+    public Dictionary<Guid, DriverKind> DriverOverrides { get; set; } = new();
+
     public void Apply(ChatGroupInitializedEvent @event)
     {
         PartyId = @event.PartyId;
-        Participants = [.. @event.Participants];
+        ParticipantIds = new HashSet<Guid>(@event.ParticipantIds);
         Scenario = @event.Scenario;
         Initialized = true;
     }
 
-    public void Apply(ChatGroupParticipantsSetEvent @event)
+    public void Apply(ChatGroupParticipantIdsSetEvent @event)
     {
-        Participants = [.. @event.Participants];
+        ParticipantIds = new HashSet<Guid>(@event.ParticipantIds);
+    }
+
+    public void Apply(ChatGroupDriverOverrideSetEvent @event)
+    {
+        DriverOverrides[@event.PersonaId] = @event.Kind;
+    }
+
+    public void Apply(ChatGroupDriverOverrideClearedEvent @event)
+    {
+        DriverOverrides.Remove(@event.PersonaId);
+    }
+
+    public void Apply(ChatGroupDriverOverridesReplacedEvent @event)
+    {
+        DriverOverrides = new Dictionary<Guid, DriverKind>(@event.Overrides);
     }
 
     public void Apply(ChatGroupScenarioSetEvent @event)
@@ -800,12 +876,13 @@ public sealed record class RaceEvaluation
 [GenerateSerializer, Alias(nameof(ChatGroupEvent))]
 public abstract record class ChatGroupEvent;
 
-/// <summary>Raised once when a chat group is first created. Sets the parent party, initial participants, and marks the grain as initialized.</summary>
+/// <summary>Raised once when a Room is first created. Sets the parent party, seeds
+/// membership from the Party's Participants (ids only), and marks initialized.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupInitializedEvent))]
 public sealed record class ChatGroupInitializedEvent : ChatGroupEvent
 {
     [Id(0)] public Guid PartyId { get; set; }
-    [Id(2)] public List<PartyParticipant> Participants { get; set; } = [];
+    [Id(2)] public HashSet<Guid> ParticipantIds { get; set; } = new();
     [Id(3)] public string? Scenario { get; set; }
 }
 
@@ -816,11 +893,35 @@ public sealed record class ChatGroupScenarioSetEvent : ChatGroupEvent
     [Id(0)] public string? Scenario { get; set; }
 }
 
-/// <summary>Raised when the participant list is replaced wholesale (e.g. personas added/removed from the group).</summary>
-[GenerateSerializer, Alias(nameof(ChatGroupParticipantsSetEvent))]
-public sealed record class ChatGroupParticipantsSetEvent : ChatGroupEvent
+/// <summary>Raised when the Room's membership is replaced wholesale (ids only).</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupParticipantIdsSetEvent))]
+public sealed record class ChatGroupParticipantIdsSetEvent : ChatGroupEvent
 {
-    [Id(0)] public List<PartyParticipant> Participants { get; set; } = [];
+    [Id(0)] public HashSet<Guid> ParticipantIds { get; set; } = new();
+}
+
+/// <summary>Raised when a Driver override is set for one Persona in this Room.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupDriverOverrideSetEvent))]
+public sealed record class ChatGroupDriverOverrideSetEvent : ChatGroupEvent
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+    [Id(1)] public DriverKind Kind { get; set; }
+}
+
+/// <summary>Raised when a Driver override is cleared — the Persona falls back to its
+/// Participant's Default Driver.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupDriverOverrideClearedEvent))]
+public sealed record class ChatGroupDriverOverrideClearedEvent : ChatGroupEvent
+{
+    [Id(0)] public Guid PersonaId { get; set; }
+}
+
+/// <summary>Raised when the Room's Driver override map is replaced wholesale — one
+/// event per PUT instead of an N+M storm of per-key set/clear events.</summary>
+[GenerateSerializer, Alias(nameof(ChatGroupDriverOverridesReplacedEvent))]
+public sealed record class ChatGroupDriverOverridesReplacedEvent : ChatGroupEvent
+{
+    [Id(0)] public Dictionary<Guid, DriverKind> Overrides { get; set; } = new();
 }
 
 /// <summary>Raised when a new message is sent (by a user or persona). Appends to the message log and advances the message counter.</summary>

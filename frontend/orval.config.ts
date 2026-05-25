@@ -3,10 +3,7 @@ import { defineConfig } from 'orval';
 export default defineConfig({
     partyzone: {
         input: {
-            target: [
-                'http://localhost:8080/api/openapi/v1.json',
-                'http://backend:5072/api/openapi/v1.json',
-            ],
+            target: '../backend/openapi.json',
         },
         output: {
             target: './src/api/party-zone.ts',
@@ -17,6 +14,10 @@ export default defineConfig({
             override: {
                 query: {
                     useSuspenseQuery: true,
+                },
+                mutator: {
+                    path: './src/api/custom-fetch.ts',
+                    name: 'customFetch',
                 },
             },
         },

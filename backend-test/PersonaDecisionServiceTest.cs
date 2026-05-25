@@ -4,46 +4,40 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
 /// <summary>
-/// Tests for <see cref="PersonaDecisionService"/> — the per-persona "should I respond?" evaluator.
+/// Tests for <see cref="PersonaDecisionService.ShouldRespondAsync"/> — the per-persona
+/// "should I respond?" evaluator's end-to-end LLM path.
 ///
 /// Coverage areas:
-///   • <see cref="PersonaDecisionService.CalculateResponseUrge"/> static scoring:
-///       - Direct mention in latest message → mentionScore = 1.0 → total ≥ 0.9 (auto-respond)
-///       - Question mark at end of latest message → questionScore = 0.6
-///       - Silence streak contribution (capped at 0.4)
-///       - Empty history returns a zero-score urge (aside from the random chaos component)
+///   - Auto-respond shortcut fires when mentionScore pushes urge total ≥ 0.9 (skips LLM call)
+///   - Well-formed JSON from the LLM is parsed into ShouldRespondResult
+///   - Malformed-but-repairable JSON falls back to JsonRepair and is still parsed
+///   - Completely unparseable JSON fails closed: Respond=false, Reason starts with "Fallback"
+///   - RepairHint injection into the system prompt; bypasses the auto-respond shortcut
+///   - memoryToReference decision→speaking handoff
 ///
-///   • <see cref="PersonaDecisionService.ShouldRespondAsync"/> async decision path:
-///       - Auto-respond shortcut fires when mentionScore pushes total ≥ 0.9 (skips LLM call)
-///       - Well-formed JSON from the LLM is parsed into ShouldRespondResult
-///       - Malformed-but-repairable JSON falls back to JsonRepair and is still parsed
-///       - Completely unparseable JSON fails closed: Respond=false, Reason starts with "Fallback"
+/// Pure pre-gate math (mention / question / silence / cold-open scoring) lives in
+/// <see cref="UrgeMath"/> and is covered by <see cref="UrgeMathTest"/>.
 ///
 /// Testing strategy:
 ///   PersonaDecisionService is a plain class — no Orleans grain, no TestKit silo.
 ///   The async path mocks ILlmRouterGrain (→ ILlmEndpointGrain → scripted IAsyncEnumerable).
 ///   NullLogger.Instance is used instead of a mock to avoid setting up IsEnabled() on every test.
-///
-///   Note on non-determinism: CalculateResponseUrge uses Random.Shared for the chaos score.
-///   Tests avoid asserting exact total values and instead assert on the deterministic components
-///   (mentionScore, questionScore, silenceStreakScore) or on boolean outcomes (Respond, auto-respond).
 /// </summary>
 public class PersonaDecisionServiceTest
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static GenerationParticipant MakeParticipant(string name, Guid? id = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        Name = name,
-        Bio = $"Test bio for {name}",
-    };
+    private static SelfView MakeParticipant(string name, Guid? id = null) =>
+        new(id ?? Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", null, 0.5, 0.5);
+
+    private static ParticipantView AsView(SelfView s) => new(s.Id, s.Name, s.Driver);
+    private static ParticipantView UserPv(Guid id, string name) => new(id, name, DriverKind.User);
 
     private static ChatMessage UserMessage(Guid senderId, string content) => new()
     {
@@ -87,73 +81,6 @@ public class PersonaDecisionServiceTest
     private PersonaDecisionService MakeServiceWithRouter(Mock<ILlmRouterGrain> router)
         => new PersonaDecisionService(router.Object, NullLogger.Instance);
 
-    // ── CalculateResponseUrge (static, pure) ──────────────────────────────────
-
-    [Fact]
-    public void CalculateResponseUrge_EmptyHistory_ReturnsZeroScores()
-    {
-        var self = MakeParticipant("Alice");
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, [], 0);
-
-        Assert.Equal(0, urge.MentionScore);
-        Assert.Equal(0, urge.QuestionScore);
-        Assert.Equal(0, urge.SilenceStreakScore);
-        Assert.Equal(0, urge.Total);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_DirectMentionInLatestMessage_SetsMentionScoreToOne()
-    {
-        // A message containing the persona's name (case-insensitive) triggers mention detection.
-        // With mentionScore = 1.0, the total will be ≥ 0.9 triggering the auto-respond shortcut.
-        var self = MakeParticipant("Alice");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "Hey alice, what do you think?") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(1.0, urge.MentionScore);
-        Assert.True(urge.Total >= 0.9, $"Expected total ≥ 0.9 for direct mention, got {urge.Total}");
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_QuestionMarkAtEndOfMessage_SetsQuestionScore()
-    {
-        var self = MakeParticipant("Bob");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "What do you think?") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(0.6, urge.QuestionScore);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_QuestionMarkNotAtEnd_DoesNotSetQuestionScore()
-    {
-        // Only a trailing '?' counts — a '?' mid-sentence should not trigger it.
-        var self = MakeParticipant("Bob");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "I wonder? Anyway, let's move on.") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 0);
-
-        Assert.Equal(0, urge.QuestionScore);
-    }
-
-    [Fact]
-    public void CalculateResponseUrge_SilenceStreak_CapsAtPointFour()
-    {
-        // silenceStreakScore = min(0.4, rounds * 0.1), so 5+ rounds should be capped.
-        var self = MakeParticipant("Charlie");
-        var senderId = Guid.NewGuid();
-        var history = new List<ChatMessage> { UserMessage(senderId, "Hello.") };
-
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, 10);
-
-        Assert.Equal(0.4, urge.SilenceStreakScore);
-    }
-
     // ── ShouldRespondAsync — auto-respond shortcut ────────────────────────────
 
     [Fact]
@@ -164,10 +91,10 @@ public class PersonaDecisionServiceTest
         var router = new Mock<ILlmRouterGrain>();
         var self = MakeParticipant("Diana");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -196,10 +123,10 @@ public class PersonaDecisionServiceTest
         // parsed directly without falling through to JsonRepair.
         var self = MakeParticipant("Eve");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -227,10 +154,10 @@ public class PersonaDecisionServiceTest
         // JsonRepair should recover it rather than failing closed.
         var self = MakeParticipant("Frank");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -256,10 +183,10 @@ public class PersonaDecisionServiceTest
         // and JsonRepair also chokes on it — so the decision service must strip fences itself.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -286,10 +213,10 @@ public class PersonaDecisionServiceTest
         // strips the outer pair before handing off.
         var self = MakeParticipant("Hana");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -321,10 +248,10 @@ public class PersonaDecisionServiceTest
         // chars inside string values before handing off to the parser.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -348,10 +275,10 @@ public class PersonaDecisionServiceTest
         // Respond=false so that a garbled LLM output never causes an unwanted AI turn.
         var self = MakeParticipant("Grace");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -375,10 +302,10 @@ public class PersonaDecisionServiceTest
         // clients can display the persona's "thinking" state in real time.
         var self = MakeParticipant("Henry");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -412,6 +339,128 @@ public class PersonaDecisionServiceTest
         Assert.True(completionFired, "Expected a terminal PersonaEvaluationComplete event");
     }
 
+    // ── ShouldRespondAsync — memoryToReference (decision→speaking handoff) ───
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPicksMemory_ReturnsMemoryToReference()
+    {
+        // The decision LLM selects one of the persona's recollections to weave into the
+        // upcoming reply. The selected text travels forward on ShouldRespondResult so the
+        // speaking phase can render it at the recency position of its system prompt.
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {
+              "gutReaction": "Reminds me of yesterday.",
+              "memoryToReference": "you watched Denise pivot toward CTO ambition",
+              "wouldSay": "Funny — yesterday you sounded ready to walk away from corporate.",
+              "respond": true
+            }
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["you watched Denise pivot toward CTO ambition"]);
+
+        Assert.True(result.Respond);
+        Assert.Equal("you watched Denise pivot toward CTO ambition", result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPicksNullMemory_ReturnsNullMemoryToReference()
+    {
+        // The schema permits memoryToReference to be null when no memory fits the beat.
+        // Parser must accept null and surface it as a null .NET reference (not "null"
+        // string or empty) so downstream code's null check is correct.
+        var self = MakeParticipant("Lev");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hi","memoryToReference":null,"wouldSay":"Hey.","respond":true}
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LegacyJsonWithoutMemoryField_DefaultsToNull()
+    {
+        // Older traces (and the auto-respond shortcut) omit memoryToReference entirely.
+        // Backward compat: missing field deserialises as null, downstream behavior identical
+        // to an explicit null pick.
+        var self = MakeParticipant("Mira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """{"gutReaction":"hi","wouldSay":"Hey.","respond":true}""";
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_AutoRespondShortcut_LeavesMemoryToReferenceNull()
+    {
+        // Auto-respond bypasses the decision LLM entirely, so no memory selection ever
+        // happens. The speaking phase will see null and omit the memory block — matching
+        // the shortcut's "react immediately, recall data wasn't loaded" semantics.
+        var router = new Mock<ILlmRouterGrain>();
+        var self = MakeParticipant("Noor");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hey noor, quick one?" }
+        };
+
+        var service = MakeServiceWithRouter(router);
+        var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
     // ── ShouldRespondAsync — RepairHint injection ─────────────────────────────
 
     /// <summary>
@@ -438,10 +487,10 @@ public class PersonaDecisionServiceTest
     {
         var self = MakeParticipant("Iris");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -466,10 +515,10 @@ public class PersonaDecisionServiceTest
         // (in-character) whether to acknowledge.
         var self = MakeParticipant("Jules");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -500,10 +549,10 @@ public class PersonaDecisionServiceTest
         // in-flight generation. Instead the slow path runs so the repair stanza injects.
         var self = MakeParticipant("Kai");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {
@@ -539,10 +588,10 @@ public class PersonaDecisionServiceTest
         // "they said your name" cue or every prompt becomes the same.
         var self = MakeParticipant("Lara");
         var senderId = Guid.NewGuid();
-        var participants = new List<GenerationParticipant>
+        var participants = new List<ParticipantView>
         {
-            self,
-            new() { Id = senderId, Name = "User", IsUser = true },
+            AsView(self),
+            UserPv(senderId, "User"),
         };
         var history = new List<ChatMessage>
         {

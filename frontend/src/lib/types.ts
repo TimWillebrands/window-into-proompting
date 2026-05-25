@@ -81,4 +81,5 @@ export interface WindowDescriptor {
     component: ComponentType<any>;
     icon: string;
     initialPosition?: { x: number; y: number };
+    initialSize?: { width: number; height: number };
 }

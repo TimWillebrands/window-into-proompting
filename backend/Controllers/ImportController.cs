@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using PartyTown.Grains;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Realtime;
 
 namespace PartyTown.Controllers;
@@ -549,7 +549,14 @@ public sealed class ImportController(
                 IsUser = true
             });
         }
-        await chatGroupGrain.SetParticipantsAsync(participants);
+        // Participants now live on the Party (full record: id/name/IsUser); the Room only
+        // stores the id set. Merge imported personas into the party-wide list (dedup by id),
+        // then narrow the room to just this import's cast.
+        var existingParty = await partyGrain.GetParty();
+        var mergedById = existingParty.Participants.ToDictionary(p => p.Id);
+        foreach (var p in participants) mergedById[p.Id] = p;
+        await partyGrain.SetParticipants([.. mergedById.Values]);
+        await chatGroupGrain.SetParticipantIdsAsync(new HashSet<Guid>(participants.Select(p => p.Id)));
 
         // Step 4: bulk-import messages. Rewrite each message's senderId from
         // placeholder → minted GUID via idRemap. Drop messages whose placeholder didn't
