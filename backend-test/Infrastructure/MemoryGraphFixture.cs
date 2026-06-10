@@ -59,11 +59,10 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
 
     private static async Task EnsureMemoryGraphSchemaAsync(NpgsqlConnection conn)
     {
-        // Idempotent slice 1 schema: matches docker-entrypoint-initdb.d/06-memory-graph.sql
-        // for graph + labels. Indexes in the docker init script use `properties ->> 'key'`
-        // which fails on AGE's agtype `->>` (right operand must be agtype, not text) — they
-        // never actually exist in the dev DB. Skipped here so the fixture doesn't trip on
-        // the same broken DDL; indexes are perf-only and tests pass without them.
+        // Idempotent schema: matches docker-entrypoint-initdb.d/06-memory-graph.sql for
+        // graph + labels (reshaped per ADR 0014 — no Party/Room/Message vertices, no
+        // IN_PARTY/ANCHORED_TO edges). Indexes in the docker init script are perf-only and
+        // skipped here; tests pass without them.
         // create_vlabel/create_elabel are cstring-typed, so cast explicitly.
         const string ddl = """
             LOAD 'age';
@@ -81,7 +80,7 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
             DECLARE
               lbl text;
             BEGIN
-              FOREACH lbl IN ARRAY ARRAY['Persona','Participant','Party','Room','Message','Concept','Event']
+              FOREACH lbl IN ARRAY ARRAY['Persona','Participant','Concept','Event']
               LOOP
                 IF NOT EXISTS (
                   SELECT 1 FROM ag_catalog.ag_label
@@ -97,7 +96,7 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
             DECLARE
               lbl text;
             BEGIN
-              FOREACH lbl IN ARRAY ARRAY['HAS_PARTICIPANT','IN_PARTY','RECOLLECTS','ANCHORED_TO','ABOUT','STANCE']
+              FOREACH lbl IN ARRAY ARRAY['HAS_PARTICIPANT','RECOLLECTS','ABOUT','STANCE']
               LOOP
                 IF NOT EXISTS (
                   SELECT 1 FROM ag_catalog.ag_label

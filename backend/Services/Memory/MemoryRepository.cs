@@ -34,8 +34,12 @@ public sealed class MemoryRepository(
         string ResolveName(Guid senderId) => nameById.TryGetValue(senderId, out var n) ? n : "Unknown";
         var sourceAuthor = ResolveName(sourceMessage.SenderId);
 
+        // Match-or-mint: hand the extractor the existing Concept vocabulary so it reuses a
+        // tag when one fits instead of fragmenting reality with near-duplicates.
+        var existingConcepts = await FetchExistingConceptDisplaysAsync(ct);
+
         var extraction = await extractor.ExtractEventAsync(
-            sourceMessage, sourceAuthor, recentContext, presentParticipants, ResolveName, ct);
+            sourceMessage, sourceAuthor, recentContext, presentParticipants, existingConcepts, ResolveName, ct);
 
         if (extraction is null || string.IsNullOrWhiteSpace(extraction.Description))
         {
@@ -46,11 +50,15 @@ public sealed class MemoryRepository(
         }
 
         // Narrator (System driver) accumulates memory like any other observer — only User-driven Participants skip.
-        var recollectionTargets = presentParticipants.Where(p => p.Driver != DriverKind.User).ToList();
-        var recollectionTasks = recollectionTargets.Select(p =>
-            extractor.ExtractRecollectionAsync(p.Name, isSpeaker: p.Id == sourceMessage.SenderId, sourceMessage, sourceAuthor, recentContext, ResolveName, ct)
-                .ContinueWith(t => (Participant: p, Snippet: t.Result), ct, TaskContinuationOptions.None, TaskScheduler.Default));
-        var recollections = (await Task.WhenAll(recollectionTasks))
+        // One batched LLM call covers every target; a target the model declined is absent from the map.
+        var recollectionTargets = presentParticipants
+            .Where(p => p.Driver != DriverKind.User)
+            .Select(p => new RecollectionTarget(p.Id, p.Name, IsSpeaker: p.Id == sourceMessage.SenderId))
+            .ToList();
+        var snippetByPersona = await extractor.ExtractRecollectionsAsync(
+            recollectionTargets, sourceMessage, sourceAuthor, recentContext, ResolveName, ct);
+        var recollections = recollectionTargets
+            .Select(t => (t.PersonaId, Snippet: snippetByPersona.GetValueOrDefault(t.PersonaId, "")))
             .Where(r => !string.IsNullOrWhiteSpace(r.Snippet))
             .ToList();
 
@@ -75,9 +83,9 @@ public sealed class MemoryRepository(
             await AddAboutParticipantEdgeAsync(db, eventId, partyId, aboutParticipantId, ct);
         }
 
-        foreach (var (participant, snippet) in recollections)
+        foreach (var (personaId, snippet) in recollections)
         {
-            await AddRecollectionAsync(db, eventId, partyId, participant.Id, snippet, nowIso, ct);
+            await AddRecollectionAsync(db, eventId, partyId, personaId, snippet, nowIso, ct);
         }
 
         await tx.CommitAsync(ct);
@@ -165,40 +173,60 @@ public sealed class MemoryRepository(
         Guid eventId, string description, string nowIso,
         CancellationToken ct)
     {
-        // Defensive SET room.party_id picks up Rooms that pre-date the eager EnsureRoomAsync
-        // path. Idempotent — a Room created via EnsureRoom already has it.
+        // The Event carries its anchor (room_id / party_id / anchor_message_id) as plain
+        // properties — no Room/Message vertices, no ANCHORED_TO edge. party_id is the scope
+        // key the viz and any per-Party walk anchor on.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
-              MERGE (party:Party {id: '{{partyId}}'})
-              MERGE (room:Room {id: '{{roomId}}'})
-              SET room.party_id = '{{partyId}}'
-              MERGE (msg:Message {room_id: '{{roomId}}', id: {{messageId.ToString(CultureInfo.InvariantCulture)}}})
-              CREATE (e:Event {event_id: '{{eventId}}', description: {{CypherStr(description)}}, created_at: '{{nowIso}}', anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}})
-              CREATE (e)-[:ANCHORED_TO]->(msg)
+              CREATE (e:Event {
+                event_id: '{{eventId}}',
+                description: {{CypherStr(description)}},
+                created_at: '{{nowIso}}',
+                party_id: '{{partyId}}',
+                room_id: '{{roomId}}',
+                anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}
+              })
               RETURN e.event_id
             $cy$) AS (event_id ag_catalog.agtype)
             """;
         return ExecuteCypherAsync(db, sql, ct);
     }
 
-    public async Task EnsureRoomAsync(Guid partyId, Guid roomId, CancellationToken ct)
+    // Existing Concept display labels, for the match-or-mint guidance in event extraction.
+    // Read-only, single command — explicit open/close per the EF connection-lifetime footgun.
+    private async Task<IReadOnlyList<string>> FetchExistingConceptDisplaysAsync(CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         await db.Database.OpenConnectionAsync(ct);
         try
         {
-            var sql = $$"""
+            // Project as text so AGE's agtype output cast unquotes the scalar (the reader
+            // footgun). coalesce keeps a Concept that somehow lacks a display visible by name.
+            const string sql = """
                 SELECT * FROM cypher('memory', $cy$
-                  MERGE (room:Room {id: '{{roomId}}'})
-                  SET room.party_id = '{{partyId}}'
-                  RETURN room.id
-                $cy$) AS (id ag_catalog.agtype)
+                  MATCH (c:Concept)
+                  RETURN coalesce(c.display, c.name)
+                  LIMIT 500
+                $cy$) AS (display text)
                 """;
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
-            await cmd.ExecuteNonQueryAsync(ct);
+
+            var names = new List<string>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (reader.IsDBNull(0)) continue;
+                var name = reader.GetString(0);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    names.Add(name);
+                }
+            }
+
+            return names;
         }
         finally
         {
@@ -232,6 +260,8 @@ public sealed class MemoryRepository(
                     Description = existing.Description ?? node.Description,
                     Display = existing.Display ?? node.Display,
                     CreatedAt = existing.CreatedAt ?? node.CreatedAt,
+                    RoomId = existing.RoomId ?? node.RoomId,
+                    AnchorMessageId = existing.AnchorMessageId ?? node.AnchorMessageId,
                 };
             }
 
@@ -244,48 +274,21 @@ public sealed class MemoryRepository(
                 }
             }
 
-            // Anchor: every Room in this Party becomes a node, even if it has no Events.
-            // Without this branch a freshly-created Room would be invisible.
-            var roomSql = $$"""
-                SELECT * FROM cypher('memory', $cy$
-                  MATCH (room:Room {party_id: '{{partyId}}'})
-                  RETURN room.id
-                $cy$) AS (room_id text);
-                """;
-            await using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = roomSql;
-                await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
-                {
-                    if (reader.IsDBNull(0)) continue;
-                    var roomId = reader.GetString(0);
-                    AddNode(new MemoryGraphNode($"room:{roomId}", "Room"));
-                }
-            }
-
-            if (nodes.Count == 0)
-            {
-                return new MemoryGraphDto(Array.Empty<MemoryGraphNode>(), Array.Empty<MemoryGraphLink>());
-            }
-
-            // Events anchored to a Message in an in-party Room, plus :ABOUT Concepts,
-            // :ABOUT Participants, RECOLLECTS Participants and their Personas. Single
-            // OPTIONAL-MATCH-driven Cypher; wide rows with nulls dedup'd in C#. Projected
-            // scalars cast to text/int per the AGE agtype reader footgun.
+            // Anchor on Event party_id (Room/Message vertices are gone — the anchor lives as
+            // properties on the Event). Empty Rooms no longer appear; the viz lists Rooms
+            // from REST. :ABOUT Concepts, :ABOUT Participants, RECOLLECTS Participants and
+            // their Personas hang off each Event. Single OPTIONAL-MATCH-driven Cypher; wide
+            // rows with nulls dedup'd in C#. Projected scalars cast to text/int per the AGE
+            // agtype reader footgun.
             var graphSql = $$"""
                 SELECT * FROM cypher('memory', $cy$
-                  MATCH (room:Room {party_id: '{{partyId}}'})
-                  MATCH (e:Event)-[:ANCHORED_TO]->(msg:Message)
-                  WHERE msg.room_id = room.id
+                  MATCH (e:Event {party_id: '{{partyId}}'})
                   OPTIONAL MATCH (e)-[:ABOUT]->(c:Concept)
                   OPTIONAL MATCH (e)-[:ABOUT]->(p_about:Participant {party_id: '{{partyId}}'})
                   OPTIONAL MATCH (persona_about:Persona)-[:HAS_PARTICIPANT]->(p_about)
                   OPTIONAL MATCH (part:Participant {party_id: '{{partyId}}'})-[rec:RECOLLECTS]->(e)
                   OPTIONAL MATCH (persona_rec:Persona)-[:HAS_PARTICIPANT]->(part)
-                  RETURN room.id,
-                         msg.room_id, msg.id,
-                         e.event_id, e.description, e.created_at,
+                  RETURN e.event_id, e.description, e.created_at, e.room_id, e.anchor_message_id,
                          c.name, c.display,
                          p_about.persona_id,
                          persona_about.id,
@@ -293,9 +296,8 @@ public sealed class MemoryRepository(
                          persona_rec.id,
                          rec.snippet, rec.ts
                 $cy$) AS (
-                  room_id text,
-                  msg_room_id text, msg_id int,
                   event_id text, event_description text, event_created_at text,
+                  event_room_id text, event_anchor_message_id int,
                   concept_name text, concept_display text,
                   p_about_persona_id text,
                   persona_about_id text,
@@ -313,32 +315,19 @@ public sealed class MemoryRepository(
                 {
                     string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
 
-                    var roomId = Get(0);
-                    var msgRoomId = Get(1);
-                    var msgId = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
-                    var eventId = Get(3);
-                    var eventDescription = Get(4);
-                    var eventCreatedAt = Get(5);
-                    var conceptName = Get(6);
-                    var conceptDisplay = Get(7);
-                    var pAboutPersonaId = Get(8);
-                    var personaAboutId = Get(9);
-                    var partPersonaId = Get(10);
-                    var personaRecId = Get(11);
-                    var recSnippet = Get(12);
-                    var recTs = Get(13);
-
-                    if (roomId is not null)
-                    {
-                        AddNode(new MemoryGraphNode($"room:{roomId}", "Room"));
-                    }
-
-                    string? messageNodeId = null;
-                    if (msgRoomId is not null && msgId is not null)
-                    {
-                        messageNodeId = $"msg:{msgRoomId}:{msgId.Value.ToString(CultureInfo.InvariantCulture)}";
-                        AddNode(new MemoryGraphNode(messageNodeId, "Message"));
-                    }
+                    var eventId = Get(0);
+                    var eventDescription = Get(1);
+                    var eventCreatedAt = Get(2);
+                    var eventRoomId = Get(3);
+                    var eventAnchorMessageId = reader.IsDBNull(4) ? (int?)null : reader.GetInt32(4);
+                    var conceptName = Get(5);
+                    var conceptDisplay = Get(6);
+                    var pAboutPersonaId = Get(7);
+                    var personaAboutId = Get(8);
+                    var partPersonaId = Get(9);
+                    var personaRecId = Get(10);
+                    var recSnippet = Get(11);
+                    var recTs = Get(12);
 
                     string? eventNodeId = null;
                     if (eventId is not null)
@@ -347,12 +336,9 @@ public sealed class MemoryRepository(
                         AddNode(new MemoryGraphNode(
                             eventNodeId, "Event",
                             Description: eventDescription,
-                            CreatedAt: eventCreatedAt));
-
-                        if (messageNodeId is not null)
-                        {
-                            AddLink(new MemoryGraphLink(eventNodeId, messageNodeId, "ANCHORED_TO"));
-                        }
+                            CreatedAt: eventCreatedAt,
+                            RoomId: eventRoomId,
+                            AnchorMessageId: eventAnchorMessageId));
                     }
 
                     if (conceptName is not null)
@@ -432,9 +418,7 @@ public sealed class MemoryRepository(
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
-              MERGE (party:Party {id: '{{partyId}}'})
               MERGE (p:Participant {persona_id: '{{participantPersonaId}}', party_id: '{{partyId}}'})
-              MERGE (p)-[:IN_PARTY]->(party)
               CREATE (e)-[:ABOUT]->(p)
               RETURN p.persona_id
             $cy$) AS (persona_id ag_catalog.agtype)
@@ -450,11 +434,9 @@ public sealed class MemoryRepository(
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
-              MERGE (party:Party {id: '{{partyId}}'})
               MERGE (persona:Persona {id: '{{personaId}}'})
               MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
               MERGE (persona)-[:HAS_PARTICIPANT]->(part)
-              MERGE (part)-[:IN_PARTY]->(party)
               CREATE (part)-[:RECOLLECTS {snippet: {{CypherStr(snippet)}}, ts: '{{nowIso}}'}]->(e)
               RETURN part.persona_id
             $cy$) AS (persona_id ag_catalog.agtype)

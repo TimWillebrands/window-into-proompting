@@ -11,12 +11,13 @@ const eventNode: EnrichedMemoryNode = {
     kind: 'Event',
     description: 'Denise pitched a stealth horticulture demo.',
     createdAt: '2026-05-10T10:00:00Z',
-    label: 'Denise pitched a stealth horticulture demo.',
+    roomId: 'cg-1',
+    anchorMessageId: 42,
+    label: 'general',
 };
 
 const allNodes: EnrichedMemoryNode[] = [
     eventNode,
-    { id: 'msg:cg-1:42', kind: 'Message', label: '#42' },
     {
         id: 'concept:horticulture',
         kind: 'Concept',
@@ -36,7 +37,6 @@ const allNodes: EnrichedMemoryNode[] = [
 ];
 
 const allLinks: MemoryGraphLink[] = [
-    { source: 'event:ev-1', target: 'msg:cg-1:42', kind: 'ANCHORED_TO' },
     { source: 'event:ev-1', target: 'concept:horticulture', kind: 'ABOUT' },
     {
         source: 'event:ev-1',

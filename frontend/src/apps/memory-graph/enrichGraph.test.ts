@@ -9,9 +9,13 @@ const roomA = '11111111-1111-1111-1111-111111111111';
 
 const baseGraph: MemoryGraphData = {
     nodes: [
-        { id: `room:${roomA}`, kind: 'Room' },
-        { id: `msg:${roomA}:42`, kind: 'Message' },
-        { id: 'event:e1', kind: 'Event', description: 'Hana defended Lisp.' },
+        {
+            id: 'event:e1',
+            kind: 'Event',
+            description: 'Hana defended Lisp.',
+            roomId: roomA,
+            anchorMessageId: 42,
+        },
         { id: 'concept:lisp', kind: 'Concept', display: 'Lisp' },
         { id: `part:${personaA}:${partyId}`, kind: 'Participant' },
         { id: `persona:${personaA}`, kind: 'Persona' },
@@ -46,14 +50,24 @@ describe('enrichGraph', () => {
         expect(hana?.label).toBe(`Persona(${personaA.slice(0, 8)})`);
     });
 
-    it('joins Room display names by id', () => {
+    it('labels Event nodes with their Room name (from the Event roomId property)', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [],
             rooms: [{ id: roomA, name: 'general' }],
         });
 
-        const room = enriched.nodes.find((n) => n.id === `room:${roomA}`);
-        expect(room?.label).toBe('general');
+        const event = enriched.nodes.find((n) => n.id === 'event:e1');
+        expect(event?.label).toBe('general');
+    });
+
+    it('falls back to short room guid when no Room match for an Event', () => {
+        const enriched = enrichGraph(baseGraph, {
+            personas: [],
+            rooms: [],
+        });
+
+        const event = enriched.nodes.find((n) => n.id === 'event:e1');
+        expect(event?.label).toBe(`Room(${roomA.slice(0, 8)})`);
     });
 
     it('labels Concept nodes from their display value', () => {
@@ -64,16 +78,6 @@ describe('enrichGraph', () => {
 
         const concept = enriched.nodes.find((n) => n.id === 'concept:lisp');
         expect(concept?.label).toBe('Lisp');
-    });
-
-    it('labels Message nodes with #<id> only (never the body)', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [],
-            rooms: [],
-        });
-
-        const msg = enriched.nodes.find((n) => n.id === `msg:${roomA}:42`);
-        expect(msg?.label).toBe('#42');
     });
 
     it('labels Participant nodes by their backing Persona name', () => {
@@ -109,8 +113,8 @@ describe('enrichGraph', () => {
             links: [
                 {
                     source: 'event:e1',
-                    target: `msg:${roomA}:42`,
-                    kind: 'ANCHORED_TO',
+                    target: 'concept:lisp',
+                    kind: 'ABOUT',
                 },
                 {
                     source: `part:${personaA}:${partyId}`,

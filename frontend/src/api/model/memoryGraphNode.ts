@@ -14,4 +14,11 @@ export interface MemoryGraphNode {
     display?: string | null;
     /** @nullable */
     createdAt?: string | null;
+    /** @nullable */
+    roomId?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    anchorMessageId?: number | string | null;
 }

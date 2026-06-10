@@ -1,18 +1,8 @@
 import type { MemoryGraphLink, MemoryGraphNode } from '../../api/model';
 
-export type MemoryNodeKind =
-    | 'Room'
-    | 'Message'
-    | 'Event'
-    | 'Concept'
-    | 'Participant'
-    | 'Persona';
+export type MemoryNodeKind = 'Event' | 'Concept' | 'Participant' | 'Persona';
 
-export type MemoryEdgeKind =
-    | 'RECOLLECTS'
-    | 'ABOUT'
-    | 'ANCHORED_TO'
-    | 'HAS_PARTICIPANT';
+export type MemoryEdgeKind = 'RECOLLECTS' | 'ABOUT' | 'HAS_PARTICIPANT';
 
 export interface MemoryGraphData {
     nodes: MemoryGraphNode[];

@@ -82,7 +82,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var anchoredCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
+              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
               RETURN count(e)
             $cy$) AS (n int);
             """);
@@ -90,8 +90,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var conceptCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}}),
-                    (e)-[:ABOUT]->(c:Concept {name: '{{conceptName}}'})
+              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}})-[:ABOUT]->(c:Concept {name: '{{conceptName}}'})
               RETURN count(c)
             $cy$) AS (n int);
             """);
@@ -99,8 +98,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var aboutVladCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}}),
-                    (e)-[:ABOUT]->(p:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})
+              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}})-[:ABOUT]->(p:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})
               RETURN count(p)
             $cy$) AS (n int);
             """);
@@ -108,7 +106,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var recollectionCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (part:Participant {party_id: '{{partyId}}'})-[:RECOLLECTS]->(e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
+              MATCH (part:Participant {party_id: '{{partyId}}'})-[:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
               RETURN count(part)
             $cy$) AS (n int);
             """);
@@ -124,7 +122,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var hasParticipantCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (persona:Persona {id: '{{personaVlad.Id}}'})-[:HAS_PARTICIPANT]->(part:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})-[:IN_PARTY]->(party:Party {id: '{{partyId}}'})
+              MATCH (persona:Persona {id: '{{personaVlad.Id}}'})-[:HAS_PARTICIPANT]->(part:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})
               RETURN count(persona)
             $cy$) AS (n int);
             """);
@@ -132,7 +130,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var snippet = await QueryAgtypeStringAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
+              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
               RETURN r.snippet
             $cy$) AS (s text);
             """);
@@ -140,64 +138,11 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var description2 = await QueryAgtypeStringAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event)-[:ANCHORED_TO]->(m:Message {room_id: '{{roomId}}', id: {{messageId}}})
+              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
               RETURN e.description
             $cy$) AS (s text);
             """);
         Assert.Equal(description, description2);
-    }
-
-    [Fact]
-    public async Task EnsureRoomAsync_IsIdempotent_AndOverwritesPartyId()
-    {
-        RequireDevStack();
-
-        var partyA = Guid.NewGuid();
-        var partyB = Guid.NewGuid();
-        var roomId = Guid.NewGuid();
-        var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
-
-        // Idempotent: two calls with the same (party, room) → one Room node, party_id stays put.
-        await repo.EnsureRoomAsync(partyA, roomId, CancellationToken.None);
-        await repo.EnsureRoomAsync(partyA, roomId, CancellationToken.None);
-
-        await using var conn = await OpenAgeAsync();
-
-        var roomCount = await QueryAgtypeIntAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (r:Room {id: '{{roomId}}'})
-              RETURN count(r)
-            $cy$) AS (n int);
-            """);
-        Assert.Equal(1, roomCount);
-
-        var partyACount = await QueryAgtypeIntAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (r:Room {id: '{{roomId}}', party_id: '{{partyA}}'})
-              RETURN count(r)
-            $cy$) AS (n int);
-            """);
-        Assert.Equal(1, partyACount);
-
-        // Overwrite semantics: a Room belongs to exactly one Party — re-tagging with a
-        // new partyId moves it; the previous tag does not linger.
-        await repo.EnsureRoomAsync(partyB, roomId, CancellationToken.None);
-
-        var partyBCount = await QueryAgtypeIntAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (r:Room {id: '{{roomId}}', party_id: '{{partyB}}'})
-              RETURN count(r)
-            $cy$) AS (n int);
-            """);
-        Assert.Equal(1, partyBCount);
-
-        var stillTaggedA = await QueryAgtypeIntAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (r:Room {id: '{{roomId}}', party_id: '{{partyA}}'})
-              RETURN count(r)
-            $cy$) AS (n int);
-            """);
-        Assert.Equal(0, stillTaggedA);
     }
 
     [Fact]
@@ -215,25 +160,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     }
 
     [Fact]
-    public async Task GetPartyMemoryGraphAsync_EmptyRoom_IncludesRoomNodeOnly()
-    {
-        RequireDevStack();
-
-        var partyId = Guid.NewGuid();
-        var roomId = Guid.NewGuid();
-        var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
-
-        await repo.EnsureRoomAsync(partyId, roomId, CancellationToken.None);
-
-        var graph = await repo.GetPartyMemoryGraphAsync(partyId, CancellationToken.None);
-
-        Assert.Single(graph.Nodes);
-        Assert.Equal("Room", graph.Nodes[0].Kind);
-        Assert.Equal($"room:{roomId}", graph.Nodes[0].Id);
-        Assert.Empty(graph.Links);
-    }
-
-    [Fact]
     public async Task GetPartyMemoryGraphAsync_AfterCapture_ContainsExpectedNodesAndEdges()
     {
         RequireDevStack();
@@ -244,10 +170,13 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
         var graph = await repo.GetPartyMemoryGraphAsync(partyId, CancellationToken.None);
 
-        Assert.Contains(graph.Nodes, n => n.Id == $"room:{roomId}" && n.Kind == "Room");
-        Assert.Contains(graph.Nodes, n => n.Id == $"msg:{roomId}:{messageId}" && n.Kind == "Message");
+        // No Room/Message vertices: the anchor rides as properties on the Event node.
+        Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Room");
+        Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Message");
         var eventNode = Assert.Single(graph.Nodes, n => n.Kind == "Event");
         Assert.False(string.IsNullOrEmpty(eventNode.Description));
+        Assert.Equal(roomId.ToString(), eventNode.RoomId);
+        Assert.Equal(messageId, eventNode.AnchorMessageId);
         Assert.Contains(graph.Nodes, n => n.Id == $"concept:{conceptName}" && n.Kind == "Concept" && n.Display == conceptDisplay);
         Assert.Contains(graph.Nodes, n => n.Id == $"part:{vlad.Id}:{partyId}" && n.Kind == "Participant");
         Assert.Contains(graph.Nodes, n => n.Id == $"part:{hana.Id}:{partyId}" && n.Kind == "Participant");
@@ -257,7 +186,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         // Silent user (no Recollections, not :ABOUT'd by any in-party Event) is invisible.
         Assert.DoesNotContain(graph.Nodes, n => n.Id.Contains(userBob.Id.ToString()));
 
-        Assert.Contains(graph.Links, l => l.Source == eventNode.Id && l.Target == $"msg:{roomId}:{messageId}" && l.Kind == "ANCHORED_TO");
+        Assert.DoesNotContain(graph.Links, l => l.Kind == "ANCHORED_TO");
         Assert.Contains(graph.Links, l => l.Source == eventNode.Id && l.Target == $"concept:{conceptName}" && l.Kind == "ABOUT");
         Assert.Contains(graph.Links, l => l.Source == eventNode.Id && l.Target == $"part:{vlad.Id}:{partyId}" && l.Kind == "ABOUT");
         Assert.Contains(graph.Links, l => l.Source == $"part:{hana.Id}:{partyId}" && l.Target == eventNode.Id && l.Kind == "RECOLLECTS" && l.Snippet == snippetHana);
@@ -271,21 +200,17 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     {
         RequireDevStack();
 
-        var (partyA, roomA, _, _, _, _, conceptName, _, _, _) = await SeedFullCaptureAsync();
+        var (partyA, roomA, _, vladA, _, _, conceptNameA, _, _, _) = await SeedFullCaptureAsync();
+        var (partyB, roomB, _, _, _, _, _, _, _, _) = await SeedFullCaptureAsync();
 
-        var partyB = Guid.NewGuid();
-        var roomB = Guid.NewGuid();
         var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
-        await repo.EnsureRoomAsync(partyB, roomB, CancellationToken.None);
-
         var graphB = await repo.GetPartyMemoryGraphAsync(partyB, CancellationToken.None);
 
-        // Only Party B's empty Room is visible — none of Party A's nodes or the shared Concept.
-        Assert.Single(graphB.Nodes);
-        Assert.Equal($"room:{roomB}", graphB.Nodes[0].Id);
-        Assert.DoesNotContain(graphB.Nodes, n => n.Id == $"room:{roomA}");
-        Assert.DoesNotContain(graphB.Nodes, n => n.Id == $"concept:{conceptName}");
-        Assert.Empty(graphB.Links);
+        // Party B's own Event is present; none of Party A's nodes leak across the party scope.
+        Assert.Contains(graphB.Nodes, n => n.Kind == "Event" && n.RoomId == roomB.ToString());
+        Assert.DoesNotContain(graphB.Nodes, n => n.Kind == "Event" && n.RoomId == roomA.ToString());
+        Assert.DoesNotContain(graphB.Nodes, n => n.Id == $"part:{vladA.Id}:{partyA}");
+        Assert.DoesNotContain(graphB.Nodes, n => n.Id == $"concept:{conceptNameA}");
     }
 
     [Fact]
@@ -346,7 +271,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             });
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        await repo.EnsureRoomAsync(partyId, roomId, CancellationToken.None);
         await repo.CaptureMomentAsync(partyId, roomId, messageId,
             presentParticipants: new[] { vlad, hana, userBob },
             recentContext: new[] { source },
@@ -365,16 +289,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         }
     }
 
-    private async Task<NpgsqlConnection> OpenAgeAsync()
-    {
-        var conn = new NpgsqlConnection(fixture.ConnectionString);
-        await conn.OpenAsync();
-        await using var load = conn.CreateCommand();
-        load.CommandText = "LOAD 'age';";
-        await load.ExecuteNonQueryAsync();
-        return conn;
-    }
-
     private sealed class NullExtractor : IMemoryExtractor
     {
         public static readonly NullExtractor Instance = new();
@@ -384,17 +298,18 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
             IReadOnlyList<ParticipantView> presentParticipants,
+            IReadOnlyList<string> existingConcepts,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult<EventExtraction?>(null);
 
-        public Task<string> ExtractRecollectionAsync(
-            string personaName,
-            bool isSpeaker,
+        public Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+            IReadOnlyList<RecollectionTarget> targets,
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
             Func<Guid, string> resolveAuthorName,
-            CancellationToken cancellationToken) => Task.FromResult(string.Empty);
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     }
 
     [Fact]
@@ -485,17 +400,29 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
             IReadOnlyList<ParticipantView> presentParticipants,
+            IReadOnlyList<string> existingConcepts,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult(extraction);
 
-        public Task<string> ExtractRecollectionAsync(
-            string personaName,
-            bool isSpeaker,
+        public Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+            IReadOnlyList<RecollectionTarget> targets,
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken)
-            => Task.FromResult(recollectionByPersona.TryGetValue(personaName, out var s) ? s : "");
+        {
+            // Map the by-name fixture data back onto each target's PersonaId, mirroring the
+            // production extractor's name-keyed JSON → PersonaId resolution.
+            var result = new Dictionary<Guid, string>();
+            foreach (var t in targets)
+            {
+                if (recollectionByPersona.TryGetValue(t.Name, out var s) && !string.IsNullOrWhiteSpace(s))
+                {
+                    result[t.PersonaId] = s;
+                }
+            }
+            return Task.FromResult<IReadOnlyDictionary<Guid, string>>(result);
+        }
     }
 }

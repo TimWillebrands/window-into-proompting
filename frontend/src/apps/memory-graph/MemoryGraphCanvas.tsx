@@ -22,12 +22,10 @@ interface NodeVisual {
 }
 
 const NODE_VISUAL: Record<MemoryNodeKind, NodeVisual> = {
-    Room: { colour: '#9ED2F2', size: 8, labelMode: 'always' },
     Persona: { colour: '#A684D1', size: 10, labelMode: 'always' },
     Participant: { colour: '#E693B3', size: 5, labelMode: 'always' },
     Event: { colour: '#F0A04B', size: 7, labelMode: 'hover' },
     Concept: { colour: '#7CC4A4', size: 5, labelMode: 'always' },
-    Message: { colour: '#BDBDBD', size: 3, labelMode: 'always' },
 };
 
 const FALLBACK_VISUAL: NodeVisual = {
@@ -45,7 +43,6 @@ interface EdgeStyle {
 const EDGE_STYLE: Record<MemoryEdgeKind, EdgeStyle> = {
     RECOLLECTS: { colour: '#E91E63', width: 2.2, dashed: false },
     ABOUT: { colour: '#AAAAAA', width: 1.0, dashed: false },
-    ANCHORED_TO: { colour: '#888888', width: 1.0, dashed: true },
     HAS_PARTICIPANT: { colour: '#CCCCCC', width: 0.7, dashed: false },
 };
 

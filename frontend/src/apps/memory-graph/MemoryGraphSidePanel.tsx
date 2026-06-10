@@ -47,6 +47,12 @@ export default function MemoryGraphSidePanel({
         ['description', node.description],
         ['display', node.display],
         ['created_at', node.createdAt],
+        // Event anchor (formerly a Message vertex), now properties on the Event node.
+        ['room', node.roomId, { wordBreak: 'break-all' }],
+        [
+            'anchor msg',
+            node.anchorMessageId != null ? `#${node.anchorMessageId}` : null,
+        ],
     ];
 
     return (

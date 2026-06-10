@@ -19,10 +19,16 @@ export function enrichGraph(
 
     const nodes: EnrichedMemoryNode[] = graph.nodes.map((node) => {
         switch (node.kind) {
-            case 'Room': {
-                const roomId = stripPrefix(node.id, 'room:');
+            case 'Event': {
+                // Room/Message vertices are gone; the Event carries roomId as a property.
+                // Label it with the Room name so the viz still shows where it happened —
+                // the body lives in the hover/side-panel (description), never the label.
+                const roomId = node.roomId ?? undefined;
                 const name = roomId ? roomsById.get(roomId) : undefined;
-                return { ...node, label: name ?? fallback('Room', roomId) };
+                return {
+                    ...node,
+                    label: name ?? fallback('Room', roomId),
+                };
             }
             case 'Persona': {
                 const personaId = stripPrefix(node.id, 'persona:');
@@ -53,17 +59,6 @@ export function enrichGraph(
                 return {
                     ...node,
                     label: node.display ?? fallbackName,
-                };
-            }
-            case 'Message': {
-                // PRD hard requirement: Message labels are `#<id>` ONLY, never the body —
-                // bodies would drown the canvas.
-                const rest = stripPrefix(node.id, 'msg:');
-                const msgIdRaw = rest?.split(':')[1];
-                const msgId = msgIdRaw ? Number(msgIdRaw) : Number.NaN;
-                return {
-                    ...node,
-                    label: Number.isFinite(msgId) ? `#${msgId}` : node.id,
                 };
             }
             default:

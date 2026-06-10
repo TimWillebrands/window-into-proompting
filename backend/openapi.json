@@ -2675,6 +2675,21 @@
               "null",
               "string"
             ]
+          },
+          "roomId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "anchorMessageId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
