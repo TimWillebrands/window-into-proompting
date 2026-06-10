@@ -115,9 +115,9 @@ public class ResponsePipelineTest
         factory.Setup(f => f.GetGrain<IPartyGrain>(partyId, null)).Returns(partyGrain.Object);
 
         var memoryRepo = new Mock<IMemoryRepository>();
-        memoryRepo.Setup(m => m.RecallRecentSnippetsAsync(
+        memoryRepo.Setup(m => m.RecallAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<string>());
+            .ReturnsAsync(Array.Empty<RecalledMemory>());
 
         var pipeline = new ResponsePipeline(
             factory.Object,

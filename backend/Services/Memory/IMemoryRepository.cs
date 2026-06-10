@@ -3,8 +3,9 @@ using PartyTown.Model;
 namespace PartyTown.Services.Memory;
 
 /// <summary>
-/// Memory subsystem seam. Slice 1 ships <see cref="CaptureMomentAsync"/>; slice 2 adds
-/// <see cref="RecallRecentSnippetsAsync"/> (top-N recent Recollection snippets — see ADR 0009).
+/// Memory subsystem seam. Slice 1 ships <see cref="CaptureMomentAsync"/>; slice 2 added
+/// recall (top-N recent, ADR 0009), upgraded by ADR 0015 to salience-ranked
+/// <see cref="RecallAsync"/> plus the <see cref="StrengthenRecollectionAsync"/> write.
 /// Stance and Consolidation arrive in later slices.
 /// </summary>
 /// <remarks>
@@ -40,19 +41,30 @@ public interface IMemoryRepository
         CancellationToken ct);
 
     /// <summary>
-    /// Return the most recent Recollection snippets for a Participant — the Persona's first-
-    /// person memory in this Party, across all Rooms. Ordered newest-first. MVP retrieval
-    /// (ADR 0009): no concept matching, no embeddings; relevance is judged in-context by the
-    /// generating LLM. Empty list if nothing has been remembered yet.
+    /// Salience-ranked Recall (ADR 0015): fetch the recent Recollection candidates for a
+    /// Participant — the Persona's first-person memory in this Party, across all Rooms —
+    /// score each as <c>weight × decay(now − ts) + use_bonus(recall_count, last_recalled)</c>
+    /// in C#, and return the top <paramref name="limit"/> ordered by salience descending.
+    /// No concept matching, no embeddings yet; beat-relevance is judged in-context by the
+    /// Decision LLM. Empty list if nothing has been remembered yet.
     /// </summary>
     /// <param name="personaId">The Persona's library id (Persona.Id, not Participant pkey).</param>
     /// <param name="partyId">Scope: only Recollections inside this Party.</param>
-    /// <param name="limit">Maximum number of snippets to return. Caller picks the budget.</param>
-    Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
+    /// <param name="limit">Maximum number of memories to return. Caller picks the budget.</param>
+    Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
         int limit,
         CancellationToken ct);
+
+    /// <summary>
+    /// Strengthening write (ADR 0015): the Decision phase *picked* this memory — not mere
+    /// surfacing — so increment its <c>recall_count</c> and stamp <c>last_recalled</c>.
+    /// One DB write, fired off the beat path; a miss (unknown id, pre-ADR-0015 edge) is a
+    /// silent no-op.
+    /// </summary>
+    /// <param name="recollectionId">The RECOLLECTS edge's <c>id</c> property (uuid).</param>
+    Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct);
 
     /// <summary>
     /// Read the per-Party memory subgraph for the debug viz: every Event with

@@ -54,10 +54,10 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 description,
                 Concepts: new List<ConceptTag> { new(conceptName, conceptDisplay) },
                 ParticipantIds: new List<Guid> { personaVlad.Id }),
-            recollectionByPersona: new Dictionary<string, string>
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
             {
-                ["Vlad"] = "you watched Hana double down on Lisp after you cut in",
-                ["Hana"] = "you defended Lisp from Vlad's eye-roll",
+                ["Vlad"] = new("you watched Hana double down on Lisp after you cut in", 0.3),
+                ["Hana"] = new("you defended Lisp from Vlad's eye-roll", 0.8),
             });
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
@@ -135,6 +135,42 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             $cy$) AS (s text);
             """);
         Assert.Equal("you defended Lisp from Vlad's eye-roll", snippet);
+
+        // ADR 0015 salience substrate: every edge carries a stable uuid id, the weight the
+        // extractor emitted, and recall_count 0. last_recalled stays absent until the
+        // first pick (Cypher's null-is-absence).
+        var hanaEdgeId = await QueryAgtypeStringAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
+              RETURN r.id
+            $cy$) AS (s text);
+            """);
+        Assert.True(Guid.TryParse(hanaEdgeId, out var hanaEdgeGuid));
+        Assert.NotEqual(Guid.Empty, hanaEdgeGuid);
+
+        var hanaWeight = await QueryAgtypeStringAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
+              RETURN r.weight
+            $cy$) AS (s text);
+            """);
+        Assert.Equal(0.8, double.Parse(hanaWeight!, CultureInfo.InvariantCulture), precision: 6);
+
+        var vladWeight = await QueryAgtypeStringAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{personaVlad.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
+              RETURN r.weight
+            $cy$) AS (s text);
+            """);
+        Assert.Equal(0.3, double.Parse(vladWeight!, CultureInfo.InvariantCulture), precision: 6);
+
+        var hanaRecallCount = await QueryAgtypeIntAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
+              RETURN r.recall_count
+            $cy$) AS (n int);
+            """);
+        Assert.Equal(0, hanaRecallCount);
 
         var description2 = await QueryAgtypeStringAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
@@ -264,10 +300,10 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 Description: $"Hana defended {conceptDisplay} after Vlad's interruption.",
                 Concepts: new List<ConceptTag> { new(conceptName, conceptDisplay) },
                 ParticipantIds: new List<Guid> { vlad.Id }),
-            recollectionByPersona: new Dictionary<string, string>
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
             {
-                ["Vlad"] = snippetVlad,
-                ["Hana"] = snippetHana,
+                ["Vlad"] = new(snippetVlad, 0.5),
+                ["Hana"] = new(snippetHana, 0.5),
             });
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
@@ -302,14 +338,14 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult<EventExtraction?>(null);
 
-        public Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+        public Task<IReadOnlyDictionary<Guid, RecollectionDraft>> ExtractRecollectionsAsync(
             IReadOnlyList<RecollectionTarget> targets,
             ChatMessage sourceMessage,
             string sourceAuthorName,
             IReadOnlyList<ChatMessage> recentContext,
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+            => Task.FromResult<IReadOnlyDictionary<Guid, RecollectionDraft>>(new Dictionary<Guid, RecollectionDraft>());
     }
 
     [Fact]
@@ -345,10 +381,10 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 "Hana defended Lisp after Vlad's interruption.",
                 Concepts: new List<ConceptTag>(),
                 ParticipantIds: new List<Guid>()),
-            recollectionByPersona: new Dictionary<string, string>
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
             {
-                ["Hana"] = hanaSnippet,
-                ["Vlad"] = vladSnippet,
+                ["Hana"] = new(hanaSnippet, 0.7),
+                ["Vlad"] = new(vladSnippet, 0.4),
             });
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
@@ -362,13 +398,168 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.True(capture.EventCreated);
         Assert.Equal(2, capture.RecollectionsCreated);
 
-        var hanaRecall = await repo.RecallRecentSnippetsAsync(personaHana.Id, partyId, limit: 5, CancellationToken.None);
-        var vladRecall = await repo.RecallRecentSnippetsAsync(personaVlad.Id, partyId, limit: 5, CancellationToken.None);
+        var hanaRecall = await repo.RecallAsync(personaHana.Id, partyId, limit: 5, CancellationToken.None);
+        var vladRecall = await repo.RecallAsync(personaVlad.Id, partyId, limit: 5, CancellationToken.None);
 
-        Assert.Contains(hanaSnippet, hanaRecall);
-        Assert.Contains(vladSnippet, hanaRecall.Concat(vladRecall).ToList());
-        Assert.DoesNotContain(vladSnippet, hanaRecall);
-        Assert.DoesNotContain(hanaSnippet, vladRecall);
+        var hanaSnippets = hanaRecall.Select(m => m.Snippet).ToList();
+        var vladSnippets = vladRecall.Select(m => m.Snippet).ToList();
+        Assert.Contains(hanaSnippet, hanaSnippets);
+        Assert.Contains(vladSnippet, vladSnippets);
+        Assert.DoesNotContain(vladSnippet, hanaSnippets);
+        Assert.DoesNotContain(hanaSnippet, vladSnippets);
+
+        // Recall carries the substrate through: weight round-trips, the edge id is the
+        // strengthening key, and a just-captured memory scores ≈ its weight (decay ≈ 1).
+        var hanaMemory = hanaRecall.Single(m => m.Snippet == hanaSnippet);
+        Assert.NotEqual(Guid.Empty, hanaMemory.EdgeId);
+        Assert.Equal(0.7, hanaMemory.Weight, precision: 6);
+        Assert.Equal(0, hanaMemory.RecallCount);
+        Assert.Null(hanaMemory.LastRecalled);
+        Assert.InRange(hanaMemory.Salience, 0.65, 0.7);
+    }
+
+    [Fact]
+    public async Task Recall_RanksBySalience_WeightAndDecayAndUseBonus()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+
+        var repo = MakeRepo();
+
+        // Two captures for the same persona: a heavy one and a light one.
+        var heavySnippet = $"heavy-{Guid.NewGuid():N}";
+        var lightSnippet = $"light-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, heavySnippet, weight: 0.9);
+        await CaptureForAsync(repo, partyId, roomId, hana, lightSnippet, weight: 0.2);
+
+        // Fresh + heavy outranks fresh + light: salience ≈ weight when decay ≈ 1.
+        var ranked = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        Assert.Equal(heavySnippet, ranked[0].Snippet);
+        Assert.Equal(lightSnippet, ranked[1].Snippet);
+
+        // Backdate the heavy memory by 30 days (4+ half-lives): 0.9 × 0.5^(30/7) ≈ 0.05,
+        // so the fresh light memory (0.2) now wins — an old high-weight memory ranks below
+        // a fresh one.
+        var heavyEdgeId = ranked[0].EdgeId;
+        var backdatedIso = DateTimeOffset.UtcNow.AddDays(-30).ToString("o");
+        await ExecuteCypherAsync($$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (:Participant)-[r:RECOLLECTS {id: '{{heavyEdgeId}}'}]->(:Event)
+              SET r.ts = '{{backdatedIso}}'
+              RETURN r.id
+            $cy$) AS (id ag_catalog.agtype);
+            """);
+
+        var afterDecay = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        Assert.Equal(lightSnippet, afterDecay[0].Snippet);
+        Assert.Equal(heavySnippet, afterDecay[1].Snippet);
+
+        // Strengthen the decayed memory (several picks, just recalled): the use bonus
+        // (≈ 0.15·ln(1+n), undecayed) lifts it back above the fresh light one.
+        for (var i = 0; i < 5; i++)
+        {
+            await repo.StrengthenRecollectionAsync(heavyEdgeId, CancellationToken.None);
+        }
+
+        var afterStrengthening = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        Assert.Equal(heavySnippet, afterStrengthening[0].Snippet);
+        Assert.True(afterStrengthening[0].RecallCount == 5);
+        Assert.NotNull(afterStrengthening[0].LastRecalled);
+    }
+
+    [Fact]
+    public async Task Strengthen_UpdatesPickedEdgeOnly()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+
+        var repo = MakeRepo();
+        var pickedSnippet = $"picked-{Guid.NewGuid():N}";
+        var bystanderSnippet = $"bystander-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, pickedSnippet, weight: 0.5);
+        await CaptureForAsync(repo, partyId, roomId, hana, bystanderSnippet, weight: 0.5);
+
+        var before = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var picked = before.Single(m => m.Snippet == pickedSnippet);
+
+        await repo.StrengthenRecollectionAsync(picked.EdgeId, CancellationToken.None);
+
+        var after = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var strengthened = after.Single(m => m.Snippet == pickedSnippet);
+        var bystander = after.Single(m => m.Snippet == bystanderSnippet);
+
+        // The pick strengthened exactly one edge: count bumped, last_recalled stamped.
+        Assert.Equal(1, strengthened.RecallCount);
+        Assert.NotNull(strengthened.LastRecalled);
+        Assert.InRange(
+            strengthened.LastRecalled!.Value,
+            DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(1));
+
+        // Mere surfacing (the recalls above) did NOT strengthen the bystander.
+        Assert.Equal(0, bystander.RecallCount);
+        Assert.Null(bystander.LastRecalled);
+
+        // Unknown id: silent no-op, not an exception.
+        await repo.StrengthenRecollectionAsync(Guid.NewGuid(), CancellationToken.None);
+    }
+
+    private MemoryRepository MakeRepo()
+        => new(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
+
+    /// <summary>
+    /// Capture one Event whose sole Recollection lands on <paramref name="participant"/>
+    /// with the given snippet/weight — the minimal seed for recall-ranking tests.
+    /// </summary>
+    private async Task CaptureForAsync(
+        MemoryRepository _, Guid partyId, Guid roomId, ParticipantView participant,
+        string snippet, double weight)
+    {
+        var messageId = unchecked((int)((DateTimeOffset.UtcNow.Ticks + Environment.TickCount64) & 0x7FFFFFFF));
+        var source = new ChatMessage
+        {
+            MessageId = messageId,
+            Content = snippet,
+            SenderId = participant.Id,
+            SenderType = "assistant",
+            ChatGroupId = roomId,
+        };
+        var fake = new FakeMemoryExtractor(
+            extraction: new EventExtraction(
+                Description: $"Moment for {snippet}.",
+                Concepts: new List<ConceptTag>(),
+                ParticipantIds: new List<Guid>()),
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
+            {
+                [participant.Name] = new(snippet, weight),
+            });
+        var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
+        var result = await repo.CaptureMomentAsync(
+            partyId, roomId, messageId,
+            presentParticipants: new[] { participant },
+            recentContext: new[] { source },
+            ct: CancellationToken.None);
+        Assert.True(result.EventCreated);
+        Assert.Equal(1, result.RecollectionsCreated);
+    }
+
+    private async Task ExecuteCypherAsync(string sql)
+    {
+        await using var conn = new NpgsqlConnection(fixture.ConnectionString);
+        await conn.OpenAsync();
+        await using (var load = conn.CreateCommand())
+        {
+            load.CommandText = "LOAD 'age';";
+            await load.ExecuteNonQueryAsync();
+        }
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        await cmd.ExecuteNonQueryAsync();
     }
 
     // Each caller types the cypher() output column as `int` / `text` (instead of `agtype`)
@@ -393,7 +584,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
     private sealed class FakeMemoryExtractor(
         EventExtraction? extraction,
-        IReadOnlyDictionary<string, string> recollectionByPersona) : IMemoryExtractor
+        IReadOnlyDictionary<string, RecollectionDraft> recollectionByPersona) : IMemoryExtractor
     {
         public Task<EventExtraction?> ExtractEventAsync(
             ChatMessage sourceMessage,
@@ -404,7 +595,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken) => Task.FromResult(extraction);
 
-        public Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+        public Task<IReadOnlyDictionary<Guid, RecollectionDraft>> ExtractRecollectionsAsync(
             IReadOnlyList<RecollectionTarget> targets,
             ChatMessage sourceMessage,
             string sourceAuthorName,
@@ -414,15 +605,15 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         {
             // Map the by-name fixture data back onto each target's PersonaId, mirroring the
             // production extractor's name-keyed JSON → PersonaId resolution.
-            var result = new Dictionary<Guid, string>();
+            var result = new Dictionary<Guid, RecollectionDraft>();
             foreach (var t in targets)
             {
-                if (recollectionByPersona.TryGetValue(t.Name, out var s) && !string.IsNullOrWhiteSpace(s))
+                if (recollectionByPersona.TryGetValue(t.Name, out var d) && !string.IsNullOrWhiteSpace(d.Snippet))
                 {
-                    result[t.PersonaId] = s;
+                    result[t.PersonaId] = d;
                 }
             }
-            return Task.FromResult<IReadOnlyDictionary<Guid, string>>(result);
+            return Task.FromResult<IReadOnlyDictionary<Guid, RecollectionDraft>>(result);
         }
     }
 }

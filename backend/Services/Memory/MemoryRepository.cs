@@ -55,11 +55,12 @@ public sealed class MemoryRepository(
             .Where(p => p.Driver != DriverKind.User)
             .Select(p => new RecollectionTarget(p.Id, p.Name, IsSpeaker: p.Id == sourceMessage.SenderId))
             .ToList();
-        var snippetByPersona = await extractor.ExtractRecollectionsAsync(
+        var draftByPersona = await extractor.ExtractRecollectionsAsync(
             recollectionTargets, sourceMessage, sourceAuthor, recentContext, ResolveName, ct);
         var recollections = recollectionTargets
-            .Select(t => (t.PersonaId, Snippet: snippetByPersona.GetValueOrDefault(t.PersonaId, "")))
-            .Where(r => !string.IsNullOrWhiteSpace(r.Snippet))
+            .Select(t => (t.PersonaId, Draft: draftByPersona.GetValueOrDefault(t.PersonaId)))
+            .Where(r => r.Draft is not null && !string.IsNullOrWhiteSpace(r.Draft.Snippet))
+            .Select(r => (r.PersonaId, Draft: r.Draft!))
             .ToList();
 
         var eventId = Guid.NewGuid();
@@ -83,9 +84,9 @@ public sealed class MemoryRepository(
             await AddAboutParticipantEdgeAsync(db, eventId, partyId, aboutParticipantId, ct);
         }
 
-        foreach (var (personaId, snippet) in recollections)
+        foreach (var (personaId, draft) in recollections)
         {
-            await AddRecollectionAsync(db, eventId, partyId, personaId, snippet, nowIso, ct);
+            await AddRecollectionAsync(db, eventId, partyId, personaId, draft, nowIso, ct);
         }
 
         await tx.CommitAsync(ct);
@@ -100,7 +101,17 @@ public sealed class MemoryRepository(
             ConceptsTouched: extraction.Concepts.Count);
     }
 
-    public async Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
+    // How many recent edges the recall query pulls before C#-side salience ranking. Far
+    // above the surfaced N≈10 so a fresh low-weight burst can't push an oft-recalled older
+    // memory out of the candidate set before scoring sees it.
+    private const int RecallCandidatePool = 50;
+
+    // Read-side weight for edges captured before ADR 0015 (no weight property). Matches
+    // the extractor's drift-tolerance default; per the no-migration-safety stance, old
+    // edges just read as midweight rather than getting a backfill.
+    private const double LegacyEdgeWeight = 0.5;
+
+    public async Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
         int limit,
@@ -108,7 +119,7 @@ public sealed class MemoryRepository(
     {
         if (limit <= 0)
         {
-            return Array.Empty<string>();
+            return Array.Empty<RecalledMemory>();
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -117,47 +128,103 @@ public sealed class MemoryRepository(
         // multiple commands; it suppresses the auto-close that single-shot ExecuteSqlRawAsync
         // would do between statements. AgeOperatorInterceptor fires LOAD 'age' as a side
         // effect of the open. ts is stored as ISO-8601 — lex order is chronological, so
-        // ORDER BY r.ts DESC sorts newest-first without a datetime cast. limit is an int we
-        // control, not user input — inline is fine. See header comment re: Cypher literal inlining.
+        // ORDER BY r.ts DESC sorts newest-first without a datetime cast. The pool size is a
+        // const we control, not user input — inline is fine. See header comment re: Cypher
+        // literal inlining.
         await db.Database.OpenConnectionAsync(ct);
         try
         {
-            // Type the projected column as `text` so Postgres applies agtype's output cast
-            // (unquoting/unescaping string scalars). Reading agtype directly via Npgsql
+            // Type projected columns as `text` / `int` so Postgres applies agtype's output
+            // cast (unquoting/unescaping string scalars). Reading agtype directly via Npgsql
             // throws InvalidCastException — no default object/string reader is registered
-            // for `ag_catalog.agtype`. `text` reads through the built-in string converter.
+            // for `ag_catalog.agtype`. weight is projected as text and parsed in C# to stay
+            // on that proven cast path. Salience is deliberately NOT computed in Cypher
+            // (ADR 0015) — fetch recent candidates, score and rank here.
             var sql = $$"""
                 SELECT * FROM cypher('memory', $cy$
                   MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
-                  RETURN r.snippet
+                  RETURN r.id, r.snippet, r.weight, r.recall_count, r.last_recalled, r.ts
                   ORDER BY r.ts DESC
-                  LIMIT {{limit.ToString(CultureInfo.InvariantCulture)}}
-                $cy$) AS (snippet text)
+                  LIMIT {{RecallCandidatePool.ToString(CultureInfo.InvariantCulture)}}
+                $cy$) AS (id text, snippet text, weight text, recall_count int, last_recalled text, ts text)
                 """;
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
 
-            var snippets = new List<string>(limit);
+            var now = DateTimeOffset.UtcNow;
+            var candidates = new List<RecalledMemory>();
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                if (reader.IsDBNull(0)) continue;
-                var snippet = reader.GetString(0);
-                if (!string.IsNullOrWhiteSpace(snippet))
-                {
-                    snippets.Add(snippet);
-                }
+                string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                var snippet = Get(1);
+                if (string.IsNullOrWhiteSpace(snippet)) continue;
+
+                // Pre-ADR-0015 edges lack id/weight/recall_count — they stay surfaceable
+                // (Guid.Empty marks them unstrengthenable) at the legacy default weight.
+                var edgeId = Guid.TryParse(Get(0), out var parsedId) ? parsedId : Guid.Empty;
+                var weight = double.TryParse(Get(2), NumberStyles.Float, CultureInfo.InvariantCulture, out var w)
+                    ? Math.Clamp(w, 0.0, 1.0)
+                    : LegacyEdgeWeight;
+                var recallCount = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+                var lastRecalled = ParseIso(Get(4));
+                var capturedAt = ParseIso(Get(5)) ?? now;
+
+                var salience = SalienceMath.Score(weight, capturedAt, recallCount, lastRecalled, now);
+                candidates.Add(new RecalledMemory(
+                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience));
             }
 
-            return snippets;
+            return candidates
+                .OrderByDescending(m => m.Salience)
+                .ThenByDescending(m => m.CapturedAt)
+                .Take(limit)
+                .ToList();
         }
         finally
         {
             await db.Database.CloseConnectionAsync();
         }
     }
+
+    public async Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
+    {
+        if (recollectionId == Guid.Empty)
+        {
+            return;
+        }
+
+        var nowIso = DateTimeOffset.UtcNow.ToString("o");
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            // coalesce keeps the write idempotent against a hand-made edge missing
+            // recall_count. An unknown id simply matches nothing — silent no-op by design.
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (:Participant)-[r:RECOLLECTS {id: '{{recollectionId}}'}]->(:Event)
+                  SET r.recall_count = coalesce(r.recall_count, 0) + 1,
+                      r.last_recalled = '{{nowIso}}'
+                  RETURN r.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+            await ExecuteCypherAsync(db, sql, ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static DateTimeOffset? ParseIso(string? iso)
+        => DateTimeOffset.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var ts)
+            ? ts
+            : null;
 
     // AGE's cypher_analyze.c requires the third arg of cypher() to be `IsA(arg, Param)` —
     // any wrapping coercion (an implicit text→agtype cast inserted because Npgsql doesn't
@@ -428,16 +495,26 @@ public sealed class MemoryRepository(
 
     private static Task AddRecollectionAsync(
         AppDbContext db,
-        Guid eventId, Guid partyId, Guid personaId, string snippet, string nowIso,
+        Guid eventId, Guid partyId, Guid personaId, RecollectionDraft draft, string nowIso,
         CancellationToken ct)
     {
+        // ADR 0015 salience substrate: id is the edge's stable identity (strengthening key,
+        // future-embeddings join key); weight rode the extraction call; recall_count starts
+        // 0. last_recalled is deliberately absent until the first pick — Cypher SET-to-null
+        // removes a property anyway, so absence IS the null representation.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
               MERGE (persona:Persona {id: '{{personaId}}'})
               MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
               MERGE (persona)-[:HAS_PARTICIPANT]->(part)
-              CREATE (part)-[:RECOLLECTS {snippet: {{CypherStr(snippet)}}, ts: '{{nowIso}}'}]->(e)
+              CREATE (part)-[:RECOLLECTS {
+                id: '{{Guid.NewGuid()}}',
+                snippet: {{CypherStr(draft.Snippet)}},
+                ts: '{{nowIso}}',
+                weight: {{Math.Clamp(draft.Weight, 0.0, 1.0).ToString("0.0###", CultureInfo.InvariantCulture)}},
+                recall_count: 0
+              }]->(e)
               RETURN part.persona_id
             $cy$) AS (persona_id ag_catalog.agtype)
             """;

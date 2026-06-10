@@ -155,14 +155,15 @@ public sealed class ResponsePipeline(
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
-            // ADR 0009 MVP recall: top-10 most recent Recollections for this Persona scoped
-            // to the Party (cross-Room within one Party). The decision LLM judges relevance
-            // in context. Recall failure is non-fatal — log + continue with an empty list so
-            // a memory outage never blocks the persona from responding.
-            IReadOnlyList<string> recollections;
+            // ADR 0015 recall: top-10 salience-ranked Recollections for this Persona scoped
+            // to the Party (cross-Room within one Party). Salience orders the candidates;
+            // the decision LLM still judges beat-relevance in context. Recall failure is
+            // non-fatal — log + continue with an empty list so a memory outage never blocks
+            // the persona from responding.
+            IReadOnlyList<RecalledMemory> recollections;
             try
             {
-                recollections = await memoryRepository.RecallRecentSnippetsAsync(persona.Id, partyId, limit: 10, linkedCt);
+                recollections = await memoryRepository.RecallAsync(persona.Id, partyId, limit: 10, linkedCt);
             }
             catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
             {
@@ -173,13 +174,61 @@ public sealed class ResponsePipeline(
                 logger.LogWarning(ex,
                     "Recall failed for persona {PersonaName} in party {PartyId}; proceeding without recollections",
                     persona.Name, partyId);
-                recollections = Array.Empty<string>();
+                recollections = Array.Empty<RecalledMemory>();
             }
-            turnSpan?.SetTag("recall.snippet_count", recollections.Count);
+            turnSpan?.SetTag("recall.candidate_count", recollections.Count);
+
+            // Observability (ADR 0015): the candidate set is what makes recall misses
+            // visible — this is the embeddings-deferral contract's trigger instrument.
+            if (recollections.Count > 0)
+            {
+                logger.LogInformation(
+                    "Recall for persona {PersonaName} in party {PartyId}: {Candidates}",
+                    persona.Name, partyId,
+                    string.Join(", ", recollections.Select((r, i) => $"#{i + 1} {r.EdgeId:N}={r.Salience:F3}")));
+            }
 
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario, recollections, linkedCt,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,
+                recollections.Select(r => r.Snippet).ToList(), linkedCt,
                 repairHint);
+
+            // Resolve the index pick (1-based into the numbered block; decision service
+            // already range-clamped) back to the recalled memory: snippet → speaking phase,
+            // edge id → strengthening write.
+            var pickedMemory = decision.MemoryToReference is int pickIndex
+                ? recollections[pickIndex - 1]
+                : null;
+            turnSpan?.SetTag("recall.picked_index", decision.MemoryToReference);
+            if (pickedMemory is not null)
+            {
+                logger.LogInformation(
+                    "Persona {PersonaName} picked memory #{Index} ({EdgeId}, salience {Salience:F3})",
+                    persona.Name, decision.MemoryToReference, pickedMemory.EdgeId, pickedMemory.Salience);
+
+                // Strengthening fires on the pick, not mere surfacing (ADR 0015) — one DB
+                // write, off the beat path, so neither failure nor latency touches the reply.
+                if (pickedMemory.EdgeId != Guid.Empty)
+                {
+                    _ = StrengthenPickedMemoryAsync(pickedMemory.EdgeId, persona.Name);
+                }
+            }
+
+            // Candidate set + pick ride the appraisal JSON so the papertrail can show why
+            // this memory surfaced (and which surfaced-but-unpicked ones lost).
+            var recallLog = recollections.Count == 0 ? null : new
+            {
+                candidates = recollections.Select((r, i) => new
+                {
+                    index = i + 1,
+                    id = r.EdgeId,
+                    score = Math.Round(r.Salience, 4),
+                    weight = r.Weight,
+                    recallCount = r.RecallCount,
+                }).ToList(),
+                picked = decision.MemoryToReference,
+                pickedId = pickedMemory?.EdgeId,
+            };
 
             if (!decision.Respond)
             {
@@ -195,7 +244,8 @@ public sealed class ResponsePipeline(
                     personaId = persona.Id,
                     instruction = (string?)null,
                     reason = decision.Reason,
-                    stop = true
+                    stop = true,
+                    recall = recallLog
                 }, WebOptions);
                 await chatGroupGrain.MarkGenerationStoppedAsync(messageId, declinedAppraisal, triggeringMessage.MessageId);
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
@@ -224,19 +274,21 @@ public sealed class ResponsePipeline(
             // sees it as Speaking phase and has the gut/preview to feed salience.
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
-            // decision.MemoryToReference is the recollection the decision LLM picked to weave
-            // into this beat (null when nothing fit). Passing it as a dedicated argument keeps
-            // the contract explicit: decision phase selects, speaking phase executes.
+            // pickedMemory is the recollection the decision LLM picked (by index) to weave
+            // into this beat (null when nothing fit). The speaking phase receives the
+            // resolved snippet text — its contract is unchanged by the index-pick switch:
+            // decision phase selects, speaking phase executes.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Instruction, scenario, decision.MemoryToReference, persona.Name, inFlight, linkedCt);
+                decision.Instruction, scenario, pickedMemory?.Snippet, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
                 personaId = persona.Id,
                 instruction = decision.Instruction,
                 reason = decision.Reason,
-                stop = false
+                stop = false,
+                recall = recallLog
             }, WebOptions);
 
             await chatGroupGrain.AppendMessageAsync(
@@ -323,6 +375,25 @@ public sealed class ResponsePipeline(
         finally
         {
             store.Remove(chatGroupId, messageId);
+        }
+    }
+
+    /// <summary>
+    /// Fire-and-forget strengthening write (ADR 0015): a pick increments the edge's
+    /// recall_count and stamps last_recalled. Detached from the turn's cancellation scope
+    /// on purpose — a race-cancel after the pick shouldn't lose the attention signal.
+    /// </summary>
+    private async Task StrengthenPickedMemoryAsync(Guid recollectionId, string? personaName)
+    {
+        try
+        {
+            await memoryRepository.StrengthenRecollectionAsync(recollectionId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Strengthening write failed for recollection {RecollectionId} (persona {PersonaName})",
+                recollectionId, personaName);
         }
     }
 

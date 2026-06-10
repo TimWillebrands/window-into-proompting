@@ -344,9 +344,10 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_LlmPicksMemory_ReturnsMemoryToReference()
     {
-        // The decision LLM selects one of the persona's recollections to weave into the
-        // upcoming reply. The selected text travels forward on ShouldRespondResult so the
-        // speaking phase can render it at the recency position of its system prompt.
+        // ADR 0015: the decision LLM picks one of the persona's recollections by its
+        // 1-based number in the "# What you remember" block. The index travels forward on
+        // ShouldRespondResult so the pipeline can resolve snippet (speaking phase) and
+        // edge id (strengthening write).
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -362,7 +363,7 @@ public class PersonaDecisionServiceTest
         var json = """
             {
               "gutReaction": "Reminds me of yesterday.",
-              "memoryToReference": "you watched Denise pivot toward CTO ambition",
+              "memoryToReference": 2,
               "wouldSay": "Funny — yesterday you sounded ready to walk away from corporate.",
               "respond": true
             }
@@ -371,10 +372,134 @@ public class PersonaDecisionServiceTest
         var service = MakeService(EndpointReturningJson(json));
         var result = await service.ShouldRespondAsync(
             self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["you heard Denise praise stability", "you watched Denise pivot toward CTO ambition"]);
+
+        Assert.True(result.Respond);
+        Assert.Equal(2, result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPicksIntegerShapedString_ParsesLeniently()
+    {
+        // Models drift: a "2" instead of 2 must not fail the whole decision parse (which
+        // would fail closed and mute the persona). The lenient converter reads it as 2.
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hm","memoryToReference":"2","wouldSay":"Hey.","respond":true}
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["first memory", "second memory"]);
+
+        Assert.True(result.Respond);
+        Assert.Equal(2, result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_LlmPastesMemoryText_ReadsAsNullPick()
+    {
+        // The old contract was "copy the text verbatim" — a model trained on that habit
+        // (or just ignoring the integer schema) must degrade to "no pick", not a parse
+        // failure.
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hm","memoryToReference":"you watched Denise pivot toward CTO ambition","wouldSay":"Hey.","respond":true}
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
             recollections: ["you watched Denise pivot toward CTO ambition"]);
 
         Assert.True(result.Respond);
-        Assert.Equal("you watched Denise pivot toward CTO ambition", result.MemoryToReference);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_OutOfRangePick_ClampsToNull()
+    {
+        // An index past the surfaced list (or any pick when nothing was surfaced) is model
+        // noise — it can't key a strengthening write, so it reads as "no pick".
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hm","memoryToReference":5,"wouldSay":"Hey.","respond":true}
+            """;
+
+        var service = MakeService(EndpointReturningJson(json));
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["only memory"]);
+
+        Assert.True(result.Respond);
+        Assert.Null(result.MemoryToReference);
+    }
+
+    [Fact]
+    public async Task ShouldRespondAsync_RecollectionsRenderAsNumberedList()
+    {
+        // The numbered block is the pick-by-index contract's other half: the model can
+        // only answer with a number if the prompt shows numbers.
+        var self = MakeParticipant("Kira");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView>
+        {
+            AsView(self),
+            UserPv(senderId, "User"),
+        };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
+        };
+
+        var json = """
+            {"gutReaction":"hm","memoryToReference":null,"wouldSay":"Hey.","respond":true}
+            """;
+
+        var (endpoint, capturedJobs) = EndpointCapturingJobs(json);
+        var service = MakeService(endpoint);
+        await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None,
+            recollections: ["first memory", "second memory"]);
+
+        var captured = Assert.Single(capturedJobs);
+        var system = captured.Messages.First(m => m.Role == "system").Content;
+        Assert.Contains("1. first memory", system);
+        Assert.Contains("2. second memory", system);
     }
 
     [Fact]

@@ -28,11 +28,13 @@ public interface IMemoryExtractor
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Extract one Recollection snippet per target in a single LLM call. Returns a map keyed
-    /// by <see cref="RecollectionTarget.PersonaId"/>; a target the model declined (NONE /
-    /// missing / unparseable) is simply absent from the map. Empty input → empty map, no call.
+    /// Extract one Recollection snippet per target in a single LLM call, each carrying the
+    /// salience weight ("how much would this stick, a day later?") emitted by that same
+    /// call (ADR 0015). Returns a map keyed by <see cref="RecollectionTarget.PersonaId"/>;
+    /// a target the model declined (null / missing / unparseable) is simply absent from
+    /// the map. Empty input → empty map, no call.
     /// </summary>
-    Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+    Task<IReadOnlyDictionary<Guid, RecollectionDraft>> ExtractRecollectionsAsync(
         IReadOnlyList<RecollectionTarget> targets,
         ChatMessage sourceMessage,
         string sourceAuthorName,
@@ -47,6 +49,11 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
     private const int MaxContextMessages = 8;
     private const int MaxMessageChars = 500;
     private const int MaxSnippetChars = 500;
+    // Weight when the model emitted a snippet without a usable weight (drift tolerance) —
+    // the midpoint, matching pre-ADR-0015 edges' read-side default.
+    private const double DefaultWeight = 0.5;
+    // Below this the snippet is effectively the old NONE judgement: no edge gets written.
+    private const double MinPersistedWeight = 0.05;
     private const int MaxDescriptionChars = 500;
     private const int MaxConceptsPerEvent = 8;
     private const int MaxConceptNameChars = 64;
@@ -64,8 +71,7 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
         Func<Guid, string> resolveAuthorName,
         CancellationToken cancellationToken)
     {
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        var endpoint = await router.RouteAsync(JobComplexity.General, cancellationToken);
+        var (endpoint, complexity) = await RouteExtractionAsync(cancellationToken);
 
         var participantRoster = string.Join("\n", presentParticipants.Select(p =>
             $"- {p.Name} (id: {p.Id})"));
@@ -124,7 +130,7 @@ The marked moment:
                 new() { Role = "system", Content = system },
                 new() { Role = "user", Content = user },
             },
-            JobComplexity = JobComplexity.General,
+            JobComplexity = complexity,
         };
 
         string raw;
@@ -204,7 +210,7 @@ The marked moment:
         }
     }
 
-    public async Task<IReadOnlyDictionary<Guid, string>> ExtractRecollectionsAsync(
+    public async Task<IReadOnlyDictionary<Guid, RecollectionDraft>> ExtractRecollectionsAsync(
         IReadOnlyList<RecollectionTarget> targets,
         ChatMessage sourceMessage,
         string sourceAuthorName,
@@ -212,23 +218,24 @@ The marked moment:
         Func<Guid, string> resolveAuthorName,
         CancellationToken cancellationToken)
     {
-        var empty = (IReadOnlyDictionary<Guid, string>)new Dictionary<Guid, string>();
+        var empty = (IReadOnlyDictionary<Guid, RecollectionDraft>)new Dictionary<Guid, RecollectionDraft>();
         if (targets.Count == 0)
         {
             return empty;
         }
 
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        var endpoint = await router.RouteAsync(JobComplexity.General, cancellationToken);
+        var (endpoint, complexity) = await RouteExtractionAsync(cancellationToken);
 
         // One call covers every Participant. The model keys its output by name; we map back
         // to PersonaId via the target list. Observer-verb framing ("you saw / heard") doesn't
-        // fit the Participant who SPOKE the marked moment — the model returns NONE because
+        // fit the Participant who SPOKE the marked moment — the model declines because
         // nothing was "observed". So each target is tagged SPEAKER / OBSERVER inline and the
         // prompt asks for first-person ("you said…") framing for the speaker.
         var roster = string.Join("\n", targets.Select(t =>
             $"- {t.Name} [{(t.IsSpeaker ? "SPEAKER" : "OBSERVER")}]"));
 
+        // The weight rides this same call (ADR 0015): "how much would this stick, a day
+        // later?" replaces the binary NONE judgement — null IS the weight-0 case.
         var system = $$"""
 You summarize what each named person would actually remember from one moment in a group chat — one short memory per person, from THAT person's point of view.
 
@@ -236,8 +243,17 @@ You are given a roster. Each entry is tagged SPEAKER or OBSERVER:
 - SPEAKER said the marked moment. Frame their memory in first-person-as-them, second person ("you said...", "you admitted...", "you brought up...") — capture what they meant or were aiming at.
 - OBSERVER witnessed it. Frame their memory as ("you saw...", "you heard...", "you watched...").
 
-Output STRICT JSON: an object mapping each person's exact name to either a SHORT sentence (max 25 words, addressing them as "you") OR null.
-Use null when the moment is throwaway/mundane for that person (a "yeah", a "lol") and not worth remembering a day later.
+Output STRICT JSON: an object mapping each person's exact name to either null OR an object:
+  {"memory": "<SHORT sentence, max 25 words, addressing them as 'you'>", "weight": <number 0.0-1.0>}
+
+weight answers: how much would this moment stick for THAT person, a day later?
+- null (no object at all): throwaway/mundane for them (a "yeah", a "lol") — nothing worth remembering
+- 0.1-0.3: minor color — they'd recall it only if prompted
+- 0.4-0.6: notable — would resurface naturally when the topic comes up
+- 0.7-0.9: significant — they'd bring it up on their own
+- 1.0: flashbulb — unforgettable
+
+Weights should differ between people: the same moment can be huge for one person and background noise for another.
 
 Output ONLY the JSON object. No prose, no code fences. Include every name from the roster as a key.
 """;
@@ -271,7 +287,7 @@ The marked moment:
                 new() { Role = "system", Content = system },
                 new() { Role = "user", Content = user },
             },
-            JobComplexity = JobComplexity.General,
+            JobComplexity = complexity,
         };
 
         string raw;
@@ -300,7 +316,7 @@ The marked moment:
             byName.TryAdd(t.Name, t.PersonaId);
         }
 
-        var result = new Dictionary<Guid, string>();
+        var result = new Dictionary<Guid, RecollectionDraft>();
         try
         {
             using var doc = JsonDocument.Parse(json);
@@ -311,19 +327,13 @@ The marked moment:
 
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
-                if (prop.Value.ValueKind != JsonValueKind.String) continue;
                 if (!byName.TryGetValue(prop.Name.Trim(), out var personaId)) continue;
                 if (result.ContainsKey(personaId)) continue;
 
-                var snippet = (prop.Value.GetString() ?? "").Trim().Trim('"').Trim();
-                if (string.IsNullOrWhiteSpace(snippet) ||
-                    snippet.Equals("NONE", StringComparison.OrdinalIgnoreCase) ||
-                    snippet.Equals("(none)", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+                var draft = ParseDraft(prop.Value);
+                if (draft is null) continue;
 
-                result[personaId] = Truncate(snippet, MaxSnippetChars);
+                result[personaId] = draft;
             }
         }
         catch (Exception ex)
@@ -333,6 +343,80 @@ The marked moment:
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// One roster entry's value → draft, or null when declined. Accepts the schema'd
+    /// object shape and, as drift tolerance, a bare snippet string (weight defaults to
+    /// <see cref="DefaultWeight"/> — the old un-weighted behaviour). Weight ≈ 0 is the
+    /// NONE judgement: no edge gets written.
+    /// </summary>
+    private RecollectionDraft? ParseDraft(JsonElement value)
+    {
+        string? snippet;
+        var weight = DefaultWeight;
+
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.Object:
+                snippet = value.TryGetProperty("memory", out var m) && m.ValueKind == JsonValueKind.String
+                    ? m.GetString()
+                    : null;
+                if (value.TryGetProperty("weight", out var w))
+                {
+                    weight = w.ValueKind switch
+                    {
+                        JsonValueKind.Number => w.GetDouble(),
+                        JsonValueKind.String when double.TryParse(
+                            w.GetString(), System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out var parsed) => parsed,
+                        _ => DefaultWeight,
+                    };
+                }
+                break;
+            case JsonValueKind.String:
+                snippet = value.GetString();
+                break;
+            default:
+                return null;
+        }
+
+        snippet = (snippet ?? "").Trim().Trim('"').Trim();
+        if (string.IsNullOrWhiteSpace(snippet) ||
+            snippet.Equals("NONE", StringComparison.OrdinalIgnoreCase) ||
+            snippet.Equals("(none)", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        weight = Math.Clamp(weight, 0.0, 1.0);
+        if (weight < MinPersistedWeight)
+        {
+            return null;
+        }
+
+        return new RecollectionDraft(Truncate(snippet, MaxSnippetChars), weight);
+    }
+
+    /// <summary>
+    /// Memory extraction runs in rest, off the beat path — route it to the cheap tier
+    /// (ADR 0015). Falls back to General when no CharacterThoughts-capable provider is
+    /// configured so capture degrades in cost, never in function. Returns the complexity
+    /// actually routed so the job's tag matches the endpoint that will serve it.
+    /// </summary>
+    private async Task<(ILlmEndpointGrain Endpoint, JobComplexity Complexity)> RouteExtractionAsync(
+        CancellationToken cancellationToken)
+    {
+        var router = grains.GetGrain<ILlmRouterGrain>(0);
+        try
+        {
+            return (await router.RouteAsync(JobComplexity.CharacterThoughts, cancellationToken), JobComplexity.CharacterThoughts);
+        }
+        catch (InvalidOperationException)
+        {
+            logger.LogDebug("No cheap-tier provider for memory extraction; falling back to General");
+            return (await router.RouteAsync(JobComplexity.General, cancellationToken), JobComplexity.General);
+        }
     }
 
     internal static string NormaliseConceptName(string raw)

@@ -126,7 +126,10 @@ public static class PapertrailRenderer
             return new AppraisalSummary
             {
                 Instruction = root.TryGetProperty("instruction", out var instr) ? instr.GetString() : null,
-                Reason = root.TryGetProperty("reason", out var reason) ? reason.GetString() : null
+                Reason = root.TryGetProperty("reason", out var reason) ? reason.GetString() : null,
+                Recall = root.TryGetProperty("recall", out var recall) && recall.ValueKind == JsonValueKind.Object
+                    ? recall.Deserialize<RecallSummary>(JsonOptions)
+                    : null
             };
         }
         catch
@@ -169,9 +172,14 @@ public static class PapertrailRenderer
                     _ => string.Empty
                 };
                 var gut = entry.Appraisal?.Reason is { Length: > 0 } r ? $"\n{indent}    gut: {Truncate(r, 200)}" : "";
+                // ADR 0015 observability: candidate set + pick per recall, so memory misses
+                // are diagnosable from the trail alone (the embeddings-deferral trigger).
+                var recall = entry.Appraisal?.Recall is { Candidates.Count: > 0 } rc
+                    ? $"\n{indent}    recall: [{string.Join(", ", rc.Candidates.Select(c => $"#{c.Index}={c.Score:F2}"))}] picked={(rc.Picked is int p ? $"#{p}" : "none")}"
+                    : "";
                 if (entry.Content is null or "" && entry.Error is null)
                 {
-                    sb.AppendLine($"{indent}└─ [#{entry.MessageId} {time}] {entry.SenderName} declined.{gut}");
+                    sb.AppendLine($"{indent}└─ [#{entry.MessageId} {time}] {entry.SenderName} declined.{gut}{recall}");
                 }
                 else if (entry.Error is not null)
                 {
@@ -179,7 +187,7 @@ public static class PapertrailRenderer
                 }
                 else
                 {
-                    sb.AppendLine($"{indent}└─ [#{entry.MessageId} {time}] {entry.SenderName}: {Truncate(entry.Content, 240)}{attribution}{gut}");
+                    sb.AppendLine($"{indent}└─ [#{entry.MessageId} {time}] {entry.SenderName}: {Truncate(entry.Content, 240)}{attribution}{gut}{recall}");
                 }
                 break;
         }
@@ -236,4 +244,26 @@ public sealed class AppraisalSummary
 {
     public string? Instruction { get; init; }
     public string? Reason { get; init; }
+    public RecallSummary? Recall { get; init; }
+}
+
+/// <summary>
+/// The turn's recall snapshot as the response pipeline logged it into the appraisal JSON
+/// (ADR 0015 observability): every surfaced candidate with its salience score, plus the
+/// Decision phase's pick (1-based index into the surfaced list, null = nothing fit).
+/// </summary>
+public sealed class RecallSummary
+{
+    public List<RecallCandidateSummary> Candidates { get; init; } = [];
+    public int? Picked { get; init; }
+    public Guid? PickedId { get; init; }
+}
+
+public sealed class RecallCandidateSummary
+{
+    public int Index { get; init; }
+    public Guid Id { get; init; }
+    public double Score { get; init; }
+    public double Weight { get; init; }
+    public int RecallCount { get; init; }
 }
