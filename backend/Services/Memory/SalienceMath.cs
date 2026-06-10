@@ -16,6 +16,14 @@ public static class SalienceMath
     public const double DecayHalfLifeDays = 7.0;
 
     /// <summary>
+    /// The midpoint weight assumed when none is known: the extractor's drift-tolerance
+    /// fallback (model emitted a snippet without a usable weight) and the read-side
+    /// default for pre-ADR-0015 edges that carry no weight property. One constant so
+    /// the two sides can't drift apart.
+    /// </summary>
+    public const double DefaultWeight = 0.5;
+
+    /// <summary>
     /// Reinforcement fades on a slower clock than raw capture recency — a memory the
     /// persona keeps returning to stays warm even when its capture is old.
     /// </summary>

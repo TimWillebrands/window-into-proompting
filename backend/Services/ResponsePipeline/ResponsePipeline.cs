@@ -5,6 +5,7 @@ using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Memory;
+using PartyTown.Services.Papertrail;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.ResponsePipeline;
@@ -215,19 +216,21 @@ public sealed class ResponsePipeline(
             }
 
             // Candidate set + pick ride the appraisal JSON so the papertrail can show why
-            // this memory surfaced (and which surfaced-but-unpicked ones lost).
-            var recallLog = recollections.Count == 0 ? null : new
+            // this memory surfaced (and which surfaced-but-unpicked ones lost). Built as
+            // the same RecallSummary type the papertrail renderer deserializes, so the
+            // write and read sides share one schema.
+            var recallLog = recollections.Count == 0 ? null : new RecallSummary
             {
-                candidates = recollections.Select((r, i) => new
+                Candidates = recollections.Select((r, i) => new RecallCandidateSummary
                 {
-                    index = i + 1,
-                    id = r.EdgeId,
-                    score = Math.Round(r.Salience, 4),
-                    weight = r.Weight,
-                    recallCount = r.RecallCount,
+                    Index = i + 1,
+                    Id = r.EdgeId,
+                    Score = Math.Round(r.Salience, 4),
+                    Weight = r.Weight,
+                    RecallCount = r.RecallCount,
                 }).ToList(),
-                picked = decision.MemoryToReference,
-                pickedId = pickedMemory?.EdgeId,
+                Picked = decision.MemoryToReference,
+                PickedId = pickedMemory?.EdgeId,
             };
 
             if (!decision.Respond)

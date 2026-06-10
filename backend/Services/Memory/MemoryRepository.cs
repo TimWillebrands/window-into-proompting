@@ -106,11 +106,6 @@ public sealed class MemoryRepository(
     // memory out of the candidate set before scoring sees it.
     private const int RecallCandidatePool = 50;
 
-    // Read-side weight for edges captured before ADR 0015 (no weight property). Matches
-    // the extractor's drift-tolerance default; per the no-migration-safety stance, old
-    // edges just read as midweight rather than getting a backfill.
-    private const double LegacyEdgeWeight = 0.5;
-
     public async Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
@@ -164,11 +159,12 @@ public sealed class MemoryRepository(
                 if (string.IsNullOrWhiteSpace(snippet)) continue;
 
                 // Pre-ADR-0015 edges lack id/weight/recall_count — they stay surfaceable
-                // (Guid.Empty marks them unstrengthenable) at the legacy default weight.
+                // (Guid.Empty marks them unstrengthenable) at the default midpoint weight;
+                // per the no-migration-safety stance, old edges get no backfill.
                 var edgeId = Guid.TryParse(Get(0), out var parsedId) ? parsedId : Guid.Empty;
                 var weight = double.TryParse(Get(2), NumberStyles.Float, CultureInfo.InvariantCulture, out var w)
                     ? Math.Clamp(w, 0.0, 1.0)
-                    : LegacyEdgeWeight;
+                    : SalienceMath.DefaultWeight;
                 var recallCount = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
                 var lastRecalled = ParseIso(Get(4));
                 var capturedAt = ParseIso(Get(5)) ?? now;

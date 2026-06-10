@@ -49,9 +49,6 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
     private const int MaxContextMessages = 8;
     private const int MaxMessageChars = 500;
     private const int MaxSnippetChars = 500;
-    // Weight when the model emitted a snippet without a usable weight (drift tolerance) —
-    // the midpoint, matching pre-ADR-0015 edges' read-side default.
-    private const double DefaultWeight = 0.5;
     // Below this the snippet is effectively the old NONE judgement: no edge gets written.
     private const double MinPersistedWeight = 0.05;
     private const int MaxDescriptionChars = 500;
@@ -348,13 +345,13 @@ The marked moment:
     /// <summary>
     /// One roster entry's value → draft, or null when declined. Accepts the schema'd
     /// object shape and, as drift tolerance, a bare snippet string (weight defaults to
-    /// <see cref="DefaultWeight"/> — the old un-weighted behaviour). Weight ≈ 0 is the
-    /// NONE judgement: no edge gets written.
+    /// <see cref="SalienceMath.DefaultWeight"/> — the old un-weighted behaviour). Weight ≈ 0
+    /// is the NONE judgement: no edge gets written.
     /// </summary>
     private RecollectionDraft? ParseDraft(JsonElement value)
     {
         string? snippet;
-        var weight = DefaultWeight;
+        var weight = SalienceMath.DefaultWeight;
 
         switch (value.ValueKind)
         {
@@ -370,7 +367,7 @@ The marked moment:
                         JsonValueKind.String when double.TryParse(
                             w.GetString(), System.Globalization.NumberStyles.Float,
                             System.Globalization.CultureInfo.InvariantCulture, out var parsed) => parsed,
-                        _ => DefaultWeight,
+                        _ => SalienceMath.DefaultWeight,
                     };
                 }
                 break;

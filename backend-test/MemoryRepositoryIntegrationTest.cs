@@ -139,22 +139,16 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         // ADR 0015 salience substrate: every edge carries a stable uuid id, the weight the
         // extractor emitted, and recall_count 0. last_recalled stays absent until the
         // first pick (Cypher's null-is-absence).
-        var hanaEdgeId = await QueryAgtypeStringAsync(conn, $$"""
+        var (hanaEdgeId, hanaWeight, hanaRecallCount) = await QueryEdgeSubstrateAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
-              RETURN r.id
-            $cy$) AS (s text);
+              RETURN r.id, r.weight, r.recall_count
+            $cy$) AS (id text, weight text, recall_count int);
             """);
         Assert.True(Guid.TryParse(hanaEdgeId, out var hanaEdgeGuid));
         Assert.NotEqual(Guid.Empty, hanaEdgeGuid);
-
-        var hanaWeight = await QueryAgtypeStringAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
-              RETURN r.weight
-            $cy$) AS (s text);
-            """);
         Assert.Equal(0.8, double.Parse(hanaWeight!, CultureInfo.InvariantCulture), precision: 6);
+        Assert.Equal(0, hanaRecallCount);
 
         var vladWeight = await QueryAgtypeStringAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
@@ -163,14 +157,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             $cy$) AS (s text);
             """);
         Assert.Equal(0.3, double.Parse(vladWeight!, CultureInfo.InvariantCulture), precision: 6);
-
-        var hanaRecallCount = await QueryAgtypeIntAsync(conn, $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
-              RETURN r.recall_count
-            $cy$) AS (n int);
-            """);
-        Assert.Equal(0, hanaRecallCount);
 
         var description2 = await QueryAgtypeStringAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
@@ -580,6 +566,21 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         cmd.CommandText = sql;
         var raw = await cmd.ExecuteScalarAsync();
         return raw as string;
+    }
+
+    // One round-trip for the ADR 0015 substrate triple (id, weight, recall_count) so the
+    // MATCH clause isn't repeated per property.
+    private static async Task<(string? Id, string? Weight, int RecallCount)> QueryEdgeSubstrateAsync(
+        NpgsqlConnection conn, string sql)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        await using var reader = await cmd.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync(), "Expected exactly one RECOLLECTS edge row");
+        return (
+            reader.IsDBNull(0) ? null : reader.GetString(0),
+            reader.IsDBNull(1) ? null : reader.GetString(1),
+            reader.IsDBNull(2) ? 0 : reader.GetInt32(2));
     }
 
     private sealed class FakeMemoryExtractor(
