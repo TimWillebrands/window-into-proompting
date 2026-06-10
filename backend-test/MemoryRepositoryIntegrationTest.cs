@@ -495,6 +495,158 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         await repo.StrengthenRecollectionAsync(Guid.NewGuid(), CancellationToken.None);
     }
 
+    // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AppendStance_TowardParticipantConceptAndSelf_ListsAllWithKinds()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var vlad = Guid.NewGuid();
+        var conceptDisplay = $"Lisp-{Guid.NewGuid():N}";
+        var conceptName = conceptDisplay.ToLowerInvariant();
+
+        var repo = MakeRepo();
+
+        var participantId = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: -0.6, reasoning: "Vlad talks over people", CancellationToken.None);
+        var conceptId = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Concept, null, conceptName, conceptDisplay),
+            valence: 0.8, reasoning: "Lisp is elegant once it clicks", CancellationToken.None);
+        var selfId = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Self, null, null, null),
+            valence: 0.3, reasoning: "you hold your ground when challenged", CancellationToken.None);
+
+        var stances = await repo.ListStancesAsync(partyId, author, CancellationToken.None);
+
+        var p = Assert.Single(stances, s => s.Id == participantId);
+        Assert.Equal(StanceTargetKind.Participant, p.TargetKind);
+        Assert.Equal(vlad, p.TargetPersonaId);
+        Assert.Equal(-0.6, p.Valence, precision: 6);
+        Assert.True(p.IsCurrent);
+
+        var c = Assert.Single(stances, s => s.Id == conceptId);
+        Assert.Equal(StanceTargetKind.Concept, c.TargetKind);
+        Assert.Equal(conceptName, c.TargetConceptName);
+        Assert.Equal(conceptDisplay, c.TargetConceptDisplay);
+
+        var self = Assert.Single(stances, s => s.Id == selfId);
+        Assert.Equal(StanceTargetKind.Self, self.TargetKind);
+        Assert.Equal(author, self.TargetPersonaId);
+    }
+
+    [Fact]
+    public async Task AppendStance_SecondTowardSameTarget_LatestWins_HistoryPreserved()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var vlad = Guid.NewGuid();
+        var present = new[] { author, vlad };
+
+        var repo = MakeRepo();
+
+        var firstId = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: 0.7, reasoning: "you admire how Vlad tells a story", CancellationToken.None);
+        // ts is ISO-8601 with tick precision; a small gap guarantees a strict ordering.
+        await Task.Delay(5);
+        var secondId = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: -0.7, reasoning: "Vlad exaggerates — you've caught him inflating three stories",
+            CancellationToken.None);
+
+        Assert.NotEqual(firstId, secondId);
+
+        // History preserved: both edges queryable; only the latest flagged current.
+        var all = await repo.ListStancesAsync(partyId, author, CancellationToken.None);
+        var towardVlad = all.Where(s => s.TargetPersonaId == vlad).ToList();
+        Assert.Equal(2, towardVlad.Count);
+        Assert.True(towardVlad.Single(s => s.Id == secondId).IsCurrent);
+        Assert.False(towardVlad.Single(s => s.Id == firstId).IsCurrent);
+
+        // Latest-wins read: the second reasoning is what surfaces; the first does not.
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, present, anchorText: "anything", limit: 5, CancellationToken.None);
+        var towardVladLine = Assert.Single(lines, l => l.Reasoning.Contains("Vlad", StringComparison.Ordinal));
+        Assert.Contains("exaggerates", towardVladLine.Reasoning);
+        Assert.Equal(-0.7, towardVladLine.Valence, precision: 6);
+    }
+
+    [Fact]
+    public async Task RecallStances_OnlyAnchoredTargetsRender()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var present = Guid.NewGuid();
+        var absent = Guid.NewGuid();
+        var liveConcept = $"Lisp-{Guid.NewGuid():N}";
+        var deadConcept = $"Forth-{Guid.NewGuid():N}";
+
+        var repo = MakeRepo();
+
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, present, null, null),
+            0.5, "you trust the present one", CancellationToken.None);
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, absent, null, null),
+            0.5, "you miss the absent one", CancellationToken.None);
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Concept, null, liveConcept.ToLowerInvariant(), liveConcept),
+            0.5, "live concept is elegant", CancellationToken.None);
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Concept, null, deadConcept.ToLowerInvariant(), deadConcept),
+            0.5, "dead concept is clunky", CancellationToken.None);
+
+        // Present cast = author + present participant; triggering message names only liveConcept.
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, new[] { author, present },
+            anchorText: $"what do you think of {liveConcept} today?",
+            limit: 5, CancellationToken.None);
+
+        var reasons = lines.Select(l => l.Reasoning).ToList();
+        Assert.Contains("you trust the present one", reasons);
+        Assert.Contains("live concept is elegant", reasons);
+        Assert.DoesNotContain("you miss the absent one", reasons);
+        Assert.DoesNotContain("dead concept is clunky", reasons);
+    }
+
+    [Fact]
+    public async Task RecallStances_CapsAtLimit_StrongestFirst()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+
+        var repo = MakeRepo();
+
+        // Seven distinct present participants, ascending |valence|, so the cap must keep the
+        // strongest-felt and drop the weakest.
+        var present = new List<Guid> { author };
+        for (var i = 1; i <= 7; i++)
+        {
+            var target = Guid.NewGuid();
+            present.Add(target);
+            await repo.AppendStanceAsync(partyId, author,
+                new StanceTargetSpec(StanceTargetKind.Participant, target, null, null),
+                valence: i / 10.0, reasoning: $"stance-strength-{i}", CancellationToken.None);
+        }
+
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, present, anchorText: "n/a", limit: 5, CancellationToken.None);
+
+        Assert.Equal(5, lines.Count);
+        Assert.Equal("stance-strength-7", lines[0].Reasoning);
+        Assert.DoesNotContain(lines, l => l.Reasoning is "stance-strength-1" or "stance-strength-2");
+    }
+
     private MemoryRepository MakeRepo()
         => new(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
 

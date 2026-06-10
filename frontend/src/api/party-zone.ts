@@ -24,6 +24,8 @@ import type {
 import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { customFetch } from './custom-fetch';
 import type {
+    AppendStanceRequest,
+    AppendStanceResponse,
     ChatGroupInfo,
     CommitImportRequest,
     CommitImportResponse,
@@ -48,6 +50,7 @@ import type {
     RegenerateCharDetailRequest,
     RegenerateCharDetailResponse,
     RepromptRequest,
+    StanceRecord,
     UpdateChatGroupDriverOverridesRequest,
     UpdateChatGroupParticipantIdsRequest,
     UpdateChatGroupScenarioRequest,
@@ -2748,6 +2751,681 @@ export function useGetPartiesPartyIdMemoryGraphSuspense<
         partyId,
         options,
     );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201TextPlain =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201ApplicationJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201TextJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400TextPlain =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400TextJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseSuccess =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse201TextJson
+    ) & {
+        headers: Headers;
+    };
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseError =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse400TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse =
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseSuccess
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseError;
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesUrl = (
+    partyId: string,
+    personaId: string,
+) => {
+    return `/api/parties/${partyId}/memory/participants/${personaId}/stances`;
+};
+
+export const postPartiesPartyIdMemoryParticipantsPersonaIdStances = async (
+    partyId: string,
+    personaId: string,
+    appendStanceRequest: AppendStanceRequest,
+    options?: RequestInit,
+): Promise<postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse> => {
+    return customFetch<postPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse>(
+        getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesUrl(
+            partyId,
+            personaId,
+        ),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(appendStanceRequest),
+        },
+    );
+};
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string; data: AppendStanceRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string; data: AppendStanceRequest },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartiesPartyIdMemoryParticipantsPersonaIdStances',
+        ];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >,
+            { partyId: string; personaId: string; data: AppendStanceRequest }
+        > = (props) => {
+            const { partyId, personaId, data } = props ?? {};
+
+            return postPartiesPartyIdMemoryParticipantsPersonaIdStances(
+                partyId,
+                personaId,
+                data,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >
+    >;
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesMutationBody =
+    AppendStanceRequest;
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesMutationError =
+    ProblemDetails;
+
+export const usePostPartiesPartyIdMemoryParticipantsPersonaIdStances = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string; data: AppendStanceRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<
+        ReturnType<typeof postPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError,
+    { partyId: string; personaId: string; data: AppendStanceRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesMutationOptions(
+            options,
+        ),
+        queryClient,
+    );
+};
+
+export type getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200TextPlain =
+    {
+        data: StanceRecord[];
+        status: 200;
+    };
+
+export type getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200ApplicationJson =
+    {
+        data: StanceRecord[];
+        status: 200;
+    };
+
+export type getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200TextJson =
+    {
+        data: StanceRecord[];
+        status: 200;
+    };
+
+export type getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseSuccess =
+    (
+        | getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200TextPlain
+        | getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200ApplicationJson
+        | getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse200TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse =
+    getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponseSuccess;
+
+export const getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesUrl = (
+    partyId: string,
+    personaId: string,
+) => {
+    return `/api/parties/${partyId}/memory/participants/${personaId}/stances`;
+};
+
+export const getPartiesPartyIdMemoryParticipantsPersonaIdStances = async (
+    partyId: string,
+    personaId: string,
+    options?: RequestInit,
+): Promise<getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse> => {
+    return customFetch<getPartiesPartyIdMemoryParticipantsPersonaIdStancesResponse>(
+        getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesUrl(
+            partyId,
+            personaId,
+        ),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey = (
+    partyId: string,
+    personaId: string,
+) => {
+    return [
+        `/api/parties/${partyId}/memory/participants/${personaId}/stances`,
+    ] as const;
+};
+
+export const getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryOptions =
+    <
+        TData = Awaited<
+            ReturnType<
+                typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >,
+        TError = unknown,
+    >(
+        partyId: string,
+        personaId: string,
+        options?: {
+            query?: Partial<
+                UseQueryOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >,
+                    TError,
+                    TData
+                >
+            >;
+            request?: SecondParameter<typeof customFetch>;
+        },
+    ) => {
+        const { query: queryOptions, request: requestOptions } = options ?? {};
+
+        const queryKey =
+            queryOptions?.queryKey ??
+            getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey(
+                partyId,
+                personaId,
+            );
+
+        const queryFn: QueryFunction<
+            Awaited<
+                ReturnType<
+                    typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >
+        > = ({ signal }) =>
+            getPartiesPartyIdMemoryParticipantsPersonaIdStances(
+                partyId,
+                personaId,
+                { signal, ...requestOptions },
+            );
+
+        return {
+            queryKey,
+            queryFn,
+            enabled: !!(partyId && personaId),
+            ...queryOptions,
+        } as UseQueryOptions<
+            Awaited<
+                ReturnType<
+                    typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >,
+            TError,
+            TData
+        > & { queryKey: DataTag<QueryKey, TData, TError> };
+    };
+
+export type GetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >
+    >;
+export type GetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryError =
+    unknown;
+
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStances<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStances<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStances<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStances<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryOptions(
+            partyId,
+            personaId,
+            options,
+        );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspenseQueryOptions =
+    <
+        TData = Awaited<
+            ReturnType<
+                typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >,
+        TError = unknown,
+    >(
+        partyId: string,
+        personaId: string,
+        options?: {
+            query?: Partial<
+                UseSuspenseQueryOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                        >
+                    >,
+                    TError,
+                    TData
+                >
+            >;
+            request?: SecondParameter<typeof customFetch>;
+        },
+    ) => {
+        const { query: queryOptions, request: requestOptions } = options ?? {};
+
+        const queryKey =
+            queryOptions?.queryKey ??
+            getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey(
+                partyId,
+                personaId,
+            );
+
+        const queryFn: QueryFunction<
+            Awaited<
+                ReturnType<
+                    typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >
+        > = ({ signal }) =>
+            getPartiesPartyIdMemoryParticipantsPersonaIdStances(
+                partyId,
+                personaId,
+                { signal, ...requestOptions },
+            );
+
+        return {
+            queryKey,
+            queryFn,
+            ...queryOptions,
+        } as UseSuspenseQueryOptions<
+            Awaited<
+                ReturnType<
+                    typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                >
+            >,
+            TError,
+            TData
+        > & { queryKey: DataTag<QueryKey, TData, TError> };
+    };
+
+export type GetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspenseQueryResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+            >
+        >
+    >;
+export type GetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspenseQueryError =
+    unknown;
+
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<
+                        typeof getPartiesPartyIdMemoryParticipantsPersonaIdStances
+                    >
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspenseQueryOptions(
+            partyId,
+            personaId,
+            options,
+        );
 
     const query = useSuspenseQuery(
         queryOptions,

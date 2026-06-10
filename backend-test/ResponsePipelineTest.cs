@@ -118,6 +118,10 @@ public class ResponsePipelineTest
         memoryRepo.Setup(m => m.RecallAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<RecalledMemory>());
+        memoryRepo.Setup(m => m.RecallStancesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<StanceLine>());
 
         var pipeline = new ResponsePipeline(
             factory.Object,
@@ -660,6 +664,123 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.MarkGenerationStoppedAsync(
             It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Once);
         Assert.Null(fx.Store.ConsumeRepairHint(chatGroupId));
+    }
+
+    // ── 9. Stance floor: ambient block in both phases (ADR 0016) ─────────────
+
+    [Fact]
+    public async Task HandleAsync_WithStances_RendersWhereYouStandInBothPrompts()
+    {
+        // Arrange: stance recall surfaces two latest-wins lines. Both the Decision and the
+        // Speaking system prompts must carry the ambient "# Where you stand" block verbatim —
+        // no selection mechanic, no handoff field (ADR 0016: an orientation you speak from,
+        // not a callback you weave in).
+        var fx = BuildFixture();
+        fx.MemoryRepo.Setup(m => m.RecallStancesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new StanceLine("Vlad exaggerates — you've caught him inflating three stories", -0.7),
+                new StanceLine("Lisp is elegant once it clicks", 0.8),
+            });
+
+        var decisionJson = """{"gutReaction":"oh, this again","memoryToReference":null,"wouldSay":"Heard this one before.","respond":true}""";
+        var speakingText = "Heard this one before.";
+
+        // Endpoints that capture the job handed to each phase.
+        var capturedJobs = new List<LlmGenerationJob>();
+        var routeCall = 0;
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var content = Interlocked.Increment(ref routeCall) == 1 ? decisionJson : speakingText;
+                var ep = new Mock<ILlmEndpointGrain>();
+                ep.Setup(e => e.GetAttributionAsync())
+                    .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
+                ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+                    .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+                    {
+                        lock (capturedJobs) capturedJobs.Add(job);
+                        return StreamChunks(new[] { content }, ct);
+                    });
+                return ep.Object;
+            });
+
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        // Act
+        await fx.Pipeline.HandleAsync(
+            MakePersona(),
+            chatGroupId: Guid.NewGuid(),
+            triggeringMessage: triggering,
+            chatGroupGrain: fx.ChatGroup.Object,
+            store: fx.Store,
+            ct: CancellationToken.None);
+
+        // Assert: two LLM calls (decision, speaking); each system prompt carries the block
+        // and both lines, strongest-felt intact.
+        Assert.Equal(2, capturedJobs.Count);
+        foreach (var job in capturedJobs)
+        {
+            var systemPrompt = job.Messages.First(m => m.Role == "system").Content;
+            Assert.Contains("# Where you stand", systemPrompt);
+            Assert.Contains("Vlad exaggerates", systemPrompt);
+            Assert.Contains("Lisp is elegant", systemPrompt);
+        }
+
+        // Recall was scoped to the triggering message's text and capped at 5 (the ~5-line cap).
+        fx.MemoryRepo.Verify(m => m.RecallStancesAsync(
+            It.IsAny<Guid>(), PersonaId, It.IsAny<IReadOnlyList<Guid>>(),
+            triggering.Content!, 5, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_NoStances_OmitsWhereYouStandBlock()
+    {
+        // Arrange: default fixture (stance recall returns empty). The block must be absent —
+        // an empty floor never reads as "you stand for nothing".
+        var fx = BuildFixture();
+        var decisionJson = """{"gutReaction":"hm","memoryToReference":null,"wouldSay":"Sure.","respond":true}""";
+
+        var capturedJobs = new List<LlmGenerationJob>();
+        var routeCall = 0;
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var content = Interlocked.Increment(ref routeCall) == 1 ? decisionJson : "Sure.";
+                var ep = new Mock<ILlmEndpointGrain>();
+                ep.Setup(e => e.GetAttributionAsync())
+                    .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
+                ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+                    .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+                    {
+                        lock (capturedJobs) capturedJobs.Add(job);
+                        return StreamChunks(new[] { content }, ct);
+                    });
+                return ep.Object;
+            });
+
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        // Act
+        await fx.Pipeline.HandleAsync(
+            MakePersona(),
+            chatGroupId: Guid.NewGuid(),
+            triggeringMessage: triggering,
+            chatGroupGrain: fx.ChatGroup.Object,
+            store: fx.Store,
+            ct: CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, capturedJobs.Count);
+        Assert.All(capturedJobs, job =>
+            Assert.DoesNotContain("# Where you stand",
+                job.Messages.First(m => m.Role == "system").Content));
     }
 
     private static async IAsyncEnumerable<LlmGenerationEvent> SignalThenHang(

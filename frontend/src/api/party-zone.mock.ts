@@ -5,7 +5,9 @@ import type {
     LlmProviderEntry,
     MemoryGraphDto,
     Persona,
+    StanceRecord,
 } from './model';
+import { StanceTargetKind } from './model';
 
 export * from './party-zone';
 
@@ -186,10 +188,20 @@ export const mockMemoryGraph: MemoryGraphDto = {
             description: 'Vlad reframed the standup as a kanban.',
             createdAt: '2026-05-10T10:05:00Z',
         },
-        { id: 'concept:horticulture', kind: 'Concept', display: 'Horticulture' },
+        {
+            id: 'concept:horticulture',
+            kind: 'Concept',
+            display: 'Horticulture',
+        },
         { id: 'concept:kanban', kind: 'Concept', display: 'Kanban' },
-        { id: 'part:persona-1:00000000-0000-0000-0000-000000000000', kind: 'Participant' },
-        { id: 'part:persona-2:00000000-0000-0000-0000-000000000000', kind: 'Participant' },
+        {
+            id: 'part:persona-1:00000000-0000-0000-0000-000000000000',
+            kind: 'Participant',
+        },
+        {
+            id: 'part:persona-2:00000000-0000-0000-0000-000000000000',
+            kind: 'Participant',
+        },
         { id: 'persona:persona-1', kind: 'Persona' },
         { id: 'persona:persona-2', kind: 'Persona' },
     ],
@@ -282,4 +294,53 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = fn(() =>
 );
 export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = fn(
     () => noopMutationResult(),
+);
+
+// Stance floor (ADR 0016). Two appends toward Vlad show latest-wins: the newer edge is
+// current, the older one is dimmed history.
+export const mockStances: StanceRecord[] = [
+    {
+        id: 'stance-2',
+        valence: -0.7,
+        reasoning:
+            "Vlad exaggerates — you've caught him inflating three stories",
+        ts: '2026-05-11T09:00:00Z',
+        targetKind: StanceTargetKind.Participant,
+        targetPersonaId: 'persona-2',
+        targetConceptName: null,
+        targetConceptDisplay: null,
+        isCurrent: true,
+    },
+    {
+        id: 'stance-1',
+        valence: 0.7,
+        reasoning: 'you admire how Vlad tells a story',
+        ts: '2026-05-10T09:00:00Z',
+        targetKind: StanceTargetKind.Participant,
+        targetPersonaId: 'persona-2',
+        targetConceptName: null,
+        targetConceptDisplay: null,
+        isCurrent: false,
+    },
+    {
+        id: 'stance-3',
+        valence: 0.8,
+        reasoning: 'Lisp is elegant once it clicks',
+        ts: '2026-05-11T10:00:00Z',
+        targetKind: StanceTargetKind.Concept,
+        targetPersonaId: null,
+        targetConceptName: 'lisp',
+        targetConceptDisplay: 'Lisp',
+        isCurrent: true,
+    },
+];
+
+export const useGetPersona = fn(() =>
+    queryResult({ data: mockPersonas, status: 200, headers: new Headers() }),
+);
+export const useGetPartiesPartyIdMemoryParticipantsPersonaIdStances = fn(() =>
+    queryResult({ data: mockStances, status: 200, headers: new Headers() }),
+);
+export const usePostPartiesPartyIdMemoryParticipantsPersonaIdStances = fn(() =>
+    noopMutationResult(),
 );

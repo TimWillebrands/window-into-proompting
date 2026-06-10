@@ -23,7 +23,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         CancellationToken cancellationToken,
         string? turnInstruction = null,
         string? scenario = null,
-        string? memoryToReference = null)
+        string? memoryToReference = null,
+        IReadOnlyList<string>? stances = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -35,7 +36,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario, memoryToReference),
+                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario, memoryToReference, stances),
                 Name = persona.Id.ToString()
             }
         };
@@ -105,7 +106,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         };
     }
 
-    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -145,6 +146,11 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 Don't quote it; let it shape what you say.
                 """;
 
+        // ADR 0016: ambient Stance block — identity-adjacent orientation toward who's present
+        // and what's live, rendered in both phases (no Decision→Speaking handoff field). Lands
+        // right after the roster, before the generic style rules. Omitted when nothing anchors.
+        var stanceSection = StanceBlock.Render(stances);
+
         // Persona identity block claims the primacy position; chat-style rules land after,
         // so the model sees who it is before it sees generic etiquette.
         return $"""
@@ -153,7 +159,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 {scenarioSection}
 # Other participants
 {othersSection}
-
+{stanceSection}
 # Style
 You are in a (group) chat with other people. Stay completely in character as
 your persona — never acknowledge that you are an AI or playing a role.

@@ -297,6 +297,244 @@ public sealed class MemoryRepository(
         }
     }
 
+    // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
+
+    // One raw STANCE edge as read back, before latest-wins/anchor filtering. A row is either
+    // a Participant target (TargetPersonaId set) or a Concept target (ConceptName set).
+    private sealed record StanceEdgeRow(
+        Guid Id,
+        double Valence,
+        string Reasoning,
+        DateTimeOffset Ts,
+        Guid? TargetPersonaId,
+        string? ConceptName,
+        string? ConceptDisplay);
+
+    public async Task<Guid> AppendStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        CancellationToken ct)
+    {
+        var edgeId = Guid.NewGuid();
+        var nowIso = DateTimeOffset.UtcNow.ToString("o");
+        var valenceLiteral = Math.Clamp(valence, -1.0, 1.0)
+            .ToString("0.0###", CultureInfo.InvariantCulture);
+
+        // Edge property block is identical across target shapes — only the matched/merged
+        // target node differs. reasoning is curator free-text (untrusted) → CypherStr.
+        var edgeProps =
+            $"{{ id: '{edgeId}', valence: {valenceLiteral}, reasoning: {CypherStr(reasoning)}, ts: '{nowIso}' }}";
+
+        string sql;
+        if (target.Kind == StanceTargetKind.Concept)
+        {
+            var name = target.ConceptName ?? string.Empty;
+            var display = target.ConceptDisplay ?? name;
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})
+                  MERGE (c:Concept {name: {{CypherStr(name)}}})
+                  SET c.display = coalesce(c.display, {{CypherStr(display)}})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(c)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+        else
+        {
+            // Self points the edge back at the source Participant — same MERGE key, so both
+            // MERGEs resolve to one node and CREATE writes a self-loop.
+            var targetPersonaId = target.Kind == StanceTargetKind.Self
+                ? sourcePersonaId
+                : target.PersonaId ?? throw new ArgumentException(
+                    "Participant Stance target requires PersonaId.", nameof(target));
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})
+                  MERGE (tgt:Participant {persona_id: '{{targetPersonaId}}', party_id: '{{partyId}}'})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(tgt)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await ExecuteCypherAsync(db, sql, ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+
+        logger.LogInformation(
+            "Appended Stance {EdgeId} from persona {PersonaId} ({Kind}) in party {PartyId}",
+            edgeId, sourcePersonaId, target.Kind, partyId);
+
+        return edgeId;
+    }
+
+    public async Task<IReadOnlyList<StanceRecord>> ListStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        CancellationToken ct)
+    {
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+
+        // Newest-first already (ORDER BY ts DESC); the first row per target is current.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var records = new List<StanceRecord>(rows.Count);
+        foreach (var row in rows)
+        {
+            var isCurrent = seen.Add(TargetKey(row));
+            records.Add(ToRecord(row, sourcePersonaId, isCurrent));
+        }
+        return records;
+    }
+
+    public async Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
+        int limit,
+        CancellationToken ct)
+    {
+        if (limit <= 0)
+        {
+            return Array.Empty<StanceLine>();
+        }
+
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        var present = new HashSet<Guid>(presentPersonaIds);
+        var text = anchorText ?? string.Empty;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var anchored = new List<StanceEdgeRow>();
+        foreach (var row in rows)
+        {
+            // Latest-wins: skip any superseded edge for a target we've already taken.
+            if (!seen.Add(TargetKey(row)))
+            {
+                continue;
+            }
+
+            var keep = row.TargetPersonaId is Guid tp
+                // A Participant target (self included — source is in the present cast) renders
+                // only while that Participant is in the room.
+                ? present.Contains(tp)
+                // A Concept renders only when it's live in the triggering message.
+                : ConceptMatchesAnchor(row, text);
+
+            if (keep)
+            {
+                anchored.Add(row);
+            }
+        }
+
+        return anchored
+            .OrderByDescending(r => Math.Abs(r.Valence))
+            .ThenByDescending(r => r.Ts)
+            .Take(limit)
+            .Select(r => new StanceLine(r.Reasoning, r.Valence))
+            .ToList();
+    }
+
+    private static bool ConceptMatchesAnchor(StanceEdgeRow row, string anchorText)
+        => (row.ConceptName is { Length: > 0 } name
+                && anchorText.Contains(name, StringComparison.OrdinalIgnoreCase))
+            || (row.ConceptDisplay is { Length: > 0 } display
+                && anchorText.Contains(display, StringComparison.OrdinalIgnoreCase));
+
+    // Dedup key for latest-wins. A Participant target keys on its persona id; a Concept on its
+    // normalised name. Self collapses into its persona-id key like any Participant target.
+    private static string TargetKey(StanceEdgeRow row)
+        => row.TargetPersonaId is Guid tp ? $"p:{tp}" : $"c:{row.ConceptName}";
+
+    private static StanceRecord ToRecord(StanceEdgeRow row, Guid sourcePersonaId, bool isCurrent)
+    {
+        if (row.TargetPersonaId is Guid tp)
+        {
+            var kind = tp == sourcePersonaId ? StanceTargetKind.Self : StanceTargetKind.Participant;
+            return new StanceRecord(
+                row.Id, row.Valence, row.Reasoning, row.Ts,
+                kind, tp, null, null, isCurrent);
+        }
+        return new StanceRecord(
+            row.Id, row.Valence, row.Reasoning, row.Ts,
+            StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent);
+    }
+
+    // All STANCE edges authored by one Participant, newest first. Single read-only Cypher —
+    // explicit open/close per the EF connection-lifetime footgun; scalars cast to text so
+    // AGE's agtype output cast unquotes them (valence parsed in C# like RECOLLECTS.weight).
+    private async Task<IReadOnlyList<StanceEdgeRow>> FetchStanceEdgesAsync(
+        Guid partyId, Guid sourcePersonaId, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})-[s:STANCE]->(tgt)
+                  RETURN s.id, s.valence, s.reasoning, s.ts, tgt.persona_id, tgt.name, tgt.display
+                  ORDER BY s.ts DESC
+                $cy$) AS (id text, valence text, reasoning text, ts text,
+                          target_persona_id text, concept_name text, concept_display text)
+                """;
+
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+
+            var rows = new List<StanceEdgeRow>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                if (!Guid.TryParse(Get(0), out var id))
+                {
+                    continue;
+                }
+                var reasoning = Get(2);
+                if (string.IsNullOrWhiteSpace(reasoning))
+                {
+                    continue;
+                }
+                var valence = double.TryParse(Get(1), NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+                    ? Math.Clamp(v, -1.0, 1.0)
+                    : 0.0;
+                var ts = ParseIso(Get(3)) ?? DateTimeOffset.UtcNow;
+
+                var targetPersonaId = Guid.TryParse(Get(4), out var tp) ? tp : (Guid?)null;
+                var conceptName = Get(5);
+                var conceptDisplay = Get(6);
+
+                // A well-formed edge points at exactly one of the two target shapes.
+                if (targetPersonaId is null && string.IsNullOrWhiteSpace(conceptName))
+                {
+                    continue;
+                }
+
+                rows.Add(new StanceEdgeRow(
+                    id, valence, reasoning, ts, targetPersonaId, conceptName, conceptDisplay));
+            }
+
+            return rows;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
     public async Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

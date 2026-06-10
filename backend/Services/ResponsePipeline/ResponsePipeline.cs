@@ -189,10 +189,37 @@ public sealed class ResponsePipeline(
                     string.Join(", ", recollections.Select((r, i) => $"#{i + 1} {r.EdgeId:N}={r.Salience:F3}")));
             }
 
+            // ADR 0016 stance floor: anchor-scoped, latest-wins Stance lines for the ambient
+            // "# Where you stand" block. Anchors are the beat's live cast (present persona ids,
+            // self included) + Concepts named in the triggering message. Pure DB read — zero
+            // LLM calls on the beat path. Non-fatal like recall: a memory outage never mutes
+            // the persona.
+            IReadOnlyList<string> stanceLines;
+            try
+            {
+                var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
+                var stances = await memoryRepository.RecallStancesAsync(
+                    partyId, persona.Id, presentPersonaIds,
+                    triggeringMessage.Content ?? string.Empty, limit: 5, linkedCt);
+                stanceLines = stances.Select(s => s.Reasoning).ToList();
+            }
+            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Stance recall failed for persona {PersonaName} in party {PartyId}; proceeding without stances",
+                    persona.Name, partyId);
+                stanceLines = Array.Empty<string>();
+            }
+            turnSpan?.SetTag("stance.line_count", stanceLines.Count);
+
             var decision = await RunDecisionPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
-                repairHint);
+                repairHint, stanceLines);
 
             // Resolve the index pick (1-based into the numbered block; decision service
             // already range-clamped) back to the recalled memory: snippet → speaking phase,
@@ -283,7 +310,7 @@ public sealed class ResponsePipeline(
             // decision phase selects, speaking phase executes.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Instruction, scenario, pickedMemory?.Snippet, persona.Name, inFlight, linkedCt);
+                decision.Instruction, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -410,6 +437,7 @@ public sealed class ResponsePipeline(
         string? turnInstruction,
         string? scenario,
         string? memoryToReference,
+        IReadOnlyList<string> stances,
         string personaName,
         InFlightGeneration inFlight,
         CancellationToken ct)
@@ -445,7 +473,8 @@ public sealed class ResponsePipeline(
                     ct,
                     turnInstruction,
                     scenario,
-                    memoryToReference);
+                    memoryToReference,
+                    stances);
                 break;
             }
             catch (OperationCanceledException)
@@ -496,7 +525,8 @@ public sealed class ResponsePipeline(
         string? scenario,
         IReadOnlyList<string> recollections,
         CancellationToken ct,
-        RepairHint? repairHint = null)
+        RepairHint? repairHint = null,
+        IReadOnlyList<string>? stances = null)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
@@ -514,7 +544,8 @@ public sealed class ResponsePipeline(
             cancellationToken: ct,
             scenario: scenario,
             repairHint: repairHint,
-            recollections: recollections);
+            recollections: recollections,
+            stances: stances);
     }
 
     private static Task NotifyStreamAsync(

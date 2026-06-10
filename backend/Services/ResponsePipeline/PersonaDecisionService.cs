@@ -37,6 +37,9 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// for this persona in this party (ADR 0015 recall) — rendered as a numbered "what you
     /// remember" block in the system prompt so the persona can naturally bring up past
     /// moments and pick one by index. Empty list = no block rendered.
+    /// <paramref name="stances"/> is the anchor-scoped, latest-wins Stance lines (ADR 0016) —
+    /// rendered as the ambient "# Where you stand" block. Unlike recollections it carries no
+    /// selection mechanic: it is identity-adjacent orientation the persona speaks from.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         SelfView self,
@@ -47,7 +50,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         CancellationToken cancellationToken,
         string? scenario = null,
         RepairHint? repairHint = null,
-        IReadOnlyList<string>? recollections = null)
+        IReadOnlyList<string>? recollections = null,
+        IReadOnlyList<string>? stances = null)
     {
         var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
@@ -78,7 +82,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -256,7 +260,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         IReadOnlyList<ParticipantView> participants,
         string? scenario,
         RepairHint? repairHint,
-        IReadOnlyList<string>? recollections)
+        IReadOnlyList<string>? recollections,
+        IReadOnlyList<string>? stances)
     {
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
@@ -278,6 +283,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             ? string.Empty
             : $"\n# What you remember\n{string.Join("\n", recollections.Select((s, i) => $"{i + 1}. {s}"))}\n";
 
+        // ADR 0016: ambient Stance block. Identity-adjacent — who you are relative to who's
+        // here and what's live in the message — so it sits right after the roster, no
+        // selection mechanic. Omitted when nothing is anchored.
+        var stanceBlock = StanceBlock.Render(stances);
+
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
@@ -289,7 +299,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     DriverKind.System => $"- {p.Name} (narrator)",
     _ => $"- {p.Name} (persona)",
 }))}}
-{{recollectionsBlock}}{{repairBlock}}
+{{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.

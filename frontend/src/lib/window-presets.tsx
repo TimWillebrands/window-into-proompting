@@ -3,6 +3,7 @@ import DaccordApp from '../apps/daccord/DaccordApp';
 import ImportApp from '../apps/import/ImportApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import PersonasApp from '../apps/personas/PersonasApp';
+import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import type { WindowDescriptor } from './types';
 
 export const WINDOW_PRESETS: WindowDescriptor[] = [
@@ -43,6 +44,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         // Force-graph needs canvas room — bigger default than the standard 640x480.
         initialSize: { width: 960, height: 640 },
     },
+    {
+        id: 'stance-floor',
+        title: 'Stance Floor',
+        icon: '🧭',
+        component: StanceFloorApp,
+        initialPosition: { x: 340, y: 200 },
+        initialSize: { width: 760, height: 520 },
+    },
 ];
 
 export const DESKTOP_ICONS = [
@@ -75,5 +84,11 @@ export const DESKTOP_ICONS = [
         label: 'Memory Graph',
         icon: '/img/842.ico',
         windowId: 'memory-graph',
+    },
+    {
+        id: 'stance-floor',
+        label: 'Stance Floor',
+        icon: '/img/842.ico',
+        windowId: 'stance-floor',
     },
 ];

@@ -6,7 +6,9 @@ namespace PartyTown.Services.Memory;
 /// Memory subsystem seam. Slice 1 ships <see cref="CaptureMomentAsync"/>; slice 2 added
 /// recall (top-N recent, ADR 0009), upgraded by ADR 0015 to salience-ranked
 /// <see cref="RecallAsync"/> plus the <see cref="StrengthenRecollectionAsync"/> write.
-/// Stance and Consolidation arrive in later slices.
+/// The Stance floor (ADR 0016) added <see cref="AppendStanceAsync"/> /
+/// <see cref="ListStancesAsync"/> / <see cref="RecallStancesAsync"/>; Consolidation
+/// arrives in a later slice.
 /// </summary>
 /// <remarks>
 /// Per ADR 0006, the implementation runs Cypher against Apache AGE directly through
@@ -65,6 +67,54 @@ public interface IMemoryRepository
     /// </summary>
     /// <param name="recollectionId">The RECOLLECTS edge's <c>id</c> property (uuid).</param>
     Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct);
+
+    /// <summary>
+    /// Append one Stance edge (ADR 0016) from the authoring Participant to a target —
+    /// another Participant, a Concept (MERGE'd, auto-created on first reference), or itself.
+    /// Append-only: never mutates a prior edge; the new edge becomes the latest-wins current
+    /// stance for that (source, target) pair. The curator is the floor's first writer.
+    /// </summary>
+    /// <param name="partyId">Party scope — the Participant is keyed (persona_id, party_id).</param>
+    /// <param name="sourcePersonaId">The Persona authoring the Stance (Acquired, Participant-scope).</param>
+    /// <param name="target">Who/what the Stance points at.</param>
+    /// <param name="valence">Scalar feeling, clamped to −1..1.</param>
+    /// <param name="reasoning">Short second-person text in the Recollection-snippet voice.</param>
+    /// <returns>The new edge's stable <c>id</c>.</returns>
+    Task<Guid> AppendStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Every Stance edge authored by a Participant, newest first, for the debug/authoring UI.
+    /// History is preserved (append-only) — superseded edges are returned too; the latest per
+    /// (source, target) carries <see cref="StanceRecord.IsCurrent"/> = true. Empty when the
+    /// Participant has authored no Stances.
+    /// </summary>
+    Task<IReadOnlyList<StanceRecord>> ListStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Latest-wins Stances scoped to the beat's live anchors, for the ambient
+    /// <c># Where you stand</c> block (ADR 0016). Keeps only the current edge per target,
+    /// then renders a Stance iff its target is one of the present cast
+    /// (<paramref name="presentPersonaIds"/>, which includes self) or a Concept whose name or
+    /// display appears in <paramref name="anchorText"/> (the triggering message). Ordered
+    /// most-strongly-felt first and capped at <paramref name="limit"/>. Pure DB read — zero
+    /// LLM calls on the beat path. Empty when nothing is anchored.
+    /// </summary>
+    Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
+        int limit,
+        CancellationToken ct);
 
     /// <summary>
     /// Read the per-Party memory subgraph for the debug viz: every Event with
