@@ -1,6 +1,9 @@
 # MVP recall: top-N recent Recollections, no matching, no embeddings
 
-> Status: accepted.
+> Status: **superseded by [ADR 0015](0015-recall-as-relevance-realization.md)** (the
+> retrieval design — salience-ranked quota union replaces top-N recent). The
+> `IMemoryRepository` seam and the Decision-selects handoff survive; 0015 is the swap
+> this ADR's escape hatch promised.
 
 Slice 2 of the memory feature wires **Recollection** retrieval into persona generation. The MVP query is intentionally the simplest possible: **the N most recent Recollection snippets for a `(Persona, Party)` pair, ordered by timestamp DESC**. No concept matching, no embedding similarity, no relevance scoring. The decision LLM is left to judge which snippets matter in the current beat, in-context.
 

@@ -1,5 +1,9 @@
 # Stance is append-only; current belief is computed, not stored
 
+> Status: **superseded by [ADR 0016](0016-stance-floor-and-auto-appending-consolidation.md)**.
+> The append-only core carries over unchanged; the curation model (curator approves
+> proposed Stances before write) is replaced by auto-append + retract.
+
 Every **Stance** capture writes a *new* edge in AGE between a **Persona** (Intrinsic) or **Participant** (Acquired) and a target (**Concept**, **Participant**, or self), carrying `(valence, reasoning, timestamp)`. No edge is ever mutated. The "current Stance" for a `(Persona, Target)` pair is just **the latest edge wins**, computed at read time over the union of Persona-scope and Participant-scope edges. There is **no materialised current-Stance table**.
 
 ## Why append-only

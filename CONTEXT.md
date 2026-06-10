@@ -80,12 +80,54 @@ _Avoid_: catch-up, backlog, missed-message-marker.
 
 > Note: the code spelling `Generation` (the `Services/Generation/` namespace, `GenerationSession`, `GenerationResult`, `GenerationParticipant`, `InFlightPhase.Generation`, `_ctsByGeneration`, `CancelGenerationAsync`, etc.) predates the **Response pipeline** vocabulary — treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Existing `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
 
+### Relevance realization
+
+**Relevance Realization**:
+The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Four instances of it run in this project, at four timescales:
+
+- **Interruption** (milliseconds) — is the new message worth abandoning my in-flight reply? Scored as **Salience** during the **Stop-signal race**.
+- **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
+- **Recall** (days, backward) — which past moments belong in this beat?
+- **Capture** (days, forward) — which present moments are worth remembering at all?
+
+_Avoid_: relevance scoring, importance ranking, attention.
+
+**Salience**:
+How strongly something *pulls* on a **Persona**'s attention right now — an attractor acting on them from the **Arena**, the moment-to-moment output of **Relevance Realization**. Always relational: nothing is salient in itself, only salient *to this Persona in this beat*. Scored today during the **Stop-signal race** (is the interrupting message worth it?); the same notion ranks which **Recollections** surface at **Recall**. A Persona's memories under this ranking form their **salience landscape** — what looms large vs what has faded — reshaped by use: recalled memories strengthen, untouched ones sink.
+_Avoid_: activation, importance, relevance score, weight.
+
+**Urge**:
+The inner pressure a **Persona** feels to act — a push from within, where **Salience** is pull from without. Today the only urge is the urge to speak: built up by being named, open questions, long silence, and the Persona's own **Chattiness**, consulted by the **Decision phase**.
+_Avoid_: drive, motivation, impulse (see **Impulsivity**, a different thing).
+
+**Recall**:
+Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
+_Avoid_: retrieval, query, lookup, RAG.
+
+**Capture**:
+Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author or by spiking **Salience**.
+_Avoid_: extraction, ingestion, save, remember-flow.
+
 ### Memory
 
-A Persona's memory is the set of edges from a **Participant** (or the underlying **Persona**) to entities in **Reality**. The edges carry the personal view — the entities themselves do not.
+A Persona's memory is the set of edges from a **Participant** (or the underlying **Persona**) to entities in the **Arena**. The edges carry the personal view — the entities themselves do not.
+
+Memory is organized by Vervaeke's four kinds of knowing. Each kind is a layer; the entities beneath it implement that layer. No entity is purely one kind — a **Recollection** carries propositional content and can later shift a **Stance** — the layer names where that kind of knowing *predominantly* lives.
+
+**Propositional** (knowing *that*):
+Shared facts in the **Arena** — **Event** and **Concept**. Persona-independent; the things Recollections and Stances attach to.
+
+**Perspectival** (knowing *what it was like from here*):
+A Persona's view of moments — **Recollection**. What stood out to *them*, with their spin.
+
+**Participatory** (knowing *by being in relation*):
+A Persona's orientation toward things in the **Arena** — **Stance**. Identity-shaping: these edges say who the Persona is relative to their world.
+
+**Procedural** (knowing *how*):
+A Persona's engagement style. Today static — **Chattiness**, **Impulsivity**, the persona system prompt. Learned procedural memory is an open slot, not yet an entity.
 
 **Recollection**:
-A **Participant**'s edge to an **Event** in **Reality**. Carries a short, second-person snippet ("you saw Vlad cut Hana off"). One Event can have many Recollections — one per Participant who remembers it, each with their own spin. Snippet-only for now; if a recollection *changes how the Persona feels* about someone or something, that lives as a separate **Stance**.
+A **Participant**'s edge to an **Event** in the **Arena**. Carries a short, second-person snippet ("you saw Vlad cut Hana off"). One Event can have many Recollections — one per Participant who remembers it, each with their own spin. If a recollection *changes how the Persona feels* about someone or something, that lives as a separate **Stance**.
 _Avoid_: episode, snippet, memory-line, recall.
 
 **Stance**:
@@ -104,22 +146,23 @@ _Avoid_: learned-stance, runtime-stance, in-party-stance.
 The act of lifting an **Acquired Stance** to an **Intrinsic Stance** — "this is now part of who Denise is, not just Denise-in-this-Party." Author-driven, not automatic. Concretely: a new edge at **Persona** scope is written, capturing the *current projection* of the Acquired stance at the moment of promotion. The original Acquired observations stay where they happened.
 _Avoid_: ascend, lift, propagate, graduate.
 
-> Note: **Stance** is append-only — each capture writes a new edge with a timestamp, valence, and reasoning. The "current" stance is just the latest edge wins (per (Persona, Target)), unioned across Participant-scope and Persona-scope. No materialised projection table.
+> Note: **Stance** is append-only — every write appends a new edge with a timestamp, valence, and reasoning. The "current" stance is just the latest edge wins (per (Persona, Target)), unioned across Participant-scope and Persona-scope. No materialised projection table.
 
 **Consolidation**:
-A background pass that walks a **Participant**'s recent **Recollections** involving a target (a **Concept** or another **Participant**) and emits new **Stance** edges where a coherent belief has crystallised. Author-triggered (button or schedule) — *not* coupled to generation. Loose analogue to memory consolidation in sleep: episodes accumulate, beliefs crystallise later.
+The pass that moves knowing from the perspectival layer to the participatory: walks a **Participant**'s recent **Recollections** involving a target (a **Concept** or another **Participant**) and emits new **Stance** edges where a coherent belief has crystallised. Runs in rest, not in the moment — the analogue of memory consolidation in sleep — and is deliberately retroactive: what a moment *meant* is decided after the fact, and may differ from how it felt live.
 _Avoid_: digest, summarisation, reflection, dream.
 
-### Reality
+### Arena
 
-The shared, objective layer that **Personas** and **Participants** form **Stances** toward. Entities in Reality live independently of any Persona — multiple Personas can attach different Stances (and other edges) to the same entity. Think of Reality as the world; Memory is each Persona's view of that world.
+The shared stage a **Party**'s cast acts on (term from Vervaeke's agent–arena coupling — deeper background outside this glossary): every entity the **Personas** can perceive, recall, and form **Stances** toward. One Arena per Party. Entities in the Arena live independently of any Persona — multiple Personas can attach different Stances (and other edges) to the same entity. Memory is each Persona's *relation* to the Arena — which is why the personal view lives on the edges and never on the entities.
+_Avoid_: reality, world, environment, setting.
 
 **Concept**:
-A "thing in reality" — abstract or concrete — that a Persona can have a **Stance** toward. "Lisp", "Software", "kindness". Flat for now (no hierarchy — see flagged ambiguities). Auto-created on first reference, mergeable in UI.
+A thing in the **Arena** — abstract or concrete — that a Persona can have a **Stance** toward. "Lisp", "Software", "kindness". Flat — no hierarchy. Auto-created on first reference.
 _Avoid_: topic, tag, thing, subject.
 
 **Event**:
-A crystallized moment in **Reality** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message reality (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
+A crystallized moment in the **Arena** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message happenings in the **Arena** (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
 _Avoid_: episode, fact, occurrence, snapshot.
 
 ## Relationships
