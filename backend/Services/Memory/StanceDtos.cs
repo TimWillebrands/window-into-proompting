@@ -89,5 +89,13 @@ public sealed record StanceRecord(
 /// Decision and Speaking prompts; <see cref="Valence"/> rides along so the block can order
 /// most-strongly-felt first. Already anchor-scoped and capped by
 /// <see cref="IMemoryRepository.RecallStancesAsync"/>.
+/// <para>
+/// <see cref="Contrast"/> is the ambivalence read (ADR 0016): the reasoning of an earlier,
+/// <em>contradicting</em> Stance toward the same target (valence sign-flip or
+/// |Δvalence| ≥ 1.0) — set on at most the 1–2 most-salient targets per beat, null otherwise.
+/// When present the renderer folds the two into one combined line so append-only history
+/// reads as playable tension rather than write-only archaeology. Latest-wins still resolves
+/// the current belief everywhere else; this is a rendering enrichment, not a new read model.
+/// </para>
 /// </summary>
-public sealed record StanceLine(string Reasoning, double Valence);
+public sealed record StanceLine(string Reasoning, double Valence, string? Contrast = null);

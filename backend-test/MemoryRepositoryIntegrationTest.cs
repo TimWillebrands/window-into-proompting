@@ -803,6 +803,107 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.DoesNotContain(lines, l => l.Reasoning is "stance-strength-1" or "stance-strength-2");
     }
 
+    [Fact]
+    public async Task RecallStances_SignFlippedHistory_RendersAmbivalenceContrast()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var vlad = Guid.NewGuid();
+        var present = new[] { author, vlad };
+
+        var repo = MakeRepo();
+
+        // Author a flip: an earlier admiration, then a later sign-flipped contempt.
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: 0.7, reasoning: "you admired how Vlad tells a story", attribution: null, CancellationToken.None);
+        await Task.Delay(5);
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: -0.7, reasoning: "Vlad exaggerates — you've caught him inflating three stories",
+            attribution: null, CancellationToken.None);
+
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, present, anchorText: "n/a", limit: 5, CancellationToken.None);
+
+        var line = Assert.Single(lines);
+        // Latest-wins is still the current belief; the earlier contradicting one rides along
+        // as the ambivalence contrast.
+        Assert.Contains("exaggerates", line.Reasoning);
+        Assert.Equal(-0.7, line.Valence, precision: 6);
+        Assert.NotNull(line.Contrast);
+        Assert.Contains("admired", line.Contrast!);
+    }
+
+    [Fact]
+    public async Task RecallStances_MonotoneHistory_RendersPlainLatestWins()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var vlad = Guid.NewGuid();
+        var present = new[] { author, vlad };
+
+        var repo = MakeRepo();
+
+        // Reinforcement, not a flip: same sign, |Δvalence| < 1.0 — no contradiction.
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: 0.5, reasoning: "you admire how Vlad tells a story", attribution: null, CancellationToken.None);
+        await Task.Delay(5);
+        await repo.AppendStanceAsync(partyId, author,
+            new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
+            valence: 0.9, reasoning: "you admire Vlad's storytelling more than ever", attribution: null,
+            CancellationToken.None);
+
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, present, anchorText: "n/a", limit: 5, CancellationToken.None);
+
+        var line = Assert.Single(lines);
+        Assert.Contains("more than ever", line.Reasoning);
+        Assert.Null(line.Contrast);
+    }
+
+    [Fact]
+    public async Task RecallStances_NeverMoreThanTwoAmbivalencePairs()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+
+        var repo = MakeRepo();
+
+        // Four targets, each with a sign-flipped history — strongest current first so the cap
+        // keeps the two most-salient pairs and degrades the rest to plain latest-wins.
+        var present = new List<Guid> { author };
+        for (var i = 1; i <= 4; i++)
+        {
+            var target = Guid.NewGuid();
+            present.Add(target);
+            await repo.AppendStanceAsync(partyId, author,
+                new StanceTargetSpec(StanceTargetKind.Participant, target, null, null),
+                valence: 0.6, reasoning: $"you used to like target-{i}", attribution: null, CancellationToken.None);
+            await Task.Delay(5);
+            await repo.AppendStanceAsync(partyId, author,
+                new StanceTargetSpec(StanceTargetKind.Participant, target, null, null),
+                valence: -(i / 10.0), reasoning: $"you now distrust target-{i}", attribution: null,
+                CancellationToken.None);
+        }
+
+        var lines = await repo.RecallStancesAsync(
+            partyId, author, present, anchorText: "n/a", limit: 5, CancellationToken.None);
+
+        Assert.Equal(4, lines.Count);
+        Assert.Equal(2, lines.Count(l => l.Contrast is not null));
+        // The two that keep the contrast are the most-salient currents (strongest |valence|).
+        Assert.All(lines.Where(l => l.Contrast is not null),
+            l => Assert.True(Math.Abs(l.Valence) >= 0.3));
+    }
+
     private MemoryRepository MakeRepo()
         => new(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
 

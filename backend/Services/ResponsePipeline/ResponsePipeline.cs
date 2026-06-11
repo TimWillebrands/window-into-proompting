@@ -202,12 +202,14 @@ public sealed class ResponsePipeline(
             // LLM calls on the beat path. Non-fatal like recall: a memory outage never mutes
             // the persona.
             IReadOnlyList<string> stanceLines;
+            var ambivalenceCount = 0;
             try
             {
                 var stances = await memoryRepository.RecallStancesAsync(
                     partyId, persona.Id, presentPersonaIds,
                     triggeringMessage.Content ?? string.Empty, limit: 5, linkedCt);
-                stanceLines = stances.Select(s => s.Reasoning).ToList();
+                stanceLines = stances.Select(StanceBlock.FormatLine).ToList();
+                ambivalenceCount = stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
             }
             catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
             {
@@ -221,6 +223,7 @@ public sealed class ResponsePipeline(
                 stanceLines = Array.Empty<string>();
             }
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
+            turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
             var decision = await RunDecisionPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,

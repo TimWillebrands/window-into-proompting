@@ -633,6 +633,10 @@ public sealed class MemoryRepository(
         return records;
     }
 
+    // At most this many ambivalence pairs render per beat (ADR 0016) — the rest of the block
+    // stays plain latest-wins so an ever-present tension doesn't drown the orientation lines.
+    private const int MaxAmbivalencePairs = 2;
+
     public async Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
         Guid partyId,
         Guid sourcePersonaId,
@@ -650,44 +654,96 @@ public sealed class MemoryRepository(
         var present = new HashSet<Guid>(presentPersonaIds);
         var text = anchorText ?? string.Empty;
 
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var anchored = new List<StanceEdgeRow>();
+        // Group a target's edges together, newest-first (rows already ORDER BY ts DESC) — the
+        // first per target is the latest-wins current; the rest are its history, which the
+        // ambivalence read scans for a contradicting earlier belief.
+        var byTarget = new Dictionary<string, List<StanceEdgeRow>>(StringComparer.Ordinal);
+        var order = new List<string>();
         foreach (var row in rows)
         {
-            // Latest-wins: skip any superseded edge for a target we've already taken.
-            if (!seen.Add(TargetKey(row)))
+            var key = TargetKey(row);
+            if (!byTarget.TryGetValue(key, out var history))
             {
-                continue;
+                history = new List<StanceEdgeRow>();
+                byTarget[key] = history;
+                order.Add(key);
             }
+            history.Add(row);
+        }
+
+        var anchored = new List<(StanceEdgeRow Current, string? Contrast)>();
+        foreach (var key in order)
+        {
+            var history = byTarget[key];
+            var current = history[0];
 
             // A retract-current target holds no belief: the neutralizing edge masks the
-            // retracted one (it stays in `seen`, so the old edge can't resurface) and itself
-            // renders nothing — its reasoning is log-facing, not prompt-facing.
-            if (row.Origin == StanceOrigin.Retract)
+            // retracted one and itself renders nothing — its reasoning is log-facing, not
+            // prompt-facing.
+            if (current.Origin == StanceOrigin.Retract)
             {
                 continue;
             }
 
-            var keep = row.TargetPersonaId is Guid tp
+            var keep = current.TargetPersonaId is Guid tp
                 // A Participant target (self included — source is in the present cast) renders
                 // only while that Participant is in the room.
                 ? present.Contains(tp)
                 // A Concept renders only when it's live in the triggering message.
-                : ConceptMatchesAnchor(row, text);
+                : ConceptMatchesAnchor(current, text);
 
             if (keep)
             {
-                anchored.Add(row);
+                anchored.Add((current, FindContradiction(current, history)));
             }
         }
 
+        // Most-strongly-felt first, capped to the block's line budget. Ambivalence is then
+        // capped separately to the 1–2 most-salient pairs (ADR 0016) so the block never reads
+        // as wall-to-wall tension — surplus contradictions degrade to the plain latest-wins line.
+        var pairs = 0;
         return anchored
-            .OrderByDescending(r => Math.Abs(r.Valence))
-            .ThenByDescending(r => r.Ts)
+            .OrderByDescending(a => Math.Abs(a.Current.Valence))
+            .ThenByDescending(a => a.Current.Ts)
             .Take(limit)
-            .Select(r => new StanceLine(r.Reasoning, r.Valence))
+            .Select(a =>
+            {
+                var contrast = a.Contrast is not null && ++pairs <= MaxAmbivalencePairs ? a.Contrast : null;
+                return new StanceLine(a.Current.Reasoning, a.Current.Valence, contrast);
+            })
             .ToList();
     }
+
+    // Ambivalence read (ADR 0016): the reasoning of the earlier edge that most sharply
+    // contradicts the current stance — sign-flip or |Δvalence| ≥ 1.0 — strongest tension first,
+    // ties to the oldest ("you used to"). Retract edges aren't beliefs, so they never count as
+    // the contradicting past. Null when the history is monotone.
+    private static string? FindContradiction(StanceEdgeRow current, List<StanceEdgeRow> history)
+    {
+        StanceEdgeRow? best = null;
+        var bestDelta = 0.0;
+        for (var i = 1; i < history.Count; i++)
+        {
+            var past = history[i];
+            if (past.Origin == StanceOrigin.Retract || !Contradicts(current.Valence, past.Valence))
+            {
+                continue;
+            }
+            var delta = Math.Abs(current.Valence - past.Valence);
+            if (delta > bestDelta || (delta == bestDelta && (best is null || past.Ts < best.Ts)))
+            {
+                bestDelta = delta;
+                best = past;
+            }
+        }
+        return best?.Reasoning;
+    }
+
+    // A past valence contradicts the current one when their signs flip (both non-zero, opposite)
+    // or they're at least a full valence-unit apart — exactly ADR 0016's two criteria.
+    private static bool Contradicts(double current, double past)
+        => (Math.Sign(current) != 0 && Math.Sign(past) != 0 && Math.Sign(current) != Math.Sign(past))
+            || Math.Abs(current - past) >= 1.0;
 
     private static bool ConceptMatchesAnchor(StanceEdgeRow row, string anchorText)
         => (row.ConceptName is { Length: > 0 } name

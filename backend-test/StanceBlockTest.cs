@@ -1,3 +1,4 @@
+using PartyTown.Services.Memory;
 using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest;
@@ -36,5 +37,27 @@ public sealed class StanceBlockTest
         var block = StanceBlock.Render(new[] { "  you trust Hana completely  " });
         Assert.Contains("- you trust Hana completely\n", block);
         Assert.DoesNotContain("-   you trust", block);
+    }
+
+    [Fact]
+    public void FormatLine_Monotone_RendersReasoningVerbatim()
+    {
+        var line = new StanceLine("Denise exaggerates", -0.8);
+        Assert.Equal("Denise exaggerates", StanceBlock.FormatLine(line));
+    }
+
+    [Fact]
+    public void FormatLine_Ambivalent_FoldsContrastIntoOneLine()
+    {
+        var line = new StanceLine("Denise exaggerates", -0.8, Contrast: "you admired her storytelling");
+
+        var text = StanceBlock.FormatLine(line);
+
+        // One combined line, not two entries: both the current belief and the earlier
+        // contradicting one are present, joined by a single em-dash clause.
+        Assert.StartsWith("Denise exaggerates", text);
+        Assert.Contains("you admired her storytelling", text);
+        Assert.Contains("—", text);
+        Assert.Single(text.Split('\n'));
     }
 }
