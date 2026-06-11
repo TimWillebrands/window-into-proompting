@@ -33,10 +33,28 @@ public sealed record RecollectionTarget(Guid PersonaId, string Name, bool IsSpea
 public sealed record RecollectionDraft(string Snippet, double Weight);
 
 /// <summary>
+/// Which recall arm surfaced a memory (ADR 0015 two-arm quota union). Structural
+/// opponent processing: the arms stay separate — no merged cross-arm score.
+/// </summary>
+public enum RecallArm
+{
+    /// <summary>Recency pool, salience-ranked — the ADR 0009 lineage.</summary>
+    Recent,
+
+    /// <summary>
+    /// Graph walk from the beat's anchors (present cast Participants + Concepts named in
+    /// the triggering message) via <c>←ABOUT← Event ←RECOLLECTS</c>.
+    /// </summary>
+    Relevant,
+}
+
+/// <summary>
 /// One salience-ranked Recollection surfaced by Recall (ADR 0015). <see cref="EdgeId"/>
 /// is the RECOLLECTS edge's stable identity — the key for the strengthening write when
 /// the Decision phase picks this memory. <see cref="Guid.Empty"/> marks an edge captured
 /// before the salience substrate existed (surfaceable, not strengthenable).
+/// <see cref="Arm"/> records which arm's slot this memory consumed — observability only;
+/// the prompt block stays undifferentiated.
 /// </summary>
 public sealed record RecalledMemory(
     Guid EdgeId,
@@ -45,7 +63,8 @@ public sealed record RecalledMemory(
     int RecallCount,
     DateTimeOffset? LastRecalled,
     DateTimeOffset CapturedAt,
-    double Salience);
+    double Salience,
+    RecallArm Arm = RecallArm.Recent);
 
 /// <summary>
 /// Outcome of a single <see cref="IMemoryRepository.CaptureMomentAsync"/> call.

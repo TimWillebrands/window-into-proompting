@@ -101,14 +101,29 @@ public sealed class MemoryRepository(
             ConceptsTouched: extraction.Concepts.Count);
     }
 
-    // How many recent edges the recall query pulls before C#-side salience ranking. Far
+    // How many recent edges the recency arm considers before C#-side salience ranking. Far
     // above the surfaced N≈10 so a fresh low-weight burst can't push an oft-recalled older
-    // memory out of the candidate set before scoring sees it.
+    // memory out of the candidate set before scoring sees it. The relevant arm is NOT
+    // pooled — the graph walk reaches arbitrarily deep into the past by design.
     private const int RecallCandidatePool = 50;
+
+    // Quota for the relevant arm (ADR 0015 two-arm union): up to ~5 slots, recency fills
+    // the remainder. Structural tension, not a merged formula — guarantees a serendipity
+    // budget of recent-but-unrelated memories even on a hot topic.
+    private const int RelevantArmSlots = 5;
+
+    // Bounds on the anchor literals inlined into the walk query: untrusted message text
+    // (multi-user boundary) must not balloon the Cypher source.
+    private const int MaxAnchorTextChars = 2000;
+    private const int MaxAnchorTokens = 32;
+    private const int MaxAnchorBigrams = 16;
+    private const int MaxCastAnchors = 32;
 
     public async Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
         int limit,
         CancellationToken ct)
     {
@@ -117,15 +132,19 @@ public sealed class MemoryRepository(
             return Array.Empty<RecalledMemory>();
         }
 
+        var castAnchors = (presentPersonaIds ?? Array.Empty<Guid>())
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .Take(MaxCastAnchors)
+            .ToList();
+        var tokenAnchors = TokenizeAnchorText(anchorText);
+
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
         // OpenConnectionAsync is EF's documented hook for keeping a connection open across
         // multiple commands; it suppresses the auto-close that single-shot ExecuteSqlRawAsync
         // would do between statements. AgeOperatorInterceptor fires LOAD 'age' as a side
-        // effect of the open. ts is stored as ISO-8601 — lex order is chronological, so
-        // ORDER BY r.ts DESC sorts newest-first without a datetime cast. The pool size is a
-        // const we control, not user input — inline is fine. See header comment re: Cypher
-        // literal inlining.
+        // effect of the open.
         await db.Database.OpenConnectionAsync(ct);
         try
         {
@@ -134,22 +153,19 @@ public sealed class MemoryRepository(
             // throws InvalidCastException — no default object/string reader is registered
             // for `ag_catalog.agtype`. weight is projected as text and parsed in C# to stay
             // on that proven cast path. Salience is deliberately NOT computed in Cypher
-            // (ADR 0015) — fetch recent candidates, score and rank here.
-            var sql = $$"""
-                SELECT * FROM cypher('memory', $cy$
-                  MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
-                  RETURN r.id, r.snippet, r.weight, r.recall_count, r.last_recalled, r.ts
-                  ORDER BY r.ts DESC
-                  LIMIT {{RecallCandidatePool.ToString(CultureInfo.InvariantCulture)}}
-                $cy$) AS (id text, snippet text, weight text, recall_count int, last_recalled text, ts text)
-                """;
+            // (ADR 0015) — fetch candidates, score and rank here.
+            var sql = BuildRecallSql(personaId, partyId, castAnchors, tokenAnchors);
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
 
             var now = DateTimeOffset.UtcNow;
-            var candidates = new List<RecalledMemory>();
+            // Dedup across arms by edge id: an edge matched by an anchor leg also appears in
+            // the recent leg (and a UNION row per flag value) — keep one entry, relevance
+            // wins. Pre-ADR-0015 edges lack an id; a snippet+ts composite keeps two distinct
+            // legacy edges from collapsing into one.
+            var byKey = new Dictionary<string, (RecalledMemory Memory, bool Relevant)>(StringComparer.Ordinal);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
@@ -168,22 +184,191 @@ public sealed class MemoryRepository(
                 var recallCount = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
                 var lastRecalled = ParseIso(Get(4));
                 var capturedAt = ParseIso(Get(5)) ?? now;
+                var relevant = !reader.IsDBNull(6) && reader.GetInt32(6) != 0;
+
+                var key = edgeId != Guid.Empty
+                    ? edgeId.ToString("N")
+                    : $"legacy|{Get(5)}|{snippet}";
+                if (byKey.TryGetValue(key, out var existing))
+                {
+                    byKey[key] = (existing.Memory, existing.Relevant || relevant);
+                    continue;
+                }
 
                 var salience = SalienceMath.Score(weight, capturedAt, recallCount, lastRecalled, now);
-                candidates.Add(new RecalledMemory(
-                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience));
+                byKey[key] = (new RecalledMemory(
+                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience), relevant);
             }
 
-            return candidates
-                .OrderByDescending(m => m.Salience)
-                .ThenByDescending(m => m.CapturedAt)
-                .Take(limit)
-                .ToList();
+            return QuotaUnion(byKey, limit);
         }
         finally
         {
             await db.Database.CloseConnectionAsync();
         }
+    }
+
+    /// <summary>
+    /// The quota union (ADR 0015): relevant arm takes up to <see cref="RelevantArmSlots"/>,
+    /// recency arm fills the remainder, both internally salience-ranked, no cross-arm
+    /// formula. The merged list is re-ordered by salience so the prompt block stays one
+    /// undifferentiated ranking — the model never knows which arm surfaced a memory.
+    /// </summary>
+    private static IReadOnlyList<RecalledMemory> QuotaUnion(
+        Dictionary<string, (RecalledMemory Memory, bool Relevant)> byKey,
+        int limit)
+    {
+        var relevantArm = byKey
+            .Where(kv => kv.Value.Relevant)
+            .OrderByDescending(kv => kv.Value.Memory.Salience)
+            .ThenByDescending(kv => kv.Value.Memory.CapturedAt)
+            .Take(Math.Min(RelevantArmSlots, limit))
+            .ToList();
+        var taken = relevantArm.Select(kv => kv.Key).ToHashSet(StringComparer.Ordinal);
+
+        // The recency arm sees the same pool the pre-walk query produced: the
+        // RecallCandidatePool newest edges, salience-ranked. A relevant-flagged edge that
+        // missed the relevant quota still competes here — dedup'd by key, never duplicated.
+        var recentArm = byKey
+            .OrderByDescending(kv => kv.Value.Memory.CapturedAt)
+            .Take(RecallCandidatePool)
+            .Where(kv => !taken.Contains(kv.Key))
+            .OrderByDescending(kv => kv.Value.Memory.Salience)
+            .ThenByDescending(kv => kv.Value.Memory.CapturedAt)
+            .Take(limit - relevantArm.Count);
+
+        return relevantArm
+            .Select(kv => kv.Value.Memory with { Arm = RecallArm.Relevant })
+            .Concat(recentArm.Select(kv => kv.Value.Memory with { Arm = RecallArm.Recent }))
+            .OrderByDescending(m => m.Salience)
+            .ThenByDescending(m => m.CapturedAt)
+            .ToList();
+    }
+
+    /// <summary>
+    /// One Cypher round-trip for both arms. With anchors: a 3-leg UNION — Participant-anchor
+    /// walk, Concept-anchor walk (each flagged <c>relevant = 1</c>), and the bare recency
+    /// leg (<c>relevant = 0</c>). UNION's distinct-row semantics collapse multi-anchor hits
+    /// inside a leg; the same edge still appears once per flag value, dedup'd in C#. The
+    /// walk legs are deliberately un-LIMITed — a relevant memory may be arbitrarily old —
+    /// while the recency pool cap moves to C# (per-leg ORDER BY/LIMIT is not legal inside a
+    /// UNION). Anchorless beats keep the exact pre-walk query, recency-pooled in Cypher.
+    /// </summary>
+    private static string BuildRecallSql(
+        Guid personaId,
+        Guid partyId,
+        IReadOnlyList<Guid> castAnchors,
+        IReadOnlyList<string> tokenAnchors)
+    {
+        var match =
+            $"MATCH (part:Participant {{persona_id: '{personaId}', party_id: '{partyId}'}})-[r:RECOLLECTS]->";
+        const string columns =
+            "r.id AS id, r.snippet AS snippet, r.weight AS weight, r.recall_count AS recall_count, " +
+            "r.last_recalled AS last_recalled, r.ts AS ts";
+        const string asClause =
+            "AS (id text, snippet text, weight text, recall_count int, last_recalled text, ts text, relevant int)";
+
+        if (castAnchors.Count == 0 && tokenAnchors.Count == 0)
+        {
+            return $"""
+                SELECT * FROM cypher('memory', $cy$
+                  {match}(:Event)
+                  RETURN {columns}, 0 AS relevant
+                  ORDER BY r.ts DESC
+                  LIMIT {RecallCandidatePool.ToString(CultureInfo.InvariantCulture)}
+                $cy$) {asClause}
+                """;
+        }
+
+        var legs = new List<string>();
+        if (castAnchors.Count > 0)
+        {
+            var ids = string.Join(", ", castAnchors.Select(id => $"'{id}'"));
+            legs.Add($$"""
+                  {{match}}(:Event)-[:ABOUT]->(a:Participant {party_id: '{{partyId}}'})
+                  WHERE a.persona_id IN [{{ids}}]
+                  RETURN {{columns}}, 1 AS relevant
+                """);
+        }
+        if (tokenAnchors.Count > 0)
+        {
+            var names = string.Join(", ", tokenAnchors.Select(CypherStr));
+            legs.Add($"""
+                  {match}(:Event)-[:ABOUT]->(c:Concept)
+                  WHERE c.name IN [{names}]
+                  RETURN {columns}, 1 AS relevant
+                """);
+        }
+        legs.Add($"""
+              {match}(:Event)
+              RETURN {columns}, 0 AS relevant
+            """);
+
+        return $"""
+            SELECT * FROM cypher('memory', $cy$
+            {string.Join("\n  UNION\n", legs)}
+            $cy$) {asClause}
+            """;
+    }
+
+    /// <summary>
+    /// Concept anchors from the triggering message: lowercase unigrams (length ≥ 2) plus
+    /// adjacent-pair bigrams, matching <see cref="MemoryExtractor.NormaliseConceptName"/>'s
+    /// trim+lowercase normalisation. Bigrams catch two-word Concepts ("common lisp");
+    /// longer names wait for the embeddings arm (ADR 0015 deferral). Counts and input
+    /// length are capped — the message is untrusted boundary input.
+    /// </summary>
+    internal static IReadOnlyList<string> TokenizeAnchorText(string? anchorText)
+    {
+        if (string.IsNullOrWhiteSpace(anchorText))
+        {
+            return Array.Empty<string>();
+        }
+
+        var text = anchorText.Length > MaxAnchorTextChars
+            ? anchorText[..MaxAnchorTextChars]
+            : anchorText;
+
+        var raw = new List<string>();
+        var sb = new StringBuilder();
+        foreach (var c in text.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c))
+            {
+                sb.Append(c);
+            }
+            else if (sb.Length > 0)
+            {
+                raw.Add(sb.ToString());
+                sb.Clear();
+            }
+        }
+        if (sb.Length > 0)
+        {
+            raw.Add(sb.ToString());
+        }
+
+        var anchors = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in raw)
+        {
+            if (anchors.Count >= MaxAnchorTokens) break;
+            if (token.Length >= 2 && seen.Add(token))
+            {
+                anchors.Add(token);
+            }
+        }
+        var bigrams = 0;
+        for (var i = 0; i + 1 < raw.Count && bigrams < MaxAnchorBigrams; i++)
+        {
+            var bigram = $"{raw[i]} {raw[i + 1]}";
+            if (seen.Add(bigram))
+            {
+                anchors.Add(bigram);
+                bigrams++;
+            }
+        }
+        return anchors;
     }
 
     public async Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)

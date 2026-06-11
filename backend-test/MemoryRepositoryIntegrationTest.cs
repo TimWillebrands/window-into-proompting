@@ -384,8 +384,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.True(capture.EventCreated);
         Assert.Equal(2, capture.RecollectionsCreated);
 
-        var hanaRecall = await repo.RecallAsync(personaHana.Id, partyId, limit: 5, CancellationToken.None);
-        var vladRecall = await repo.RecallAsync(personaVlad.Id, partyId, limit: 5, CancellationToken.None);
+        var hanaRecall = await repo.RecallAsync(personaHana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 5, CancellationToken.None);
+        var vladRecall = await repo.RecallAsync(personaVlad.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 5, CancellationToken.None);
 
         var hanaSnippets = hanaRecall.Select(m => m.Snippet).ToList();
         var vladSnippets = vladRecall.Select(m => m.Snippet).ToList();
@@ -422,7 +422,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         await CaptureForAsync(repo, partyId, roomId, hana, lightSnippet, weight: 0.2);
 
         // Fresh + heavy outranks fresh + light: salience ≈ weight when decay ≈ 1.
-        var ranked = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var ranked = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(heavySnippet, ranked[0].Snippet);
         Assert.Equal(lightSnippet, ranked[1].Snippet);
 
@@ -439,7 +439,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             $cy$) AS (id ag_catalog.agtype);
             """);
 
-        var afterDecay = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var afterDecay = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(lightSnippet, afterDecay[0].Snippet);
         Assert.Equal(heavySnippet, afterDecay[1].Snippet);
 
@@ -450,7 +450,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             await repo.StrengthenRecollectionAsync(heavyEdgeId, CancellationToken.None);
         }
 
-        var afterStrengthening = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var afterStrengthening = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(heavySnippet, afterStrengthening[0].Snippet);
         Assert.True(afterStrengthening[0].RecallCount == 5);
         Assert.NotNull(afterStrengthening[0].LastRecalled);
@@ -471,12 +471,12 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         await CaptureForAsync(repo, partyId, roomId, hana, pickedSnippet, weight: 0.5);
         await CaptureForAsync(repo, partyId, roomId, hana, bystanderSnippet, weight: 0.5);
 
-        var before = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var before = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         var picked = before.Single(m => m.Snippet == pickedSnippet);
 
         await repo.StrengthenRecollectionAsync(picked.EdgeId, CancellationToken.None);
 
-        var after = await repo.RecallAsync(hana.Id, partyId, limit: 10, CancellationToken.None);
+        var after = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         var strengthened = after.Single(m => m.Snippet == pickedSnippet);
         var bystander = after.Single(m => m.Snippet == bystanderSnippet);
 
@@ -493,6 +493,162 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         // Unknown id: silent no-op, not an exception.
         await repo.StrengthenRecollectionAsync(Guid.NewGuid(), CancellationToken.None);
+    }
+
+    // ─── Two-arm recall: quota union of relevant + recent (ADR 0015, #88) ─────────────────
+
+    [Fact]
+    public async Task Recall_RelevantArm_SurfacesCastAnchoredMemory_BuriedUnderRecent()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var vladId = Guid.NewGuid();
+
+        var repo = MakeRepo();
+
+        // One memory whose Event is :ABOUT Vlad, then ten heavier unrelated memories on
+        // top — recency-only recall at limit 10 can never surface the buried one.
+        var buriedSnippet = $"buried-about-vlad-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, buriedSnippet, weight: 0.5,
+            aboutParticipantIds: new[] { vladId });
+        for (var i = 0; i < 10; i++)
+        {
+            await CaptureForAsync(repo, partyId, roomId, hana, $"filler-{i}-{Guid.NewGuid():N}", weight: 0.6);
+        }
+
+        var withoutAnchors = await repo.RecallAsync(
+            hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        Assert.DoesNotContain(buriedSnippet, withoutAnchors.Select(m => m.Snippet));
+
+        // Vlad enters the cast: the graph walk surfaces the buried memory through the
+        // relevant arm regardless of how deep recency buried it.
+        var withCast = await repo.RecallAsync(
+            hana.Id, partyId, new[] { hana.Id, vladId }, "completely unrelated chatter",
+            limit: 10, CancellationToken.None);
+        var surfaced = Assert.Single(withCast, m => m.Snippet == buriedSnippet);
+        Assert.Equal(RecallArm.Relevant, surfaced.Arm);
+        Assert.Equal(10, withCast.Count);
+    }
+
+    [Fact]
+    public async Task Recall_RelevantArm_ConceptTokenMatch_SurfacesBuriedMemory()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+
+        var repo = MakeRepo();
+
+        // Unique single-token concept name (normalised = lowercase) so the triggering
+        // message's token matches exactly one Concept anchor.
+        var conceptDisplay = $"Zorblax{Guid.NewGuid():N}";
+        var conceptName = conceptDisplay.ToLowerInvariant();
+
+        var buriedSnippet = $"buried-concept-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, buriedSnippet, weight: 0.5,
+            concept: new ConceptTag(conceptName, conceptDisplay));
+        for (var i = 0; i < 10; i++)
+        {
+            await CaptureForAsync(repo, partyId, roomId, hana, $"filler-{i}-{Guid.NewGuid():N}", weight: 0.6);
+        }
+
+        var withoutAnchors = await repo.RecallAsync(
+            hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        Assert.DoesNotContain(buriedSnippet, withoutAnchors.Select(m => m.Snippet));
+
+        // The triggering message names the concept (different casing — tokenisation
+        // lowercases to match the normalised Concept name).
+        var withConcept = await repo.RecallAsync(
+            hana.Id, partyId, new[] { hana.Id }, $"so what about {conceptDisplay} then?",
+            limit: 10, CancellationToken.None);
+        var surfaced = Assert.Single(withConcept, m => m.Snippet == buriedSnippet);
+        Assert.Equal(RecallArm.Relevant, surfaced.Arm);
+    }
+
+    [Fact]
+    public async Task Recall_ColdBeat_IdenticalToRecencyOnlyRecall()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+
+        var repo = MakeRepo();
+        for (var i = 0; i < 12; i++)
+        {
+            await CaptureForAsync(repo, partyId, roomId, hana, $"mem-{i}-{Guid.NewGuid():N}",
+                weight: 0.2 + (i % 7) * 0.1);
+        }
+
+        var recencyOnly = await repo.RecallAsync(
+            hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        // Cast present + message text, but no Event is :ABOUT anyone and no Concept matches:
+        // the relevant arm comes back empty and recency fills all slots — identical output.
+        var coldBeat = await repo.RecallAsync(
+            hana.Id, partyId, new[] { hana.Id, Guid.NewGuid() }, "wholly unanchored rambling",
+            limit: 10, CancellationToken.None);
+
+        Assert.Equal(10, recencyOnly.Count);
+        Assert.Equal(recencyOnly.Select(m => m.EdgeId), coldBeat.Select(m => m.EdgeId));
+        Assert.All(coldBeat, m => Assert.Equal(RecallArm.Recent, m.Arm));
+    }
+
+    [Fact]
+    public async Task Recall_MemoryQualifyingViaBothArms_SurfacesOnce()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var vladId = Guid.NewGuid();
+
+        var repo = MakeRepo();
+
+        var conceptDisplay = $"Zorblax{Guid.NewGuid():N}";
+        var conceptName = conceptDisplay.ToLowerInvariant();
+
+        // Recent (only 2 memories, both inside the recency pool) AND anchored via BOTH
+        // relevant legs (cast member + concept) — the union must still surface it once.
+        var doubleSnippet = $"double-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, doubleSnippet, weight: 0.5,
+            aboutParticipantIds: new[] { vladId },
+            concept: new ConceptTag(conceptName, conceptDisplay));
+        var plainSnippet = $"plain-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, plainSnippet, weight: 0.5);
+
+        var recall = await repo.RecallAsync(
+            hana.Id, partyId, new[] { hana.Id, vladId }, $"tell me about {conceptDisplay}",
+            limit: 10, CancellationToken.None);
+
+        Assert.Equal(2, recall.Count);
+        Assert.Equal(2, recall.Select(m => m.EdgeId).Distinct().Count());
+        var doubled = Assert.Single(recall, m => m.Snippet == doubleSnippet);
+        Assert.Equal(RecallArm.Relevant, doubled.Arm);
+        var plain = Assert.Single(recall, m => m.Snippet == plainSnippet);
+        Assert.Equal(RecallArm.Recent, plain.Arm);
+    }
+
+    [Fact]
+    public void TokenizeAnchorText_LowercasesSplitsAndBigrams()
+    {
+        var tokens = MemoryRepository.TokenizeAnchorText("What about Common Lisp, then?");
+
+        Assert.Contains("common", tokens);
+        Assert.Contains("lisp", tokens);
+        // Adjacent-pair bigram catches two-word normalised Concept names.
+        Assert.Contains("common lisp", tokens);
+        // Single-letter noise is dropped from unigrams.
+        Assert.DoesNotContain("a", tokens);
+
+        Assert.Empty(MemoryRepository.TokenizeAnchorText(null));
+        Assert.Empty(MemoryRepository.TokenizeAnchorText("   "));
     }
 
     // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
@@ -653,10 +809,14 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     /// <summary>
     /// Capture one Event whose sole Recollection lands on <paramref name="participant"/>
     /// with the given snippet/weight — the minimal seed for recall-ranking tests.
+    /// Optional <paramref name="aboutParticipantIds"/> / <paramref name="concept"/> hang
+    /// :ABOUT anchors off the Event for the relevant-arm walk.
     /// </summary>
     private async Task CaptureForAsync(
         MemoryRepository _, Guid partyId, Guid roomId, ParticipantView participant,
-        string snippet, double weight)
+        string snippet, double weight,
+        IReadOnlyList<Guid>? aboutParticipantIds = null,
+        ConceptTag? concept = null)
     {
         var messageId = unchecked((int)((DateTimeOffset.UtcNow.Ticks + Environment.TickCount64) & 0x7FFFFFFF));
         var source = new ChatMessage
@@ -670,8 +830,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var fake = new FakeMemoryExtractor(
             extraction: new EventExtraction(
                 Description: $"Moment for {snippet}.",
-                Concepts: new List<ConceptTag>(),
-                ParticipantIds: new List<Guid>()),
+                Concepts: concept is null ? new List<ConceptTag>() : new List<ConceptTag> { concept },
+                ParticipantIds: aboutParticipantIds?.ToList() ?? new List<Guid>()),
             recollectionByPersona: new Dictionary<string, RecollectionDraft>
             {
                 [participant.Name] = new(snippet, weight),

@@ -33,7 +33,8 @@ internal static class TestSiloDefaults
             {
                 var mock = new Mock<IMemoryRepository>();
                 mock.Setup(m => m.RecallAsync(
-                        It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                        It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
+                        It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                     .ReturnsAsync(Array.Empty<RecalledMemory>());
                 mock.Setup(m => m.RecallStancesAsync(
                         It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),

@@ -43,19 +43,26 @@ public interface IMemoryRepository
         CancellationToken ct);
 
     /// <summary>
-    /// Salience-ranked Recall (ADR 0015): fetch the recent Recollection candidates for a
-    /// Participant — the Persona's first-person memory in this Party, across all Rooms —
-    /// score each as <c>weight × decay(now − ts) + use_bonus(recall_count, last_recalled)</c>
-    /// in C#, and return the top <paramref name="limit"/> ordered by salience descending.
-    /// No concept matching, no embeddings yet; beat-relevance is judged in-context by the
-    /// Decision LLM. Empty list if nothing has been remembered yet.
+    /// Two-arm salience-ranked Recall (ADR 0015): a quota union of the <em>relevant</em>
+    /// arm — a graph walk <c>←ABOUT← Event ←RECOLLECTS</c> from the beat's anchors
+    /// (present cast Participants + Concepts whose normalised name matches tokens of the
+    /// triggering message) — and the <em>recent</em> arm (recency pool). Each arm is
+    /// internally ranked by <c>weight × decay(now − ts) + use_bonus(recall_count,
+    /// last_recalled)</c> computed in C#; the relevant arm takes up to ~5 slots, recent
+    /// fills the remainder to <paramref name="limit"/>; dedup by edge id. Zero anchor
+    /// matches degrades gracefully to recency-only (ADR 0009 behaviour). One Cypher
+    /// round-trip, no LLM, no embeddings. Empty list if nothing has been remembered yet.
     /// </summary>
     /// <param name="personaId">The Persona's library id (Persona.Id, not Participant pkey).</param>
     /// <param name="partyId">Scope: only Recollections inside this Party.</param>
+    /// <param name="presentPersonaIds">The Room's live cast (self included) — Participant anchors.</param>
+    /// <param name="anchorText">The triggering message — tokenised into Concept anchors.</param>
     /// <param name="limit">Maximum number of memories to return. Caller picks the budget.</param>
     Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
         int limit,
         CancellationToken ct);
 

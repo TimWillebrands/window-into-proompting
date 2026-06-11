@@ -175,7 +175,7 @@ public static class PapertrailRenderer
                 // ADR 0015 observability: candidate set + pick per recall, so memory misses
                 // are diagnosable from the trail alone (the embeddings-deferral trigger).
                 var recall = entry.Appraisal?.Recall is { Candidates.Count: > 0 } rc
-                    ? $"\n{indent}    recall: [{string.Join(", ", rc.Candidates.Select(c => $"#{c.Index}={c.Score:F2}"))}] picked={(rc.Picked is int p ? $"#{p}" : "none")}"
+                    ? $"\n{indent}    recall: [{string.Join(", ", rc.Candidates.Select(RenderRecallCandidate))}] picked={(rc.Picked is int p ? $"#{p}" : "none")}"
                     : "";
                 if (entry.Content is null or "" && entry.Error is null)
                 {
@@ -198,6 +198,11 @@ public static class PapertrailRenderer
 
     public static string ToJson(PapertrailDocument doc)
         => JsonSerializer.Serialize(doc, JsonOptions);
+
+    // Arm attribution (ADR 0015 two-arm union) abbreviated to keep the line scannable:
+    // `(rel)` graph-walk arm, `(rec)` recency arm; pre-arm entries carry no suffix.
+    private static string RenderRecallCandidate(RecallCandidateSummary c)
+        => $"#{c.Index}={c.Score:F2}{(string.IsNullOrEmpty(c.Arm) ? "" : $"({c.Arm[..Math.Min(3, c.Arm.Length)]})")}";
 
     private static string FormatRelative(long? sendAt, long? anchor)
     {
@@ -266,4 +271,10 @@ public sealed class RecallCandidateSummary
     public double Score { get; init; }
     public double Weight { get; init; }
     public int RecallCount { get; init; }
+
+    /// <summary>
+    /// Which arm's slot this candidate consumed: <c>"relevant"</c> (anchor graph-walk) or
+    /// <c>"recent"</c> (recency pool). Null on entries written before the two-arm union.
+    /// </summary>
+    public string? Arm { get; init; }
 }
