@@ -58,5 +58,9 @@ coverage/
 *.tmp
 *.temp
 
+# Bench probe artifacts (ADR 0011) — working material, not fixtures
+bench-runs/
+tools/bench/benchsettings.local.json
+
 # LLM Junk
 .claude

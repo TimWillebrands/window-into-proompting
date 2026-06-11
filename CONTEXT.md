@@ -98,6 +98,26 @@ _Avoid_: topic, tag, thing, subject.
 A crystallized moment in **Reality** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message reality (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
 _Avoid_: episode, fact, occurrence, snapshot.
 
+### The Bench (development)
+
+Tooling vocabulary — these terms describe how Proompting is *developed*, not what it is. See [ADR 0011](docs/adr/0011-bench-probe-runner.md).
+
+**Bench**:
+The headless console host (`tools/bench`) that runs **Probes** against the real grain graph — real router, real endpoint grains, in-memory storage, no UI. The place where LLM-driven features are pointedly exercised during development.
+_Avoid_: test-harness, sandbox, playground, simulator.
+
+**Probe**:
+A pointed runner of one subsystem slice (a service, a grain, or a multi-grain interaction), written as a plain C# method. Observes rather than asserts — its deliverable is a **Probe Artifact**, not a pass/fail. Assertion-style coverage stays in `backend-test/`.
+_Avoid_: test, spec, scenario-test, benchmark.
+
+**Probe Artifact**:
+The structured output of one Probe run: composed prompts (captured at the endpoint-grain boundary), urge breakdowns, parsed decisions, raw model output, attribution, timing. Rendered to console and written to `bench-runs/` as JSON so runs can be read by an agent and diffed across iterations.
+_Avoid_: report, log, result, trace.
+
+**Bench Session**:
+A deliberate development mode in which a driver-user has set up reachable LLM providers (usually local Ollama) for the Bench and told the working agent so. Verified with `bench doctor`. Without one, Probes still capture composed prompts but get no model output.
+_Avoid_: dev-mode, test-mode, live-session.
+
 ## Relationships
 
 - A **Party** contains zero or more **Rooms**.
