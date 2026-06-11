@@ -455,7 +455,10 @@ internal sealed class LenientMemoryIndexConverter : JsonConverter<int?>
                 if (reader.TryGetInt32(out var n))
                     return n;
                 if (reader.TryGetDouble(out var d))
-                    return (int)Math.Round(d);
+                {
+                    var rounded = Math.Round(d);
+                    return rounded >= int.MinValue && rounded <= int.MaxValue ? (int)rounded : null;
+                }
                 return null;
             case JsonTokenType.String:
                 return int.TryParse(reader.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)

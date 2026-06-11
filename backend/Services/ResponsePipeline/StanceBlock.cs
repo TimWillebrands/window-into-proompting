@@ -17,7 +17,13 @@ public static class StanceBlock
             return string.Empty;
         }
 
-        var lines = string.Join("\n", stanceLines.Select(s => $"- {s.Trim()}"));
+        var lines = string.Join("\n", stanceLines
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => $"- {s.Trim()}"));
+        if (string.IsNullOrEmpty(lines))
+        {
+            return string.Empty;
+        }
         return $"\n# Where you stand\n{lines}\n";
     }
 }

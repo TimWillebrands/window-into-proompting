@@ -58,6 +58,10 @@ public sealed class MemoryController(IMemoryRepository memoryRepository) : Contr
                 {
                     return BadRequest("A Participant Stance requires targetPersonaId.");
                 }
+                if (targetPersonaId == personaId)
+                {
+                    return BadRequest("Use TargetKind.Self to record a stance toward oneself.");
+                }
                 target = new StanceTargetSpec(StanceTargetKind.Participant, targetPersonaId, null, null);
                 break;
 

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey,
     useGetPartiesPartyIdMemoryParticipantsPersonaIdStances,
@@ -105,6 +105,12 @@ function StanceAuthor({
     const [valence, setValence] = useState<number>(0);
     const [reasoning, setReasoning] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: sourceId triggers the reset; setters are stable
+    useEffect(() => {
+        setTargetPersonaId('');
+        setConceptName('');
+    }, [sourceId]);
 
     const others = personas.filter((p) => p.id !== sourceId);
 
