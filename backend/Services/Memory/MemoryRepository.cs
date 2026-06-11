@@ -947,11 +947,18 @@ public sealed class MemoryRepository(
         try
         {
             // MERGE so a first-ever consolidation of a Participant that only just appeared
-            // doesn't depend on capture having materialised the vertex first.
+            // doesn't depend on capture having materialised the vertex first. The CASE keeps
+            // the watermark monotonic: two runs finishing out of order (e.g. across backend
+            // instances, where the in-flight guard can't see each other) must not move it
+            // backward and re-queue already-walked Recollections. ISO-"o" strings compare
+            // correctly as text — same convention as the unconsolidated WHERE.
             var sql = $$"""
                 SELECT * FROM cypher('memory', $cy$
                   MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
-                  SET part.ts = '{{iso}}'
+                  SET part.ts = CASE
+                    WHEN part.ts IS NULL OR part.ts < '{{iso}}' THEN '{{iso}}'
+                    ELSE part.ts
+                  END
                   RETURN part.persona_id
                 $cy$) AS (persona_id ag_catalog.agtype)
                 """;

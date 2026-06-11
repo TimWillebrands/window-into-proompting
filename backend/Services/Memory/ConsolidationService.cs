@@ -118,7 +118,24 @@ public sealed class ConsolidationService(
             logger.LogInformation(
                 "Consolidation gauge tripped for persona {PersonaId} in party {PartyId}: Σ weight {Pressure:0.0#} ≥ {Threshold}",
                 subject.PersonaId, partyId, pressure, GaugeThreshold);
-            results.Add(await RunAsync(partyId, subject, roster, ct));
+            try
+            {
+                results.Add(await RunAsync(partyId, subject, roster, ct));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Subjects are independent: one bad proposer response must not starve the
+                // rest of the pass. The failed subject keeps its watermark and gets retried
+                // next time the gauge trips.
+                logger.LogWarning(
+                    ex,
+                    "Consolidation gauge run failed for persona {PersonaId} in party {PartyId}",
+                    subject.PersonaId, partyId);
+            }
         }
         return results;
     }

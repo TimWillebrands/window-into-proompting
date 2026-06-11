@@ -53,7 +53,7 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
     private const double MinPersistedWeight = 0.05;
     private const int MaxDescriptionChars = 500;
     private const int MaxConceptsPerEvent = 8;
-    private const int MaxConceptNameChars = 64;
+    internal const int MaxConceptNameChars = 64;
     // Cap how many existing tags we paste into the event-extraction prompt. Concept count
     // is small today; once it grows past this, switch the repository-side fetch to a
     // prefix/fuzzy match instead of "all names" (see ADR 0014).
@@ -149,7 +149,7 @@ The marked moment:
         var json = TryRepairJson(raw);
         if (json is null)
         {
-            logger.LogWarning("MemoryExtractor: extractor produced unparseable output: {Raw}", raw);
+            logger.LogWarning("MemoryExtractor: extractor produced unparseable output: {Preview}", LlmJson.LogPreview(raw));
             return null;
         }
 
@@ -202,7 +202,7 @@ The marked moment:
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "MemoryExtractor: JSON parse failure on {Json}", json);
+            logger.LogWarning(ex, "MemoryExtractor: JSON parse failure on {Preview}", LlmJson.LogPreview(json));
             return null;
         }
     }
@@ -301,7 +301,7 @@ The marked moment:
         var json = TryRepairJson(raw ?? "");
         if (json is null)
         {
-            logger.LogWarning("MemoryExtractor: recollection extractor produced unparseable output: {Raw}", raw);
+            logger.LogWarning("MemoryExtractor: recollection extractor produced unparseable output: {Preview}", LlmJson.LogPreview(raw));
             return empty;
         }
 
@@ -335,7 +335,7 @@ The marked moment:
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "MemoryExtractor: recollection JSON parse failure on {Json}", json);
+            logger.LogWarning(ex, "MemoryExtractor: recollection JSON parse failure on {Preview}", LlmJson.LogPreview(json));
             return empty;
         }
 

@@ -76,10 +76,16 @@ public sealed class MemoryController(
                 {
                     return BadRequest("A Concept Stance requires targetConceptName.");
                 }
-                // Normalise like the Capture extractor: lowercased name dedups, display keeps
-                // the label as typed.
+                if (display.Length > MemoryExtractor.MaxConceptNameChars)
+                {
+                    return BadRequest(
+                        $"Concept name must be at most {MemoryExtractor.MaxConceptNameChars} characters.");
+                }
+                // Same normaliser as the Capture extractor — one dedup rule across both
+                // writers; display keeps the label as typed.
                 target = new StanceTargetSpec(
-                    StanceTargetKind.Concept, null, display.ToLowerInvariant(), display);
+                    StanceTargetKind.Concept, null,
+                    MemoryExtractor.NormaliseConceptName(display), display);
                 break;
 
             case StanceTargetKind.Self:

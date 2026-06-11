@@ -145,6 +145,71 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
     }
 
     [Fact]
+    public async Task Gauge_OneSubjectFailure_DoesNotStarveOthers()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var vlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
+        // Hana first: her failing run must not abort the pass before Vlad's.
+        var subjects = new[]
+        {
+            new ConsolidationSubject(hana.Id, "Hana", null),
+            new ConsolidationSubject(vlad.Id, "Vlad", null),
+        };
+
+        var repo = MakeRepo();
+        for (var i = 0; i < 5; i++)
+        {
+            await CaptureForAsync(partyId, roomId, hana, $"hana-moment-{i}", 0.7);
+            await CaptureForAsync(partyId, roomId, vlad, $"vlad-moment-{i}", 0.7);
+        }
+
+        var consolidator = new FakeStanceConsolidator(batch =>
+            batch[0].Snippet.StartsWith("hana")
+                ? throw new InvalidOperationException("proposer blew up")
+                : Array.Empty<StanceProposal>());
+        var service = MakeService(repo, consolidator);
+
+        var results = await service.RunWhereGaugeExceededAsync(
+            partyId, subjects, Array.Empty<ConsolidationRosterEntry>(), CancellationToken.None);
+
+        // Vlad's run completed despite Hana's failure; both were attempted.
+        var run = Assert.Single(results);
+        Assert.Equal(vlad.Id, run.PersonaId);
+        Assert.Equal(2, consolidator.Calls);
+
+        // Hana's watermark stayed put — her batch is retried on the next gauge trip.
+        var hanaBatch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, hana.Id, CancellationToken.None);
+        Assert.Equal(5, hanaBatch.Items.Count);
+        var vladBatch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, vlad.Id, CancellationToken.None);
+        Assert.Empty(vladBatch.Items);
+    }
+
+    [Fact]
+    public async Task AdvanceWatermark_NeverRegresses()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var personaId = Guid.NewGuid();
+        var repo = MakeRepo();
+
+        var later = DateTimeOffset.UtcNow;
+        var earlier = later.AddMinutes(-5);
+
+        await repo.AdvanceConsolidationWatermarkAsync(partyId, personaId, later, CancellationToken.None);
+        // A slower run finishing out of order must not move the watermark backward and
+        // re-queue Recollections the faster run already walked.
+        await repo.AdvanceConsolidationWatermarkAsync(partyId, personaId, earlier, CancellationToken.None);
+
+        var batch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, personaId, CancellationToken.None);
+        Assert.Equal(later, batch.Watermark);
+    }
+
+    [Fact]
     public async Task Retract_AppendsNeutralizingEdge_MasksPromptLine_PreservesHistory()
     {
         RequireDevStack();

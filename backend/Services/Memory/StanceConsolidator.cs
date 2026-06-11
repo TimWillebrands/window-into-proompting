@@ -127,7 +127,9 @@ New memories to sleep on (oldest first, weight = how much it stuck):
         var json = LlmJson.TryRepairObject(raw ?? "");
         if (json is null)
         {
-            logger.LogWarning("StanceConsolidator: unparseable output for persona {PersonaId}: {Raw}", subject.PersonaId, raw);
+            logger.LogWarning(
+                "StanceConsolidator: unparseable output for persona {PersonaId}: {Preview}",
+                subject.PersonaId, LlmJson.LogPreview(raw));
             return Array.Empty<StanceProposal>();
         }
 
@@ -226,7 +228,9 @@ New memories to sleep on (oldest first, weight = how much it stuck):
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "StanceConsolidator: proposal JSON parse failure on {Json}", json);
+            logger.LogWarning(
+                ex, "StanceConsolidator: proposal JSON parse failure for persona {PersonaId}: {Preview}",
+                subject.PersonaId, LlmJson.LogPreview(json));
         }
 
         return proposals;
