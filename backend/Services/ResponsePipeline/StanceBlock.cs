@@ -1,3 +1,5 @@
+using PartyTown.Services.Memory;
+
 namespace PartyTown.Services.ResponsePipeline;
 
 /// <summary>
@@ -26,4 +28,15 @@ public static class StanceBlock
         }
         return $"\n# Where you stand\n{lines}\n";
     }
+
+    /// <summary>
+    /// The prompt text for one Stance line. A monotone Stance renders its reasoning verbatim;
+    /// an ambivalent one (<see cref="StanceLine.Contrast"/> set, ADR 0016) folds the earlier
+    /// contradicting belief into the same line so it reads as one playable tension — "Denise
+    /// exaggerates — though you used to admire her storytelling" — never two competing entries.
+    /// </summary>
+    public static string FormatLine(StanceLine line)
+        => line.Contrast is { Length: > 0 } past
+            ? $"{line.Reasoning} — though you used to feel otherwise: {past}"
+            : line.Reasoning;
 }

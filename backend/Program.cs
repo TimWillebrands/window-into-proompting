@@ -41,6 +41,8 @@ if (!openApiBuild)
 
     builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
     builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
+    builder.Services.AddSingleton<IStanceConsolidator, StanceConsolidator>();
+    builder.Services.AddSingleton<ConsolidationService>();
 
     builder.Host.UseOrleans(siloBuilder =>
     {

@@ -156,15 +156,20 @@ public sealed class ResponsePipeline(
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
-            // ADR 0015 recall: top-10 salience-ranked Recollections for this Persona scoped
-            // to the Party (cross-Room within one Party). Salience orders the candidates;
-            // the decision LLM still judges beat-relevance in context. Recall failure is
-            // non-fatal — log + continue with an empty list so a memory outage never blocks
-            // the persona from responding.
+            // ADR 0015 recall: two-arm quota union for this Persona scoped to the Party
+            // (cross-Room within one Party). The relevant arm graph-walks from the beat's
+            // anchors (present cast + Concepts named in the triggering message); the recency
+            // arm fills the remainder. Salience orders the candidates; the decision LLM
+            // still judges beat-relevance in context. Recall failure is non-fatal — log +
+            // continue with an empty list so a memory outage never blocks the persona from
+            // responding.
+            var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
             IReadOnlyList<RecalledMemory> recollections;
             try
             {
-                recollections = await memoryRepository.RecallAsync(persona.Id, partyId, limit: 10, linkedCt);
+                recollections = await memoryRepository.RecallAsync(
+                    persona.Id, partyId, presentPersonaIds,
+                    triggeringMessage.Content ?? string.Empty, limit: 10, linkedCt);
             }
             catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
             {
@@ -179,14 +184,16 @@ public sealed class ResponsePipeline(
             }
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
-            // Observability (ADR 0015): the candidate set is what makes recall misses
-            // visible — this is the embeddings-deferral contract's trigger instrument.
+            // Observability (ADR 0015): the candidate set — with per-candidate arm
+            // attribution — is what makes recall misses visible; this is the
+            // embeddings-deferral contract's trigger instrument.
             if (recollections.Count > 0)
             {
                 logger.LogInformation(
                     "Recall for persona {PersonaName} in party {PartyId}: {Candidates}",
                     persona.Name, partyId,
-                    string.Join(", ", recollections.Select((r, i) => $"#{i + 1} {r.EdgeId:N}={r.Salience:F3}")));
+                    string.Join(", ", recollections.Select((r, i) =>
+                        $"#{i + 1} {r.EdgeId:N}={r.Salience:F3} ({ArmTag(r.Arm)})")));
             }
 
             // ADR 0016 stance floor: anchor-scoped, latest-wins Stance lines for the ambient
@@ -195,13 +202,14 @@ public sealed class ResponsePipeline(
             // LLM calls on the beat path. Non-fatal like recall: a memory outage never mutes
             // the persona.
             IReadOnlyList<string> stanceLines;
+            var ambivalenceCount = 0;
             try
             {
-                var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
                 var stances = await memoryRepository.RecallStancesAsync(
                     partyId, persona.Id, presentPersonaIds,
                     triggeringMessage.Content ?? string.Empty, limit: 5, linkedCt);
-                stanceLines = stances.Select(s => s.Reasoning).ToList();
+                stanceLines = stances.Select(StanceBlock.FormatLine).ToList();
+                ambivalenceCount = stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
             }
             catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
             {
@@ -215,6 +223,7 @@ public sealed class ResponsePipeline(
                 stanceLines = Array.Empty<string>();
             }
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
+            turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
             var decision = await RunDecisionPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,
@@ -255,6 +264,7 @@ public sealed class ResponsePipeline(
                     Score = Math.Round(r.Salience, 4),
                     Weight = r.Weight,
                     RecallCount = r.RecallCount,
+                    Arm = ArmTag(r.Arm),
                 }).ToList(),
                 Picked = decision.MemoryToReference,
                 PickedId = pickedMemory?.EdgeId,
@@ -407,6 +417,10 @@ public sealed class ResponsePipeline(
             store.Remove(chatGroupId, messageId);
         }
     }
+
+    // Arm attribution as logged/papertrailed (ADR 0015 two-arm union observability).
+    private static string ArmTag(RecallArm arm)
+        => arm == RecallArm.Relevant ? "relevant" : "recent";
 
     /// <summary>
     /// Fire-and-forget strengthening write (ADR 0015): a pick increments the edge's

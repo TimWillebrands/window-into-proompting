@@ -29,6 +29,7 @@ import type {
     ChatGroupInfo,
     CommitImportRequest,
     CommitImportResponse,
+    ConsolidationRunResponse,
     CreateChatGroupRequest,
     CreatePartyRequest,
     DefaultPersonaTemplate,
@@ -3436,6 +3437,485 @@ export function useGetPartiesPartyIdMemoryParticipantsPersonaIdStancesSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201TextPlain =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201ApplicationJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201TextJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponseSuccess =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse201TextJson
+    ) & {
+        headers: Headers;
+    };
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponseError =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse404TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse =
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponseSuccess
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponseError;
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractUrl =
+    (partyId: string, personaId: string, stanceId: string) => {
+        return `/api/parties/${partyId}/memory/participants/${personaId}/stances/${stanceId}/retract`;
+    };
+
+export const postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract =
+    async (
+        partyId: string,
+        personaId: string,
+        stanceId: string,
+        options?: RequestInit,
+    ): Promise<postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse> => {
+        return customFetch<postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractResponse>(
+            getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractUrl(
+                partyId,
+                personaId,
+                stanceId,
+            ),
+            {
+                ...options,
+                method: 'POST',
+            },
+        );
+    };
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string; stanceId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string; stanceId: string },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract',
+        ];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+                >
+            >,
+            { partyId: string; personaId: string; stanceId: string }
+        > = (props) => {
+            const { partyId, personaId, stanceId } = props ?? {};
+
+            return postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract(
+                partyId,
+                personaId,
+                stanceId,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+            >
+        >
+    >;
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractMutationError =
+    ProblemDetails;
+
+export const usePostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract =
+    <TError = ProblemDetails, TContext = unknown>(
+        options?: {
+            mutation?: UseMutationOptions<
+                Awaited<
+                    ReturnType<
+                        typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+                    >
+                >,
+                TError,
+                { partyId: string; personaId: string; stanceId: string },
+                TContext
+            >;
+            request?: SecondParameter<typeof customFetch>;
+        },
+        queryClient?: QueryClient,
+    ): UseMutationResult<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string; stanceId: string },
+        TContext
+    > => {
+        return useMutation(
+            getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetractMutationOptions(
+                options,
+            ),
+            queryClient,
+        );
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200TextPlain =
+    {
+        data: ConsolidationRunResponse;
+        status: 200;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200ApplicationJson =
+    {
+        data: ConsolidationRunResponse;
+        status: 200;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200TextJson =
+    {
+        data: ConsolidationRunResponse;
+        status: 200;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponseSuccess =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse200TextJson
+    ) & {
+        headers: Headers;
+    };
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponseError =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse404TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse =
+    | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponseSuccess
+    | postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponseError;
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateUrl = (
+    partyId: string,
+    personaId: string,
+) => {
+    return `/api/parties/${partyId}/memory/participants/${personaId}/consolidate`;
+};
+
+export const postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate = async (
+    partyId: string,
+    personaId: string,
+    options?: RequestInit,
+): Promise<postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse> => {
+    return customFetch<postPartiesPartyIdMemoryParticipantsPersonaIdConsolidateResponse>(
+        getPostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateUrl(
+            partyId,
+            personaId,
+        ),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate',
+        ];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+                >
+            >,
+            { partyId: string; personaId: string }
+        > = (props) => {
+            const { partyId, personaId } = props ?? {};
+
+            return postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate(
+                partyId,
+                personaId,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+            >
+        >
+    >;
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateMutationError =
+    ProblemDetails;
+
+export const usePostPartiesPartyIdMemoryParticipantsPersonaIdConsolidate = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<
+        ReturnType<
+            typeof postPartiesPartyIdMemoryParticipantsPersonaIdConsolidate
+        >
+    >,
+    TError,
+    { partyId: string; personaId: string },
+    TContext
+> => {
+    return useMutation(
+        getPostPartiesPartyIdMemoryParticipantsPersonaIdConsolidateMutationOptions(
+            options,
+        ),
+        queryClient,
+    );
+};
+
+export type postPartiesPartyIdMemoryConsolidateResponse200TextPlain = {
+    data: ConsolidationRunResponse[];
+    status: 200;
+};
+
+export type postPartiesPartyIdMemoryConsolidateResponse200ApplicationJson = {
+    data: ConsolidationRunResponse[];
+    status: 200;
+};
+
+export type postPartiesPartyIdMemoryConsolidateResponse200TextJson = {
+    data: ConsolidationRunResponse[];
+    status: 200;
+};
+
+export type postPartiesPartyIdMemoryConsolidateResponseSuccess = (
+    | postPartiesPartyIdMemoryConsolidateResponse200TextPlain
+    | postPartiesPartyIdMemoryConsolidateResponse200ApplicationJson
+    | postPartiesPartyIdMemoryConsolidateResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postPartiesPartyIdMemoryConsolidateResponse =
+    postPartiesPartyIdMemoryConsolidateResponseSuccess;
+
+export const getPostPartiesPartyIdMemoryConsolidateUrl = (partyId: string) => {
+    return `/api/parties/${partyId}/memory/consolidate`;
+};
+
+export const postPartiesPartyIdMemoryConsolidate = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<postPartiesPartyIdMemoryConsolidateResponse> => {
+    return customFetch<postPartiesPartyIdMemoryConsolidateResponse>(
+        getPostPartiesPartyIdMemoryConsolidateUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostPartiesPartyIdMemoryConsolidateMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>,
+        TError,
+        { partyId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>,
+    TError,
+    { partyId: string },
+    TContext
+> => {
+    const mutationKey = ['postPartiesPartyIdMemoryConsolidate'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>,
+        { partyId: string }
+    > = (props) => {
+        const { partyId } = props ?? {};
+
+        return postPartiesPartyIdMemoryConsolidate(partyId, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostPartiesPartyIdMemoryConsolidateMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>
+>;
+
+export type PostPartiesPartyIdMemoryConsolidateMutationError = unknown;
+
+export const usePostPartiesPartyIdMemoryConsolidate = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>,
+            TError,
+            { partyId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postPartiesPartyIdMemoryConsolidate>>,
+    TError,
+    { partyId: string },
+    TContext
+> => {
+    return useMutation(
+        getPostPartiesPartyIdMemoryConsolidateMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type getPartyResponse200TextPlain = {
     data: PartyInfo[];

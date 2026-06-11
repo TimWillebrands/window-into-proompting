@@ -31,10 +31,43 @@ public sealed record StanceTargetSpec(
     string? ConceptDisplay);
 
 /// <summary>
+/// Who wrote a STANCE edge (ADR 0016 auditability). Stored as an <c>origin</c> property on
+/// the edge; edges written before attribution existed lack the property and read back as
+/// <see cref="Curator"/> — the only writer that existed then.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<StanceOrigin>))]
+public enum StanceOrigin
+{
+    /// <summary>Hand-authored in the debug/curation UI.</summary>
+    Curator,
+
+    /// <summary>Auto-appended by a Consolidation run; <see cref="StanceAttribution.RunId"/> set.</summary>
+    Consolidation,
+
+    /// <summary>
+    /// Neutralizing edge appended by one-click retract; <see cref="StanceAttribution.RetractsId"/>
+    /// points at the edge being masked. A retract-current target renders nothing in
+    /// <c># Where you stand</c> — latest-wins masks the junk without deleting history.
+    /// </summary>
+    Retract,
+}
+
+/// <summary>
+/// Write-side provenance for <see cref="IMemoryRepository.AppendStanceAsync"/>. Null means
+/// curator-authored (no extra edge properties — matches pre-attribution edges).
+/// </summary>
+public sealed record StanceAttribution(
+    StanceOrigin Origin,
+    Guid? RunId = null,
+    Guid? RetractsId = null);
+
+/// <summary>
 /// One STANCE edge as stored, for listing + history (ADR 0016). Append-only: every write is
 /// a new edge, so a target accumulates many records over time. <see cref="IsCurrent"/> marks
 /// the latest-wins survivor per (source, target) — the one the read path surfaces. History
 /// stays queryable because the superseded edges are returned too, just unflagged.
+/// <see cref="Origin"/>/<see cref="RunId"/>/<see cref="RetractsId"/> carry the audit trail:
+/// which writer appended this edge, under which Consolidation run, masking which prior edge.
 /// </summary>
 public sealed record StanceRecord(
     Guid Id,
@@ -45,7 +78,10 @@ public sealed record StanceRecord(
     Guid? TargetPersonaId,
     string? TargetConceptName,
     string? TargetConceptDisplay,
-    bool IsCurrent);
+    bool IsCurrent,
+    StanceOrigin Origin = StanceOrigin.Curator,
+    Guid? RunId = null,
+    Guid? RetractsId = null);
 
 /// <summary>
 /// One latest-wins Stance line surfaced for the ambient <c># Where you stand</c> block
@@ -53,5 +89,13 @@ public sealed record StanceRecord(
 /// Decision and Speaking prompts; <see cref="Valence"/> rides along so the block can order
 /// most-strongly-felt first. Already anchor-scoped and capped by
 /// <see cref="IMemoryRepository.RecallStancesAsync"/>.
+/// <para>
+/// <see cref="Contrast"/> is the ambivalence read (ADR 0016): the reasoning of an earlier,
+/// <em>contradicting</em> Stance toward the same target (valence sign-flip or
+/// |Δvalence| ≥ 1.0) — set on at most the 1–2 most-salient targets per beat, null otherwise.
+/// When present the renderer folds the two into one combined line so append-only history
+/// reads as playable tension rather than write-only archaeology. Latest-wins still resolves
+/// the current belief everywhere else; this is a rendering enrichment, not a new read model.
+/// </para>
 /// </summary>
-public sealed record StanceLine(string Reasoning, double Valence);
+public sealed record StanceLine(string Reasoning, double Valence, string? Contrast = null);
