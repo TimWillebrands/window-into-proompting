@@ -81,3 +81,8 @@ CREATE INDEX IF NOT EXISTS memory_recollects_start_idx
   ON memory."RECOLLECTS" (start_id);
 CREATE INDEX IF NOT EXISTS memory_recollects_end_idx
   ON memory."RECOLLECTS" (end_id);
+
+-- Stance-by-author lookup (ADR 0016): the floor reads every STANCE edge out of one source
+-- Participant, then computes latest-wins/anchor-scoping in C#.
+CREATE INDEX IF NOT EXISTS memory_stance_start_idx
+  ON memory."STANCE" (start_id);

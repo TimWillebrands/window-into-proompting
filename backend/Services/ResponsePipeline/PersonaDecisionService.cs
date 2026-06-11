@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -32,10 +33,13 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     /// <paramref name="repairHint"/> carries a Levelt-style speech-repair cue: when the
     /// persona shipped its previous message past the point of no return *and* a relevant
     /// new message was missed, the hint nudges the next decision toward acknowledgment.
-    /// <paramref name="recollections"/> is the top-N most recent Recollection snippets
-    /// for this persona in this party (ADR 0009 MVP recall) — rendered as a "what you
+    /// <paramref name="recollections"/> is the top-N salience-ranked Recollection snippets
+    /// for this persona in this party (ADR 0015 recall) — rendered as a numbered "what you
     /// remember" block in the system prompt so the persona can naturally bring up past
-    /// moments. Empty list = no block rendered.
+    /// moments and pick one by index. Empty list = no block rendered.
+    /// <paramref name="stances"/> is the anchor-scoped, latest-wins Stance lines (ADR 0016) —
+    /// rendered as the ambient "# Where you stand" block. Unlike recollections it carries no
+    /// selection mechanic: it is identity-adjacent orientation the persona speaks from.
     /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         SelfView self,
@@ -46,7 +50,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         CancellationToken cancellationToken,
         string? scenario = null,
         RepairHint? repairHint = null,
-        IReadOnlyList<string>? recollections = null)
+        IReadOnlyList<string>? recollections = null,
+        IReadOnlyList<string>? stances = null)
     {
         var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
@@ -77,7 +82,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -104,9 +109,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                         ["gutReaction"] = new JsonObject { ["type"] = "string" },
                         ["memoryToReference"] = new JsonObject
                         {
-                            // Strict mode requires every field in `required`; use the nullable
-                            // type-array form so the model can legitimately decline to pick.
-                            ["type"] = new JsonArray("string", "null")
+                            // ADR 0015: pick by index, not by copy — the integer is the
+                            // strengthening write's key. Strict mode requires every field in
+                            // `required`; the nullable type-array form lets the model
+                            // legitimately decline to pick.
+                            ["type"] = new JsonArray("integer", "null")
                         },
                         ["wouldSay"] = new JsonObject { ["type"] = "string" },
                         ["respond"] = new JsonObject { ["type"] = "boolean" }
@@ -226,6 +233,14 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             parsed = parsed with { Respond = true };
         }
 
+        // Clamp the memory pick to the surfaced list: an out-of-range index — or any pick
+        // when nothing was surfaced — is model noise, not a usable strengthening key.
+        if (parsed.MemoryToReference is int pick &&
+            (pick < 1 || pick > (recollections?.Count ?? 0)))
+        {
+            parsed = parsed with { MemoryToReference = null };
+        }
+
         if (!parsed.Respond && parsed.Reason.StartsWith("Fallback"))
             logger.LogDebug("Persona {PersonaName} suppressed due to unparseable decision. Raw: {Raw}", self.Name, raw);
 
@@ -245,7 +260,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         IReadOnlyList<ParticipantView> participants,
         string? scenario,
         RepairHint? repairHint,
-        IReadOnlyList<string>? recollections)
+        IReadOnlyList<string>? recollections,
+        IReadOnlyList<string>? stances)
     {
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
@@ -259,13 +275,18 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             ? string.Empty
             : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
 
-        // ADR 0009: top-N recent Recollection snippets for this Persona in this Party,
-        // across all Rooms. No matching, no ranking beyond recency — the model is left to
-        // judge in-context whether a memory is relevant to the current beat. Block is
+        // ADR 0015: top-N salience-ranked Recollection snippets for this Persona in this
+        // Party, across all Rooms. Numbered so the model picks by index (the strengthening
+        // key) instead of copying text; beat-relevance is still judged in-context. Block is
         // omitted entirely when empty so it never reads as a void "you remember nothing".
         var recollectionsBlock = recollections is null || recollections.Count == 0
             ? string.Empty
-            : $"\n# What you remember\n{string.Join("\n", recollections.Select(s => $"- {s}"))}\n";
+            : $"\n# What you remember\n{string.Join("\n", recollections.Select((s, i) => $"{i + 1}. {s}"))}\n";
+
+        // ADR 0016: ambient Stance block. Identity-adjacent — who you are relative to who's
+        // here and what's live in the message — so it sits right after the roster, no
+        // selection mechanic. Omitted when nothing is anchored.
+        var stanceBlock = StanceBlock.Render(stances);
 
         return $$"""
 # You are: {{self.Name}}
@@ -278,7 +299,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     DriverKind.System => $"- {p.Name} (narrator)",
     _ => $"- {p.Name} (persona)",
 }))}}
-{{recollectionsBlock}}{{repairBlock}}
+{{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
@@ -297,9 +318,9 @@ is worse than letting the room breathe. Use judgement.
 # Output (JSON)
 - gutReaction: short, in-character first thought. Always written.
 - memoryToReference: if "# What you remember" is shown above AND one
-  of those memories genuinely fits the current beat, copy that memory's
-  text verbatim into this field. Otherwise null. Be picky — better to
-  skip than force a callback. When set, this memory will travel with you
+  of those memories genuinely fits the current beat, put that memory's
+  number (e.g. 2) in this field. Otherwise null. Be picky — better to
+  skip than force a callback. When set, that memory will travel with you
   into the speaking phase and shape what you actually type.
 - wouldSay: what you'd actually type into the chat right now, OR ""
   (empty string) if you'd let it pass. This becomes your message verbatim
@@ -404,15 +425,58 @@ public sealed record class ShouldRespondResult
     public string Reason { get; init; } = string.Empty;
 
     /// <summary>
-    /// The decision phase's pick (verbatim, from the persona's recollections) of which
-    /// past moment to weave into this beat — or null when nothing fit. Forwarded to the
-    /// speaking phase as a recency-positioned cue so the visible reply is shaped by the
-    /// same memory that shaped the thought. Null on the auto-respond shortcut (decision
-    /// LLM never ran, so no memory was selected).
+    /// The decision phase's pick — the 1-based index into the numbered "# What you
+    /// remember" block (ADR 0015: pick by index, not by copy) — or null when nothing fit.
+    /// The pipeline resolves it back to the recalled memory: the snippet travels to the
+    /// speaking phase, the edge id keys the strengthening write. Null on the auto-respond
+    /// shortcut (decision LLM never ran, so no memory was selected).
     /// </summary>
     [Id(3)]
     [JsonPropertyName("memoryToReference")]
-    public string? MemoryToReference { get; init; }
+    [JsonConverter(typeof(LenientMemoryIndexConverter))]
+    public int? MemoryToReference { get; init; }
+}
+
+/// <summary>
+/// Lenient reader for the decision's memory index: accepts an integer, an integer-shaped
+/// string ("2"), or null. Anything else — typically a model pasting the memory text
+/// despite the integer schema — reads as null instead of failing the whole decision parse
+/// (which would fail closed and mute the persona).
+/// </summary>
+internal sealed class LenientMemoryIndexConverter : JsonConverter<int?>
+{
+    public override int? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        switch (reader.TokenType)
+        {
+            case JsonTokenType.Null:
+                return null;
+            case JsonTokenType.Number:
+                if (reader.TryGetInt32(out var n))
+                    return n;
+                if (reader.TryGetDouble(out var d))
+                {
+                    var rounded = Math.Round(d);
+                    return rounded >= int.MinValue && rounded <= int.MaxValue ? (int)rounded : null;
+                }
+                return null;
+            case JsonTokenType.String:
+                return int.TryParse(reader.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : null;
+            default:
+                reader.Skip();
+                return null;
+        }
+    }
+
+    public override void Write(Utf8JsonWriter writer, int? value, JsonSerializerOptions options)
+    {
+        if (value is int v)
+            writer.WriteNumberValue(v);
+        else
+            writer.WriteNullValue();
+    }
 }
 
 public readonly record struct ChatMessageWithSenderName(ChatMessage Message, string SenderName);

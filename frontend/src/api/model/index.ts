@@ -5,6 +5,8 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './appendStanceRequest';
+export * from './appendStanceResponse';
 export * from './chatGroupInfo';
 export * from './commitImportRequest';
 export * from './commitImportResponse';
@@ -39,6 +41,8 @@ export * from './promptRequest';
 export * from './regenerateCharDetailRequest';
 export * from './regenerateCharDetailResponse';
 export * from './repromptRequest';
+export * from './stanceRecord';
+export * from './stanceTargetKind';
 export * from './updateChatGroupDriverOverridesRequest';
 export * from './updateChatGroupParticipantIdsRequest';
 export * from './updateChatGroupScenarioRequest';

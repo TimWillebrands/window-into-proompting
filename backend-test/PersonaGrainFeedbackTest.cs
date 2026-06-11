@@ -109,9 +109,13 @@ public class PersonaGrainFeedbackTest : TestKitBase
         Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
 
         var memoryRepo = new Mock<IMemoryRepository>();
-        memoryRepo.Setup(m => m.RecallRecentSnippetsAsync(
+        memoryRepo.Setup(m => m.RecallAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<string>());
+            .ReturnsAsync(Array.Empty<RecalledMemory>());
+        memoryRepo.Setup(m => m.RecallStancesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<StanceLine>());
         Silo.AddService(new ResponsePipeline(
             Silo.GrainFactory,
             memoryRepo.Object,

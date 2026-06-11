@@ -55,11 +55,12 @@ public sealed class MemoryRepository(
             .Where(p => p.Driver != DriverKind.User)
             .Select(p => new RecollectionTarget(p.Id, p.Name, IsSpeaker: p.Id == sourceMessage.SenderId))
             .ToList();
-        var snippetByPersona = await extractor.ExtractRecollectionsAsync(
+        var draftByPersona = await extractor.ExtractRecollectionsAsync(
             recollectionTargets, sourceMessage, sourceAuthor, recentContext, ResolveName, ct);
         var recollections = recollectionTargets
-            .Select(t => (t.PersonaId, Snippet: snippetByPersona.GetValueOrDefault(t.PersonaId, "")))
-            .Where(r => !string.IsNullOrWhiteSpace(r.Snippet))
+            .Select(t => (t.PersonaId, Draft: draftByPersona.GetValueOrDefault(t.PersonaId)))
+            .Where(r => r.Draft is not null && !string.IsNullOrWhiteSpace(r.Draft.Snippet))
+            .Select(r => (r.PersonaId, Draft: r.Draft!))
             .ToList();
 
         var eventId = Guid.NewGuid();
@@ -83,9 +84,9 @@ public sealed class MemoryRepository(
             await AddAboutParticipantEdgeAsync(db, eventId, partyId, aboutParticipantId, ct);
         }
 
-        foreach (var (personaId, snippet) in recollections)
+        foreach (var (personaId, draft) in recollections)
         {
-            await AddRecollectionAsync(db, eventId, partyId, personaId, snippet, nowIso, ct);
+            await AddRecollectionAsync(db, eventId, partyId, personaId, draft, nowIso, ct);
         }
 
         await tx.CommitAsync(ct);
@@ -100,7 +101,12 @@ public sealed class MemoryRepository(
             ConceptsTouched: extraction.Concepts.Count);
     }
 
-    public async Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
+    // How many recent edges the recall query pulls before C#-side salience ranking. Far
+    // above the surfaced N≈10 so a fresh low-weight burst can't push an oft-recalled older
+    // memory out of the candidate set before scoring sees it.
+    private const int RecallCandidatePool = 50;
+
+    public async Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
         int limit,
@@ -108,7 +114,7 @@ public sealed class MemoryRepository(
     {
         if (limit <= 0)
         {
-            return Array.Empty<string>();
+            return Array.Empty<RecalledMemory>();
         }
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -117,47 +123,104 @@ public sealed class MemoryRepository(
         // multiple commands; it suppresses the auto-close that single-shot ExecuteSqlRawAsync
         // would do between statements. AgeOperatorInterceptor fires LOAD 'age' as a side
         // effect of the open. ts is stored as ISO-8601 — lex order is chronological, so
-        // ORDER BY r.ts DESC sorts newest-first without a datetime cast. limit is an int we
-        // control, not user input — inline is fine. See header comment re: Cypher literal inlining.
+        // ORDER BY r.ts DESC sorts newest-first without a datetime cast. The pool size is a
+        // const we control, not user input — inline is fine. See header comment re: Cypher
+        // literal inlining.
         await db.Database.OpenConnectionAsync(ct);
         try
         {
-            // Type the projected column as `text` so Postgres applies agtype's output cast
-            // (unquoting/unescaping string scalars). Reading agtype directly via Npgsql
+            // Type projected columns as `text` / `int` so Postgres applies agtype's output
+            // cast (unquoting/unescaping string scalars). Reading agtype directly via Npgsql
             // throws InvalidCastException — no default object/string reader is registered
-            // for `ag_catalog.agtype`. `text` reads through the built-in string converter.
+            // for `ag_catalog.agtype`. weight is projected as text and parsed in C# to stay
+            // on that proven cast path. Salience is deliberately NOT computed in Cypher
+            // (ADR 0015) — fetch recent candidates, score and rank here.
             var sql = $$"""
                 SELECT * FROM cypher('memory', $cy$
                   MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
-                  RETURN r.snippet
+                  RETURN r.id, r.snippet, r.weight, r.recall_count, r.last_recalled, r.ts
                   ORDER BY r.ts DESC
-                  LIMIT {{limit.ToString(CultureInfo.InvariantCulture)}}
-                $cy$) AS (snippet text)
+                  LIMIT {{RecallCandidatePool.ToString(CultureInfo.InvariantCulture)}}
+                $cy$) AS (id text, snippet text, weight text, recall_count int, last_recalled text, ts text)
                 """;
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
 
-            var snippets = new List<string>(limit);
+            var now = DateTimeOffset.UtcNow;
+            var candidates = new List<RecalledMemory>();
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                if (reader.IsDBNull(0)) continue;
-                var snippet = reader.GetString(0);
-                if (!string.IsNullOrWhiteSpace(snippet))
-                {
-                    snippets.Add(snippet);
-                }
+                string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                var snippet = Get(1);
+                if (string.IsNullOrWhiteSpace(snippet)) continue;
+
+                // Pre-ADR-0015 edges lack id/weight/recall_count — they stay surfaceable
+                // (Guid.Empty marks them unstrengthenable) at the default midpoint weight;
+                // per the no-migration-safety stance, old edges get no backfill.
+                var edgeId = Guid.TryParse(Get(0), out var parsedId) ? parsedId : Guid.Empty;
+                var weight = double.TryParse(Get(2), NumberStyles.Float, CultureInfo.InvariantCulture, out var w)
+                    ? Math.Clamp(w, 0.0, 1.0)
+                    : SalienceMath.DefaultWeight;
+                var recallCount = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+                var lastRecalled = ParseIso(Get(4));
+                var capturedAt = ParseIso(Get(5)) ?? now;
+
+                var salience = SalienceMath.Score(weight, capturedAt, recallCount, lastRecalled, now);
+                candidates.Add(new RecalledMemory(
+                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience));
             }
 
-            return snippets;
+            return candidates
+                .OrderByDescending(m => m.Salience)
+                .ThenByDescending(m => m.CapturedAt)
+                .Take(limit)
+                .ToList();
         }
         finally
         {
             await db.Database.CloseConnectionAsync();
         }
     }
+
+    public async Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
+    {
+        if (recollectionId == Guid.Empty)
+        {
+            return;
+        }
+
+        var nowIso = DateTimeOffset.UtcNow.ToString("o");
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            // coalesce keeps the write idempotent against a hand-made edge missing
+            // recall_count. An unknown id simply matches nothing — silent no-op by design.
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (:Participant)-[r:RECOLLECTS {id: '{{recollectionId}}'}]->(:Event)
+                  SET r.recall_count = coalesce(r.recall_count, 0) + 1,
+                      r.last_recalled = '{{nowIso}}'
+                  RETURN r.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+            await ExecuteCypherAsync(db, sql, ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static DateTimeOffset? ParseIso(string? iso)
+        => DateTimeOffset.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var ts)
+            ? ts
+            : null;
 
     // AGE's cypher_analyze.c requires the third arg of cypher() to be `IsA(arg, Param)` —
     // any wrapping coercion (an implicit text→agtype cast inserted because Npgsql doesn't
@@ -227,6 +290,244 @@ public sealed class MemoryRepository(
             }
 
             return names;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
+
+    // One raw STANCE edge as read back, before latest-wins/anchor filtering. A row is either
+    // a Participant target (TargetPersonaId set) or a Concept target (ConceptName set).
+    private sealed record StanceEdgeRow(
+        Guid Id,
+        double Valence,
+        string Reasoning,
+        DateTimeOffset Ts,
+        Guid? TargetPersonaId,
+        string? ConceptName,
+        string? ConceptDisplay);
+
+    public async Task<Guid> AppendStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        CancellationToken ct)
+    {
+        var edgeId = Guid.NewGuid();
+        var nowIso = DateTimeOffset.UtcNow.ToString("o");
+        var valenceLiteral = Math.Clamp(valence, -1.0, 1.0)
+            .ToString("0.0###", CultureInfo.InvariantCulture);
+
+        // Edge property block is identical across target shapes — only the matched/merged
+        // target node differs. reasoning is curator free-text (untrusted) → CypherStr.
+        var edgeProps =
+            $"{{ id: '{edgeId}', valence: {valenceLiteral}, reasoning: {CypherStr(reasoning)}, ts: '{nowIso}' }}";
+
+        string sql;
+        if (target.Kind == StanceTargetKind.Concept)
+        {
+            var name = target.ConceptName ?? string.Empty;
+            var display = target.ConceptDisplay ?? name;
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})
+                  MERGE (c:Concept {name: {{CypherStr(name)}}})
+                  SET c.display = coalesce(c.display, {{CypherStr(display)}})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(c)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+        else
+        {
+            // Self points the edge back at the source Participant — same MERGE key, so both
+            // MERGEs resolve to one node and CREATE writes a self-loop.
+            var targetPersonaId = target.Kind == StanceTargetKind.Self
+                ? sourcePersonaId
+                : target.PersonaId ?? throw new ArgumentException(
+                    "Participant Stance target requires PersonaId.", nameof(target));
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})
+                  MERGE (tgt:Participant {persona_id: '{{targetPersonaId}}', party_id: '{{partyId}}'})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(tgt)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await ExecuteCypherAsync(db, sql, ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+
+        logger.LogInformation(
+            "Appended Stance {EdgeId} from persona {PersonaId} ({Kind}) in party {PartyId}",
+            edgeId, sourcePersonaId, target.Kind, partyId);
+
+        return edgeId;
+    }
+
+    public async Task<IReadOnlyList<StanceRecord>> ListStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        CancellationToken ct)
+    {
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+
+        // Newest-first already (ORDER BY ts DESC); the first row per target is current.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var records = new List<StanceRecord>(rows.Count);
+        foreach (var row in rows)
+        {
+            var isCurrent = seen.Add(TargetKey(row));
+            records.Add(ToRecord(row, sourcePersonaId, isCurrent));
+        }
+        return records;
+    }
+
+    public async Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
+        int limit,
+        CancellationToken ct)
+    {
+        if (limit <= 0)
+        {
+            return Array.Empty<StanceLine>();
+        }
+
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        var present = new HashSet<Guid>(presentPersonaIds);
+        var text = anchorText ?? string.Empty;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var anchored = new List<StanceEdgeRow>();
+        foreach (var row in rows)
+        {
+            // Latest-wins: skip any superseded edge for a target we've already taken.
+            if (!seen.Add(TargetKey(row)))
+            {
+                continue;
+            }
+
+            var keep = row.TargetPersonaId is Guid tp
+                // A Participant target (self included — source is in the present cast) renders
+                // only while that Participant is in the room.
+                ? present.Contains(tp)
+                // A Concept renders only when it's live in the triggering message.
+                : ConceptMatchesAnchor(row, text);
+
+            if (keep)
+            {
+                anchored.Add(row);
+            }
+        }
+
+        return anchored
+            .OrderByDescending(r => Math.Abs(r.Valence))
+            .ThenByDescending(r => r.Ts)
+            .Take(limit)
+            .Select(r => new StanceLine(r.Reasoning, r.Valence))
+            .ToList();
+    }
+
+    private static bool ConceptMatchesAnchor(StanceEdgeRow row, string anchorText)
+        => (row.ConceptName is { Length: > 0 } name
+                && anchorText.Contains(name, StringComparison.OrdinalIgnoreCase))
+            || (row.ConceptDisplay is { Length: > 0 } display
+                && anchorText.Contains(display, StringComparison.OrdinalIgnoreCase));
+
+    // Dedup key for latest-wins. A Participant target keys on its persona id; a Concept on its
+    // normalised name. Self collapses into its persona-id key like any Participant target.
+    private static string TargetKey(StanceEdgeRow row)
+        => row.TargetPersonaId is Guid tp ? $"p:{tp}" : $"c:{row.ConceptName}";
+
+    private static StanceRecord ToRecord(StanceEdgeRow row, Guid sourcePersonaId, bool isCurrent)
+    {
+        if (row.TargetPersonaId is Guid tp)
+        {
+            var kind = tp == sourcePersonaId ? StanceTargetKind.Self : StanceTargetKind.Participant;
+            return new StanceRecord(
+                row.Id, row.Valence, row.Reasoning, row.Ts,
+                kind, tp, null, null, isCurrent);
+        }
+        return new StanceRecord(
+            row.Id, row.Valence, row.Reasoning, row.Ts,
+            StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent);
+    }
+
+    // All STANCE edges authored by one Participant, newest first. Single read-only Cypher —
+    // explicit open/close per the EF connection-lifetime footgun; scalars cast to text so
+    // AGE's agtype output cast unquotes them (valence parsed in C# like RECOLLECTS.weight).
+    private async Task<IReadOnlyList<StanceEdgeRow>> FetchStanceEdgesAsync(
+        Guid partyId, Guid sourcePersonaId, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})-[s:STANCE]->(tgt)
+                  RETURN s.id, s.valence, s.reasoning, s.ts, tgt.persona_id, tgt.name, tgt.display
+                  ORDER BY s.ts DESC
+                $cy$) AS (id text, valence text, reasoning text, ts text,
+                          target_persona_id text, concept_name text, concept_display text)
+                """;
+
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+
+            var rows = new List<StanceEdgeRow>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                if (!Guid.TryParse(Get(0), out var id))
+                {
+                    continue;
+                }
+                var reasoning = Get(2);
+                if (string.IsNullOrWhiteSpace(reasoning))
+                {
+                    continue;
+                }
+                var valence = double.TryParse(Get(1), NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+                    ? Math.Clamp(v, -1.0, 1.0)
+                    : 0.0;
+                var ts = ParseIso(Get(3)) ?? DateTimeOffset.UtcNow;
+
+                var targetPersonaId = Guid.TryParse(Get(4), out var tp) ? tp : (Guid?)null;
+                var conceptName = Get(5);
+                var conceptDisplay = Get(6);
+
+                // A well-formed edge points at exactly one of the two target shapes.
+                if (targetPersonaId is null && string.IsNullOrWhiteSpace(conceptName))
+                {
+                    continue;
+                }
+
+                rows.Add(new StanceEdgeRow(
+                    id, valence, reasoning, ts, targetPersonaId, conceptName, conceptDisplay));
+            }
+
+            return rows;
         }
         finally
         {
@@ -428,16 +729,26 @@ public sealed class MemoryRepository(
 
     private static Task AddRecollectionAsync(
         AppDbContext db,
-        Guid eventId, Guid partyId, Guid personaId, string snippet, string nowIso,
+        Guid eventId, Guid partyId, Guid personaId, RecollectionDraft draft, string nowIso,
         CancellationToken ct)
     {
+        // ADR 0015 salience substrate: id is the edge's stable identity (strengthening key,
+        // future-embeddings join key); weight rode the extraction call; recall_count starts
+        // 0. last_recalled is deliberately absent until the first pick — Cypher SET-to-null
+        // removes a property anyway, so absence IS the null representation.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
               MERGE (persona:Persona {id: '{{personaId}}'})
               MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
               MERGE (persona)-[:HAS_PARTICIPANT]->(part)
-              CREATE (part)-[:RECOLLECTS {snippet: {{CypherStr(snippet)}}, ts: '{{nowIso}}'}]->(e)
+              CREATE (part)-[:RECOLLECTS {
+                id: '{{Guid.NewGuid()}}',
+                snippet: {{CypherStr(draft.Snippet)}},
+                ts: '{{nowIso}}',
+                weight: {{Math.Clamp(draft.Weight, 0.0, 1.0).ToString("0.0###", CultureInfo.InvariantCulture)}},
+                recall_count: 0
+              }]->(e)
               RETURN part.persona_id
             $cy$) AS (persona_id ag_catalog.agtype)
             """;

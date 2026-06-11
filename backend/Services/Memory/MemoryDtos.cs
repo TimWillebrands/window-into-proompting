@@ -25,6 +25,29 @@ public sealed record EventExtraction(
 public sealed record RecollectionTarget(Guid PersonaId, string Name, bool IsSpeaker);
 
 /// <summary>
+/// One Recollection as the extractor produced it: the snippet plus the salience
+/// <see cref="Weight"/> (0..1) emitted in the same LLM call — "how much would this stick,
+/// a day later?" (ADR 0015). Weight ≈ 0 plays the old binary NONE role: the extractor
+/// declines by omission, not by a sentinel string.
+/// </summary>
+public sealed record RecollectionDraft(string Snippet, double Weight);
+
+/// <summary>
+/// One salience-ranked Recollection surfaced by Recall (ADR 0015). <see cref="EdgeId"/>
+/// is the RECOLLECTS edge's stable identity — the key for the strengthening write when
+/// the Decision phase picks this memory. <see cref="Guid.Empty"/> marks an edge captured
+/// before the salience substrate existed (surfaceable, not strengthenable).
+/// </summary>
+public sealed record RecalledMemory(
+    Guid EdgeId,
+    string Snippet,
+    double Weight,
+    int RecallCount,
+    DateTimeOffset? LastRecalled,
+    DateTimeOffset CapturedAt,
+    double Salience);
+
+/// <summary>
 /// Outcome of a single <see cref="IMemoryRepository.CaptureMomentAsync"/> call.
 /// </summary>
 public sealed record MemoryCaptureResult(
