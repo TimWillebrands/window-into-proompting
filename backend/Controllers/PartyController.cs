@@ -23,6 +23,7 @@ public sealed class PartyController(
     IPartyRealtimeHub realtimeHub,
     IMemoryCache cache,
     IMemoryRepository memoryRepository,
+    ConsolidationService consolidationService,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -676,6 +677,21 @@ public sealed class PartyController(
         logger.LogInformation(
             "Remember: message {MessageId} in room {RoomId} → event={EventCreated} recollections={RecollectionCount} concepts={ConceptCount}",
             messageId, chatGroupId, result.EventCreated, result.RecollectionsCreated, result.ConceptsTouched);
+
+        // Consolidation gauge (ADR 0016): each capture grows somebody's unconsolidated pile;
+        // whoever crossed the threshold gets slept in the background. Fire-and-forget — the
+        // remember response never waits on consolidation.
+        if (result.RecollectionPersonaIds.Count > 0)
+        {
+            var cast = await grains.GetGrain<IPartyGrain>(id).GetCastAsync();
+            var grew = result.RecollectionPersonaIds.ToHashSet();
+            var subjects = cast
+                .Where(c => grew.Contains(c.Id) && c.DefaultDriver == DriverKind.LLM)
+                .Select(c => new ConsolidationSubject(c.Id, c.Name, c.Bio))
+                .ToList();
+            consolidationService.TriggerGaugedRuns(id, subjects,
+                cast.Select(c => new ConsolidationRosterEntry(c.Id, c.Name)).ToList());
+        }
 
         return Accepted(new RememberResponse(
             EventCreated: result.EventCreated,

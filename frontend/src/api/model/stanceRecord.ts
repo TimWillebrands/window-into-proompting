@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { StanceOrigin } from './stanceOrigin';
 import type { StanceTargetKind } from './stanceTargetKind';
 
 export interface StanceRecord {
@@ -20,4 +21,9 @@ export interface StanceRecord {
     /** @nullable */
     targetConceptDisplay: string | null;
     isCurrent: boolean;
+    origin?: StanceOrigin;
+    /** @nullable */
+    runId?: string | null;
+    /** @nullable */
+    retractsId?: string | null;
 }

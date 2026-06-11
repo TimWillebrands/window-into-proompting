@@ -98,7 +98,10 @@ public sealed class MemoryRepository(
         return new MemoryCaptureResult(
             EventCreated: true,
             RecollectionsCreated: recollections.Count,
-            ConceptsTouched: extraction.Concepts.Count);
+            ConceptsTouched: extraction.Concepts.Count)
+        {
+            RecollectionPersonaIds = recollections.Select(r => r.PersonaId).ToList(),
+        };
     }
 
     // How many recent edges the recency arm considers before C#-side salience ranking. Far
@@ -493,7 +496,10 @@ public sealed class MemoryRepository(
         DateTimeOffset Ts,
         Guid? TargetPersonaId,
         string? ConceptName,
-        string? ConceptDisplay);
+        string? ConceptDisplay,
+        StanceOrigin Origin,
+        Guid? RunId,
+        Guid? RetractsId);
 
     public async Task<Guid> AppendStanceAsync(
         Guid partyId,
@@ -501,6 +507,7 @@ public sealed class MemoryRepository(
         StanceTargetSpec target,
         double valence,
         string reasoning,
+        StanceAttribution? attribution,
         CancellationToken ct)
     {
         var edgeId = Guid.NewGuid();
@@ -508,10 +515,19 @@ public sealed class MemoryRepository(
         var valenceLiteral = Math.Clamp(valence, -1.0, 1.0)
             .ToString("0.0###", CultureInfo.InvariantCulture);
 
+        // Curator writes carry no provenance properties — identical to pre-attribution edges,
+        // which read back as Curator by absence. Other writers stamp origin + their pointer.
+        var provenance = attribution?.Origin switch
+        {
+            StanceOrigin.Consolidation => $", origin: 'consolidation', run_id: '{attribution.RunId}'",
+            StanceOrigin.Retract => $", origin: 'retract', retracts: '{attribution.RetractsId}'",
+            _ => string.Empty,
+        };
+
         // Edge property block is identical across target shapes — only the matched/merged
         // target node differs. reasoning is curator free-text (untrusted) → CypherStr.
         var edgeProps =
-            $"{{ id: '{edgeId}', valence: {valenceLiteral}, reasoning: {CypherStr(reasoning)}, ts: '{nowIso}' }}";
+            $"{{ id: '{edgeId}', valence: {valenceLiteral}, reasoning: {CypherStr(reasoning)}, ts: '{nowIso}'{provenance} }}";
 
         string sql;
         if (target.Kind == StanceTargetKind.Concept)
@@ -558,10 +574,45 @@ public sealed class MemoryRepository(
         }
 
         logger.LogInformation(
-            "Appended Stance {EdgeId} from persona {PersonaId} ({Kind}) in party {PartyId}",
-            edgeId, sourcePersonaId, target.Kind, partyId);
+            "Appended Stance {EdgeId} from persona {PersonaId} ({Kind}) in party {PartyId} (origin {Origin}, run {RunId})",
+            edgeId, sourcePersonaId, target.Kind, partyId,
+            attribution?.Origin ?? StanceOrigin.Curator, attribution?.RunId);
 
         return edgeId;
+    }
+
+    public async Task<Guid?> RetractStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct)
+    {
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        var original = rows.FirstOrDefault(r => r.Id == stanceId);
+        if (original is null)
+        {
+            return null;
+        }
+
+        var target = original.TargetPersonaId is Guid tp
+            ? tp == sourcePersonaId
+                ? new StanceTargetSpec(StanceTargetKind.Self, null, null, null)
+                : new StanceTargetSpec(StanceTargetKind.Participant, tp, null, null)
+            : new StanceTargetSpec(
+                StanceTargetKind.Concept, null, original.ConceptName, original.ConceptDisplay);
+
+        // The reasoning is for the stance log, not for prompts — a retract-current target is
+        // filtered out of `# Where you stand` entirely (RecallStancesAsync), so this text
+        // never reaches a persona.
+        var reasoning = $"Retracted: {original.Reasoning}";
+        if (reasoning.Length > 600)
+        {
+            reasoning = reasoning[..600];
+        }
+
+        return await AppendStanceAsync(
+            partyId, sourcePersonaId, target, valence: 0.0, reasoning,
+            new StanceAttribution(StanceOrigin.Retract, RetractsId: stanceId), ct);
     }
 
     public async Task<IReadOnlyList<StanceRecord>> ListStancesAsync(
@@ -609,6 +660,14 @@ public sealed class MemoryRepository(
                 continue;
             }
 
+            // A retract-current target holds no belief: the neutralizing edge masks the
+            // retracted one (it stays in `seen`, so the old edge can't resurface) and itself
+            // renders nothing — its reasoning is log-facing, not prompt-facing.
+            if (row.Origin == StanceOrigin.Retract)
+            {
+                continue;
+            }
+
             var keep = row.TargetPersonaId is Guid tp
                 // A Participant target (self included — source is in the present cast) renders
                 // only while that Participant is in the room.
@@ -648,11 +707,12 @@ public sealed class MemoryRepository(
             var kind = tp == sourcePersonaId ? StanceTargetKind.Self : StanceTargetKind.Participant;
             return new StanceRecord(
                 row.Id, row.Valence, row.Reasoning, row.Ts,
-                kind, tp, null, null, isCurrent);
+                kind, tp, null, null, isCurrent, row.Origin, row.RunId, row.RetractsId);
         }
         return new StanceRecord(
             row.Id, row.Valence, row.Reasoning, row.Ts,
-            StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent);
+            StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent,
+            row.Origin, row.RunId, row.RetractsId);
     }
 
     // All STANCE edges authored by one Participant, newest first. Single read-only Cypher —
@@ -668,10 +728,12 @@ public sealed class MemoryRepository(
             var sql = $$"""
                 SELECT * FROM cypher('memory', $cy$
                   MATCH (src:Participant {persona_id: '{{sourcePersonaId}}', party_id: '{{partyId}}'})-[s:STANCE]->(tgt)
-                  RETURN s.id, s.valence, s.reasoning, s.ts, tgt.persona_id, tgt.name, tgt.display
+                  RETURN s.id, s.valence, s.reasoning, s.ts, tgt.persona_id, tgt.name, tgt.display,
+                         s.origin, s.run_id, s.retracts
                   ORDER BY s.ts DESC
                 $cy$) AS (id text, valence text, reasoning text, ts text,
-                          target_persona_id text, concept_name text, concept_display text)
+                          target_persona_id text, concept_name text, concept_display text,
+                          origin text, run_id text, retracts text)
                 """;
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
@@ -708,11 +770,136 @@ public sealed class MemoryRepository(
                     continue;
                 }
 
+                // Absent origin = pre-attribution edge = curator (the only writer back then).
+                var origin = Get(7) switch
+                {
+                    "consolidation" => StanceOrigin.Consolidation,
+                    "retract" => StanceOrigin.Retract,
+                    _ => StanceOrigin.Curator,
+                };
+                var runId = Guid.TryParse(Get(8), out var run) ? run : (Guid?)null;
+                var retractsId = Guid.TryParse(Get(9), out var retr) ? retr : (Guid?)null;
+
                 rows.Add(new StanceEdgeRow(
-                    id, valence, reasoning, ts, targetPersonaId, conceptName, conceptDisplay));
+                    id, valence, reasoning, ts, targetPersonaId, conceptName, conceptDisplay,
+                    origin, runId, retractsId));
             }
 
             return rows;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    // ─── Consolidation v1 (ADR 0016) ──────────────────────────────────────────────────────
+
+    // Cap on how many unconsolidated Recollections one run walks: keeps the proposer prompt
+    // bounded on a huge backlog. The watermark advances only to the last *walked* edge, so
+    // the remainder is picked up by the next run (gauge or button) — never silently skipped.
+    private const int MaxRecollectionsPerRun = 50;
+
+    public async Task<ConsolidationBatch> GetUnconsolidatedRecollectionsAsync(
+        Guid partyId,
+        Guid personaId,
+        CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+
+            // The watermark is the `ts` property on the Participant vertex (ADR 0016).
+            // Read it first, then inline it as the walk's lower bound — ISO-8601 UTC strings
+            // ("o" format) compare correctly as text, the same trick the recency ORDER BY
+            // already leans on.
+            DateTimeOffset? watermark = null;
+            await using (var wmCmd = conn.CreateCommand())
+            {
+                wmCmd.CommandText = $$"""
+                    SELECT * FROM cypher('memory', $cy$
+                      MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
+                      RETURN part.ts
+                    $cy$) AS (ts text)
+                    """;
+                var raw = await wmCmd.ExecuteScalarAsync(ct);
+                watermark = ParseIso(raw as string);
+            }
+
+            // Same "o"-with-offset shape the RECOLLECTS writes use ('…+00:00', never 'Z') so
+            // the textual > stays a correct instant comparison.
+            var where = watermark is DateTimeOffset wm
+                ? $"WHERE r.ts > '{wm.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture)}'"
+                : string.Empty;
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
+                  {{where}}
+                  RETURN r.id, r.snippet, r.ts, r.weight
+                  ORDER BY r.ts ASC
+                  LIMIT {{MaxRecollectionsPerRun.ToString(CultureInfo.InvariantCulture)}}
+                $cy$) AS (id text, snippet text, ts text, weight text)
+                """;
+
+            var items = new List<UnconsolidatedRecollection>();
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = sql;
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                    var snippet = Get(1);
+                    var ts = ParseIso(Get(2));
+                    // Pre-ADR-0015 edges lack an id — they predate the watermark substrate
+                    // too; per the no-migration-safety stance they are not consolidatable.
+                    if (string.IsNullOrWhiteSpace(snippet) || ts is null
+                        || !Guid.TryParse(Get(0), out var edgeId))
+                    {
+                        continue;
+                    }
+                    var weight = double.TryParse(Get(3), NumberStyles.Float, CultureInfo.InvariantCulture, out var w)
+                        ? Math.Clamp(w, 0.0, 1.0)
+                        : SalienceMath.DefaultWeight;
+                    items.Add(new UnconsolidatedRecollection(edgeId, snippet, ts.Value, weight));
+                }
+            }
+
+            return new ConsolidationBatch(watermark, items);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    public async Task AdvanceConsolidationWatermarkAsync(
+        Guid partyId,
+        Guid personaId,
+        DateTimeOffset watermark,
+        CancellationToken ct)
+    {
+        // Keep the stored watermark in the exact format the RECOLLECTS `ts` writes use
+        // (DateTimeOffset "o", '…+00:00') — the unconsolidated WHERE compares them as text.
+        var iso = watermark.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            // MERGE so a first-ever consolidation of a Participant that only just appeared
+            // doesn't depend on capture having materialised the vertex first.
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
+                  SET part.ts = '{{iso}}'
+                  RETURN part.persona_id
+                $cy$) AS (persona_id ag_catalog.agtype)
+                """;
+            await ExecuteCypherAsync(db, sql, ct);
         }
         finally
         {

@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Grains;
+using PartyTown.Model;
 using PartyTown.Services.Memory;
 
 namespace PartyTown.Controllers;
 
 [ApiController]
 [Route("parties/{partyId:guid}/memory")]
-public sealed class MemoryController(IMemoryRepository memoryRepository) : ControllerBase
+public sealed class MemoryController(
+    IMemoryRepository memoryRepository,
+    ConsolidationService consolidationService,
+    IGrainFactory grains) : ControllerBase
 {
     [HttpGet("graph")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -85,10 +90,91 @@ public sealed class MemoryController(IMemoryRepository memoryRepository) : Contr
                 return BadRequest("Unknown stance target kind.");
         }
 
-        var id = await memoryRepository.AppendStanceAsync(partyId, personaId, target, request.Valence, reasoning, ct);
+        var id = await memoryRepository.AppendStanceAsync(
+            partyId, personaId, target, request.Valence, reasoning, attribution: null, ct);
         return CreatedAtAction(
             nameof(ListStances), new { partyId, personaId }, new AppendStanceResponse(id));
     }
+
+    /// <summary>
+    /// One-click retract (ADR 0016): append a neutralizing edge over an earlier Stance.
+    /// Latest-wins makes the retract current immediately — the target stops rendering in
+    /// <c># Where you stand</c> — and the retracted edge stays in the log. Never deletes.
+    /// </summary>
+    [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/retract")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AppendStanceResponse>> RetractStance(
+        Guid partyId, Guid personaId, Guid stanceId, CancellationToken ct)
+    {
+        var id = await memoryRepository.RetractStanceAsync(partyId, personaId, stanceId, ct);
+        if (id is null)
+        {
+            return NotFound("No such stance authored by this participant.");
+        }
+        return CreatedAtAction(
+            nameof(ListStances), new { partyId, personaId }, new AppendStanceResponse(id.Value));
+    }
+
+    /// <summary>
+    /// Curator button: run Consolidation v1 (ADR 0016) for one Participant — walk the
+    /// Recollections past their watermark, one LLM call, auto-append the proposed Stances,
+    /// advance the watermark. A run over nothing new is a cheap no-op (no LLM call).
+    /// </summary>
+    [HttpPost("participants/{personaId:guid}/consolidate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ConsolidationRunResponse>> ConsolidateParticipant(
+        Guid partyId, Guid personaId, CancellationToken ct)
+    {
+        var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        var member = cast.FirstOrDefault(c => c.Id == personaId);
+        if (member is null || member.DefaultDriver != DriverKind.LLM)
+        {
+            return NotFound("No LLM-driven participant with this id in the party.");
+        }
+
+        var result = await consolidationService.RunAsync(
+            partyId, ToSubject(member), ToRoster(cast, personaId), ct);
+        return Ok(ToResponse(result));
+    }
+
+    /// <summary>
+    /// Curator button, Party-wide: run Consolidation for every LLM-driven Participant.
+    /// Participants with nothing past their watermark come back with zero walked — only
+    /// those with unprocessed experience cost an LLM call.
+    /// </summary>
+    [HttpPost("consolidate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ConsolidationRunResponse>>> ConsolidateParty(
+        Guid partyId, CancellationToken ct)
+    {
+        var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        var responses = new List<ConsolidationRunResponse>();
+        foreach (var member in cast.Where(c => c.DefaultDriver == DriverKind.LLM))
+        {
+            var result = await consolidationService.RunAsync(
+                partyId, ToSubject(member), ToRoster(cast, member.Id), ct);
+            responses.Add(ToResponse(result));
+        }
+        return Ok(responses);
+    }
+
+    private static ConsolidationSubject ToSubject(CastMember member)
+        => new(member.Id, member.Name, member.Bio);
+
+    // Roster = everyone else in the Party (User-driven included — a persona can absolutely
+    // form a stance toward the human), excluding the subject (self is its own target kind).
+    private static List<ConsolidationRosterEntry> ToRoster(
+        IReadOnlyList<CastMember> cast, Guid subjectPersonaId)
+        => cast
+            .Where(c => c.Id != subjectPersonaId)
+            .Select(c => new ConsolidationRosterEntry(c.Id, c.Name))
+            .ToList();
+
+    private static ConsolidationRunResponse ToResponse(ConsolidationRunResult result)
+        => new(result.RunId, result.PersonaId, result.RecollectionsWalked,
+            result.StancesAppended, result.Watermark, result.Skipped);
 
     /// <summary>
     /// Every Stance authored by a Participant, newest first. The latest edge per target is
@@ -119,3 +205,15 @@ public sealed record AppendStanceRequest(
 
 /// <summary>The id of the freshly appended Stance edge.</summary>
 public sealed record AppendStanceResponse(Guid Id);
+
+/// <summary>
+/// Outcome of one Consolidation run for one Participant. <see cref="Skipped"/> means another
+/// run for the same Participant was already in flight and this one bowed out.
+/// </summary>
+public sealed record ConsolidationRunResponse(
+    Guid RunId,
+    Guid PersonaId,
+    int RecollectionsWalked,
+    int StancesAppended,
+    DateTimeOffset? Watermark,
+    bool Skipped);

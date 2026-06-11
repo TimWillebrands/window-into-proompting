@@ -4,16 +4,20 @@ import {
     getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey,
     useGetPartiesPartyIdMemoryParticipantsPersonaIdStances,
     useGetPersona,
+    usePostPartiesPartyIdMemoryParticipantsPersonaIdConsolidate,
     usePostPartiesPartyIdMemoryParticipantsPersonaIdStances,
+    usePostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract,
 } from '#api/party-zone';
-import { StanceTargetKind } from '../../api/model';
+import { StanceOrigin, StanceTargetKind } from '../../api/model';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 
 /**
  * Stance Floor — the curator's debug surface for ADR 0016. Author an Acquired Stance from
  * one Persona toward another Participant, a Concept, or themselves, and watch the append-only
  * log: every write adds an edge, latest-wins per target (the current one is highlighted), and
- * history stays visible. The floor's first (and, for this slice, only) writer.
+ * history stays visible. Consolidation v1 (#89) added the run button (sleep on the
+ * unconsolidated Recollections now), per-edge attribution (who wrote it, under which run),
+ * and one-click retract — a neutralizing append, never a delete.
  */
 export default function StanceFloorApp() {
     const partyId = ROOT_PARTY_ID;
@@ -55,14 +59,20 @@ export default function StanceFloorApp() {
                 </select>
 
                 {sourceId ? (
-                    <StanceAuthor
-                        partyId={partyId}
-                        sourceId={sourceId}
-                        personas={personas.map((p) => ({
-                            id: p.id as string,
-                            name: p.name as string,
-                        }))}
-                    />
+                    <>
+                        <ConsolidatePanel
+                            partyId={partyId}
+                            sourceId={sourceId}
+                        />
+                        <StanceAuthor
+                            partyId={partyId}
+                            sourceId={sourceId}
+                            personas={personas.map((p) => ({
+                                id: p.id as string,
+                                name: p.name as string,
+                            }))}
+                        />
+                    </>
                 ) : (
                     <p style={{ color: '#808080' }}>
                         Pick the persona who holds the stance to begin.
@@ -84,6 +94,69 @@ export default function StanceFloorApp() {
                 )}
             </div>
         </div>
+    );
+}
+
+/**
+ * Curator trigger for Consolidation v1: one click walks the persona's unconsolidated
+ * Recollections (one LLM call, in rest) and auto-appends the crystallised Stances — they
+ * show up in the log with a `consolidation` badge, retractable like anything else.
+ */
+function ConsolidatePanel({
+    partyId,
+    sourceId,
+}: {
+    partyId: string;
+    sourceId: string;
+}) {
+    const queryClient = useQueryClient();
+    const [report, setReport] = useState<string | null>(null);
+
+    const consolidate =
+        usePostPartiesPartyIdMemoryParticipantsPersonaIdConsolidate({
+            mutation: {
+                onSuccess: async (res) => {
+                    // 200 carries the run result; the error shape (ProblemDetails) only
+                    // reaches onSuccess in theory, but the union forces the narrowing.
+                    const r = res.data;
+                    setReport(
+                        !r || !('runId' in r)
+                            ? 'Consolidation failed — see logs.'
+                            : r.skipped
+                              ? 'A run is already in flight — try again shortly.'
+                              : `Walked ${r.recollectionsWalked} recollection(s), appended ${r.stancesAppended} stance(s).`,
+                    );
+                    await queryClient.invalidateQueries({
+                        queryKey:
+                            getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey(
+                                partyId,
+                                sourceId,
+                            ),
+                    });
+                },
+                onError: () => setReport('Consolidation failed — see logs.'),
+            },
+        });
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: stale report belongs to the previous persona
+    useEffect(() => setReport(null), [sourceId]);
+
+    return (
+        <>
+            <SectionTitle>Consolidation</SectionTitle>
+            <button
+                type="button"
+                disabled={consolidate.isPending}
+                onClick={() =>
+                    consolidate.mutate({ partyId, personaId: sourceId })
+                }
+            >
+                {consolidate.isPending ? 'Sleeping on it…' : 'Consolidate now'}
+            </button>
+            {report ? (
+                <p style={{ color: '#555', margin: 0 }}>{report}</p>
+            ) : null}
+        </>
     );
 }
 
@@ -256,6 +329,7 @@ function StanceLog({
     partyId: string;
     sourceId: string;
 }) {
+    const queryClient = useQueryClient();
     const stancesQuery = useGetPartiesPartyIdMemoryParticipantsPersonaIdStances(
         partyId,
         sourceId,
@@ -264,6 +338,21 @@ function StanceLog({
         const data = stancesQuery.data?.data;
         return Array.isArray(data) ? data : [];
     }, [stancesQuery.data]);
+
+    const retract =
+        usePostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract({
+            mutation: {
+                onSuccess: async () => {
+                    await queryClient.invalidateQueries({
+                        queryKey:
+                            getGetPartiesPartyIdMemoryParticipantsPersonaIdStancesQueryKey(
+                                partyId,
+                                sourceId,
+                            ),
+                    });
+                },
+            },
+        });
 
     if (stancesQuery.isLoading) {
         return <p style={{ color: '#808080' }}>Loading stances…</p>;
@@ -283,7 +372,9 @@ function StanceLog({
                     <th style={th}>Target</th>
                     <th style={th}>Valence</th>
                     <th style={th}>Reasoning</th>
+                    <th style={th}>By</th>
                     <th style={th}>When</th>
+                    <th style={th} />
                 </tr>
             </thead>
             <tbody>
@@ -316,13 +407,72 @@ function StanceLog({
                         <td style={td}>{Number(s.valence).toFixed(2)}</td>
                         <td style={td}>{s.reasoning}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                            <OriginBadge stance={s} />
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
                             {new Date(s.ts).toLocaleString()}
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                            {s.isCurrent &&
+                            s.origin !== StanceOrigin.Retract ? (
+                                <button
+                                    type="button"
+                                    disabled={retract.isPending}
+                                    title="Append a neutralizing edge — history stays"
+                                    onClick={() =>
+                                        retract.mutate({
+                                            partyId,
+                                            personaId: sourceId,
+                                            stanceId: s.id,
+                                        })
+                                    }
+                                >
+                                    Retract
+                                </button>
+                            ) : null}
                         </td>
                     </tr>
                 ))}
             </tbody>
         </table>
     );
+}
+
+/**
+ * Attribution per ADR 0016: every append is logged with its writer. Consolidation edges
+ * carry the run id that walked the recollections; retract edges point at what they mask.
+ */
+function OriginBadge({
+    stance,
+}: {
+    stance: {
+        origin?: StanceOrigin;
+        runId?: string | null;
+        retractsId?: string | null;
+    };
+}) {
+    switch (stance.origin) {
+        case StanceOrigin.Consolidation:
+            return (
+                <span title={`run ${stance.runId ?? '?'}`}>
+                    consolidation{' '}
+                    <span style={{ color: '#808080' }}>
+                        ({(stance.runId ?? '').slice(0, 8)})
+                    </span>
+                </span>
+            );
+        case StanceOrigin.Retract:
+            return (
+                <span title={`masks ${stance.retractsId ?? '?'}`}>
+                    retract{' '}
+                    <span style={{ color: '#808080' }}>
+                        (⊘{(stance.retractsId ?? '').slice(0, 8)})
+                    </span>
+                </span>
+            );
+        default:
+            return <span>curator</span>;
+    }
 }
 
 function targetLabel(s: {

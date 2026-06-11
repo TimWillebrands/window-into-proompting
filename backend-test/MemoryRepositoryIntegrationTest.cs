@@ -668,13 +668,13 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var participantId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
-            valence: -0.6, reasoning: "Vlad talks over people", CancellationToken.None);
+            valence: -0.6, reasoning: "Vlad talks over people", attribution: null, CancellationToken.None);
         var conceptId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Concept, null, conceptName, conceptDisplay),
-            valence: 0.8, reasoning: "Lisp is elegant once it clicks", CancellationToken.None);
+            valence: 0.8, reasoning: "Lisp is elegant once it clicks", attribution: null, CancellationToken.None);
         var selfId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Self, null, null, null),
-            valence: 0.3, reasoning: "you hold your ground when challenged", CancellationToken.None);
+            valence: 0.3, reasoning: "you hold your ground when challenged", attribution: null, CancellationToken.None);
 
         var stances = await repo.ListStancesAsync(partyId, author, CancellationToken.None);
 
@@ -708,12 +708,12 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var firstId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
-            valence: 0.7, reasoning: "you admire how Vlad tells a story", CancellationToken.None);
+            valence: 0.7, reasoning: "you admire how Vlad tells a story", attribution: null, CancellationToken.None);
         // ts is ISO-8601 with tick precision; a small gap guarantees a strict ordering.
         await Task.Delay(5);
         var secondId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
-            valence: -0.7, reasoning: "Vlad exaggerates — you've caught him inflating three stories",
+            valence: -0.7, reasoning: "Vlad exaggerates — you've caught him inflating three stories", attribution: null,
             CancellationToken.None);
 
         Assert.NotEqual(firstId, secondId);
@@ -749,16 +749,16 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Participant, present, null, null),
-            0.5, "you trust the present one", CancellationToken.None);
+            0.5, "you trust the present one", attribution: null, CancellationToken.None);
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Participant, absent, null, null),
-            0.5, "you miss the absent one", CancellationToken.None);
+            0.5, "you miss the absent one", attribution: null, CancellationToken.None);
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Concept, null, liveConcept.ToLowerInvariant(), liveConcept),
-            0.5, "live concept is elegant", CancellationToken.None);
+            0.5, "live concept is elegant", attribution: null, CancellationToken.None);
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Concept, null, deadConcept.ToLowerInvariant(), deadConcept),
-            0.5, "dead concept is clunky", CancellationToken.None);
+            0.5, "dead concept is clunky", attribution: null, CancellationToken.None);
 
         // Present cast = author + present participant; triggering message names only liveConcept.
         var lines = await repo.RecallStancesAsync(
@@ -792,7 +792,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             present.Add(target);
             await repo.AppendStanceAsync(partyId, author,
                 new StanceTargetSpec(StanceTargetKind.Participant, target, null, null),
-                valence: i / 10.0, reasoning: $"stance-strength-{i}", CancellationToken.None);
+                valence: i / 10.0, reasoning: $"stance-strength-{i}", attribution: null, CancellationToken.None);
         }
 
         var lines = await repo.RecallStancesAsync(

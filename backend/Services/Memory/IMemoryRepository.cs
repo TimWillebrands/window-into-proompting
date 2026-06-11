@@ -7,8 +7,9 @@ namespace PartyTown.Services.Memory;
 /// recall (top-N recent, ADR 0009), upgraded by ADR 0015 to salience-ranked
 /// <see cref="RecallAsync"/> plus the <see cref="StrengthenRecollectionAsync"/> write.
 /// The Stance floor (ADR 0016) added <see cref="AppendStanceAsync"/> /
-/// <see cref="ListStancesAsync"/> / <see cref="RecallStancesAsync"/>; Consolidation
-/// arrives in a later slice.
+/// <see cref="ListStancesAsync"/> / <see cref="RecallStancesAsync"/>; Consolidation v1
+/// added the watermark reads/writes (<see cref="GetUnconsolidatedRecollectionsAsync"/> /
+/// <see cref="AdvanceConsolidationWatermarkAsync"/>) and <see cref="RetractStanceAsync"/>.
 /// </summary>
 /// <remarks>
 /// Per ADR 0006, the implementation runs Cypher against Apache AGE directly through
@@ -86,6 +87,9 @@ public interface IMemoryRepository
     /// <param name="target">Who/what the Stance points at.</param>
     /// <param name="valence">Scalar feeling, clamped to −1..1.</param>
     /// <param name="reasoning">Short second-person text in the Recollection-snippet voice.</param>
+    /// <param name="attribution">
+    /// Who is writing and why (ADR 0016 auditability). Null = curator-authored.
+    /// </param>
     /// <returns>The new edge's stable <c>id</c>.</returns>
     Task<Guid> AppendStanceAsync(
         Guid partyId,
@@ -93,6 +97,44 @@ public interface IMemoryRepository
         StanceTargetSpec target,
         double valence,
         string reasoning,
+        StanceAttribution? attribution,
+        CancellationToken ct);
+
+    /// <summary>
+    /// One-click retract (ADR 0016): append a neutralizing edge (valence 0, origin
+    /// <see cref="StanceOrigin.Retract"/>, <c>retracts</c> pointing at
+    /// <paramref name="stanceId"/>) toward the same target. Latest-wins makes the retract
+    /// current immediately — the target then renders nothing in <c># Where you stand</c> —
+    /// while the full history stays queryable. Never deletes.
+    /// </summary>
+    /// <returns>The neutralizing edge's id, or null when <paramref name="stanceId"/> is not
+    /// an edge authored by this Participant.</returns>
+    Task<Guid?> RetractStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct);
+
+    /// <summary>
+    /// The Recollections accumulated since the Participant's Consolidation watermark (the
+    /// <c>ts</c> property on the Participant vertex, ADR 0016), oldest first, capped to a
+    /// batch the proposer prompt can hold. Also feeds the gauge: Σ <c>weight</c> of the
+    /// returned items is the "unprocessed experience" a trigger compares to its threshold.
+    /// </summary>
+    Task<ConsolidationBatch> GetUnconsolidatedRecollectionsAsync(
+        Guid partyId,
+        Guid personaId,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Stamp the Participant's Consolidation watermark (<c>ts</c> property) — every
+    /// Recollection with <c>ts</c> at or before it counts as consumed. Called after a run
+    /// even when it proposed nothing: the experience was slept on either way.
+    /// </summary>
+    Task AdvanceConsolidationWatermarkAsync(
+        Guid partyId,
+        Guid personaId,
+        DateTimeOffset watermark,
         CancellationToken ct);
 
     /// <summary>

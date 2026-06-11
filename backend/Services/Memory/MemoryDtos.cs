@@ -68,11 +68,16 @@ public sealed record RecalledMemory(
 
 /// <summary>
 /// Outcome of a single <see cref="IMemoryRepository.CaptureMomentAsync"/> call.
+/// <see cref="RecollectionPersonaIds"/> names the Participants whose unconsolidated pile
+/// just grew — the set the capture path's Consolidation gauge check is scoped to.
 /// </summary>
 public sealed record MemoryCaptureResult(
     bool EventCreated,
     int RecollectionsCreated,
-    int ConceptsTouched);
+    int ConceptsTouched)
+{
+    public IReadOnlyList<Guid> RecollectionPersonaIds { get; init; } = Array.Empty<Guid>();
+}
 
 /// <summary>
 /// Per-Party memory subgraph payload for the debug viz. Backend emits only what AGE

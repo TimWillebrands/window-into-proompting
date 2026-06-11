@@ -429,29 +429,5 @@ The marked moment:
     private static string Truncate(string s, int max)
         => s.Length <= max ? s : s[..max];
 
-    private static string? TryRepairJson(string raw)
-    {
-        var trimmed = raw.Trim();
-        var start = trimmed.IndexOf('{');
-        var end = trimmed.LastIndexOf('}');
-        if (start < 0 || end <= start) return null;
-        var candidate = trimmed.Substring(start, end - start + 1);
-
-        try
-        {
-            using var _ = JsonDocument.Parse(candidate);
-            return candidate;
-        }
-        catch
-        {
-            try
-            {
-                return JsonRepair.RepairJson(candidate);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-    }
+    private static string? TryRepairJson(string raw) => LlmJson.TryRepairObject(raw);
 }
