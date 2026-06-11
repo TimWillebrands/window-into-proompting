@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using PartyTown.Configuration;
 using PartyTown.Data;
 using PartyTown.Logging;
@@ -17,25 +16,7 @@ builder.AddServiceDefaults();
 // to reach Postgres. Controllers + AddOpenApi() are enough for spec emission.
 var openApiBuild = Environment.GetEnvironmentVariable("OPENAPI_GENERATE") == "1";
 
-builder.Services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
-{
-    var config = sp.GetRequiredService<IConfiguration>();
-    return new ConfigureOptions<LlmOptions>(options =>
-    {
-        var section = config.GetSection($"{LlmOptions.SectionName}:Providers");
-        foreach (var child in section.GetChildren())
-        {
-            var type = child["Type"];
-            ILlmProviderConfig provider = type switch
-            {
-                "ollama" => child.Get<OllamaProviderConfig>()!,
-                "openrouter" => child.Get<OpenRouterProviderConfig>()!,
-                _ => throw new InvalidOperationException($"Unknown LLM provider type: '{type}'")
-            };
-            options.Providers.Add(provider);
-        }
-    });
-});
+builder.Services.AddLlmProviderOptions();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddOutputCache();
