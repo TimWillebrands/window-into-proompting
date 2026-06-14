@@ -81,7 +81,8 @@ public sealed record StanceRecord(
     bool IsCurrent,
     StanceOrigin Origin = StanceOrigin.Curator,
     Guid? RunId = null,
-    Guid? RetractsId = null);
+    Guid? RetractsId = null,
+    bool IsIntrinsic = false);
 
 /// <summary>
 /// One latest-wins Stance line surfaced for the ambient <c># Where you stand</c> block

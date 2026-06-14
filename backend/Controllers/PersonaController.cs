@@ -7,6 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
 
 namespace PartyTown.Controllers;
@@ -49,6 +50,7 @@ public class PersonaController(
     IGrainFactory grains,
     IMemoryCache cache,
     IWebHostEnvironment env,
+    IMemoryRepository memoryRepository,
     ILogger<PersonaController> logger) : ControllerBase
 {
     private const string BioGenerationSystemPrompt =
@@ -449,5 +451,93 @@ public class PersonaController(
             bio = $"A unique AI persona named {name}.";
 
         return (name, systemPrompt, bio);
+    }
+
+    // ─── Intrinsic Stances (ADR 0016, issue #91) ──────────────────────────────────────────
+
+    private const int MaxReasoningLength = 600;
+
+    /// <summary>
+    /// Every Intrinsic Stance authored at Persona (library) scope, newest first. The latest
+    /// edge per target is flagged <see cref="StanceRecord.IsCurrent"/>; superseded edges
+    /// remain for history.
+    /// </summary>
+    [HttpGet("{personaId:guid}/stances")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<StanceRecord>>> ListIntrinsicStances(
+        Guid personaId, CancellationToken ct)
+    {
+        var stances = await memoryRepository.ListIntrinsicStancesAsync(personaId, ct);
+        return Ok(stances);
+    }
+
+    /// <summary>
+    /// Append an Intrinsic Stance at Persona (library) scope. The edge travels into every
+    /// Party the Persona joins. Append-only — prior edges are not mutated.
+    /// </summary>
+    [HttpPost("{personaId:guid}/stances")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AppendStanceResponse>> AppendIntrinsicStance(
+        Guid personaId, [FromBody] AppendStanceRequest request, CancellationToken ct)
+    {
+        if (request is null)
+        {
+            return BadRequest("Missing request body.");
+        }
+
+        if (double.IsNaN(request.Valence) || request.Valence < -1.0 || request.Valence > 1.0)
+        {
+            return BadRequest("Valence must be a number in the range -1..1.");
+        }
+
+        var reasoning = request.Reasoning?.Trim();
+        if (string.IsNullOrEmpty(reasoning))
+        {
+            return BadRequest("Reasoning is required.");
+        }
+        if (reasoning.Length > MaxReasoningLength)
+        {
+            return BadRequest($"Reasoning must be at most {MaxReasoningLength} characters.");
+        }
+
+        StanceTargetSpec target;
+        switch (request.TargetKind)
+        {
+            case StanceTargetKind.Participant:
+                if (request.TargetPersonaId is not Guid targetPersonaId || targetPersonaId == Guid.Empty)
+                {
+                    return BadRequest("A Participant Stance requires targetPersonaId (the target Persona's id).");
+                }
+                if (targetPersonaId == personaId)
+                {
+                    return BadRequest("Use TargetKind.Self to record a stance toward oneself.");
+                }
+                target = new StanceTargetSpec(StanceTargetKind.Participant, targetPersonaId, null, null);
+                break;
+
+            case StanceTargetKind.Concept:
+                var display = request.TargetConceptName?.Trim();
+                if (string.IsNullOrEmpty(display))
+                {
+                    return BadRequest("A Concept Stance requires targetConceptName.");
+                }
+                target = new StanceTargetSpec(
+                    StanceTargetKind.Concept, null,
+                    MemoryExtractor.NormaliseConceptName(display), display);
+                break;
+
+            case StanceTargetKind.Self:
+                target = new StanceTargetSpec(StanceTargetKind.Self, null, null, null);
+                break;
+
+            default:
+                return BadRequest("Unknown stance target kind.");
+        }
+
+        var id = await memoryRepository.AppendIntrinsicStanceAsync(
+            personaId, target, request.Valence, reasoning, attribution: null, ct);
+        return CreatedAtAction(
+            nameof(ListIntrinsicStances), new { personaId }, new AppendStanceResponse(id));
     }
 }

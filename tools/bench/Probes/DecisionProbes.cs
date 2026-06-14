@@ -1,6 +1,6 @@
 using System.Text;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 
 namespace PartyTown.Bench.Probes;
 
@@ -54,13 +54,13 @@ public static class DecisionProbes
     /// (chaos is excluded from it); only the ChaosScore component re-rolls per call.</summary>
     private static async Task RunDecision(
         Bench bench,
-        GenerationParticipant self,
+        SelfView self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<string>? recollections = null)
     {
         var service = new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"));
 
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, totalAiRoundsInGroup: 0);
+        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup: 0);
         bench.Observe($"{self.Name}.urge (Total deterministic; ChaosScore re-rolls per call)", new
         {
             urge.Total,
