@@ -9,13 +9,13 @@ namespace PartyTown.Bench.Probes;
 /// </summary>
 public static class BenchCast
 {
-    public static readonly Guid TimId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid SamId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid VladId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid DeniseId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     public static readonly Guid RoomId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
     /// <summary>The human in the room — view used in the participants list.</summary>
-    public static ParticipantView Tim => new(TimId, "Tim", DriverKind.User);
+    public static ParticipantView Sam => new(SamId, "Sam", DriverKind.User);
 
     /// <summary>Brooding, low chattiness — pings rarely.</summary>
     public static SelfView Vlad => new(
@@ -39,7 +39,7 @@ public static class BenchCast
 
     public static IReadOnlyList<ParticipantView> All => new[]
     {
-        Tim,
+        Sam,
         new ParticipantView(VladId, "Vlad", DriverKind.LLM),
         new ParticipantView(DeniseId, "Denise", DriverKind.LLM),
     };
@@ -54,7 +54,25 @@ public static class BenchCast
             MessageId = 1,
             Content = content,
             SenderType = "user",
-            SenderId = TimId,
+            SenderId = SamId,
+            ChatGroupId = RoomId,
+        },
+    };
+
+    /// <summary>One persona-authored message into the room. <c>SenderType "assistant"</c> means it
+    /// does NOT raise the cold-open floor (that fires only for "user"), so as long as the content
+    /// names no persona urge stays ≈0 — below the 0.9 auto-respond shortcut — and the decision model
+    /// still runs. Use when the *beat itself* must bear on a Stance or recollection: the target of
+    /// Vlad's Stance speaking is what turns a with/without diff from a plumbing check into a landing
+    /// judge. <paramref name="senderId"/> must be in <see cref="All"/> so the prompt resolves a name.</summary>
+    public static IReadOnlyList<ChatMessage> PersonaSays(Guid senderId, string content) => new[]
+    {
+        new ChatMessage
+        {
+            MessageId = 1,
+            Content = content,
+            SenderType = "assistant",
+            SenderId = senderId,
             ChatGroupId = RoomId,
         },
     };

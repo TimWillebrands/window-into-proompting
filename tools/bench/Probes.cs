@@ -11,9 +11,16 @@ namespace PartyTown.Bench;
 public sealed class ProbeAttribute(string description) : Attribute
 {
     public string Description { get; } = description;
+
+    /// <summary>
+    /// Declares this probe needs a real <c>MemoryRepository</c> over AGE (recall / Stance / the
+    /// union read behind #91). Only such probes start the bench's ephemeral Testcontainers AGE
+    /// (ADR 0011 amendment); prompt-composition probes stay Docker-free (tier-0). Default false.
+    /// </summary>
+    public bool RequiresMemory { get; init; }
 }
 
-public sealed record ProbeInfo(string Name, string Description, Func<Bench, Task> Run);
+public sealed record ProbeInfo(string Name, string Description, bool RequiresMemory, Func<Bench, Task> Run);
 
 public static class ProbeRegistry
 {
@@ -32,6 +39,7 @@ public static class ProbeRegistry
                 return new ProbeInfo(
                     x.Method.Name,
                     x.Attr!.Description,
+                    x.Attr.RequiresMemory,
                     bench => (Task)x.Method.Invoke(null, [bench])!);
             })
             .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)

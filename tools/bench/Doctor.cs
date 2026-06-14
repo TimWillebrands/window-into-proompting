@@ -12,11 +12,15 @@ namespace PartyTown.Bench;
 /// </summary>
 public static class Doctor
 {
-    public static async Task RunAsync(IGrainFactory grains)
+    public static async Task RunAsync(IGrainFactory grains, string memoryStatus)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         Console.WriteLine("\n=== bench doctor ===\n");
+
+        // Mirrors the LLM LIVE/tier-0 report below: Program already tried to bring up the bench's
+        // ephemeral AGE container and handed us the verdict.
+        Console.WriteLine($"memory: {memoryStatus}\n");
 
         var config = grains.GetGrain<ILlmProviderConfigGrain>(0);
         List<LlmProviderEntry> providers;

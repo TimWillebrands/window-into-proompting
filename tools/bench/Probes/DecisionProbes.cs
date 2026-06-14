@@ -22,8 +22,8 @@ public static class DecisionProbes
         // and we can watch whether Vlad picks one (memoryToReference) or declines.
         var vladMemories = new[]
         {
-            "Tim once spent a whole evening ranting about a meeting that could have been an email.",
-            "The last offsite Tim mentioned ended with someone crying by the trust-fall mat.",
+            "Sam once spent a whole evening ranting about a meeting that could have been an email.",
+            "The last offsite Sam mentioned ended with someone crying by the trust-fall mat.",
         };
 
         await RunDecision(bench, BenchCast.Vlad, history, vladMemories);
@@ -40,7 +40,7 @@ public static class DecisionProbes
                 MessageId = 1,
                 Content = "Vlad, you there?",
                 SenderType = "user",
-                SenderId = BenchCast.TimId,
+                SenderId = BenchCast.SamId,
                 ChatGroupId = BenchCast.RoomId,
             },
         };
