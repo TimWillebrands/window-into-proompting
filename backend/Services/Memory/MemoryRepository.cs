@@ -981,9 +981,21 @@ public sealed class MemoryRepository(
                 StanceTargetKind.Participant, targetPersonaId, null, null);
         }
 
+        // Carry the source edge's provenance onto the promoted intrinsic edge so the
+        // audit trail survives — a promoted Consolidation/Retract edge must not read as
+        // curator-authored. Curator-origin edges keep attribution null.
+        var attribution = original.Origin switch
+        {
+            StanceOrigin.Consolidation => new StanceAttribution(
+                StanceOrigin.Consolidation, RunId: original.RunId),
+            StanceOrigin.Retract => new StanceAttribution(
+                StanceOrigin.Retract, RetractsId: original.RetractsId),
+            _ => null,
+        };
+
         return await AppendIntrinsicStanceAsync(
             sourcePersonaId, intrinsicTarget, original.Valence, original.Reasoning,
-            attribution: null, ct);
+            attribution, ct);
     }
 
     // All Intrinsic STANCE edges from one Persona node, newest first. Mirrors

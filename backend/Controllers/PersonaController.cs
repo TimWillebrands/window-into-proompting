@@ -522,6 +522,11 @@ public class PersonaController(
                 {
                     return BadRequest("A Concept Stance requires targetConceptName.");
                 }
+                if (display.Length > MemoryExtractor.MaxConceptNameChars)
+                {
+                    return BadRequest(
+                        $"Concept name must be at most {MemoryExtractor.MaxConceptNameChars} characters.");
+                }
                 target = new StanceTargetSpec(
                     StanceTargetKind.Concept, null,
                     MemoryExtractor.NormaliseConceptName(display), display);
