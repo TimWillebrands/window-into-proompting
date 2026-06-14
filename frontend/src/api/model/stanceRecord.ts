@@ -26,4 +26,5 @@ export interface StanceRecord {
     runId?: string | null;
     /** @nullable */
     retractsId?: string | null;
+    isIntrinsic?: boolean;
 }

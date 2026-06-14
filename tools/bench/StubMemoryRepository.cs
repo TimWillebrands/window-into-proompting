@@ -15,15 +15,89 @@ public sealed class StubMemoryRepository : IMemoryRepository
         Guid partyId,
         Guid roomId,
         int messageId,
-        IReadOnlyList<ParticipantSnapshot> presentParticipants,
+        IReadOnlyList<ParticipantView> presentParticipants,
         IReadOnlyList<ChatMessage> recentContext,
         CancellationToken ct)
         => Task.FromResult(new MemoryCaptureResult(false, 0, 0));
 
-    public Task<IReadOnlyList<string>> RecallRecentSnippetsAsync(
+    public Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
         int limit,
         CancellationToken ct)
-        => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        => Task.FromResult<IReadOnlyList<RecalledMemory>>(Array.Empty<RecalledMemory>());
+
+    public Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
+        => Task.CompletedTask;
+
+    public Task<Guid> AppendStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        StanceAttribution? attribution,
+        CancellationToken ct)
+        => Task.FromResult(Guid.NewGuid());
+
+    public Task<Guid?> RetractStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct)
+        => Task.FromResult<Guid?>(null);
+
+    public Task<IReadOnlyList<StanceRecord>> ListStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<StanceRecord>>(Array.Empty<StanceRecord>());
+
+    public Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        IReadOnlyList<Guid> presentPersonaIds,
+        string anchorText,
+        int limit,
+        CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<StanceLine>>(Array.Empty<StanceLine>());
+
+    public Task<Guid> AppendIntrinsicStanceAsync(
+        Guid personaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        StanceAttribution? attribution,
+        CancellationToken ct)
+        => Task.FromResult(Guid.NewGuid());
+
+    public Task<IReadOnlyList<StanceRecord>> ListIntrinsicStancesAsync(
+        Guid personaId,
+        CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<StanceRecord>>(Array.Empty<StanceRecord>());
+
+    public Task<Guid?> PromoteStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct)
+        => Task.FromResult<Guid?>(null);
+
+    public Task<ConsolidationBatch> GetUnconsolidatedRecollectionsAsync(
+        Guid partyId,
+        Guid personaId,
+        CancellationToken ct)
+        => Task.FromResult(new ConsolidationBatch(null, Array.Empty<UnconsolidatedRecollection>()));
+
+    public Task AdvanceConsolidationWatermarkAsync(
+        Guid partyId,
+        Guid personaId,
+        DateTimeOffset watermark,
+        CancellationToken ct)
+        => Task.CompletedTask;
+
+    public Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct)
+        => Task.FromResult(new MemoryGraphDto(Array.Empty<MemoryGraphNode>(), Array.Empty<MemoryGraphLink>()));
 }

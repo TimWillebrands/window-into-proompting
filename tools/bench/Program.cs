@@ -7,6 +7,7 @@ using Orleans.Hosting;
 using PartyTown.Bench;
 using PartyTown.Configuration;
 using PartyTown.Services.Memory;
+using Testcontainers.PostgreSql;
 
 // The Bench (ADR 0011): a headless console host that runs Probes against the real grain path
 // and emits Probe Artifacts. `list`/no-args needs no host; `doctor` and probe runs spin up an
@@ -34,6 +35,45 @@ if (command is not "doctor")
     }
 }
 
+// Real memory is opt-in per probe (ADR 0011 amendment): only a RequiresMemory probe — or `doctor`,
+// which reports the tier — pays for the ephemeral AGE container. Prompt-composition probes stay
+// Docker-free (tier-0). Docker absent when a probe needs memory → loud fall back to the stub.
+var wantsMemory = command is "doctor" || (probe?.RequiresMemory ?? false);
+PostgreSqlContainer? postgres = null;
+string? memoryConnectionString = null;
+string memoryStatus;
+
+if (wantsMemory)
+{
+    try
+    {
+        Console.Error.WriteLine("memory: starting ephemeral AGE container (first run pulls the image)…");
+        postgres = BenchMemory.NewContainer();
+        await postgres.StartAsync();
+        memoryConnectionString = postgres.GetConnectionString();
+        await BenchMemory.PrepareSchemaAsync(memoryConnectionString, CancellationToken.None);
+        memoryStatus = "LIVE (testcontainers)";
+    }
+    catch (Exception ex)
+    {
+        memoryStatus = $"stubbed (no docker: {ex.Message})";
+        memoryConnectionString = null;
+        if (postgres is not null)
+        {
+            await postgres.DisposeAsync();
+            postgres = null;
+        }
+        if (probe?.RequiresMemory == true)
+            Console.Error.WriteLine(
+                $"!! probe '{probe.Name}' needs real memory but the AGE container could not start — " +
+                "falling back to StubMemoryRepository. Recall/Stance reads will be empty, NOT a real loop.");
+    }
+}
+else
+{
+    memoryStatus = "stubbed (not required by this probe)";
+}
+
 var builder = Host.CreateApplicationBuilder();
 
 // benchsettings.json ships beside the binary (copied to output); benchsettings.local.json is an
@@ -47,9 +87,21 @@ builder.Configuration
 builder.Services.AddLlmProviderOptions();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
-// Mandatory even though decision probes call the service directly — any host that can activate
-// PersonaGrain hangs silently without an IMemoryRepository registration.
-builder.Services.AddSingleton<IMemoryRepository, StubMemoryRepository>();
+
+// An IMemoryRepository registration is mandatory even for decision probes that call the service
+// directly — any host that can activate PersonaGrain hangs silently without one. RequiresMemory
+// probes (with Docker up) get the real repo over the bench's AGE container, wired exactly like
+// production (backend/Program.cs); everything else gets the no-op stub.
+if (memoryConnectionString is not null)
+{
+    builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
+    builder.Services.AddSingleton(BenchMemory.CreateDbContextFactory(memoryConnectionString));
+    builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
+}
+else
+{
+    builder.Services.AddSingleton<IMemoryRepository, StubMemoryRepository>();
+}
 
 builder.UseOrleans(silo =>
 {
@@ -75,16 +127,17 @@ try
 
     if (command is "doctor")
     {
-        await Doctor.RunAsync(grains);
+        await Doctor.RunAsync(grains, memoryStatus);
         return 0;
     }
 
     var loggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
+    var memory = host.Services.GetRequiredService<IMemoryRepository>();
     var artifact = new ProbeArtifact(probe!.Name, DateTimeOffset.UtcNow);
 
     LlmCallRecorder.Reset();
     using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-    var bench = new Bench(grains, loggerFactory, artifact, cts.Token);
+    var bench = new Bench(grains, loggerFactory, memory, artifact, cts.Token);
     var exit = 0;
     try
     {
@@ -110,6 +163,10 @@ try
 finally
 {
     await host.StopAsync();
+    // Ryuk reaps the container on process exit anyway, but dispose explicitly so a clean run leaves
+    // nothing behind (ephemeral-by-default, ADR 0011 amendment).
+    if (postgres is not null)
+        await postgres.DisposeAsync();
 }
 
 static void PrintProbes(IReadOnlyList<ProbeInfo> probes)

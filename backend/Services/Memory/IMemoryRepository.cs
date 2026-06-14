@@ -175,4 +175,58 @@ public interface IMemoryRepository
     /// API. Snapshot only — no streaming.
     /// </summary>
     Task<MemoryGraphDto> GetPartyMemoryGraphAsync(Guid partyId, CancellationToken ct);
+
+    // ─── Intrinsic Stances (ADR 0016, issue #91) ──────────────────────────────────────────
+
+    /// <summary>
+    /// Append one Intrinsic Stance at Persona (library) scope — a <c>(:Persona)-[:STANCE]</c>
+    /// edge that travels into every Party the Persona joins. Append-only, same latest-wins
+    /// rule as Acquired. The curator authors these in the persona-management UI; Promotion
+    /// lifts an Acquired Stance to this scope.
+    /// </summary>
+    /// <param name="personaId">The authoring Persona's library id.</param>
+    /// <param name="target">
+    /// Target shape. For <see cref="StanceTargetKind.Participant"/>, <c>PersonaId</c> names
+    /// the target Persona (not a Participant) — on promotion the caller has already resolved
+    /// the Participant's underlying Persona id. <see cref="StanceTargetKind.Self"/> writes a
+    /// self-loop on the Persona node.
+    /// </param>
+    /// <returns>The new edge's stable <c>id</c>.</returns>
+    Task<Guid> AppendIntrinsicStanceAsync(
+        Guid personaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        StanceAttribution? attribution,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Every Intrinsic Stance edge authored at Persona scope, newest first. Mirrors
+    /// <see cref="ListStancesAsync"/> but reads from the Persona node rather than a
+    /// Participant. <see cref="StanceRecord.IsCurrent"/> marks the latest-wins survivor per
+    /// target; superseded edges are returned for history.
+    /// </summary>
+    Task<IReadOnlyList<StanceRecord>> ListIntrinsicStancesAsync(
+        Guid personaId,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Promote an Acquired Stance to Intrinsic scope (ADR 0016): write a new Persona-scope
+    /// edge carrying the current projection; the original Acquired edge is untouched. If the
+    /// Acquired Stance targets a Participant, the target is re-pointed to that Participant's
+    /// underlying Persona so the edge is meaningful across Parties. Concept and self targets
+    /// carry over unchanged.
+    /// </summary>
+    /// <param name="partyId">Party scope for resolving the Acquired Stance.</param>
+    /// <param name="sourcePersonaId">Persona id of the Participant who owns the Acquired Stance.</param>
+    /// <param name="stanceId">The Acquired Stance edge id to promote.</param>
+    /// <returns>
+    /// The new Intrinsic edge's id, or <c>null</c> when <paramref name="stanceId"/> is not an
+    /// edge authored by this Participant in this Party.
+    /// </returns>
+    Task<Guid?> PromoteStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct);
 }

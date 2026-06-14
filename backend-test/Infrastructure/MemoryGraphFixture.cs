@@ -45,7 +45,9 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            await EnsureMemoryGraphSchemaAsync(probe);
+            // Dev Postgres already ran 05-age-setup.sql + 06-memory-graph.sql; this re-ensures the
+            // graph idempotently so a freshly-reset volume (or a partial init) still passes.
+            await MemoryGraphSchema.EnsureAsync(probe);
             IsAvailable = true;
         }
         catch (Exception ex)
@@ -56,63 +58,6 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
-
-    private static async Task EnsureMemoryGraphSchemaAsync(NpgsqlConnection conn)
-    {
-        // Idempotent schema: matches docker-entrypoint-initdb.d/06-memory-graph.sql for
-        // graph + labels (reshaped per ADR 0014 — no Party/Room/Message vertices, no
-        // IN_PARTY/ANCHORED_TO edges). Indexes in the docker init script are perf-only and
-        // skipped here; tests pass without them.
-        // create_vlabel/create_elabel are cstring-typed, so cast explicitly.
-        const string ddl = """
-            LOAD 'age';
-            SET search_path = ag_catalog, "$user", public;
-
-            DO $$
-            BEGIN
-              IF NOT EXISTS (SELECT 1 FROM ag_catalog.ag_graph WHERE name = 'memory') THEN
-                PERFORM ag_catalog.create_graph('memory');
-              END IF;
-            END
-            $$;
-
-            DO $$
-            DECLARE
-              lbl text;
-            BEGIN
-              FOREACH lbl IN ARRAY ARRAY['Persona','Participant','Concept','Event']
-              LOOP
-                IF NOT EXISTS (
-                  SELECT 1 FROM ag_catalog.ag_label
-                   WHERE name = lbl AND graph = (SELECT graphid FROM ag_catalog.ag_graph WHERE name = 'memory')
-                ) THEN
-                  PERFORM ag_catalog.create_vlabel('memory'::cstring, lbl::cstring);
-                END IF;
-              END LOOP;
-            END
-            $$;
-
-            DO $$
-            DECLARE
-              lbl text;
-            BEGIN
-              FOREACH lbl IN ARRAY ARRAY['HAS_PARTICIPANT','RECOLLECTS','ABOUT','STANCE']
-              LOOP
-                IF NOT EXISTS (
-                  SELECT 1 FROM ag_catalog.ag_label
-                   WHERE name = lbl AND graph = (SELECT graphid FROM ag_catalog.ag_graph WHERE name = 'memory')
-                ) THEN
-                  PERFORM ag_catalog.create_elabel('memory'::cstring, lbl::cstring);
-                END IF;
-              END LOOP;
-            END
-            $$;
-            """;
-
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = ddl;
-        await cmd.ExecuteNonQueryAsync();
-    }
 
     private sealed class TestDbContextFactory(DbContextOptions<AppDbContext> options)
         : IDbContextFactory<AppDbContext>

@@ -57,7 +57,8 @@ The bench host reuses the backend's registrations and swaps only the edges:
   bench coexists with a running Aspire stack). Bench state is ephemeral; every run
   seeds fresh.
 - **Memory subsystem**: `IMemoryRepository` is stubbed by default (PersonaGrain hangs
-  silently without a registration). Probes that target memory swap in the real one.
+  silently without a registration). Probes that target memory swap in the real one —
+  backed by an ephemeral Apache AGE container the bench owns (→ Amendment 2026-06-14).
 
 Everything between those edges — config grain, router, endpoint grains, decision/
 speaking/salience/emote services, prompt composition — is production code, untouched.
@@ -120,3 +121,50 @@ is gitignored — artifacts are working material, not fixtures.
 - **Eval tier**: when prompt quality needs scoring rather than reading, add a runner
   that executes existing probes N times and applies a rubric (heuristic or LLM-judge)
   over the artifacts. The artifact schema is the contract; keep it stable.
+
+## Amendment (2026-06-14): real memory is a bench-owned Testcontainers AGE
+
+The "swap in the real one" above stayed an unbuilt intent; memory-driven slices
+(recall, Stance, the union read behind #91) had no bench loop. The full loop —
+real DB *and* real model together — is the one slice nothing else reaches: the
+stub-DB probes compose prompts but never recall; the `IntrinsicStanceIntegrationTest`
+suite hits real AGE but with a `NullExtractor`, so it never sees a model react.
+
+**Decision.** Memory-needing probes get a real `MemoryRepository` over an **ephemeral
+Apache AGE container the bench starts itself** via Testcontainers
+(`Testcontainers.PostgreSql`, `apache/age` image). Non-memory probes keep the stub.
+`doctor` reports `memory: LIVE (testcontainers)` vs `memory: stubbed`, mirroring the
+LLM `LIVE`/tier-0 report.
+
+**Why bench owns the container, not Aspire.** Aspire orchestrates long-running
+services; the bench is a one-shot, arg-driven CLI — an impedance mismatch. Connecting
+to the AppHost's DB would couple the bench to Aspire being up and to discovering its
+connection string (`.env`/user-secrets, port 5455). Testcontainers makes the bench
+self-contained, exactly as it already owns its own off-port silo: a **random host
+port** sidesteps any 5455 collision with a running AppHost, `GetConnectionString()` is
+the single source of truth (no discovery), and Ryuk reaps the container on exit. The
+bench's "seconds, no Aspire, no browser" property now holds even for the full memory
+loop — it needs only Docker, and only for memory probes.
+
+**Gating preserves tier-0.** A probe declares it `RequiresMemory`; only those start a
+container. Prompt-composition probes stay infra- and Docker-free — the degraded-but-
+useful tier-0 mode is load-bearing, not a fallback to erode. Docker absent when a probe
+needs memory → loud fall back to the stub, never a hang.
+
+**Schema via the shared C# ensure, not the docker init scripts.** Bench uses in-memory
+grain storage, so the Orleans DDL in `docker-entrypoint-initdb.d/01–04` is dead weight,
+and bind-mounting the init dir couples the bench to init-script breakage over a
+CWD-fragile path. `backend-test`'s `MemoryGraphFixture.EnsureMemoryGraphSchemaAsync`
+already builds the `memory` graph + vlabels/elabels (incl. `STANCE`) idempotently and
+is proven against #91 — extract it to a helper both the fixture and the bench call.
+
+**Ephemeral by default.** The container disposes with the host; each run seeds fresh,
+preserving clean-diff artifacts. `.WithReuse(true)` is a later opt-in for loop speed and
+forces per-run GUID namespacing (a reused graph accumulates). A *persistent data volume*
+— especially the AppHost's `partytown-pgdata` — is rejected: it collides with Aspire's
+postmaster and defeats determinism.
+
+**Boundary held.** This does not make the bench an integration-test harness. The
+integration suite asserts correctness over real AGE, CI-gated; the bench observes —
+emitting Probe Artifacts, never asserting. Same infra, different output contract; if
+that line blurs the bench rots into a slow, flaky test suite.

@@ -650,7 +650,15 @@ public sealed class MemoryRepository(
             return Array.Empty<StanceLine>();
         }
 
-        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        // Union Acquired (Participant-scope) + Intrinsic (Persona-scope) edges; latest-wins
+        // across both scopes per (source, target) key — ADR 0016 Intrinsic Stance slice.
+        var acquiredRows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        var intrinsicRows = await FetchIntrinsicStanceEdgesAsync(sourcePersonaId, ct);
+        var rows = acquiredRows.Count == 0
+            ? intrinsicRows
+            : intrinsicRows.Count == 0
+                ? acquiredRows
+                : acquiredRows.Concat(intrinsicRows).OrderByDescending(r => r.Ts).ToList();
         var present = new HashSet<Guid>(presentPersonaIds);
         var text = anchorText ?? string.Empty;
 
@@ -756,19 +764,19 @@ public sealed class MemoryRepository(
     private static string TargetKey(StanceEdgeRow row)
         => row.TargetPersonaId is Guid tp ? $"p:{tp}" : $"c:{row.ConceptName}";
 
-    private static StanceRecord ToRecord(StanceEdgeRow row, Guid sourcePersonaId, bool isCurrent)
+    private static StanceRecord ToRecord(StanceEdgeRow row, Guid sourcePersonaId, bool isCurrent, bool isIntrinsic = false)
     {
         if (row.TargetPersonaId is Guid tp)
         {
             var kind = tp == sourcePersonaId ? StanceTargetKind.Self : StanceTargetKind.Participant;
             return new StanceRecord(
                 row.Id, row.Valence, row.Reasoning, row.Ts,
-                kind, tp, null, null, isCurrent, row.Origin, row.RunId, row.RetractsId);
+                kind, tp, null, null, isCurrent, row.Origin, row.RunId, row.RetractsId, isIntrinsic);
         }
         return new StanceRecord(
             row.Id, row.Valence, row.Reasoning, row.Ts,
             StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent,
-            row.Origin, row.RunId, row.RetractsId);
+            row.Origin, row.RunId, row.RetractsId, isIntrinsic);
     }
 
     // All STANCE edges authored by one Participant, newest first. Single read-only Cypher —
@@ -827,6 +835,222 @@ public sealed class MemoryRepository(
                 }
 
                 // Absent origin = pre-attribution edge = curator (the only writer back then).
+                var origin = Get(7) switch
+                {
+                    "consolidation" => StanceOrigin.Consolidation,
+                    "retract" => StanceOrigin.Retract,
+                    _ => StanceOrigin.Curator,
+                };
+                var runId = Guid.TryParse(Get(8), out var run) ? run : (Guid?)null;
+                var retractsId = Guid.TryParse(Get(9), out var retr) ? retr : (Guid?)null;
+
+                rows.Add(new StanceEdgeRow(
+                    id, valence, reasoning, ts, targetPersonaId, conceptName, conceptDisplay,
+                    origin, runId, retractsId));
+            }
+
+            return rows;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    // ─── Intrinsic Stances (ADR 0016, issue #91) ──────────────────────────────────────────
+
+    public async Task<Guid> AppendIntrinsicStanceAsync(
+        Guid personaId,
+        StanceTargetSpec target,
+        double valence,
+        string reasoning,
+        StanceAttribution? attribution,
+        CancellationToken ct)
+    {
+        var edgeId = Guid.NewGuid();
+        var nowIso = DateTimeOffset.UtcNow.ToString("o");
+        var valenceLiteral = Math.Clamp(valence, -1.0, 1.0)
+            .ToString("0.0###", CultureInfo.InvariantCulture);
+
+        var provenance = attribution?.Origin switch
+        {
+            StanceOrigin.Consolidation => $", origin: 'consolidation', run_id: '{attribution.RunId}'",
+            StanceOrigin.Retract => $", origin: 'retract', retracts: '{attribution.RetractsId}'",
+            _ => string.Empty,
+        };
+
+        var edgeProps =
+            $"{{ id: '{edgeId}', valence: {valenceLiteral}, reasoning: {CypherStr(reasoning)}, ts: '{nowIso}'{provenance} }}";
+
+        string sql;
+        if (target.Kind == StanceTargetKind.Concept)
+        {
+            var name = target.ConceptName ?? string.Empty;
+            var display = target.ConceptDisplay ?? name;
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Persona {id: '{{personaId}}'})
+                  MERGE (c:Concept {name: {{CypherStr(name)}}})
+                  SET c.display = coalesce(c.display, {{CypherStr(display)}})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(c)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+        else
+        {
+            var targetPersonaId = target.Kind == StanceTargetKind.Self
+                ? personaId
+                : target.PersonaId ?? throw new ArgumentException(
+                    "Participant Stance target requires PersonaId.", nameof(target));
+            sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MERGE (src:Persona {id: '{{personaId}}'})
+                  MERGE (tgt:Persona {id: '{{targetPersonaId}}'})
+                  CREATE (src)-[s:STANCE {{edgeProps}}]->(tgt)
+                  RETURN s.id
+                $cy$) AS (id ag_catalog.agtype)
+                """;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await ExecuteCypherAsync(db, sql, ct);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+
+        logger.LogInformation(
+            "Appended Intrinsic Stance {EdgeId} from persona {PersonaId} ({Kind}) (origin {Origin})",
+            edgeId, personaId, target.Kind, attribution?.Origin ?? StanceOrigin.Curator);
+
+        return edgeId;
+    }
+
+    public async Task<IReadOnlyList<StanceRecord>> ListIntrinsicStancesAsync(
+        Guid personaId,
+        CancellationToken ct)
+    {
+        var rows = await FetchIntrinsicStanceEdgesAsync(personaId, ct);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var records = new List<StanceRecord>(rows.Count);
+        foreach (var row in rows)
+        {
+            var isCurrent = seen.Add(TargetKey(row));
+            records.Add(ToRecord(row, personaId, isCurrent, isIntrinsic: true));
+        }
+        return records;
+    }
+
+    public async Task<Guid?> PromoteStanceAsync(
+        Guid partyId,
+        Guid sourcePersonaId,
+        Guid stanceId,
+        CancellationToken ct)
+    {
+        var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
+        var original = rows.FirstOrDefault(r => r.Id == stanceId);
+        if (original is null)
+        {
+            return null;
+        }
+
+        // Re-target: Participant → underlying Persona (same id since Participant.persona_id
+        // IS the Persona id). Concept and Self targets carry over unchanged.
+        StanceTargetSpec intrinsicTarget;
+        if (original.ConceptName is { Length: > 0 })
+        {
+            intrinsicTarget = new StanceTargetSpec(
+                StanceTargetKind.Concept, null, original.ConceptName, original.ConceptDisplay);
+        }
+        else if (original.TargetPersonaId is Guid tp && tp == sourcePersonaId)
+        {
+            intrinsicTarget = new StanceTargetSpec(StanceTargetKind.Self, null, null, null);
+        }
+        else
+        {
+            // Participant target: re-point at the target's Persona (persona_id == Persona.id).
+            var targetPersonaId = original.TargetPersonaId
+                ?? throw new InvalidOperationException("Malformed edge: no target.");
+            intrinsicTarget = new StanceTargetSpec(
+                StanceTargetKind.Participant, targetPersonaId, null, null);
+        }
+
+        // Carry the source edge's provenance onto the promoted intrinsic edge so the
+        // audit trail survives — a promoted Consolidation/Retract edge must not read as
+        // curator-authored. Curator-origin edges keep attribution null.
+        var attribution = original.Origin switch
+        {
+            StanceOrigin.Consolidation => new StanceAttribution(
+                StanceOrigin.Consolidation, RunId: original.RunId),
+            StanceOrigin.Retract => new StanceAttribution(
+                StanceOrigin.Retract, RetractsId: original.RetractsId),
+            _ => null,
+        };
+
+        return await AppendIntrinsicStanceAsync(
+            sourcePersonaId, intrinsicTarget, original.Valence, original.Reasoning,
+            attribution, ct);
+    }
+
+    // All Intrinsic STANCE edges from one Persona node, newest first. Mirrors
+    // FetchStanceEdgesAsync but reads from (:Persona) and uses tgt.id for Persona targets.
+    private async Task<IReadOnlyList<StanceEdgeRow>> FetchIntrinsicStanceEdgesAsync(
+        Guid personaId, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var sql = $$"""
+                SELECT * FROM cypher('memory', $cy$
+                  MATCH (src:Persona {id: '{{personaId}}'})-[s:STANCE]->(tgt)
+                  RETURN s.id, s.valence, s.reasoning, s.ts, tgt.id, tgt.name, tgt.display,
+                         s.origin, s.run_id, s.retracts
+                  ORDER BY s.ts DESC
+                $cy$) AS (id text, valence text, reasoning text, ts text,
+                          target_persona_id text, concept_name text, concept_display text,
+                          origin text, run_id text, retracts text)
+                """;
+
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+
+            var rows = new List<StanceEdgeRow>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+
+                if (!Guid.TryParse(Get(0), out var id))
+                {
+                    continue;
+                }
+                var reasoning = Get(2);
+                if (string.IsNullOrWhiteSpace(reasoning))
+                {
+                    continue;
+                }
+                var valence = double.TryParse(Get(1), NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+                    ? Math.Clamp(v, -1.0, 1.0)
+                    : 0.0;
+                var ts = ParseIso(Get(3)) ?? DateTimeOffset.UtcNow;
+
+                var targetPersonaId = Guid.TryParse(Get(4), out var tp) ? tp : (Guid?)null;
+                var conceptName = Get(5);
+                var conceptDisplay = Get(6);
+
+                if (targetPersonaId is null && string.IsNullOrWhiteSpace(conceptName))
+                {
+                    continue;
+                }
+
                 var origin = Get(7) switch
                 {
                     "consolidation" => StanceOrigin.Consolidation,

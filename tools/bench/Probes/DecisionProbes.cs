@@ -1,6 +1,6 @@
 using System.Text;
 using PartyTown.Model;
-using PartyTown.Services.Generation;
+using PartyTown.Services.ResponsePipeline;
 
 namespace PartyTown.Bench.Probes;
 
@@ -22,8 +22,8 @@ public static class DecisionProbes
         // and we can watch whether Vlad picks one (memoryToReference) or declines.
         var vladMemories = new[]
         {
-            "Tim once spent a whole evening ranting about a meeting that could have been an email.",
-            "The last offsite Tim mentioned ended with someone crying by the trust-fall mat.",
+            "Sam once spent a whole evening ranting about a meeting that could have been an email.",
+            "The last offsite Sam mentioned ended with someone crying by the trust-fall mat.",
         };
 
         await RunDecision(bench, BenchCast.Vlad, history, vladMemories);
@@ -40,7 +40,7 @@ public static class DecisionProbes
                 MessageId = 1,
                 Content = "Vlad, you there?",
                 SenderType = "user",
-                SenderId = BenchCast.TimId,
+                SenderId = BenchCast.SamId,
                 ChatGroupId = BenchCast.RoomId,
             },
         };
@@ -54,13 +54,13 @@ public static class DecisionProbes
     /// (chaos is excluded from it); only the ChaosScore component re-rolls per call.</summary>
     private static async Task RunDecision(
         Bench bench,
-        GenerationParticipant self,
+        SelfView self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<string>? recollections = null)
     {
         var service = new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"));
 
-        var urge = PersonaDecisionService.CalculateResponseUrge(self, history, totalAiRoundsInGroup: 0);
+        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup: 0);
         bench.Observe($"{self.Name}.urge (Total deterministic; ChaosScore re-rolls per call)", new
         {
             urge.Total,

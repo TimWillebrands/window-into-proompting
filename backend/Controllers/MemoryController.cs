@@ -194,6 +194,27 @@ public sealed class MemoryController(
         var stances = await memoryRepository.ListStancesAsync(partyId, personaId, ct);
         return Ok(stances);
     }
+
+    /// <summary>
+    /// Promote an Acquired Stance to Intrinsic (Persona) scope (ADR 0016): write a new
+    /// Persona-scope edge carrying the current projection. A Participant target is
+    /// re-pointed at the target's underlying Persona so the edge is meaningful across
+    /// Parties. The original Acquired edge is not touched.
+    /// </summary>
+    [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/promote")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AppendStanceResponse>> PromoteStance(
+        Guid partyId, Guid personaId, Guid stanceId, CancellationToken ct)
+    {
+        var id = await memoryRepository.PromoteStanceAsync(partyId, personaId, stanceId, ct);
+        if (id is null)
+        {
+            return NotFound("No such stance authored by this participant.");
+        }
+        return CreatedAtAction(
+            nameof(ListStances), new { partyId, personaId }, new AppendStanceResponse(id.Value));
+    }
 }
 
 /// <summary>

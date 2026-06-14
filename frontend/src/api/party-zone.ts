@@ -3917,6 +3917,189 @@ export const usePostPartiesPartyIdMemoryConsolidate = <
     );
 };
 
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201TextPlain =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201ApplicationJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201TextJson =
+    {
+        data: AppendStanceResponse;
+        status: 201;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404TextPlain =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404TextJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponseSuccess =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse201TextJson
+    ) & {
+        headers: Headers;
+    };
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponseError =
+    (
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404TextPlain
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404ApplicationJson
+        | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse404TextJson
+    ) & {
+        headers: Headers;
+    };
+
+export type postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse =
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponseSuccess
+    | postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponseError;
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteUrl =
+    (partyId: string, personaId: string, stanceId: string) => {
+        return `/api/parties/${partyId}/memory/participants/${personaId}/stances/${stanceId}/promote`;
+    };
+
+export const postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote =
+    async (
+        partyId: string,
+        personaId: string,
+        stanceId: string,
+        options?: RequestInit,
+    ): Promise<postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse> => {
+        return customFetch<postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteResponse>(
+            getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteUrl(
+                partyId,
+                personaId,
+                stanceId,
+            ),
+            {
+                ...options,
+                method: 'POST',
+            },
+        );
+    };
+
+export const getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteMutationOptions =
+    <TError = ProblemDetails, TContext = unknown>(options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+                >
+            >,
+            TError,
+            { partyId: string; personaId: string; stanceId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    }): UseMutationOptions<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string; stanceId: string },
+        TContext
+    > => {
+        const mutationKey = [
+            'postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote',
+        ];
+        const { mutation: mutationOptions, request: requestOptions } = options
+            ? options.mutation &&
+              'mutationKey' in options.mutation &&
+              options.mutation.mutationKey
+                ? options
+                : { ...options, mutation: { ...options.mutation, mutationKey } }
+            : { mutation: { mutationKey }, request: undefined };
+
+        const mutationFn: MutationFunction<
+            Awaited<
+                ReturnType<
+                    typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+                >
+            >,
+            { partyId: string; personaId: string; stanceId: string }
+        > = (props) => {
+            const { partyId, personaId, stanceId } = props ?? {};
+
+            return postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote(
+                partyId,
+                personaId,
+                stanceId,
+                requestOptions,
+            );
+        };
+
+        return { mutationFn, ...mutationOptions };
+    };
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteMutationResult =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+            >
+        >
+    >;
+
+export type PostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteMutationError =
+    ProblemDetails;
+
+export const usePostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote =
+    <TError = ProblemDetails, TContext = unknown>(
+        options?: {
+            mutation?: UseMutationOptions<
+                Awaited<
+                    ReturnType<
+                        typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+                    >
+                >,
+                TError,
+                { partyId: string; personaId: string; stanceId: string },
+                TContext
+            >;
+            request?: SecondParameter<typeof customFetch>;
+        },
+        queryClient?: QueryClient,
+    ): UseMutationResult<
+        Awaited<
+            ReturnType<
+                typeof postPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromote
+            >
+        >,
+        TError,
+        { partyId: string; personaId: string; stanceId: string },
+        TContext
+    > => {
+        return useMutation(
+            getPostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdPromoteMutationOptions(
+                options,
+            ),
+            queryClient,
+        );
+    };
+
 export type getPartyResponse200TextPlain = {
     data: PartyInfo[];
     status: 200;
@@ -10305,3 +10488,473 @@ export function useGetPersonaWsSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type getPersonaPersonaIdStancesResponse200TextPlain = {
+    data: StanceRecord[];
+    status: 200;
+};
+
+export type getPersonaPersonaIdStancesResponse200ApplicationJson = {
+    data: StanceRecord[];
+    status: 200;
+};
+
+export type getPersonaPersonaIdStancesResponse200TextJson = {
+    data: StanceRecord[];
+    status: 200;
+};
+
+export type getPersonaPersonaIdStancesResponseSuccess = (
+    | getPersonaPersonaIdStancesResponse200TextPlain
+    | getPersonaPersonaIdStancesResponse200ApplicationJson
+    | getPersonaPersonaIdStancesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getPersonaPersonaIdStancesResponse =
+    getPersonaPersonaIdStancesResponseSuccess;
+
+export const getGetPersonaPersonaIdStancesUrl = (personaId: string) => {
+    return `/api/Persona/${personaId}/stances`;
+};
+
+export const getPersonaPersonaIdStances = async (
+    personaId: string,
+    options?: RequestInit,
+): Promise<getPersonaPersonaIdStancesResponse> => {
+    return customFetch<getPersonaPersonaIdStancesResponse>(
+        getGetPersonaPersonaIdStancesUrl(personaId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetPersonaPersonaIdStancesQueryKey = (personaId: string) => {
+    return [`/api/Persona/${personaId}/stances`] as const;
+};
+
+export const getGetPersonaPersonaIdStancesQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPersonaPersonaIdStancesQueryKey(personaId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+    > = ({ signal }) =>
+        getPersonaPersonaIdStances(personaId, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!personaId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaPersonaIdStancesQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+>;
+export type GetPersonaPersonaIdStancesQueryError = unknown;
+
+export function useGetPersonaPersonaIdStances<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaPersonaIdStances<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                    TError,
+                    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaPersonaIdStances<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaPersonaIdStances<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaPersonaIdStancesQueryOptions(
+        personaId,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetPersonaPersonaIdStancesSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetPersonaPersonaIdStancesQueryKey(personaId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+    > = ({ signal }) =>
+        getPersonaPersonaIdStances(personaId, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPersonaPersonaIdStancesSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getPersonaPersonaIdStances>>
+>;
+export type GetPersonaPersonaIdStancesSuspenseQueryError = unknown;
+
+export function useGetPersonaPersonaIdStancesSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaPersonaIdStancesSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPersonaPersonaIdStancesSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPersonaPersonaIdStancesSuspense<
+    TData = Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+    TError = unknown,
+>(
+    personaId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getPersonaPersonaIdStances>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetPersonaPersonaIdStancesSuspenseQueryOptions(
+        personaId,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postPersonaPersonaIdStancesResponse201TextPlain = {
+    data: AppendStanceResponse;
+    status: 201;
+};
+
+export type postPersonaPersonaIdStancesResponse201ApplicationJson = {
+    data: AppendStanceResponse;
+    status: 201;
+};
+
+export type postPersonaPersonaIdStancesResponse201TextJson = {
+    data: AppendStanceResponse;
+    status: 201;
+};
+
+export type postPersonaPersonaIdStancesResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPersonaPersonaIdStancesResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPersonaPersonaIdStancesResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postPersonaPersonaIdStancesResponseSuccess = (
+    | postPersonaPersonaIdStancesResponse201TextPlain
+    | postPersonaPersonaIdStancesResponse201ApplicationJson
+    | postPersonaPersonaIdStancesResponse201TextJson
+) & {
+    headers: Headers;
+};
+export type postPersonaPersonaIdStancesResponseError = (
+    | postPersonaPersonaIdStancesResponse400TextPlain
+    | postPersonaPersonaIdStancesResponse400ApplicationJson
+    | postPersonaPersonaIdStancesResponse400TextJson
+) & {
+    headers: Headers;
+};
+
+export type postPersonaPersonaIdStancesResponse =
+    | postPersonaPersonaIdStancesResponseSuccess
+    | postPersonaPersonaIdStancesResponseError;
+
+export const getPostPersonaPersonaIdStancesUrl = (personaId: string) => {
+    return `/api/Persona/${personaId}/stances`;
+};
+
+export const postPersonaPersonaIdStances = async (
+    personaId: string,
+    appendStanceRequest: AppendStanceRequest,
+    options?: RequestInit,
+): Promise<postPersonaPersonaIdStancesResponse> => {
+    return customFetch<postPersonaPersonaIdStancesResponse>(
+        getPostPersonaPersonaIdStancesUrl(personaId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(appendStanceRequest),
+        },
+    );
+};
+
+export const getPostPersonaPersonaIdStancesMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postPersonaPersonaIdStances>>,
+        TError,
+        { personaId: string; data: AppendStanceRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postPersonaPersonaIdStances>>,
+    TError,
+    { personaId: string; data: AppendStanceRequest },
+    TContext
+> => {
+    const mutationKey = ['postPersonaPersonaIdStances'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postPersonaPersonaIdStances>>,
+        { personaId: string; data: AppendStanceRequest }
+    > = (props) => {
+        const { personaId, data } = props ?? {};
+
+        return postPersonaPersonaIdStances(personaId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostPersonaPersonaIdStancesMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postPersonaPersonaIdStances>>
+>;
+export type PostPersonaPersonaIdStancesMutationBody = AppendStanceRequest;
+export type PostPersonaPersonaIdStancesMutationError = ProblemDetails;
+
+export const usePostPersonaPersonaIdStances = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postPersonaPersonaIdStances>>,
+            TError,
+            { personaId: string; data: AppendStanceRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postPersonaPersonaIdStances>>,
+    TError,
+    { personaId: string; data: AppendStanceRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostPersonaPersonaIdStancesMutationOptions(options),
+        queryClient,
+    );
+};

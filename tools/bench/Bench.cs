@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using PartyTown.Grains.Generation;
+using PartyTown.Services.Memory;
 
 namespace PartyTown.Bench;
 
@@ -9,11 +10,17 @@ namespace PartyTown.Bench;
 /// <see cref="ProbeArtifact"/> to record observations into. The probe builds its cast and
 /// history with normal code, invokes the slice under design, and observes — it never asserts.
 /// </summary>
-public sealed class Bench(IGrainFactory grains, ILoggerFactory loggerFactory, ProbeArtifact artifact, CancellationToken cancellation = default)
+public sealed class Bench(IGrainFactory grains, ILoggerFactory loggerFactory, IMemoryRepository memory, ProbeArtifact artifact, CancellationToken cancellation = default)
 {
     public IGrainFactory Grains { get; } = grains;
     public ILoggerFactory LoggerFactory { get; } = loggerFactory;
     public ProbeArtifact Artifact { get; } = artifact;
+
+    /// <summary>The registered memory repository — the real <c>MemoryRepository</c> over the bench's
+    /// ephemeral AGE when the running probe declared <c>RequiresMemory</c> and Docker was reachable,
+    /// otherwise the no-op <see cref="StubMemoryRepository"/>. Only <c>RequiresMemory</c> probes
+    /// should touch it.</summary>
+    public IMemoryRepository Memory { get; } = memory;
 
     /// <summary>Fires at the probe deadline — pass into every async call so a timed-out probe
     /// actually stops instead of racing the artifact write.</summary>
