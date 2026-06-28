@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Configuration;
 using Orleans.Hosting;
 using PartyTown.Bench;
 using PartyTown.Configuration;
@@ -105,9 +106,15 @@ else
 
 builder.UseOrleans(silo =>
 {
+    // LLM one-shot calls routinely exceed Orleans' default 30s response timeout,
+    // so the co-hosted client's request deadline fires and the in-flight response
+    // is dropped as expired. Give the grain<->client RPC generous headroom.
+    var llmResponseTimeout = TimeSpan.FromMinutes(3);
     silo
         // Off-default ports: must not collide with a running Aspire silo (11111/30000).
         .UseLocalhostClustering(siloPort: 11411, gatewayPort: 30411)
+        .Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout)
+        .Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout)
         .AddMemoryGrainStorage("parties")
         .AddMemoryGrainStorage("personas")
         .AddMemoryGrainStorage("urls")
@@ -136,7 +143,14 @@ try
     var artifact = new ProbeArtifact(probe!.Name, DateTimeOffset.UtcNow);
 
     LlmCallRecorder.Reset();
-    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+    // Probe deadline. The full multi-turn probes (live recall loops) fan out ~15 LLM calls and
+    // blow the old 5-min cap on slow local models; default to 15 min and let
+    // BENCH_PROBE_TIMEOUT_MIN tune it (down for fast slices, up for heavier runs). Still fires so
+    // a hung probe stops instead of racing the artifact write.
+    var probeTimeoutMin = int.TryParse(
+        Environment.GetEnvironmentVariable("BENCH_PROBE_TIMEOUT_MIN"), out var m) && m > 0 ? m : 15;
+    Console.Error.WriteLine($"probe deadline: {probeTimeoutMin} min (BENCH_PROBE_TIMEOUT_MIN to override)");
+    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(probeTimeoutMin));
     var bench = new Bench(grains, loggerFactory, memory, artifact, cts.Token);
     var exit = 0;
     try

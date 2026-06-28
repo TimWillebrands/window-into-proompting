@@ -12,12 +12,14 @@
             {
                 "Type": "ollama",
                 "BaseUrl": "http://localhost:11434",
-                "TEMP_ModelName": "lfm2:24b"
+                "TEMP_ModelName": "lfm2.5:latest",
+                "SupportedComplexities": "General"
             },
             {
                 "Type": "ollama",
-                "BaseUrl": "http://192.168.68.101:11434",
-                "TEMP_ModelName": "lfm2:24b"
+                "BaseUrl": "http://192.168.68.100:11434",
+                "TEMP_ModelName": "gemma4:26b",
+                "SupportedComplexities": "CharacterVoice"
             }
         ]
     }

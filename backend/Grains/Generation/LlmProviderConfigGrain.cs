@@ -80,7 +80,7 @@ public sealed class LlmProviderConfigGrain(
                 Type = "ollama",
                 BaseUrl = o.BaseUrl,
                 ModelName = o.TEMP_ModelName,
-                SupportedComplexities = JobComplexity.General,
+                SupportedComplexities = o.SupportedComplexities,
             },
             OpenRouterProviderConfig o => new LlmProviderEntry
             {
@@ -89,7 +89,7 @@ public sealed class LlmProviderConfigGrain(
                 BaseUrl = o.BaseUrl,
                 ApiKey = o.ApiKey,
                 ModelName = o.TEMP_ModelName,
-                SupportedComplexities = JobComplexity.General,
+                SupportedComplexities = o.SupportedComplexities,
             },
             _ => throw new InvalidOperationException($"Unknown provider type: {p.GetType().Name}")
         }).ToList();

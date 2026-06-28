@@ -68,7 +68,11 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         var job = new LlmGenerationJob
         {
             Messages = messages,
-            JobComplexity = JobComplexity.General
+            // The spoken utterance is what the user reads — route it to the CharacterVoice tier
+            // (a smarter model) while the high-frequency Decision phase stays on the fast General
+            // tier. Clean split: no fallback here yet, so a setup with no CharacterVoice provider
+            // mutes speaking — see ADR/bench notes (productionizing adds the General fallback).
+            JobComplexity = JobComplexity.CharacterVoice
         };
 
         using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);

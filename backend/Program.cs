@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orleans.Configuration;
 using PartyTown.Configuration;
 using PartyTown.Data;
 using PartyTown.Logging;
@@ -44,8 +45,14 @@ if (!openApiBuild)
     builder.Services.AddSingleton<IStanceConsolidator, StanceConsolidator>();
     builder.Services.AddSingleton<ConsolidationService>();
 
+    // LLM one-shot calls (memory extraction, stance consolidation) routinely run
+    // longer than Orleans' default 30s response timeout, which would otherwise drop
+    // the in-flight response as expired. Give the grain<->client RPC generous headroom.
+    var llmResponseTimeout = TimeSpan.FromMinutes(3);
+
     builder.Host.UseOrleans(siloBuilder =>
     {
+        siloBuilder.Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
         siloBuilder.UseAdoNetClustering(options =>
         {
             options.Invariant = "Npgsql";
@@ -79,6 +86,10 @@ if (!openApiBuild)
 
         siloBuilder.AddActivityPropagation();
     });
+
+    // The co-hosted client (MemoryExtractor / StanceConsolidator call grains via
+    // IGrainFactory) sets the request deadline, so it needs the same headroom.
+    builder.Services.Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
 
     builder.Services.AddHostedService<NarratorSeederHostedService>();
 }
