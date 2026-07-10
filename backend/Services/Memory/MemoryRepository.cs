@@ -57,10 +57,24 @@ public sealed class MemoryRepository(
             .ToList();
         var draftByPersona = await extractor.ExtractRecollectionsAsync(
             recollectionTargets, sourceMessage, sourceAuthor, recentContext, ResolveName, ct);
+        // Fidelity pass: a draft with corrupted perspective (unattributed first person —
+        // in practice a swapped subject) keeps its weight but trades its snippet for one
+        // templated from the Event description (RecollectionFidelity). A missing draft
+        // stays missing — the model's "not memorable for them" is a legitimate judgment.
         var recollections = recollectionTargets
-            .Select(t => (t.PersonaId, Draft: draftByPersona.GetValueOrDefault(t.PersonaId)))
+            .Select(t => (t.PersonaId, t.Name, Draft: draftByPersona.GetValueOrDefault(t.PersonaId)))
             .Where(r => r.Draft is not null && !string.IsNullOrWhiteSpace(r.Draft.Snippet))
-            .Select(r => (r.PersonaId, Draft: r.Draft!))
+            .Select(r =>
+            {
+                var (draft, substituted) = RecollectionFidelity.Sanitize(r.Draft!, extraction.Description);
+                if (substituted)
+                {
+                    logger.LogWarning(
+                        "Recollection draft for {PersonaName} had corrupted perspective; substituted event description. Original: {Original}",
+                        r.Name, r.Draft!.Snippet);
+                }
+                return (r.PersonaId, Draft: draft);
+            })
             .ToList();
 
         var eventId = Guid.NewGuid();

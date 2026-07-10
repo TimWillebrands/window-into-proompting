@@ -233,12 +233,24 @@ The marked moment:
 
         // The weight rides this same call (ADR 0015): "how much would this stick, a day
         // later?" replaces the binary NONE judgement — null IS the weight-0 case.
+        //
+        // Perspective rules are the load-bearing part of this prompt. Each snippet is later
+        // read back by ITS person in a fresh context, so "you" must mean exactly that person
+        // and everyone else must be named — a stray "I"/"me" is unattributable later, and a
+        // swapped subject inverts who did what ("You offered me coffee" stored for the
+        // person who was INVITED). The worked example pins the direction.
         var system = $$"""
 You summarize what each named person would actually remember from one moment in a group chat — one short memory per person, from THAT person's point of view.
 
+Perspective rules (strict):
+- In each memory, "you" is the person remembering it — no one else, ever.
+- Refer to every other person by their NAME. Never write "I", "me", or "my": the memory is read back later by that person alone, and an "I" has no referent.
+- Keep who-did-what exact. If Maya invited Tom to dinner, then Tom's memory is "Maya invited you to dinner" and Maya's is "You invited Tom to dinner" — never the reverse.
+- Keep concrete specifics (names of places, projects, dates) verbatim — they are what makes the memory usable later.
+
 You are given a roster. Each entry is tagged SPEAKER or OBSERVER:
-- SPEAKER said the marked moment. Frame their memory in first-person-as-them, second person ("you said...", "you admitted...", "you brought up...") — capture what they meant or were aiming at.
-- OBSERVER witnessed it. Frame their memory as ("you saw...", "you heard...", "you watched...").
+- SPEAKER said the marked moment ("you said...", "you announced...", "you asked Tom...").
+- OBSERVER witnessed it ("you heard Maya say...", "Maya told you...", "you watched Tom...").
 
 Output STRICT JSON: an object mapping each person's exact name to either null OR an object:
   {"memory": "<SHORT sentence, max 25 words, addressing them as 'you'>", "weight": <number 0.0-1.0>}
@@ -250,7 +262,7 @@ weight answers: how much would this moment stick for THAT person, a day later?
 - 0.7-0.9: significant — they'd bring it up on their own
 - 1.0: flashbulb — unforgettable
 
-Weights should differ between people: the same moment can be huge for one person and background noise for another.
+Calibration: a friend announcing a major life change (quitting a career, moving away, a new venture, a birth) is 0.7-0.9 for everyone close to it — the listener too, not just the speaker. Plans made together (a meetup, a promise) are at least 0.4-0.6 for both sides. Weights should still differ between people: the same moment can be huge for one person and background noise for another.
 
 Output ONLY the JSON object. No prose, no code fences. Include every name from the roster as a key.
 """;

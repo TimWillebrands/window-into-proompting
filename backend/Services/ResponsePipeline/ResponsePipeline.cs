@@ -232,16 +232,22 @@ public sealed class ResponsePipeline(
 
             // Resolve the index pick (1-based into the numbered block; decision service
             // already range-clamped) back to the recalled memory: snippet → speaking phase,
-            // edge id → strengthening write.
-            var pickedMemory = decision.MemoryToReference is int pickIndex
-                ? recollections[pickIndex - 1]
-                : null;
-            turnSpan?.SetTag("recall.picked_index", decision.MemoryToReference);
+            // edge id → strengthening write. When the model declined but a never-deployed
+            // relevant-arm memory sits at "they'd bring it up on their own" salience, the
+            // floor deploys it anyway (RecallDeployment — one-shot per memory).
+            var (pickedMemory, autoDeployed) = RecallDeployment.ResolvePick(
+                decision.MemoryToReference, decision.Respond, recollections);
+            var pickedIndex = pickedMemory is null
+                ? (int?)null
+                : recollections.ToList().IndexOf(pickedMemory) + 1;
+            turnSpan?.SetTag("recall.picked_index", pickedIndex);
+            turnSpan?.SetTag("recall.auto_deployed", autoDeployed);
             if (pickedMemory is not null)
             {
                 logger.LogInformation(
-                    "Persona {PersonaName} picked memory #{Index} ({EdgeId}, salience {Salience:F3})",
-                    persona.Name, decision.MemoryToReference, pickedMemory.EdgeId, pickedMemory.Salience);
+                    "Persona {PersonaName} {PickSource} memory #{Index} ({EdgeId}, salience {Salience:F3})",
+                    persona.Name, autoDeployed ? "auto-deployed (salience floor)" : "picked",
+                    pickedIndex, pickedMemory.EdgeId, pickedMemory.Salience);
 
                 // Strengthening fires on the pick, not mere surfacing (ADR 0015) — one DB
                 // write, off the beat path, so neither failure nor latency touches the reply.
@@ -266,8 +272,9 @@ public sealed class ResponsePipeline(
                     RecallCount = r.RecallCount,
                     Arm = ArmTag(r.Arm),
                 }).ToList(),
-                Picked = decision.MemoryToReference,
+                Picked = pickedIndex,
                 PickedId = pickedMemory?.EdgeId,
+                AutoDeployed = autoDeployed ? true : null,
             };
 
             if (!decision.Respond)
@@ -317,10 +324,11 @@ public sealed class ResponsePipeline(
             // pickedMemory is the recollection the decision LLM picked (by index) to weave
             // into this beat (null when nothing fit). The speaking phase receives the
             // resolved snippet text — its contract is unchanged by the index-pick switch:
-            // decision phase selects, speaking phase executes.
+            // decision phase selects, speaking phase executes. The gut reaction travels
+            // alongside so speaking refines a felt moment rather than re-deciding cold.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Instruction, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt);
+                decision.Instruction, decision.Reason, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -449,6 +457,7 @@ public sealed class ResponsePipeline(
         IReadOnlyList<ParticipantView> fullParticipants,
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
+        string? gutReaction,
         string? scenario,
         string? memoryToReference,
         IReadOnlyList<string> stances,
@@ -488,7 +497,8 @@ public sealed class ResponsePipeline(
                     turnInstruction,
                     scenario,
                     memoryToReference,
-                    stances);
+                    stances,
+                    gutReaction);
                 break;
             }
             catch (OperationCanceledException)

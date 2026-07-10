@@ -15,6 +15,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
     /// picked to carry into this beat (or null). Rendered at the recency position of the
     /// system prompt so it's the last thing the model sees before drafting — the contract
     /// is "decision selects, speaking executes".
+    /// <paramref name="gutReaction"/> is the decision phase's in-character first reaction;
+    /// it rides the final turn-guidance message so the speaking model refines a felt
+    /// moment instead of re-deriving one from cold history.
     /// </summary>
     public async Task<SpeakingResult> GenerateResponseOnlyAsync(
         SelfView persona,
@@ -24,7 +27,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? turnInstruction = null,
         string? scenario = null,
         string? memoryToReference = null,
-        IReadOnlyList<string>? stances = null)
+        IReadOnlyList<string>? stances = null,
+        string? gutReaction = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -36,7 +40,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(persona.SystemPrompt ?? string.Empty, persona, others, scenario, memoryToReference, stances),
+                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances),
                 Name = persona.Id.ToString()
             }
         };
@@ -52,34 +56,57 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             Name = message.SenderId.ToString()
         }));
 
-        // Recency-position nudge from the decision step, if present.
+        // Recency-position handoff from the decision step. Gut reaction and draft carry the
+        // decision's lived read of the beat; the picked memory is restated here as well —
+        // the system-prompt block alone proved droppable by smaller models (bench: pick
+        // made, utterance generic), and this final message is the strongest recency slot.
+        var guidanceParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(gutReaction))
+            guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
+            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite.");
+        if (!string.IsNullOrWhiteSpace(memoryToReference))
+            guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.");
+        if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
             {
                 Role = "system",
-                Content = $"Guidance for this turn: {turnInstruction}",
+                Content = string.Join("\n", guidanceParts),
                 Name = persona.Id.ToString()
             });
         }
 
         var builder = new StringBuilder();
         var reasoning = new StringBuilder();
-        var job = new LlmGenerationJob
-        {
-            Messages = messages,
-            // The spoken utterance is what the user reads — route it to the CharacterVoice tier
-            // (a smarter model) while the high-frequency Decision phase stays on the fast General
-            // tier. Clean split: no fallback here yet, so a setup with no CharacterVoice provider
-            // mutes speaking — see ADR/bench notes (productionizing adds the General fallback).
-            JobComplexity = JobComplexity.CharacterVoice
-        };
 
         using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);
         generateSpan?.SetTag("persona.id", persona.Id);
         generateSpan?.SetTag("persona.name", persona.Name);
 
-        var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+        // The spoken utterance is what the user reads — route it to the CharacterVoice tier
+        // (a smarter model) while the high-frequency Decision phase stays on the fast General
+        // tier. Falls back to General when no CharacterVoice-capable provider is configured
+        // (mirrors MemoryExtractor.RouteExtractionAsync) so speaking degrades in quality,
+        // never in function — without this a General-only setup silently mutes every persona.
+        var complexity = JobComplexity.CharacterVoice;
+        ILlmEndpointGrain generation;
+        try
+        {
+            generation = await router.RouteAsync(complexity, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            complexity = JobComplexity.General;
+            generation = await router.RouteAsync(complexity, cancellationToken);
+            generateSpan?.SetTag("llm.tier_fallback", true);
+        }
+
+        var job = new LlmGenerationJob
+        {
+            Messages = messages,
+            JobComplexity = complexity
+        };
         var metadata = await generation.GetAttributionAsync();
         generateSpan?.SetTag("llm.provider", metadata?.Provider);
         generateSpan?.SetTag("llm.model", metadata?.ModelName);
@@ -108,6 +135,26 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             Reasoning = reasoning.ToString(),
             Metadata = metadata
         };
+    }
+
+    /// <summary>
+    /// The persona's self-identity block: Bio (the one-liner the Decision phase also sees)
+    /// followed by SystemPrompt (detailed voice/character instructions) — either alone,
+    /// both when present. Speaking used to read SystemPrompt only, so a persona authored
+    /// with just a Bio spoke from a blank identity (name + generic style rules): strong
+    /// models carried the voice anyway, weak models collapsed to assistant register
+    /// (bench: in-character decision, out-of-character utterance). Both phases now anchor
+    /// on the same Bio. Note this is the persona's OWN identity — other participants stay
+    /// names-only in the roster (see the bio-leak note in <see cref="Instruction"/>).
+    /// </summary>
+    private static string ComposeIdentity(SelfView self)
+    {
+        var parts = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(self.Bio))
+            parts.Add(self.Bio.Trim());
+        if (!string.IsNullOrWhiteSpace(self.SystemPrompt))
+            parts.Add(self.SystemPrompt.Trim());
+        return string.Join("\n\n", parts);
     }
 
     private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances)
@@ -147,7 +194,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 
                 This is on your mind right now. Bring it into your reply the way a callback
                 drops into real conversation — naturally, in passing, maybe just an aside.
-                Don't quote it; let it shape what you say.
+                Don't recite it word-for-word, but keep its specifics — names, places,
+                plans — those are what make the callback land.
                 """;
 
         // ADR 0016: ambient Stance block — identity-adjacent orientation toward who's present

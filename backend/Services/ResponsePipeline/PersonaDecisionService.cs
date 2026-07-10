@@ -263,9 +263,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         IReadOnlyList<string>? recollections,
         IReadOnlyList<string>? stances)
     {
+        // The trailing grounding line counters small-model scene drift: gut reactions were
+        // observed inventing a different time/place than the setting states ("another
+        // Monday morning" in a Thursday-afternoon scene).
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
-            : $"\n# Setting\n{scenario.Trim()}\n";
+            : $"\n# Setting\n{scenario.Trim()}\nThis is where and when you are. React from inside this scene — don't invent a different time, place, or occasion.\n";
 
         // Levelt-style speech repair cue. Set when this persona finished an utterance
         // *after* a relevant new message arrived — they couldn't see it at the time.
@@ -279,9 +282,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // Party, across all Rooms. Numbered so the model picks by index (the strengthening
         // key) instead of copying text; beat-relevance is still judged in-context. Block is
         // omitted entirely when empty so it never reads as a void "you remember nothing".
+        // The trailing line frames the memories as live salience, not archive — without it
+        // weak models treat the list as reference material and never deploy it.
         var recollectionsBlock = recollections is null || recollections.Count == 0
             ? string.Empty
-            : $"\n# What you remember\n{string.Join("\n", recollections.Select((s, i) => $"{i + 1}. {s}"))}\n";
+            : $"\n# What you remember\n{string.Join("\n", recollections.Select((s, i) => $"{i + 1}. {s}"))}\nThese are on your mind — part of how you walk into this moment, not a file you consult.\n";
 
         // ADR 0016: ambient Stance block. Identity-adjacent — who you are relative to who's
         // here and what's live in the message — so it sits right after the roster, no
@@ -318,10 +323,15 @@ is worse than letting the room breathe. Use judgement.
 # Output (JSON)
 - gutReaction: short, in-character first thought. Always written.
 - memoryToReference: if "# What you remember" is shown above AND one
-  of those memories genuinely fits the current beat, put that memory's
-  number (e.g. 2) in this field. Otherwise null. Be picky — better to
-  skip than force a callback. When set, that memory will travel with you
-  into the speaking phase and shape what you actually type.
+  of those memories touches this moment — the person speaking, what they
+  said, what's visibly going on — put that memory's number (e.g. 2) here.
+  Remembering is what makes you a friend instead of a stranger: when
+  someone's news, plan, or life shows up in front of you and you remember
+  it, that memory belongs in the moment. Set null only when no memory
+  genuinely connects, or you already called it back a beat ago — a forced
+  callback is worse than none, but ignoring what you plainly remember is
+  worse than both. When set, that memory travels with you into the
+  speaking phase and shapes what you actually type.
 - wouldSay: what you'd actually type into the chat right now, OR ""
   (empty string) if you'd let it pass. This becomes your message verbatim
   if you speak — write it as the chat message itself, not as a description

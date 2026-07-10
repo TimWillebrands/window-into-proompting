@@ -230,7 +230,10 @@ public static class RecallScenarioProbes
             scenario: scenario,
             recollections: recalled.Select(r => r.Snippet).ToList());
 
-        var picked = decision.MemoryToReference is int pick ? recalled[pick - 1] : null;
+        // Same deployment policy as ResponsePipeline: model pick wins, salience floor
+        // fires on null (RecallDeployment) — the artifact records which one chose.
+        var (picked, autoDeployed) = RecallDeployment.ResolvePick(
+            decision.MemoryToReference, decision.Respond, recalled);
         bench.Observe($"{label}.decision", new
         {
             decision.Respond,
@@ -238,7 +241,14 @@ public static class RecallScenarioProbes
             wouldSay = decision.Instruction,
             memoryToReference = decision.MemoryToReference,
             pickedSnippet = picked?.Snippet,
+            pickedBy = picked is null ? null : autoDeployed ? "salience-floor" : "model",
         });
+
+        // Production parity: a pick (model or floor) fires the strengthening write, which
+        // increments recall_count — the very gate that makes floor-deployment one-shot.
+        // Awaited here (production fire-and-forgets) so the next turn's recall sees it.
+        if (picked is not null && picked.EdgeId != Guid.Empty)
+            await bench.Memory.StrengthenRecollectionAsync(picked.EdgeId, ct);
 
         if (!decision.Respond)
         {
@@ -254,7 +264,8 @@ public static class RecallScenarioProbes
             cancellationToken: ct,
             turnInstruction: decision.Instruction,
             scenario: scenario,
-            memoryToReference: picked?.Snippet);
+            memoryToReference: picked?.Snippet,
+            gutReaction: decision.Reason);
 
         bench.Observe($"{label}.speaking", new
         {

@@ -262,6 +262,13 @@ public sealed class RecallSummary
     public List<RecallCandidateSummary> Candidates { get; init; } = [];
     public int? Picked { get; init; }
     public Guid? PickedId { get; init; }
+
+    /// <summary>
+    /// True when the salience floor, not the Decision model, deployed the pick
+    /// (<see cref="ResponsePipeline.RecallDeployment"/>). Null/absent = model pick or no
+    /// pick — keeps older appraisal entries deserializing unchanged.
+    /// </summary>
+    public bool? AutoDeployed { get; init; }
 }
 
 public sealed class RecallCandidateSummary
