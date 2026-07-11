@@ -19,7 +19,7 @@ import DaccordSearchBar from './components/DaccordSearchBar';
 import DaccordSidebar from './components/DaccordSidebar';
 import DiscoverFeed from './components/DiscoverFeed';
 import ProfilePanel from './components/ProfilePanel';
-import { ChatView } from './GroupChatWindow';
+import { ChatView, ScenarioChip } from './GroupChatWindow';
 
 type View = { kind: 'hub' } | { kind: 'room'; chatGroupId: string };
 
@@ -175,11 +175,16 @@ export default function DaccordApp() {
                         <span className="ml-1 truncate text-[13px] font-semibold text-slate-800 dark:text-slate-200">
                             {selected?.name ?? 'Room'}
                         </span>
-                        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 backdrop-blur-md">
+                        <ScenarioChip
+                            partyId={ROOT_PARTY_ID}
+                            chatGroupId={view.chatGroupId}
+                            scenario={selected?.scenario ?? null}
+                        />
+                        <span
+                            className="ml-auto flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 backdrop-blur-md"
+                            title={`Realtime connection: ${connectionStatus}`}
+                        >
                             <ConnectionDot status={connectionStatus} />
-                            <span className="capitalize">
-                                {connectionStatus}
-                            </span>
                         </span>
                     </div>
                     <div className="flex-1 min-h-0 px-2 pb-2">
@@ -189,11 +194,7 @@ export default function DaccordApp() {
                                 className="pointer-events-none absolute inset-x-0 top-0 z-10 h-12 rounded-t-3xl bg-gradient-to-b from-white/60 to-transparent"
                             />
                             <Suspense fallback={<ChatLoadingSpinner />}>
-                                <ChatView
-                                    chatGroupId={view.chatGroupId}
-                                    partyName={selected?.name}
-                                    scenario={selected?.scenario ?? null}
-                                />
+                                <ChatView chatGroupId={view.chatGroupId} />
                             </Suspense>
                         </div>
                     </div>

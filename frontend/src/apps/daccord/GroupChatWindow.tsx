@@ -27,13 +27,11 @@ import {
     type GenerationPhase,
     type RaceEvaluation,
     type RealtimeChatMessage,
-    type RealtimeConnectionStatus,
     useActiveGenerationPhases,
     useChatGroupGenerationState,
     useChatGroupMessages,
     useDeclinedDecisions,
     useRaceEvaluations,
-    useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import type { Persona } from '../../api/model';
@@ -43,22 +41,14 @@ import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 
 export interface ChatViewProps {
     chatGroupId: string;
-    partyName?: string;
-    scenario?: string | null;
 }
 
 interface GroupChatWindowProps {
     partyId?: string;
     chatGroupId?: string;
-    partyName?: string;
-    scenario?: string | null;
 }
 
-export default function GroupChatWindow({
-    chatGroupId,
-    partyName,
-    scenario,
-}: GroupChatWindowProps) {
+export default function GroupChatWindow({ chatGroupId }: GroupChatWindowProps) {
     if (!chatGroupId) {
         return (
             <div
@@ -70,16 +60,10 @@ export default function GroupChatWindow({
         );
     }
 
-    return (
-        <ChatView
-            chatGroupId={chatGroupId}
-            partyName={partyName}
-            scenario={scenario}
-        />
-    );
+    return <ChatView chatGroupId={chatGroupId} />;
 }
 
-export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
+export function ChatView({ chatGroupId }: ChatViewProps) {
     const apiPartyId = ROOT_PARTY_ID;
     const queryClient = useQueryClient();
     const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
@@ -102,7 +86,6 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
     const [unreadCount, setUnreadCount] = useState(0);
 
     const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
-    const connectionStatus = useRealtimeConnectionStatus(apiPartyId);
     const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
     const declinedDecisions = useDeclinedDecisions(chatGroupId ?? '');
     const raceEvaluations = useRaceEvaluations(chatGroupId ?? '');
@@ -455,55 +438,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
             className="app-surface flex h-full"
             style={{ background: 'transparent' }}
         >
-            {/* Main chat column */}
+            {/* Main chat column — the room header (name, scenario, connection)
+                lives in DaccordApp; this column is just messages + composer. */}
             <div className="flex-1 flex flex-col min-w-0 h-full">
-                {/* Header toolbar */}
-                <div
-                    className="p-2"
-                    style={{
-                        borderBottom: '1px solid rgba(255,255,255,0.7)',
-                        background:
-                            'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(241,245,249,0.55) 100%)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                    }}
-                >
-                    <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                            <ConnectionDot status={connectionStatus} />
-                            <span style={{ fontWeight: 600, color: '#000' }}>
-                                {partyName ?? apiPartyId}
-                            </span>
-                            <ScenarioChip
-                                partyId={apiPartyId}
-                                chatGroupId={chatGroupId}
-                                scenario={scenario ?? null}
-                            />
-                        </span>
-                        <span className="flex items-center gap-2">
-                            {isStreaming && (
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        cancelGenerations.mutateAsync({
-                                            id: apiPartyId,
-                                        })
-                                    }
-                                    style={{
-                                        fontSize: 10,
-                                        color: '#CC0000',
-                                        padding: '1px 6px',
-                                        background: '#FFF0F0',
-                                        border: '1px solid #CC0000',
-                                    }}
-                                >
-                                    ■ Stop
-                                </button>
-                            )}
-                        </span>
-                    </div>
-                </div>
-
                 {/* Message area */}
                 <div className="flex-1 flex flex-col min-h-0">
                     <div
@@ -793,6 +730,26 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                             >
                                 {busy ? '...' : 'Send'}
                             </button>
+                            {isStreaming && (
+                                <button
+                                    type="button"
+                                    title="Cancel the replies being generated right now"
+                                    onClick={() =>
+                                        cancelGenerations.mutateAsync({
+                                            id: apiPartyId,
+                                        })
+                                    }
+                                    className="text-[11px]"
+                                    style={{
+                                        padding: '2px 10px',
+                                        color: '#CC0000',
+                                        background: '#FFF0F0',
+                                        border: '1px solid #CC0000',
+                                    }}
+                                >
+                                    ■ Stop
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>
@@ -874,6 +831,22 @@ function ParticipantsSidebar({
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
     const totalActive =
         participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
+
+    // Roster shows only the room's cast by default; the full persona library is
+    // one click away. An empty roster opens the library so there's something to add.
+    const [libraryOpen, setLibraryOpen] = useState(false);
+    const showLibrary = libraryOpen || participantPersonaIds.length === 0;
+    const visibleAiPersonas = showLibrary
+        ? aiPersonas
+        : aiPersonas.filter((p) => {
+              const id = p.id ?? '';
+              return participantSet.has(id) || activePersonaIds.has(id);
+          });
+    const hiddenCount = aiPersonas.length - visibleAiPersonas.length;
+
+    // The Thought Log is curator telemetry — collapsed by default so the room
+    // opens as a chat, not a debug console.
+    const [thoughtsOpen, setThoughtsOpen] = useState(false);
 
     const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
 
@@ -1037,16 +1010,16 @@ function ParticipantsSidebar({
                 minWidth: 180,
                 height: '100%',
                 display: 'grid',
-                gridTemplateRows: 'auto 1fr',
+                gridTemplateRows: thoughtsOpen ? 'auto 1fr' : '1fr auto',
                 overflow: 'hidden',
             }}
         >
-            {/* ── Participants section (auto height row) ── */}
+            {/* ── Participants section ── */}
             <div style={{ overflow: 'hidden auto' }}>
                 {sectionLabel(`Participants — ${totalActive}`)}
 
                 {/* AI list */}
-                {aiPersonas.map((persona) => {
+                {visibleAiPersonas.map((persona) => {
                     const id = persona.id ?? '';
                     const isActive = participantSet.has(id);
                     const isWorking = activePersonaIds.has(id);
@@ -1109,6 +1082,21 @@ function ParticipantsSidebar({
                         </button>
                     );
                 })}
+
+                {/* Library toggle — reveal/hide personas not in this room */}
+                {(hiddenCount > 0 || libraryOpen) &&
+                    participantPersonaIds.length > 0 && (
+                        <button
+                            type="button"
+                            className="participant-row w-full text-left"
+                            style={{ color: '#316AC5', fontSize: 10 }}
+                            onClick={() => setLibraryOpen((v) => !v)}
+                        >
+                            {showLibrary
+                                ? '− Hide personas not in this room'
+                                : `＋ Add personas… (${hiddenCount} more)`}
+                        </button>
+                    )}
 
                 {/* User row */}
                 {userPersona && (
@@ -1208,7 +1196,7 @@ function ParticipantsSidebar({
                 )}
             </div>
 
-            {/* ── Thought Log section (1fr grid row, always visible) ── */}
+            {/* ── Thought Log section (collapsed by default) ── */}
             <div
                 style={{
                     borderTop: '2px solid #ACA899',
@@ -1217,228 +1205,283 @@ function ParticipantsSidebar({
                     overflow: 'hidden',
                 }}
             >
-                {sectionLabel(
-                    'Thought Log',
-                    decidingPhases.length + thoughtLog.length,
-                )}
-
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                    {/* Live: personas currently deciding */}
-                    {decidingPhases.map((phase) => {
-                        const personaId = phase.personaName;
-                        const persona = personas.find(
-                            (p) => p.id === personaId,
-                        );
-                        const name = persona?.name ?? personaId?.slice(0, 8);
-                        const decisionText =
-                            phase.phase === 'deciding'
-                                ? phase.decisionText
-                                : '';
-                        return (
-                            <div
-                                key={phase.messageId ?? personaId}
-                                style={{
-                                    borderBottom: '1px solid #E6D87A',
-                                    background: '#FFFBEA',
-                                    borderLeft: '3px solid #CC8800',
-                                    padding: '5px 8px',
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5 mb-1">
-                                    <img
-                                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
-                                        alt={name}
-                                        style={{
-                                            width: 14,
-                                            height: 14,
-                                            imageRendering: 'pixelated',
-                                            flexShrink: 0,
-                                        }}
-                                    />
-                                    <span
-                                        className="animate-pulse"
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                            color: '#806600',
-                                        }}
-                                    >
-                                        {name}…
-                                    </span>
-                                </div>
-                                {decisionText && (
-                                    <div
-                                        style={{
-                                            fontSize: 9,
-                                            color: '#666',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-all',
-                                            maxHeight: 100,
-                                            overflowY: 'auto',
-                                            lineHeight: 1.4,
-                                        }}
-                                    >
-                                        {decisionText}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-
-                    {/* Settled decisions (go + skip), newest first */}
-                    {thoughtLog.length === 0 && decidingPhases.length === 0 ? (
-                        <div
+                <button
+                    type="button"
+                    onClick={() => setThoughtsOpen((v) => !v)}
+                    title="Why each persona chose to speak, stay silent, or got cut off"
+                    style={{
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        padding: '4px 8px 2px',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: '#808080',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        width: '100%',
+                        textAlign: 'left',
+                    }}
+                >
+                    <span aria-hidden>{thoughtsOpen ? '▾' : '▸'}</span>
+                    Thought Log
+                    {decidingPhases.length > 0 ? (
+                        <span
+                            className="animate-pulse"
+                            style={{ color: '#CC8800' }}
+                            title="A persona is deciding right now"
+                        >
+                            ●
+                        </span>
+                    ) : null}
+                    {decidingPhases.length + thoughtLog.length > 0 && (
+                        <span
                             style={{
-                                padding: '10px 8px',
-                                fontSize: 10,
-                                color: '#ACA899',
-                                textAlign: 'center',
-                                lineHeight: 1.5,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: 14,
+                                height: 14,
+                                borderRadius: 7,
+                                padding: '0 3px',
+                                background: '#808080',
+                                color: '#fff',
+                                fontSize: 8,
+                                fontWeight: 700,
                             }}
                         >
-                            No decisions yet
-                        </div>
-                    ) : (
-                        thoughtLog.map((entry) => {
-                            // Per-variant colour: green = go, amber = decline/skip,
-                            // red = race-cancel, purple = past-pnr/continue/emote.
-                            const variantStyle = (() => {
-                                switch (entry.kind) {
-                                    case 'go':
-                                        return {
-                                            color: '#009900',
-                                            label: 'go',
-                                        };
-                                    case 'decline':
-                                        return {
-                                            color: '#CC8800',
-                                            label: 'decline',
-                                        };
-                                    case 'skip-obvious':
-                                        return {
-                                            color: '#CC8800',
-                                            label: 'skip',
-                                        };
-                                    case 'race-cancel-decision':
-                                        return {
-                                            color: '#C03030',
-                                            label: 'race·cancel·dec',
-                                        };
-                                    case 'race-cancel-generation':
-                                        return {
-                                            color: '#C03030',
-                                            label: 'race·cancel·gen',
-                                        };
-                                    case 'race-past-pnr':
-                                        return {
-                                            color: '#7A40C0',
-                                            label: 'race·past-pnr',
-                                        };
-                                    case 'race-continue':
-                                        return {
-                                            color: '#7A40C0',
-                                            label: 'race·continue',
-                                        };
-                                    case 'emote':
-                                        return {
-                                            color: '#7A40C0',
-                                            label: 'emote',
-                                        };
-                                }
-                            })();
+                            {decidingPhases.length + thoughtLog.length}
+                        </span>
+                    )}
+                </button>
+
+                {thoughtsOpen && (
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                        {/* Live: personas currently deciding */}
+                        {decidingPhases.map((phase) => {
+                            const personaId = phase.personaName;
+                            const persona = personas.find(
+                                (p) => p.id === personaId,
+                            );
+                            const name =
+                                persona?.name ?? personaId?.slice(0, 8);
+                            const decisionText =
+                                phase.phase === 'deciding'
+                                    ? phase.decisionText
+                                    : '';
                             return (
                                 <div
-                                    key={entry.key}
+                                    key={phase.messageId ?? personaId}
                                     style={{
-                                        borderBottom: '1px solid #D4D0C8',
-                                        padding: '4px 8px',
-                                        borderLeft: `3px solid ${variantStyle.color}`,
+                                        borderBottom: '1px solid #E6D87A',
+                                        background: '#FFFBEA',
+                                        borderLeft: '3px solid #CC8800',
+                                        padding: '5px 8px',
                                     }}
                                 >
-                                    <div className="flex items-center gap-1.5">
-                                        {entry.personaId && (
-                                            <img
-                                                src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
-                                                alt={entry.personaName}
-                                                style={{
-                                                    width: 13,
-                                                    height: 13,
-                                                    imageRendering: 'pixelated',
-                                                    flexShrink: 0,
-                                                }}
-                                            />
-                                        )}
-                                        <span
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <img
+                                            src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                                            alt={name}
                                             style={{
-                                                fontSize: 10,
-                                                fontWeight: 600,
-                                                color: '#333',
-                                                flex: 1,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                            }}
-                                        >
-                                            {entry.personaName}
-                                        </span>
-                                        <span
-                                            style={{
-                                                fontSize: 9,
-                                                color: variantStyle.color,
-                                                fontWeight: 700,
+                                                width: 14,
+                                                height: 14,
+                                                imageRendering: 'pixelated',
                                                 flexShrink: 0,
                                             }}
+                                        />
+                                        <span
+                                            className="animate-pulse"
+                                            style={{
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                                color: '#806600',
+                                            }}
                                         >
-                                            {variantStyle.label}
+                                            {name}…
                                         </span>
                                     </div>
-                                    {entry.reason && (
+                                    {decisionText && (
                                         <div
                                             style={{
                                                 fontSize: 9,
                                                 color: '#666',
-                                                fontStyle: 'italic',
-                                                lineHeight: 1.3,
-                                                marginTop: 1,
-                                            }}
-                                        >
-                                            {entry.reason}
-                                        </div>
-                                    )}
-                                    {entry.salience !== null && (
-                                        <div
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#806600',
                                                 fontFamily: 'monospace',
-                                                lineHeight: 1.3,
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                maxHeight: 100,
+                                                overflowY: 'auto',
+                                                lineHeight: 1.4,
                                             }}
                                         >
-                                            salience={entry.salience.toFixed(2)}
-                                            {entry.cancelScore !== null
-                                                ? ` cancel=${entry.cancelScore.toFixed(2)}`
-                                                : ''}
+                                            {decisionText}
                                         </div>
                                     )}
-                                    {entry.instruction &&
-                                        (entry.kind === 'decline' ||
-                                            entry.kind === 'skip-obvious') && (
+                                </div>
+                            );
+                        })}
+
+                        {/* Settled decisions (go + skip), newest first */}
+                        {thoughtLog.length === 0 &&
+                        decidingPhases.length === 0 ? (
+                            <div
+                                style={{
+                                    padding: '10px 8px',
+                                    fontSize: 10,
+                                    color: '#ACA899',
+                                    textAlign: 'center',
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                No decisions yet
+                            </div>
+                        ) : (
+                            thoughtLog.map((entry) => {
+                                // Per-variant colour: green = go, amber = decline/skip,
+                                // red = race-cancel, purple = past-pnr/continue/emote.
+                                const variantStyle = (() => {
+                                    switch (entry.kind) {
+                                        case 'go':
+                                            return {
+                                                color: '#009900',
+                                                label: 'go',
+                                            };
+                                        case 'decline':
+                                            return {
+                                                color: '#CC8800',
+                                                label: 'decline',
+                                            };
+                                        case 'skip-obvious':
+                                            return {
+                                                color: '#CC8800',
+                                                label: 'skip',
+                                            };
+                                        case 'race-cancel-decision':
+                                            return {
+                                                color: '#C03030',
+                                                label: 'race·cancel·dec',
+                                            };
+                                        case 'race-cancel-generation':
+                                            return {
+                                                color: '#C03030',
+                                                label: 'race·cancel·gen',
+                                            };
+                                        case 'race-past-pnr':
+                                            return {
+                                                color: '#7A40C0',
+                                                label: 'race·past-pnr',
+                                            };
+                                        case 'race-continue':
+                                            return {
+                                                color: '#7A40C0',
+                                                label: 'race·continue',
+                                            };
+                                        case 'emote':
+                                            return {
+                                                color: '#7A40C0',
+                                                label: 'emote',
+                                            };
+                                    }
+                                })();
+                                return (
+                                    <div
+                                        key={entry.key}
+                                        style={{
+                                            borderBottom: '1px solid #D4D0C8',
+                                            padding: '4px 8px',
+                                            borderLeft: `3px solid ${variantStyle.color}`,
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {entry.personaId && (
+                                                <img
+                                                    src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                                    alt={entry.personaName}
+                                                    style={{
+                                                        width: 13,
+                                                        height: 13,
+                                                        imageRendering:
+                                                            'pixelated',
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                            )}
+                                            <span
+                                                style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 600,
+                                                    color: '#333',
+                                                    flex: 1,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {entry.personaName}
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: 9,
+                                                    color: variantStyle.color,
+                                                    fontWeight: 700,
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                {variantStyle.label}
+                                            </span>
+                                        </div>
+                                        {entry.reason && (
+                                            <div
+                                                style={{
+                                                    fontSize: 9,
+                                                    color: '#666',
+                                                    fontStyle: 'italic',
+                                                    lineHeight: 1.3,
+                                                    marginTop: 1,
+                                                }}
+                                            >
+                                                {entry.reason}
+                                            </div>
+                                        )}
+                                        {entry.salience !== null && (
                                             <div
                                                 style={{
                                                     fontSize: 9,
                                                     color: '#806600',
+                                                    fontFamily: 'monospace',
                                                     lineHeight: 1.3,
                                                 }}
                                             >
-                                                → {entry.instruction}
+                                                salience=
+                                                {entry.salience.toFixed(2)}
+                                                {entry.cancelScore !== null
+                                                    ? ` cancel=${entry.cancelScore.toFixed(2)}`
+                                                    : ''}
                                             </div>
                                         )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                                        {entry.instruction &&
+                                            (entry.kind === 'decline' ||
+                                                entry.kind ===
+                                                    'skip-obvious') && (
+                                                <div
+                                                    style={{
+                                                        fontSize: 9,
+                                                        color: '#806600',
+                                                        lineHeight: 1.3,
+                                                    }}
+                                                >
+                                                    → {entry.instruction}
+                                                </div>
+                                            )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -2033,34 +2076,6 @@ function StreamingIndicator({
     );
 }
 
-function ConnectionDot({ status }: { status: RealtimeConnectionStatus }) {
-    const color = {
-        connected: '#00AA00',
-        connecting: '#CC8800',
-        reconnecting: '#CC8800',
-        disconnected: '#CC0000',
-    }[status];
-    const title = {
-        connected: 'Connected',
-        connecting: 'Connecting...',
-        reconnecting: 'Reconnecting...',
-        disconnected: 'Disconnected',
-    }[status];
-    return (
-        <span
-            title={title}
-            style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: color,
-                flexShrink: 0,
-            }}
-        />
-    );
-}
-
 function formatTime(iso: string | null | undefined): string {
     if (!iso) return '';
     try {
@@ -2074,7 +2089,7 @@ function formatTime(iso: string | null | undefined): string {
     }
 }
 
-function ScenarioChip({
+export function ScenarioChip({
     partyId,
     chatGroupId,
     scenario,
@@ -2129,15 +2144,21 @@ function ScenarioChip({
                 title={scenario ?? 'Set the in-fiction setting / scenario'}
                 style={{
                     fontSize: 10,
-                    padding: '1px 6px',
-                    color: scenario ? '#000' : '#666',
-                    background: scenario ? '#FFF8E1' : '#F0F0F0',
-                    border: '1px solid #ACA899',
+                    padding: '2px 9px',
+                    color: scenario ? '#333' : '#666',
+                    background: scenario
+                        ? 'rgba(255,248,225,0.9)'
+                        : 'rgba(255,255,255,0.75)',
+                    border: '1px solid rgba(255,255,255,0.9)',
+                    borderRadius: 999,
+                    boxShadow:
+                        'inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 6px -2px rgba(31,55,148,0.18)',
                     fontStyle: scenario ? 'normal' : 'italic',
                     maxWidth: 240,
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
                     textOverflow: 'ellipsis',
+                    cursor: 'pointer',
                 }}
             >
                 {scenario ? `🎬 ${truncated}` : '+ Add scenario'}
