@@ -947,6 +947,100 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal(1, result.RecollectionsCreated);
     }
 
+    [Fact]
+    public async Task CaptureMoment_SubstitutedNearDuplicate_SkippedButCleanDraftsStillWritten()
+    {
+        if (!fixture.IsAvailable)
+        {
+            throw new InvalidOperationException(
+                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
+                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+        }
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var denise = new ParticipantView(Guid.NewGuid(), "Denise", Driver: DriverKind.LLM);
+        var vlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
+        var cast = new[] { denise, vlad };
+
+        // Capture 1: Denise's draft corrupts → substituted with the Event description.
+        var messageId1 = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
+        var msg1 = new ChatMessage
+        {
+            MessageId = messageId1,
+            Content = "I quit the agency — I'm opening Rise & Grind!",
+            SenderId = denise.Id,
+            SenderType = "assistant",
+            ChatGroupId = roomId,
+        };
+        var repo1 = new MemoryRepository(fixture.Factory, new FakeMemoryExtractor(
+            extraction: new EventExtraction(
+                "Denise resigned from her agency, gave notice on Friday, and announced plans to open Rise & Grind bakery after signing a lease on Monday.",
+                Concepts: new List<ConceptTag>(),
+                ParticipantIds: new List<Guid> { denise.Id }),
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
+            {
+                ["Denise"] = new("You heard me announce I'm quitting", 0.8),
+            }), NullLogger<MemoryRepository>.Instance);
+        var result1 = await repo1.CaptureMomentAsync(
+            partyId, roomId, messageId1, cast, new[] { msg1 }, CancellationToken.None);
+        Assert.Equal(1, result1.RecollectionsCreated);
+
+        // Capture 2, moments later in the same arc: Denise's draft corrupts AGAIN and the
+        // substitute description near-duplicates what she already remembers → skipped.
+        // Vlad's clean draft on the same Event must still be written.
+        var messageId2 = messageId1 + 1;
+        var msg2 = new ChatMessage
+        {
+            MessageId = messageId2,
+            Content = "Meet me at the Blue Mug on Thursday?",
+            SenderId = denise.Id,
+            SenderType = "assistant",
+            ChatGroupId = roomId,
+        };
+        var repo2 = new MemoryRepository(fixture.Factory, new FakeMemoryExtractor(
+            extraction: new EventExtraction(
+                "Denise tells Vlad she quit the agency and opens a bakery, Rise & Grind, signing the lease Monday, inviting him to meet at Blue Mug on Thursday.",
+                Concepts: new List<ConceptTag>(),
+                ParticipantIds: new List<Guid> { denise.Id }),
+            recollectionByPersona: new Dictionary<string, RecollectionDraft>
+            {
+                ["Denise"] = new("You watched me invite him to the Blue Mug", 0.6),
+                ["Vlad"] = new("Denise invited you to coffee at the Blue Mug on Thursday", 0.5),
+            }), NullLogger<MemoryRepository>.Instance);
+        var result2 = await repo2.CaptureMomentAsync(
+            partyId, roomId, messageId2, cast, new[] { msg1, msg2 }, CancellationToken.None);
+
+        Assert.True(result2.EventCreated);
+        Assert.Equal(1, result2.RecollectionsCreated);
+        Assert.Equal(new[] { vlad.Id }, result2.RecollectionPersonaIds);
+
+        await using var conn = new NpgsqlConnection(fixture.ConnectionString);
+        await conn.OpenAsync();
+        await using (var load = conn.CreateCommand())
+        {
+            load.CommandText = "LOAD 'age';";
+            await load.ExecuteNonQueryAsync();
+        }
+
+        // Denise holds exactly her capture-1 memory; the near-duplicate substitute is gone.
+        var deniseEdges = await QueryAgtypeIntAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{denise.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
+              RETURN count(r)
+            $cy$) AS (n int);
+            """);
+        Assert.Equal(1, deniseEdges);
+
+        var vladEdges = await QueryAgtypeIntAsync(conn, $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{vlad.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
+              RETURN count(r)
+            $cy$) AS (n int);
+            """);
+        Assert.Equal(1, vladEdges);
+    }
+
     private async Task ExecuteCypherAsync(string sql)
     {
         await using var conn = new NpgsqlConnection(fixture.ConnectionString);

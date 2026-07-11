@@ -453,6 +453,73 @@ public class SpeakingSessionTest
         Assert.Contains("Rise & Grind", guidance.Content);
     }
 
+    // ── Address-the-person cue (memory subject present in the room) ──────────
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_MemorySubjectPresent_RendersAddressCueInBlockAndGuidance()
+    {
+        // A memory about someone who is IN the room must be spoken TO them — bench: a
+        // small model recited "Denise resigned Friday … hope SHE gets some sleep" while
+        // Denise sat across the table. The cue lands in both the memory block and the
+        // final guidance message (strongest recency slot).
+        var (endpoint, getJob) = CapturingEndpoint();
+        var vlad = MakeParticipant("Vlad");
+        var denise = MakeParticipant("Denise");
+        var session = new SpeakingSession(
+            RouterFor(endpoint).Object, new ParticipantView[] { AsView(vlad), AsView(denise) });
+
+        await session.GenerateResponseOnlyAsync(
+            vlad, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            turnInstruction: "Say hi.",
+            memoryToReference: "Denise announced she is opening a bakery called Rise & Grind.");
+
+        var systemContent = getJob()!.Messages[0].Content;
+        Assert.Contains("Denise is here in the room with you", systemContent);
+
+        var guidance = getJob()!.Messages[^1];
+        Assert.Contains("Denise is right here in the room", guidance.Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_MemorySubjectAbsent_OmitsAddressCue()
+    {
+        // Third person is the CORRECT register for a memory about someone not in the
+        // room — the cue must never fire there.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var vlad = MakeParticipant("Vlad");
+        var hana = MakeParticipant("Hana");
+        var session = new SpeakingSession(
+            RouterFor(endpoint).Object, new ParticipantView[] { AsView(vlad), AsView(hana) });
+
+        await session.GenerateResponseOnlyAsync(
+            vlad, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            turnInstruction: "Say hi.",
+            memoryToReference: "Denise announced she is opening a bakery called Rise & Grind.");
+
+        var systemContent = getJob()!.Messages[0].Content;
+        Assert.DoesNotContain("here in the room", systemContent);
+        Assert.DoesNotContain("here in the room", getJob()!.Messages[^1].Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_MemoryNamesSelfOnly_OmitsAddressCue()
+    {
+        // The persona's own name in the memory is not a subject to address — only OTHER
+        // present participants trigger the cue.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var vlad = MakeParticipant("Vlad");
+        var hana = MakeParticipant("Hana");
+        var session = new SpeakingSession(
+            RouterFor(endpoint).Object, new ParticipantView[] { AsView(vlad), AsView(hana) });
+
+        await session.GenerateResponseOnlyAsync(
+            vlad, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            turnInstruction: "Say hi.",
+            memoryToReference: "You were invited for coffee Thursday; Vlad rarely leaves the castle.");
+
+        Assert.DoesNotContain("here in the room", getJob()!.Messages[0].Content);
+    }
+
     [Fact]
     public async Task GenerateResponseOnlyAsync_NoHandoffFields_OmitsGuidanceMessage()
     {

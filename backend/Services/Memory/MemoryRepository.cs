@@ -73,7 +73,7 @@ public sealed class MemoryRepository(
                         "Recollection draft for {PersonaName} had corrupted perspective; substituted event description. Original: {Original}",
                         r.Name, r.Draft!.Snippet);
                 }
-                return (r.PersonaId, Draft: draft);
+                return (r.PersonaId, r.Name, Draft: draft, Substituted: substituted);
             })
             .ToList();
 
@@ -98,23 +98,44 @@ public sealed class MemoryRepository(
             await AddAboutParticipantEdgeAsync(db, eventId, partyId, aboutParticipantId, ct);
         }
 
-        foreach (var (personaId, draft) in recollections)
+        var writtenPersonaIds = new List<Guid>();
+        foreach (var (personaId, name, draft, substituted) in recollections)
         {
+            // A substituted snippet is a templated Event description, and adjacent Events
+            // in one arc often describe the same development — a persona whose drafts
+            // corrupt twice would bank near-identical "You remember:" copies (they sit on
+            // different Events, so only text similarity can catch it). Skip the write when
+            // the persona already holds one; the earlier memory carries the moment. Clean
+            // model-authored drafts are never skipped — a genuine perspective is not a copy.
+            if (substituted)
+            {
+                var existing = await ListRecentSnippetsAsync(db, partyId, personaId, ct);
+                var duplicate = existing.FirstOrDefault(s => RecollectionFidelity.IsNearDuplicate(draft.Snippet, s));
+                if (duplicate is not null)
+                {
+                    logger.LogInformation(
+                        "Skipped substituted recollection for {PersonaName}: near-duplicate of existing snippet. New: {New} | Existing: {Existing}",
+                        name, draft.Snippet, duplicate);
+                    continue;
+                }
+            }
+
             await AddRecollectionAsync(db, eventId, partyId, personaId, draft, nowIso, ct);
+            writtenPersonaIds.Add(personaId);
         }
 
         await tx.CommitAsync(ct);
 
         logger.LogInformation(
             "Captured Event {EventId} for message {MessageId} in room {RoomId}: {RecollectionCount} recollections, {ConceptCount} concepts",
-            eventId, messageId, roomId, recollections.Count, extraction.Concepts.Count);
+            eventId, messageId, roomId, writtenPersonaIds.Count, extraction.Concepts.Count);
 
         return new MemoryCaptureResult(
             EventCreated: true,
-            RecollectionsCreated: recollections.Count,
+            RecollectionsCreated: writtenPersonaIds.Count,
             ConceptsTouched: extraction.Concepts.Count)
         {
-            RecollectionPersonaIds = recollections.Select(r => r.PersonaId).ToList(),
+            RecollectionPersonaIds = writtenPersonaIds,
         };
     }
 
@@ -1398,6 +1419,38 @@ public sealed class MemoryRepository(
             $cy$) AS (persona_id ag_catalog.agtype)
             """;
         return ExecuteCypherAsync(db, sql, ct);
+    }
+
+    /// <summary>
+    /// The persona's newest Recollection snippets — the capture-time dedup pool for
+    /// substituted drafts. Recency-capped: duplicates form when two adjacent Events in
+    /// one arc describe the same development, so an old memory scrolling past the cap is
+    /// no longer a duplicate risk. Runs on the capture transaction's open connection.
+    /// </summary>
+    private static async Task<List<string>> ListRecentSnippetsAsync(
+        AppDbContext db, Guid partyId, Guid personaId, CancellationToken ct)
+    {
+        var sql = $$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
+              RETURN r.snippet AS snippet
+              ORDER BY r.ts DESC
+              LIMIT 30
+            $cy$) AS (snippet text)
+            """;
+        var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Transaction = (NpgsqlTransaction?)db.Database.CurrentTransaction?.GetDbTransaction();
+
+        var snippets = new List<string>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            if (!reader.IsDBNull(0))
+                snippets.Add(reader.GetString(0));
+        }
+        return snippets;
     }
 
     private static Task AddRecollectionAsync(

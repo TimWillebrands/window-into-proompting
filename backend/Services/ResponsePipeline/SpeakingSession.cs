@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using PartyTown.Grains.Generation;
 using PartyTown.Logging;
 using PartyTown.Model;
@@ -66,7 +67,17 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (!string.IsNullOrWhiteSpace(turnInstruction))
             guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
-            guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.");
+        {
+            // Presence-aware address cue, repeated from the system-prompt memory block —
+            // this final message is the strongest recency slot, and small models dropped
+            // the register (reciting ABOUT Denise while she sat across the table) when the
+            // cue lived in the system prompt alone.
+            var subjects = PresentSubjectsIn(memoryToReference, others);
+            var addressCue = subjects.Count == 0
+                ? string.Empty
+                : $" {JoinNames(subjects)} {(subjects.Count == 1 ? "is" : "are")} right here in the room — say it to {(subjects.Count == 1 ? subjects[0] : "them")} directly, not about them.";
+            guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.{addressCue}");
+        }
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
@@ -157,6 +168,27 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         return string.Join("\n\n", parts);
     }
 
+    /// <summary>
+    /// Names of other present participants who appear in the memory text (whole-word,
+    /// case-insensitive — same matching rule as UrgeMath's mention detection). Drives the
+    /// address-the-person cue in <see cref="Instruction"/> and the final guidance message.
+    /// </summary>
+    private static List<string> PresentSubjectsIn(string memory, IEnumerable<ParticipantView> others)
+        => others
+            .Where(p => !string.IsNullOrWhiteSpace(p.Name) && Regex.IsMatch(
+                memory,
+                $@"\b{Regex.Escape(p.Name)}\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            .Select(p => p.Name)
+            .ToList();
+
+    private static string JoinNames(IReadOnlyList<string> names) => names.Count switch
+    {
+        1 => names[0],
+        2 => $"{names[0]} and {names[1]}",
+        _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
+    };
+
     private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
@@ -184,6 +216,18 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // because the contract is "decision selects, speaking executes". Active framing
         // ("surfacing for you", "bring it into your reply") invites use rather than just
         // listing facts. Block omitted entirely when no memory was selected.
+        // Address-the-person cue: when the memory names someone who is IN the room, the
+        // callback is spoken TO them, not about them. Small models otherwise recite the
+        // stored third-person snippet at the person it describes ("Denise resigned Friday
+        // … hope SHE gets some sleep" — to Denise's face). Roster-name word-boundary match;
+        // rendered only when a subject is actually present so the line never fires on
+        // memories about absent people, where third person is the correct register.
+        var presentSubjects = string.IsNullOrWhiteSpace(memoryToReference)
+            ? new List<string>()
+            : PresentSubjectsIn(memoryToReference, others);
+        var addressLine = presentSubjects.Count == 0
+            ? string.Empty
+            : $"\n{JoinNames(presentSubjects)} {(presentSubjects.Count == 1 ? "is" : "are")} here in the room with you. A memory about someone present is something you say to their face — \"you\", not \"she\" or \"he\".";
         var memorySection = string.IsNullOrWhiteSpace(memoryToReference)
             ? string.Empty
             : $"""
@@ -195,7 +239,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 This is on your mind right now. Bring it into your reply the way a callback
                 drops into real conversation — naturally, in passing, maybe just an aside.
                 Don't recite it word-for-word, but keep its specifics — names, places,
-                plans — those are what make the callback land.
+                plans — those are what make the callback land.{addressLine}
                 """;
 
         // ADR 0016: ambient Stance block — identity-adjacent orientation toward who's present

@@ -197,4 +197,53 @@ public class RecallDeploymentTest
 
         Assert.Equal(500, result.Snippet.Length);
     }
+
+    // ── Near-duplicate detection (capture-time dedup of substituted snippets) ──
+
+    // The exact pair Denise banked in the post-fix bench run (20260710-221340): both her
+    // drafts corrupted across two captures of the same development, so she got two
+    // substituted Event descriptions that say the same thing in different words. They sit
+    // on DIFFERENT Events, so identity can't dedup them — text similarity must.
+    private const string BenchDupA =
+        "You remember: Denise tells Vlad she quit the agency and opens a bakery, Rise & Grind, signing the lease Monday, inviting him to meet at Blue Mug on Thursday.";
+    private const string BenchDupB =
+        "You remember: Denise resigned from her agency, gave notice on Friday, and announced plans to open Rise & Grind bakery after signing a lease on Monday.";
+
+    [Fact]
+    public void IsNearDuplicate_BenchPair_Detected()
+        => Assert.True(RecollectionFidelity.IsNearDuplicate(BenchDupA, BenchDupB));
+
+    [Fact]
+    public void IsNearDuplicate_IdenticalSnippets_Detected_EvenWhenShort()
+        => Assert.True(RecollectionFidelity.IsNearDuplicate(
+            "You remember: Denise announced her bakery.",
+            "You remember: Denise announced her bakery."));
+
+    [Fact]
+    public void IsNearDuplicate_SameTopic_DifferentDevelopment_NotDuplicate()
+        // Later news about the same bakery is a NEW memory — must never be swallowed.
+        => Assert.False(RecollectionFidelity.IsNearDuplicate(
+            "You remember: Denise's bakery Rise & Grind failed its health inspection.",
+            BenchDupB));
+
+    [Fact]
+    public void IsNearDuplicate_SharedCastAndTopic_ShortSnippets_NotDuplicate()
+        // Short snippets share most of their few content words just by naming the same
+        // people — the min-shared-words floor keeps them apart.
+        => Assert.False(RecollectionFidelity.IsNearDuplicate(
+            "Denise told Vlad about her cat.",
+            "Denise asked Vlad to watch her cat on Friday."));
+
+    [Fact]
+    public void IsNearDuplicate_DistinctMomentInSameArc_NotDuplicate()
+        // The coffee invite is its own moment even though it belongs to the same story.
+        => Assert.False(RecollectionFidelity.IsNearDuplicate(
+            "You were invited for coffee Thursday at the Blue Mug",
+            BenchDupB));
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("  ", "You remember: something happened.")]
+    public void IsNearDuplicate_BlankInput_NotDuplicate(string a, string b)
+        => Assert.False(RecollectionFidelity.IsNearDuplicate(a, b));
 }
