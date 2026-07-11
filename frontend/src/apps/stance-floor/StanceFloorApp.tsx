@@ -29,17 +29,22 @@ export default function StanceFloorApp() {
 
     const [sourceId, setSourceId] = useState<string | null>(null);
 
+    const personaNameById = useMemo(
+        () => new Map(personas.map((p) => [p.id as string, p.name as string])),
+        [personas],
+    );
+
     return (
         <div
             className="app-surface flex h-full"
-            style={{ background: '#ECE9D8', fontSize: 12 }}
+            style={{ background: 'transparent', fontSize: 12 }}
         >
             {/* Author column */}
             <div
-                className="flex flex-col"
+                className="xp-glass-panel flex flex-col"
                 style={{
                     width: 280,
-                    borderRight: '1px solid #ACA899',
+                    borderRight: '1px solid rgba(255,255,255,0.7)',
                     padding: 8,
                     gap: 8,
                     overflowY: 'auto',
@@ -83,13 +88,33 @@ export default function StanceFloorApp() {
             {/* Stance log */}
             <div className="flex-1" style={{ overflowY: 'auto', padding: 8 }}>
                 {sourceId ? (
-                    <StanceLog partyId={partyId} sourceId={sourceId} />
+                    <StanceLog
+                        partyId={partyId}
+                        sourceId={sourceId}
+                        personaNameById={personaNameById}
+                    />
                 ) : (
-                    <div
-                        className="h-full flex items-center justify-center"
-                        style={{ color: '#808080' }}
-                    >
-                        <p>Select a persona to see where they stand.</p>
+                    <div className="h-full flex items-center justify-center">
+                        <div
+                            className="xp-glass-card"
+                            style={{
+                                maxWidth: 340,
+                                padding: '20px 24px',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <div style={{ fontSize: 28, marginBottom: 6 }}>
+                                ⚖️
+                            </div>
+                            <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
+                                Stances are how a persona feels
+                            </p>
+                            <p style={{ color: '#555', margin: 0 }}>
+                                Pick a persona on the left to see its opinions
+                                about other participants, concepts, and itself —
+                                and to author or retract them.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>
@@ -146,6 +171,7 @@ function ConsolidatePanel({
             <SectionTitle>Consolidation</SectionTitle>
             <button
                 type="button"
+                title="Walk this persona's unconsolidated recollections (one LLM call) and append the stances they crystallise into"
                 disabled={consolidate.isPending}
                 onClick={() =>
                     consolidate.mutate({ partyId, personaId: sourceId })
@@ -325,9 +351,11 @@ function StanceAuthor({
 function StanceLog({
     partyId,
     sourceId,
+    personaNameById,
 }: {
     partyId: string;
     sourceId: string;
+    personaNameById: Map<string, string>;
 }) {
     const queryClient = useQueryClient();
     const stancesQuery = useGetPartiesPartyIdMemoryParticipantsPersonaIdStances(
@@ -360,81 +388,110 @@ function StanceLog({
     if (stances.length === 0) {
         return (
             <p style={{ color: '#808080' }}>
-                No stances yet. Author one on the left.
+                This persona holds no stances yet. Author one on the left, or
+                run Consolidation to crystallise them from its recollections.
             </p>
         );
     }
 
     return (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-                <tr style={{ textAlign: 'left', color: '#555' }}>
-                    <th style={th}>Target</th>
-                    <th style={th}>Valence</th>
-                    <th style={th}>Reasoning</th>
-                    <th style={th}>By</th>
-                    <th style={th}>When</th>
-                    <th style={th} />
-                </tr>
-            </thead>
-            <tbody>
-                {stances.map((s) => (
-                    <tr
-                        key={s.id}
-                        style={{
-                            background: s.isCurrent ? '#FFFFFF' : 'transparent',
-                            color: s.isCurrent ? '#000' : '#999',
-                            borderBottom: '1px solid #D6D2C2',
-                        }}
-                    >
-                        <td style={td}>
-                            {targetLabel(s)}
-                            {s.isCurrent ? (
-                                <span
-                                    style={{
-                                        marginLeft: 4,
-                                        fontSize: 9,
-                                        background: '#316AC5',
-                                        color: '#fff',
-                                        borderRadius: 6,
-                                        padding: '0 4px',
-                                    }}
-                                >
-                                    current
-                                </span>
-                            ) : null}
-                        </td>
-                        <td style={td}>{Number(s.valence).toFixed(2)}</td>
-                        <td style={td}>{s.reasoning}</td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                            <OriginBadge stance={s} />
-                        </td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                            {new Date(s.ts).toLocaleString()}
-                        </td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                            {s.isCurrent &&
-                            s.origin !== StanceOrigin.Retract ? (
-                                <button
-                                    type="button"
-                                    disabled={retract.isPending}
-                                    title="Append a neutralizing edge — history stays"
-                                    onClick={() =>
-                                        retract.mutate({
-                                            partyId,
-                                            personaId: sourceId,
-                                            stanceId: s.id,
-                                        })
-                                    }
-                                >
-                                    Retract
-                                </button>
-                            ) : null}
-                        </td>
+        <>
+            <p style={{ color: '#666', margin: '0 0 6px' }}>
+                Append-only log — the latest stance per target counts (marked{' '}
+                <span
+                    style={{
+                        fontSize: 9,
+                        background: '#316AC5',
+                        color: '#fff',
+                        borderRadius: 6,
+                        padding: '0 4px',
+                    }}
+                >
+                    current
+                </span>
+                ); older entries stay for history.
+            </p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr style={{ textAlign: 'left', color: '#555' }}>
+                        <th style={th}>Target</th>
+                        <th style={th}>Valence</th>
+                        <th style={th}>Reasoning</th>
+                        <th style={th}>By</th>
+                        <th style={th}>When</th>
+                        <th style={th} />
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {stances.map((s) => (
+                        <tr
+                            key={s.id}
+                            style={{
+                                background: s.isCurrent
+                                    ? 'rgba(255,255,255,0.85)'
+                                    : 'transparent',
+                                color: s.isCurrent ? '#000' : '#999',
+                                borderBottom: '1px solid rgba(172,168,153,0.4)',
+                            }}
+                        >
+                            <td style={td}>
+                                {targetLabel(s, personaNameById)}
+                                {s.isCurrent ? (
+                                    <span
+                                        style={{
+                                            marginLeft: 4,
+                                            fontSize: 9,
+                                            background: '#316AC5',
+                                            color: '#fff',
+                                            borderRadius: 6,
+                                            padding: '0 4px',
+                                        }}
+                                    >
+                                        current
+                                    </span>
+                                ) : null}
+                            </td>
+                            <td
+                                style={{
+                                    ...td,
+                                    fontWeight: 600,
+                                    color: valenceColour(Number(s.valence)),
+                                }}
+                                title="−1 hostile · 0 neutral · +1 warm"
+                            >
+                                {Number(s.valence).toFixed(2)}
+                            </td>
+                            <td style={td}>{s.reasoning}</td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                                <OriginBadge stance={s} />
+                            </td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                                {new Date(s.ts).toLocaleString()}
+                            </td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                                {s.isCurrent &&
+                                s.origin !== StanceOrigin.Retract ? (
+                                    <button
+                                        type="button"
+                                        disabled={retract.isPending}
+                                        title="Append a neutralizing edge — history stays"
+                                        onClick={() =>
+                                            retract.mutate({
+                                                partyId,
+                                                personaId: sourceId,
+                                                stanceId: s.id,
+                                            })
+                                        }
+                                    >
+                                        Retract
+                                    </button>
+                                ) : null}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </>
     );
 }
 
@@ -475,21 +532,31 @@ function OriginBadge({
     }
 }
 
-function targetLabel(s: {
-    targetKind: StanceTargetKind;
-    targetConceptDisplay: string | null;
-    targetConceptName: string | null;
-    targetPersonaId: string | null;
-}): string {
+/** Hostile valences read red, warm ones green, near-zero stays muted. */
+function valenceColour(v: number): string {
+    if (v <= -0.25) return '#B22222';
+    if (v >= 0.25) return '#1F7A1F';
+    return '#555';
+}
+
+function targetLabel(
+    s: {
+        targetKind: StanceTargetKind;
+        targetConceptDisplay: string | null;
+        targetConceptName: string | null;
+        targetPersonaId: string | null;
+    },
+    personaNameById: Map<string, string>,
+): string {
     switch (s.targetKind) {
         case StanceTargetKind.Self:
             return 'self';
         case StanceTargetKind.Concept:
             return `#${s.targetConceptDisplay ?? s.targetConceptName ?? '?'}`;
-        default:
-            // Persona display-name enrichment is out of scope for the debug surface; the id
-            // tail is enough to disambiguate targets at a glance.
-            return `@${(s.targetPersonaId ?? '').slice(0, 8)}`;
+        default: {
+            const id = s.targetPersonaId ?? '';
+            return `@${personaNameById.get(id) ?? id.slice(0, 8)}`;
+        }
     }
 }
 

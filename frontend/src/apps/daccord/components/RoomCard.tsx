@@ -33,6 +33,11 @@ export default function RoomCard({
             type="button"
             onClick={onClick}
             disabled={disabled}
+            title={
+                disabled
+                    ? 'Example room — joining is not available yet'
+                    : undefined
+            }
             className={`group relative overflow-hidden rounded-[28px] text-left text-white shadow-[0_8px_24px_-6px_rgba(31,55,148,0.35),0_2px_6px_-2px_rgba(0,0,0,0.2)] ring-1 ring-white/40 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-8px_rgba(31,55,148,0.45),0_4px_10px_-2px_rgba(0,0,0,0.25)] hover:saturate-125 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_8px_24px_-6px_rgba(31,55,148,0.35),0_2px_6px_-2px_rgba(0,0,0,0.2)] disabled:hover:saturate-100 bg-gradient-to-br ${gradient} ${
                 isLg ? 'p-5 min-h-[180px]' : 'p-4 min-h-[120px]'
             } w-full`}

@@ -132,6 +132,7 @@ export default function TemplateButton({
             <button
                 type="button"
                 className="w-full"
+                title="Start from one of the built-in example personas"
                 disabled={upsertMutation.isPending}
                 onClick={() => setOpen((v) => !v)}
             >

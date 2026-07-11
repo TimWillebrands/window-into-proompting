@@ -239,7 +239,7 @@ export default function DiscoverFeed({
             </div>
 
             {/* Recent stubs */}
-            <SectionHeader title="Recent Add" />
+            <SectionHeader title="Recently Added" />
             <div className="mb-6 grid grid-cols-1 gap-4 @[520px]:grid-cols-2 @[800px]:grid-cols-3">
                 {RECENT_ROOMS.map((r) => (
                     <RoomCard
@@ -313,13 +313,6 @@ function SectionHeader({ title }: { title: string }) {
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {title}
             </h2>
-            <button
-                type="button"
-                disabled
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-not-allowed opacity-70"
-            >
-                See all
-            </button>
         </div>
     );
 }

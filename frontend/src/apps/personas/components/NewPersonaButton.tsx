@@ -25,6 +25,7 @@ export default function NewPersonaButton({
         <button
             type="button"
             className="w-full"
+            title="Start from a blank persona and write everything yourself"
             disabled={upsertMutation.isPending}
             onClick={() => {
                 const id = crypto.randomUUID();

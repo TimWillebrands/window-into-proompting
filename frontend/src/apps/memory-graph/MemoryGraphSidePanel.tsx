@@ -31,10 +31,16 @@ export default function MemoryGraphSidePanel({
 
     if (!node) {
         return (
-            <div style={panelStyle}>
-                <p style={{ color: '#808080', padding: 8, fontSize: 11 }}>
-                    Click a node to inspect.
-                </p>
+            <div className="xp-glass-panel" style={panelStyle}>
+                <div style={{ padding: '14px 12px', fontSize: 11 }}>
+                    <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
+                        Inspector
+                    </p>
+                    <p style={{ color: '#666', margin: 0 }}>
+                        Click a node in the graph to see its details and how it
+                        connects to the rest of the memory.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -42,21 +48,21 @@ export default function MemoryGraphSidePanel({
     const fields: Array<
         [string, string | null | undefined, React.CSSProperties?]
     > = [
-        ['label', node.label],
-        ['id', node.id, { wordBreak: 'break-all' }],
-        ['description', node.description],
-        ['display', node.display],
-        ['created_at', node.createdAt],
+        ['Label', node.label],
+        ['Id', node.id, { wordBreak: 'break-all' }],
+        ['Description', node.description],
+        ['Display', node.display],
+        ['Created', node.createdAt],
         // Event anchor (formerly a Message vertex), now properties on the Event node.
-        ['room', node.roomId, { wordBreak: 'break-all' }],
+        ['Room', node.roomId, { wordBreak: 'break-all' }],
         [
-            'anchor msg',
+            'Anchor message',
             node.anchorMessageId != null ? `#${node.anchorMessageId}` : null,
         ],
     ];
 
     return (
-        <div style={panelStyle}>
+        <div className="xp-glass-panel" style={panelStyle}>
             <SectionHeader>{node.kind}</SectionHeader>
             <div style={{ padding: 8, fontSize: 11 }}>
                 {fields.map(([k, v, style]) =>
@@ -69,14 +75,14 @@ export default function MemoryGraphSidePanel({
             </div>
 
             <EdgeList
-                title="Outgoing"
+                title="Points to"
                 links={outgoing}
                 endpointKey="target"
                 nodeById={nodeById}
                 onSelectNode={onSelectNode}
             />
             <EdgeList
-                title="Incoming"
+                title="Referenced by"
                 links={incoming}
                 endpointKey="source"
                 nodeById={nodeById}
@@ -135,7 +141,9 @@ function EdgeList({
                     <li key={kind} style={{ marginBottom: 4 }}>
                         <div
                             style={{
-                                background: '#F1EFE2',
+                                background: 'rgba(255,255,255,0.65)',
+                                boxShadow:
+                                    'inset 0 1px 0 rgba(255,255,255,0.8)',
                                 padding: '2px 6px',
                                 fontWeight: 600,
                             }}
@@ -200,6 +208,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
             style={{
                 background:
                     'linear-gradient(to bottom, #0058E1 0%, #002C77 100%)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35)',
                 color: 'white',
                 fontSize: 11,
                 fontWeight: 600,
@@ -213,8 +222,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 const panelStyle: React.CSSProperties = {
     width: 240,
-    borderLeft: '1px solid #ACA899',
-    background: '#ECE9D8',
+    borderLeft: '1px solid rgba(255,255,255,0.7)',
     overflowY: 'auto',
     height: '100%',
 };

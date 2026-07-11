@@ -113,6 +113,29 @@ export default function PersonaEditor({
                 });
             }}
         >
+            <div className="flex items-center gap-2">
+                <img
+                    src={`https://robohash.org/${persona.id}.png?size=32x32`}
+                    alt=""
+                    style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: '#fff',
+                        boxShadow:
+                            '0 0 0 1px rgba(255,255,255,0.9), 0 1px 3px rgba(31,55,148,0.25)',
+                    }}
+                />
+                <div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>
+                        {name || 'Unnamed persona'}
+                    </div>
+                    <div style={{ color: '#666', fontSize: 10 }}>
+                        Changes apply after you click Save Changes.
+                    </div>
+                </div>
+            </div>
+
             <fieldset className="border border-[#9db2c8] p-2 m-0">
                 <legend className="text-xp-legend font-semibold text-[11px] px-1">
                     Details
@@ -149,6 +172,11 @@ export default function PersonaEditor({
                             <button
                                 type="button"
                                 style={{ fontSize: '11px', padding: '1px 6px' }}
+                                title={
+                                    systemPrompt.trim()
+                                        ? 'Write a short bio from the system prompt below'
+                                        : 'Write a system prompt first — the bio is generated from it'
+                                }
                                 disabled={
                                     isGeneratingBio || !systemPrompt.trim()
                                 }
@@ -182,6 +210,10 @@ export default function PersonaEditor({
                     System Prompt
                 </legend>
                 <div className="p-1">
+                    <p style={{ color: '#666', margin: '0 0 3px' }}>
+                        The instructions this persona follows in every chat —
+                        who it is, how it talks, what it cares about.
+                    </p>
                     <textarea
                         id={promptId}
                         rows={10}
@@ -212,6 +244,12 @@ export default function PersonaEditor({
                     disabled={deleteMutation.isPending}
                     onClick={() => {
                         if (!persona.id) return;
+                        if (
+                            !confirm(
+                                `Delete "${persona.name ?? 'this persona'}"? This cannot be undone.`,
+                            )
+                        )
+                            return;
                         deleteMutation.mutate({ id: persona.id });
                     }}
                 >

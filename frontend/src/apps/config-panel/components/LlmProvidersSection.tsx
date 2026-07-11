@@ -53,12 +53,17 @@ export default function LlmProvidersSection() {
                     type="button"
                     onClick={openAdd}
                     style={{
-                        padding: '4px 12px',
+                        padding: '4px 14px',
                         fontSize: 12,
-                        background: 'rgba(255,255,255,0.15)',
-                        border: '1px solid rgba(255,255,255,0.4)',
+                        fontWeight: 600,
+                        background: 'rgba(255,255,255,0.18)',
+                        border: '1px solid rgba(255,255,255,0.5)',
+                        borderRadius: 999,
+                        boxShadow:
+                            'inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 10px -4px rgba(0,0,0,0.3)',
                         color: '#fff',
                         cursor: 'pointer',
+                        backdropFilter: 'blur(8px)',
                     }}
                 >
                     + Add Provider
@@ -68,16 +73,31 @@ export default function LlmProvidersSection() {
             {providers.length === 0 && !editing && (
                 <div
                     style={{
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        padding: '20px',
-                        color: 'rgba(255,255,255,0.6)',
+                        background: 'rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        borderRadius: 16,
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(8px)',
+                        padding: '24px 20px',
+                        color: 'rgba(255,255,255,0.85)',
                         fontSize: 13,
                         textAlign: 'center',
                     }}
                 >
-                    No providers configured. Click "Add Provider" to get
-                    started.
+                    <div style={{ fontSize: 26, marginBottom: 6 }}>🤖</div>
+                    <p style={{ margin: '0 0 4px', fontWeight: 700 }}>
+                        Personas need a language model to speak.
+                    </p>
+                    <p
+                        style={{
+                            margin: 0,
+                            color: 'rgba(255,255,255,0.65)',
+                            fontSize: 12,
+                        }}
+                    >
+                        Add a provider — Ollama for local models, or OpenRouter
+                        with an API key — and chats can start generating.
+                    </p>
                 </div>
             )}
 

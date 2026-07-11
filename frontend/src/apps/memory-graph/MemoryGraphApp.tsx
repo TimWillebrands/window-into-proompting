@@ -105,7 +105,7 @@ function MemoryGraphInner() {
     return (
         <div
             className="app-surface flex h-full flex-col"
-            style={{ background: '#ECE9D8' }}
+            style={{ background: 'transparent' }}
         >
             <Toolbar onRefresh={refresh} isFetching={graphQuery.isFetching} />
             <div className="flex flex-1 min-h-0">
@@ -144,6 +144,14 @@ function MemoryGraphInner() {
     );
 }
 
+// Mirrors NODE_VISUAL in MemoryGraphCanvas — keep the two in sync.
+const LEGEND = [
+    { label: 'Persona', colour: '#A684D1' },
+    { label: 'Participant', colour: '#E693B3' },
+    { label: 'Event', colour: '#F0A04B' },
+    { label: 'Concept', colour: '#7CC4A4' },
+] as const;
+
 function Toolbar({
     onRefresh,
     isFetching,
@@ -153,21 +161,38 @@ function Toolbar({
 }) {
     return (
         <div
+            className="xp-glass-panel"
             style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
                 padding: '4px 8px',
-                borderBottom: '1px solid #ACA899',
+                borderBottom: '1px solid rgba(255,255,255,0.7)',
                 fontSize: 11,
-                background: '#ECE9D8',
+                flexWrap: 'wrap',
             }}
         >
-            <button type="button" onClick={onRefresh} disabled={isFetching}>
+            <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isFetching}
+                title="Fetch the latest memory snapshot — the view does not update on its own"
+            >
                 {isFetching ? 'Refreshing…' : 'Refresh'}
             </button>
-            <span style={{ color: '#808080' }}>
-                Snapshot of the current Party's memory subgraph.
+            <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {LEGEND.map((entry) => (
+                    <span key={entry.label} className="xp-glass-chip">
+                        <span
+                            className="dot"
+                            style={{ background: entry.colour }}
+                        />
+                        {entry.label}
+                    </span>
+                ))}
+            </span>
+            <span style={{ color: '#666', marginLeft: 'auto' }}>
+                Click a node to inspect it · scroll to zoom · drag to pan
             </span>
         </div>
     );
@@ -188,12 +213,26 @@ function EmptyState() {
     return (
         <div
             className="flex h-full items-center justify-center"
-            style={{ color: '#808080', fontSize: 12, padding: 24 }}
+            style={{ fontSize: 12, padding: 24 }}
         >
-            <p style={{ maxWidth: 360, textAlign: 'center' }}>
-                No memory captured yet. Send some messages, then mark a
-                “remember this” moment.
-            </p>
+            <div
+                className="xp-glass-card"
+                style={{
+                    maxWidth: 360,
+                    padding: '20px 24px',
+                    textAlign: 'center',
+                }}
+            >
+                <div style={{ fontSize: 28, marginBottom: 6 }}>🕸️</div>
+                <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
+                    No memories captured yet
+                </p>
+                <p style={{ color: '#555', margin: 0 }}>
+                    Chat in a room, then use “Remember” on a message. Captured
+                    moments show up here as a graph of personas, events and
+                    concepts.
+                </p>
+            </div>
         </div>
     );
 }

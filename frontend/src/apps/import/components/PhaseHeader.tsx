@@ -128,6 +128,7 @@ export function PhaseHeader({
                 </span>
                 <span>·</span>
                 <span
+                    title="Status of the two pipeline runs — stale means the selection changed since the last run"
                     style={{
                         color:
                             idStatus === 'stale' || clStatus === 'stale'
@@ -135,7 +136,8 @@ export function PhaseHeader({
                                 : undefined,
                     }}
                 >
-                    {phaseLabel[idStatus]} / {phaseLabel[clStatus]}
+                    characters {phaseLabel[idStatus]} · parts{' '}
+                    {phaseLabel[clStatus]}
                 </span>
             </span>
         </header>

@@ -43,9 +43,14 @@ export default function ProviderCard({
         <div
             style={{
                 background: isEnabled
-                    ? 'rgba(255,255,255,0.1)'
+                    ? 'rgba(255,255,255,0.12)'
                     : 'rgba(0,0,0,0.15)',
-                border: `1px solid ${isEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}`,
+                border: `1px solid ${isEnabled ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 14,
+                boxShadow: isEnabled
+                    ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 12px -6px rgba(0,0,0,0.35)'
+                    : 'none',
+                backdropFilter: 'blur(8px)',
                 padding: '12px 14px',
                 display: 'flex',
                 alignItems: 'center',
@@ -136,6 +141,11 @@ export default function ProviderCard({
                 <button
                     type="button"
                     onClick={handleToggle}
+                    title={
+                        isEnabled
+                            ? 'Click to disable — personas stop using this provider'
+                            : 'Click to enable this provider'
+                    }
                     disabled={toggleMutation.isPending}
                     style={{
                         fontSize: 11,
@@ -170,10 +180,16 @@ export default function ProviderCard({
                 </button>
                 <button
                     type="button"
-                    onClick={() =>
-                        provider.id &&
-                        deleteMutation.mutate({ id: provider.id })
-                    }
+                    onClick={() => {
+                        if (!provider.id) return;
+                        if (
+                            !confirm(
+                                'Remove this provider? Personas can no longer use it to generate replies.',
+                            )
+                        )
+                            return;
+                        deleteMutation.mutate({ id: provider.id });
+                    }}
                     disabled={deleteMutation.isPending}
                     style={{
                         fontSize: 11,

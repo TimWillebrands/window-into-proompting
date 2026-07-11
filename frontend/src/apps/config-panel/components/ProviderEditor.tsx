@@ -121,7 +121,15 @@ export default function ProviderEditor({
             </FormRow>
 
             <FormRow label="Handles">
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                    }}
+                    title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
+                >
                     {JOB_COMPLEXITIES.map((c) => (
                         <label
                             key={c.value}

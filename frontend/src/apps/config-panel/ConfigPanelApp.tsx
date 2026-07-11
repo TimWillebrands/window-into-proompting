@@ -1,7 +1,7 @@
 import { useDesktopContext } from '#lib/desktop-context';
 import { useNavHistoryStore } from '#lib/nav-history';
 import ControlPanelHome from './components/ControlPanelHome';
-import { SECTION_NAMES } from './components/constants';
+import { SECTION_NAMES, SECTIONS } from './components/constants';
 import LlmProvidersSection from './components/LlmProvidersSection';
 
 export default function ConfigPanelApp() {
@@ -45,23 +45,24 @@ export default function ConfigPanelApp() {
 
     return (
         <div
+            className="app-surface"
             style={{
                 display: 'flex',
                 flexDirection: 'column',
                 height: '100%',
-                background: '#ECE9D8',
+                background: 'transparent',
                 overflow: 'hidden',
             }}
         >
             {/* Navigation toolbar */}
             <div
+                className="xp-glass-panel"
                 style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 4,
                     padding: '3px 6px',
-                    borderBottom: '1px solid #ACA899',
-                    background: '#ECE9D8',
+                    borderBottom: '1px solid rgba(255,255,255,0.7)',
                 }}
             >
                 <button
@@ -94,9 +95,12 @@ export default function ConfigPanelApp() {
                     style={{
                         flex: 1,
                         marginLeft: 8,
-                        padding: '2px 6px',
-                        background: '#fff',
-                        border: '1px solid #7F9DB9',
+                        padding: '2px 8px',
+                        background: 'rgba(255,255,255,0.85)',
+                        border: '1px solid rgba(255,255,255,0.9)',
+                        borderRadius: 999,
+                        boxShadow:
+                            'inset 0 1px 2px rgba(31,55,148,0.12), 0 1px 0 rgba(255,255,255,0.6)',
                         fontSize: 12,
                         color: '#000',
                     }}
@@ -109,13 +113,13 @@ export default function ConfigPanelApp() {
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                 {/* Sidebar */}
                 <div
+                    className="xp-glass-panel"
                     style={{
                         width: 170,
                         flexShrink: 0,
-                        borderRight: '1px solid #ACA899',
+                        borderRight: '1px solid rgba(255,255,255,0.7)',
                         display: 'flex',
                         flexDirection: 'column',
-                        background: '#D6E4F7',
                         overflow: 'hidden',
                     }}
                 >
@@ -123,6 +127,7 @@ export default function ConfigPanelApp() {
                         style={{
                             background:
                                 'linear-gradient(to bottom, #1B5EAD, #3A85C7)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35)',
                             color: '#fff',
                             padding: '8px 10px',
                             fontWeight: 700,
@@ -138,49 +143,40 @@ export default function ConfigPanelApp() {
 
                     <div
                         style={{
-                            padding: '8px 6px',
-                            borderBottom: '1px solid #ACA899',
+                            padding: '6px 8px 2px',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: '#003399',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
                         }}
                     >
+                        Categories
+                    </div>
+                    <nav style={{ padding: '2px 0 6px' }}>
                         <button
                             type="button"
+                            className={`xp-bare xp-glass-row ${section === 'home' ? 'active' : ''}`}
                             onClick={navigateHome}
-                            style={{
-                                width: '100%',
-                                textAlign: 'left',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '2px 4px',
-                                fontSize: 12,
-                                color: '#003399',
-                                textDecoration: 'underline',
-                            }}
                         >
-                            🏠 Home
+                            <span aria-hidden>🏠</span>
+                            <span style={{ fontWeight: 600 }}>Home</span>
                         </button>
-                    </div>
-
-                    <div
-                        style={{
-                            padding: '6px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#1B5EAD',
-                            borderBottom: '1px solid #ACA899',
-                        }}
-                    >
-                        See Also
-                    </div>
-                    <div
-                        style={{
-                            padding: '6px 8px',
-                            fontSize: 12,
-                            color: '#555',
-                        }}
-                    >
-                        More settings coming soon.
-                    </div>
+                        {SECTIONS.map((s) => (
+                            <button
+                                key={s.id}
+                                type="button"
+                                className={`xp-bare xp-glass-row ${section === s.id ? 'active' : ''}`}
+                                title={s.description}
+                                onClick={() => navigateTo(s.id)}
+                            >
+                                <span aria-hidden>{s.icon}</span>
+                                <span style={{ fontWeight: 600 }}>
+                                    {s.label}
+                                </span>
+                            </button>
+                        ))}
+                    </nav>
                 </div>
 
                 {/* Main content */}
@@ -198,7 +194,10 @@ export default function ConfigPanelApp() {
                     ) : section === 'llm-providers' ? (
                         <LlmProvidersSection />
                     ) : (
-                        <div style={{ color: '#fff' }}>Unknown section.</div>
+                        <div style={{ color: '#fff' }}>
+                            This section no longer exists. Go Back or pick a
+                            category from the sidebar.
+                        </div>
                     )}
                 </div>
             </div>

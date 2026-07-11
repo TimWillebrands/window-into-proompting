@@ -22,97 +22,109 @@ export default function PersonasApp() {
     return (
         <div
             className="app-surface flex h-full"
-            style={{ background: '#ECE9D8' }}
+            style={{ background: 'transparent' }}
         >
             {/* Sidebar */}
             <div
-                className="flex flex-col"
-                style={{ width: '200px', borderRight: '1px solid #ACA899' }}
+                className="xp-glass-panel flex flex-col"
+                style={{
+                    width: '210px',
+                    borderRight: '1px solid rgba(255,255,255,0.7)',
+                }}
             >
-                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px] flex items-center justify-between">
+                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px] flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
                     <span>Personas</span>
                     <span
-                        style={{
-                            background: '#fff',
-                            color: '#003399',
-                            borderRadius: '8px',
-                            padding: '0 5px',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                        }}
+                        className="xp-glass-chip"
+                        style={{ color: '#003399', fontWeight: 700 }}
                     >
                         {personas.length}
                     </span>
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                    {personasQuery.isLoading ? (
-                        <p style={{ color: '#808080', padding: '8px' }}>
-                            Loading...
-                        </p>
-                    ) : null}
+                <div className="flex-1 overflow-y-auto py-1">
                     {personasQuery.isError ? (
                         <p style={{ color: '#c00', padding: '8px' }}>
-                            Failed to load.
+                            Could not load personas. Check that the backend is
+                            running, then reopen this window.
                         </p>
                     ) : null}
-                    {personas.map((persona) => (
-                        <button
-                            key={persona.id}
-                            type="button"
-                            className="w-full text-left flex items-center gap-2 p-2"
-                            style={{
-                                background:
-                                    selectedId === persona.id
-                                        ? '#316AC5'
-                                        : 'transparent',
-                                color:
-                                    selectedId === persona.id ? '#fff' : '#000',
-                                border: 'none',
-                                borderBottom: '1px solid #D6D2C2',
-                            }}
-                            onClick={() => setSelectedId(persona.id ?? null)}
-                        >
-                            <img
-                                src={`https://robohash.org/${persona.id}.png?size=24x24`}
-                                alt=""
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: '50%',
-                                }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                                <div
+                    {personas.length === 0 && !personasQuery.isError ? (
+                        <p style={{ color: '#666', padding: '10px 12px' }}>
+                            No personas yet. Create one below — it can then join
+                            chat rooms and speak on its own.
+                        </p>
+                    ) : null}
+                    {personas.map((persona) => {
+                        const active = selectedId === persona.id;
+                        return (
+                            <button
+                                key={persona.id}
+                                type="button"
+                                className={`xp-bare xp-glass-row ${active ? 'active' : ''}`}
+                                onClick={() =>
+                                    setSelectedId(persona.id ?? null)
+                                }
+                            >
+                                <img
+                                    src={`https://robohash.org/${persona.id}.png?size=24x24`}
+                                    alt=""
                                     style={{
-                                        fontWeight: 600,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: '50%',
+                                        background: '#fff',
+                                        boxShadow:
+                                            '0 0 0 1px rgba(255,255,255,0.9), 0 1px 3px rgba(31,55,148,0.25)',
+                                        flexShrink: 0,
                                     }}
-                                >
-                                    {persona.name}
+                                />
+                                <div style={{ minWidth: 0 }}>
+                                    <div
+                                        style={{
+                                            fontWeight: 600,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {persona.name}
+                                    </div>
                                 </div>
-                            </div>
-                        </button>
-                    ))}
+                            </button>
+                        );
+                    })}
                 </div>
                 <div
                     style={{
-                        borderTop: '1px solid #ACA899',
-                        padding: '4px',
+                        borderTop: '1px solid rgba(255,255,255,0.7)',
+                        boxShadow: 'inset 0 1px 0 rgba(31,55,148,0.08)',
+                        padding: '6px',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '3px',
                     }}
                 >
+                    <div
+                        style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: '#003399',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                            padding: '0 2px 2px',
+                        }}
+                    >
+                        Create a persona
+                    </div>
                     <NewPersonaButton onCreated={(id) => setSelectedId(id)} />
                     <TemplateButton onCreated={(id) => setSelectedId(id)} />
                     <button
                         type="button"
                         className="w-full"
+                        title="Describe the persona in a sentence and let the AI write the name, bio and system prompt"
                         onClick={() => setShowGenerateDialog(true)}
                     >
-                        Generate Persona...
+                        Generate with AI...
                     </button>
                 </div>
             </div>
@@ -126,11 +138,34 @@ export default function PersonasApp() {
                         onDeleted={() => setSelectedId(null)}
                     />
                 ) : (
-                    <div
-                        className="h-full flex flex-col items-center justify-center"
-                        style={{ color: '#808080' }}
-                    >
-                        <p>Select a persona to edit, or create a new one.</p>
+                    <div className="h-full flex flex-col items-center justify-center">
+                        <div
+                            className="xp-glass-card"
+                            style={{
+                                maxWidth: 340,
+                                padding: '20px 24px',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <div style={{ fontSize: 28, marginBottom: 6 }}>
+                                🎭
+                            </div>
+                            <p
+                                style={{
+                                    fontWeight: 700,
+                                    fontSize: 12,
+                                    margin: '0 0 4px',
+                                }}
+                            >
+                                Personas are the AI characters of this party
+                            </p>
+                            <p style={{ color: '#555', margin: 0 }}>
+                                Each one has a name, a bio, and a system prompt
+                                that shapes how it speaks in chat rooms. Select
+                                one on the left to edit it, or create a new one
+                                below the list.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>

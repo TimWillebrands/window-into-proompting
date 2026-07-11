@@ -3,8 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as smd from 'streaming-markdown';
-import { DriverKind } from '../../api/model';
-import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
     getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey,
     getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey,
@@ -39,7 +37,9 @@ import {
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import type { Persona } from '../../api/model';
+import { DriverKind } from '../../api/model';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 
 export interface ChatViewProps {
     chatGroupId: string;
@@ -136,7 +136,9 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
         const userId = userOverride?.personaId ?? '';
         // Narrator (System-driven) is hard-filtered: PartyGrain keeps it in the cast
         // server-side, but it never appears in the AI-toggle UI.
-        const aiIds = ids.filter((id) => id !== userId && id !== NARRATOR_PERSONA_ID);
+        const aiIds = ids.filter(
+            (id) => id !== userId && id !== NARRATOR_PERSONA_ID,
+        );
         setParticipantPersonaIds(aiIds);
         setSavedParticipantPersonaIds(aiIds);
         setSelectedPersonaId(userId);
@@ -516,6 +518,41 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                         }}
                         className="flex-1 overflow-y-auto p-2 space-y-2 m-1 bg-white border border-xp-sunken-edge border-r-white border-b-white"
                     >
+                        {uniqueMessages.length === 0 &&
+                        generationPhases.length === 0 ? (
+                            <div className="flex h-full items-center justify-center">
+                                <div
+                                    className="xp-glass-card"
+                                    style={{
+                                        maxWidth: 320,
+                                        padding: '18px 22px',
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            fontSize: 26,
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        💬
+                                    </div>
+                                    <p
+                                        style={{
+                                            fontWeight: 700,
+                                            margin: '0 0 4px',
+                                        }}
+                                    >
+                                        The room is quiet
+                                    </p>
+                                    <p style={{ color: '#555', margin: 0 }}>
+                                        Type a message below to kick things off,
+                                        or press Proceed to let a persona speak
+                                        first.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null}
                         {uniqueMessages.map((message) => {
                             const generating = activeGenerationSet.has(
                                 message.messageId,
@@ -691,25 +728,44 @@ export function ChatView({ chatGroupId, partyName, scenario }: ChatViewProps) {
                             </p>
                         ) : null}
                         <div className="flex items-center gap-1">
-                            <select
-                                className="flex-1 text-[11px]"
-                                value={selectedPersonaId}
-                                onChange={(event) =>
-                                    setSelectedPersonaId(
-                                        event.currentTarget.value,
-                                    )
-                                }
+                            <label
+                                className="text-[11px]"
+                                style={{
+                                    color: '#555',
+                                    whiteSpace: 'nowrap',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    flex: 1,
+                                    minWidth: 0,
+                                }}
                             >
-                                {promptablePersonas.map((persona) => (
-                                    <option key={persona.id} value={persona.id}>
-                                        {persona.name}
-                                    </option>
-                                ))}
-                            </select>
+                                Speak as
+                                <select
+                                    className="flex-1 text-[11px]"
+                                    title="The participant your message is sent as"
+                                    value={selectedPersonaId}
+                                    onChange={(event) =>
+                                        setSelectedPersonaId(
+                                            event.currentTarget.value,
+                                        )
+                                    }
+                                >
+                                    {promptablePersonas.map((persona) => (
+                                        <option
+                                            key={persona.id}
+                                            value={persona.id}
+                                        >
+                                            {persona.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
                             <button
                                 type="button"
                                 disabled={busy}
                                 className="text-[11px]"
+                                title="Skip your turn — a persona decides who speaks next"
                                 style={{
                                     padding: '2px 10px',
                                     background: busy ? '#D4D0C8' : '#ECE9D8',
