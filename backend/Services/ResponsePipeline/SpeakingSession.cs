@@ -68,10 +68,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
         {
-            // Presence-aware address cue, repeated from the system-prompt memory block —
-            // this final message is the strongest recency slot, and small models dropped
-            // the register (reciting ABOUT Denise while she sat across the table) when the
-            // cue lived in the system prompt alone.
+            // Small-model crutch (candidate to gate off for stronger models): repeat the
+            // address cue here, the strongest recency slot, since the system-prompt block alone
+            // let small models recite the memory in third person at a present subject.
             var subjects = PresentSubjectsIn(memoryToReference, others);
             var addressCue = subjects.Count == 0
                 ? string.Empty
@@ -168,11 +167,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         return string.Join("\n\n", parts);
     }
 
-    /// <summary>
-    /// Names of other present participants who appear in the memory text (whole-word,
-    /// case-insensitive — same matching rule as UrgeMath's mention detection). Drives the
-    /// address-the-person cue in <see cref="Instruction"/> and the final guidance message.
-    /// </summary>
+    // Other present participants named in the memory text (whole-word, like UrgeMath mentions).
     private static List<string> PresentSubjectsIn(string memory, IEnumerable<ParticipantView> others)
         => others
             .Where(p => !string.IsNullOrWhiteSpace(p.Name) && Regex.IsMatch(
@@ -216,12 +211,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // because the contract is "decision selects, speaking executes". Active framing
         // ("surfacing for you", "bring it into your reply") invites use rather than just
         // listing facts. Block omitted entirely when no memory was selected.
-        // Address-the-person cue: when the memory names someone who is IN the room, the
-        // callback is spoken TO them, not about them. Small models otherwise recite the
-        // stored third-person snippet at the person it describes ("Denise resigned Friday
-        // … hope SHE gets some sleep" — to Denise's face). Roster-name word-boundary match;
-        // rendered only when a subject is actually present so the line never fires on
-        // memories about absent people, where third person is the correct register.
+        // Small-model crutch (candidate to gate off for stronger models): when the memory
+        // names a present participant, tell weak models to address them, not recite about them;
+        // suppressed for absent subjects, where third person is correct.
         var presentSubjects = string.IsNullOrWhiteSpace(memoryToReference)
             ? new List<string>()
             : PresentSubjectsIn(memoryToReference, others);

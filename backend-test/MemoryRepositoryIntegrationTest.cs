@@ -986,9 +986,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             partyId, roomId, messageId1, cast, new[] { msg1 }, CancellationToken.None);
         Assert.Equal(1, result1.RecollectionsCreated);
 
-        // Capture 2, moments later in the same arc: Denise's draft corrupts AGAIN and the
-        // substitute description near-duplicates what she already remembers → skipped.
-        // Vlad's clean draft on the same Event must still be written.
+        // Capture 2, same arc: Denise's draft corrupts again → near-dup substitute skipped, but Vlad's clean draft still writes.
         var messageId2 = messageId1 + 1;
         var msg2 = new ChatMessage
         {

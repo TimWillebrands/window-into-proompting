@@ -458,10 +458,7 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemorySubjectPresent_RendersAddressCueInBlockAndGuidance()
     {
-        // A memory about someone who is IN the room must be spoken TO them — bench: a
-        // small model recited "Denise resigned Friday … hope SHE gets some sleep" while
-        // Denise sat across the table. The cue lands in both the memory block and the
-        // final guidance message (strongest recency slot).
+        // A memory about a present participant must cue speaking TO them, in both the memory block and the guidance message.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var denise = MakeParticipant("Denise");
@@ -483,8 +480,7 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemorySubjectAbsent_OmitsAddressCue()
     {
-        // Third person is the CORRECT register for a memory about someone not in the
-        // room — the cue must never fire there.
+        // Cue must never fire for a memory about someone absent — third person is correct there.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var hana = MakeParticipant("Hana");
@@ -504,8 +500,7 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemoryNamesSelfOnly_OmitsAddressCue()
     {
-        // The persona's own name in the memory is not a subject to address — only OTHER
-        // present participants trigger the cue.
+        // Only OTHER present participants trigger the cue — not the persona's own name.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var hana = MakeParticipant("Hana");

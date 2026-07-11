@@ -293,6 +293,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // selection mechanic. Omitted when nothing is anchored.
         var stanceBlock = StanceBlock.Render(stances);
 
+        // The "big personal news is worth airtime" line below is a small-model engagement nudge
+        // (candidate to gate off for stronger models that judge bombshell beats unprompted).
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}

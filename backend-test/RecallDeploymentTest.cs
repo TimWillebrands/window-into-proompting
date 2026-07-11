@@ -200,10 +200,7 @@ public class RecallDeploymentTest
 
     // ── Near-duplicate detection (capture-time dedup of substituted snippets) ──
 
-    // The exact pair Denise banked in the post-fix bench run (20260710-221340): both her
-    // drafts corrupted across two captures of the same development, so she got two
-    // substituted Event descriptions that say the same thing in different words. They sit
-    // on DIFFERENT Events, so identity can't dedup them — text similarity must.
+    // The real dup pair from bench run 20260710-221340: two substituted descriptions of one development on different Events.
     private const string BenchDupA =
         "You remember: Denise tells Vlad she quit the agency and opens a bakery, Rise & Grind, signing the lease Monday, inviting him to meet at Blue Mug on Thursday.";
     private const string BenchDupB =
@@ -228,8 +225,7 @@ public class RecallDeploymentTest
 
     [Fact]
     public void IsNearDuplicate_SharedCastAndTopic_ShortSnippets_NotDuplicate()
-        // Short snippets share most of their few content words just by naming the same
-        // people — the min-shared-words floor keeps them apart.
+        // Short snippets sharing a cast stay apart via the min-shared-words floor.
         => Assert.False(RecollectionFidelity.IsNearDuplicate(
             "Denise told Vlad about her cat.",
             "Denise asked Vlad to watch her cat on Friday."));

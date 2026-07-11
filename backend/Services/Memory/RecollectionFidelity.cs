@@ -60,16 +60,9 @@ public static class RecollectionFidelity
         return (draft with { Snippet = fallback }, true);
     }
 
-    // ── Near-duplicate detection (capture-time dedup of substituted snippets) ──────────
-    //
-    // A substituted snippet is a neutral Event description, and two Events captured
-    // moments apart in one conversation often describe the same development in different
-    // words — so a persona whose drafts corrupt twice banks two "You remember:" copies of
-    // the same fact (they sit on DIFFERENT Events, so identity can't dedup them). Content-
-    // word overlap catches the pair without an LLM call or embeddings: drop stopwords,
-    // lightly stem, then require a solid shared core that also covers most of the smaller
-    // snippet. The absolute floor keeps short snippets that merely share a cast ("Denise
-    // told Vlad about her cat") from colliding just by naming the same people.
+    // Cheap content-word overlap (no LLM/embeddings) to dedup substituted snippets that
+    // restate one development across adjacent Events; only the small-model substitution
+    // path reaches it, so it's a candidate to gate off for models that don't corrupt drafts.
     private const int MinSharedContentWords = 5;
     private const double MinOverlapCoefficient = 0.55;
 
@@ -116,12 +109,7 @@ public static class RecollectionFidelity
         return words;
     }
 
-    /// <summary>
-    /// Suffix-stripping just aggressive enough to unify the inflections seen in Event
-    /// descriptions ("signing"/"signed" → sign, "opens" → open, "invited"/"inviting" →
-    /// invit). Not a linguistic stemmer — over-stripping only risks a shared token, and
-    /// the overlap thresholds absorb that.
-    /// </summary>
+    // Crude suffix-stripping to unify inflections (signing/signed → sign); not a real stemmer.
     private static string Stem(string w)
     {
         if (w.Length > 5 && w.EndsWith("ing", StringComparison.Ordinal)) return w[..^3];

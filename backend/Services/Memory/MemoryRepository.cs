@@ -101,12 +101,9 @@ public sealed class MemoryRepository(
         var writtenPersonaIds = new List<Guid>();
         foreach (var (personaId, name, draft, substituted) in recollections)
         {
-            // A substituted snippet is a templated Event description, and adjacent Events
-            // in one arc often describe the same development — a persona whose drafts
-            // corrupt twice would bank near-identical "You remember:" copies (they sit on
-            // different Events, so only text similarity can catch it). Skip the write when
-            // the persona already holds one; the earlier memory carries the moment. Clean
-            // model-authored drafts are never skipped — a genuine perspective is not a copy.
+            // Skip a substituted snippet that near-duplicates one the persona already holds
+            // (same development across adjacent Events — text similarity, not identity); clean
+            // model-authored drafts always pass.
             if (substituted)
             {
                 var existing = await ListRecentSnippetsAsync(db, partyId, personaId, ct);
@@ -1421,12 +1418,7 @@ public sealed class MemoryRepository(
         return ExecuteCypherAsync(db, sql, ct);
     }
 
-    /// <summary>
-    /// The persona's newest Recollection snippets — the capture-time dedup pool for
-    /// substituted drafts. Recency-capped: duplicates form when two adjacent Events in
-    /// one arc describe the same development, so an old memory scrolling past the cap is
-    /// no longer a duplicate risk. Runs on the capture transaction's open connection.
-    /// </summary>
+    // The persona's newest snippets — the recency-capped dedup pool for substituted drafts.
     private static async Task<List<string>> ListRecentSnippetsAsync(
         AppDbContext db, Guid partyId, Guid personaId, CancellationToken ct)
     {
