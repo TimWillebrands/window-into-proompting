@@ -321,15 +321,34 @@ public static class ImportSpearheadProbes
             ResponseFormat = SectionItemsSchema.ToJsonString(),
         };
 
-        var endpoint = await bench.Router.RouteAsync(JobComplexity.General, ct);
-        var buffer = new StringBuilder();
-        await foreach (var chunk in endpoint.GenerateAsync(job, ct))
+        // Transient provider failures (dropped streams, 429s on free tiers) degrade the one
+        // section — the conservation ledger accounts for it — instead of aborting the run.
+        const int attempts = 3;
+        for (var attempt = 1; ; attempt++)
         {
-            if (chunk.Type == LlmGenerationEvent.ContentChunk)
-                buffer.Append(chunk.Data);
+            try
+            {
+                var endpoint = await bench.Router.RouteAsync(JobComplexity.General, ct);
+                var buffer = new StringBuilder();
+                await foreach (var chunk in endpoint.GenerateAsync(job, ct))
+                {
+                    if (chunk.Type == LlmGenerationEvent.ContentChunk)
+                        buffer.Append(chunk.Data);
+                }
+                var raw = buffer.ToString().Trim();
+                return (raw, TryParse(raw));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && attempt < attempts)
+            {
+                bench.Observe($"section.{section.Id}.retry", new { attempt, error = ex.Message });
+                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                bench.Observe($"section.{section.Id}.failed", new { attempts, error = ex.Message });
+                return ($"<llm-error: {ex.Message}>", null);
+            }
         }
-        var raw = buffer.ToString().Trim();
-        return (raw, TryParse(raw));
     }
 
     private static readonly JsonObject SectionItemsSchema = new()

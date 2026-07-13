@@ -90,7 +90,9 @@ public class OpenRouterEndpointGrain(
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        const string url = "https://openrouter.ai/api/frontend/models/find?context=128000&fmt=cards&input_modalities=text&max_price=0&order=top-weekly";
+        // Official model listing (the old unofficial /api/frontend/models/find endpoint was
+        // removed upstream and now 404s, which made the router drop this provider entirely).
+        var url = $"{BaseUrl.TrimEnd('/')}/models";
 
         try
         {
@@ -99,6 +101,8 @@ public class OpenRouterEndpointGrain(
             using var httpClient = httpClientFactory.CreateClient();
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Accept.ParseAdd("application/json");
+            if (!string.IsNullOrEmpty(ApiKey))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ApiKey);
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -110,8 +114,7 @@ public class OpenRouterEndpointGrain(
             var grainId = this.GetPrimaryKey();
             var complexity = _config?.SupportedComplexities ?? JobComplexity.General;
 
-            if (!document.RootElement.TryGetProperty("data", out var dataNode) ||
-                !dataNode.TryGetProperty("models", out var modelsNode) ||
+            if (!document.RootElement.TryGetProperty("data", out var modelsNode) ||
                 modelsNode.ValueKind != JsonValueKind.Array)
             {
                 return models;
@@ -119,17 +122,14 @@ public class OpenRouterEndpointGrain(
 
             foreach (var modelNode in modelsNode.EnumerateArray())
             {
-                if (!modelNode.TryGetProperty("endpoint", out var endpointNode) ||
-                    !endpointNode.TryGetProperty("model_variant_permaslug", out var idNode))
-                {
+                if (!modelNode.TryGetProperty("id", out var idNode))
                     continue;
-                }
 
                 var id = idNode.GetString();
                 if (string.IsNullOrWhiteSpace(id))
                     continue;
 
-                var name = modelNode.TryGetProperty("short_name", out var nameNode)
+                var name = modelNode.TryGetProperty("name", out var nameNode)
                     ? nameNode.GetString() ?? id
                     : id;
 
