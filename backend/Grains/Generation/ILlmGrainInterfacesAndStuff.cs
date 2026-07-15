@@ -117,6 +117,10 @@ public sealed record class LlmModelParameters
     [Id(0)] public double? Temperature { get; init; }
     // Serialized JSON string (JsonObject is not Orleans-serializable)
     [Id(1)] public string? ResponseFormat { get; init; }
+    // OpenAI-compat `reasoning_effort` ("none" | "minimal" | "low" | ... ). On OpenRouter this
+    // maps to `reasoning: { effort: ... }`; "none" disables hidden reasoning on hybrid models
+    // (e.g. tencent/hy3) that otherwise burn most completion tokens thinking.
+    [Id(2)] public string? ReasoningEffort { get; init; }
 }
 
 [GenerateSerializer]

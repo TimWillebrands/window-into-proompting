@@ -107,6 +107,13 @@ public static class LlmEndpointGrainUtils
             Temperature = mp?.Temperature is null ? null : (float)mp.Temperature.Value
         };
 
+        if (!string.IsNullOrWhiteSpace(mp?.ReasoningEffort))
+        {
+#pragma warning disable OPENAI001 // evaluation-only API; OpenRouter maps reasoning_effort → reasoning.effort
+            options.ReasoningEffortLevel = new ChatReasoningEffortLevel(mp.ReasoningEffort);
+#pragma warning restore OPENAI001
+        }
+
         // ResponseFormat can be set on either LlmGenerationJob (top-level, the modern
         // shape used by structured-output callers like PersonaDecisionService and
         // ImportService) or LlmModelParameters (legacy). Top-level takes precedence.

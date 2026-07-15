@@ -44,6 +44,8 @@ public static class ImportSpearheadProbes
     // IMPORT_SOURCES     all | spec | recaps                 (default: all)
     // IMPORT_ANCHOR      ISO-8601 band anchor                (default: utcnow - 30d)
     // IMPORT_SPACING_MIN minutes between consecutive events  (default: 10)
+    // IMPORT_REASONING_EFFORT  reasoning_effort sent with each call (default: unset)
+    //                    "none" disables hidden reasoning on hybrid models like tencent/hy3
 
     private const int MinSectionChars = 200;   // merge smaller sections into the previous one
     private const int MaxSectionChars = 8_000; // hard cap sent to the model (truncation observed)
@@ -362,6 +364,9 @@ public static class ImportSpearheadProbes
             },
             JobComplexity = JobComplexity.General,
             ResponseFormat = SectionItemsSchema.ToJsonString(),
+            ModelParameters = Environment.GetEnvironmentVariable("IMPORT_REASONING_EFFORT") is { Length: > 0 } effort
+                ? new LlmModelParameters { ReasoningEffort = effort }
+                : null,
         };
 
         // Transient provider failures (dropped streams, 429s on free tiers) degrade the one
