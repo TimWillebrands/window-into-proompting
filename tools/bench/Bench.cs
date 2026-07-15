@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using PartyTown.Data;
 using PartyTown.Grains.Generation;
 using PartyTown.Services.Memory;
 
@@ -10,7 +12,7 @@ namespace PartyTown.Bench;
 /// <see cref="ProbeArtifact"/> to record observations into. The probe builds its cast and
 /// history with normal code, invokes the slice under design, and observes — it never asserts.
 /// </summary>
-public sealed class Bench(IGrainFactory grains, ILoggerFactory loggerFactory, IMemoryRepository memory, ProbeArtifact artifact, CancellationToken cancellation = default)
+public sealed class Bench(IGrainFactory grains, ILoggerFactory loggerFactory, IMemoryRepository memory, ProbeArtifact artifact, CancellationToken cancellation = default, IDbContextFactory<AppDbContext>? memoryDb = null)
 {
     public IGrainFactory Grains { get; } = grains;
     public ILoggerFactory LoggerFactory { get; } = loggerFactory;
@@ -21,6 +23,14 @@ public sealed class Bench(IGrainFactory grains, ILoggerFactory loggerFactory, IM
     /// otherwise the no-op <see cref="StubMemoryRepository"/>. Only <c>RequiresMemory</c> probes
     /// should touch it.</summary>
     public IMemoryRepository Memory { get; } = memory;
+
+    /// <summary>Direct Cypher access to the bench's ephemeral AGE — non-null only when the running
+    /// probe declared <c>RequiresMemory</c> and Docker was reachable. For probes that must SEED the
+    /// graph outside the production write path (e.g. import seeding at artifact timestamps, where
+    /// <see cref="IMemoryRepository.CaptureMomentAsync"/>'s LLM extraction and now-stamping don't
+    /// apply). Reads should still go through <see cref="Memory"/> so the probe exercises the real
+    /// hot path.</summary>
+    public IDbContextFactory<AppDbContext>? MemoryDb { get; } = memoryDb;
 
     /// <summary>Fires at the probe deadline — pass into every async call so a timed-out probe
     /// actually stops instead of racing the artifact write.</summary>
