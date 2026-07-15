@@ -26,6 +26,11 @@ namespace PartyTown.Bench.Probes;
 ///   4. deterministic routing — traits → persona cards, episodes → Events timestamped
 ///      anchor + ordinal·spacing (subset-per-import: one run = one band = one anchor),
 ///      rules → discarded WITH reason, concepts merged by source-stated aliases only.
+///   5. deterministic identity + dedup — persona keys fold by token-subset after
+///      honorific/parenthetical strip ("Lena" ⊆ "Dr. Lena Brandt"); near-identical names
+///      (one token, edit distance ≤ 2) are NOT merged but surfaced as suspected typos;
+///      episodes re-told by overlapping recap sections (shared participants,
+///      word-overlap ≥ threshold) keep the first telling only.
 ///
 /// The falsifiable question: do recap-derived and dossier-derived items come out at a
 /// granularity that could coexist in one memory graph? Read artifact.events (count,
@@ -54,7 +59,7 @@ public static class ImportSpearheadProbes
         ["chunks"] = 316,
     };
 
-    [Probe("Import spearhead (scaffolding): categorize-then-route an AI Studio export into a memory-seed artifact — no grains, no rooms, no AGE. Deterministic IR over all 316 Technokangs chunks (structured fields + one regex; expected counts observed vs actual), author-seam section split of systemInstruction + '# History' recaps, then ONE General-tier call per section returning typed items (trait|episode|rule). Routing is deterministic: traits → persona cards, episodes → Events at anchor+ordinal·spacing (env: IMPORT_ANCHOR / IMPORT_SPACING_MIN / IMPORT_SOURCES for subset-per-band imports), rules → discarded with reason, concepts merged by source-stated aliases only. Judge artifact.events for granularity/ordering coherence, artifact.personas for invention-free traits, cast.unmatched for the HITL surface ('Lana' should appear), conservation.* for silent-loss (must be none).")]
+    [Probe("Import spearhead (scaffolding): categorize-then-route an AI Studio export into a memory-seed artifact — no grains, no rooms, no AGE. Deterministic IR over all 316 Technokangs chunks (structured fields + one regex; expected counts observed vs actual), author-seam section split of systemInstruction + '# History' recaps, then ONE General-tier call per section returning typed items (trait|episode|rule). Routing is deterministic: traits → persona cards, episodes → Events at anchor+ordinal·spacing (env: IMPORT_ANCHOR / IMPORT_SPACING_MIN / IMPORT_SOURCES for subset-per-band imports), rules → discarded with reason, concepts merged by source-stated aliases only. Persona keys fold deterministically (honorific/parenthetical strip + token-subset), cross-recap episode re-tellings dedup to the first telling. Judge artifact.events for granularity/ordering coherence, artifact.personas for invention-free traits, cast.unmatched + cast.suspectedTypos for the HITL surfaces (the 'Lana' typo should land in suspectedTypos, never silently merge), conservation.* for silent-loss (must be none).")]
     public static async Task Import_CanonSectionsToArtifact(Bench bench)
     {
         var ct = bench.Cancellation;
@@ -121,7 +126,9 @@ public static class ImportSpearheadProbes
 
         // ── 3. one LLM call per section — model judges content, nothing else ─────
         var personas = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        var events = new List<object>();
+        var events = new List<EventCard>();
+        var eventWords = new List<HashSet<string>>();
+        var dedupedEvents = new List<object>();
         var concepts = new List<ConceptCard>();
         var discarded = new List<object>();
         var degraded = new List<object>();
@@ -142,7 +149,7 @@ public static class ImportSpearheadProbes
             if (parsed?.Items is not { Count: > 0 })
             {
                 unparseableSections++;
-                degraded.Add(new { section = section.Id, section.Heading, reason = "unparseable or empty items", rawLen = raw.Length });
+                degraded.Add(new { section = section.Id, section.Heading, reason = "unparseable or empty items", rawLen = raw.Length, rawHead = Truncate(raw, 200) });
                 continue;
             }
 
@@ -159,23 +166,32 @@ public static class ImportSpearheadProbes
 
                 switch (item.Type?.ToLowerInvariant())
                 {
-                    case "trait" when !string.IsNullOrWhiteSpace(item.Persona):
-                        if (!personas.TryGetValue(item.Persona, out var card))
-                            personas[item.Persona] = card = [];
-                        card.Add(item.Summary ?? "");
-                        break;
-                    case "trait":
+                    case "trait" when string.IsNullOrWhiteSpace(item.Persona):
                         degraded.Add(new { section = section.Id, reason = "trait without persona", item.Summary });
                         break;
+                    case "trait" when !LooksLikePersonaName(item.Persona!):
+                        degraded.Add(new { section = section.Id, reason = "persona key not name-shaped", key = item.Persona, item.Summary });
+                        break;
+                    case "trait":
+                        if (!personas.TryGetValue(item.Persona!, out var card))
+                            personas[item.Persona!] = card = [];
+                        card.Add(item.Summary ?? "");
+                        break;
                     case "episode":
-                        events.Add(new
+                        var words = ContentWords(item.Summary ?? "");
+                        var dupOf = FindDuplicateEvent(events, eventWords, words, item.Participants, section.Id);
+                        if (dupOf is not null)
                         {
-                            ordinal,
-                            at = anchor + ordinal * spacing,
-                            summary = item.Summary,
-                            participants = item.Participants ?? [],
-                            source = section.Id,
-                        });
+                            dedupedEvents.Add(new
+                            {
+                                keptOrdinal = dupOf.Ordinal, keptSource = dupOf.Source, keptSummary = dupOf.Summary,
+                                droppedSource = section.Id, droppedSummary = item.Summary,
+                            });
+                            break;
+                        }
+                        events.Add(new EventCard(ordinal, anchor + ordinal * spacing, item.Summary ?? "",
+                            (item.Participants ?? []).ToList(), section.Id));
+                        eventWords.Add(words);
                         ordinal++;
                         break;
                     case "rule":
@@ -189,17 +205,42 @@ public static class ImportSpearheadProbes
         }
         stopwatch.Stop();
 
-        // ── 4. the artifact — plus the two loss-surfaces a real import must show ─
+        // ── 4. deterministic identity fold — same person, several keys → one card ─
+        // Token-subset after honorific/parenthetical strip merges "Lena" / "Lena Brandt" /
+        // "Dr. Lena Brandt". Near-identical names ("Lana Brandt") deliberately do NOT merge:
+        // a typo is a human call, so it lands in cast.suspectedTypos instead.
+        var folds = BuildPersonaFolds(personas.Keys);
+        var foldedPersonas = folds.ToDictionary(
+            f => f.Canonical,
+            f => f.Members.SelectMany(m => personas[m]).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            StringComparer.OrdinalIgnoreCase);
+
+        // ── 5. the artifact — plus the loss-surfaces a real import must show ─────
         var knownNames = new HashSet<string>(personas.Keys, StringComparer.OrdinalIgnoreCase);
+        foreach (var f in folds) knownNames.Add(f.Canonical);
         foreach (var c in concepts) { knownNames.Add(c.Name); foreach (var al in c.Aliases) knownNames.Add(al); }
 
-        bench.Observe("artifact.personas", personas.ToDictionary(kv => kv.Key, kv => kv.Value));
-        bench.Observe("artifact.events", events);
+        bench.Observe("artifact.personas", foldedPersonas);
+        bench.Observe("personas.folds", folds.Where(f => f.Members.Count > 1)
+            .Select(f => new { canonical = f.Canonical, merged = f.Members }).ToList());
+        bench.Observe("artifact.events", events.Select(e => new
+        {
+            ordinal = e.Ordinal, at = e.At, summary = e.Summary,
+            participants = e.Participants.Select(p => Canonical(p, folds))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            source = e.Source,
+        }).ToList());
+        bench.Observe("artifact.dedupedEvents", dedupedEvents);
         bench.Observe("artifact.concepts", concepts);
         bench.Observe("artifact.discarded", discarded);
         bench.Observe("artifact.degraded", degraded);
         // participants that no trait and no concept accounts for = the HITL review queue
-        bench.Observe("cast.unmatched", participants.Where(p => !knownNames.Contains(p)).OrderBy(p => p).ToList());
+        bench.Observe("cast.unmatched", participants
+            .Select(p => Canonical(p, folds))
+            .Where(p => !knownNames.Contains(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(p => p).ToList());
+        // distinct persona cards whose names differ by one near-identical token = typo queue
+        bench.Observe("cast.suspectedTypos", SuspectedTypos(folds));
         bench.Observe("conservation.sections", new
         {
             sections = sections.Count,
@@ -212,13 +253,15 @@ public static class ImportSpearheadProbes
             llmCalls = sections.Count,
             elapsedMs = stopwatch.ElapsedMilliseconds,
             inChars, outChars,
-            personas = personas.Count,
+            personas = foldedPersonas.Count,
+            personaFolds = folds.Count(f => f.Members.Count > 1),
             events = events.Count,
+            dedupedEvents = dedupedEvents.Count,
             concepts = concepts.Count,
         });
 
-        log.LogInformation("Import spearhead: {Sections} sections → {Events} events, {Personas} personas, {Degraded} degraded in {Ms}ms",
-            sections.Count, events.Count, personas.Count, degraded.Count, stopwatch.ElapsedMilliseconds);
+        log.LogInformation("Import spearhead: {Sections} sections → {Events} events ({Deduped} deduped), {Personas} personas ({Folds} folded), {Degraded} degraded in {Ms}ms",
+            sections.Count, events.Count, dedupedEvents.Count, foldedPersonas.Count, folds.Count(f => f.Members.Count > 1), degraded.Count, stopwatch.ElapsedMilliseconds);
     }
 
     // ── section splitting ────────────────────────────────────────────────────────
@@ -336,6 +379,13 @@ public static class ImportSpearheadProbes
                         buffer.Append(chunk.Data);
                 }
                 var raw = buffer.ToString().Trim();
+                // reasoning models occasionally spend the whole turn thinking and stream
+                // no content at all — that's transient, not an answer
+                if (raw.Length == 0 && attempt < attempts)
+                {
+                    bench.Observe($"section.{section.Id}.retry", new { attempt, error = "empty content" });
+                    continue;
+                }
                 return (raw, TryParse(raw));
             }
             catch (Exception ex) when (ex is not OperationCanceledException && attempt < attempts)
@@ -421,14 +471,25 @@ public static class ImportSpearheadProbes
     private static SectionItems? TryParse(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        try { return JsonSerializer.Deserialize<SectionItems>(raw, WebOptions); }
-        catch { /* fall through */ }
-        try
+        foreach (var candidate in new[] { raw, StripFences(raw), TryRepair(StripFences(raw)) })
         {
-            var s = StripFences(raw);
-            try { return JsonSerializer.Deserialize<SectionItems>(s, WebOptions); }
-            catch { return JsonSerializer.Deserialize<SectionItems>(JsonRepair.RepairJson(s, JsonRepair.InputType.LLM), WebOptions); }
+            if (candidate is null) continue;
+            // models without enforced structured outputs drift between {"items":[...]}
+            // and a bare [...] — accept both shapes
+            try
+            {
+                return candidate.TrimStart().StartsWith('[')
+                    ? new SectionItems(JsonSerializer.Deserialize<List<SectionItem>>(candidate, WebOptions))
+                    : JsonSerializer.Deserialize<SectionItems>(candidate, WebOptions);
+            }
+            catch { /* next candidate */ }
         }
+        return null;
+    }
+
+    private static string? TryRepair(string s)
+    {
+        try { return JsonRepair.RepairJson(s, JsonRepair.InputType.LLM); }
         catch { return null; }
     }
 
@@ -440,6 +501,135 @@ public static class ImportSpearheadProbes
         s = firstNewline >= 0 ? s[(firstNewline + 1)..] : s[3..];
         var closing = s.LastIndexOf("```", StringComparison.Ordinal);
         return (closing >= 0 ? s[..closing] : s).Trim();
+    }
+
+    // ── deterministic identity fold + episode dedup ──────────────────────────────
+
+    private sealed record EventCard(int Ordinal, DateTimeOffset At, string Summary, List<string> Participants, string Source);
+
+    private sealed record PersonaFold(string Canonical, List<string> Members, HashSet<string> Tokens);
+
+    private static readonly Regex Parenthetical = new(@"\s*\([^)]*\)\s*", RegexOptions.Compiled);
+    private static readonly Regex Honorific = new(@"^(dr|mr|mrs|ms|prof)\.?\s+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex ContentWordRx = new(@"[a-z][a-z'-]{3,}", RegexOptions.Compiled);
+
+    private static string NormalizeName(string name)
+    {
+        var s = Parenthetical.Replace(name, " ");
+        s = Honorific.Replace(s.Trim(), "");
+        return Regex.Replace(s, @"\s+", " ").Trim();
+    }
+
+    private static HashSet<string> TokenSet(string name)
+        => NormalizeName(name).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A trait's persona field must look like a name, not a leaked trait sentence.</summary>
+    private static bool LooksLikePersonaName(string key)
+    {
+        var tokens = TokenSet(key);
+        return tokens.Count is >= 1 and <= 4 && NormalizeName(key).Length <= 48;
+    }
+
+    /// <summary>Fold persona keys whose token set is a subset of exactly one other key's
+    /// ("Lena" ⊆ "Lena Brandt" ⊆ "Dr. Lena Brandt"). Ambiguous subsets stay separate.
+    /// Canonical = the most specific member's original spelling.</summary>
+    private static List<PersonaFold> BuildPersonaFolds(IEnumerable<string> keys)
+    {
+        var folds = new List<PersonaFold>();
+        foreach (var key in keys.OrderByDescending(k => TokenSet(k).Count).ThenByDescending(k => k.Length))
+        {
+            var tokens = TokenSet(key);
+            var hits = folds.Where(f => tokens.IsSubsetOf(f.Tokens)).ToList();
+            if (hits.Count == 1)
+                hits[0].Members.Add(key);
+            else
+                folds.Add(new PersonaFold(key, [key], tokens));
+        }
+        return folds;
+    }
+
+    /// <summary>Map any name (participant, alias) onto its folded persona card, if one
+    /// uniquely claims it; otherwise the name passes through untouched.</summary>
+    private static string Canonical(string name, List<PersonaFold> folds)
+    {
+        var tokens = TokenSet(name);
+        if (tokens.Count == 0) return name;
+        var hits = folds.Where(f => tokens.IsSubsetOf(f.Tokens)).ToList();
+        return hits.Count == 1 ? hits[0].Canonical : name;
+    }
+
+    /// <summary>Distinct persona cards where some name token of one is a near-miss
+    /// (edit distance ≤ 1) of a token of the other — "Lana" vs "Lena Brandt". Distance 1
+    /// keeps single-letter typos and drops different-name noise (Lana/Mara is distance 2).
+    /// A typo is a human call, never merged.</summary>
+    private static List<object> SuspectedTypos(List<PersonaFold> folds)
+    {
+        var suspects = new List<object>();
+        for (var i = 0; i < folds.Count; i++)
+            for (var j = i + 1; j < folds.Count; j++)
+            {
+                var (a, b) = (folds[i], folds[j]);
+                var pair = a.Tokens.Where(t => t.Length >= 3)
+                    .SelectMany(ta => b.Tokens.Where(t => t.Length >= 3), (ta, tb) => (ta, tb))
+                    .FirstOrDefault(p =>
+                        !p.ta.Equals(p.tb, StringComparison.OrdinalIgnoreCase) &&
+                        Levenshtein(p.ta, p.tb) <= 1);
+                if (pair != default)
+                    suspects.Add(new { a = a.Canonical, b = b.Canonical, tokens = new[] { pair.ta, pair.tb } });
+            }
+        return suspects;
+    }
+
+    private static int Levenshtein(string a, string b)
+    {
+        a = a.ToLowerInvariant(); b = b.ToLowerInvariant();
+        var prev = Enumerable.Range(0, b.Length + 1).ToArray();
+        var curr = new int[b.Length + 1];
+        for (var i = 1; i <= a.Length; i++)
+        {
+            curr[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+                curr[j] = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            (prev, curr) = (curr, prev);
+        }
+        return prev[b.Length];
+    }
+
+    // Recaps re-tell the same episode — across chunks AND across sections of one chunk
+    // (verified against the 20260713 hy3 artifact: all three true re-tellings were
+    // intra-chunk). The model can't see across sections, so dedup is deterministic:
+    // different section + shared participant + word-overlap ≥ threshold ⇒ same
+    // occurrence, keep the first telling. 0.25 caught 3/3 true dups, 0 false positives.
+    private const double DupJaccard = 0.25;
+
+    private static HashSet<string> ContentWords(string summary)
+        => ContentWordRx.Matches(summary.ToLowerInvariant())
+            .Select(m => Stem(m.Value)).ToHashSet(StringComparer.Ordinal);
+
+    private static string Stem(string w) => w switch
+    {
+        _ when w.Length > 5 && w.EndsWith("ing", StringComparison.Ordinal) => w[..^3],
+        _ when w.Length > 4 && w.EndsWith("ed", StringComparison.Ordinal) => w[..^2],
+        _ when w.Length > 4 && w.EndsWith("s", StringComparison.Ordinal) && !w.EndsWith("ss", StringComparison.Ordinal) => w[..^1],
+        _ => w,
+    };
+
+    private static EventCard? FindDuplicateEvent(
+        List<EventCard> events, List<HashSet<string>> eventWords,
+        HashSet<string> words, List<string>? itemParticipants, string sectionId)
+    {
+        var cand = (itemParticipants ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < events.Count; i++)
+        {
+            // events from the same section are already distinct — the model split them
+            if (events[i].Source == sectionId) continue;
+            if (cand.Count > 0 && !events[i].Participants.Any(cand.Contains)) continue;
+            var inter = eventWords[i].Count(words.Contains);
+            var union = eventWords[i].Count + words.Count - inter;
+            if (union > 0 && (double)inter / union >= DupJaccard) return events[i];
+        }
+        return null;
     }
 
     // ── concept merge: source-stated aliases only, no LLM identity-guessing ─────
