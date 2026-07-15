@@ -239,8 +239,8 @@ public static class ImportSpearheadProbes
             .Select(p => Canonical(p, folds))
             .Where(p => !knownNames.Contains(p))
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(p => p).ToList());
-        // distinct persona cards whose names differ by one near-identical token = typo queue
-        bench.Observe("cast.suspectedTypos", SuspectedTypos(folds));
+        // near-identical names across cards and unclaimed participants = typo queue
+        bench.Observe("cast.suspectedTypos", SuspectedTypos(folds, participants));
         bench.Observe("conservation.sections", new
         {
             sections = sections.Count,
@@ -533,20 +533,27 @@ public static class ImportSpearheadProbes
 
     /// <summary>Fold persona keys whose token set is a subset of exactly one other key's
     /// ("Lena" ⊆ "Lena Brandt" ⊆ "Dr. Lena Brandt"). Ambiguous subsets stay separate.
-    /// Canonical = the most specific member's original spelling.</summary>
+    /// Canonical = most name tokens, then cleanest spelling ("Justin", not "Justin ('Marty')"),
+    /// then longest.</summary>
     private static List<PersonaFold> BuildPersonaFolds(IEnumerable<string> keys)
     {
-        var folds = new List<PersonaFold>();
+        var groups = new List<(HashSet<string> Tokens, List<string> Members)>();
         foreach (var key in keys.OrderByDescending(k => TokenSet(k).Count).ThenByDescending(k => k.Length))
         {
             var tokens = TokenSet(key);
-            var hits = folds.Where(f => tokens.IsSubsetOf(f.Tokens)).ToList();
+            var hits = groups.Where(g => tokens.IsSubsetOf(g.Tokens)).ToList();
             if (hits.Count == 1)
                 hits[0].Members.Add(key);
             else
-                folds.Add(new PersonaFold(key, [key], tokens));
+                groups.Add((tokens, [key]));
         }
-        return folds;
+        return groups.Select(g => new PersonaFold(
+            g.Members
+                .OrderByDescending(m => TokenSet(m).Count)
+                .ThenBy(m => m.Count(c => !char.IsLetter(c) && c != ' '))
+                .ThenByDescending(m => m.Length)
+                .First(),
+            g.Members, g.Tokens)).ToList();
     }
 
     /// <summary>Map any name (participant, alias) onto its folded persona card, if one
@@ -559,25 +566,39 @@ public static class ImportSpearheadProbes
         return hits.Count == 1 ? hits[0].Canonical : name;
     }
 
-    /// <summary>Distinct persona cards where some name token of one is a near-miss
-    /// (edit distance ≤ 1) of a token of the other — "Lana" vs "Lena Brandt". Distance 1
-    /// keeps single-letter typos and drops different-name noise (Lana/Mara is distance 2).
-    /// A typo is a human call, never merged.</summary>
-    private static List<object> SuspectedTypos(List<PersonaFold> folds)
+    /// <summary>Names (persona cards AND participants no card claims) where some token of
+    /// one is a near-miss (edit distance ≤ 1) of a token of the other — "Lana" vs
+    /// "Lena Brandt". Distance 1 keeps single-letter typos and drops different-name noise
+    /// (Lana/Mara is distance 2). A typo is a human call, never merged.</summary>
+    private static List<object> SuspectedTypos(List<PersonaFold> folds, IEnumerable<string> participants)
     {
         var suspects = new List<object>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Compare(string aName, HashSet<string> aTokens, string bName, HashSet<string> bTokens)
+        {
+            var pair = aTokens.Where(t => t.Length >= 3)
+                .SelectMany(ta => bTokens.Where(t => t.Length >= 3), (ta, tb) => (ta, tb))
+                .FirstOrDefault(p =>
+                    !p.ta.Equals(p.tb, StringComparison.OrdinalIgnoreCase) &&
+                    Levenshtein(p.ta, p.tb) <= 1);
+            if (pair != default && seen.Add($"{aName}|{pair.ta}|{pair.tb}"))
+                suspects.Add(new { a = aName, b = bName, tokens = new[] { pair.ta, pair.tb } });
+        }
+
         for (var i = 0; i < folds.Count; i++)
             for (var j = i + 1; j < folds.Count; j++)
-            {
-                var (a, b) = (folds[i], folds[j]);
-                var pair = a.Tokens.Where(t => t.Length >= 3)
-                    .SelectMany(ta => b.Tokens.Where(t => t.Length >= 3), (ta, tb) => (ta, tb))
-                    .FirstOrDefault(p =>
-                        !p.ta.Equals(p.tb, StringComparison.OrdinalIgnoreCase) &&
-                        Levenshtein(p.ta, p.tb) <= 1);
-                if (pair != default)
-                    suspects.Add(new { a = a.Canonical, b = b.Canonical, tokens = new[] { pair.ta, pair.tb } });
-            }
+                Compare(folds[i].Canonical, folds[i].Tokens, folds[j].Canonical, folds[j].Tokens);
+
+        // participants no card claims (Granite gave 'Lana' no card at all — the typo must
+        // still surface); relation to a card in either subset direction means "claimed"
+        var unclaimed = participants
+            .Select(p => (Name: p, Tokens: TokenSet(p)))
+            .Where(p => p.Tokens.Count > 0 &&
+                !folds.Any(f => p.Tokens.IsSubsetOf(f.Tokens) || f.Tokens.IsSubsetOf(p.Tokens)));
+        foreach (var p in unclaimed)
+            foreach (var f in folds)
+                Compare(f.Canonical, f.Tokens, p.Name, p.Tokens);
+
         return suspects;
     }
 
