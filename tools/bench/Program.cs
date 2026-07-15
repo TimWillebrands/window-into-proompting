@@ -110,9 +110,12 @@ builder.UseOrleans(silo =>
     // so the co-hosted client's request deadline fires and the in-flight response
     // is dropped as expired. Give the grain<->client RPC generous headroom.
     var llmResponseTimeout = TimeSpan.FromMinutes(3);
+    // Off-default ports: must not collide with a running Aspire silo (11111/30000).
+    // BENCH_PORT_OFFSET shifts both so parallel bench processes (e.g. side-by-side model
+    // comparison runs) don't fight over the same sockets.
+    var portOffset = int.TryParse(Environment.GetEnvironmentVariable("BENCH_PORT_OFFSET"), out var po) ? po : 0;
     silo
-        // Off-default ports: must not collide with a running Aspire silo (11111/30000).
-        .UseLocalhostClustering(siloPort: 11411, gatewayPort: 30411)
+        .UseLocalhostClustering(siloPort: 11411 + portOffset, gatewayPort: 30411 + portOffset)
         .Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout)
         .Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout)
         .AddMemoryGrainStorage("parties")
