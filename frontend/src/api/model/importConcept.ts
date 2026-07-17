@@ -10,4 +10,5 @@ export interface ImportConcept {
     aliases?: string[];
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     mentions?: number | string;
+    confirmed?: boolean;
 }

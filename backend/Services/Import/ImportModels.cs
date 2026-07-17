@@ -63,6 +63,152 @@ public static class CorrectionKinds
     public const string RegeneratedWithNote = "regenerated-with-note";
 }
 
+/// <summary>Where a registry cast member routes at commit (ADR 0017): dossier'd cast
+/// become Personas; recurring referenced characters become Concepts, deliberately —
+/// person-as-concept is load-bearing (arc-critical non-cast characters are reachable
+/// only via Concept).</summary>
+public static class CastRoutingModes
+{
+    public const string Persona = "persona";
+    public const string Concept = "concept";
+}
+
+/// <summary>Per-character match-or-mint state (ADR 0013 mechanism, carried into 0017):
+/// <c>unmatched → proposed → confirmed-match | confirmed-mint</c>. Commit executes the
+/// recorded decision, never prompts; a scene with a <c>proposed</c> cast member refuses
+/// to commit until the human decides.</summary>
+public static class CastMatchStates
+{
+    public const string Unmatched = "unmatched";
+    public const string Proposed = "proposed";
+    public const string ConfirmedMatch = "confirmed-match";
+    public const string ConfirmedMint = "confirmed-mint";
+}
+
+/// <summary>One registry cast member: canonical name, source-stated aliases (typos the
+/// human pinned), persona-vs-concept routing, and the match-or-mint state against the
+/// persona library. Entries discovered by a scene run start unconfirmed (proposals);
+/// the registry is always optional — an empty one is a valid run.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.RegistryCastEntry")]
+public sealed class RegistryCastEntry
+{
+    [Id(0)] public string Name { get; set; } = string.Empty;
+    [Id(1)] public List<string> Aliases { get; set; } = new();
+
+    /// <summary>One of <see cref="CastRoutingModes"/>.</summary>
+    [Id(2)] public string Routing { get; set; } = CastRoutingModes.Persona;
+
+    /// <summary>False while the entry is a scene-run proposal the human has not blessed.
+    /// Only confirmed entries feed the map call and the fold's canonicalisation.</summary>
+    [Id(3)] public bool Confirmed { get; set; }
+
+    /// <summary>One of <see cref="CastMatchStates"/>.</summary>
+    [Id(4)] public string MatchState { get; set; } = CastMatchStates.Unmatched;
+
+    /// <summary>Library persona the matcher proposed (kept after the decision — the
+    /// correction ledger diffs the decision against it).</summary>
+    [Id(5)] public Guid? ProposedPersonaId { get; set; }
+
+    [Id(6)] public string? ProposedPersonaName { get; set; }
+
+    /// <summary>The persona a confirmed-match reuses at commit.</summary>
+    [Id(7)] public Guid? MatchedPersonaId { get; set; }
+}
+
+/// <summary>Human upsert of a registry cast entry. Null fields keep current values.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.RegistryCastEdit")]
+public sealed record RegistryCastEdit
+{
+    [Id(0)] public List<string>? Aliases { get; init; }
+
+    /// <summary>"persona" | "concept".</summary>
+    [Id(1)] public string? Routing { get; init; }
+
+    [Id(2)] public bool? Confirmed { get; init; }
+}
+
+/// <summary>Human match-or-mint decision for one cast member.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.CastMatchDecision")]
+public sealed record CastMatchDecision
+{
+    /// <summary>"match" | "mint".</summary>
+    [Id(0)] public string Decision { get; init; } = string.Empty;
+
+    /// <summary>Match target; defaults to the proposed persona when omitted.</summary>
+    [Id(1)] public Guid? PersonaId { get; init; }
+}
+
+/// <summary>Human edit of a registry concept (alias pinning + confirmation).</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.RegistryConceptEdit")]
+public sealed record RegistryConceptEdit
+{
+    [Id(0)] public List<string>? Aliases { get; init; }
+    [Id(1)] public bool? Confirmed { get; init; }
+}
+
+/// <summary>The session registry: cast + concepts, confirmed entries and open proposals.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.ImportRegistryView")]
+public sealed record ImportRegistryView
+{
+    [Id(0)] public List<RegistryCastEntry> Cast { get; init; } = new();
+    [Id(1)] public List<ImportConcept> Concepts { get; init; } = new();
+}
+
+/// <summary>
+/// The reviewed persona card the commit executes (ADR 0017 finalize invariant: every LLM
+/// output passes human review as draft before it becomes real). Produced by the finalize
+/// step (trait compress + Bio synthesis), editable by the human; a re-finalize after a
+/// human edit only fills the Proposed* fields — human edits win, machines propose.
+/// </summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.PersonaCardDraft")]
+public sealed class PersonaCardDraft
+{
+    /// <summary>Canonical cast name this card belongs to.</summary>
+    [Id(0)] public string Persona { get; set; } = string.Empty;
+
+    [Id(1)] public string SystemPrompt { get; set; } = string.Empty;
+    [Id(2)] public string? Bio { get; set; }
+
+    /// <summary>Set on human edit; from then on finalize may only propose.</summary>
+    [Id(3)] public bool HumanEdited { get; set; }
+
+    [Id(4)] public string? ProposedSystemPrompt { get; set; }
+    [Id(5)] public string? ProposedBio { get; set; }
+
+    /// <summary>Hash of the trait summaries the last finalize consumed — detects staleness
+    /// (new traits since) without storing the trait text twice.</summary>
+    [Id(6)] public string TraitFingerprint { get; set; } = string.Empty;
+
+    [Id(7)] public DateTimeOffset? FinalizedAt { get; set; }
+
+    /// <summary>Snapshot of what the last commit wrote to the library persona. The commit
+    /// compares the live persona against this before overwriting — drift means a human
+    /// edited the persona outside the import, and human edits win.</summary>
+    [Id(8)] public string? CommittedSystemPrompt { get; set; }
+
+    [Id(9)] public string? CommittedBio { get; set; }
+}
+
+/// <summary>Human edit of a persona card draft. <c>AcceptProposal</c> promotes the pending
+/// re-finalize proposal into the card instead.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.PersonaCardEdit")]
+public sealed record PersonaCardEdit
+{
+    [Id(0)] public string? SystemPrompt { get; init; }
+    [Id(1)] public string? Bio { get; init; }
+    [Id(2)] public bool? AcceptProposal { get; init; }
+}
+
+/// <summary>Result of a scene finalize pass: the cards now in the draft (new, refreshed
+/// or proposal-updated) plus what the pass skipped as already current.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.SceneFinalizeResult")]
+public sealed record SceneFinalizeResult
+{
+    [Id(0)] public List<PersonaCardDraft> Cards { get; init; } = new();
+    [Id(1)] public List<string> Skipped { get; init; } = new();
+    [Id(2)] public int LlmCalls { get; init; }
+}
+
 /// <summary>One typed IR chunk. Stored once on the session; scenes reference by index range.</summary>
 [GenerateSerializer, Alias("PartyTown.Services.Import.ImportChunk")]
 public sealed record ImportChunk
@@ -192,6 +338,10 @@ public sealed class ImportConcept
     [Id(0)] public string Name { get; set; } = string.Empty;
     [Id(1)] public List<string> Aliases { get; set; } = new();
     [Id(2)] public int Mentions { get; set; }
+
+    /// <summary>Scene-discovered concepts start unconfirmed (registry proposals); only
+    /// confirmed ones are injected into map calls as canonical vocabulary.</summary>
+    [Id(3)] public bool Confirmed { get; set; }
 }
 
 // ── scene map call output (SceneMapService → grain fold) ────────────────────────
@@ -351,6 +501,14 @@ public sealed record SceneCommitInput
 
     /// <summary>Canonical cast name → persona id for personas earlier commits minted.</summary>
     [Id(10)] public Dictionary<string, Guid> CommittedPersonas { get; init; } = new();
+
+    /// <summary>The session registry cast — aliases, routing and match decisions. The
+    /// planner resolves participants through it and executes recorded match decisions.</summary>
+    [Id(11)] public List<RegistryCastEntry> Cast { get; init; } = new();
+
+    /// <summary>Canonical cast name → reviewed persona card (finalize output). Minting
+    /// requires a card — commit never generates one (finalize is the pre-commit step).</summary>
+    [Id(12)] public Dictionary<string, PersonaCardDraft> Cards { get; init; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.SceneCommitResult")]
@@ -367,9 +525,16 @@ public sealed record SceneCommitResult
     [Id(8)] public List<string> PersonasMinted { get; init; } = new();
     [Id(9)] public int CorrectionsRecorded { get; init; }
 
-    /// <summary>Episode participants no cast name claimed — their Events carry no
-    /// Recollection for them (never minted into vertices; person-as-concept is issue 03).</summary>
+    /// <summary>Episode participants no cast name or concept-routed registry entry
+    /// claimed — their Events carry no Recollection for them (counted, never minted).</summary>
     [Id(10)] public List<string> UnmatchedParticipants { get; init; } = new();
+
+    /// <summary>Already-minted/matched personas whose card this commit refreshed.</summary>
+    [Id(11)] public List<string> PersonasUpdated { get; init; } = new();
+
+    /// <summary>Card updates skipped because the live persona drifted from the last
+    /// committed snapshot — a human edited it in the library, and human edits win.</summary>
+    [Id(12)] public List<string> PersonaUpdatesSkipped { get; init; } = new();
 }
 
 // ── read models ─────────────────────────────────────────────────────────────────
@@ -404,6 +569,10 @@ public sealed record ImportDraftView
 {
     [Id(0)] public List<ImportDraftItem> Items { get; init; } = new();
     [Id(1)] public List<ImportConcept> Concepts { get; init; } = new();
+
+    /// <summary>Reviewed persona cards (finalize output + human edits), keyed nowhere —
+    /// each card names its persona.</summary>
+    [Id(2)] public List<PersonaCardDraft> Cards { get; init; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.ImportLedger")]
@@ -430,6 +599,13 @@ public sealed record SceneRunInput
     [Id(2)] public string SystemInstruction { get; init; } = string.Empty;
 
     [Id(3)] public string? Note { get; init; }
+
+    /// <summary>Confirmed registry cast, injected into map calls as canonical-name hints.
+    /// Empty for a registry-less run (always valid).</summary>
+    [Id(4)] public List<RegistryCastEntry> Cast { get; init; } = new();
+
+    /// <summary>Confirmed registry concepts, injected as canonical vocabulary.</summary>
+    [Id(5)] public List<ImportConcept> Concepts { get; init; } = new();
 }
 
 /// <summary>Grain state for one import session. Plain persistent state, not event-sourced.</summary>
@@ -451,4 +627,10 @@ public sealed class ImportSessionState
     /// <summary>Canonical cast name → persona id, one entry per persona this session has
     /// minted. Feeds later commits (no re-mint) and event participant resolution.</summary>
     [Id(11)] public Dictionary<string, Guid> CommittedPersonas { get; set; } = new();
+
+    /// <summary>Registry cast: confirmed entries + open scene-run proposals.</summary>
+    [Id(12)] public List<RegistryCastEntry> Cast { get; set; } = new();
+
+    /// <summary>Canonical cast name → reviewed persona card (finalize output).</summary>
+    [Id(13)] public Dictionary<string, PersonaCardDraft> Cards { get; set; } = new();
 }

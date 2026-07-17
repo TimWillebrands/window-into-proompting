@@ -44,17 +44,24 @@ public static class ImportFold
         var deduped = new List<DedupDrop>();
         var accepted = new List<ImportDraftItem>();
 
+        // Confirmed registry aliases pin canonicalisation the token fold can't reach
+        // (typos like "Denyse" → "Denise"). Exact alias map, applied before token logic.
+        var aliasOf = RegistryAliasMap(state.Cast);
+        string RegistryMapped(string name) => aliasOf.GetValueOrDefault(name.Trim(), name.Trim());
+
         // Persona canonicalisation: fold incoming trait keys among themselves, then pin
         // each fold group to an existing draft canonical when exactly one claims it —
-        // existing names stay stable so other scenes' items are never renamed.
+        // existing names stay stable so other scenes' items are never renamed. Confirmed
+        // registry names count as existing canonicals (the human pinned them).
         var incomingKeys = map.Items
             .Where(i => i.Type == DraftItemTypes.Trait && !string.IsNullOrWhiteSpace(i.Persona) && LooksLikePersonaName(i.Persona!))
-            .Select(i => i.Persona!)
+            .Select(i => RegistryMapped(i.Persona!))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var existingPersonas = state.Items
             .Where(i => i.Type == DraftItemTypes.Trait && !string.IsNullOrWhiteSpace(i.Persona))
             .Select(i => i.Persona!)
+            .Concat(state.Cast.Where(c => c.Confirmed).Select(c => c.Name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var canonicalOf = BuildCanonicalMap(existingPersonas, incomingKeys);
@@ -73,7 +80,7 @@ public static class ImportFold
             }
 
             var participants = item.Participants
-                .Select(p => Canonicalise(p, knownPersonaNames))
+                .Select(p => Canonicalise(RegistryMapped(p), knownPersonaNames))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             var conceptNames = item.Concepts
@@ -95,7 +102,8 @@ public static class ImportFold
 
                 case DraftItemTypes.Trait:
                 {
-                    var persona = canonicalOf.GetValueOrDefault(item.Persona!, item.Persona!);
+                    var mappedKey = RegistryMapped(item.Persona!);
+                    var persona = canonicalOf.GetValueOrDefault(mappedKey, mappedKey);
                     var dup = state.Items.Concat(accepted).FirstOrDefault(x =>
                         x.Type == DraftItemTypes.Trait &&
                         string.Equals(x.Persona, persona, StringComparison.OrdinalIgnoreCase) &&
@@ -159,6 +167,7 @@ public static class ImportFold
         }
 
         state.Items.AddRange(accepted);
+        ProposeRegistryEntries(state, accepted, knownPersonaNames);
 
         // A chunk that fed ANY extracted episode — even one later deduped — was judged
         // salient; the ledger books it as folded, not history-only.
@@ -404,6 +413,59 @@ public static class ImportFold
             if (Jaccard(ContentWords(prior.Summary), words) >= DupJaccard) return prior;
         }
         return null;
+    }
+
+    // ── registry: alias canonicalisation + scene-run proposals ───────────────────
+
+    /// <summary>Exact alias → canonical-name map from confirmed registry entries. Names
+    /// map to themselves so lookups double as an is-registered check.</summary>
+    internal static Dictionary<string, string> RegistryAliasMap(IEnumerable<RegistryCastEntry> cast)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in cast.Where(c => c.Confirmed))
+        {
+            map[entry.Name] = entry.Name;
+            foreach (var alias in entry.Aliases.Where(a => !string.IsNullOrWhiteSpace(a)))
+                map.TryAdd(alias.Trim(), entry.Name);
+        }
+        return map;
+    }
+
+    /// <summary>Backstop against a hostile/degenerate export flooding the registry.</summary>
+    private const int MaxCastEntries = 200;
+
+    /// <summary>
+    /// Suggest newly discovered names into the registry as unconfirmed proposals — the
+    /// human confirms, edits, or ignores; nothing is added silently as canon. Trait
+    /// owners propose persona-routed; episode participants no persona claims propose
+    /// concept-routed (the person-as-concept default for recurring non-cast characters).
+    /// </summary>
+    private static void ProposeRegistryEntries(
+        ImportSessionState state, List<ImportDraftItem> accepted, IReadOnlyList<string> knownPersonaNames)
+    {
+        bool Claimed(string name) => state.Cast.Any(c =>
+            c.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Contains(name, StringComparer.OrdinalIgnoreCase));
+
+        void Propose(string name, string routing)
+        {
+            if (state.Cast.Count >= MaxCastEntries || Claimed(name) || !LooksLikePersonaName(name)) return;
+            state.Cast.Add(new RegistryCastEntry { Name = NormalizeName(name), Routing = routing });
+        }
+
+        foreach (var owner in accepted
+                     .Where(i => i.Type == DraftItemTypes.Trait && !string.IsNullOrWhiteSpace(i.Persona))
+                     .Select(i => i.Persona!)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+            Propose(owner, CastRoutingModes.Persona);
+
+        var resolvable = knownPersonaNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var participant in accepted
+                     .Where(i => i.Type == DraftItemTypes.Episode)
+                     .SelectMany(i => i.Participants)
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .Where(p => !resolvable.Contains(p)))
+            Propose(participant, CastRoutingModes.Concept);
     }
 
     // ── persona identity fold (ported: token-subset after honorific/parenthetical strip) ─

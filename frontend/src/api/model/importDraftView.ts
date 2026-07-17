@@ -6,8 +6,10 @@
  */
 import type { ImportConcept } from './importConcept';
 import type { ImportDraftItem } from './importDraftItem';
+import type { PersonaCardDraft } from './personaCardDraft';
 
 export interface ImportDraftView {
     items?: ImportDraftItem[];
     concepts?: ImportConcept[];
+    cards?: PersonaCardDraft[];
 }

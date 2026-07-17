@@ -5,11 +5,11 @@ using PartyTown.Services.Memory;
 namespace PartyTown.Services.Import;
 
 /// <summary>
-/// Executes a scene commit (ADR 0017 slice 3): pin the commit target (Party + Room), run
-/// the pure <see cref="ImportCommitPlanner"/>, then perform only deterministic writes —
-/// personas-as-drafted, Room membership, history messages, AGE events, correction ledger.
-/// No LLM calls anywhere on this path (persona finalize is issue 03; the minting step
-/// below is the seam it replaces).
+/// Executes a scene commit (ADR 0017 slice 3+4): pin the commit target (Party + Room),
+/// run the pure <see cref="ImportCommitPlanner"/>, then perform only deterministic
+/// writes — personas from reviewed finalize cards, Room membership, history messages,
+/// AGE events, correction ledger. No LLM calls anywhere on this path: finalize runs
+/// pre-commit and its output passes human review as draft first.
 ///
 /// Retry story: messages are the one non-idempotent write, guarded by a persisted
 /// per-scene flag; persona/AGE/ledger writes use deterministic ids and converge. The
@@ -31,16 +31,38 @@ public sealed class ImportCommitService(
         var target = await EnsureTargetAsync(session, input, request);
         var plan = ImportCommitPlanner.Plan(input with { Target = target });
 
-        // 1. Personas-as-drafted: cards straight from reviewed draft traits, no Bio.
-        //    ← issue-03 seam: finalize (trait compress + Bio synthesis) replaces this.
-        if (plan.PersonasToMint.Count > 0)
+        // 1. Personas from reviewed cards (finalize output — the plan refuses to exist
+        //    without them): mint new ones, refresh matched/earlier-minted ones. Before
+        //    any overwrite of a persona that has a committed baseline, compare the live
+        //    card against that baseline — drift means a human edited the persona in the
+        //    library since, and human edits win (the update is skipped and surfaced).
+        var cards = new Dictionary<string, PersonaCardDraft>(input.Cards, StringComparer.OrdinalIgnoreCase);
+        var personaRoot = grains.GetGrain<IPersonaRootGrain>(Guid.Empty);
+        var updated = new List<string>();
+        var skipped = new List<string>();
+        foreach (var (write, isMint) in plan.PersonasToMint.Select(m => (m, true))
+                     .Concat(plan.PersonasToUpdate.Select(m => (m, false))))
         {
-            var personaRoot = grains.GetGrain<IPersonaRootGrain>(Guid.Empty);
-            foreach (var mint in plan.PersonasToMint)
-                await personaRoot.AddPersona(mint.PersonaId, mint.Name, mint.SystemPrompt, null);
-            await session.RecordCommittedPersonasAsync(
-                plan.PersonasToMint.ToDictionary(m => m.Name, m => m.PersonaId));
+            if (await IsDriftedAsync(personaRoot, write, cards.GetValueOrDefault(write.Name)))
+            {
+                skipped.Add(write.Name);
+                continue;
+            }
+            await personaRoot.AddPersona(write.PersonaId, write.Name, write.SystemPrompt, write.Bio);
+            if (!isMint) updated.Add(write.Name);
         }
+
+        var newlyResolved = plan.CastByName
+            .Where(kv => !input.CommittedPersonas.ContainsKey(kv.Key))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (newlyResolved.Count > 0)
+            await session.RecordCommittedPersonasAsync(newlyResolved);
+        var written = plan.PersonasToMint.Select(m => m.Name)
+            .Concat(updated)
+            .Where(n => !skipped.Contains(n))
+            .ToList();
+        if (written.Count > 0)
+            await session.MarkCardsCommittedAsync(written);
 
         // 2. Membership: merge the import cast into the Party (dedup by id — reruns and
         //    later scenes are no-ops), then pin this Room's cast. The Narrator rides along
@@ -96,9 +118,24 @@ public sealed class ImportCommitService(
             RecollectionsWritten = stats.Recollections,
             ConceptLinks = stats.ConceptLinks,
             PersonasMinted = plan.PersonasToMint.Select(m => m.Name).ToList(),
+            PersonasUpdated = updated,
+            PersonaUpdatesSkipped = skipped,
             CorrectionsRecorded = stamped.Count,
             UnmatchedParticipants = plan.UnmatchedParticipants,
         };
+    }
+
+    /// <summary>True when the live library persona no longer matches the card's committed
+    /// baseline — a human edited it outside the import, so the import must not overwrite.
+    /// No baseline (first write, or a fresh mint) → not drifted.</summary>
+    private async Task<bool> IsDriftedAsync(
+        IPersonaRootGrain personaRoot, PersonaMint write, PersonaCardDraft? card)
+    {
+        if (card?.CommittedSystemPrompt is null) return false;
+        if (!await personaRoot.HasPersonaId(write.PersonaId)) return false;
+        var live = await grains.GetGrain<IPersonaGrain>(write.PersonaId).GetPersona();
+        return !string.Equals(live.SystemPrompt, card.CommittedSystemPrompt, StringComparison.Ordinal)
+               || !string.Equals(live.Bio, card.CommittedBio, StringComparison.Ordinal);
     }
 
     /// <summary>Whole-import rollback: delete the Room's AGE events, wipe and unregister

@@ -175,6 +175,128 @@ public class ImportSessionGrainTest(PartyClusterFixture fixture) : IClassFixture
     }
 
     [Fact]
+    public async Task Scene_run_proposes_library_matches_and_decisions_are_recorded()
+    {
+        // A library persona the imported cast member is a near-typo of.
+        var libraryId = Guid.NewGuid();
+        var personaRoot = fixture.GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+        await personaRoot.AddPersona(libraryId, "Denise", "You are Denise.", "Steady");
+
+        var grain = fixture.GrainFactory.GetGrain<IImportSessionGrain>(Guid.NewGuid());
+        await grain.InitializeAsync(TestSource());
+        var scene = await grain.CreateSceneAsync(new SceneDefinition { FromChunk = 1, ToChunk = 6 });
+        await grain.ApplySceneRunAsync(scene.Id, new SceneMapResult
+        {
+            Items = new List<MappedItem>
+            {
+                new()
+                {
+                    SourceId = "s0",
+                    Type = DraftItemTypes.Trait,
+                    Persona = "Denyse",
+                    Summary = "Steady under fire.",
+                },
+            },
+            LlmCalls = 1,
+        });
+
+        // The trait owner was proposed into the registry and matched against the library.
+        var registry = await grain.GetRegistryAsync();
+        var entry = Assert.Single(registry.Cast, c => c.Name == "Denyse");
+        Assert.False(entry.Confirmed);
+        Assert.Equal(CastMatchStates.Proposed, entry.MatchState);
+        Assert.Equal(libraryId, entry.ProposedPersonaId);
+        Assert.Equal("Denise", entry.ProposedPersonaName);
+
+        // Deciding executes later at commit; here it just records (and confirms).
+        var decided = await grain.DecideCastMatchAsync("Denyse", new CastMatchDecision { Decision = "match" });
+        Assert.Equal(CastMatchStates.ConfirmedMatch, decided.MatchState);
+        Assert.Equal(libraryId, decided.MatchedPersonaId);
+        Assert.True(decided.Confirmed);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            grain.DecideCastMatchAsync("Denyse", new CastMatchDecision { Decision = "maybe" }));
+    }
+
+    [Fact]
+    public async Task Registry_upsert_absorbs_aliased_proposals_and_feeds_scene_runs()
+    {
+        var grain = fixture.GrainFactory.GetGrain<IImportSessionGrain>(Guid.NewGuid());
+        await grain.InitializeAsync(TestSource());
+        var scene = await grain.CreateSceneAsync(new SceneDefinition { FromChunk = 1, ToChunk = 6 });
+        await grain.ApplySceneRunAsync(scene.Id, new SceneMapResult
+        {
+            Items = new List<MappedItem>
+            {
+                new()
+                {
+                    SourceId = "w0",
+                    Type = DraftItemTypes.Episode,
+                    Summary = "Denyse warned the village about the flood.",
+                    Weight = 0.8,
+                    Participants = new List<string> { "Denyse" },
+                    SourceChunks = new List<int> { 2 },
+                },
+            },
+            LlmCalls = 1,
+        });
+
+        // The unresolved participant landed as an unconfirmed person-as-concept proposal.
+        Assert.Single((await grain.GetRegistryAsync()).Cast, c => c.Name == "Denyse" && !c.Confirmed);
+
+        // The human pins "Denyse" as an alias of a real cast entry — the stray proposal
+        // is absorbed, and confirmed registry entries flow into the scene-run input.
+        var entry = await grain.UpsertCastEntryAsync("Denise", new RegistryCastEdit
+        {
+            Aliases = new List<string> { "Denyse" },
+        });
+        Assert.True(entry.Confirmed);
+
+        var registry = await grain.GetRegistryAsync();
+        Assert.DoesNotContain(registry.Cast, c => c.Name == "Denyse");
+        var runInput = await grain.GetSceneRunInputAsync(scene.Id);
+        var castHint = Assert.Single(runInput.Cast);
+        Assert.Equal("Denise", castHint.Name);
+        Assert.Equal(new List<string> { "Denyse" }, castHint.Aliases);
+    }
+
+    [Fact]
+    public async Task Finalized_cards_respect_human_edits_and_commit_snapshots()
+    {
+        var grain = fixture.GrainFactory.GetGrain<IImportSessionGrain>(Guid.NewGuid());
+        await grain.InitializeAsync(TestSource());
+
+        var stored = await grain.StoreFinalizedCardsAsync(new List<PersonaCardDraft>
+        {
+            new() { Persona = "Lena", SystemPrompt = "You are Lena.\n\n- Sardonic.", Bio = "A sardonic clinician", TraitFingerprint = "f1" },
+        });
+        Assert.Equal("A sardonic clinician", Assert.Single(stored).Bio);
+
+        // Human edit wins: a later finalize may only propose.
+        await grain.UpdateCardAsync("Lena", new PersonaCardEdit { Bio = "The clinic's last optimist" });
+        var reFinalized = Assert.Single(await grain.StoreFinalizedCardsAsync(new List<PersonaCardDraft>
+        {
+            new() { Persona = "Lena", SystemPrompt = "You are Lena.\n\n- Rewritten.", Bio = "Machine bio", TraitFingerprint = "f2" },
+        }));
+        Assert.Equal("The clinic's last optimist", reFinalized.Bio);
+        Assert.Equal("Machine bio", reFinalized.ProposedBio);
+        Assert.True(reFinalized.HumanEdited);
+
+        // Accepting the proposal promotes it and reopens machine ownership.
+        var accepted = await grain.UpdateCardAsync("Lena", new PersonaCardEdit { AcceptProposal = true });
+        Assert.Equal("Machine bio", accepted.Bio);
+        Assert.Null(accepted.ProposedBio);
+        Assert.False(accepted.HumanEdited);
+
+        // Commit snapshot for the human-drift guard.
+        await grain.MarkCardsCommittedAsync(new List<string> { "Lena" });
+        var draft = await grain.GetDraftAsync();
+        var card = Assert.Single(draft.Cards);
+        Assert.Equal(card.SystemPrompt, card.CommittedSystemPrompt);
+        Assert.Equal("Machine bio", card.CommittedBio);
+    }
+
+    [Fact]
     public async Task Delete_clears_state_and_a_fresh_activation_is_uninitialized()
     {
         var id = Guid.NewGuid();

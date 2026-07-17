@@ -17,6 +17,13 @@ public sealed class ImportSessionGrain(
 {
     private const int MaxNoteChars = 4_000;
 
+    // Registry/card text is user-supplied — cap it at the trust boundary (multi-user
+    // instance), same rationale as NormalizeNote.
+    private const int MaxNameChars = 64;
+    private const int MaxAliases = 12;
+    private const int MaxCardChars = 8_000;
+    private const int MaxBioChars = 280;
+
     public async Task<ImportSessionOverview> InitializeAsync(ImportSource source)
     {
         if (state.State.Initialized)
@@ -118,6 +125,10 @@ public sealed class ImportSessionGrain(
                 .ToList(),
             SystemInstruction = scene.IncludeDossier ? state.State.SystemInstruction : string.Empty,
             Note = scene.Note,
+            // Only human-confirmed registry entries feed the map — proposals stay
+            // suggestions until blessed. Empty registry = valid run (quality dial).
+            Cast = state.State.Cast.Where(c => c.Confirmed).ToList(),
+            Concepts = state.State.Concepts.Where(c => c.Confirmed).ToList(),
         });
     }
 
@@ -125,6 +136,7 @@ public sealed class ImportSessionGrain(
     {
         EnsureInitialized();
         var result = ImportFold.Apply(state.State, sceneId, mapResult, DateTimeOffset.UtcNow);
+        await ProposeLibraryMatchesAsync();
         await state.WriteStateAsync();
         logger.LogInformation(
             "Import session {SessionId} scene {SceneId} folded: {Items} items ({Replaced} replaced, {Deduped} deduped, {Degraded} degraded) from {Calls} calls",
@@ -141,6 +153,7 @@ public sealed class ImportSessionGrain(
         {
             Items = state.State.Items.ToList(),
             Concepts = state.State.Concepts.ToList(),
+            Cards = state.State.Cards.Values.ToList(),
         });
     }
 
@@ -179,6 +192,261 @@ public sealed class ImportSessionGrain(
         return next;
     }
 
+    // ── registry (ADR 0017: optional context, nouns not narrative) ───────────────
+
+    public Task<ImportRegistryView> GetRegistryAsync()
+    {
+        EnsureInitialized();
+        return Task.FromResult(new ImportRegistryView
+        {
+            Cast = state.State.Cast.ToList(),
+            Concepts = state.State.Concepts.ToList(),
+        });
+    }
+
+    public async Task<RegistryCastEntry> UpsertCastEntryAsync(string name, RegistryCastEdit edit)
+    {
+        EnsureInitialized();
+        var canonical = NormalizeShortText(name, MaxNameChars)
+            ?? throw new ArgumentException("Cast name cannot be empty.");
+
+        var entry = FindCastEntry(canonical);
+        if (entry is null)
+        {
+            entry = new RegistryCastEntry
+            {
+                Name = canonical,
+                // A manual add is its own confirmation; scene-run proposals arrive
+                // through the fold with Confirmed = false instead.
+                Confirmed = edit.Confirmed ?? true,
+            };
+            state.State.Cast.Add(entry);
+        }
+
+        if (edit.Aliases is not null)
+        {
+            entry.Aliases = edit.Aliases
+                .Select(a => NormalizeShortText(a, MaxNameChars))
+                .Where(a => a is not null && !a.Equals(entry.Name, StringComparison.OrdinalIgnoreCase))
+                .Select(a => a!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxAliases)
+                .ToList();
+
+            // Aliasing a name absorbs its standalone proposal ("Denyse" aliased onto
+            // "Denise" removes the auto-proposed "Denyse" entry). Confirmed entries and
+            // decided matches are human work — never absorbed silently.
+            state.State.Cast.RemoveAll(c =>
+                c != entry && !c.Confirmed && c.MatchState == CastMatchStates.Unmatched &&
+                entry.Aliases.Contains(c.Name, StringComparer.OrdinalIgnoreCase));
+        }
+
+        if (edit.Routing is not null)
+        {
+            if (edit.Routing is not (CastRoutingModes.Persona or CastRoutingModes.Concept))
+                throw new ArgumentException($"Unknown cast routing '{edit.Routing}' — use persona or concept.");
+            entry.Routing = edit.Routing;
+        }
+
+        if (edit.Confirmed is { } confirmed)
+            entry.Confirmed = confirmed;
+
+        await ProposeLibraryMatchesAsync();
+        await state.WriteStateAsync();
+        return entry;
+    }
+
+    public async Task<RegistryCastEntry> DecideCastMatchAsync(string name, CastMatchDecision decision)
+    {
+        EnsureInitialized();
+        var entry = FindCastEntry(name.Trim())
+            ?? throw new KeyNotFoundException($"Cast entry '{name}' not found.");
+        if (state.State.CommittedPersonas.Keys.Contains(entry.Name, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"'{entry.Name}' is already committed — match decisions are settled with the persona.");
+
+        switch (decision.Decision.ToLowerInvariant())
+        {
+            case "mint":
+                entry.MatchState = CastMatchStates.ConfirmedMint;
+                entry.MatchedPersonaId = null;
+                break;
+            case "match":
+                var personaId = decision.PersonaId ?? entry.ProposedPersonaId
+                    ?? throw new ArgumentException($"No personaId given and no proposal exists for '{entry.Name}'.");
+                var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
+                if (!await personaRoot.HasPersonaId(personaId))
+                    throw new ArgumentException($"Persona {personaId} not found in the library.");
+                entry.MatchState = CastMatchStates.ConfirmedMatch;
+                entry.MatchedPersonaId = personaId;
+                break;
+            default:
+                throw new ArgumentException($"Unknown decision '{decision.Decision}' — use match or mint.");
+        }
+
+        // Deciding is confirming: the entry stops being a mere proposal.
+        entry.Confirmed = true;
+        await state.WriteStateAsync();
+        return entry;
+    }
+
+    public async Task<ImportConcept> UpdateConceptAsync(string name, RegistryConceptEdit edit)
+    {
+        EnsureInitialized();
+        var canonical = NormalizeShortText(name, MaxNameChars)
+            ?? throw new ArgumentException("Concept name cannot be empty.");
+        var concept = state.State.Concepts.FirstOrDefault(c =>
+            c.Name.Equals(canonical, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Contains(canonical, StringComparer.OrdinalIgnoreCase));
+        if (concept is null)
+        {
+            concept = new ImportConcept { Name = canonical, Confirmed = edit.Confirmed ?? true };
+            state.State.Concepts.Add(concept);
+        }
+
+        if (edit.Aliases is not null)
+            concept.Aliases = edit.Aliases
+                .Select(a => NormalizeShortText(a, MaxNameChars))
+                .Where(a => a is not null && !a.Equals(concept.Name, StringComparison.OrdinalIgnoreCase))
+                .Select(a => a!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxAliases)
+                .ToList();
+        if (edit.Confirmed is { } confirmed)
+            concept.Confirmed = confirmed;
+
+        await state.WriteStateAsync();
+        return concept;
+    }
+
+    // ── persona cards (finalize output, human-reviewed) ──────────────────────────
+
+    public async Task<List<PersonaCardDraft>> StoreFinalizedCardsAsync(List<PersonaCardDraft> cards)
+    {
+        EnsureInitialized();
+        var stored = new List<PersonaCardDraft>();
+        foreach (var incoming in cards)
+        {
+            var existing = FindCard(incoming.Persona);
+            if (existing is { HumanEdited: true })
+            {
+                // Human edits win — a re-finalize may only propose, never clobber.
+                existing.ProposedSystemPrompt = incoming.SystemPrompt;
+                existing.ProposedBio = incoming.Bio;
+                existing.TraitFingerprint = incoming.TraitFingerprint;
+                existing.FinalizedAt = DateTimeOffset.UtcNow;
+                stored.Add(existing);
+                continue;
+            }
+
+            var card = existing ?? new PersonaCardDraft { Persona = incoming.Persona };
+            card.SystemPrompt = Truncate(incoming.SystemPrompt, MaxCardChars);
+            card.Bio = incoming.Bio is null ? null : Truncate(incoming.Bio, MaxBioChars);
+            card.ProposedSystemPrompt = null;
+            card.ProposedBio = null;
+            card.TraitFingerprint = incoming.TraitFingerprint;
+            card.FinalizedAt = DateTimeOffset.UtcNow;
+            if (existing is null) state.State.Cards[card.Persona] = card;
+            stored.Add(card);
+        }
+        await state.WriteStateAsync();
+        return stored;
+    }
+
+    public async Task<PersonaCardDraft> UpdateCardAsync(string personaName, PersonaCardEdit edit)
+    {
+        EnsureInitialized();
+        var card = FindCard(personaName.Trim());
+
+        if (edit.AcceptProposal == true)
+        {
+            if (card?.ProposedSystemPrompt is null)
+                throw new ArgumentException($"No pending proposal on the card for '{personaName}'.");
+            card.SystemPrompt = card.ProposedSystemPrompt;
+            card.Bio = card.ProposedBio;
+            card.ProposedSystemPrompt = null;
+            card.ProposedBio = null;
+            card.HumanEdited = false;
+            await state.WriteStateAsync();
+            return card;
+        }
+
+        if (card is null)
+        {
+            if (string.IsNullOrWhiteSpace(edit.SystemPrompt))
+                throw new KeyNotFoundException($"No card for '{personaName}' — finalize first or provide a systemPrompt.");
+            card = new PersonaCardDraft { Persona = personaName.Trim() };
+            state.State.Cards[card.Persona] = card;
+        }
+
+        if (edit.SystemPrompt is not null)
+        {
+            if (string.IsNullOrWhiteSpace(edit.SystemPrompt))
+                throw new ArgumentException("Card systemPrompt cannot be empty.");
+            card.SystemPrompt = Truncate(edit.SystemPrompt.Trim(), MaxCardChars);
+        }
+        if (edit.Bio is not null)
+            card.Bio = string.IsNullOrWhiteSpace(edit.Bio) ? null : Truncate(edit.Bio.Trim(), MaxBioChars);
+
+        card.HumanEdited = true;
+        await state.WriteStateAsync();
+        return card;
+    }
+
+    public async Task MarkCardsCommittedAsync(List<string> personaNames)
+    {
+        EnsureInitialized();
+        foreach (var name in personaNames)
+        {
+            if (FindCard(name) is not { } card) continue;
+            card.CommittedSystemPrompt = card.SystemPrompt;
+            card.CommittedBio = card.Bio;
+        }
+        await state.WriteStateAsync();
+    }
+
+    /// <summary>Propose a library persona for unmatched persona-routed cast entries
+    /// (exact + Levenshtein over name and aliases). Skips personas this session itself
+    /// minted — matching your own output is noise, not a decision.</summary>
+    private async Task ProposeLibraryMatchesAsync()
+    {
+        var unproposed = state.State.Cast
+            .Where(c => c.Routing == CastRoutingModes.Persona
+                        && c.MatchState == CastMatchStates.Unmatched
+                        && c.ProposedPersonaId is null)
+            .ToList();
+        if (unproposed.Count == 0) return;
+
+        var library = await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAllMetadata();
+        var ownMints = state.State.CommittedPersonas.Values.ToHashSet();
+        foreach (var entry in unproposed)
+        {
+            var match = ImportCastMatcher.ProposeMatch(entry.Name, entry.Aliases, library);
+            if (match is null || ownMints.Contains(match.Id)) continue;
+            entry.MatchState = CastMatchStates.Proposed;
+            entry.ProposedPersonaId = match.Id;
+            entry.ProposedPersonaName = match.Name;
+        }
+    }
+
+    private RegistryCastEntry? FindCastEntry(string name)
+        => state.State.Cast.FirstOrDefault(c =>
+            c.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Contains(name, StringComparer.OrdinalIgnoreCase));
+
+    private PersonaCardDraft? FindCard(string personaName)
+        => state.State.Cards.Values.FirstOrDefault(c =>
+            c.Persona.Equals(personaName, StringComparison.OrdinalIgnoreCase));
+
+    private static string? NormalizeShortText(string? text, int max)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var trimmed = text.Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
+    }
+
+    private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
+
     // ── commit (ADR 0017 slice 3) ────────────────────────────────────────────────
     // The grain owns commit *state* only; ImportCommitService performs the external
     // writes (Room, personas, AGE, correction ledger) and drives these transitions.
@@ -206,6 +474,8 @@ public sealed class ImportSessionGrain(
             Concepts = state.State.Concepts.ToList(),
             Target = state.State.CommitTarget,
             CommittedPersonas = new Dictionary<string, Guid>(state.State.CommittedPersonas),
+            Cast = state.State.Cast.ToList(),
+            Cards = new Dictionary<string, PersonaCardDraft>(state.State.Cards),
         });
     }
 
@@ -257,6 +527,8 @@ public sealed class ImportSessionGrain(
         EnsureInitialized();
         state.State.CommitTarget = null;
         state.State.CommittedPersonas.Clear();
+        // Card CommittedSystemPrompt/Bio snapshots are kept deliberately: rollback leaves
+        // minted personas in the library, so the human-drift guard still needs a baseline.
         foreach (var scene in state.State.Scenes)
         {
             scene.Committed = false;
@@ -383,6 +655,27 @@ public interface IImportSessionGrain : IGrainWithGuidKey
 
     [Alias("UpdateSettingsAsync")]
     Task<ImportSettings> UpdateSettingsAsync(ImportSettingsUpdate update);
+
+    [Alias("GetRegistryAsync")]
+    Task<ImportRegistryView> GetRegistryAsync();
+
+    [Alias("UpsertCastEntryAsync")]
+    Task<RegistryCastEntry> UpsertCastEntryAsync(string name, RegistryCastEdit edit);
+
+    [Alias("DecideCastMatchAsync")]
+    Task<RegistryCastEntry> DecideCastMatchAsync(string name, CastMatchDecision decision);
+
+    [Alias("UpdateConceptAsync")]
+    Task<ImportConcept> UpdateConceptAsync(string name, RegistryConceptEdit edit);
+
+    [Alias("StoreFinalizedCardsAsync")]
+    Task<List<PersonaCardDraft>> StoreFinalizedCardsAsync(List<PersonaCardDraft> cards);
+
+    [Alias("UpdateCardAsync")]
+    Task<PersonaCardDraft> UpdateCardAsync(string personaName, PersonaCardEdit edit);
+
+    [Alias("MarkCardsCommittedAsync")]
+    Task MarkCardsCommittedAsync(List<string> personaNames);
 
     [Alias("GetSceneCommitInputAsync")]
     Task<SceneCommitInput> GetSceneCommitInputAsync(Guid sceneId);

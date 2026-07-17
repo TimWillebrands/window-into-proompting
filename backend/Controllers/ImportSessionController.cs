@@ -15,6 +15,7 @@ namespace PartyTown.Controllers;
 public sealed class ImportSessionController(
     IGrainFactory grains,
     ISceneMapService sceneMap,
+    IImportPersonaFinalizeService personaFinalize,
     ImportCommitService commit,
     IImportCorrectionStore corrections,
     ILogger<ImportSessionController> logger) : ControllerBase
@@ -143,6 +144,106 @@ public sealed class ImportSessionController(
         var result = await grain.ApplySceneRunAsync(sceneId, map);
         return Ok(result);
     }
+
+    // ── registry + cards ─────────────────────────────────────────────────────────
+
+    /// <summary>Returns the session registry: cast entries (aliases, persona-vs-concept
+    /// routing, match-or-mint state) and concepts, confirmed ones plus open proposals.</summary>
+    [HttpGet("{id:guid}/registry")]
+    public Task<ActionResult<ImportRegistryView>> GetRegistry(Guid id)
+        => OnSession(id, g => g.GetRegistryAsync());
+
+    /// <summary>Creates or edits a registry cast entry (aliases, routing, confirmation).
+    /// Scene runs propose entries; this is where the human blesses or reshapes them.</summary>
+    [HttpPut("{id:guid}/registry/cast/{name}")]
+    public Task<ActionResult<RegistryCastEntry>> UpsertCastEntry(Guid id, string name, [FromBody] RegistryCastEdit edit)
+        => OnSession(id, g => g.UpsertCastEntryAsync(name, edit));
+
+    /// <summary>Records the match-or-mint decision for one cast member ("match" with an
+    /// optional personaId — defaults to the proposal — or "mint"). Commit executes the
+    /// recorded decision; it never prompts.</summary>
+    [HttpPost("{id:guid}/registry/cast/{name}/decision")]
+    public Task<ActionResult<RegistryCastEntry>> DecideCastMatch(Guid id, string name, [FromBody] CastMatchDecision decision)
+        => OnSession(id, g => g.DecideCastMatchAsync(name, decision));
+
+    /// <summary>Creates or edits a registry concept (aliases, confirmation). Confirmed
+    /// concepts are injected into map calls as canonical vocabulary.</summary>
+    [HttpPut("{id:guid}/registry/concepts/{name}")]
+    public Task<ActionResult<ImportConcept>> UpdateConcept(Guid id, string name, [FromBody] RegistryConceptEdit edit)
+        => OnSession(id, g => g.UpdateConceptAsync(name, edit));
+
+    /// <summary>
+    /// Runs the persona finalize step for one scene — one General-tier LLM call per
+    /// touched persona to compress/dedup its trait list and synthesise a one-line Bio.
+    /// The resulting cards land in the draft for review; commit executes the reviewed
+    /// card and refuses to mint without one. Personas whose traits are unchanged since
+    /// the last finalize are skipped; human-edited cards only receive a proposal.
+    /// </summary>
+    [HttpPost("{id:guid}/scenes/{sceneId:guid}/finalize")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SceneFinalizeResult>> FinalizeScene(Guid id, Guid sceneId, CancellationToken ct)
+    {
+        var grain = grains.GetGrain<IImportSessionGrain>(id);
+        if (!await grain.IsInitializedAsync()) return NotFound();
+
+        SceneCommitInput input;
+        try
+        {
+            input = await grain.GetSceneCommitInputAsync(sceneId);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+
+        var required = ImportCommitPlanner.PersonasNeedingCards(input);
+        var existingCards = input.Cards.Values.ToList();
+        var skipped = new List<string>();
+        var fresh = new List<PersonaCardDraft>();
+        foreach (var requirement in required)
+        {
+            var existing = existingCards.FirstOrDefault(c =>
+                c.Persona.Equals(requirement.Name, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null && existing.TraitFingerprint == requirement.TraitFingerprint)
+            {
+                skipped.Add(requirement.Name);
+                continue;
+            }
+            var finalized = await personaFinalize.FinalizeAsync(requirement.Name, requirement.Traits, ct);
+            fresh.Add(new PersonaCardDraft
+            {
+                Persona = requirement.Name,
+                SystemPrompt = finalized.SystemPrompt,
+                Bio = finalized.Bio,
+                TraitFingerprint = requirement.TraitFingerprint,
+            });
+        }
+
+        var stored = fresh.Count > 0
+            ? await grain.StoreFinalizedCardsAsync(fresh)
+            : new List<PersonaCardDraft>();
+        var cards = stored
+            .Concat(skipped.Select(name => existingCards.First(c =>
+                c.Persona.Equals(name, StringComparison.OrdinalIgnoreCase))))
+            .ToList();
+
+        logger.LogInformation(
+            "Import session {SessionId} scene {SceneId} finalized: {Fresh} cards refreshed, {Skipped} current",
+            id, sceneId, fresh.Count, skipped.Count);
+        return Ok(new SceneFinalizeResult { Cards = cards, Skipped = skipped, LlmCalls = fresh.Count });
+    }
+
+    /// <summary>Edits a persona card draft (human review of finalize output — the edit
+    /// wins over later re-finalizes), or accepts a pending re-finalize proposal.</summary>
+    [HttpPut("{id:guid}/cards/{name}")]
+    public Task<ActionResult<PersonaCardDraft>> UpdateCard(Guid id, string name, [FromBody] PersonaCardEdit edit)
+        => OnSession(id, g => g.UpdateCardAsync(name, edit));
 
     // ── commit ───────────────────────────────────────────────────────────────────
 

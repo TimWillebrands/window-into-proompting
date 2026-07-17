@@ -22,4 +22,6 @@ export interface SceneCommitResult {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     correctionsRecorded?: number | string;
     unmatchedParticipants?: string[];
+    personasUpdated?: string[];
+    personaUpdatesSkipped?: string[];
 }

@@ -734,6 +734,407 @@
         }
       }
     },
+    "/import/{id}/registry": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/cast/{name}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/cast/{name}/decision": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/concepts/{name}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes/{sceneId}/finalize": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/cards/{name}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaCardEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaCardEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaCardEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaCardDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaCardDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaCardDraft"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/import/{id}/scenes/{sceneId}/commit": {
       "post": {
         "tags": [
@@ -3698,6 +4099,21 @@
           }
         }
       },
+      "CastMatchDecision": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string"
+          },
+          "personaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "ChatGroupInfo": {
         "type": "object",
         "properties": {
@@ -4152,6 +4568,9 @@
               "string"
             ],
             "format": "int32"
+          },
+          "confirmed": {
+            "type": "boolean"
           }
         }
       },
@@ -4326,6 +4745,12 @@
             "items": {
               "$ref": "#/components/schemas/ImportConcept"
             }
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaCardDraft"
+            }
           }
         }
       },
@@ -4392,6 +4817,23 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ChunkRouting"
+            }
+          }
+        }
+      },
+      "ImportRegistryView": {
+        "type": "object",
+        "properties": {
+          "cast": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryCastEntry"
+            }
+          },
+          "concepts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportConcept"
             }
           }
         }
@@ -4900,6 +5342,83 @@
           }
         }
       },
+      "PersonaCardDraft": {
+        "type": "object",
+        "properties": {
+          "persona": {
+            "type": "string"
+          },
+          "systemPrompt": {
+            "type": "string"
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "humanEdited": {
+            "type": "boolean"
+          },
+          "proposedSystemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "proposedBio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traitFingerprint": {
+            "type": "string"
+          },
+          "finalizedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "committedSystemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "committedBio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PersonaCardEdit": {
+        "type": "object",
+        "properties": {
+          "systemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "acceptProposal": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "PersonaMetadata": {
         "type": "object",
         "properties": {
@@ -5077,6 +5596,95 @@
           }
         }
       },
+      "RegistryCastEdit": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "routing": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "RegistryCastEntry": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "routing": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "matchState": {
+            "type": "string"
+          },
+          "proposedPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "proposedPersonaName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "matchedPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RegistryConceptEdit": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "RepromptRequest": {
         "type": "object",
         "properties": {
@@ -5187,6 +5795,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "personasUpdated": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "personaUpdatesSkipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -5217,6 +5837,31 @@
           },
           "includeDossier": {
             "type": "boolean"
+          }
+        }
+      },
+      "SceneFinalizeResult": {
+        "type": "object",
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaCardDraft"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "llmCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -45,11 +45,13 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
             sections.AddRange(CanonSectionSplitter.Split(
                 $"chunk[{recap.Index}]", "recap", recap.Text, new List<int> { recap.Index }));
 
+        var registry = BuildRegistryBlock(input);
+
         foreach (var section in sections)
         {
             ct.ThrowIfCancellationRequested();
             llmCalls++;
-            var (raw, parsed) = await ClassifySectionAsync(section, input.Note, ct);
+            var (raw, parsed) = await ClassifySectionAsync(section, input.Note, registry, ct);
             if (parsed?.Items is not { Count: > 0 })
             {
                 unparseable++;
@@ -87,7 +89,7 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
             llmCalls++;
             var windowId = $"scene[{input.SceneId:N}]#w{w}";
             var user = BuildWindowPrompt(messages, windows[w]);
-            var (raw, parsed) = await ClassifyWindowAsync(windowId, user, input.Note, ct);
+            var (raw, parsed) = await ClassifyWindowAsync(windowId, user, input.Note, registry, ct);
             if (parsed is null)
             {
                 unparseable++;
@@ -183,13 +185,15 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
         """;
 
     private async Task<(string Raw, SectionItems? Parsed)> ClassifySectionAsync(
-        CanonSection section, string? note, CancellationToken ct)
+        CanonSection section, string? note, string registry, CancellationToken ct)
     {
         var user = new StringBuilder()
             .AppendLine($"SOURCE KIND: {(section.Kind == "dossier" ? "CHARACTER DOSSIER" : "STORY RECAP")}")
             .AppendLine($"SECTION HEADING: {section.Heading}");
         if (!string.IsNullOrWhiteSpace(note))
             user.AppendLine($"OPERATOR NOTE (context from the human curating this import): {note}");
+        if (registry.Length > 0)
+            user.AppendLine(registry);
         user.AppendLine()
             .AppendLine("SECTION TEXT:")
             .AppendLine(section.Text);
@@ -237,13 +241,54 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
         """;
 
     private async Task<(string Raw, WindowItems? Parsed)> ClassifyWindowAsync(
-        string windowId, string user, string? note, CancellationToken ct)
+        string windowId, string user, string? note, string registry, CancellationToken ct)
     {
         var prompt = string.IsNullOrWhiteSpace(note)
             ? user
             : $"OPERATOR NOTE (context from the human curating this import): {note}\n\n{user}";
+        if (registry.Length > 0)
+            prompt = $"{registry}\n{prompt}";
         var raw = await CompleteAsync(windowId, MessageWindowSystemPrompt, prompt, WindowItemsSchema, ct);
         return (raw, TryParse<WindowItems>(raw, allowBareItemsArray: false));
+    }
+
+    // ── registry hints (ADR 0017: optional context, nouns not narrative) ─────────
+
+    private const int MaxRegistryChars = 4_000;
+
+    /// <summary>Confirmed registry cast + concepts rendered as canonical-name hints.
+    /// Empty string for a registry-less run — the map call is unchanged then.</summary>
+    internal static string BuildRegistryBlock(SceneRunInput input)
+    {
+        if (input.Cast.Count == 0 && input.Concepts.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder()
+            .AppendLine("REGISTRY (canonical names confirmed by the human curating this import — treat as hints):");
+        if (input.Cast.Count > 0)
+        {
+            sb.AppendLine("Cast — use these exact canonical spellings for these characters:");
+            foreach (var entry in input.Cast)
+            {
+                sb.Append("- ").Append(entry.Name);
+                if (entry.Aliases.Count > 0)
+                    sb.Append(" (also appears as: ").Append(string.Join(", ", entry.Aliases)).Append(')');
+                if (entry.Routing == CastRoutingModes.Concept)
+                    sb.Append(" — background character: reference as a concept, do NOT emit traits for them");
+                sb.AppendLine();
+            }
+        }
+        if (input.Concepts.Count > 0)
+        {
+            sb.AppendLine("Concepts — reuse these exact names for recurring named things instead of minting variants:");
+            foreach (var concept in input.Concepts)
+            {
+                sb.Append("- ").Append(concept.Name);
+                if (concept.Aliases.Count > 0)
+                    sb.Append(" (also appears as: ").Append(string.Join(", ", concept.Aliases)).Append(')');
+                sb.AppendLine();
+            }
+        }
+        return Truncate(sb.ToString().TrimEnd(), MaxRegistryChars);
     }
 
     internal readonly record struct Window(int Start, int End);

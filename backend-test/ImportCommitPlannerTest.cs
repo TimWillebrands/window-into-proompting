@@ -30,7 +30,9 @@ public class ImportCommitPlannerTest
         Dictionary<string, Guid>? committedPersonas = null,
         int runCount = 1,
         string? note = null,
-        List<ChunkRouting>? routingOverrides = null)
+        List<ChunkRouting>? routingOverrides = null,
+        List<RegistryCastEntry>? cast = null,
+        Dictionary<string, PersonaCardDraft>? cards = null)
     {
         var scene = new ImportScene { Id = Guid.NewGuid(), FromChunk = 2, ToChunk = 8, RunCount = runCount, Note = note };
         var chunks = new List<ImportChunk>
@@ -62,8 +64,24 @@ public class ImportCommitPlannerTest
             ChunkRoutings = routings,
             Target = Target,
             CommittedPersonas = committedPersonas ?? new Dictionary<string, Guid>(),
+            Cast = cast ?? new List<RegistryCastEntry>(),
+            Cards = cards ?? new Dictionary<string, PersonaCardDraft>(),
         };
     }
+
+    /// <summary>A reviewed finalize card — commit refuses to mint without one.</summary>
+    private static PersonaCardDraft Card(
+        string persona, string? bio = "One line about them", string? committedPrompt = null, string? committedBio = null) => new()
+    {
+        Persona = persona,
+        SystemPrompt = $"You are {persona}.\n\n- Compressed trait.",
+        Bio = bio,
+        CommittedSystemPrompt = committedPrompt,
+        CommittedBio = committedBio,
+    };
+
+    private static Dictionary<string, PersonaCardDraft> Cards(params PersonaCardDraft[] cards)
+        => cards.ToDictionary(c => c.Persona, c => c);
 
     private static ImportDraftItem Episode(
         Guid sceneId, string summary, double weight, string routing,
@@ -160,7 +178,9 @@ public class ImportCommitPlannerTest
     [Fact]
     public void Event_seed_carries_timestamp_weight_concepts_and_resolved_participants()
     {
-        var input = NewInput(traits: new List<ImportDraftItem> { TraitOf("Dr. Lena Brandt", "Sardonic under pressure.") });
+        var input = NewInput(
+            traits: new List<ImportDraftItem> { TraitOf("Dr. Lena Brandt", "Sardonic under pressure.") },
+            cards: Cards(Card("Dr. Lena Brandt")));
         var ev = Episode(input.Scene.Id, "Lena confronted the innkeeper about the ledger.", 0.85,
             DraftRouting.Event, new List<int> { 6 },
             participants: new List<string> { "Lena", "The Innkeeper" },
@@ -177,7 +197,7 @@ public class ImportCommitPlannerTest
         Assert.Equal("Shower Protocol", concept.Display);
 
         // "Lena" token-folds into the dossier'd "Dr. Lena Brandt"; the innkeeper has no
-        // traits anywhere, so no persona is invented for them (person-as-concept = issue 03).
+        // traits and no registry entry, so no persona is invented for them.
         var lenaId = plan.CastByName["Dr. Lena Brandt"];
         Assert.Equal(new List<Guid> { lenaId }, seed.RecollectorPersonaIds);
         Assert.Equal(new List<string> { "The Innkeeper" }, plan.UnmatchedParticipants);
@@ -186,16 +206,17 @@ public class ImportCommitPlannerTest
     // ── cast minting ─────────────────────────────────────────────────────────────
 
     [Fact]
-    public void Minting_is_deterministic_skips_committed_personas_and_builds_drafted_cards()
+    public void Minting_is_deterministic_skips_committed_personas_and_uses_reviewed_cards()
     {
         var lenaTrait = TraitOf("Dr. Lena Brandt", "Sardonic under pressure.");
-        var lenaTrait2 = TraitOf("Dr. Lena Brandt", "Keeps a ledger of favours.");
         var justinTrait = TraitOf("Justin", "Chronically late.");
         var committedJustin = new Dictionary<string, Guid> { ["Justin"] = Guid.NewGuid() };
+        var lenaCard = Card("Dr. Lena Brandt", bio: "A sardonic clinician");
 
         var input = NewInput(
-            traits: new List<ImportDraftItem> { lenaTrait, lenaTrait2, justinTrait },
-            committedPersonas: committedJustin);
+            traits: new List<ImportDraftItem> { lenaTrait, justinTrait },
+            committedPersonas: committedJustin,
+            cards: Cards(lenaCard));
         // This scene touches both: Lena via her traits, Justin via an event participant.
         input = input with
         {
@@ -209,10 +230,11 @@ public class ImportCommitPlannerTest
 
         var plan = ImportCommitPlanner.Plan(input);
 
+        // The mint's card is the reviewed finalize output, Bio included — never rebuilt.
         var mint = Assert.Single(plan.PersonasToMint);
         Assert.Equal("Dr. Lena Brandt", mint.Name);
-        Assert.Contains("Sardonic under pressure.", mint.SystemPrompt);
-        Assert.Contains("Keeps a ledger of favours.", mint.SystemPrompt);
+        Assert.Equal(lenaCard.SystemPrompt, mint.SystemPrompt);
+        Assert.Equal("A sardonic clinician", mint.Bio);
         Assert.Equal(committedJustin["Justin"], plan.CastByName["Justin"]);
 
         // Same input → same persona id (retries and re-commits converge).
@@ -222,6 +244,162 @@ public class ImportCommitPlannerTest
         // The import's human rides along as a User-driven participant.
         Assert.Contains(plan.Participants, p => p.Id == Target.UserParticipantId && p.Driver == DriverKind.User);
         Assert.Contains(plan.Participants, p => p.Id == mint.PersonaId && p.Driver == DriverKind.LLM);
+    }
+
+    [Fact]
+    public void Minting_without_a_reviewed_card_is_refused()
+    {
+        var lenaTrait = TraitOf("Dr. Lena Brandt", "Sardonic under pressure.");
+        var input = NewInput(traits: new List<ImportDraftItem> { lenaTrait });
+        input = input with { Items = new List<ImportDraftItem> { lenaTrait } };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ImportCommitPlanner.Plan(input));
+        Assert.Contains("no reviewed card", ex.Message);
+    }
+
+    // ── match-or-mint (registry decisions executed, never prompted) ──────────────
+
+    private static RegistryCastEntry Entry(
+        string name, string matchState = CastMatchStates.Unmatched, Guid? proposedId = null,
+        Guid? matchedId = null, string routing = CastRoutingModes.Persona,
+        bool confirmed = true, params string[] aliases) => new()
+    {
+        Name = name,
+        Aliases = aliases.ToList(),
+        Routing = routing,
+        Confirmed = confirmed,
+        MatchState = matchState,
+        ProposedPersonaId = proposedId,
+        ProposedPersonaName = proposedId is null ? null : "Library " + name,
+        MatchedPersonaId = matchedId,
+    };
+
+    [Fact]
+    public void Commit_blocks_on_undecided_match_proposal()
+    {
+        var trait = TraitOf("Denise", "Steady under fire.");
+        var input = NewInput(
+            traits: new List<ImportDraftItem> { trait },
+            cast: new List<RegistryCastEntry>
+            {
+                Entry("Denise", CastMatchStates.Proposed, proposedId: Guid.NewGuid()),
+            },
+            cards: Cards(Card("Denise")));
+        input = input with { Items = new List<ImportDraftItem> { trait } };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ImportCommitPlanner.Plan(input));
+        Assert.Contains("Denise", ex.Message);
+        Assert.Contains("undecided", ex.Message);
+    }
+
+    [Fact]
+    public void Confirmed_match_reuses_the_library_persona_and_confirmed_mint_creates_one()
+    {
+        var libraryDenise = Guid.NewGuid();
+        var deniseTrait = TraitOf("Denise", "Steady under fire.");
+        var lenaTrait = TraitOf("Lena", "Sardonic.");
+        var input = NewInput(
+            traits: new List<ImportDraftItem> { deniseTrait, lenaTrait },
+            cast: new List<RegistryCastEntry>
+            {
+                Entry("Denise", CastMatchStates.ConfirmedMatch, proposedId: libraryDenise, matchedId: libraryDenise),
+                Entry("Lena", CastMatchStates.ConfirmedMint, proposedId: Guid.NewGuid()),
+            },
+            cards: Cards(Card("Denise"), Card("Lena")));
+        input = input with { Items = new List<ImportDraftItem> { deniseTrait, lenaTrait } };
+
+        var plan = ImportCommitPlanner.Plan(input);
+
+        // Match: no mint, the library id is reused; first commit pushes the reviewed card.
+        Assert.Equal(libraryDenise, plan.CastByName["Denise"]);
+        Assert.DoesNotContain(plan.PersonasToMint, m => m.Name == "Denise");
+        Assert.Contains(plan.PersonasToUpdate, u => u.PersonaId == libraryDenise && u.Name == "Denise");
+        Assert.Contains(plan.Participants, p => p.Id == libraryDenise);
+
+        // Mint despite a proposal: new persona, and the override lands in the ledger.
+        var mint = Assert.Single(plan.PersonasToMint);
+        Assert.Equal("Lena", mint.Name);
+        // Accepting the proposed match (Denise) is not a flip — only Lena's override is.
+        var flip = Assert.Single(plan.Corrections, c => c.Kind == CorrectionKinds.MatchFlipped);
+        Assert.Contains("Library Lena", flip.Suggested);
+        Assert.Contains(CastMatchStates.ConfirmedMint, flip.Final);
+    }
+
+    [Fact]
+    public void Registry_alias_resolves_participants_and_concept_routing_links_events()
+    {
+        var deniseTrait = TraitOf("Denise", "Steady under fire.");
+        var input = NewInput(
+            traits: new List<ImportDraftItem> { deniseTrait },
+            cast: new List<RegistryCastEntry>
+            {
+                Entry("Denise", CastMatchStates.ConfirmedMint, aliases: "Denyse"),
+                Entry("Arend", routing: CastRoutingModes.Concept),
+            },
+            cards: Cards(Card("Denise")));
+        var ev = Episode(input.Scene.Id, "Denyse warned Arend about the flood.", 0.8,
+            DraftRouting.Event, new List<int> { 5 },
+            participants: new List<string> { "Denyse", "Arend", "Old mentor" });
+        input = input with { Items = new List<ImportDraftItem> { deniseTrait, ev } };
+
+        var plan = ImportCommitPlanner.Plan(input);
+
+        // Alias "Denyse" resolves to Denise — recollector, not unmatched.
+        var seed = Assert.Single(plan.Events);
+        Assert.Equal(new List<Guid> { plan.CastByName["Denise"] }, seed.RecollectorPersonaIds);
+
+        // Person-as-concept: Arend links the event to a Concept instead of minting.
+        Assert.Contains(seed.Concepts, c => c.Name == "arend" && c.Display == "Arend");
+        Assert.DoesNotContain(plan.PersonasToMint, m => m.Name == "Arend");
+
+        // Nobody claimed "Old mentor" — counted, never minted.
+        Assert.Equal(new List<string> { "Old mentor" }, plan.UnmatchedParticipants);
+    }
+
+    [Fact]
+    public void Later_commit_updates_a_changed_card_without_duplicating_the_persona()
+    {
+        var lenaId = Guid.NewGuid();
+        var lenaTrait = TraitOf("Lena", "Sardonic.");
+        var changed = Card("Lena", committedPrompt: "You are Lena.\n\n- Old compressed trait.", committedBio: "Old bio");
+        var input = NewInput(
+            traits: new List<ImportDraftItem> { lenaTrait },
+            committedPersonas: new Dictionary<string, Guid> { ["Lena"] = lenaId },
+            cards: Cards(changed));
+        input = input with { Items = new List<ImportDraftItem> { lenaTrait } };
+
+        var plan = ImportCommitPlanner.Plan(input);
+        Assert.Empty(plan.PersonasToMint);
+        var update = Assert.Single(plan.PersonasToUpdate);
+        Assert.Equal(lenaId, update.PersonaId);
+        Assert.Equal(changed.SystemPrompt, update.SystemPrompt);
+
+        // An unchanged card produces no persona write at all.
+        var current = Card("Lena");
+        current.CommittedSystemPrompt = current.SystemPrompt;
+        current.CommittedBio = current.Bio;
+        var quiet = ImportCommitPlanner.Plan(input with { Cards = Cards(current) });
+        Assert.Empty(quiet.PersonasToMint);
+        Assert.Empty(quiet.PersonasToUpdate);
+    }
+
+    [Fact]
+    public void Personas_needing_cards_lists_touched_cast_with_their_full_trait_lists()
+    {
+        var lenaTrait = TraitOf("Dr. Lena Brandt", "Sardonic under pressure.");
+        var lenaTrait2 = TraitOf("Dr. Lena Brandt", "Keeps a ledger of favours.");
+        var input = NewInput(traits: new List<ImportDraftItem> { lenaTrait, lenaTrait2 });
+        input = input with
+        {
+            // No commit target needed — finalize runs before the first commit pins one.
+            Target = null,
+            Items = new List<ImportDraftItem> { lenaTrait },
+        };
+
+        var required = Assert.Single(ImportCommitPlanner.PersonasNeedingCards(input));
+        Assert.Equal("Dr. Lena Brandt", required.Name);
+        Assert.Equal(2, required.Traits.Count);
+        Assert.Equal(ImportCommitPlanner.TraitFingerprint(required.Traits), required.TraitFingerprint);
     }
 
     // ── correction ledger ────────────────────────────────────────────────────────
