@@ -1,6 +1,8 @@
 # Import as iterative scene workshop, not linear pipeline
 
-> Status: accepted.
+> Status: superseded by [ADR 0017](0017-import-scene-workshop-over-stateless-map.md).
+> The scene-by-scene, human-gated workshop skeleton survives there; the extraction
+> engine (identify → classify) and the AGE read-back context mechanism do not.
 
 Chat import (Gemini AI Studio `.json` → a resumable **Room** with seeded **Memory**) runs as an iterative **scene workshop**: the user marks one scene at a time, the backend runs identify → classify → event extraction → review for *that scene only*, the user commits, and the next scene's extractor reads back what the previous scene wrote — sharing the recall layer that live capture uses. The Room and all parsed messages are persisted up-front on `init`; scenes layer **Event** / **Recollection** / **Concept** edges on top.
 

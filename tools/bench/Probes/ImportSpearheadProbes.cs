@@ -189,8 +189,15 @@ public static class ImportSpearheadProbes
                             });
                             break;
                         }
+                        var eventWeight = item.Weight is { } w && w is >= 0.0 and <= 1.0 ? w : DefaultEpisodeWeight;
+                        var eventConcepts = (item.Concepts ?? [])
+                            .Select(c => c.Name?.Trim())
+                            .Where(n => !string.IsNullOrWhiteSpace(n))
+                            .Select(n => n!)
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
                         events.Add(new EventCard(ordinal, anchor + ordinal * spacing, item.Summary ?? "",
-                            (item.Participants ?? []).ToList(), section.Id));
+                            eventWeight, (item.Participants ?? []).ToList(), eventConcepts, section.Id));
                         eventWords.Add(words);
                         ordinal++;
                         break;
@@ -225,11 +232,13 @@ public static class ImportSpearheadProbes
             .Select(f => new { canonical = f.Canonical, merged = f.Members }).ToList());
         bench.Observe("artifact.events", events.Select(e => new
         {
-            ordinal = e.Ordinal, at = e.At, summary = e.Summary,
+            ordinal = e.Ordinal, at = e.At, summary = e.Summary, weight = e.Weight,
             participants = e.Participants.Select(p => Canonical(p, folds))
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            concepts = e.Concepts,
             source = e.Source,
         }).ToList());
+        ObserveWeightDistribution(bench, events);
         bench.Observe("artifact.dedupedEvents", dedupedEvents);
         bench.Observe("artifact.concepts", concepts);
         bench.Observe("artifact.discarded", discarded);
@@ -258,6 +267,8 @@ public static class ImportSpearheadProbes
             events = events.Count,
             dedupedEvents = dedupedEvents.Count,
             concepts = concepts.Count,
+            weightSpread = events.Count == 0 ? 0 : Math.Round(events.Max(e => e.Weight) - events.Min(e => e.Weight), 3),
+            distinctWeights = events.Select(e => e.Weight).Distinct().Count(),
         });
 
         log.LogInformation("Import spearhead: {Sections} sections → {Events} events ({Deduped} deduped), {Personas} personas ({Folds} folded), {Degraded} degraded in {Ms}ms",
@@ -334,6 +345,12 @@ public static class ImportSpearheadProbes
                              Never convert instructions into traits.
         - summary: at most 320 characters of plain factual prose. Every claim must be
           traceable to the section text. Do NOT invent. PADDING IS WORSE THAN BREVITY.
+        - weight: for an "episode", a number from 0 to 1 for how memorable the event is —
+          how much it would stay with the people who lived it. Pivotal turning points,
+          losses, betrayals, confessions, first meetings score high (0.8-0.9); routine
+          logistics, small talk, passing background score low (0.2-0.3). SPREAD the scores
+          across the whole range — do NOT cluster everything near 0.5. Use null for
+          "trait" and "rule" items.
         - participants: proper-noun character names taking part in the item. Empty if none.
         - concepts: recurring named things (places, projects, works, organisations) as
           { "name", "aliases" }. Include an alias ONLY when the section itself states it,
@@ -425,6 +442,7 @@ public static class ImportSpearheadProbes
                                 ["type"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("trait", "episode", "rule") },
                                 ["persona"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
                                 ["summary"] = new JsonObject { ["type"] = "string" },
+                                ["weight"] = new JsonObject { ["type"] = new JsonArray("number", "null") },
                                 ["participants"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } },
                                 ["concepts"] = new JsonObject
                                 {
@@ -441,7 +459,7 @@ public static class ImportSpearheadProbes
                                     },
                                 },
                             },
-                            ["required"] = new JsonArray("type", "persona", "summary", "participants", "concepts"),
+                            ["required"] = new JsonArray("type", "persona", "summary", "weight", "participants", "concepts"),
                         },
                     },
                 },
@@ -459,6 +477,7 @@ public static class ImportSpearheadProbes
         [property: JsonPropertyName("type")] string? Type,
         [property: JsonPropertyName("persona")] string? Persona,
         [property: JsonPropertyName("summary")] string? Summary,
+        [property: JsonPropertyName("weight")] double? Weight,
         [property: JsonPropertyName("participants")] List<string>? Participants,
         [property: JsonPropertyName("concepts")] List<ConceptRef>? Concepts);
 
@@ -505,7 +524,11 @@ public static class ImportSpearheadProbes
 
     // ── deterministic identity fold + episode dedup ──────────────────────────────
 
-    private sealed record EventCard(int Ordinal, DateTimeOffset At, string Summary, List<string> Participants, string Source);
+    private sealed record EventCard(int Ordinal, DateTimeOffset At, string Summary, double Weight, List<string> Participants, List<string> Concepts, string Source);
+
+    // Fallback when the model returns null/out-of-range weight for an episode — a neutral
+    // mid-value. A run where this fires often is itself the degeneracy signal (weights.*).
+    private const double DefaultEpisodeWeight = 0.5;
 
     private sealed record PersonaFold(string Canonical, List<string> Members, HashSet<string> Tokens);
 
@@ -678,6 +701,53 @@ public static class ImportSpearheadProbes
         hit.Mentions++;
         foreach (var n in names.Where(n => !n.Equals(hit.Name, StringComparison.OrdinalIgnoreCase)))
             hit.Aliases.Add(n);
+    }
+
+    // ── weight distribution (validation 2 — degeneracy is the only failure) ──────
+
+    /// <summary>The degeneracy check: weights must SPREAD, not collapse to one value — uniform
+    /// weights reproduce phase 2's failure where all recall ranking fell back to timestamps.
+    /// Emits histogram + spread stats and the highest/lowest events so a reader can eyeball
+    /// whether arc-critical beats (a suicide, a betrayal) outrank filler (a party invite).</summary>
+    private static void ObserveWeightDistribution(Bench bench, List<EventCard> events)
+    {
+        if (events.Count == 0)
+        {
+            bench.Observe("weights.distribution", "(no episodes extracted)");
+            return;
+        }
+
+        var weights = events.Select(e => e.Weight).ToList();
+        var mean = weights.Average();
+        var stddev = Math.Sqrt(weights.Sum(x => (x - mean) * (x - mean)) / weights.Count);
+        var distinct = weights.Distinct().Count();
+
+        // 0.0-0.1 … 0.9-1.0; the top bucket is closed so a weight of exactly 1.0 lands in it.
+        var histogram = Enumerable.Range(0, 10).ToDictionary(
+            b => $"{b / 10.0:0.0}-{(b + 1) / 10.0:0.0}",
+            b => weights.Count(x => x >= b / 10.0 && (x < (b + 1) / 10.0 || (b == 9 && x <= 1.0))));
+
+        bench.Observe("weights.distribution", new
+        {
+            count = weights.Count,
+            min = weights.Min(),
+            max = weights.Max(),
+            mean = Math.Round(mean, 3),
+            stddev = Math.Round(stddev, 3),
+            distinctValues = distinct,
+            atDefaultFallback = weights.Count(x => x == DefaultEpisodeWeight),
+            degenerate = distinct <= 1,
+            histogram,
+        });
+
+        string Snip(EventCard e) => e.Summary.Length > 90 ? e.Summary[..90] + "…" : e.Summary;
+        bench.Observe("weights.spotCheck (highest / lowest — does arc-critical beat filler?)", new
+        {
+            highest = events.OrderByDescending(e => e.Weight).Take(6)
+                .Select(e => new { e.Weight, summary = Snip(e) }).ToList(),
+            lowest = events.OrderBy(e => e.Weight).Take(6)
+                .Select(e => new { e.Weight, summary = Snip(e) }).ToList(),
+        });
     }
 
     // ── misc ─────────────────────────────────────────────────────────────────────

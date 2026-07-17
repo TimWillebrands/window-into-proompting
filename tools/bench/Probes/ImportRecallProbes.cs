@@ -119,15 +119,16 @@ public static class ImportRecallProbes
 
         // ── 3. salience arithmetic the reader needs up front ─────────────────────
         var now = DateTimeOffset.UtcNow;
-        var newest = events.Max(e => e.At);
-        var oldest = events.Min(e => e.At);
-        bench.Observe("salience.note", new
+        var newestEv = events.OrderByDescending(e => e.At).First();
+        var oldestEv = events.OrderBy(e => e.At).First();
+        var weights = events.Select(e => e.Weight).ToList();
+        bench.Observe("salience.note (imported weights now vary per validation 2 — not the flat default)", new
         {
             decayHalfLifeDays = SalienceMath.DecayHalfLifeDays,
-            importedWeight = SalienceMath.DefaultWeight,
-            newestImportAgeDays = Math.Round((now - newest).TotalDays, 1),
-            newestImportSalience = Math.Round(SalienceMath.Score(SalienceMath.DefaultWeight, newest, 0, null, now), 4),
-            oldestImportSalience = Math.Round(SalienceMath.Score(SalienceMath.DefaultWeight, oldest, 0, null, now), 4),
+            importedWeightRange = new { min = weights.Min(), max = weights.Max(), mean = Math.Round(weights.Average(), 3) },
+            newestImportAgeDays = Math.Round((now - newestEv.At).TotalDays, 1),
+            newestImportSalience = Math.Round(SalienceMath.Score(newestEv.Weight, newestEv.At, 0, null, now), 4),
+            oldestImportSalience = Math.Round(SalienceMath.Score(oldestEv.Weight, oldestEv.At, 0, null, now), 4),
             freshOrganicSalience = Math.Round(SalienceMath.Score(0.7, now, 0, null, now), 4),
         });
 
@@ -308,7 +309,7 @@ public static class ImportRecallProbes
                         AboutParticipantEdges++;
 
                         await AddRecollectionAsync(db, eventId, personaId, ev.Summary,
-                            SalienceMath.DefaultWeight, atIso, ct);
+                            ev.Weight, atIso, ct);
                         RecollectionEdges++;
                     }
                     if (matched.Count == 0)
@@ -481,7 +482,7 @@ public static class ImportRecallProbes
     // ── frozen-artifact parsing ──────────────────────────────────────────────────
 
     private sealed record SeedEvent(
-        int Ordinal, DateTimeOffset At, string Summary, IReadOnlyList<string> Participants);
+        int Ordinal, DateTimeOffset At, string Summary, double Weight, IReadOnlyList<string> Participants);
 
     private sealed record SeedConcept(string Name, IReadOnlyList<string> Aliases);
 
@@ -508,6 +509,10 @@ public static class ImportRecallProbes
                 e.GetProperty("ordinal").GetInt32(),
                 e.GetProperty("at").GetDateTimeOffset(),
                 e.GetProperty("summary").GetString() ?? "",
+                // phase-1 artifacts before the weight field fall back to the flat default —
+                // that's the pre-validation-2 behaviour, so old artifacts still replay unchanged.
+                e.TryGetProperty("weight", out var w) && w.ValueKind == JsonValueKind.Number
+                    ? w.GetDouble() : SalienceMath.DefaultWeight,
                 e.GetProperty("participants").EnumerateArray()
                     .Select(p => p.GetString() ?? "").Where(p => p.Length > 0).ToList()));
         }
