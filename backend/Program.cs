@@ -26,6 +26,7 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 builder.Services.AddSingleton<ImportService>();
+builder.Services.AddSingleton<PartyTown.Services.Import.ISceneMapService, PartyTown.Services.Import.SceneMapService>();
 builder.Services.AddSingleton<RaceTrigger>();
 builder.Services.AddSingleton<ResponsePipeline>();
 
@@ -71,6 +72,12 @@ if (!openApiBuild)
         });
 
         siloBuilder.AddAdoNetGrainStorage("parties", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+
+        siloBuilder.AddAdoNetGrainStorage("imports", options =>
         {
             options.Invariant = "Npgsql";
             options.ConnectionString = connectionString;
