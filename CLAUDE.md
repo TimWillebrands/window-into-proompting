@@ -135,7 +135,7 @@ Deployed via [Kamal](https://kamal-deploy.org/). Config: `config/deploy.yml`, `c
 
 ### Issue tracker
 
-GitHub Issues at `TimWillebrands/window-into-proompting` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Local markdown under `.scratch/<feature-slug>/` — one dir per feature, one file per ticket. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
