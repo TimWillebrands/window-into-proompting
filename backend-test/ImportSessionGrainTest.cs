@@ -111,6 +111,70 @@ public class ImportSessionGrainTest(PartyClusterFixture fixture) : IClassFixture
     }
 
     [Fact]
+    public async Task Commit_state_settles_the_scene_and_survives_deactivation()
+    {
+        var grain = fixture.GrainFactory.GetGrain<IImportSessionGrain>(Guid.NewGuid());
+        await grain.InitializeAsync(TestSource());
+        var scene = await grain.CreateSceneAsync(new SceneDefinition { FromChunk = 1, ToChunk = 6 });
+
+        // Nothing to commit before a run.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => grain.GetSceneCommitInputAsync(scene.Id));
+
+        await grain.ApplySceneRunAsync(scene.Id, TestMap());
+        var input = await grain.GetSceneCommitInputAsync(scene.Id);
+        Assert.Single(input.Items);
+        Assert.Equal(6, input.Chunks.Count);
+        Assert.Null(input.Target);
+
+        var target = new ImportCommitTarget
+        {
+            PartyId = Guid.NewGuid(),
+            RoomId = Guid.NewGuid(),
+            RoomName = "Imported chat",
+            UserParticipantId = Guid.NewGuid(),
+        };
+        await grain.SetCommitTargetAsync(target);
+        await grain.RecordCommittedPersonasAsync(new Dictionary<string, Guid> { ["Lena"] = Guid.NewGuid() });
+        await grain.RecordSceneMessagesWrittenAsync(scene.Id);
+        await grain.CompleteSceneCommitAsync(scene.Id);
+
+        // Settled: rerun, edits and deletion are refused; a second commit input too.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => grain.GetSceneRunInputAsync(scene.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => grain.ApplySceneRunAsync(scene.Id, TestMap()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => grain.DeleteSceneAsync(scene.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => grain.GetSceneCommitInputAsync(scene.Id));
+        var item = (await grain.GetDraftAsync()).Items.Single();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            grain.UpdateDraftItemAsync(item.Id, new DraftItemEdit { Routing = "history" }));
+
+        // A different Room cannot be pinned onto the same session.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            grain.SetCommitTargetAsync(target with { RoomId = Guid.NewGuid() }));
+
+        // Ledger still reconciles with committed state in place.
+        Assert.True((await grain.GetLedgerAsync()).Reconciles);
+
+        // Commit state survives the activation being dropped.
+        var mgmt = fixture.GrainFactory.GetGrain<IManagementGrain>(0);
+        await mgmt.ForceActivationCollection(TimeSpan.Zero);
+
+        var overview = await grain.GetOverviewAsync();
+        Assert.Equal(target.RoomId, overview.CommitTarget?.RoomId);
+        var persisted = Assert.Single(overview.Scenes);
+        Assert.True(persisted.Committed);
+        Assert.True(persisted.MessagesWritten);
+        Assert.NotNull(persisted.CommittedAt);
+
+        // Rollback bookkeeping: everything returns to editable draft.
+        await grain.ResetCommitsAsync();
+        Assert.Null(await grain.GetCommitTargetAsync());
+        var reset = Assert.Single((await grain.GetOverviewAsync()).Scenes);
+        Assert.False(reset.Committed);
+        Assert.False(reset.MessagesWritten);
+        await grain.ApplySceneRunAsync(scene.Id, TestMap()); // rerun allowed again
+    }
+
+    [Fact]
     public async Task Delete_clears_state_and_a_fresh_activation_is_uninitialized()
     {
         var id = Guid.NewGuid();

@@ -33,6 +33,9 @@ public static class ImportFold
     {
         var scene = state.Scenes.FirstOrDefault(s => s.Id == sceneId)
             ?? throw new KeyNotFoundException($"Scene {sceneId} not found.");
+        if (scene.Committed)
+            throw new InvalidOperationException(
+                $"Scene {sceneId} is committed — rerun refused (regeneration is a draft-only power).");
 
         var replaced = state.Items.RemoveAll(i => i.SceneId == sceneId);
         state.RunRecords.RemoveAll(r => r.SceneId == sceneId);
@@ -102,7 +105,7 @@ public static class ImportFold
                         deduped.Add(Drop(dup, summary, item.SourceId));
                         break;
                     }
-                    accepted.Add(new ImportDraftItem
+                    accepted.Add(Snapshot(new ImportDraftItem
                     {
                         Id = Guid.NewGuid(), SceneId = sceneId,
                         Type = DraftItemTypes.Trait, Persona = persona, Summary = summary,
@@ -110,7 +113,7 @@ public static class ImportFold
                         SourceChunks = item.SourceChunks.ToList(), SourceId = item.SourceId,
                         Routing = DraftRouting.PersonaCard,
                         At = state.Settings.Anchor,
-                    });
+                    }));
                     break;
                 }
 
@@ -133,12 +136,12 @@ public static class ImportFold
                         Routing = "", At = ItemTimestamp(state.Settings, item.SourceChunks),
                     };
                     ApplyFloor(episode, state.Settings.WeightFloor);
-                    accepted.Add(episode);
+                    accepted.Add(Snapshot(episode));
                     break;
                 }
 
                 case DraftItemTypes.Rule:
-                    accepted.Add(new ImportDraftItem
+                    accepted.Add(Snapshot(new ImportDraftItem
                     {
                         Id = Guid.NewGuid(), SceneId = sceneId,
                         Type = DraftItemTypes.Rule, Persona = null, Summary = summary,
@@ -146,7 +149,7 @@ public static class ImportFold
                         SourceChunks = item.SourceChunks.ToList(), SourceId = item.SourceId,
                         Routing = DraftRouting.Discarded, RoutingReason = "agent-instruction",
                         At = state.Settings.Anchor,
-                    });
+                    }));
                     break;
 
                 default:
@@ -194,6 +197,16 @@ public static class ImportFold
         };
     }
 
+    /// <summary>Freeze the extractor's suggestion the moment the item enters the draft —
+    /// the correction ledger diffs the human-final values against these at commit.</summary>
+    private static ImportDraftItem Snapshot(ImportDraftItem item)
+    {
+        item.SuggestedSummary = item.Summary;
+        item.SuggestedWeight = item.Weight;
+        item.SuggestedRouting = item.Routing;
+        return item;
+    }
+
     private static DedupDrop Drop(ImportDraftItem kept, string droppedSummary, string droppedSourceId) => new()
     {
         KeptItemId = kept.Id,
@@ -210,6 +223,9 @@ public static class ImportFold
     {
         var item = state.Items.FirstOrDefault(i => i.Id == itemId)
             ?? throw new KeyNotFoundException($"Draft item {itemId} not found.");
+        if (state.Scenes.Any(s => s.Id == item.SceneId && s.Committed))
+            throw new InvalidOperationException(
+                $"Draft item {itemId} belongs to a committed scene — committed scenes are settled.");
 
         if (edit.Summary is not null)
         {
@@ -257,11 +273,14 @@ public static class ImportFold
     }
 
     /// <summary>Re-derive floor routing (non-overridden episodes) and scheme timestamps
-    /// after a settings change. Human overrides are left alone.</summary>
+    /// after a settings change. Human overrides are left alone, and items of committed
+    /// scenes are frozen — their timestamps/routing are already written into the Room/AGE.</summary>
     public static void ReapplySettings(ImportSessionState state)
     {
+        var committedScenes = state.Scenes.Where(s => s.Committed).Select(s => s.Id).ToHashSet();
         foreach (var item in state.Items)
         {
+            if (committedScenes.Contains(item.SceneId)) continue;
             if (item.Type == DraftItemTypes.Episode)
             {
                 item.At = ItemTimestamp(state.Settings, item.SourceChunks);

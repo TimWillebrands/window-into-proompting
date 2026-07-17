@@ -151,6 +151,17 @@ public sealed class PartyGrain(
         return chatGroup;
     }
 
+    public async Task RemoveChatGroup(Guid chatGroupId)
+    {
+        // Idempotent: removing an unknown/already-removed room is a no-op, so callers
+        // (import rollback) can retry safely.
+        if (!State.ChatGroups.Any(g => g.Id == chatGroupId))
+            return;
+
+        RaiseEvent(new ChatGroupRemovedEvent { ChatGroupId = chatGroupId });
+        await ConfirmEvents();
+    }
+
     public async Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario)
     {
         // Guard membership before raising the event — otherwise an unknown chatGroupId
@@ -246,6 +257,11 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("CreateChatGroup")]
     Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
 
+    /// <summary>Remove a Room from this Party's registry (import rollback). The
+    /// ChatGroupGrain's own journal is wiped separately by the caller.</summary>
+    [Alias("RemoveChatGroup")]
+    Task RemoveChatGroup(Guid chatGroupId);
+
     [Alias("UpdateChatGroupScenario")]
     Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario);
 
@@ -287,6 +303,11 @@ public sealed record class PartyState
     public void Apply(ChatGroupCreatedEvent @event)
     {
         ChatGroups.Add(@event.ChatGroup);
+    }
+
+    public void Apply(ChatGroupRemovedEvent @event)
+    {
+        ChatGroups.RemoveAll(g => g.Id == @event.ChatGroupId);
     }
 
     public void Apply(ChatGroupScenarioUpdatedEvent @event)
@@ -351,6 +372,13 @@ public sealed record class ChatGroupScenarioUpdatedEvent : PartyEvent
 
     [Id(1)]
     public string? Scenario { get; set; }
+}
+
+[GenerateSerializer, Alias(nameof(ChatGroupRemovedEvent))]
+public sealed record class ChatGroupRemovedEvent : PartyEvent
+{
+    [Id(0)]
+    public Guid ChatGroupId { get; set; }
 }
 
 [GenerateSerializer, Alias(nameof(PartyDeletedEvent))]

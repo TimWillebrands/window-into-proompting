@@ -47,6 +47,22 @@ public static class ChunkDispositions
     public const string Unprocessed = "unprocessed";
 }
 
+/// <summary>Correction-ledger vocabulary (ADR 0017): what the human changed between the
+/// extractor's suggestion and the committed final. <c>merged</c>/<c>split</c>/
+/// <c>match-flipped</c> are reserved for the registry/match-or-mint slice (issue 03) —
+/// nothing emits them yet.</summary>
+public static class CorrectionKinds
+{
+    public const string Promoted = "promoted";
+    public const string Demoted = "demoted";
+    public const string Reweighted = "reweighted";
+    public const string Merged = "merged";
+    public const string Split = "split";
+    public const string Renamed = "renamed";
+    public const string MatchFlipped = "match-flipped";
+    public const string RegeneratedWithNote = "regenerated-with-note";
+}
+
 /// <summary>One typed IR chunk. Stored once on the session; scenes reference by index range.</summary>
 [GenerateSerializer, Alias("PartyTown.Services.Import.ImportChunk")]
 public sealed record ImportChunk
@@ -99,6 +115,17 @@ public sealed class ImportScene
 
     [Id(5)] public int RunCount { get; set; }
     [Id(6)] public DateTimeOffset? LastRunAt { get; set; }
+
+    /// <summary>Committed scenes are settled: rerun/edit/delete are refused; their draft
+    /// slice becomes the committed-item index later runs dedup against.</summary>
+    [Id(7)] public bool Committed { get; set; }
+
+    [Id(8)] public DateTimeOffset? CommittedAt { get; set; }
+
+    /// <summary>Room messages for this scene were written. Persisted before the commit is
+    /// complete so a retried commit never double-appends messages (the one non-idempotent
+    /// write in the sequence).</summary>
+    [Id(9)] public bool MessagesWritten { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.SceneDefinition")]
@@ -138,6 +165,13 @@ public sealed class ImportDraftItem
 
     /// <summary>Scheme timestamp: anchor + earliest-source-chunk · spacing.</summary>
     [Id(13)] public DateTimeOffset At { get; set; }
+
+    // Suggested-value snapshots, frozen at fold time. The correction ledger diffs these
+    // against the human-final values at commit; edits never touch them.
+
+    [Id(14)] public string SuggestedSummary { get; set; } = string.Empty;
+    [Id(15)] public double SuggestedWeight { get; set; }
+    [Id(16)] public string SuggestedRouting { get; set; } = string.Empty;
 }
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.DraftItemEdit")]
@@ -269,6 +303,75 @@ public sealed record SceneRunResult
     [Id(8)] public List<DegradedRecord> Degraded { get; init; } = new();
 }
 
+// ── commit (per-scene, deterministic — ADR 0017 slice 3) ────────────────────────
+
+/// <summary>Where this session commits: pinned on the first scene commit, every later
+/// commit extends the same Room. Whole-import rollback deletes this Room.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.ImportCommitTarget")]
+public sealed record ImportCommitTarget
+{
+    [Id(0)] public Guid PartyId { get; init; }
+    [Id(1)] public Guid RoomId { get; init; }
+    [Id(2)] public string RoomName { get; init; } = string.Empty;
+
+    /// <summary>Participant standing in for the export's human ("user" role chunks).</summary>
+    [Id(3)] public Guid UserParticipantId { get; init; }
+}
+
+/// <summary>Commit request body. Only the first commit of a session needs a party;
+/// later commits inherit the pinned target (a different party is refused).</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.SceneCommitRequest")]
+public sealed record SceneCommitRequest
+{
+    [Id(0)] public Guid? PartyId { get; init; }
+    [Id(1)] public string? RoomName { get; init; }
+}
+
+/// <summary>Everything the deterministic commit planner needs for one scene, read from
+/// the grain in a single call.</summary>
+[GenerateSerializer, Alias("PartyTown.Services.Import.SceneCommitInput")]
+public sealed record SceneCommitInput
+{
+    [Id(0)] public Guid SessionId { get; init; }
+    [Id(1)] public string? FileName { get; init; }
+    [Id(2)] public ImportSettings Settings { get; init; } = new();
+    [Id(3)] public ImportScene Scene { get; init; } = new();
+
+    /// <summary>This scene's draft slice (the items being committed).</summary>
+    [Id(4)] public List<ImportDraftItem> Items { get; init; } = new();
+
+    /// <summary>All trait items across the draft — the as-drafted cast universe and the
+    /// card source for persona minting (replaced by finalize in issue 03).</summary>
+    [Id(5)] public List<ImportDraftItem> TraitItems { get; init; } = new();
+
+    [Id(6)] public List<ImportChunk> Chunks { get; init; } = new();
+    [Id(7)] public List<ChunkRouting> ChunkRoutings { get; init; } = new();
+    [Id(8)] public List<ImportConcept> Concepts { get; init; } = new();
+    [Id(9)] public ImportCommitTarget? Target { get; init; }
+
+    /// <summary>Canonical cast name → persona id for personas earlier commits minted.</summary>
+    [Id(10)] public Dictionary<string, Guid> CommittedPersonas { get; init; } = new();
+}
+
+[GenerateSerializer, Alias("PartyTown.Services.Import.SceneCommitResult")]
+public sealed record SceneCommitResult
+{
+    [Id(0)] public Guid SceneId { get; init; }
+    [Id(1)] public Guid PartyId { get; init; }
+    [Id(2)] public Guid RoomId { get; init; }
+    [Id(3)] public DateTimeOffset CommittedAt { get; init; }
+    [Id(4)] public int MessagesWritten { get; init; }
+    [Id(5)] public int EventsWritten { get; init; }
+    [Id(6)] public int RecollectionsWritten { get; init; }
+    [Id(7)] public int ConceptLinks { get; init; }
+    [Id(8)] public List<string> PersonasMinted { get; init; } = new();
+    [Id(9)] public int CorrectionsRecorded { get; init; }
+
+    /// <summary>Episode participants no cast name claimed — their Events carry no
+    /// Recollection for them (never minted into vertices; person-as-concept is issue 03).</summary>
+    [Id(10)] public List<string> UnmatchedParticipants { get; init; } = new();
+}
+
 // ── read models ─────────────────────────────────────────────────────────────────
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.ChunkSummary")]
@@ -293,6 +396,7 @@ public sealed record ImportSessionOverview
     [Id(6)] public ImportSettings Settings { get; init; } = new();
     [Id(7)] public List<ImportScene> Scenes { get; init; } = new();
     [Id(8)] public int DraftItemCount { get; init; }
+    [Id(9)] public ImportCommitTarget? CommitTarget { get; init; }
 }
 
 [GenerateSerializer, Alias("PartyTown.Services.Import.ImportDraftView")]
@@ -342,4 +446,9 @@ public sealed class ImportSessionState
     [Id(7)] public List<ImportDraftItem> Items { get; set; } = new();
     [Id(8)] public List<ImportConcept> Concepts { get; set; } = new();
     [Id(9)] public List<SceneRunRecord> RunRecords { get; set; } = new();
+    [Id(10)] public ImportCommitTarget? CommitTarget { get; set; }
+
+    /// <summary>Canonical cast name → persona id, one entry per persona this session has
+    /// minted. Feeds later commits (no re-mint) and event participant resolution.</summary>
+    [Id(11)] public Dictionary<string, Guid> CommittedPersonas { get; set; } = new();
 }

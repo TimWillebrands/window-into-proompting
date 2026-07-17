@@ -80,6 +80,7 @@ public sealed class ImportSessionGrain(
     {
         EnsureInitialized();
         var scene = FindScene(sceneId);
+        EnsureNotCommitted(scene);
         ValidateScene(definition);
         scene.FromChunk = definition.FromChunk;
         scene.ToChunk = definition.ToChunk;
@@ -93,6 +94,7 @@ public sealed class ImportSessionGrain(
     {
         EnsureInitialized();
         var scene = FindScene(sceneId);
+        EnsureNotCommitted(scene);
         state.State.Scenes.Remove(scene);
         state.State.Items.RemoveAll(i => i.SceneId == sceneId);
         state.State.RunRecords.RemoveAll(r => r.SceneId == sceneId);
@@ -105,6 +107,9 @@ public sealed class ImportSessionGrain(
     {
         EnsureInitialized();
         var scene = FindScene(sceneId);
+        // Pre-LLM guard: refuse before the controller spends map calls; the fold repeats
+        // the check for callers that skip this read.
+        EnsureNotCommitted(scene);
         return Task.FromResult(new SceneRunInput
         {
             SceneId = scene.Id,
@@ -174,6 +179,93 @@ public sealed class ImportSessionGrain(
         return next;
     }
 
+    // ── commit (ADR 0017 slice 3) ────────────────────────────────────────────────
+    // The grain owns commit *state* only; ImportCommitService performs the external
+    // writes (Room, personas, AGE, correction ledger) and drives these transitions.
+
+    public Task<SceneCommitInput> GetSceneCommitInputAsync(Guid sceneId)
+    {
+        EnsureInitialized();
+        var scene = FindScene(sceneId);
+        EnsureNotCommitted(scene);
+        if (scene.RunCount == 0)
+            throw new InvalidOperationException($"Scene {sceneId} has not been run — nothing to commit.");
+
+        return Task.FromResult(new SceneCommitInput
+        {
+            SessionId = this.GetPrimaryKey(),
+            FileName = state.State.FileName,
+            Settings = state.State.Settings,
+            Scene = scene,
+            Items = state.State.Items.Where(i => i.SceneId == sceneId).ToList(),
+            TraitItems = state.State.Items.Where(i => i.Type == DraftItemTypes.Trait).ToList(),
+            Chunks = state.State.Chunks
+                .Where(c => c.Index >= scene.FromChunk && c.Index <= scene.ToChunk)
+                .ToList(),
+            ChunkRoutings = ImportFold.BuildChunkRoutings(state.State, scene),
+            Concepts = state.State.Concepts.ToList(),
+            Target = state.State.CommitTarget,
+            CommittedPersonas = new Dictionary<string, Guid>(state.State.CommittedPersonas),
+        });
+    }
+
+    public async Task SetCommitTargetAsync(ImportCommitTarget target)
+    {
+        EnsureInitialized();
+        if (state.State.CommitTarget is { } existing && existing.RoomId != target.RoomId)
+            throw new InvalidOperationException(
+                $"Session already commits into room {existing.RoomId} — one Room per import session.");
+        state.State.CommitTarget = target;
+        await state.WriteStateAsync();
+    }
+
+    public Task<ImportCommitTarget?> GetCommitTargetAsync()
+        => Task.FromResult(state.State.CommitTarget);
+
+    public async Task RecordCommittedPersonasAsync(Dictionary<string, Guid> personas)
+    {
+        EnsureInitialized();
+        foreach (var (name, id) in personas)
+            state.State.CommittedPersonas[name] = id;
+        await state.WriteStateAsync();
+    }
+
+    public async Task RecordSceneMessagesWrittenAsync(Guid sceneId)
+    {
+        EnsureInitialized();
+        FindScene(sceneId).MessagesWritten = true;
+        await state.WriteStateAsync();
+    }
+
+    public async Task<ImportScene> CompleteSceneCommitAsync(Guid sceneId)
+    {
+        EnsureInitialized();
+        var scene = FindScene(sceneId);
+        scene.Committed = true;
+        scene.CommittedAt = DateTimeOffset.UtcNow;
+        await state.WriteStateAsync();
+        logger.LogInformation(
+            "Import session {SessionId} scene {SceneId} committed", this.GetPrimaryKey(), sceneId);
+        return scene;
+    }
+
+    /// <summary>Whole-import rollback bookkeeping: the Room and its AGE events are already
+    /// gone (ImportCommitService), so every scene returns to editable draft. Minted
+    /// personas keep their library entries — deterministic ids make a re-commit converge.</summary>
+    public async Task ResetCommitsAsync()
+    {
+        EnsureInitialized();
+        state.State.CommitTarget = null;
+        state.State.CommittedPersonas.Clear();
+        foreach (var scene in state.State.Scenes)
+        {
+            scene.Committed = false;
+            scene.CommittedAt = null;
+            scene.MessagesWritten = false;
+        }
+        await state.WriteStateAsync();
+    }
+
     public async Task DeleteAsync()
     {
         await state.ClearStateAsync();
@@ -191,6 +283,13 @@ public sealed class ImportSessionGrain(
     private ImportScene FindScene(Guid sceneId)
         => state.State.Scenes.FirstOrDefault(s => s.Id == sceneId)
             ?? throw new KeyNotFoundException($"Scene {sceneId} not found.");
+
+    private static void EnsureNotCommitted(ImportScene scene)
+    {
+        if (scene.Committed)
+            throw new InvalidOperationException(
+                $"Scene {scene.Id} is committed — committed scenes are settled (rollback = delete the Room).");
+    }
 
     private void ValidateScene(SceneDefinition definition)
     {
@@ -230,6 +329,7 @@ public sealed class ImportSessionGrain(
             Settings = s.Settings,
             Scenes = s.Scenes.ToList(),
             DraftItemCount = s.Items.Count,
+            CommitTarget = s.CommitTarget,
         };
     }
 
@@ -283,6 +383,27 @@ public interface IImportSessionGrain : IGrainWithGuidKey
 
     [Alias("UpdateSettingsAsync")]
     Task<ImportSettings> UpdateSettingsAsync(ImportSettingsUpdate update);
+
+    [Alias("GetSceneCommitInputAsync")]
+    Task<SceneCommitInput> GetSceneCommitInputAsync(Guid sceneId);
+
+    [Alias("SetCommitTargetAsync")]
+    Task SetCommitTargetAsync(ImportCommitTarget target);
+
+    [Alias("GetCommitTargetAsync")]
+    Task<ImportCommitTarget?> GetCommitTargetAsync();
+
+    [Alias("RecordCommittedPersonasAsync")]
+    Task RecordCommittedPersonasAsync(Dictionary<string, Guid> personas);
+
+    [Alias("RecordSceneMessagesWrittenAsync")]
+    Task RecordSceneMessagesWrittenAsync(Guid sceneId);
+
+    [Alias("CompleteSceneCommitAsync")]
+    Task<ImportScene> CompleteSceneCommitAsync(Guid sceneId);
+
+    [Alias("ResetCommitsAsync")]
+    Task ResetCommitsAsync();
 
     [Alias("DeleteAsync")]
     Task DeleteAsync();

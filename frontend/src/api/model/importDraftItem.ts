@@ -23,4 +23,8 @@ export interface ImportDraftItem {
     routingReason?: string | null;
     routingOverridden?: boolean;
     at?: string;
+    suggestedSummary?: string;
+    /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
+    suggestedWeight?: number | string;
+    suggestedRouting?: string;
 }

@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { ChunkSummary } from './chunkSummary';
+import type { ImportCommitTarget } from './importCommitTarget';
 import type { ImportScene } from './importScene';
 import type { ImportSessionOverviewCategories } from './importSessionOverviewCategories';
 import type { ImportSettings } from './importSettings';
@@ -22,4 +23,5 @@ export interface ImportSessionOverview {
     scenes?: ImportScene[];
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     draftItemCount?: number | string;
+    commitTarget?: null | ImportCommitTarget;
 }

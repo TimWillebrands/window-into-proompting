@@ -15,6 +15,8 @@ namespace PartyTown.Controllers;
 public sealed class ImportSessionController(
     IGrainFactory grains,
     ISceneMapService sceneMap,
+    ImportCommitService commit,
+    IImportCorrectionStore corrections,
     ILogger<ImportSessionController> logger) : ControllerBase
 {
     // The reference export is ~1.5 MB; leave generous headroom over Kestrel's default.
@@ -101,6 +103,10 @@ public sealed class ImportSessionController(
         {
             return NotFound();
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
     }
 
     /// <summary>
@@ -123,6 +129,11 @@ public sealed class ImportSessionController(
         {
             return NotFound();
         }
+        catch (InvalidOperationException ex)
+        {
+            // Committed scenes are settled — regeneration is a draft-only power.
+            return Conflict(ex.Message);
+        }
 
         logger.LogInformation(
             "Import session {SessionId}: running scene {SceneId} ({Chunks} chunks, dossier: {Dossier})",
@@ -132,6 +143,70 @@ public sealed class ImportSessionController(
         var result = await grain.ApplySceneRunAsync(sceneId, map);
         return Ok(result);
     }
+
+    // ── commit ───────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Commits a reviewed scene: deterministic writes only (no LLM). Creates the Room on
+    /// the session's first commit (body must carry <c>partyId</c>; later commits inherit
+    /// the pinned target), appends the scene's history-routed messages, mints
+    /// personas-as-drafted, seeds AGE Events/Recollections/Concepts at anchor-scheme
+    /// timestamps, and appends the correction ledger. Retryable; out-of-chunk-order
+    /// commits are allowed (ordering is the operator's trade).
+    /// </summary>
+    [HttpPost("{id:guid}/scenes/{sceneId:guid}/commit")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SceneCommitResult>> CommitScene(
+        Guid id, Guid sceneId, [FromBody] SceneCommitRequest request, CancellationToken ct)
+    {
+        var grain = grains.GetGrain<IImportSessionGrain>(id);
+        if (!await grain.IsInitializedAsync()) return NotFound();
+        try
+        {
+            return Ok(await commit.CommitSceneAsync(id, sceneId, request, ct));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    /// <summary>Whole-import rollback: deletes the committed Room (messages + AGE events)
+    /// and returns every scene to editable draft. Minted personas stay in the library.</summary>
+    [HttpDelete("{id:guid}/commit")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ImportCommitTarget>> RollbackCommits(Guid id, CancellationToken ct)
+    {
+        var grain = grains.GetGrain<IImportSessionGrain>(id);
+        if (!await grain.IsInitializedAsync()) return NotFound();
+        try
+        {
+            return Ok(await commit.RollbackAsync(id, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    /// <summary>Reads the durable correction ledger for this session. Works after the
+    /// session grain is disposed — the ledger outlives the workshop by design.</summary>
+    [HttpGet("{id:guid}/corrections")]
+    public async Task<ActionResult<IReadOnlyList<ImportCorrection>>> GetCorrections(Guid id, CancellationToken ct)
+        => Ok(await corrections.ListAsync(id, ct));
 
     // ── draft ────────────────────────────────────────────────────────────────────
 
@@ -176,6 +251,11 @@ public sealed class ImportSessionController(
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Committed scenes (and their items) are settled — surfaced as a conflict.
+            return Conflict(ex.Message);
         }
     }
 }

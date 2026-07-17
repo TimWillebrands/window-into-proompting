@@ -18,4 +18,8 @@ export interface ImportScene {
     runCount?: number | string;
     /** @nullable */
     lastRunAt?: string | null;
+    committed?: boolean;
+    /** @nullable */
+    committedAt?: string | null;
+    messagesWritten?: boolean;
 }
