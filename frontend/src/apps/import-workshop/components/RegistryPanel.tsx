@@ -217,6 +217,29 @@ function CastRow({
         label: entry.matchState ?? '?',
         color: '#708090',
     };
+    const isConcept = entry.routing === 'concept';
+    // One line per row stating the commit effect of the current state.
+    const effect = isConcept
+        ? entry.confirmed
+            ? {
+                  color: '#2e8b57',
+                  text: 'at commit: becomes a Concept — reachable in memories, never speaks, no card needed',
+              }
+            : {
+                  color: '#b8860b',
+                  text: '⚠ concept routing only takes effect once confirmed — as-is this still mints a persona (card required)',
+              }
+        : entry.matchState === 'confirmed-match'
+          ? {
+                color: '#2e8b57',
+                text: `at commit: memories and card updates go to library persona “${entry.proposedPersonaName ?? name}”`,
+            }
+          : entry.matchState === 'confirmed-mint'
+            ? {
+                  color: '#316ac5',
+                  text: 'at commit: mints a new persona — its card comes from Finalize, review it in Cards',
+              }
+            : null;
     const saveEdit = (edit: {
         aliases?: string[] | null;
         routing?: string | null;
@@ -287,6 +310,9 @@ function CastRow({
                     }}
                 />
             </div>
+            {effect ? (
+                <span style={{ color: effect.color }}>{effect.text}</span>
+            ) : null}
             {entry.matchState === 'proposed' ? (
                 <div className="flex flex-wrap gap-1">
                     <button
@@ -322,7 +348,8 @@ function CastRow({
             {entry.matchState === 'unmatched' && entry.routing !== 'concept' ? (
                 <div className="flex flex-wrap items-center gap-1">
                     <span style={{ color: '#555' }}>
-                        will mint a new persona at commit —
+                        at commit: mints a new persona (card comes from
+                        Finalize) —
                     </span>
                     {pickerOpen ? (
                         <PersonaPicker
@@ -424,7 +451,10 @@ function ConceptRow({
             <span className="xp-glass-chip" title="mentions across the draft">
                 ×{num(concept.mentions)}
             </span>
-            <label className="xp-glass-chip flex items-center gap-1">
+            <label
+                className="xp-glass-chip flex items-center gap-1"
+                title="Confirmed concepts become canonical vocabulary in later runs; unconfirmed ones stay suggestions"
+            >
                 <input
                     type="checkbox"
                     checked={concept.confirmed === true}

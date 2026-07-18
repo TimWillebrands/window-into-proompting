@@ -65,7 +65,8 @@ function commitReadiness(
     for (const item of items) {
         if (item.type !== 'trait' || !item.persona) continue;
         const entry = castByAlias.get(nameKey(item.persona));
-        if (entry?.routing === 'concept') continue;
+        // Mirrors the backend: a concept claim only counts when confirmed.
+        if (entry?.routing === 'concept' && entry.confirmed === true) continue;
         if (entry?.matchState === 'confirmed-match') continue;
         const owner = entry?.name ?? item.persona;
         const hasCard = (draft.cards ?? []).some(
@@ -75,7 +76,7 @@ function commitReadiness(
     }
     if (cardless.size > 0)
         blockers.push(
-            `no reviewed card for: ${[...cardless].join(', ')} — run Finalize first`,
+            `no card yet for: ${[...cardless].join(', ')} — Finalize writes one, or route noise to a confirmed concept in the Registry`,
         );
 
     return { ran: num(scene.runCount) > 0, blockers };
@@ -506,12 +507,22 @@ function SceneCard({
                     </button>
                 </div>
             ) : null}
-            {!committed && readiness.blockers.length > 0 ? (
-                <div style={{ color: '#b8860b' }}>
-                    {readiness.blockers.map((blocker) => (
-                        <div key={blocker}>⚠ {blocker}</div>
-                    ))}
-                </div>
+            {!committed && !running ? (
+                !readiness.ran ? (
+                    <div style={{ color: '#316ac5' }}>
+                        ▸ Next: Run extracts this scene into the draft (LLM)
+                    </div>
+                ) : readiness.blockers.length > 0 ? (
+                    <div style={{ color: '#b8860b' }}>
+                        {readiness.blockers.map((blocker) => (
+                            <div key={blocker}>⚠ {blocker}</div>
+                        ))}
+                    </div>
+                ) : (
+                    <div style={{ color: '#2e8b57' }}>
+                        ✔ Ready — Commit writes messages + memories, no LLM
+                    </div>
+                )
             ) : null}
         </div>
     );

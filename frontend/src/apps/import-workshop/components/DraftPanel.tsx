@@ -53,9 +53,12 @@ export default function DraftPanel({
     return (
         <div className="flex flex-col gap-1">
             <p style={{ color: '#555' }}>
-                Weight floor {num(settings?.weightFloor, 0.5).toFixed(2)}:
-                episodes below it route to Room history only (greyed) — flip any
-                row the extractor got wrong.
+                Every row shows where it lands at commit. Episodes carry weight
+                (how much the moment sticks a day later); below the floor{' '}
+                {num(settings?.weightFloor, 0.5).toFixed(2)} they route to Room
+                history only (greyed) — flip any row the extractor got wrong.
+                Traits fold into persona cards at Finalize; rules are recorded
+                for the ledger, never written.
             </p>
             {items.map((item) => (
                 <DraftItemRow key={item.id} sessionId={sessionId} item={item} />
@@ -92,8 +95,10 @@ function DraftItemRow({
         color: '#9aa0a6',
     };
     const isEpisode = item.type === 'episode';
+    const isTrait = item.type === 'trait';
+    const isRule = item.type === 'rule';
     const historyRouted = item.routing === 'history';
-    const greyed = isEpisode && historyRouted;
+    const greyed = (isEpisode && historyRouted) || isRule;
     const patch = (data: {
         routing?: string | null;
         summary?: string | null;
@@ -118,7 +123,7 @@ function DraftItemRow({
                 {item.persona ? (
                     <span className="font-semibold">{item.persona}</span>
                 ) : null}
-                {item.weight != null ? (
+                {isEpisode && item.weight != null ? (
                     <span
                         className="xp-glass-chip"
                         title="How much this moment would stick a day later"
@@ -134,8 +139,28 @@ function DraftItemRow({
                             color: historyRouted ? '#708090' : '#2e8b57',
                         }}
                     >
-                        {historyRouted ? 'history only' : 'memory event'}
+                        {historyRouted
+                            ? '→ history only'
+                            : '→ memory event + history'}
                         {item.routingReason ? ` — ${item.routingReason}` : ''}
+                    </span>
+                ) : null}
+                {isTrait ? (
+                    <span
+                        className="xp-glass-chip"
+                        style={{ color: '#8e5bb5' }}
+                        title="Folded into this persona’s card at Finalize; commit writes the card. Traits carry no weight."
+                    >
+                        → persona card
+                    </span>
+                ) : null}
+                {isRule ? (
+                    <span
+                        className="xp-glass-chip"
+                        style={{ color: '#708090' }}
+                        title="Extraction context only — kept in the correction ledger, never written to the Room or memories."
+                    >
+                        recorded only
                     </span>
                 ) : null}
                 {item.routingOverridden ? (
