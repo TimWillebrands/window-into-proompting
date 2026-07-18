@@ -37,6 +37,12 @@ public sealed record class PartyRealtimeEnvelope
 [JsonDerivedType(typeof(PersonaGenerationCompletedData), "persona_generation_completed")]
 [JsonDerivedType(typeof(PersonaGenerationErrorData), "persona_generation_error")]
 [JsonDerivedType(typeof(PartyRaceEvaluationData), "party_race_evaluation")]
+[JsonDerivedType(typeof(ImportRunSnapshotData), "import_run_snapshot")]
+[JsonDerivedType(typeof(ImportRunStartedData), "import_run_started")]
+[JsonDerivedType(typeof(ImportRunProgressData), "import_run_progress")]
+[JsonDerivedType(typeof(ImportRunCompletedData), "import_run_completed")]
+[JsonDerivedType(typeof(ImportRunFailedData), "import_run_failed")]
+[JsonDerivedType(typeof(ImportPongData), "import_pong")]
 public interface IPartyRealtimeData;
 
 /// <summary>Payload for the "party.snapshot" event: initial backlog on connect.
@@ -86,3 +92,34 @@ public sealed record class PersonaGenerationErrorData(string Message) : IPartyRe
 /// <summary>Payload for the "party.race.evaluation" event: one stop-signal race outcome
 /// from <c>PersonaGrain.RunStopSignalRaceAsync</c>, surfaced live to the thought log.</summary>
 public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.run.snapshot" event: scene runs in flight when the
+/// client connects, so a mid-run page refresh can reattach to live progress.</summary>
+public sealed record class ImportRunSnapshotData(
+    Guid SessionId,
+    IReadOnlyList<PartyTown.Services.Import.ImportActiveRun> Runs) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.run.started" event: a scene run began.</summary>
+public sealed record class ImportRunStartedData(Guid SessionId, Guid SceneId) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.run.progress" event: one extraction call finished,
+/// with pre-fold item previews from that call.</summary>
+public sealed record class ImportRunProgressData(
+    Guid SessionId,
+    Guid SceneId,
+    int CallsDone,
+    int TotalCalls,
+    string? Stage,
+    IReadOnlyList<PartyTown.Services.Streaming.ImportRunItemPreview> Items) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.run.completed" event: the run folded into the draft.</summary>
+public sealed record class ImportRunCompletedData(
+    Guid SessionId,
+    Guid SceneId,
+    PartyTown.Services.Import.SceneRunResult? Result) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.run.failed" event.</summary>
+public sealed record class ImportRunFailedData(Guid SessionId, Guid SceneId, string Error) : IPartyRealtimeData;
+
+/// <summary>Payload for the "import.pong" event: server response to client ping.</summary>
+public sealed record class ImportPongData(Guid SessionId) : IPartyRealtimeData;

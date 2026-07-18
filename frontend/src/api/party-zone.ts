@@ -2027,6 +2027,304 @@ export const useDeleteImportId = <TError = unknown, TContext = unknown>(
     return useMutation(getDeleteImportIdMutationOptions(options), queryClient);
 };
 
+export type getImportIdWsResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type getImportIdWsResponseSuccess = getImportIdWsResponse200 & {
+    headers: Headers;
+};
+
+export type getImportIdWsResponse = getImportIdWsResponseSuccess;
+
+export const getGetImportIdWsUrl = (id: string) => {
+    return `/api/import/${id}/ws`;
+};
+
+export const getImportIdWs = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdWsResponse> => {
+    return customFetch<getImportIdWsResponse>(getGetImportIdWsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+};
+
+export const getGetImportIdWsQueryKey = (id: string) => {
+    return [`/api/import/${id}/ws`] as const;
+};
+
+export const getGetImportIdWsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdWsQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportIdWs>>> = ({
+        signal,
+    }) => getImportIdWs(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdWsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdWs>>
+>;
+export type GetImportIdWsQueryError = unknown;
+
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdWs>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdWs>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdWsQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdWsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdWsQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportIdWs>>> = ({
+        signal,
+    }) => getImportIdWs(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdWsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdWs>>
+>;
+export type GetImportIdWsSuspenseQueryError = unknown;
+
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdWsSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export type getImportIdChunksIndexResponse200TextPlain = {
     data: ImportChunk;
     status: 200;

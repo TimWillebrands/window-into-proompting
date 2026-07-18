@@ -27,6 +27,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 builder.Services.AddSingleton<ImportService>();
 builder.Services.AddSingleton<PartyTown.Services.Import.ISceneMapService, PartyTown.Services.Import.SceneMapService>();
+builder.Services.AddSingleton<PartyTown.Services.Import.IImportRunCoordinator, PartyTown.Services.Import.ImportRunCoordinator>();
 builder.Services.AddSingleton<PartyTown.Services.Import.IImportPersonaFinalizeService, PartyTown.Services.Import.ImportPersonaFinalizeService>();
 builder.Services.AddSingleton<RaceTrigger>();
 builder.Services.AddSingleton<ResponsePipeline>();

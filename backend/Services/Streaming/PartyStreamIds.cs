@@ -14,4 +14,10 @@ public static class PartyStreamIds
 
     /// <summary>Generates the stream key for a party's event stream.</summary>
     public static string PartyEventId(Guid partyId) => partyId.ToString("N");
+
+    /// <summary>Namespace for import-session events (scene run progress, draft item previews).</summary>
+    public const string ImportEventsNamespace = "import-events";
+
+    /// <summary>Generates the stream key for an import session's event stream.</summary>
+    public static string ImportEventId(Guid sessionId) => sessionId.ToString("N");
 }

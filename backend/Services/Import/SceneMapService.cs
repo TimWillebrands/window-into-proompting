@@ -16,8 +16,12 @@ namespace PartyTown.Services.Import;
 /// </summary>
 public interface ISceneMapService
 {
-    Task<SceneMapResult> RunAsync(SceneRunInput input, CancellationToken ct);
+    Task<SceneMapResult> RunAsync(SceneRunInput input, CancellationToken ct, Func<SceneMapProgress, Task>? onProgress = null);
 }
+
+/// <summary>Progress of one scene run: reported once up front (call 0 of N) and after
+/// every extraction call, with the pre-fold items that call produced.</summary>
+public sealed record SceneMapProgress(int CallsDone, int TotalCalls, string Stage, IReadOnlyList<MappedItem> NewItems);
 
 /// <inheritdoc cref="ISceneMapService"/>
 public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapService> logger) : ISceneMapService
@@ -29,7 +33,7 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
     private const int MaxMessageChars = 4_200; // per-message cap into the window prompt
     private const int Attempts = 3;
 
-    public async Task<SceneMapResult> RunAsync(SceneRunInput input, CancellationToken ct)
+    public async Task<SceneMapResult> RunAsync(SceneRunInput input, CancellationToken ct, Func<SceneMapProgress, Task>? onProgress = null)
     {
         var items = new List<MappedItem>();
         var discards = new List<ChunkDiscard>();
@@ -47,6 +51,15 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
 
         var registry = BuildRegistryBlock(input);
 
+        // Windows are computed up front so progress can carry a real total from call 0.
+        var messages = input.Chunks.Where(c => c.Category == ImportChunkCategories.Message).ToList();
+        var messageIndices = messages.Select(m => m.Index).ToHashSet();
+        var windows = BuildWindows(messages.Count, WindowSize, WindowOverlap);
+        var totalCalls = sections.Count + windows.Count;
+
+        if (onProgress is not null)
+            await onProgress(new SceneMapProgress(0, totalCalls, "canon", Array.Empty<MappedItem>()));
+
         foreach (var section in sections)
         {
             ct.ThrowIfCancellationRequested();
@@ -61,10 +74,12 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
                     Reason = "unparseable or empty items",
                     Detail = Truncate(raw, 200),
                 });
+                if (onProgress is not null)
+                    await onProgress(new SceneMapProgress(llmCalls, totalCalls, "canon", Array.Empty<MappedItem>()));
                 continue;
             }
 
-            items.AddRange(parsed.Items.Select(i => new MappedItem
+            var sectionItems = parsed.Items.Select(i => new MappedItem
             {
                 SourceId = section.Id,
                 Type = i.Type?.ToLowerInvariant(),
@@ -75,14 +90,13 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
                     .Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()).ToList(),
                 Concepts = ToConceptDrafts(i.Concepts),
                 SourceChunks = section.SourceChunks.ToList(),
-            }));
+            }).ToList();
+            items.AddRange(sectionItems);
+            if (onProgress is not null)
+                await onProgress(new SceneMapProgress(llmCalls, totalCalls, "canon", sectionItems));
         }
 
         // ── message path: overlapping windows, salience selection ──
-        var messages = input.Chunks.Where(c => c.Category == ImportChunkCategories.Message).ToList();
-        var messageIndices = messages.Select(m => m.Index).ToHashSet();
-        var windows = BuildWindows(messages.Count, WindowSize, WindowOverlap);
-
         for (var w = 0; w < windows.Count; w++)
         {
             ct.ThrowIfCancellationRequested();
@@ -99,13 +113,16 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
                     Reason = "unparseable window output",
                     Detail = Truncate(raw, 200),
                 });
+                if (onProgress is not null)
+                    await onProgress(new SceneMapProgress(llmCalls, totalCalls, "messages", Array.Empty<MappedItem>()));
                 continue;
             }
 
+            var windowItems = new List<MappedItem>();
             foreach (var ep in parsed.Episodes ?? new List<WindowEpisode>())
             {
                 if (string.IsNullOrWhiteSpace(ep.Summary)) continue;
-                items.Add(new MappedItem
+                windowItems.Add(new MappedItem
                 {
                     SourceId = windowId,
                     Type = DraftItemTypes.Episode,
@@ -119,9 +136,12 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
                         .Where(messageIndices.Contains).Distinct().OrderBy(i => i).ToList(),
                 });
             }
+            items.AddRange(windowItems);
             foreach (var d in parsed.Discards ?? new List<WindowDiscard>())
                 if (messageIndices.Contains(d.Index) && !string.IsNullOrWhiteSpace(d.Reason))
                     discards.Add(new ChunkDiscard { ChunkIndex = d.Index, Reason = d.Reason!.Trim() });
+            if (onProgress is not null)
+                await onProgress(new SceneMapProgress(llmCalls, totalCalls, "messages", windowItems));
         }
 
         logger.LogInformation(

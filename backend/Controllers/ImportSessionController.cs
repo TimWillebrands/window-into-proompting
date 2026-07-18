@@ -14,10 +14,11 @@ namespace PartyTown.Controllers;
 [Route("import")]
 public sealed class ImportSessionController(
     IGrainFactory grains,
-    ISceneMapService sceneMap,
+    IImportRunCoordinator runCoordinator,
     IImportPersonaFinalizeService personaFinalize,
     ImportCommitService commit,
     IImportCorrectionStore corrections,
+    PartyTown.Services.Realtime.IPartyRealtimeHub realtimeHub,
     ILogger<ImportSessionController> logger) : ControllerBase
 {
     // The reference export is ~1.5 MB; leave generous headroom over Kestrel's default.
@@ -68,8 +69,35 @@ public sealed class ImportSessionController(
     {
         var grain = grains.GetGrain<IImportSessionGrain>(id);
         if (!await grain.IsInitializedAsync()) return NotFound();
+        runCoordinator.CancelSession(id);
         await grain.DeleteAsync();
         return NoContent();
+    }
+
+    /// <summary>
+    /// Opens the realtime websocket for this session: scene-run progress, pre-fold draft
+    /// item previews and run completion, in the standard realtime envelope format. On
+    /// connect the client receives a snapshot of runs already in flight.
+    /// </summary>
+    [HttpGet("{id:guid}/ws")]
+    public async Task Realtime(Guid id)
+    {
+        if (!HttpContext.WebSockets.IsWebSocketRequest)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsync("Expected a websocket upgrade request.", HttpContext.RequestAborted);
+            return;
+        }
+
+        var grain = grains.GetGrain<IImportSessionGrain>(id);
+        if (!await grain.IsInitializedAsync())
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+        await realtimeHub.HandleImportConnectionAsync(id, socket, HttpContext.RequestAborted);
     }
 
     /// <summary>Returns one chunk's full text.</summary>
@@ -113,18 +141,20 @@ public sealed class ImportSessionController(
     /// <summary>
     /// Runs (or reruns) the extraction map for one scene — General-tier LLM calls, then a
     /// deterministic fold into the draft. Rerunning replaces the scene's draft slice;
-    /// other scenes are never touched.
+    /// other scenes are never touched. The run is detached from this request: a dropped
+    /// connection does not abort it, progress streams over the session websocket, and a
+    /// re-POST while the scene is running joins the run in flight.
     /// </summary>
     [HttpPost("{id:guid}/scenes/{sceneId:guid}/run")]
-    public async Task<ActionResult<SceneRunResult>> RunScene(Guid id, Guid sceneId, CancellationToken ct)
+    public async Task<ActionResult<SceneRunResult>> RunScene(Guid id, Guid sceneId)
     {
         var grain = grains.GetGrain<IImportSessionGrain>(id);
         if (!await grain.IsInitializedAsync()) return NotFound();
 
-        SceneRunInput input;
+        logger.LogInformation("Import session {SessionId}: running scene {SceneId}", id, sceneId);
         try
         {
-            input = await grain.GetSceneRunInputAsync(sceneId);
+            return Ok(await runCoordinator.RunAsync(id, sceneId));
         }
         catch (KeyNotFoundException)
         {
@@ -135,14 +165,6 @@ public sealed class ImportSessionController(
             // Committed scenes are settled — regeneration is a draft-only power.
             return Conflict(ex.Message);
         }
-
-        logger.LogInformation(
-            "Import session {SessionId}: running scene {SceneId} ({Chunks} chunks, dossier: {Dossier})",
-            id, sceneId, input.Chunks.Count, input.SystemInstruction.Length > 0);
-
-        var map = await sceneMap.RunAsync(input, ct);
-        var result = await grain.ApplySceneRunAsync(sceneId, map);
-        return Ok(result);
     }
 
     // ── registry + cards ─────────────────────────────────────────────────────────
