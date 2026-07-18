@@ -13,9 +13,11 @@ namespace PartyTown.Services.Realtime;
 public sealed class PartyRealtimeHub(
     IClusterClient clusterClient,
     IGrainFactory grainFactory,
+    PartyTown.Services.Import.IImportRunCoordinator importRuns,
     ILogger<PartyRealtimeHub> logger) : IPartyRealtimeHub
 {
     private readonly ConcurrentDictionary<Guid, PartyRealtimeSession> sessions = new();
+    private readonly ConcurrentDictionary<Guid, ImportRealtimeSession> importSessions = new();
 
     public Task HandleConnectionAsync(Guid partyId, WebSocket socket, CancellationToken cancellationToken)
     {
@@ -32,6 +34,18 @@ public sealed class PartyRealtimeHub(
 
             return session.HandleConnectionAsync(socket, cancellationToken);
         }
+    }
+
+    public Task HandleImportConnectionAsync(Guid sessionId, WebSocket socket, CancellationToken cancellationToken)
+    {
+        var session = importSessions.GetOrAdd(sessionId, id => new ImportRealtimeSession(
+            id,
+            clusterClient,
+            importRuns,
+            () => importSessions.TryRemove(id, out _),
+            logger));
+
+        return session.HandleConnectionAsync(socket, cancellationToken);
     }
 }
 

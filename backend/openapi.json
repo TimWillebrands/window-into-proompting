@@ -17,48 +17,57 @@
         }
       }
     },
-    "/Import/extract-personas": {
+    "/import": {
       "post": {
         "tags": [
-          "Import"
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "fileName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExtractPersonasRequest"
+                "$ref": "#/components/schemas/JsonElement"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExtractPersonasRequest"
+                "$ref": "#/components/schemas/JsonElement"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/ExtractPersonasRequest"
+                "$ref": "#/components/schemas/JsonElement"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created",
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                  "$ref": "#/components/schemas/ImportSessionOverview"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                  "$ref": "#/components/schemas/ImportSessionOverview"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtractPersonasResponse"
+                  "$ref": "#/components/schemas/ImportSessionOverview"
                 }
               }
             }
@@ -86,79 +95,59 @@
         }
       }
     },
-    "/Import/merge-personas": {
-      "post": {
-        "tags": [
-          "Import"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergePersonasRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergePersonasRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergePersonasRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/MergePersonasResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MergePersonasResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MergePersonasResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Import/classify-ws": {
+    "/import/{id}": {
       "get": {
         "tags": [
-          "Import"
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionOverview"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionOverview"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionOverview"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -167,10 +156,21 @@
         }
       }
     },
-    "/Import/identify-ws": {
+    "/import/{id}/ws": {
       "get": {
         "tags": [
-          "Import"
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -179,26 +179,87 @@
         }
       }
     },
-    "/Import/regenerate-char-detail": {
+    "/import/{id}/chunks/{index}": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportChunk"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportChunk"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportChunk"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes": {
       "post": {
         "tags": [
-          "Import"
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+                "$ref": "#/components/schemas/SceneDefinition"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+                "$ref": "#/components/schemas/SceneDefinition"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/RegenerateCharDetailRequest"
+                "$ref": "#/components/schemas/SceneDefinition"
               }
             }
           },
@@ -210,23 +271,484 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                  "$ref": "#/components/schemas/ImportScene"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                  "$ref": "#/components/schemas/ImportScene"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegenerateCharDetailResponse"
+                  "$ref": "#/components/schemas/ImportScene"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes/{sceneId}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneDefinition"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneDefinition"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportScene"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportScene"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportScene"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes/{sceneId}/run": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneRunResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneRunResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneRunResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRegistryView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/cast/{name}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryCastEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/cast/{name}/decision": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastMatchDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCastEntry"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/registry/concepts/{name}": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryConceptEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConcept"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes/{sceneId}/finalize": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneFinalizeResult"
                 }
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "text/plain": {
                 "schema": {
@@ -248,26 +770,45 @@
         }
       }
     },
-    "/Import/commit": {
-      "post": {
+    "/import/{id}/cards/{name}": {
+      "put": {
         "tags": [
-          "Import"
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommitImportRequest"
+                "$ref": "#/components/schemas/PersonaCardEdit"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommitImportRequest"
+                "$ref": "#/components/schemas/PersonaCardEdit"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CommitImportRequest"
+                "$ref": "#/components/schemas/PersonaCardEdit"
               }
             }
           },
@@ -279,17 +820,86 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/CommitImportResponse"
+                  "$ref": "#/components/schemas/PersonaCardDraft"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CommitImportResponse"
+                  "$ref": "#/components/schemas/PersonaCardDraft"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CommitImportResponse"
+                  "$ref": "#/components/schemas/PersonaCardDraft"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/scenes/{sceneId}/commit": {
+      "post": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sceneId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneCommitRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneCommitRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneCommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneCommitResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneCommitResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneCommitResult"
                 }
               }
             }
@@ -330,6 +940,364 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/commit": {
+      "delete": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCommitTarget"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCommitTarget"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCommitTarget"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/corrections": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportCorrection"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportCorrection"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportCorrection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/draft": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftView"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftView"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/ledger": {
+      "get": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportLedger"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportLedger"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportLedger"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/draft/{itemId}": {
+      "patch": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftItemEdit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftItemEdit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftItemEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftItem"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftItem"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDraftItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/{id}/settings": {
+      "put": {
+        "tags": [
+          "ImportSession"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSettingsUpdate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSettingsUpdate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSettings"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSettings"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSettings"
                 }
               }
             }
@@ -2834,6 +3802,21 @@
           }
         }
       },
+      "CastMatchDecision": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string"
+          },
+          "personaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "ChatGroupInfo": {
         "type": "object",
         "properties": {
@@ -2860,72 +3843,65 @@
           }
         }
       },
-      "CommitImportRequest": {
+      "ChunkRouting": {
         "type": "object",
         "properties": {
-          "partyId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "chatGroupName": {
-            "type": "string"
-          },
-          "scenario": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "personas": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PersonaStubForCommit"
-            }
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportedMessageForCommit"
-            }
-          },
-          "userParticipant": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/UserParticipantStub"
-              }
-            ]
-          }
-        }
-      },
-      "CommitImportResponse": {
-        "required": [
-          "chatGroupId",
-          "createdPersonaIds",
-          "messagesWritten"
-        ],
-        "type": "object",
-        "properties": {
-          "chatGroupId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "createdPersonaIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "messagesWritten": {
+          "chunkIndex": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "category": {
+            "type": "string"
+          },
+          "disposition": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sceneId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ChunkSummary": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "role": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "chars": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "head": {
+            "type": "string"
           }
         }
       },
@@ -3012,6 +3988,24 @@
           }
         }
       },
+      "DedupDrop": {
+        "type": "object",
+        "properties": {
+          "keptItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "keptSummary": {
+            "type": "string"
+          },
+          "droppedSummary": {
+            "type": "string"
+          },
+          "droppedSourceId": {
+            "type": "string"
+          }
+        }
+      },
       "DefaultPersonaTemplate": {
         "required": [
           "name",
@@ -3028,6 +4022,49 @@
           },
           "bio": {
             "type": "string"
+          }
+        }
+      },
+      "DegradedRecord": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DraftItemEdit": {
+        "type": "object",
+        "properties": {
+          "routing": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -3050,98 +4087,21 @@
           }
         }
       },
-      "ExtractedPersona": {
+      "ImportChunk": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
-          },
-          "archetype": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "system_prompt": {
-            "type": "string"
-          },
-          "bio": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "ExtractPersonasRequest": {
-        "type": "object",
-        "properties": {
-          "systemInstruction": {
-            "type": "string"
-          },
-          "sampleChunks": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/ImportSampleChunk"
-            }
-          }
-        }
-      },
-      "ExtractPersonasResponse": {
-        "required": [
-          "personas"
-        ],
-        "type": "object",
-        "properties": {
-          "personas": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ExtractedPersona"
-            }
-          }
-        }
-      },
-      "ImportedMessageForCommit": {
-        "type": "object",
-        "properties": {
-          "senderPlaceholderId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "senderType": {
-            "type": "string"
-          },
-          "content": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "sendAt": {
+          "index": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
-            "format": "int64"
+            "format": "int32"
           },
-          "kind": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "ImportSampleChunk": {
-        "type": "object",
-        "properties": {
           "role": {
+            "type": "string"
+          },
+          "category": {
             "type": "string"
           },
           "text": {
@@ -3149,9 +4109,473 @@
           }
         }
       },
+      "ImportCommitTarget": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomName": {
+            "type": "string"
+          },
+          "userParticipantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ImportConcept": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mentions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImportCorrection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sceneId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "chunkRefs": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "suggested": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "final": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "committedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ImportDraftItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sceneId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "persona": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "weight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "concepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceChunks": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "routing": {
+            "type": "string"
+          },
+          "routingReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "routingOverridden": {
+            "type": "boolean"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "suggestedSummary": {
+            "type": "string"
+          },
+          "suggestedWeight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "suggestedRouting": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportDraftView": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportDraftItem"
+            }
+          },
+          "concepts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportConcept"
+            }
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaCardDraft"
+            }
+          }
+        }
+      },
+      "ImportLedger": {
+        "type": "object",
+        "properties": {
+          "totalChunks": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "byDisposition": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "reconciles": {
+            "type": "boolean"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChunkRouting"
+            }
+          }
+        }
+      },
+      "ImportRegistryView": {
+        "type": "object",
+        "properties": {
+          "cast": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryCastEntry"
+            }
+          },
+          "concepts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportConcept"
+            }
+          }
+        }
+      },
+      "ImportScene": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromChunk": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toChunk": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "includeDossier": {
+            "type": "boolean"
+          },
+          "runCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastRunAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "committed": {
+            "type": "boolean"
+          },
+          "committedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "messagesWritten": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImportSessionOverview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "chunkCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "categories": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChunkSummary"
+            }
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ImportSettings"
+          },
+          "scenes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportScene"
+            }
+          },
+          "draftItemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "commitTarget": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ImportCommitTarget"
+              }
+            ]
+          }
+        }
+      },
+      "ImportSettings": {
+        "type": "object",
+        "properties": {
+          "weightFloor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "anchor": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "spacingMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "ImportSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "weightFloor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "anchor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "spacingMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "JobComplexity": {
         "type": "integer"
       },
+      "JsonElement": { },
       "LlmModel": {
         "required": [
           "name",
@@ -3340,31 +4764,6 @@
           }
         }
       },
-      "MergePersonasRequest": {
-        "type": "object",
-        "properties": {
-          "personas": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/ExtractedPersona"
-            }
-          }
-        }
-      },
-      "MergePersonasResponse": {
-        "required": [
-          "persona"
-        ],
-        "type": "object",
-        "properties": {
-          "persona": {
-            "$ref": "#/components/schemas/ExtractedPersona"
-          }
-        }
-      },
       "PartyDetails": {
         "required": [
           "party",
@@ -3453,25 +4852,10 @@
           }
         }
       },
-      "PersonaMetadata": {
+      "PersonaCardDraft": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "PersonaStubForCommit": {
-        "type": "object",
-        "properties": {
-          "placeholderId": {
-            "type": "string"
-          },
-          "name": {
+          "persona": {
             "type": "string"
           },
           "systemPrompt": {
@@ -3483,15 +4867,77 @@
               "string"
             ]
           },
-          "isNew": {
+          "humanEdited": {
             "type": "boolean"
           },
-          "preExistingId": {
+          "proposedSystemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "proposedBio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traitFingerprint": {
+            "type": "string"
+          },
+          "finalizedAt": {
             "type": [
               "null",
               "string"
             ],
+            "format": "date-time"
+          },
+          "committedSystemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "committedBio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PersonaCardEdit": {
+        "type": "object",
+        "properties": {
+          "systemPrompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "acceptProposal": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "PersonaMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
             "format": "uuid"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -3568,13 +5014,10 @@
           }
         }
       },
-      "RegenerateCharDetailRequest": {
+      "RegistryCastEdit": {
         "type": "object",
         "properties": {
-          "primaryName": {
-            "type": "string"
-          },
-          "names": {
+          "aliases": {
             "type": [
               "null",
               "array"
@@ -3583,49 +5026,79 @@
               "type": "string"
             }
           },
-          "evidence": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "archetype": {
+          "routing": {
             "type": [
               "null",
               "string"
             ]
           },
-          "systemInstructionText": {
+          "confirmed": {
             "type": [
               "null",
-              "string"
+              "boolean"
             ]
-          },
-          "mode": {
-            "type": "string"
           }
         }
       },
-      "RegenerateCharDetailResponse": {
-        "required": [
-          "prompt",
-          "bio"
-        ],
+      "RegistryCastEntry": {
         "type": "object",
         "properties": {
-          "prompt": {
+          "name": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "routing": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "matchState": {
+            "type": "string"
+          },
+          "proposedPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "proposedPersonaName": {
             "type": [
               "null",
               "string"
             ]
           },
-          "bio": {
+          "matchedPersonaId": {
             "type": [
               "null",
               "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RegistryConceptEdit": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
             ]
           }
         }
@@ -3649,6 +5122,225 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SceneCommitRequest": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "roomName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SceneCommitResult": {
+        "type": "object",
+        "properties": {
+          "sceneId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "committedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messagesWritten": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "eventsWritten": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recollectionsWritten": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "conceptLinks": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "personasMinted": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correctionsRecorded": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unmatchedParticipants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "personasUpdated": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "personaUpdatesSkipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SceneDefinition": {
+        "type": "object",
+        "properties": {
+          "fromChunk": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toChunk": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "includeDossier": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SceneFinalizeResult": {
+        "type": "object",
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaCardDraft"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "llmCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SceneRunResult": {
+        "type": "object",
+        "properties": {
+          "sceneId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ranAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "llmCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unparseableCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "replacedItems": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportDraftItem"
+            }
+          },
+          "chunkRoutings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChunkRouting"
+            }
+          },
+          "deduped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DedupDrop"
+            }
+          },
+          "degraded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DegradedRecord"
+            }
           }
         }
       },
@@ -3793,18 +5485,6 @@
             }
           }
         }
-      },
-      "UserParticipantStub": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
       }
     }
   },
@@ -3813,7 +5493,7 @@
       "name": "backend"
     },
     {
-      "name": "Import"
+      "name": "ImportSession"
     },
     {
       "name": "LlmConfig"

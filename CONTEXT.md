@@ -48,6 +48,10 @@ _Avoid_: resolved-driver, current-driver.
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
 _Avoid_: prompt, setting, premise, context.
 
+**Scene**:
+A human-selected chunk range from an import processed as one unit by the scene workshop — usually one narrative scene, sometimes more (a recap). Workshop-only vocabulary; it exists in the import **session** draft and dissolves on commit — no `Scene` node lands in the memory graph. See [ADR 0017](docs/adr/0017-import-scene-workshop-over-stateless-map.md).
+_Avoid_: segment, window, batch, section.
+
 ### Persona behaviour dials
 
 **Chattiness** (0..1):

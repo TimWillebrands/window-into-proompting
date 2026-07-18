@@ -12,4 +12,10 @@ public interface IPartyRealtimeHub
     /// The hub manages subscription lifecycle, broadcasts events to all clients, and cleans up on disconnect.
     /// </summary>
     Task HandleConnectionAsync(Guid partyId, WebSocket socket, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Handles a new websocket connection for an import session: scene-run progress and
+    /// pre-fold draft item previews (ADR 0017 — no bespoke import sockets).
+    /// </summary>
+    Task HandleImportConnectionAsync(Guid sessionId, WebSocket socket, CancellationToken cancellationToken);
 }

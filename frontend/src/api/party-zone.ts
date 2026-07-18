@@ -26,31 +26,49 @@ import { customFetch } from './custom-fetch';
 import type {
     AppendStanceRequest,
     AppendStanceResponse,
+    CastMatchDecision,
     ChatGroupInfo,
-    CommitImportRequest,
-    CommitImportResponse,
     ConsolidationRunResponse,
     CreateChatGroupRequest,
     CreatePartyRequest,
     DefaultPersonaTemplate,
+    DraftItemEdit,
     DriverOverrideEntry,
-    ExtractPersonasRequest,
-    ExtractPersonasResponse,
     GetPartyIdChatGroupsChatGroupIdPapertrailParams,
+    ImportChunk,
+    ImportCommitTarget,
+    ImportConcept,
+    ImportCorrection,
+    ImportDraftItem,
+    ImportDraftView,
+    ImportLedger,
+    ImportRegistryView,
+    ImportScene,
+    ImportSessionOverview,
+    ImportSettings,
+    ImportSettingsUpdate,
+    JsonElement,
     LlmModel,
     LlmProviderEntry,
     MemoryGraphDto,
-    MergePersonasRequest,
-    MergePersonasResponse,
     PartyDetails,
     PartyInfo,
     Persona,
+    PersonaCardDraft,
+    PersonaCardEdit,
+    PostImportParams,
     ProblemDetails,
     ProceedRequest,
     PromptRequest,
-    RegenerateCharDetailRequest,
-    RegenerateCharDetailResponse,
+    RegistryCastEdit,
+    RegistryCastEntry,
+    RegistryConceptEdit,
     RepromptRequest,
+    SceneCommitRequest,
+    SceneCommitResult,
+    SceneDefinition,
+    SceneFinalizeResult,
+    SceneRunResult,
     StanceRecord,
     UpdateChatGroupDriverOverridesRequest,
     UpdateChatGroupParticipantIdsRequest,
@@ -314,1095 +332,105 @@ export function useGetUpSuspense<
     return { ...query, queryKey: queryOptions.queryKey };
 }
 
-export type postImportExtractPersonasResponse200TextPlain = {
-    data: ExtractPersonasResponse;
-    status: 200;
+export type postImportResponse201TextPlain = {
+    data: ImportSessionOverview;
+    status: 201;
 };
 
-export type postImportExtractPersonasResponse200ApplicationJson = {
-    data: ExtractPersonasResponse;
-    status: 200;
+export type postImportResponse201ApplicationJson = {
+    data: ImportSessionOverview;
+    status: 201;
 };
 
-export type postImportExtractPersonasResponse200TextJson = {
-    data: ExtractPersonasResponse;
-    status: 200;
+export type postImportResponse201TextJson = {
+    data: ImportSessionOverview;
+    status: 201;
 };
 
-export type postImportExtractPersonasResponse400TextPlain = {
+export type postImportResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
 };
 
-export type postImportExtractPersonasResponse400ApplicationJson = {
+export type postImportResponse400ApplicationJson = {
     data: ProblemDetails;
     status: 400;
 };
 
-export type postImportExtractPersonasResponse400TextJson = {
+export type postImportResponse400TextJson = {
     data: ProblemDetails;
     status: 400;
 };
 
-export type postImportExtractPersonasResponseSuccess = (
-    | postImportExtractPersonasResponse200TextPlain
-    | postImportExtractPersonasResponse200ApplicationJson
-    | postImportExtractPersonasResponse200TextJson
+export type postImportResponseSuccess = (
+    | postImportResponse201TextPlain
+    | postImportResponse201ApplicationJson
+    | postImportResponse201TextJson
 ) & {
     headers: Headers;
 };
-export type postImportExtractPersonasResponseError = (
-    | postImportExtractPersonasResponse400TextPlain
-    | postImportExtractPersonasResponse400ApplicationJson
-    | postImportExtractPersonasResponse400TextJson
+export type postImportResponseError = (
+    | postImportResponse400TextPlain
+    | postImportResponse400ApplicationJson
+    | postImportResponse400TextJson
 ) & {
     headers: Headers;
 };
 
-export type postImportExtractPersonasResponse =
-    | postImportExtractPersonasResponseSuccess
-    | postImportExtractPersonasResponseError;
+export type postImportResponse =
+    | postImportResponseSuccess
+    | postImportResponseError;
 
-export const getPostImportExtractPersonasUrl = () => {
-    return `/api/Import/extract-personas`;
+export const getPostImportUrl = (params?: PostImportParams) => {
+    const normalizedParams = new URLSearchParams();
+
+    Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined) {
+            normalizedParams.append(
+                key,
+                value === null ? 'null' : value.toString(),
+            );
+        }
+    });
+
+    const stringifiedParams = normalizedParams.toString();
+
+    return stringifiedParams.length > 0
+        ? `/api/import?${stringifiedParams}`
+        : `/api/import`;
 };
 
-export const postImportExtractPersonas = async (
-    extractPersonasRequest: ExtractPersonasRequest,
+export const postImport = async (
+    jsonElement: JsonElement,
+    params?: PostImportParams,
     options?: RequestInit,
-): Promise<postImportExtractPersonasResponse> => {
-    return customFetch<postImportExtractPersonasResponse>(
-        getPostImportExtractPersonasUrl(),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(extractPersonasRequest),
-        },
-    );
-};
-
-export const getPostImportExtractPersonasMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postImportExtractPersonas>>,
-        TError,
-        { data: ExtractPersonasRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postImportExtractPersonas>>,
-    TError,
-    { data: ExtractPersonasRequest },
-    TContext
-> => {
-    const mutationKey = ['postImportExtractPersonas'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postImportExtractPersonas>>,
-        { data: ExtractPersonasRequest }
-    > = (props) => {
-        const { data } = props ?? {};
-
-        return postImportExtractPersonas(data, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostImportExtractPersonasMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postImportExtractPersonas>>
->;
-export type PostImportExtractPersonasMutationBody = ExtractPersonasRequest;
-export type PostImportExtractPersonasMutationError = ProblemDetails;
-
-export const usePostImportExtractPersonas = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postImportExtractPersonas>>,
-            TError,
-            { data: ExtractPersonasRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postImportExtractPersonas>>,
-    TError,
-    { data: ExtractPersonasRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostImportExtractPersonasMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type postImportMergePersonasResponse200TextPlain = {
-    data: MergePersonasResponse;
-    status: 200;
-};
-
-export type postImportMergePersonasResponse200ApplicationJson = {
-    data: MergePersonasResponse;
-    status: 200;
-};
-
-export type postImportMergePersonasResponse200TextJson = {
-    data: MergePersonasResponse;
-    status: 200;
-};
-
-export type postImportMergePersonasResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportMergePersonasResponse400ApplicationJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportMergePersonasResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportMergePersonasResponseSuccess = (
-    | postImportMergePersonasResponse200TextPlain
-    | postImportMergePersonasResponse200ApplicationJson
-    | postImportMergePersonasResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type postImportMergePersonasResponseError = (
-    | postImportMergePersonasResponse400TextPlain
-    | postImportMergePersonasResponse400ApplicationJson
-    | postImportMergePersonasResponse400TextJson
-) & {
-    headers: Headers;
-};
-
-export type postImportMergePersonasResponse =
-    | postImportMergePersonasResponseSuccess
-    | postImportMergePersonasResponseError;
-
-export const getPostImportMergePersonasUrl = () => {
-    return `/api/Import/merge-personas`;
-};
-
-export const postImportMergePersonas = async (
-    mergePersonasRequest: MergePersonasRequest,
-    options?: RequestInit,
-): Promise<postImportMergePersonasResponse> => {
-    return customFetch<postImportMergePersonasResponse>(
-        getPostImportMergePersonasUrl(),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(mergePersonasRequest),
-        },
-    );
-};
-
-export const getPostImportMergePersonasMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postImportMergePersonas>>,
-        TError,
-        { data: MergePersonasRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postImportMergePersonas>>,
-    TError,
-    { data: MergePersonasRequest },
-    TContext
-> => {
-    const mutationKey = ['postImportMergePersonas'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postImportMergePersonas>>,
-        { data: MergePersonasRequest }
-    > = (props) => {
-        const { data } = props ?? {};
-
-        return postImportMergePersonas(data, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostImportMergePersonasMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postImportMergePersonas>>
->;
-export type PostImportMergePersonasMutationBody = MergePersonasRequest;
-export type PostImportMergePersonasMutationError = ProblemDetails;
-
-export const usePostImportMergePersonas = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postImportMergePersonas>>,
-            TError,
-            { data: MergePersonasRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postImportMergePersonas>>,
-    TError,
-    { data: MergePersonasRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostImportMergePersonasMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type getImportClassifyWsResponse200 = {
-    data: void;
-    status: 200;
-};
-
-export type getImportClassifyWsResponseSuccess =
-    getImportClassifyWsResponse200 & {
-        headers: Headers;
-    };
-
-export type getImportClassifyWsResponse = getImportClassifyWsResponseSuccess;
-
-export const getGetImportClassifyWsUrl = () => {
-    return `/api/Import/classify-ws`;
-};
-
-export const getImportClassifyWs = async (
-    options?: RequestInit,
-): Promise<getImportClassifyWsResponse> => {
-    return customFetch<getImportClassifyWsResponse>(
-        getGetImportClassifyWsUrl(),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
-};
-
-export const getGetImportClassifyWsQueryKey = () => {
-    return [`/api/Import/classify-ws`] as const;
-};
-
-export const getGetImportClassifyWsQueryOptions = <
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(options?: {
-    query?: Partial<
-        UseQueryOptions<
-            Awaited<ReturnType<typeof getImportClassifyWs>>,
-            TError,
-            TData
-        >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey = queryOptions?.queryKey ?? getGetImportClassifyWsQueryKey();
-
-    const queryFn: QueryFunction<
-        Awaited<ReturnType<typeof getImportClassifyWs>>
-    > = ({ signal }) => getImportClassifyWs({ signal, ...requestOptions });
-
-    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-        Awaited<ReturnType<typeof getImportClassifyWs>>,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetImportClassifyWsQueryResult = NonNullable<
-    Awaited<ReturnType<typeof getImportClassifyWs>>
->;
-export type GetImportClassifyWsQueryError = unknown;
-
-export function useGetImportClassifyWs<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options: {
-        query: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                DefinedInitialDataOptions<
-                    Awaited<ReturnType<typeof getImportClassifyWs>>,
-                    TError,
-                    Awaited<ReturnType<typeof getImportClassifyWs>>
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportClassifyWs<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                UndefinedInitialDataOptions<
-                    Awaited<ReturnType<typeof getImportClassifyWs>>,
-                    TError,
-                    Awaited<ReturnType<typeof getImportClassifyWs>>
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportClassifyWs<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetImportClassifyWs<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions = getGetImportClassifyWsQueryOptions(options);
-
-    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-        TData,
-        TError
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getGetImportClassifyWsSuspenseQueryOptions = <
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(options?: {
-    query?: Partial<
-        UseSuspenseQueryOptions<
-            Awaited<ReturnType<typeof getImportClassifyWs>>,
-            TError,
-            TData
-        >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey = queryOptions?.queryKey ?? getGetImportClassifyWsQueryKey();
-
-    const queryFn: QueryFunction<
-        Awaited<ReturnType<typeof getImportClassifyWs>>
-    > = ({ signal }) => getImportClassifyWs({ signal, ...requestOptions });
-
-    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
-        Awaited<ReturnType<typeof getImportClassifyWs>>,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetImportClassifyWsSuspenseQueryResult = NonNullable<
-    Awaited<ReturnType<typeof getImportClassifyWs>>
->;
-export type GetImportClassifyWsSuspenseQueryError = unknown;
-
-export function useGetImportClassifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options: {
-        query: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportClassifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportClassifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetImportClassifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportClassifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportClassifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions = getGetImportClassifyWsSuspenseQueryOptions(options);
-
-    const query = useSuspenseQuery(
-        queryOptions,
-        queryClient,
-    ) as UseSuspenseQueryResult<TData, TError> & {
-        queryKey: DataTag<QueryKey, TData, TError>;
-    };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export type getImportIdentifyWsResponse200 = {
-    data: void;
-    status: 200;
-};
-
-export type getImportIdentifyWsResponseSuccess =
-    getImportIdentifyWsResponse200 & {
-        headers: Headers;
-    };
-
-export type getImportIdentifyWsResponse = getImportIdentifyWsResponseSuccess;
-
-export const getGetImportIdentifyWsUrl = () => {
-    return `/api/Import/identify-ws`;
-};
-
-export const getImportIdentifyWs = async (
-    options?: RequestInit,
-): Promise<getImportIdentifyWsResponse> => {
-    return customFetch<getImportIdentifyWsResponse>(
-        getGetImportIdentifyWsUrl(),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
-};
-
-export const getGetImportIdentifyWsQueryKey = () => {
-    return [`/api/Import/identify-ws`] as const;
-};
-
-export const getGetImportIdentifyWsQueryOptions = <
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(options?: {
-    query?: Partial<
-        UseQueryOptions<
-            Awaited<ReturnType<typeof getImportIdentifyWs>>,
-            TError,
-            TData
-        >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey = queryOptions?.queryKey ?? getGetImportIdentifyWsQueryKey();
-
-    const queryFn: QueryFunction<
-        Awaited<ReturnType<typeof getImportIdentifyWs>>
-    > = ({ signal }) => getImportIdentifyWs({ signal, ...requestOptions });
-
-    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-        Awaited<ReturnType<typeof getImportIdentifyWs>>,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetImportIdentifyWsQueryResult = NonNullable<
-    Awaited<ReturnType<typeof getImportIdentifyWs>>
->;
-export type GetImportIdentifyWsQueryError = unknown;
-
-export function useGetImportIdentifyWs<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options: {
-        query: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                DefinedInitialDataOptions<
-                    Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                    TError,
-                    Awaited<ReturnType<typeof getImportIdentifyWs>>
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportIdentifyWs<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                UndefinedInitialDataOptions<
-                    Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                    TError,
-                    Awaited<ReturnType<typeof getImportIdentifyWs>>
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportIdentifyWs<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetImportIdentifyWs<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions = getGetImportIdentifyWsQueryOptions(options);
-
-    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-        TData,
-        TError
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getGetImportIdentifyWsSuspenseQueryOptions = <
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(options?: {
-    query?: Partial<
-        UseSuspenseQueryOptions<
-            Awaited<ReturnType<typeof getImportIdentifyWs>>,
-            TError,
-            TData
-        >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey = queryOptions?.queryKey ?? getGetImportIdentifyWsQueryKey();
-
-    const queryFn: QueryFunction<
-        Awaited<ReturnType<typeof getImportIdentifyWs>>
-    > = ({ signal }) => getImportIdentifyWs({ signal, ...requestOptions });
-
-    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
-        Awaited<ReturnType<typeof getImportIdentifyWs>>,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetImportIdentifyWsSuspenseQueryResult = NonNullable<
-    Awaited<ReturnType<typeof getImportIdentifyWs>>
->;
-export type GetImportIdentifyWsSuspenseQueryError = unknown;
-
-export function useGetImportIdentifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options: {
-        query: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportIdentifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetImportIdentifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetImportIdentifyWsSuspense<
-    TData = Awaited<ReturnType<typeof getImportIdentifyWs>>,
-    TError = unknown,
->(
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<ReturnType<typeof getImportIdentifyWs>>,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions = getGetImportIdentifyWsSuspenseQueryOptions(options);
-
-    const query = useSuspenseQuery(
-        queryOptions,
-        queryClient,
-    ) as UseSuspenseQueryResult<TData, TError> & {
-        queryKey: DataTag<QueryKey, TData, TError>;
-    };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export type postImportRegenerateCharDetailResponse200TextPlain = {
-    data: RegenerateCharDetailResponse;
-    status: 200;
-};
-
-export type postImportRegenerateCharDetailResponse200ApplicationJson = {
-    data: RegenerateCharDetailResponse;
-    status: 200;
-};
-
-export type postImportRegenerateCharDetailResponse200TextJson = {
-    data: RegenerateCharDetailResponse;
-    status: 200;
-};
-
-export type postImportRegenerateCharDetailResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportRegenerateCharDetailResponse400ApplicationJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportRegenerateCharDetailResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportRegenerateCharDetailResponseSuccess = (
-    | postImportRegenerateCharDetailResponse200TextPlain
-    | postImportRegenerateCharDetailResponse200ApplicationJson
-    | postImportRegenerateCharDetailResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type postImportRegenerateCharDetailResponseError = (
-    | postImportRegenerateCharDetailResponse400TextPlain
-    | postImportRegenerateCharDetailResponse400ApplicationJson
-    | postImportRegenerateCharDetailResponse400TextJson
-) & {
-    headers: Headers;
-};
-
-export type postImportRegenerateCharDetailResponse =
-    | postImportRegenerateCharDetailResponseSuccess
-    | postImportRegenerateCharDetailResponseError;
-
-export const getPostImportRegenerateCharDetailUrl = () => {
-    return `/api/Import/regenerate-char-detail`;
-};
-
-export const postImportRegenerateCharDetail = async (
-    regenerateCharDetailRequest: RegenerateCharDetailRequest,
-    options?: RequestInit,
-): Promise<postImportRegenerateCharDetailResponse> => {
-    return customFetch<postImportRegenerateCharDetailResponse>(
-        getPostImportRegenerateCharDetailUrl(),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(regenerateCharDetailRequest),
-        },
-    );
-};
-
-export const getPostImportRegenerateCharDetailMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postImportRegenerateCharDetail>>,
-        TError,
-        { data: RegenerateCharDetailRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postImportRegenerateCharDetail>>,
-    TError,
-    { data: RegenerateCharDetailRequest },
-    TContext
-> => {
-    const mutationKey = ['postImportRegenerateCharDetail'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postImportRegenerateCharDetail>>,
-        { data: RegenerateCharDetailRequest }
-    > = (props) => {
-        const { data } = props ?? {};
-
-        return postImportRegenerateCharDetail(data, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostImportRegenerateCharDetailMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postImportRegenerateCharDetail>>
->;
-export type PostImportRegenerateCharDetailMutationBody =
-    RegenerateCharDetailRequest;
-export type PostImportRegenerateCharDetailMutationError = ProblemDetails;
-
-export const usePostImportRegenerateCharDetail = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postImportRegenerateCharDetail>>,
-            TError,
-            { data: RegenerateCharDetailRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postImportRegenerateCharDetail>>,
-    TError,
-    { data: RegenerateCharDetailRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostImportRegenerateCharDetailMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type postImportCommitResponse200TextPlain = {
-    data: CommitImportResponse;
-    status: 200;
-};
-
-export type postImportCommitResponse200ApplicationJson = {
-    data: CommitImportResponse;
-    status: 200;
-};
-
-export type postImportCommitResponse200TextJson = {
-    data: CommitImportResponse;
-    status: 200;
-};
-
-export type postImportCommitResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportCommitResponse400ApplicationJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportCommitResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postImportCommitResponse404TextPlain = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type postImportCommitResponse404ApplicationJson = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type postImportCommitResponse404TextJson = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type postImportCommitResponseSuccess = (
-    | postImportCommitResponse200TextPlain
-    | postImportCommitResponse200ApplicationJson
-    | postImportCommitResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type postImportCommitResponseError = (
-    | postImportCommitResponse400TextPlain
-    | postImportCommitResponse400ApplicationJson
-    | postImportCommitResponse400TextJson
-    | postImportCommitResponse404TextPlain
-    | postImportCommitResponse404ApplicationJson
-    | postImportCommitResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type postImportCommitResponse =
-    | postImportCommitResponseSuccess
-    | postImportCommitResponseError;
-
-export const getPostImportCommitUrl = () => {
-    return `/api/Import/commit`;
-};
-
-export const postImportCommit = async (
-    commitImportRequest: CommitImportRequest,
-    options?: RequestInit,
-): Promise<postImportCommitResponse> => {
-    return customFetch<postImportCommitResponse>(getPostImportCommitUrl(), {
+): Promise<postImportResponse> => {
+    return customFetch<postImportResponse>(getPostImportUrl(params), {
         ...options,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
-        body: JSON.stringify(commitImportRequest),
+        body: JSON.stringify(jsonElement),
     });
 };
 
-export const getPostImportCommitMutationOptions = <
+export const getPostImportMutationOptions = <
     TError = ProblemDetails,
     TContext = unknown,
 >(options?: {
     mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postImportCommit>>,
+        Awaited<ReturnType<typeof postImport>>,
         TError,
-        { data: CommitImportRequest },
+        { data: JsonElement; params?: PostImportParams },
         TContext
     >;
     request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-    Awaited<ReturnType<typeof postImportCommit>>,
+    Awaited<ReturnType<typeof postImport>>,
     TError,
-    { data: CommitImportRequest },
+    { data: JsonElement; params?: PostImportParams },
     TContext
 > => {
-    const mutationKey = ['postImportCommit'];
+    const mutationKey = ['postImport'];
     const { mutation: mutationOptions, request: requestOptions } = options
         ? options.mutation &&
           'mutationKey' in options.mutation &&
@@ -1412,45 +440,4025 @@ export const getPostImportCommitMutationOptions = <
         : { mutation: { mutationKey }, request: undefined };
 
     const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postImportCommit>>,
-        { data: CommitImportRequest }
+        Awaited<ReturnType<typeof postImport>>,
+        { data: JsonElement; params?: PostImportParams }
     > = (props) => {
-        const { data } = props ?? {};
+        const { data, params } = props ?? {};
 
-        return postImportCommit(data, requestOptions);
+        return postImport(data, params, requestOptions);
     };
 
     return { mutationFn, ...mutationOptions };
 };
 
-export type PostImportCommitMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postImportCommit>>
+export type PostImportMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImport>>
 >;
-export type PostImportCommitMutationBody = CommitImportRequest;
-export type PostImportCommitMutationError = ProblemDetails;
+export type PostImportMutationBody = JsonElement;
+export type PostImportMutationError = ProblemDetails;
 
-export const usePostImportCommit = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
+export const usePostImport = <TError = ProblemDetails, TContext = unknown>(
     options?: {
         mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postImportCommit>>,
+            Awaited<ReturnType<typeof postImport>>,
             TError,
-            { data: CommitImportRequest },
+            { data: JsonElement; params?: PostImportParams },
             TContext
         >;
         request?: SecondParameter<typeof customFetch>;
     },
     queryClient?: QueryClient,
 ): UseMutationResult<
-    Awaited<ReturnType<typeof postImportCommit>>,
+    Awaited<ReturnType<typeof postImport>>,
     TError,
-    { data: CommitImportRequest },
+    { data: JsonElement; params?: PostImportParams },
+    TContext
+> => {
+    return useMutation(getPostImportMutationOptions(options), queryClient);
+};
+
+export type getImportIdResponse200TextPlain = {
+    data: ImportSessionOverview;
+    status: 200;
+};
+
+export type getImportIdResponse200ApplicationJson = {
+    data: ImportSessionOverview;
+    status: 200;
+};
+
+export type getImportIdResponse200TextJson = {
+    data: ImportSessionOverview;
+    status: 200;
+};
+
+export type getImportIdResponseSuccess = (
+    | getImportIdResponse200TextPlain
+    | getImportIdResponse200ApplicationJson
+    | getImportIdResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdResponse = getImportIdResponseSuccess;
+
+export const getGetImportIdUrl = (id: string) => {
+    return `/api/import/${id}`;
+};
+
+export const getImportId = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdResponse> => {
+    return customFetch<getImportIdResponse>(getGetImportIdUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+};
+
+export const getGetImportIdQueryKey = (id: string) => {
+    return [`/api/import/${id}`] as const;
+};
+
+export const getGetImportIdQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportId>>> = ({
+        signal,
+    }) => getImportId(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportId>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportId>>
+>;
+export type GetImportIdQueryError = unknown;
+
+export function useGetImportId<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportId>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportId>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportId<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportId>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportId>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportId<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportId<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportId>>> = ({
+        signal,
+    }) => getImportId(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportId>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportId>>
+>;
+export type GetImportIdSuspenseQueryError = unknown;
+
+export function useGetImportIdSuspense<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdSuspense<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdSuspense<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdSuspense<
+    TData = Awaited<ReturnType<typeof getImportId>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportId>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type deleteImportIdResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type deleteImportIdResponseSuccess = deleteImportIdResponse200 & {
+    headers: Headers;
+};
+
+export type deleteImportIdResponse = deleteImportIdResponseSuccess;
+
+export const getDeleteImportIdUrl = (id: string) => {
+    return `/api/import/${id}`;
+};
+
+export const deleteImportId = async (
+    id: string,
+    options?: RequestInit,
+): Promise<deleteImportIdResponse> => {
+    return customFetch<deleteImportIdResponse>(getDeleteImportIdUrl(id), {
+        ...options,
+        method: 'DELETE',
+    });
+};
+
+export const getDeleteImportIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteImportId>>,
+        TError,
+        { id: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteImportId>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    const mutationKey = ['deleteImportId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteImportId>>,
+        { id: string }
+    > = (props) => {
+        const { id } = props ?? {};
+
+        return deleteImportId(id, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteImportIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteImportId>>
+>;
+
+export type DeleteImportIdMutationError = unknown;
+
+export const useDeleteImportId = <TError = unknown, TContext = unknown>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteImportId>>,
+            TError,
+            { id: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteImportId>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    return useMutation(getDeleteImportIdMutationOptions(options), queryClient);
+};
+
+export type getImportIdWsResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type getImportIdWsResponseSuccess = getImportIdWsResponse200 & {
+    headers: Headers;
+};
+
+export type getImportIdWsResponse = getImportIdWsResponseSuccess;
+
+export const getGetImportIdWsUrl = (id: string) => {
+    return `/api/import/${id}/ws`;
+};
+
+export const getImportIdWs = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdWsResponse> => {
+    return customFetch<getImportIdWsResponse>(getGetImportIdWsUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+};
+
+export const getGetImportIdWsQueryKey = (id: string) => {
+    return [`/api/import/${id}/ws`] as const;
+};
+
+export const getGetImportIdWsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdWsQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportIdWs>>> = ({
+        signal,
+    }) => getImportIdWs(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdWsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdWs>>
+>;
+export type GetImportIdWsQueryError = unknown;
+
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdWs>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdWs>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdWs>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdWs<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdWsQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdWsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdWsQueryKey(id);
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportIdWs>>> = ({
+        signal,
+    }) => getImportIdWs(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdWs>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdWsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdWs>>
+>;
+export type GetImportIdWsSuspenseQueryError = unknown;
+
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdWsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdWs>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdWs>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdWsSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getImportIdChunksIndexResponse200TextPlain = {
+    data: ImportChunk;
+    status: 200;
+};
+
+export type getImportIdChunksIndexResponse200ApplicationJson = {
+    data: ImportChunk;
+    status: 200;
+};
+
+export type getImportIdChunksIndexResponse200TextJson = {
+    data: ImportChunk;
+    status: 200;
+};
+
+export type getImportIdChunksIndexResponseSuccess = (
+    | getImportIdChunksIndexResponse200TextPlain
+    | getImportIdChunksIndexResponse200ApplicationJson
+    | getImportIdChunksIndexResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdChunksIndexResponse =
+    getImportIdChunksIndexResponseSuccess;
+
+export const getGetImportIdChunksIndexUrl = (id: string, index: number) => {
+    return `/api/import/${id}/chunks/${index}`;
+};
+
+export const getImportIdChunksIndex = async (
+    id: string,
+    index: number,
+    options?: RequestInit,
+): Promise<getImportIdChunksIndexResponse> => {
+    return customFetch<getImportIdChunksIndexResponse>(
+        getGetImportIdChunksIndexUrl(id, index),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetImportIdChunksIndexQueryKey = (
+    id: string,
+    index: number,
+) => {
+    return [`/api/import/${id}/chunks/${index}`] as const;
+};
+
+export const getGetImportIdChunksIndexQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdChunksIndexQueryKey(id, index);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdChunksIndex>>
+    > = ({ signal }) =>
+        getImportIdChunksIndex(id, index, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!(id && index),
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdChunksIndexQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdChunksIndex>>
+>;
+export type GetImportIdChunksIndexQueryError = unknown;
+
+export function useGetImportIdChunksIndex<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdChunksIndex>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdChunksIndex<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdChunksIndex>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdChunksIndex<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdChunksIndex<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdChunksIndexQueryOptions(
+        id,
+        index,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdChunksIndexSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdChunksIndexQueryKey(id, index);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdChunksIndex>>
+    > = ({ signal }) =>
+        getImportIdChunksIndex(id, index, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdChunksIndexSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdChunksIndex>>
+>;
+export type GetImportIdChunksIndexSuspenseQueryError = unknown;
+
+export function useGetImportIdChunksIndexSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdChunksIndexSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdChunksIndexSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdChunksIndexSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+    TError = unknown,
+>(
+    id: string,
+    index: number,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdChunksIndex>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdChunksIndexSuspenseQueryOptions(
+        id,
+        index,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postImportIdScenesResponse200TextPlain = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type postImportIdScenesResponse200ApplicationJson = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type postImportIdScenesResponse200TextJson = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type postImportIdScenesResponseSuccess = (
+    | postImportIdScenesResponse200TextPlain
+    | postImportIdScenesResponse200ApplicationJson
+    | postImportIdScenesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postImportIdScenesResponse = postImportIdScenesResponseSuccess;
+
+export const getPostImportIdScenesUrl = (id: string) => {
+    return `/api/import/${id}/scenes`;
+};
+
+export const postImportIdScenes = async (
+    id: string,
+    sceneDefinition: SceneDefinition,
+    options?: RequestInit,
+): Promise<postImportIdScenesResponse> => {
+    return customFetch<postImportIdScenesResponse>(
+        getPostImportIdScenesUrl(id),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(sceneDefinition),
+        },
+    );
+};
+
+export const getPostImportIdScenesMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postImportIdScenes>>,
+        TError,
+        { id: string; data: SceneDefinition },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postImportIdScenes>>,
+    TError,
+    { id: string; data: SceneDefinition },
+    TContext
+> => {
+    const mutationKey = ['postImportIdScenes'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postImportIdScenes>>,
+        { id: string; data: SceneDefinition }
+    > = (props) => {
+        const { id, data } = props ?? {};
+
+        return postImportIdScenes(id, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostImportIdScenesMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImportIdScenes>>
+>;
+export type PostImportIdScenesMutationBody = SceneDefinition;
+export type PostImportIdScenesMutationError = unknown;
+
+export const usePostImportIdScenes = <TError = unknown, TContext = unknown>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postImportIdScenes>>,
+            TError,
+            { id: string; data: SceneDefinition },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postImportIdScenes>>,
+    TError,
+    { id: string; data: SceneDefinition },
     TContext
 > => {
     return useMutation(
-        getPostImportCommitMutationOptions(options),
+        getPostImportIdScenesMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putImportIdScenesSceneIdResponse200TextPlain = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type putImportIdScenesSceneIdResponse200ApplicationJson = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type putImportIdScenesSceneIdResponse200TextJson = {
+    data: ImportScene;
+    status: 200;
+};
+
+export type putImportIdScenesSceneIdResponseSuccess = (
+    | putImportIdScenesSceneIdResponse200TextPlain
+    | putImportIdScenesSceneIdResponse200ApplicationJson
+    | putImportIdScenesSceneIdResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putImportIdScenesSceneIdResponse =
+    putImportIdScenesSceneIdResponseSuccess;
+
+export const getPutImportIdScenesSceneIdUrl = (id: string, sceneId: string) => {
+    return `/api/import/${id}/scenes/${sceneId}`;
+};
+
+export const putImportIdScenesSceneId = async (
+    id: string,
+    sceneId: string,
+    sceneDefinition: SceneDefinition,
+    options?: RequestInit,
+): Promise<putImportIdScenesSceneIdResponse> => {
+    return customFetch<putImportIdScenesSceneIdResponse>(
+        getPutImportIdScenesSceneIdUrl(id, sceneId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(sceneDefinition),
+        },
+    );
+};
+
+export const getPutImportIdScenesSceneIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putImportIdScenesSceneId>>,
+        TError,
+        { id: string; sceneId: string; data: SceneDefinition },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putImportIdScenesSceneId>>,
+    TError,
+    { id: string; sceneId: string; data: SceneDefinition },
+    TContext
+> => {
+    const mutationKey = ['putImportIdScenesSceneId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putImportIdScenesSceneId>>,
+        { id: string; sceneId: string; data: SceneDefinition }
+    > = (props) => {
+        const { id, sceneId, data } = props ?? {};
+
+        return putImportIdScenesSceneId(id, sceneId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutImportIdScenesSceneIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putImportIdScenesSceneId>>
+>;
+export type PutImportIdScenesSceneIdMutationBody = SceneDefinition;
+export type PutImportIdScenesSceneIdMutationError = unknown;
+
+export const usePutImportIdScenesSceneId = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putImportIdScenesSceneId>>,
+            TError,
+            { id: string; sceneId: string; data: SceneDefinition },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putImportIdScenesSceneId>>,
+    TError,
+    { id: string; sceneId: string; data: SceneDefinition },
+    TContext
+> => {
+    return useMutation(
+        getPutImportIdScenesSceneIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type deleteImportIdScenesSceneIdResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type deleteImportIdScenesSceneIdResponseSuccess =
+    deleteImportIdScenesSceneIdResponse200 & {
+        headers: Headers;
+    };
+
+export type deleteImportIdScenesSceneIdResponse =
+    deleteImportIdScenesSceneIdResponseSuccess;
+
+export const getDeleteImportIdScenesSceneIdUrl = (
+    id: string,
+    sceneId: string,
+) => {
+    return `/api/import/${id}/scenes/${sceneId}`;
+};
+
+export const deleteImportIdScenesSceneId = async (
+    id: string,
+    sceneId: string,
+    options?: RequestInit,
+): Promise<deleteImportIdScenesSceneIdResponse> => {
+    return customFetch<deleteImportIdScenesSceneIdResponse>(
+        getDeleteImportIdScenesSceneIdUrl(id, sceneId),
+        {
+            ...options,
+            method: 'DELETE',
+        },
+    );
+};
+
+export const getDeleteImportIdScenesSceneIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>,
+        TError,
+        { id: string; sceneId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    const mutationKey = ['deleteImportIdScenesSceneId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>,
+        { id: string; sceneId: string }
+    > = (props) => {
+        const { id, sceneId } = props ?? {};
+
+        return deleteImportIdScenesSceneId(id, sceneId, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteImportIdScenesSceneIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>
+>;
+
+export type DeleteImportIdScenesSceneIdMutationError = unknown;
+
+export const useDeleteImportIdScenesSceneId = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>,
+            TError,
+            { id: string; sceneId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteImportIdScenesSceneId>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteImportIdScenesSceneIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postImportIdScenesSceneIdRunResponse200TextPlain = {
+    data: SceneRunResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdRunResponse200ApplicationJson = {
+    data: SceneRunResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdRunResponse200TextJson = {
+    data: SceneRunResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdRunResponseSuccess = (
+    | postImportIdScenesSceneIdRunResponse200TextPlain
+    | postImportIdScenesSceneIdRunResponse200ApplicationJson
+    | postImportIdScenesSceneIdRunResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postImportIdScenesSceneIdRunResponse =
+    postImportIdScenesSceneIdRunResponseSuccess;
+
+export const getPostImportIdScenesSceneIdRunUrl = (
+    id: string,
+    sceneId: string,
+) => {
+    return `/api/import/${id}/scenes/${sceneId}/run`;
+};
+
+export const postImportIdScenesSceneIdRun = async (
+    id: string,
+    sceneId: string,
+    options?: RequestInit,
+): Promise<postImportIdScenesSceneIdRunResponse> => {
+    return customFetch<postImportIdScenesSceneIdRunResponse>(
+        getPostImportIdScenesSceneIdRunUrl(id, sceneId),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostImportIdScenesSceneIdRunMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>,
+        TError,
+        { id: string; sceneId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    const mutationKey = ['postImportIdScenesSceneIdRun'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>,
+        { id: string; sceneId: string }
+    > = (props) => {
+        const { id, sceneId } = props ?? {};
+
+        return postImportIdScenesSceneIdRun(id, sceneId, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostImportIdScenesSceneIdRunMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>
+>;
+
+export type PostImportIdScenesSceneIdRunMutationError = unknown;
+
+export const usePostImportIdScenesSceneIdRun = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>,
+            TError,
+            { id: string; sceneId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdRun>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    return useMutation(
+        getPostImportIdScenesSceneIdRunMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getImportIdRegistryResponse200TextPlain = {
+    data: ImportRegistryView;
+    status: 200;
+};
+
+export type getImportIdRegistryResponse200ApplicationJson = {
+    data: ImportRegistryView;
+    status: 200;
+};
+
+export type getImportIdRegistryResponse200TextJson = {
+    data: ImportRegistryView;
+    status: 200;
+};
+
+export type getImportIdRegistryResponseSuccess = (
+    | getImportIdRegistryResponse200TextPlain
+    | getImportIdRegistryResponse200ApplicationJson
+    | getImportIdRegistryResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdRegistryResponse = getImportIdRegistryResponseSuccess;
+
+export const getGetImportIdRegistryUrl = (id: string) => {
+    return `/api/import/${id}/registry`;
+};
+
+export const getImportIdRegistry = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdRegistryResponse> => {
+    return customFetch<getImportIdRegistryResponse>(
+        getGetImportIdRegistryUrl(id),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetImportIdRegistryQueryKey = (id: string) => {
+    return [`/api/import/${id}/registry`] as const;
+};
+
+export const getGetImportIdRegistryQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdRegistryQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdRegistry>>
+    > = ({ signal }) => getImportIdRegistry(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdRegistry>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdRegistryQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdRegistry>>
+>;
+export type GetImportIdRegistryQueryError = unknown;
+
+export function useGetImportIdRegistry<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdRegistry>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdRegistry>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdRegistry<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdRegistry>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdRegistry>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdRegistry<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdRegistry<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdRegistryQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdRegistrySuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdRegistryQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdRegistry>>
+    > = ({ signal }) => getImportIdRegistry(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdRegistry>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdRegistrySuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdRegistry>>
+>;
+export type GetImportIdRegistrySuspenseQueryError = unknown;
+
+export function useGetImportIdRegistrySuspense<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdRegistrySuspense<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdRegistrySuspense<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdRegistrySuspense<
+    TData = Awaited<ReturnType<typeof getImportIdRegistry>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdRegistry>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdRegistrySuspenseQueryOptions(
+        id,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type putImportIdRegistryCastNameResponse200TextPlain = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type putImportIdRegistryCastNameResponse200ApplicationJson = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type putImportIdRegistryCastNameResponse200TextJson = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type putImportIdRegistryCastNameResponseSuccess = (
+    | putImportIdRegistryCastNameResponse200TextPlain
+    | putImportIdRegistryCastNameResponse200ApplicationJson
+    | putImportIdRegistryCastNameResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putImportIdRegistryCastNameResponse =
+    putImportIdRegistryCastNameResponseSuccess;
+
+export const getPutImportIdRegistryCastNameUrl = (id: string, name: string) => {
+    return `/api/import/${id}/registry/cast/${name}`;
+};
+
+export const putImportIdRegistryCastName = async (
+    id: string,
+    name: string,
+    registryCastEdit: RegistryCastEdit,
+    options?: RequestInit,
+): Promise<putImportIdRegistryCastNameResponse> => {
+    return customFetch<putImportIdRegistryCastNameResponse>(
+        getPutImportIdRegistryCastNameUrl(id, name),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(registryCastEdit),
+        },
+    );
+};
+
+export const getPutImportIdRegistryCastNameMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putImportIdRegistryCastName>>,
+        TError,
+        { id: string; name: string; data: RegistryCastEdit },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putImportIdRegistryCastName>>,
+    TError,
+    { id: string; name: string; data: RegistryCastEdit },
+    TContext
+> => {
+    const mutationKey = ['putImportIdRegistryCastName'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putImportIdRegistryCastName>>,
+        { id: string; name: string; data: RegistryCastEdit }
+    > = (props) => {
+        const { id, name, data } = props ?? {};
+
+        return putImportIdRegistryCastName(id, name, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutImportIdRegistryCastNameMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putImportIdRegistryCastName>>
+>;
+export type PutImportIdRegistryCastNameMutationBody = RegistryCastEdit;
+export type PutImportIdRegistryCastNameMutationError = unknown;
+
+export const usePutImportIdRegistryCastName = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putImportIdRegistryCastName>>,
+            TError,
+            { id: string; name: string; data: RegistryCastEdit },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putImportIdRegistryCastName>>,
+    TError,
+    { id: string; name: string; data: RegistryCastEdit },
+    TContext
+> => {
+    return useMutation(
+        getPutImportIdRegistryCastNameMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postImportIdRegistryCastNameDecisionResponse200TextPlain = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type postImportIdRegistryCastNameDecisionResponse200ApplicationJson = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type postImportIdRegistryCastNameDecisionResponse200TextJson = {
+    data: RegistryCastEntry;
+    status: 200;
+};
+
+export type postImportIdRegistryCastNameDecisionResponseSuccess = (
+    | postImportIdRegistryCastNameDecisionResponse200TextPlain
+    | postImportIdRegistryCastNameDecisionResponse200ApplicationJson
+    | postImportIdRegistryCastNameDecisionResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postImportIdRegistryCastNameDecisionResponse =
+    postImportIdRegistryCastNameDecisionResponseSuccess;
+
+export const getPostImportIdRegistryCastNameDecisionUrl = (
+    id: string,
+    name: string,
+) => {
+    return `/api/import/${id}/registry/cast/${name}/decision`;
+};
+
+export const postImportIdRegistryCastNameDecision = async (
+    id: string,
+    name: string,
+    castMatchDecision: CastMatchDecision,
+    options?: RequestInit,
+): Promise<postImportIdRegistryCastNameDecisionResponse> => {
+    return customFetch<postImportIdRegistryCastNameDecisionResponse>(
+        getPostImportIdRegistryCastNameDecisionUrl(id, name),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(castMatchDecision),
+        },
+    );
+};
+
+export const getPostImportIdRegistryCastNameDecisionMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>,
+        TError,
+        { id: string; name: string; data: CastMatchDecision },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>,
+    TError,
+    { id: string; name: string; data: CastMatchDecision },
+    TContext
+> => {
+    const mutationKey = ['postImportIdRegistryCastNameDecision'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>,
+        { id: string; name: string; data: CastMatchDecision }
+    > = (props) => {
+        const { id, name, data } = props ?? {};
+
+        return postImportIdRegistryCastNameDecision(
+            id,
+            name,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostImportIdRegistryCastNameDecisionMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>
+>;
+export type PostImportIdRegistryCastNameDecisionMutationBody =
+    CastMatchDecision;
+export type PostImportIdRegistryCastNameDecisionMutationError = unknown;
+
+export const usePostImportIdRegistryCastNameDecision = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>,
+            TError,
+            { id: string; name: string; data: CastMatchDecision },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postImportIdRegistryCastNameDecision>>,
+    TError,
+    { id: string; name: string; data: CastMatchDecision },
+    TContext
+> => {
+    return useMutation(
+        getPostImportIdRegistryCastNameDecisionMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putImportIdRegistryConceptsNameResponse200TextPlain = {
+    data: ImportConcept;
+    status: 200;
+};
+
+export type putImportIdRegistryConceptsNameResponse200ApplicationJson = {
+    data: ImportConcept;
+    status: 200;
+};
+
+export type putImportIdRegistryConceptsNameResponse200TextJson = {
+    data: ImportConcept;
+    status: 200;
+};
+
+export type putImportIdRegistryConceptsNameResponseSuccess = (
+    | putImportIdRegistryConceptsNameResponse200TextPlain
+    | putImportIdRegistryConceptsNameResponse200ApplicationJson
+    | putImportIdRegistryConceptsNameResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putImportIdRegistryConceptsNameResponse =
+    putImportIdRegistryConceptsNameResponseSuccess;
+
+export const getPutImportIdRegistryConceptsNameUrl = (
+    id: string,
+    name: string,
+) => {
+    return `/api/import/${id}/registry/concepts/${name}`;
+};
+
+export const putImportIdRegistryConceptsName = async (
+    id: string,
+    name: string,
+    registryConceptEdit: RegistryConceptEdit,
+    options?: RequestInit,
+): Promise<putImportIdRegistryConceptsNameResponse> => {
+    return customFetch<putImportIdRegistryConceptsNameResponse>(
+        getPutImportIdRegistryConceptsNameUrl(id, name),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(registryConceptEdit),
+        },
+    );
+};
+
+export const getPutImportIdRegistryConceptsNameMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>,
+        TError,
+        { id: string; name: string; data: RegistryConceptEdit },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>,
+    TError,
+    { id: string; name: string; data: RegistryConceptEdit },
+    TContext
+> => {
+    const mutationKey = ['putImportIdRegistryConceptsName'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>,
+        { id: string; name: string; data: RegistryConceptEdit }
+    > = (props) => {
+        const { id, name, data } = props ?? {};
+
+        return putImportIdRegistryConceptsName(id, name, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutImportIdRegistryConceptsNameMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>
+>;
+export type PutImportIdRegistryConceptsNameMutationBody = RegistryConceptEdit;
+export type PutImportIdRegistryConceptsNameMutationError = unknown;
+
+export const usePutImportIdRegistryConceptsName = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>,
+            TError,
+            { id: string; name: string; data: RegistryConceptEdit },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putImportIdRegistryConceptsName>>,
+    TError,
+    { id: string; name: string; data: RegistryConceptEdit },
+    TContext
+> => {
+    return useMutation(
+        getPutImportIdRegistryConceptsNameMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse200TextPlain = {
+    data: SceneFinalizeResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse200ApplicationJson = {
+    data: SceneFinalizeResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse200TextJson = {
+    data: SceneFinalizeResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponseSuccess = (
+    | postImportIdScenesSceneIdFinalizeResponse200TextPlain
+    | postImportIdScenesSceneIdFinalizeResponse200ApplicationJson
+    | postImportIdScenesSceneIdFinalizeResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type postImportIdScenesSceneIdFinalizeResponseError = (
+    | postImportIdScenesSceneIdFinalizeResponse404TextPlain
+    | postImportIdScenesSceneIdFinalizeResponse404ApplicationJson
+    | postImportIdScenesSceneIdFinalizeResponse404TextJson
+    | postImportIdScenesSceneIdFinalizeResponse409TextPlain
+    | postImportIdScenesSceneIdFinalizeResponse409ApplicationJson
+    | postImportIdScenesSceneIdFinalizeResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postImportIdScenesSceneIdFinalizeResponse =
+    | postImportIdScenesSceneIdFinalizeResponseSuccess
+    | postImportIdScenesSceneIdFinalizeResponseError;
+
+export const getPostImportIdScenesSceneIdFinalizeUrl = (
+    id: string,
+    sceneId: string,
+) => {
+    return `/api/import/${id}/scenes/${sceneId}/finalize`;
+};
+
+export const postImportIdScenesSceneIdFinalize = async (
+    id: string,
+    sceneId: string,
+    options?: RequestInit,
+): Promise<postImportIdScenesSceneIdFinalizeResponse> => {
+    return customFetch<postImportIdScenesSceneIdFinalizeResponse>(
+        getPostImportIdScenesSceneIdFinalizeUrl(id, sceneId),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostImportIdScenesSceneIdFinalizeMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>,
+        TError,
+        { id: string; sceneId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    const mutationKey = ['postImportIdScenesSceneIdFinalize'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>,
+        { id: string; sceneId: string }
+    > = (props) => {
+        const { id, sceneId } = props ?? {};
+
+        return postImportIdScenesSceneIdFinalize(id, sceneId, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostImportIdScenesSceneIdFinalizeMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>
+>;
+
+export type PostImportIdScenesSceneIdFinalizeMutationError = ProblemDetails;
+
+export const usePostImportIdScenesSceneIdFinalize = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>,
+            TError,
+            { id: string; sceneId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdFinalize>>,
+    TError,
+    { id: string; sceneId: string },
+    TContext
+> => {
+    return useMutation(
+        getPostImportIdScenesSceneIdFinalizeMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putImportIdCardsNameResponse200TextPlain = {
+    data: PersonaCardDraft;
+    status: 200;
+};
+
+export type putImportIdCardsNameResponse200ApplicationJson = {
+    data: PersonaCardDraft;
+    status: 200;
+};
+
+export type putImportIdCardsNameResponse200TextJson = {
+    data: PersonaCardDraft;
+    status: 200;
+};
+
+export type putImportIdCardsNameResponseSuccess = (
+    | putImportIdCardsNameResponse200TextPlain
+    | putImportIdCardsNameResponse200ApplicationJson
+    | putImportIdCardsNameResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putImportIdCardsNameResponse = putImportIdCardsNameResponseSuccess;
+
+export const getPutImportIdCardsNameUrl = (id: string, name: string) => {
+    return `/api/import/${id}/cards/${name}`;
+};
+
+export const putImportIdCardsName = async (
+    id: string,
+    name: string,
+    personaCardEdit: PersonaCardEdit,
+    options?: RequestInit,
+): Promise<putImportIdCardsNameResponse> => {
+    return customFetch<putImportIdCardsNameResponse>(
+        getPutImportIdCardsNameUrl(id, name),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(personaCardEdit),
+        },
+    );
+};
+
+export const getPutImportIdCardsNameMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putImportIdCardsName>>,
+        TError,
+        { id: string; name: string; data: PersonaCardEdit },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putImportIdCardsName>>,
+    TError,
+    { id: string; name: string; data: PersonaCardEdit },
+    TContext
+> => {
+    const mutationKey = ['putImportIdCardsName'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putImportIdCardsName>>,
+        { id: string; name: string; data: PersonaCardEdit }
+    > = (props) => {
+        const { id, name, data } = props ?? {};
+
+        return putImportIdCardsName(id, name, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutImportIdCardsNameMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putImportIdCardsName>>
+>;
+export type PutImportIdCardsNameMutationBody = PersonaCardEdit;
+export type PutImportIdCardsNameMutationError = unknown;
+
+export const usePutImportIdCardsName = <TError = unknown, TContext = unknown>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putImportIdCardsName>>,
+            TError,
+            { id: string; name: string; data: PersonaCardEdit },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putImportIdCardsName>>,
+    TError,
+    { id: string; name: string; data: PersonaCardEdit },
+    TContext
+> => {
+    return useMutation(
+        getPutImportIdCardsNameMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postImportIdScenesSceneIdCommitResponse200TextPlain = {
+    data: SceneCommitResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdCommitResponse200ApplicationJson = {
+    data: SceneCommitResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdCommitResponse200TextJson = {
+    data: SceneCommitResult;
+    status: 200;
+};
+
+export type postImportIdScenesSceneIdCommitResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postImportIdScenesSceneIdCommitResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postImportIdScenesSceneIdCommitResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postImportIdScenesSceneIdCommitResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdCommitResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdCommitResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postImportIdScenesSceneIdCommitResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdCommitResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdCommitResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postImportIdScenesSceneIdCommitResponseSuccess = (
+    | postImportIdScenesSceneIdCommitResponse200TextPlain
+    | postImportIdScenesSceneIdCommitResponse200ApplicationJson
+    | postImportIdScenesSceneIdCommitResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type postImportIdScenesSceneIdCommitResponseError = (
+    | postImportIdScenesSceneIdCommitResponse400TextPlain
+    | postImportIdScenesSceneIdCommitResponse400ApplicationJson
+    | postImportIdScenesSceneIdCommitResponse400TextJson
+    | postImportIdScenesSceneIdCommitResponse404TextPlain
+    | postImportIdScenesSceneIdCommitResponse404ApplicationJson
+    | postImportIdScenesSceneIdCommitResponse404TextJson
+    | postImportIdScenesSceneIdCommitResponse409TextPlain
+    | postImportIdScenesSceneIdCommitResponse409ApplicationJson
+    | postImportIdScenesSceneIdCommitResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postImportIdScenesSceneIdCommitResponse =
+    | postImportIdScenesSceneIdCommitResponseSuccess
+    | postImportIdScenesSceneIdCommitResponseError;
+
+export const getPostImportIdScenesSceneIdCommitUrl = (
+    id: string,
+    sceneId: string,
+) => {
+    return `/api/import/${id}/scenes/${sceneId}/commit`;
+};
+
+export const postImportIdScenesSceneIdCommit = async (
+    id: string,
+    sceneId: string,
+    sceneCommitRequest: SceneCommitRequest,
+    options?: RequestInit,
+): Promise<postImportIdScenesSceneIdCommitResponse> => {
+    return customFetch<postImportIdScenesSceneIdCommitResponse>(
+        getPostImportIdScenesSceneIdCommitUrl(id, sceneId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(sceneCommitRequest),
+        },
+    );
+};
+
+export const getPostImportIdScenesSceneIdCommitMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>,
+        TError,
+        { id: string; sceneId: string; data: SceneCommitRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>,
+    TError,
+    { id: string; sceneId: string; data: SceneCommitRequest },
+    TContext
+> => {
+    const mutationKey = ['postImportIdScenesSceneIdCommit'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>,
+        { id: string; sceneId: string; data: SceneCommitRequest }
+    > = (props) => {
+        const { id, sceneId, data } = props ?? {};
+
+        return postImportIdScenesSceneIdCommit(
+            id,
+            sceneId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostImportIdScenesSceneIdCommitMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>
+>;
+export type PostImportIdScenesSceneIdCommitMutationBody = SceneCommitRequest;
+export type PostImportIdScenesSceneIdCommitMutationError = ProblemDetails;
+
+export const usePostImportIdScenesSceneIdCommit = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>,
+            TError,
+            { id: string; sceneId: string; data: SceneCommitRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postImportIdScenesSceneIdCommit>>,
+    TError,
+    { id: string; sceneId: string; data: SceneCommitRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostImportIdScenesSceneIdCommitMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type deleteImportIdCommitResponse200TextPlain = {
+    data: ImportCommitTarget;
+    status: 200;
+};
+
+export type deleteImportIdCommitResponse200ApplicationJson = {
+    data: ImportCommitTarget;
+    status: 200;
+};
+
+export type deleteImportIdCommitResponse200TextJson = {
+    data: ImportCommitTarget;
+    status: 200;
+};
+
+export type deleteImportIdCommitResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteImportIdCommitResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteImportIdCommitResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteImportIdCommitResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type deleteImportIdCommitResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type deleteImportIdCommitResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type deleteImportIdCommitResponseSuccess = (
+    | deleteImportIdCommitResponse200TextPlain
+    | deleteImportIdCommitResponse200ApplicationJson
+    | deleteImportIdCommitResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type deleteImportIdCommitResponseError = (
+    | deleteImportIdCommitResponse404TextPlain
+    | deleteImportIdCommitResponse404ApplicationJson
+    | deleteImportIdCommitResponse404TextJson
+    | deleteImportIdCommitResponse409TextPlain
+    | deleteImportIdCommitResponse409ApplicationJson
+    | deleteImportIdCommitResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type deleteImportIdCommitResponse =
+    | deleteImportIdCommitResponseSuccess
+    | deleteImportIdCommitResponseError;
+
+export const getDeleteImportIdCommitUrl = (id: string) => {
+    return `/api/import/${id}/commit`;
+};
+
+export const deleteImportIdCommit = async (
+    id: string,
+    options?: RequestInit,
+): Promise<deleteImportIdCommitResponse> => {
+    return customFetch<deleteImportIdCommitResponse>(
+        getDeleteImportIdCommitUrl(id),
+        {
+            ...options,
+            method: 'DELETE',
+        },
+    );
+};
+
+export const getDeleteImportIdCommitMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteImportIdCommit>>,
+        TError,
+        { id: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteImportIdCommit>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    const mutationKey = ['deleteImportIdCommit'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteImportIdCommit>>,
+        { id: string }
+    > = (props) => {
+        const { id } = props ?? {};
+
+        return deleteImportIdCommit(id, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteImportIdCommitMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteImportIdCommit>>
+>;
+
+export type DeleteImportIdCommitMutationError = ProblemDetails;
+
+export const useDeleteImportIdCommit = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteImportIdCommit>>,
+            TError,
+            { id: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteImportIdCommit>>,
+    TError,
+    { id: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteImportIdCommitMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getImportIdCorrectionsResponse200TextPlain = {
+    data: ImportCorrection[];
+    status: 200;
+};
+
+export type getImportIdCorrectionsResponse200ApplicationJson = {
+    data: ImportCorrection[];
+    status: 200;
+};
+
+export type getImportIdCorrectionsResponse200TextJson = {
+    data: ImportCorrection[];
+    status: 200;
+};
+
+export type getImportIdCorrectionsResponseSuccess = (
+    | getImportIdCorrectionsResponse200TextPlain
+    | getImportIdCorrectionsResponse200ApplicationJson
+    | getImportIdCorrectionsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdCorrectionsResponse =
+    getImportIdCorrectionsResponseSuccess;
+
+export const getGetImportIdCorrectionsUrl = (id: string) => {
+    return `/api/import/${id}/corrections`;
+};
+
+export const getImportIdCorrections = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdCorrectionsResponse> => {
+    return customFetch<getImportIdCorrectionsResponse>(
+        getGetImportIdCorrectionsUrl(id),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetImportIdCorrectionsQueryKey = (id: string) => {
+    return [`/api/import/${id}/corrections`] as const;
+};
+
+export const getGetImportIdCorrectionsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdCorrectionsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdCorrections>>
+    > = ({ signal }) =>
+        getImportIdCorrections(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdCorrections>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdCorrectionsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdCorrections>>
+>;
+export type GetImportIdCorrectionsQueryError = unknown;
+
+export function useGetImportIdCorrections<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdCorrections>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdCorrections>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdCorrections<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdCorrections>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdCorrections>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdCorrections<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdCorrections<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdCorrectionsQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdCorrectionsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetImportIdCorrectionsQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdCorrections>>
+    > = ({ signal }) =>
+        getImportIdCorrections(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdCorrections>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdCorrectionsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdCorrections>>
+>;
+export type GetImportIdCorrectionsSuspenseQueryError = unknown;
+
+export function useGetImportIdCorrectionsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdCorrectionsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdCorrectionsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdCorrectionsSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdCorrections>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdCorrections>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdCorrectionsSuspenseQueryOptions(
+        id,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getImportIdDraftResponse200TextPlain = {
+    data: ImportDraftView;
+    status: 200;
+};
+
+export type getImportIdDraftResponse200ApplicationJson = {
+    data: ImportDraftView;
+    status: 200;
+};
+
+export type getImportIdDraftResponse200TextJson = {
+    data: ImportDraftView;
+    status: 200;
+};
+
+export type getImportIdDraftResponseSuccess = (
+    | getImportIdDraftResponse200TextPlain
+    | getImportIdDraftResponse200ApplicationJson
+    | getImportIdDraftResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdDraftResponse = getImportIdDraftResponseSuccess;
+
+export const getGetImportIdDraftUrl = (id: string) => {
+    return `/api/import/${id}/draft`;
+};
+
+export const getImportIdDraft = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdDraftResponse> => {
+    return customFetch<getImportIdDraftResponse>(getGetImportIdDraftUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+};
+
+export const getGetImportIdDraftQueryKey = (id: string) => {
+    return [`/api/import/${id}/draft`] as const;
+};
+
+export const getGetImportIdDraftQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdDraftQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdDraft>>
+    > = ({ signal }) => getImportIdDraft(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdDraft>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdDraftQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdDraft>>
+>;
+export type GetImportIdDraftQueryError = unknown;
+
+export function useGetImportIdDraft<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdDraft>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdDraft>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdDraft<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdDraft>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdDraft>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdDraft<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdDraft<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdDraftQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdDraftSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdDraftQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdDraft>>
+    > = ({ signal }) => getImportIdDraft(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdDraft>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdDraftSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdDraft>>
+>;
+export type GetImportIdDraftSuspenseQueryError = unknown;
+
+export function useGetImportIdDraftSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdDraftSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdDraftSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdDraftSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdDraft>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdDraft>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdDraftSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getImportIdLedgerResponse200TextPlain = {
+    data: ImportLedger;
+    status: 200;
+};
+
+export type getImportIdLedgerResponse200ApplicationJson = {
+    data: ImportLedger;
+    status: 200;
+};
+
+export type getImportIdLedgerResponse200TextJson = {
+    data: ImportLedger;
+    status: 200;
+};
+
+export type getImportIdLedgerResponseSuccess = (
+    | getImportIdLedgerResponse200TextPlain
+    | getImportIdLedgerResponse200ApplicationJson
+    | getImportIdLedgerResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getImportIdLedgerResponse = getImportIdLedgerResponseSuccess;
+
+export const getGetImportIdLedgerUrl = (id: string) => {
+    return `/api/import/${id}/ledger`;
+};
+
+export const getImportIdLedger = async (
+    id: string,
+    options?: RequestInit,
+): Promise<getImportIdLedgerResponse> => {
+    return customFetch<getImportIdLedgerResponse>(getGetImportIdLedgerUrl(id), {
+        ...options,
+        method: 'GET',
+    });
+};
+
+export const getGetImportIdLedgerQueryKey = (id: string) => {
+    return [`/api/import/${id}/ledger`] as const;
+};
+
+export const getGetImportIdLedgerQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdLedgerQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdLedger>>
+    > = ({ signal }) => getImportIdLedger(id, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!id,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdLedger>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdLedgerQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdLedger>>
+>;
+export type GetImportIdLedgerQueryError = unknown;
+
+export function useGetImportIdLedger<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdLedger>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdLedger>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdLedger<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getImportIdLedger>>,
+                    TError,
+                    Awaited<ReturnType<typeof getImportIdLedger>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdLedger<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdLedger<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdLedgerQueryOptions(id, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetImportIdLedgerSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey = queryOptions?.queryKey ?? getGetImportIdLedgerQueryKey(id);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getImportIdLedger>>
+    > = ({ signal }) => getImportIdLedger(id, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getImportIdLedger>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetImportIdLedgerSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getImportIdLedger>>
+>;
+export type GetImportIdLedgerSuspenseQueryError = unknown;
+
+export function useGetImportIdLedgerSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdLedgerSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetImportIdLedgerSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetImportIdLedgerSuspense<
+    TData = Awaited<ReturnType<typeof getImportIdLedger>>,
+    TError = unknown,
+>(
+    id: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getImportIdLedger>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetImportIdLedgerSuspenseQueryOptions(id, options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type patchImportIdDraftItemIdResponse200TextPlain = {
+    data: ImportDraftItem;
+    status: 200;
+};
+
+export type patchImportIdDraftItemIdResponse200ApplicationJson = {
+    data: ImportDraftItem;
+    status: 200;
+};
+
+export type patchImportIdDraftItemIdResponse200TextJson = {
+    data: ImportDraftItem;
+    status: 200;
+};
+
+export type patchImportIdDraftItemIdResponseSuccess = (
+    | patchImportIdDraftItemIdResponse200TextPlain
+    | patchImportIdDraftItemIdResponse200ApplicationJson
+    | patchImportIdDraftItemIdResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type patchImportIdDraftItemIdResponse =
+    patchImportIdDraftItemIdResponseSuccess;
+
+export const getPatchImportIdDraftItemIdUrl = (id: string, itemId: string) => {
+    return `/api/import/${id}/draft/${itemId}`;
+};
+
+export const patchImportIdDraftItemId = async (
+    id: string,
+    itemId: string,
+    draftItemEdit: DraftItemEdit,
+    options?: RequestInit,
+): Promise<patchImportIdDraftItemIdResponse> => {
+    return customFetch<patchImportIdDraftItemIdResponse>(
+        getPatchImportIdDraftItemIdUrl(id, itemId),
+        {
+            ...options,
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(draftItemEdit),
+        },
+    );
+};
+
+export const getPatchImportIdDraftItemIdMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof patchImportIdDraftItemId>>,
+        TError,
+        { id: string; itemId: string; data: DraftItemEdit },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof patchImportIdDraftItemId>>,
+    TError,
+    { id: string; itemId: string; data: DraftItemEdit },
+    TContext
+> => {
+    const mutationKey = ['patchImportIdDraftItemId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof patchImportIdDraftItemId>>,
+        { id: string; itemId: string; data: DraftItemEdit }
+    > = (props) => {
+        const { id, itemId, data } = props ?? {};
+
+        return patchImportIdDraftItemId(id, itemId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PatchImportIdDraftItemIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof patchImportIdDraftItemId>>
+>;
+export type PatchImportIdDraftItemIdMutationBody = DraftItemEdit;
+export type PatchImportIdDraftItemIdMutationError = unknown;
+
+export const usePatchImportIdDraftItemId = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof patchImportIdDraftItemId>>,
+            TError,
+            { id: string; itemId: string; data: DraftItemEdit },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof patchImportIdDraftItemId>>,
+    TError,
+    { id: string; itemId: string; data: DraftItemEdit },
+    TContext
+> => {
+    return useMutation(
+        getPatchImportIdDraftItemIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putImportIdSettingsResponse200TextPlain = {
+    data: ImportSettings;
+    status: 200;
+};
+
+export type putImportIdSettingsResponse200ApplicationJson = {
+    data: ImportSettings;
+    status: 200;
+};
+
+export type putImportIdSettingsResponse200TextJson = {
+    data: ImportSettings;
+    status: 200;
+};
+
+export type putImportIdSettingsResponseSuccess = (
+    | putImportIdSettingsResponse200TextPlain
+    | putImportIdSettingsResponse200ApplicationJson
+    | putImportIdSettingsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type putImportIdSettingsResponse = putImportIdSettingsResponseSuccess;
+
+export const getPutImportIdSettingsUrl = (id: string) => {
+    return `/api/import/${id}/settings`;
+};
+
+export const putImportIdSettings = async (
+    id: string,
+    importSettingsUpdate: ImportSettingsUpdate,
+    options?: RequestInit,
+): Promise<putImportIdSettingsResponse> => {
+    return customFetch<putImportIdSettingsResponse>(
+        getPutImportIdSettingsUrl(id),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(importSettingsUpdate),
+        },
+    );
+};
+
+export const getPutImportIdSettingsMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putImportIdSettings>>,
+        TError,
+        { id: string; data: ImportSettingsUpdate },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putImportIdSettings>>,
+    TError,
+    { id: string; data: ImportSettingsUpdate },
+    TContext
+> => {
+    const mutationKey = ['putImportIdSettings'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putImportIdSettings>>,
+        { id: string; data: ImportSettingsUpdate }
+    > = (props) => {
+        const { id, data } = props ?? {};
+
+        return putImportIdSettings(id, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutImportIdSettingsMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putImportIdSettings>>
+>;
+export type PutImportIdSettingsMutationBody = ImportSettingsUpdate;
+export type PutImportIdSettingsMutationError = unknown;
+
+export const usePutImportIdSettings = <TError = unknown, TContext = unknown>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putImportIdSettings>>,
+            TError,
+            { id: string; data: ImportSettingsUpdate },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putImportIdSettings>>,
+    TError,
+    { id: string; data: ImportSettingsUpdate },
+    TContext
+> => {
+    return useMutation(
+        getPutImportIdSettingsMutationOptions(options),
         queryClient,
     );
 };

@@ -21,6 +21,7 @@ internal static class TestSiloDefaults
             .AddMemoryGrainStorage("parties")
             .AddMemoryGrainStorage("personas")
             .AddMemoryGrainStorage("urls")
+            .AddMemoryGrainStorage("imports")
             .AddMemoryGrainStorage("PubSubStore")
             .AddStateStorageBasedLogConsistencyProvider("PartyStateStorage")
             .AddMemoryStreams("party-streams");

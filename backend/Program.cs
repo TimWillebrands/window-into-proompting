@@ -25,7 +25,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
-builder.Services.AddSingleton<ImportService>();
+builder.Services.AddSingleton<PartyTown.Services.Import.ISceneMapService, PartyTown.Services.Import.SceneMapService>();
+builder.Services.AddSingleton<PartyTown.Services.Import.IImportRunCoordinator, PartyTown.Services.Import.ImportRunCoordinator>();
+builder.Services.AddSingleton<PartyTown.Services.Import.IImportPersonaFinalizeService, PartyTown.Services.Import.ImportPersonaFinalizeService>();
 builder.Services.AddSingleton<RaceTrigger>();
 builder.Services.AddSingleton<ResponsePipeline>();
 
@@ -42,6 +44,11 @@ if (!openApiBuild)
 
     builder.Services.AddSingleton<IMemoryExtractor, MemoryExtractor>();
     builder.Services.AddSingleton<IMemoryRepository, MemoryRepository>();
+    // Import scene commit (ADR 0017 slice 3). DB-backed, so gated with the rest of the
+    // data wiring; controllers are never instantiated during OpenAPI emission.
+    builder.Services.AddSingleton<IImportMemoryWriter, ImportMemoryWriter>();
+    builder.Services.AddSingleton<PartyTown.Services.Import.IImportCorrectionStore, PartyTown.Services.Import.ImportCorrectionStore>();
+    builder.Services.AddSingleton<PartyTown.Services.Import.ImportCommitService>();
     builder.Services.AddSingleton<IStanceConsolidator, StanceConsolidator>();
     builder.Services.AddSingleton<ConsolidationService>();
 
@@ -71,6 +78,12 @@ if (!openApiBuild)
         });
 
         siloBuilder.AddAdoNetGrainStorage("parties", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = connectionString;
+        });
+
+        siloBuilder.AddAdoNetGrainStorage("imports", options =>
         {
             options.Invariant = "Npgsql";
             options.ConnectionString = connectionString;

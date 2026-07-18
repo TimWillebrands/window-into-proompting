@@ -1,6 +1,6 @@
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
-import ImportApp from '../apps/import/ImportApp';
+import ImportWorkshopApp from '../apps/import-workshop/ImportWorkshopApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import PersonasApp from '../apps/personas/PersonasApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
@@ -23,10 +23,12 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     },
     {
         id: 'import',
-        title: 'Import Chat (Gemini JSON)',
-        icon: '📥',
-        component: ImportApp,
-        initialPosition: { x: 320, y: 220 },
+        title: 'Import Workshop',
+        icon: '🗂️',
+        component: ImportWorkshopApp,
+        initialPosition: { x: 300, y: 160 },
+        // Chunk strip + scenes + review panels need room.
+        initialSize: { width: 980, height: 640 },
     },
     {
         id: 'config-panel',
