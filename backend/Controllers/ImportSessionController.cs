@@ -7,8 +7,7 @@ namespace PartyTown.Controllers;
 /// <summary>
 /// REST surface of the import scene workshop (ADR 0017): upload an AI Studio export,
 /// define scenes over the chunk strip, run the extraction map, read and edit the folded
-/// draft. Replaces the legacy <see cref="ImportController"/> flow, which stays untouched
-/// until the workshop surface is complete (deleted in the final slice).
+/// draft. The sole import surface since the legacy import flow was removed.
 /// </summary>
 [ApiController]
 [Route("import")]

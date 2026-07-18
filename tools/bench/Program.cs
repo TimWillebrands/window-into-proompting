@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,7 +7,6 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using PartyTown.Bench;
 using PartyTown.Configuration;
-using PartyTown.Data;
 using PartyTown.Services.Memory;
 using Testcontainers.PostgreSql;
 
@@ -153,8 +151,7 @@ try
         Environment.GetEnvironmentVariable("BENCH_PROBE_TIMEOUT_MIN"), out var m) && m > 0 ? m : 15;
     Console.Error.WriteLine($"probe deadline: {probeTimeoutMin} min (BENCH_PROBE_TIMEOUT_MIN to override)");
     using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(probeTimeoutMin));
-    var bench = new Bench(grains, loggerFactory, memory, artifact, cts.Token,
-        host.Services.GetService<IDbContextFactory<AppDbContext>>());
+    var bench = new Bench(grains, loggerFactory, memory, artifact, cts.Token);
     var exit = 0;
     try
     {

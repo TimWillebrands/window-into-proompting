@@ -30,10 +30,9 @@ public sealed class ImportPersonaFinalizeService(
     private const int Attempts = 3;
     private const int MaxTraits = 12;
 
-    // The card-render finding from the spearhead (ImportCardProbes): a verbatim 24-trait
-    // list reads as a fact-sheet the speaking model recites, and the decision phase
-    // composes on Bio alone — so compression + a synthesized Bio are importer
-    // requirements, not niceties.
+    // A verbatim 24-trait list reads as a fact-sheet the speaking model recites, and the
+    // decision phase composes on Bio alone — so compression + a synthesized Bio are
+    // importer requirements, not niceties (ADR 0017).
     private const string SystemPrompt =
         """
         You compress an imported character's raw extracted trait list into a playable
@@ -85,8 +84,7 @@ public sealed class ImportPersonaFinalizeService(
         return new FinalizedCard(personaName, FoldCard(personaName, compressed), bio, Degraded: false);
     }
 
-    /// <summary>The card shape validated by the spearhead (ImportCardProbes.FoldCard):
-    /// a "You are …" header plus one bullet per trait.</summary>
+    /// <summary>Card shape: a "You are …" header plus one bullet per trait.</summary>
     internal static string FoldCard(string name, IReadOnlyList<string> traits)
         => new StringBuilder()
             .Append("You are ").Append(name).AppendLine(".")

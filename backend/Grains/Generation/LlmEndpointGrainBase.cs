@@ -108,8 +108,8 @@ public static class LlmEndpointGrainUtils
         };
 
         // ResponseFormat can be set on either LlmGenerationJob (top-level, the modern
-        // shape used by structured-output callers like PersonaDecisionService and
-        // ImportService) or LlmModelParameters (legacy). Top-level takes precedence.
+        // shape used by structured-output callers like PersonaDecisionService and the
+        // import scene map) or LlmModelParameters (legacy). Top-level takes precedence.
         // Historical footgun: pre-fix, only the nested ModelParameters slot was wired
         // through, so all callers using the top-level field had their JSON schemas
         // silently dropped — output happened to mostly parse because JsonRepair caught

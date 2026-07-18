@@ -1,8 +1,14 @@
 import { useCallback, useState } from 'react';
 import { useGetImportId, usePostImport } from '#api/party-zone';
+import { ProblemDetailsError } from '../../api/custom-fetch';
 import type { ImportSessionOverview } from '../../api/model';
 import { loadStoredSessionId, storeSessionId } from './lib/workshop-utils';
 import WorkshopScreen from './WorkshopScreen';
+
+/// Only a definitive 404 means the session is gone; anything else is a blip.
+function isSessionGone(error: unknown): boolean {
+    return error instanceof ProblemDetailsError && Number(error.status) === 404;
+}
 
 /// Import Workshop (ADR 0017): upload a Gemini export, carve it into scenes, run the
 /// extraction map, review/correct the draft, commit scene by scene into a real Room.
@@ -38,34 +44,65 @@ function SessionGate({
     onExit: () => void;
 }) {
     const overviewQuery = useGetImportId(sessionId, {
-        query: { retry: false },
+        query: {
+            retry: (failureCount, error) =>
+                !isSessionGone(error) && failureCount < 3,
+        },
     });
 
-    if (overviewQuery.isPending) {
-        return (
-            <div className="app-surface flex h-full items-center justify-center">
-                <progress />
-            </div>
-        );
+    // Cached overview keeps the workshop mounted through failed refetches
+    // (tab refocus while the dev server or backend hiccups).
+    if (overviewQuery.data) {
+        return <WorkshopScreen sessionId={sessionId} onExit={onExit} />;
     }
     if (overviewQuery.isError) {
+        if (isSessionGone(overviewQuery.error)) {
+            return (
+                <div className="app-surface flex h-full flex-col items-center justify-center gap-2 p-4 text-[11px]">
+                    <p>
+                        The stored import session no longer exists — it was
+                        abandoned or the backend lost it.
+                    </p>
+                    <button
+                        type="button"
+                        className="xp-glass-chip cursor-pointer"
+                        onClick={onExit}
+                    >
+                        Start a new import
+                    </button>
+                </div>
+            );
+        }
         return (
             <div className="app-surface flex h-full flex-col items-center justify-center gap-2 p-4 text-[11px]">
                 <p>
-                    The stored import session could not be loaded — it may have
-                    been abandoned or the backend restarted without it.
+                    Can't reach the backend right now — the stored import
+                    session is kept.
                 </p>
-                <button
-                    type="button"
-                    className="xp-glass-chip cursor-pointer"
-                    onClick={onExit}
-                >
-                    Start a new import
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        className="xp-glass-chip cursor-pointer"
+                        onClick={() => overviewQuery.refetch()}
+                    >
+                        Try again
+                    </button>
+                    <button
+                        type="button"
+                        className="xp-glass-chip cursor-pointer"
+                        onClick={onExit}
+                    >
+                        Discard and start a new import
+                    </button>
+                </div>
             </div>
         );
     }
-    return <WorkshopScreen sessionId={sessionId} onExit={onExit} />;
+    return (
+        <div className="app-surface flex h-full items-center justify-center">
+            <progress />
+        </div>
+    );
 }
 
 function UploadScreen({ onCreated }: { onCreated: (id: string) => void }) {
