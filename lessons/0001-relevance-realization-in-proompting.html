@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 · Relevance Realization in Proompting</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+<header class="lesson-header">
+    <div class="kicker">Lesson 0001 · Vervaeke × Proompting · ~15 min</div>
+    <h1>Relevance Realization: the one idea under the whole architecture</h1>
+    <p class="subtitle">Why the interesting parts of this codebase are four copies of the same faculty at four timescales.</p>
+</header>
+
+<div class="win">
+    <strong>The win:</strong> after this lesson, when a feature request lands you can say which of the four RR instances it touches — <em>Interruption, Urge, Recall, Capture</em> — and why "just add a score for it" is usually the wrong first move.
+</div>
+
+<h2>The problem RR answers</h2>
+<p>
+At any moment, a Persona in a Room faces an intractable space: everything ever said, every memory, every possible reply. Deciding what matters cannot be done by rule — any rule for "check what's relevant" must itself decide what's relevant to check. This is the <strong>frame problem</strong>, and it's why
+<a href="http://contrastiveconvergence.net/~timothylillicrap/files/articles/relevance%20realization%20as%20an%20emerging%20framework%20in%20cogsci.pdf">Vervaeke, Lillicrap &amp; Richards (2012)</a>
+argue relevance can never be <em>computed</em> from a fixed formula — it must be <strong>realized</strong>: continuously self-organized by balancing opposing constraints, the way an economy sets prices without anyone computing them.
+</p>
+<p>Two properties follow, and both are load-bearing in this repo:</p>
+<ul>
+    <li><strong>Opponent processing.</strong> RR is implemented as tension between pulls that are each sometimes right — explore⇄exploit, general⇄special. You keep the tension <em>structural</em>; you don't average it away.</li>
+    <li><strong>Self-organization.</strong> What's relevant reshapes itself through use: attended things strengthen, ignored things fade. No central scorer.</li>
+</ul>
+
+<h2>The four instances in the codebase</h2>
+<p><code>CONTEXT.md</code> § "Relevance realization" declares one faculty running at four timescales. Each has a concrete home:</p>
+<table>
+<tr><th>Instance</th><th>Timescale</th><th>Question</th><th>Where</th></tr>
+<tr><td><strong>Interruption</strong></td><td>ms</td><td>Worth abandoning my in-flight reply?</td><td><code>RaceTrigger.cs</code> · ADR 0001</td></tr>
+<tr><td><strong>Urge</strong></td><td>seconds</td><td>Worth speaking into this beat?</td><td><code>UrgeMath.cs</code> · ADR 0010</td></tr>
+<tr><td><strong>Recall</strong></td><td>days ←</td><td>Which past moments belong here?</td><td><code>RecallDeployment.cs</code> · ADR 0015</td></tr>
+<tr><td><strong>Capture</strong></td><td>days →</td><td>Which present moments are worth keeping?</td><td><code>MemoryExtractor.cs</code> · ADR 0015</td></tr>
+</table>
+<p class="aside">Same faculty, four clocks. When you see "salience" in the stop-signal race and "salience" in memory ranking, that's not name reuse — it's the claim that interruption and remembering are the same judgement at different timescales.</p>
+
+<h2>Worked example 1: self-organization in ten lines</h2>
+<p><code>backend/Services/Memory/SalienceMath.cs</code> is the smallest complete expression of RR's self-organizing half:</p>
+<pre><code>salience = weight × decay(now − captured) + use_bonus(recall_count, last_recalled)</code></pre>
+<ul>
+    <li><code>weight</code> — Capture's forward bet: "how much would this stick, a day later?" (emitted by the extractor, not a rule).</li>
+    <li><code>decay</code> — 7-day half-life on wall-clock time: the landscape flattens on its own.</li>
+    <li><code>use_bonus</code> — increments <em>only when the Decision phase picks the memory</em>, never on mere surfacing in the prompt. Attention strengthens; exposure doesn't. That single rule is what makes the landscape self-organizing rather than a popularity counter.</li>
+</ul>
+
+<h2>Worked example 2: opponent processing kept structural</h2>
+<p>
+<a href="../../docs/adr/0015-recall-as-relevance-realization.md">ADR 0015</a> had to merge two pulls: memories <em>relevant to this beat</em> (graph-walk from cast + concepts) and memories that are simply <em>recent</em>. The obvious move — one formula, <code>weight × decay × relevance_boost</code> — was rejected. Instead: a <strong>quota union</strong>, ~5 slots for the relevant arm, the rest recent, each arm internally salience-ranked.
+</p>
+<p>
+The stated reason is the architectural lesson of this whole course: a merged formula invents a tunable cross-arm weight <em>with no eval harness to tune it against</em>, and lets a hot topic starve everything else. The quota keeps the two pulls in structural tension — opponent processing — and guarantees a serendipity budget of recent-but-unrelated memories. Same pattern in <code>UrgeMath.CalculateNetPressure</code>: pull (mention, question, cold-open, chaos) minus push (round penalty, self-dominance penalty), listed as separate named forces, not folded into one learned score.
+</p>
+<div class="aside">
+Heuristic for your future ADRs: when two selection pressures compete, reach for a <em>structural</em> tension (quota, race, separate named terms) before a <em>numerical</em> one (one blended formula). Graduate to a formula only when an eval harness exists to tune it.
+</div>
+
+<h2>Check yourself</h2>
+<p>Answer from memory before clicking — the retrieval is the point.</p>
+<div class="quiz">
+    <div class="q">
+        <p class="prompt">1. Feature request: "Personas should bring up an old promise when the same topic resurfaces weeks later." Which RR instance does this primarily touch?</p>
+        <button class="opt" data-correct>Recall — surfacing past moments into the present beat</button>
+        <button class="opt">Urge — deciding this beat is worth speaking into</button>
+        <button class="opt">Capture — deciding the present moment is worth keeping</button>
+        <div class="expl">Recall: the promise already exists as a memory; the work is making it surface when the topic anchors match — the relevant arm of ADR 0015's quota union is exactly this path.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">2. Why did ADR 0015 reject the single merged formula <code>weight × decay × relevance_boost</code>?</p>
+        <button class="opt">Because multiplying scores is numerically unstable at small values</button>
+        <button class="opt" data-correct>Because it invents a cross-arm weight nothing exists to tune</button>
+        <button class="opt">Because Cypher cannot express the multiplication over the edges</button>
+        <div class="expl">A blended weight with no eval harness is an untunable dial, and a hot topic can starve the window. The quota keeps the pulls in structural tension — the opponent-processing shape.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">3. When does a Recollection's <code>recall_count</code> increment?</p>
+        <button class="opt">When the memory is surfaced into the Decision prompt</button>
+        <button class="opt" data-correct>When the Decision phase picks it by returned index</button>
+        <button class="opt">When the Speaking phase quotes the snippet verbatim</button>
+        <div class="expl">Pick only — "attention strengthens, exposure doesn't." This is what makes the salience landscape self-organizing instead of a counter of prompt appearances.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">4. Why can't relevance be computed by a fixed rule, per Vervaeke?</p>
+        <button class="opt">Because the rule would need too much compute at runtime</button>
+        <button class="opt">Because relevance is subjective and differs for every persona</button>
+        <button class="opt" data-correct>Because the rule must already know what is relevant</button>
+        <div class="expl">The frame problem: any rule for checking relevance must itself select what to check — infinite regress. Hence relevance is <em>realized</em> by self-organizing opponent processes, not computed.</div>
+    </div>
+</div>
+
+<h2>Go deeper</h2>
+<p>
+<strong>Primary source for this lesson:</strong> <a href="http://contrastiveconvergence.net/~timothylillicrap/files/articles/relevance%20realization%20as%20an%20emerging%20framework%20in%20cogsci.pdf">Vervaeke, Lillicrap &amp; Richards, <em>Relevance Realization and the Emerging Framework in Cognitive Science</em> (2012)</a> — read §1–2 (the problem) and the opponent-processing sections; skim the rest. Prefer video? <a href="https://johnvervaeke.com/series/awakening-from-the-meaning-crisis/">Awakening from the Meaning Crisis</a>, episodes 27–32.
+</p>
+<p>Keep the <a href="../reference/vervaeke-proompting-map.html">Vervaeke → Proompting map</a> open next to any ADR you read or write.</p>
+
+<footer class="lesson-footer">
+    <p>Questions, disagreements, or a quiz answer that felt wrong? Ask your teaching agent — bring the persona/feature you're actually working on and we'll place it on the map together. Next lesson candidates: opponent processing as an architectural pattern, or the 4P memory layers.</p>
+</footer>
+</body>
+</html>

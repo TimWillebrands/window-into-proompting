@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 · Import: Capture at Industrial Scale</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+<header class="lesson-header">
+    <div class="kicker">Lesson 0002 · Vervaeke × Proompting · ~20 min</div>
+    <h1>Import: Capture at industrial scale</h1>
+    <p class="subtitle">The scene workshop as a case study — every mechanism in ADR 0017 is a Vervaeke concept wearing work clothes.</p>
+</header>
+
+<div class="win">
+    <strong>The win:</strong> after this lesson you can explain four import mechanisms — the weight floor, the stateless map, trait/episode/rule routing, and anchor-as-vividness — <em>in RR terms</em>, and predict what would break if each were removed.
+</div>
+
+<h2>What import is, on the map</h2>
+<p>
+Import (<a href="../../docs/adr/0017-import-scene-workshop-over-stateless-map.md">ADR 0017</a>) turns a Gemini AI Studio transcript into a resumable Room with seeded Memory. In lesson 1's terms: it is the <strong>Capture</strong> instance of Relevance Realization, run in batch. Live capture asks "is this present moment worth remembering?" once per beat; import asks it a few hundred times in an afternoon, over someone else's past. Same faculty, industrial throughput — which is exactly why the failure modes of RR show up here in their purest form.
+</p>
+<p>The engine is a three-stage shape (<code>backend/Services/Import/</code>):</p>
+<table>
+<tr><th>Stage</th><th>What</th><th>Who judges</th><th>Code</th></tr>
+<tr><td>Deterministic IR</td><td>Parse source into typed chunks. No LLM.</td><td>Nobody — mechanical</td><td><code>AiStudioImportParser.cs</code></td></tr>
+<tr><td>Stateless map</td><td>One LLM call per Scene → <code>trait | episode | rule</code> items + per-chunk routing</td><td>LLM (intra-scene granularity)</td><td><code>SceneMapService.cs</code></td></tr>
+<tr><td>Fold + commit</td><td>Merge items into reviewable draft; human reviews; pure writes</td><td>Code (mechanical merge) + human (everything else)</td><td><code>ImportFold.cs</code>, <code>ImportCommitService.cs</code></td></tr>
+</table>
+<p class="aside">
+Note the division: what is <em>computable</em> (parsing, dedup arithmetic, timestamp assignment) goes to code; what requires <em>realization</em> (what counts as an event, where scenes begin, whether "Lena" is <em>our</em> Lena) goes to an LLM or the human. The frame problem from lesson 1 predicts this split — you cannot write the rule for "what matters in this scene," so the pipeline routes that judgement to judgement-capable parts and keeps everything rule-writable in plain C#.
+</p>
+
+<h2>Mechanism 1: the weight floor — combinatorial explosion, measured</h2>
+<p>
+Lesson 1 said RR exists because everything <em>could</em> matter. Import proved it with numbers: extracting the reference export's message band without a floor minted roughly <strong>one Event per message — ~180 events drowning the 96 canon ones</strong>. A memory system that remembers everything has remembered nothing; the salience landscape goes flat.
+</p>
+<p>
+The fix reuses Capture's existing bet: the extractor emits a per-episode <code>weight</code> (0..1) — "how much would this stick, a day later?", the same judgement <a href="../../docs/adr/0015-recall-as-relevance-realization.md">ADR 0015</a> attaches at live capture. Episodes below <code>ImportSettings.WeightFloor</code> (default 0.5) route to <strong>Room history only — no AGE Event</strong> (<code>DraftRouting.HistoryOnly</code>, <code>ImportModels.cs:30</code>). The transcript stays complete as substrate; only the memorable crystallizes into the Arena.
+</p>
+<p>
+And because a floor is a rule pretending to do RR's job, it is deliberately <em>not</em> final: it's a draft default, greyed-with-reason in review, flippable per item by the human. The rule proposes; realization (the human's) disposes.
+</p>
+
+<h2>Mechanism 2: trait / episode / rule — a 4P routing table</h2>
+<p>The map call's three item types are the four kinds of knowing, sorted at the door:</p>
+<table>
+<tr><th>Item</th><th>Kind of knowing</th><th>Where it lands</th><th>Why there</th></tr>
+<tr><td><strong>episode</strong></td><td>Propositional + Perspectival</td><td>AGE <strong>Event</strong> (+ Concept links) with per-Participant <strong>Recollections</strong></td><td>Shared anchor in the Arena; each cast member gets their own spin on the edge.</td></tr>
+<tr><td><strong>trait</strong></td><td>Procedural (engagement style, identity)</td><td>Persona card / system prompt — <em>never</em> the memory graph</td><td>How the persona engages, not something they recall. Finalize compresses traits + synthesises the Bio.</td></tr>
+<tr><td><strong>rule</strong></td><td>Not knowing at all — meta-content</td><td><code>discarded(reason)</code> in the conservation ledger</td><td>Author instructions aren't in-world experience. Recorded, never silently dropped.</td></tr>
+</table>
+<p>
+And the fourth P? <strong>Participatory knowing — Stances — is deliberately absent at import time.</strong> CONTEXT.md: "beliefs don't crystallise <em>during</em> an experience but in the rest after it." Import writes the propositional and perspectival layers only; orientations form later, retroactively, via Consolidation (<a href="../../docs/adr/0016-stance-floor-and-auto-appending-consolidation.md">ADR 0016</a>) — the same rest-time pass live play uses. An importer that wrote Stances directly would be claiming to know what the experience <em>meant</em> at the moment of having it.
+</p>
+
+<h2>Mechanism 3: the stateless map — a defence against parasitic processing</h2>
+<p>
+Vervaeke's name for RR gone malignant is <strong>parasitic processing</strong>: a misframing that feeds itself, each distorted interpretation becoming the lens for the next, narrowing reciprocally until the system can't see out. Superseded <a href="../../docs/adr/0013-import-as-iterative-scene-workshop.md">ADR 0013</a> had built exactly that channel: scene N's extractor read scenes 1..N−1 back from AGE, so one hallucinated event in scene 2 became <em>ground truth framing</em> for scenes 3 through 20. The ADR 0017 verdict names it precisely: "that serial chain propagates extraction errors forward."
+</p>
+<p>The cure is structural, and every piece maps:</p>
+<ul>
+    <li><strong>Independence.</strong> <code>f(chunks, registry?, note?) → items</code> — no running "story so far." Each scene re-realizes relevance from source, so an error stays local instead of compounding.</li>
+    <li><strong>Explicit, human-owned context.</strong> Continuity comes from chunk overlap and the registry — <em>nouns, not narrative</em>. The registry pins names and cast routing; it never carries interpretation forward. Prior-episode injection exists but is per-scene opt-in, "the error-propagation channel the map shape exists to avoid."</li>
+    <li><strong>The opening move.</strong> Vervaeke's counter to reciprocal narrowing is re-opening the frame. Here: regeneration is side-effect-free — reframe with a note ("this scene is a dream sequence"), rerun, only the draft mutates. And the human gate at commit is a second cognitive system auditing the first's framing before it becomes real.</li>
+</ul>
+<p class="aside">
+Architect's takeaway: statefulness in an extraction chain isn't just a resumability problem — it's a <em>frame-contamination</em> problem. When you next design a multi-stage LLM flow, ask what each stage's errors become for the stage after it.
+</p>
+
+<h2>Mechanism 4: anchor-as-vividness — writing onto the salience landscape</h2>
+<p>
+Import doesn't insert facts into a database; it places memories onto a decaying landscape. The operator sets an anchor timestamp + spacing (<code>ImportSettings.Anchor</code>), episodes land at <code>anchor + chunk-ordinal · spacing</code>, and from that moment <code>SalienceMath.Score</code> treats them exactly like lived memories — 7-day half-life and all. ADR 0017 measured the consequence: a 30-day-old anchor yields a <strong>38× salience gap</strong> versus a fresh one. The anchor knob is therefore not "when did this happen" metadata — it is a <em>vividness dial</em>: anchor last week and the persona is haunted by the backstory; anchor last year and it's a faint shape they'd only surface if the topic walks in the door (the relevant arm of recall can still reach hazy memories; the recent arm won't).
+</p>
+<p>
+One landscape, two producers — lived beats and imported scenes — and the self-organizing dynamics from lesson 1 (pick-strengthens, time-decays) apply uniformly from the first recall onward. That uniformity is the agent–arena claim made practical: an imported Event is an Arena entity like any other; what makes it <em>memory</em> is only the Recollection edges personas hold toward it.
+</p>
+
+<h2>One invariant to rule them: conservation</h2>
+<p>
+Every IR chunk must be accounted for — <code>event-sourced | folded | history-only | discarded(reason) | unprocessed</code> — in the conservation ledger. RR is lossy <em>by design</em> (that's the point of a weight floor), and a lossy process you can't audit is indistinguishable from a broken one. The ledger makes the forgetting inspectable: nothing is ever silently lost, things are deliberately <em>not crystallized</em>, with the reason on record. The correction ledger (<code>ImportCorrectionStore.cs</code>) extends this to the human's overrides — suggested vs. final becomes ground truth for future extraction-prompt iteration in the Bench.
+</p>
+
+<h2>Check yourself</h2>
+<p>Two questions reach back to lesson 1 — that interleaving is deliberate.</p>
+<div class="quiz">
+    <div class="q">
+        <p class="prompt">1. On the four-instance RR map from lesson 1, the import workshop is primarily which instance?</p>
+        <button class="opt">Recall — it surfaces the transcript's past into present beats</button>
+        <button class="opt" data-correct>Capture — it decides which moments are worth remembering</button>
+        <button class="opt">Urge — it decides which scenes are worth processing</button>
+        <div class="expl">Capture, run in batch: per-episode weight, floor routing, and crystallization into Events/Recollections are all forward-facing "will this stick?" judgements.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">2. Without the weight floor, the measured outcome on the reference export was:</p>
+        <button class="opt">~180 mostly-trivial events drowning the 96 canon ones</button>
+        <button class="opt">~96 canon events missing weights and concept links</button>
+        <button class="opt">~53 LLM calls ballooning to several hundred per band</button>
+        <div class="expl">~1 Event per message (~180 vs 96). A flat salience landscape where everything is memorable — the combinatorial explosion RR exists to beat, demonstrated empirically.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">3. Import writes no Stances. Which principle is that enforcing?</p>
+        <button class="opt">Stances are append-only, so bulk writes would corrupt the projection</button>
+        <button class="opt">Participatory knowing is per-Party, and imports may target multiple Parties</button>
+        <button class="opt" data-correct>Beliefs crystallize in rest, retroactively, never during the experience</button>
+        <div class="expl">Capture writes propositional + perspectival only; Consolidation (ADR 0016) forms Stances later, in rest — for imported memory exactly as for lived memory.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">4. ADR 0013's serial read-back chain was replaced because, in Vervaeke's terms, it was a channel for:</p>
+        <button class="opt" data-correct>Parasitic processing — errors becoming the frame for later scenes</button>
+        <button class="opt">Opponent processing — two arms collapsing into a single formula</button>
+        <button class="opt">Salience landscaping — hot topics starving unrelated recent memories</button>
+        <div class="expl">A hallucination in scene 2 became ground-truth framing for scenes 3..20 — reciprocal narrowing. The stateless map keeps errors local; the registry carries nouns, not narrative.</div>
+    </div>
+    <div class="q">
+        <p class="prompt">5. An operator anchors an import 30 days back instead of yesterday. The personas will:</p>
+        <button class="opt">Lose the memories once decay drops them below the weight floor</button>
+        <button class="opt" data-correct>Rarely surface them by recency, still reach them by relevance</button>
+        <button class="opt">Recall them identically, since weight ignores capture timestamps entirely</button>
+        <div class="expl">~38× salience gap: the recent arm won't carry them, but the relevant arm (graph-walk on cast/concepts) still can — hazy backstory, not amnesia. The floor gates <em>writing</em>, not later reading; decay never deletes.</div>
+    </div>
+</div>
+
+<h2>Go deeper</h2>
+<p>
+<strong>Primary source for this lesson:</strong> <a href="../../docs/adr/0017-import-scene-workshop-over-stateless-map.md">ADR 0017</a> itself, read side-by-side with the <a href="../reference/vervaeke-proompting-map.html">Vervaeke → Proompting map</a> — it is the house's best example of an ADR argued in the framework's idiom. For the Vervaeke half, <a href="https://johnvervaeke.com/series/awakening-from-the-meaning-crisis/">Awakening from the Meaning Crisis</a>: parasitic processing and reciprocal narrowing arrive in the early episodes and return through the RR arc (Ep. 27–32).
+</p>
+
+<footer class="lesson-footer">
+    <p>Previous: <a href="0001-relevance-realization-in-proompting.html">Lesson 1 — Relevance Realization</a>. Questions or a mechanism that doesn't fit the map — the fold's code-first stance, the registry's routing flag? Ask your teaching agent; disagreement is the best material. Next candidates: opponent processing as an architectural pattern, or 4P placement drills on live features.</p>
+</footer>
+</body>
+</html>

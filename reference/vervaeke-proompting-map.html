@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference: The Vervaeke → Proompting Map</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="lesson-header">
+    <div class="kicker">Reference · Vervaeke × Proompting</div>
+    <h1>The Vervaeke → Proompting Map</h1>
+    <p class="subtitle">Every Vervaeke concept the codebase uses, what it became in the domain language, and where it lives in code.</p>
+</header>
+
+<h2>Core concepts</h2>
+<table>
+<tr><th>Vervaeke concept</th><th>One-line meaning</th><th>Proompting construct</th><th>Code / doc anchor</th></tr>
+<tr>
+    <td><strong>Relevance realization (RR)</strong></td>
+    <td>Zeroing in on what matters now, out of an intractable space of things that could matter. Cannot be computed by fixed rule (the frame problem) — only <em>realized</em> by balancing opposing constraints.</td>
+    <td><strong>Relevance Realization</strong> — the one faculty behind every "what matters right now?" judgement a Persona makes. Runs at four timescales (below).</td>
+    <td><code>CONTEXT.md</code> § Relevance realization; ADR 0015</td>
+</tr>
+<tr>
+    <td><strong>Salience</strong></td>
+    <td>What grips attention, bottom-up. Distinct from importance (weight to goal) and relevance (fit to task).</td>
+    <td><strong>Salience</strong> — pull from the Arena on a Persona, always relational. Scored in the stop-signal race; ranks Recall.</td>
+    <td><code>backend/Services/Memory/SalienceMath.cs</code>; <code>PersonaSalienceService.cs</code></td>
+</tr>
+<tr>
+    <td><strong>Salience landscape</strong></td>
+    <td>The contoured field of what looms large vs. fades, reshaped by use.</td>
+    <td>A Persona's memories under the salience ranking — recalled ones strengthen, untouched ones sink.</td>
+    <td><code>SalienceMath.Score</code>: <code>weight × decay + use_bonus</code></td>
+</tr>
+<tr>
+    <td><strong>Opponent processing</strong></td>
+    <td>RR is implemented as tension between competing constraints, neither globally right (efficiency⇄resiliency, exploration⇄exploitation).</td>
+    <td>Structural tensions kept structural: two-arm recall quota (relevant⇄recent), net pressure (urge pull ⇄ round/self penalties), stop-signal race (finish⇄interrupt).</td>
+    <td>ADR 0015 § two-arm recall; <code>UrgeMath.CalculateNetPressure</code>; <code>RaceTrigger.cs</code></td>
+</tr>
+<tr>
+    <td><strong>Parasitic processing</strong></td>
+    <td>RR gone malignant: a misframing that feeds itself — each distorted interpretation becomes the lens for the next (reciprocal narrowing).</td>
+    <td>The rejected serial import chain (scene N reads scenes 1..N−1 back from AGE) — errors became framing for later scenes. Cure: stateless map, registry carries nouns not narrative, side-effect-free regeneration, human gate.</td>
+    <td>ADR 0017 § "Why map, not scan"; <code>SceneMapService.cs</code></td>
+</tr>
+<tr>
+    <td><strong>Agent–arena coupling</strong></td>
+    <td>Agent and world co-define each other; the arena affords actions to <em>this</em> agent. Meaning lives in the relation.</td>
+    <td><strong>Arena</strong> — the shared stage per Party. Entities are persona-independent; each Persona's memory is their <em>edges to</em> the Arena, never properties of the entities.</td>
+    <td><code>CONTEXT.md</code> § Arena; ADR 0014, ADR 0004/0006 (AGE graph)</td>
+</tr>
+</table>
+
+<h2>The four RR instances (timescales)</h2>
+<table>
+<tr><th>Instance</th><th>Timescale</th><th>Question</th><th>Code anchor</th></tr>
+<tr><td><strong>Interruption</strong></td><td>milliseconds</td><td>Is this new message worth abandoning my in-flight reply?</td><td><code>RaceTrigger.cs</code>, <code>PersonaSalienceService.cs</code>; ADR 0001</td></tr>
+<tr><td><strong>Urge</strong></td><td>seconds</td><td>Is this beat worth speaking into?</td><td><code>UrgeMath.cs</code>, <code>PersonaDecisionService.cs</code>; ADR 0010</td></tr>
+<tr><td><strong>Recall</strong></td><td>days, backward</td><td>Which past moments belong in this beat?</td><td><code>RecallDeployment.cs</code>, <code>MemoryRepository.cs</code>; ADR 0015</td></tr>
+<tr><td><strong>Capture</strong></td><td>days, forward</td><td>Which present moments are worth remembering at all?</td><td><code>MemoryExtractor.cs</code> (weight emitted at extraction)</td></tr>
+</table>
+<p class="aside">Import (ADR 0017) is <strong>Capture in batch</strong>: same weight bet ("would this stick?"), plus a human-flippable weight floor (below → Room history only, no Event), 4P routing (<code>episode</code> → Event+Recollections, <code>trait</code> → persona card, <code>rule</code> → discarded-with-reason), no Stances at import (beliefs crystallize in rest via Consolidation), and anchor-as-vividness (anchor timestamp places memories on the decay curve; 30-day anchor ≈ 38× salience gap). Conservation ledger keeps the lossiness auditable. See <a href="../lessons/0002-import-as-capture-at-scale.html">lesson 2</a>.</p>
+
+<h2>The four kinds of knowing (4P) → memory layers</h2>
+<table>
+<tr><th>Kind of knowing</th><th>Meaning</th><th>Layer entity</th><th>Notes</th></tr>
+<tr><td><strong>Propositional</strong> — knowing <em>that</em></td><td>Facts, statements</td><td><strong>Event</strong>, <strong>Concept</strong> (shared, in the Arena)</td><td>Persona-independent anchors that edges attach to.</td></tr>
+<tr><td><strong>Perspectival</strong> — knowing <em>what it's like from here</em></td><td>Salience from a point of view</td><td><strong>Recollection</strong> (edge: Participant → Event)</td><td>Second-person snippet with the persona's spin.</td></tr>
+<tr><td><strong>Participatory</strong> — knowing <em>by being in relation</em></td><td>Identity-shaping orientation</td><td><strong>Stance</strong> (append-only edges; Intrinsic vs. Acquired)</td><td>Formed retroactively by <strong>Consolidation</strong> ("in rest"), ADR 0016.</td></tr>
+<tr><td><strong>Procedural</strong> — knowing <em>how</em></td><td>Skills, engagement style</td><td>Chattiness, Impulsivity, system prompt (static today)</td><td>Learned procedural memory = open slot, not yet an entity.</td></tr>
+</table>
+
+<h2>Design rules that follow from the framework</h2>
+<ul>
+    <li><strong>Never collapse an opponent process into one tuned formula</strong> without an eval harness to tune against (ADR 0015 rejected <code>weight × decay × relevance_boost</code> for the quota union).</li>
+    <li><strong>Attention strengthens, exposure doesn't</strong> — recall_count increments only on the Decision phase's <em>pick</em>, not on surfacing in the prompt.</li>
+    <li><strong>Beliefs crystallize in rest, not in the moment</strong> — Capture writes propositional + perspectival only; Stances come later via Consolidation.</li>
+    <li><strong>The personal view lives on edges, never on entities</strong> — memory is a relation to the Arena (agent–arena).</li>
+    <li><strong>Wall-clock decay</strong> — the world stays alive while you're away; wall-clock is the only clock users can intuit.</li>
+    <li><strong>Zero hot-path LLM calls for memory</strong> — ≤2 LLM calls per beat (Decision + Speaking); everything RR-adjacent is arithmetic or runs in rest.</li>
+</ul>
+
+<footer class="lesson-footer">
+    <p>Lessons: <a href="../lessons/0001-relevance-realization-in-proompting.html">0001 — Relevance Realization in Proompting</a> · <a href="../lessons/0002-import-as-capture-at-scale.html">0002 — Import: Capture at Industrial Scale</a>. Sources: <a href="http://contrastiveconvergence.net/~timothylillicrap/files/articles/relevance%20realization%20as%20an%20emerging%20framework%20in%20cogsci.pdf">Vervaeke, Lillicrap &amp; Richards (2012)</a> · <a href="https://johnvervaeke.com/series/awakening-from-the-meaning-crisis/">Awakening from the Meaning Crisis</a> · <code>CONTEXT.md</code> · <code>docs/adr/0015</code>.</p>
+</footer>
+</body>
+</html>
