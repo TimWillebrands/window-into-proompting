@@ -51,6 +51,15 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
             .ToList());
     }
 
+    /// <summary>Announce a Happening every Persona will perceive and remember.</summary>
+    [HttpPost("happenings")]
+    public async Task<ActionResult<WorldActivity>> Announce(Guid partyId, [FromBody] AnnounceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 600)
+            return BadRequest("Text is required (≤ 600 chars).");
+        return Ok(await Clock(partyId).AnnounceAsync(request.Text.Trim()));
+    }
+
     [HttpPost("player")]
     public async Task<ActionResult<PlayerResponse>> EnsurePlayer(Guid partyId, [FromBody] EnsurePlayerRequest request)
         => Ok(new PlayerResponse(await Clock(partyId).EnsurePlayerAsync(request.Name)));
@@ -160,6 +169,7 @@ public sealed record UpdateWorldRequest(bool? Running, int? TickSeconds, int? Ma
 public sealed record TickRequest(Guid? PersonaId, string? Nudge);
 public sealed record TickResponse(bool Started);
 public sealed record EnsurePlayerRequest(string? Name);
+public sealed record AnnounceRequest(string Text);
 public sealed record PlayerResponse(Guid PlayerId);
 public sealed record CreateBoardPostRequest(string Title, string Body, Guid? AuthorId);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);

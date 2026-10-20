@@ -83,6 +83,30 @@ public sealed class WorldClockGrain(
         await PublishAsync("activity", activity);
     }
 
+    public async Task<WorldActivity> AnnounceAsync(string text)
+    {
+        var happening = new WorldActivity
+        {
+            PersonaId = Narrator.PersonaId, PersonaName = Narrator.DisplayName,
+            App = "world", Action = "happening", Summary = WorldStream.Clip(text, 600),
+        };
+        await RecordAsync(happening);
+
+        // Everyone in the World lived through it: one Event, a Recollection each.
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+        var present = cast.Select(c => new ParticipantView(c.Id, c.Name, c.DefaultDriver)).ToList();
+        var context = new List<ChatMessage>
+        {
+            new()
+            {
+                MessageId = 0, ChatGroupId = PartyId, SenderId = Narrator.PersonaId, SenderType = "assistant",
+                Content = $"[Happening in the world] {happening.Summary}", SendAt = happening.Ts,
+            },
+        };
+        _ = memory.CaptureAsync(PartyId, happening.Id, 0, context, present, CancellationToken.None);
+        return happening;
+    }
+
     public async Task<Guid> EnsurePlayerAsync(string? name)
     {
         var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
@@ -281,6 +305,8 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("RecordAsync")] Task RecordAsync(WorldActivity activity);
     /// <summary>The human's Participant (Driver = User), created on first use.</summary>
     [Alias("EnsurePlayerAsync")] Task<Guid> EnsurePlayerAsync(string? name);
+    /// <summary>Author-announced Happening: logged, perceived by every Life, remembered by everyone.</summary>
+    [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.WorldClockState")]

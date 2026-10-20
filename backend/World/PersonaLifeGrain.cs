@@ -40,6 +40,10 @@ public sealed class PersonaLifeGrain(
             await clock.GetActivitiesAsync(8, personaId),
             DateTimeOffset.UtcNow);
 
+        var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
+            .Where(a => a.Action == "happening" && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromHours(12))
+            .ToList();
+
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
 
@@ -64,6 +68,11 @@ Output ONLY JSON: {ChoiceShape}
         var sb = new StringBuilder();
         sb.AppendLine($"It is {ctx.Now.ToLocalTime().ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
         if (!string.IsNullOrWhiteSpace(nudge)) sb.AppendLine($"Something nudges you: {nudge}");
+        if (happenings.Count > 0)
+        {
+            sb.AppendLine("\n# Lately in the world");
+            sb.AppendLine(string.Join("\n", happenings.Select(h => $"- {WorldStream.Ago(h.Ts, ctx.Now)}: {h.Summary}")));
+        }
         sb.AppendLine();
         sb.AppendLine("# On your mind");
         sb.AppendLine(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(6).Select(m => $"- {m.Snippet}")));
