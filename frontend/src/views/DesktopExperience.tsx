@@ -5,9 +5,11 @@ import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
 import StartMenu from '../components/desktop/StartMenu';
 import WindowFrame from '../components/desktop/WindowFrame';
+import WorldToasts from '../components/desktop/WorldToasts';
 import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
+import { WorldRealtimeBridge } from '../lib/world';
 
 const TASKBAR_HEIGHT = 30;
 const MIN_WIDTH = 360;
@@ -211,6 +213,8 @@ export default function DesktopExperience() {
             <DesktopWallpaper />
             <DesktopProvider>
                 <DesktopWindowLayer />
+                <WorldRealtimeBridge />
+                <WorldToasts />
             </DesktopProvider>
         </section>
     );

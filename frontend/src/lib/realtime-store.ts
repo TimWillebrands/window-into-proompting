@@ -1,6 +1,7 @@
 import deepEqual from 'fast-deep-equal';
 import { create } from 'zustand';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
+import { worldBus } from './world-bus';
 
 export interface ChatMessageMetadata {
     provider: string | null;
@@ -275,6 +276,13 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 },
             },
         }));
+
+        if (
+            envelope.type.startsWith('world.') ||
+            envelope.type === 'party.message.created'
+        ) {
+            worldBus.emit(envelope);
+        }
 
         if (envelope.type === 'party.snapshot') {
             // Snapshot now carries the two thought-log auxiliary streams alongside

@@ -1,12 +1,57 @@
+import BoardApp from '../apps/board/BoardApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
+import DiaryApp from '../apps/diary/DiaryApp';
 import ImportWorkshopApp from '../apps/import-workshop/ImportWorkshopApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
+import MessengerApp from '../apps/messenger/MessengerApp';
+import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
 import PersonasApp from '../apps/personas/PersonasApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
+import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
 
 export const WINDOW_PRESETS: WindowDescriptor[] = [
+    {
+        id: 'world',
+        title: 'World Monitor',
+        icon: '🌍',
+        component: WorldApp,
+        initialPosition: { x: 420, y: 80 },
+        initialSize: { width: 820, height: 560 },
+    },
+    {
+        id: 'messenger',
+        title: 'Messenger',
+        icon: '🦋',
+        component: MessengerApp,
+        initialPosition: { x: 1180, y: 60 },
+        initialSize: { width: 300, height: 560 },
+    },
+    {
+        id: 'messenger-chat',
+        title: 'Conversation',
+        icon: '💬',
+        component: MessengerChatWindow,
+        initialPosition: { x: 760, y: 220 },
+        initialSize: { width: 440, height: 480 },
+    },
+    {
+        id: 'board',
+        title: 'Partyboard',
+        icon: '📌',
+        component: BoardApp,
+        initialPosition: { x: 240, y: 120 },
+        initialSize: { width: 860, height: 600 },
+    },
+    {
+        id: 'diary',
+        title: 'Diaries — Notepad',
+        icon: '📓',
+        component: DiaryApp,
+        initialPosition: { x: 300, y: 160 },
+        initialSize: { width: 640, height: 500 },
+    },
     {
         id: 'personas',
         title: 'Persona Manager',
@@ -57,6 +102,30 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
 ];
 
 export const DESKTOP_ICONS = [
+    {
+        id: 'world',
+        label: 'World Monitor',
+        icon: '/img/842.ico',
+        windowId: 'world',
+    },
+    {
+        id: 'messenger',
+        label: 'Messenger',
+        icon: '/img/1012.ico',
+        windowId: 'messenger',
+    },
+    {
+        id: 'board',
+        label: 'Partyboard',
+        icon: '/img/842.ico',
+        windowId: 'board',
+    },
+    {
+        id: 'diary',
+        label: 'Diaries',
+        icon: '/img/842.ico',
+        windowId: 'diary',
+    },
     {
         id: 'personas',
         label: 'Personas',
