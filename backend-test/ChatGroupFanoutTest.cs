@@ -37,7 +37,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         while (DateTime.UtcNow < deadline)
         {
-            var n = FanoutInterceptor.Calls.Count(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync));
+            var n = FanoutInterceptor.Calls.Count(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync) && c.PersonaId != Narrator.PersonaId);
             if (n >= expected) return;
             await Task.Delay(10);
         }
@@ -53,7 +53,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await WaitForFanoutAsync(participants.Count);
 
         var calls = FanoutInterceptor.Calls
-            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync))
+            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync) && c.PersonaId != Narrator.PersonaId)
             .ToList();
         Assert.Equal(participants.Count, calls.Count);
         foreach (var p in participants)
@@ -72,7 +72,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await WaitForFanoutAsync(participants.Count * 3);
 
         var calls = FanoutInterceptor.Calls
-            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync))
+            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync) && c.PersonaId != Narrator.PersonaId)
             .ToList();
         Assert.Equal(participants.Count * 3, calls.Count);
         foreach (var p in participants)
@@ -117,7 +117,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await WaitForFanoutAsync(participants.Count * 5);
 
         var calls = FanoutInterceptor.Calls
-            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync))
+            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync) && c.PersonaId != Narrator.PersonaId)
             .ToList();
         Assert.Equal(participants.Count * 5, calls.Count);
     }
@@ -132,7 +132,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await WaitForFanoutAsync(participants.Count);
 
         var calls = FanoutInterceptor.Calls
-            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync))
+            .Where(c => c.Method == nameof(IPersonaGrain.NotifyMessageAsync) && c.PersonaId != Narrator.PersonaId)
             .ToList();
         Assert.All(calls, c => Assert.Equal(userMsg.MessageId, c.MessageId));
         Assert.Equal(participants.Count, calls.Select(c => c.PersonaId).Distinct().Count());

@@ -448,7 +448,7 @@ public sealed class ResponsePipeline(
         var memberIds = await chatGroupGrain.GetParticipantIdsAsync();
 
         var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
-        if (selfCast is null || !memberIds.Contains(persona.Id) || selfCast.EffectiveIn(overrides) != DriverKind.LLM)
+        if (selfCast is null || memberIds?.Contains(persona.Id) != true || selfCast.EffectiveIn(overrides) != DriverKind.LLM)
             return null;
 
         var self = selfCast.ToSelfView(DriverKind.LLM);
@@ -525,7 +525,7 @@ public sealed class ResponsePipeline(
     private static List<ParticipantView> PresentViews(
         IReadOnlyList<CastMember> cast, IReadOnlySet<Guid> memberIds, IReadOnlyDictionary<Guid, DriverKind> overrides)
         => cast
-            .Where(c => memberIds.Count == 0 || memberIds.Contains(c.Id))
+            .Where(c => memberIds is null || memberIds.Count == 0 || memberIds.Contains(c.Id))
             .Select(c => c.ToView(c.EffectiveIn(overrides)))
             .ToList();
 
