@@ -87,25 +87,32 @@ public sealed class WorldClockGrain(
     {
         var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
         var info = await party.GetParty();
-        if (state.State.PlayerId is { } existing && info.Participants.Any(p => p.Id == existing))
-            return existing;
+        var humans = info.Participants.Where(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId).ToList();
+        var wanted = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
 
-        var userLink = info.Participants.FirstOrDefault(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId);
-        if (userLink is null)
+        // Named → that human (several Players can share a World); unnamed → the default Player.
+        var link = wanted is not null
+            ? humans.FirstOrDefault(p => string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase))
+            : humans.FirstOrDefault(p => p.Id == state.State.PlayerId) ?? humans.FirstOrDefault();
+
+        if (link is null)
         {
             var id = Guid.NewGuid();
-            var display = string.IsNullOrWhiteSpace(name) ? "You" : name.Trim();
+            var display = wanted ?? "You";
             await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(
-                new Persona(id, display, "A human visiting this world.", "The human player — a real person, not a character."));
+                new Persona(id, display, "A human visiting this world.", "A real person, not a character."));
             var participants = info.Participants.ToList();
             participants.Add(new PartyParticipant { Id = id, Name = display, Driver = DriverKind.User });
             await party.SetParticipants(participants);
-            userLink = participants[^1];
+            link = participants[^1];
         }
 
-        state.State.PlayerId = userLink.Id;
-        await state.WriteStateAsync();
-        return userLink.Id;
+        if (state.State.PlayerId is null || humans.All(h => h.Id != state.State.PlayerId))
+        {
+            state.State.PlayerId = link.Id;
+            await state.WriteStateAsync();
+        }
+        return link.Id;
     }
 
     private void StartLife(Guid personaId, string? nudge)

@@ -7,11 +7,13 @@ public sealed record LifeContext(
     Guid PartyId,
     CastMember Self,
     IReadOnlyList<CastMember> Cast,
-    Guid? PlayerId,
+    IReadOnlySet<Guid> PlayerIds,
     IReadOnlyList<ChatGroupInfo> Threads,
     IReadOnlyList<WorldActivity> RecentOwn,
     DateTimeOffset Now)
 {
+    public bool IsHuman(Guid id) => PlayerIds.Contains(id);
+
     public string NameOf(Guid id) => Cast.FirstOrDefault(c => c.Id == id)?.Name ?? "someone";
 
     /// <summary>People the Persona can engage with: everyone but self and the Narrator.</summary>

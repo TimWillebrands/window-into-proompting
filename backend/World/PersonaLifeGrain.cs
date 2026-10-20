@@ -33,9 +33,9 @@ public sealed class PersonaLifeGrain(
             return Activity(personaId, "?", "life", "error", "is not an LLM-driven participant here");
 
         var clock = GrainFactory.GetGrain<IWorldClockGrain>(partyId);
-        var status = await clock.GetStatusAsync();
         var ctx = new LifeContext(
-            partyId, self, cast, status.PlayerId,
+            partyId, self, cast,
+            cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
             await party.GetChatGroups(),
             await clock.GetActivitiesAsync(8, personaId),
             DateTimeOffset.UtcNow);
