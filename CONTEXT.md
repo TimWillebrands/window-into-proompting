@@ -1,12 +1,12 @@
 # Proompting
 
-The domain language of Proompting (aka Partytown): a Windows-XP-themed app where one human and several AI **Personas** hang out in **Rooms** and talk.
+The domain language of Proompting (aka Partytown): a Windows-XP-themed desktop where humans and AI **Personas** live together in a **World** — chatting in **Rooms**, messaging privately, posting on a **Board**, keeping **Diaries** — and remember what happened.
 
 ## Language
 
 **Party**:
-A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**.
-_Avoid_: server, workspace, tenant, world, desktop.
+A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**. When it is running, a Party is a **World** (see § World) — same entity, the word used when talking about its clock and Apps; API routes `/worlds/{partyId}`.
+_Avoid_: server, workspace, tenant, desktop.
 
 > Note: today the frontend always opens the default Party (id = `Guid.Empty`, exposed as `ROOT_PARTY_ID`). The API is fully multi-party; that surface is intentional, not dead code.
 
@@ -93,6 +93,7 @@ The one faculty behind every "what matters right now?" judgement a **Persona** m
 - **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
 - **Recall** (days, backward) — which past moments belong in this beat?
 - **Capture** (days, forward) — which present moments are worth remembering at all?
+- **Initiative** (minutes, stimulus-free) — with nothing asking anything of me, what is worth doing? See § World.
 
 _Avoid_: relevance scoring, importance ranking, attention.
 
@@ -109,7 +110,7 @@ Surfacing past knowing into a **Persona**'s present beat — the backward-facing
 _Avoid_: retrieval, query, lookup, RAG.
 
 **Capture**:
-Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author or by spiking **Salience**.
+Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author ("Remember"), by a lull closing a Room/DM conversation, or by a Board post (ADR 0018).
 _Avoid_: extraction, ingestion, save, remember-flow.
 
 ### Memory
@@ -169,6 +170,52 @@ _Avoid_: topic, tag, thing, subject.
 A crystallized moment in the **Arena** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message happenings in the **Arena** (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
 _Avoid_: episode, fact, occurrence, snapshot.
 
+### World
+
+See [ADR 0018](docs/adr/0018-world-apps-and-persona-life.md).
+
+**World**:
+A **Party** seen as a living place: its **World clock**, its **Apps**, and the **Lives** of its Participants. Not a separate entity — "World" is the Party in motion.
+_Avoid_: simulation, sandbox, game.
+
+**App**:
+A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public, threaded), **Diary** (private, reflective). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
+_Avoid_: feature, channel, module, tool.
+
+**Messenger thread** (DM):
+A two-person **Room** (`ChatGroupInfo.Kind = "dm"`). Everything a Room has — Response pipeline, race, recall — applies.
+_Avoid_: private room, whisper.
+
+**Board**:
+The World's public forum: threads with replies. Each post or reply is **Captured** for the thread's Participants.
+
+**Diary**:
+A Persona's private journal in one Party. Writing in it is rest: **Consolidation** runs alongside, so the Diary is the visible face of beliefs settling.
+
+**Player**:
+A human's **Participant** (Driver `User`), created on demand, so Personas can DM, answer, and remember the human like anyone else.
+_Avoid_: user (ambiguous with Driver `User`), admin, curator.
+
+**World clock**:
+Per-Party heartbeat. While running, each tick hands one idle LLM Participant a **Life** turn (weighted by **Chattiness** and time since they last acted), within an hourly action budget, and closes lulled conversations into memory. Worlds start paused.
+_Avoid_: scheduler, game loop, cron.
+
+**Life**:
+A Persona's autonomous existence in one Party. One Life turn = perceive every App, recall, make one **Initiative** call, act on one **Affordance** (or rest).
+_Avoid_: agent loop, AI turn, routine.
+
+**Initiative**:
+The fifth, stimulus-free instance of **Relevance Realization**: "nothing is asking anything of me — what is worth doing?". Minutes timescale. The code shapes the landscape (which Affordances exist, what is foregrounded); the Persona chooses.
+_Avoid_: planner, scheduler, motivation.
+
+**Affordance**:
+An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces.
+_Avoid_: action, option, tool, command.
+
+**Activity**:
+One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
+_Avoid_: event (taken — see **Event**), log entry.
+
 ### The Bench (development)
 
 Tooling vocabulary — these terms describe how Proompting is *developed*, not what it is. See [ADR 0011](docs/adr/0011-bench-probe-runner.md).
@@ -200,6 +247,8 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Participant** has exactly one **Default Driver** (`User`, `LLM`, or `System`).
 - The **Effective Driver** in a given Room is that Room's **Driver override** for the Persona if present, else the Participant's **Default Driver**.
 - Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
+- A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
+- A **Player** is a **Participant** with **Default Driver** = `User`.
 
 ## Example dialogue
 
