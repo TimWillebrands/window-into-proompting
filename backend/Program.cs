@@ -123,7 +123,6 @@ app.MapDefaultEndpoints();
 app.UseOutputCache();
 
 app.Logger.LogInformation("App starting...");
-app.Logger.LogInformation("LLM Provider: {Provider}", builder.Configuration["Llm:Provider"]);
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 
 app.UsePathBase("/api");

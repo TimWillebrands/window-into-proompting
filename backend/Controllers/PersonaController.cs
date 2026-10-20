@@ -139,7 +139,7 @@ public class PersonaController(
             logger.LogInformation("Updating persona: {PersonaId}", personaId);
         }
 
-        await root.AddPersona(personaId, persona.Name, persona.SystemPrompt, persona.Bio);
+        await root.AddPersona(persona with { Id = personaId });
 
         var personaGrain = grains.GetGrain<IPersonaGrain>(personaId);
         var updated = await personaGrain.GetPersona();

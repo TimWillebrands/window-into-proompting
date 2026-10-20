@@ -25,8 +25,12 @@ public sealed class PersonaRootGrain(
     /// <summary>
     /// Adds or updates a persona based on a model instance.
     /// </summary>
-    public Task AddPersona(Persona persona) =>
-        AddPersona(persona.Id, persona.Name, persona.SystemPrompt, persona.Bio);
+    public async Task AddPersona(Persona persona)
+    {
+        await GrainFactory.GetGrain<IPersonaGrain>(persona.Id).SetPersona(persona);
+        if (state.State.PersonaIds.Add(persona.Id))
+            await state.WriteStateAsync();
+    }
 
     /// <summary>
     /// Creates or updates a persona grain and records its id in the root state.

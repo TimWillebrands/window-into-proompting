@@ -43,8 +43,16 @@ public sealed class PersonaGrain(
         return base.OnDeactivateAsync(reason, cancellationToken);
     }
 
-    public Task SetPersona(Persona persona) =>
-        SetPersona(persona.Name, persona.SystemPrompt, persona.Bio);
+    public async Task SetPersona(Persona persona)
+        => await UpdateStateAsync(current => current with
+        {
+            Id = this.GetPrimaryKey(),
+            Name = persona.Name,
+            SystemPrompt = persona.SystemPrompt,
+            Bio = persona.Bio,
+            Chattiness = Math.Clamp(persona.Chattiness, 0, 1),
+            Impulsivity = Math.Clamp(persona.Impulsivity, 0, 1)
+        });
 
     public async Task SetPersona(string name, string systemPrompt, string? bio)
         => await UpdateStateAsync(current => current with
