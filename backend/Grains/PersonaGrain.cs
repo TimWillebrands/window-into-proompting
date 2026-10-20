@@ -106,6 +106,13 @@ public sealed class PersonaGrain(
         await pipeline.HandleAsync(persona, chatGroupId, triggeringMessage, chatGroup, _store, ct);
     }
 
+    public async Task<string?> InitiateAsync(Guid chatGroupId, string intent, string? feeling)
+    {
+        var chatGroup = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
+        var persona = state.State with { Id = this.GetPrimaryKey() };
+        return await pipeline.InitiateAsync(persona, chatGroupId, chatGroup, _store, intent, feeling, CancellationToken.None);
+    }
+
     private async Task UpdateStateAsync(Func<Persona, Persona> update)
     {
         var current = state.State ?? new Persona();
@@ -146,4 +153,8 @@ public interface IPersonaGrain : IGrainWithGuidKey
 
     [Alias("CancelGenerationAsync")]
     Task CancelGenerationAsync();
+
+    /// <summary>Speak unprompted in a Room/DM with the given intent (ADR 0018 Initiative).</summary>
+    [Alias("InitiateAsync")]
+    Task<string?> InitiateAsync(Guid chatGroupId, string intent, string? feeling);
 }

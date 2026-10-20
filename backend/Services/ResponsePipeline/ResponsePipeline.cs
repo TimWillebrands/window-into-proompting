@@ -72,7 +72,8 @@ public sealed class ResponsePipeline(
         }
 
         var self = selfCast.ToSelfView(selfEffective);
-        var participantViews = cast.Select(c => c.ToView(c.EffectiveIn(overrides))).ToList();
+        var memberIds = await chatGroupGrain.GetParticipantIdsAsync();
+        var participantViews = PresentViews(cast, memberIds, overrides);
 
         // One root span per persona per triggering message. The fan-out at ChatGroupGrain
         // does NOT wrap these in a parent span on purpose — each persona reaction is an
@@ -425,6 +426,108 @@ public sealed class ResponsePipeline(
             store.Remove(chatGroupId, messageId);
         }
     }
+
+    /// <summary>
+    /// Initiative path (ADR 0018): the Persona opens their mouth unprompted — Life chose this
+    /// Room/DM and an intent. Skips the Decision phase (the choice was already made), runs the
+    /// Speaking phase with the intent as draft, and appends; the normal fan-out lets others react.
+    /// </summary>
+    /// <returns>The spoken line, or null when the Persona isn't LLM-Effective here or got cut off.</returns>
+    public async Task<string?> InitiateAsync(
+        Persona persona,
+        Guid chatGroupId,
+        IChatGroupGrain chatGroupGrain,
+        InFlightStore store,
+        string intent,
+        string? feeling,
+        CancellationToken ct)
+    {
+        var partyId = await chatGroupGrain.GetPartyIdAsync();
+        var cast = await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        var overrides = await chatGroupGrain.GetDriverOverridesAsync();
+        var memberIds = await chatGroupGrain.GetParticipantIdsAsync();
+
+        var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
+        if (selfCast is null || !memberIds.Contains(persona.Id) || selfCast.EffectiveIn(overrides) != DriverKind.LLM)
+            return null;
+
+        var self = selfCast.ToSelfView(DriverKind.LLM);
+        var participantViews = PresentViews(cast, memberIds, overrides);
+
+        using var turnSpan = Tracing.Persona.StartActivity("persona.initiate", ActivityKind.Internal);
+        turnSpan?.SetTag("persona.id", persona.Id);
+        turnSpan?.SetTag("persona.name", persona.Name);
+        turnSpan?.SetTag("chat_group.id", chatGroupId);
+
+        var messageId = await chatGroupGrain.GetNextMessageIdAsync(persona.Id, "assistant", null);
+        var newCts = new CancellationTokenSource();
+        var inFlight = store.Register(chatGroupId, messageId, newCts);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
+        var linkedCt = linkedCts.Token;
+
+        var appraisalJson = JsonSerializer.Serialize(new
+        {
+            personaId = persona.Id,
+            instruction = intent,
+            reason = feeling,
+            stop = false,
+            initiative = true
+        }, WebOptions);
+
+        try
+        {
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
+            var scenario = await chatGroupGrain.GetScenarioAsync();
+            var presentIds = participantViews.Select(p => p.Id).ToList();
+
+            string? memory = null;
+            IReadOnlyList<string> stanceLines = Array.Empty<string>();
+            try
+            {
+                var recalled = await memoryRepository.RecallAsync(persona.Id, partyId, presentIds, intent, limit: 5, linkedCt);
+                memory = recalled.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
+                stanceLines = (await memoryRepository.RecallStancesAsync(partyId, persona.Id, presentIds, intent, limit: 5, linkedCt))
+                    .Select(StanceBlock.FormatLine).ToList();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Initiative recall failed for {PersonaName}; speaking without memory", persona.Name);
+            }
+
+            inFlight.MarkGenerationStarted(feeling, intent);
+            var result = await RunSpeakingPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
+                intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt);
+
+            await chatGroupGrain.AppendMessageAsync(
+                messageId, result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata, null, linkedCt);
+            return result.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation("Persona {PersonaName} initiative in {ChatGroupId} was cut off", persona.Name, chatGroupId);
+            await chatGroupGrain.MarkGenerationStoppedAsync(messageId, appraisalJson);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Persona {PersonaName} initiative failed", persona.Name);
+            await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.Message);
+            throw;
+        }
+        finally
+        {
+            store.Remove(chatGroupId, messageId);
+        }
+    }
+
+    /// <summary>Who is actually in this Room/DM — the Room's membership, not the whole Party.</summary>
+    private static List<ParticipantView> PresentViews(
+        IReadOnlyList<CastMember> cast, IReadOnlySet<Guid> memberIds, IReadOnlyDictionary<Guid, DriverKind> overrides)
+        => cast
+            .Where(c => memberIds.Count == 0 || memberIds.Contains(c.Id))
+            .Select(c => c.ToView(c.EffectiveIn(overrides)))
+            .ToList();
 
     // Arm attribution as logged/papertrailed (ADR 0015 two-arm union observability).
     private static string ArmTag(RecallArm arm)

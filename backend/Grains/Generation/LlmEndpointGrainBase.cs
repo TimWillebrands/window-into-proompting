@@ -26,7 +26,7 @@ public static class LlmEndpointGrainUtils
             {
                 foreach (var part in update.ContentUpdate ?? [])
                 {
-                    if (!string.IsNullOrWhiteSpace(part.Text))
+                    if (!string.IsNullOrEmpty(part.Text))
                     {
                         chunkCount++;
                         yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);

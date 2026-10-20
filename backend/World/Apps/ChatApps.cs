@@ -1,0 +1,124 @@
+using System.Text;
+using PartyTown.Grains;
+using PartyTown.Model;
+
+namespace PartyTown.World.Apps;
+
+/// <summary>D'Accord Rooms: synchronous group talk. Initiative opens a line; the pipeline does the rest.</summary>
+public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
+{
+    public string Id => "rooms";
+
+    public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
+    {
+        var rooms = new List<(ChatGroupInfo Room, List<ChatMessage> Recent)>();
+        foreach (var room in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Room))
+        {
+            var grain = grains.GetGrain<IChatGroupGrain>(room.Id);
+            if (!(await grain.GetParticipantIdsAsync()).Contains(ctx.Self.Id)) continue;
+            rooms.Add((room, await grain.GetRecentMessagesAsync(3)));
+        }
+        if (rooms.Count == 0) return null;
+
+        var ordered = rooms
+            .OrderByDescending(r => r.Recent.LastOrDefault()?.SendAt ?? r.Room.CreatedAt)
+            .Take(4)
+            .ToList();
+
+        var sb = new StringBuilder();
+        var affordances = new List<Affordance>();
+        foreach (var (room, recent) in ordered)
+        {
+            var last = recent.LastOrDefault();
+            var scenario = string.IsNullOrWhiteSpace(room.Scenario) ? "" : $" — {WorldStream.Clip(room.Scenario, 100)}";
+            sb.AppendLine(last is null
+                ? $"#{room.Name}{scenario}: empty, nobody has said anything yet."
+                : $"#{room.Name}{scenario}: last active {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}");
+            foreach (var m in recent)
+                sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}: {WorldStream.Clip(m.Content, 140)}");
+
+            if (last?.SenderId == ctx.Self.Id) continue;
+            var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
+            affordances.Add(new Affordance(Id,
+                last is null ? $"Start a conversation in #{room.Name}" : $"Say something in #{room.Name}",
+                priority, room.Id, "say"));
+        }
+
+        return new AppPerception(Id, "Chat rooms (D'Accord)", sb.ToString().TrimEnd(), affordances);
+    }
+
+    public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
+    {
+        if (affordance.TargetId is not { } roomId) return null;
+        var line = await grains.GetGrain<IPersonaGrain>(ctx.Self.Id).InitiateAsync(roomId, intent, thought);
+        if (string.IsNullOrWhiteSpace(line)) return null;
+        var name = ctx.Threads.FirstOrDefault(t => t.Id == roomId)?.Name ?? "a room";
+        return new ActOutcome("say", $"in #{name}: \"{WorldStream.Clip(line, 160)}\"", roomId);
+    }
+}
+
+/// <summary>Messenger: synchronous 1:1. DM threads are Rooms with a two-person cast (ADR 0018).</summary>
+public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
+{
+    private static readonly TimeSpan FreshThread = TimeSpan.FromMinutes(30);
+
+    public string Id => "messenger";
+
+    public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
+    {
+        var sb = new StringBuilder();
+        var affordances = new List<Affordance>();
+        var recentlyTalked = new HashSet<Guid>();
+
+        foreach (var dm in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(ctx.Self.Id) == true))
+        {
+            var otherId = dm.MemberIds!.First(id => id != ctx.Self.Id);
+            var other = ctx.NameOf(otherId);
+            var recent = await grains.GetGrain<IChatGroupGrain>(dm.Id).GetRecentMessagesAsync(3);
+            var last = recent.LastOrDefault();
+            if (last is null) continue;
+
+            var lastAt = DateTimeOffset.FromUnixTimeMilliseconds(last.SendAt ?? 0);
+            if (ctx.Now - lastAt < FreshThread) recentlyTalked.Add(otherId);
+
+            sb.AppendLine($"Chat with {other} (last message {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}):");
+            foreach (var m in recent)
+                sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : other)}: {WorldStream.Clip(m.Content, 140)}");
+
+            if (last.SenderId != ctx.Self.Id)
+                affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
+                    4, dm.Id, "reply"));
+            else
+                sb.AppendLine($"  (you're waiting on {other})");
+        }
+
+        var newContacts = ctx.Others
+            .Where(c => !recentlyTalked.Contains(c.Id))
+            .OrderByDescending(c => c.Id == ctx.PlayerId)
+            .ThenBy(_ => Random.Shared.Next())
+            .Take(3);
+        foreach (var c in newContacts)
+            affordances.Add(new Affordance(Id, $"Send {c.Name} a private message", c.Id == ctx.PlayerId ? 2 : 1, c.Id, "open"));
+
+        if (sb.Length == 0) sb.Append("No private conversations going on.");
+        return new AppPerception(Id, "Messenger (private 1:1 chats)", sb.ToString().TrimEnd(), affordances);
+    }
+
+    public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
+    {
+        if (affordance.TargetId is not { } target) return null;
+
+        var dmId = target;
+        if (affordance.Verb == "open")
+            dmId = (await grains.GetGrain<IPartyGrain>(ctx.PartyId).GetOrCreateDirectChatAsync(ctx.Self.Id, target)).Id;
+
+        var line = await grains.GetGrain<IPersonaGrain>(ctx.Self.Id).InitiateAsync(dmId, intent, thought);
+        if (string.IsNullOrWhiteSpace(line)) return null;
+
+        var dm = ctx.Threads.FirstOrDefault(t => t.Id == dmId);
+        var other = affordance.Verb == "open"
+            ? ctx.NameOf(target)
+            : ctx.NameOf(dm?.MemberIds?.FirstOrDefault(id => id != ctx.Self.Id) ?? Guid.Empty);
+        return new ActOutcome("dm", $"to {other}: \"{WorldStream.Clip(line, 160)}\"", dmId);
+    }
+}

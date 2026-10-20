@@ -52,6 +52,14 @@ if (!openApiBuild)
     builder.Services.AddSingleton<IStanceConsolidator, StanceConsolidator>();
     builder.Services.AddSingleton<ConsolidationService>();
 
+    // World (ADR 0018): Apps are modes of engagement; Life picks among their Affordances.
+    builder.Services.AddSingleton<PartyTown.World.WorldLlm>();
+    builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.RoomsApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.MessengerApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.BoardApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.DiaryApp>();
+
     // LLM one-shot calls (memory extraction, stance consolidation) routinely run
     // longer than Orleans' default 30s response timeout, which would otherwise drop
     // the in-flight response as expired. Give the grain<->client RPC generous headroom.
@@ -105,6 +113,7 @@ if (!openApiBuild)
     builder.Services.Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
 
     builder.Services.AddHostedService<NarratorSeederHostedService>();
+    builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();
 }
 
 builder.Logging.AddSimpleConsole(options =>

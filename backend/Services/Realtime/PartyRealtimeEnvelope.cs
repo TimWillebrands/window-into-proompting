@@ -37,6 +37,7 @@ public sealed record class PartyRealtimeEnvelope
 [JsonDerivedType(typeof(PersonaGenerationCompletedData), "persona_generation_completed")]
 [JsonDerivedType(typeof(PersonaGenerationErrorData), "persona_generation_error")]
 [JsonDerivedType(typeof(PartyRaceEvaluationData), "party_race_evaluation")]
+[JsonDerivedType(typeof(PartyWorldEventData), "party_world_event")]
 [JsonDerivedType(typeof(ImportRunSnapshotData), "import_run_snapshot")]
 [JsonDerivedType(typeof(ImportRunStartedData), "import_run_started")]
 [JsonDerivedType(typeof(ImportRunProgressData), "import_run_progress")]
@@ -92,6 +93,9 @@ public sealed record class PersonaGenerationErrorData(string Message) : IPartyRe
 /// <summary>Payload for the "party.race.evaluation" event: one stop-signal race outcome
 /// from <c>PersonaGrain.RunStopSignalRaceAsync</c>, surfaced live to the thought log.</summary>
 public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IPartyRealtimeData;
+
+/// <summary>Payload for "world.*" events: a World App surface changed (ADR 0018).</summary>
+public sealed record class PartyWorldEventData(Guid PartyId, string Kind, System.Text.Json.JsonElement Payload) : IPartyRealtimeData;
 
 /// <summary>Payload for the "import.run.snapshot" event: scene runs in flight when the
 /// client connects, so a mid-run page refresh can reattach to live progress.</summary>

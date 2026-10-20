@@ -78,6 +78,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
+    public Task<List<ChatMessage>> GetRecentMessagesAsync(int count)
+        => Task.FromResult(State.Messages
+            .Where(m => !string.IsNullOrWhiteSpace(m.Content) && m.Error is null)
+            .OrderBy(m => m.MessageId)
+            .TakeLast(count)
+            .ToList());
+
     public async Task<int> GetNextMessageIdAsync(
         Guid? senderId = null,
         string senderType = "assistant",
@@ -502,6 +509,10 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 [Alias("backend.IChatGroupGrain")]
 public interface IChatGroupGrain : IGrainWithGuidKey
 {
+    /// <summary>Last <paramref name="count"/> completed messages (no reserved slots, no failures).</summary>
+    [Alias("GetRecentMessagesAsync")]
+    Task<List<ChatMessage>> GetRecentMessagesAsync(int count);
+
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
 

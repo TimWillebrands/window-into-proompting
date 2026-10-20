@@ -151,6 +151,34 @@ public sealed class PartyGrain(
         return chatGroup;
     }
 
+    public async Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b)
+    {
+        var existing = State.ChatGroups.FirstOrDefault(g =>
+            g.Kind == ChatGroupKinds.Direct && g.MemberIds is { Count: 2 } m && m.Contains(a) && m.Contains(b));
+        if (existing is not null)
+            return existing;
+
+        var names = State.Participants.Where(p => p.Id == a || p.Id == b).Select(p => p.Name).ToList();
+        var chatGroup = new ChatGroupInfo
+        {
+            Id = Guid.NewGuid(),
+            Name = string.Join(" & ", names),
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Kind = ChatGroupKinds.Direct,
+            MemberIds = new List<Guid> { a, b },
+        };
+
+        RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
+        await ConfirmEvents();
+
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id)
+            .SetParticipantIdsAsync(new HashSet<Guid> { a, b });
+
+        return chatGroup;
+    }
+
     public async Task RemoveChatGroup(Guid chatGroupId)
     {
         // Idempotent: removing an unknown/already-removed room is a no-op, so callers
@@ -221,8 +249,10 @@ public sealed class PartyGrain(
 
     public async Task<IReadOnlyList<CastMember>> GetCastAsync()
     {
-        var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
-        var library = await personaRoot.GetAll();
+        // Only LLM links need the library join — fetch those personas, not the whole library.
+        var library = await Task.WhenAll(State.Participants
+            .Where(p => p.Driver == DriverKind.LLM)
+            .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).GetPersona()));
         var byId = library.ToDictionary(p => p.Id, p => p);
 
         return State.Participants
@@ -256,6 +286,10 @@ public interface IPartyGrain : IGrainWithGuidKey
 
     [Alias("CreateChatGroup")]
     Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
+
+    /// <summary>Messenger thread between two Participants; idempotent per pair.</summary>
+    [Alias("GetOrCreateDirectChatAsync")]
+    Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b);
 
     /// <summary>Remove a Room from this Party's registry (import rollback). The
     /// ChatGroupGrain's own journal is wiped separately by the caller.</summary>

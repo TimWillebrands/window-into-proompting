@@ -239,6 +239,16 @@ public sealed class PartyRealtimeSession(
                     cancellationToken);
                 break;
 
+            case "world" when evt.WorldKind is not null:
+                using (var doc = System.Text.Json.JsonDocument.Parse(evt.WorldJson ?? "null"))
+                {
+                    await BroadcastAsync(
+                        CreateEnvelope($"world.{evt.WorldKind}",
+                            new PartyWorldEventData(partyId, evt.WorldKind, doc.RootElement.Clone())),
+                        cancellationToken);
+                }
+                break;
+
             default:
                 await BroadcastAsync(
                     CreateEnvelope("party.event", new PartyUnknownEventData(partyId, evt.ChatGroupId, evt.Type, evt.Message, evt.MessageId)),
