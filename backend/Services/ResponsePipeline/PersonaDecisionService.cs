@@ -51,9 +51,10 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         string? scenario = null,
         RepairHint? repairHint = null,
         IReadOnlyList<string>? recollections = null,
-        IReadOnlyList<string>? stances = null)
+        IReadOnlyList<string>? stances = null,
+        bool isDirect = false)
     {
-        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup);
+        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup, directlyAddressed: isDirect);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
         var participantIds = new HashSet<Guid>(participants.Select(p => p.Id));
         var recentMessages = history

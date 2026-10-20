@@ -26,6 +26,7 @@ public sealed class ResponsePipeline(
     ILogger<ResponsePipeline> logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+    private const int MaxDirectAiRounds = 6;
 
     public async Task HandleAsync(
         Persona persona,
@@ -94,7 +95,8 @@ public sealed class ResponsePipeline(
         var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
-        var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds);
+        var isDirect = participantViews.Count == 2;
+        var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds, directlyAddressed: isDirect);
         var preRecentSelf = UrgeMath.CountRecentSelfMessages(preHistory, persona.Id);
         turnSpan?.SetTag("urge.total", preUrge.Total);
         turnSpan?.SetTag("urge.mention", preUrge.MentionScore);
@@ -104,7 +106,9 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("rounds.total_assistant", preRounds);
         turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
 
-        if (UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
+        // Two Personas DMing can't ping-pong forever: a long all-AI streak in a DM ends it.
+        var dmExhausted = isDirect && preRounds >= MaxDirectAiRounds;
+        if (dmExhausted || UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
             turnSpan?.SetTag("decision", "skip-obvious");
             var skipReason = $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
@@ -672,7 +676,8 @@ public sealed class ResponsePipeline(
             scenario: scenario,
             repairHint: repairHint,
             recollections: recollections,
-            stances: stances);
+            stances: stances,
+            isDirect: participants.Count == 2);
     }
 
     private static Task NotifyStreamAsync(
