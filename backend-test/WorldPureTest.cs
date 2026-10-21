@@ -155,3 +155,13 @@ public class SelfAddressTest
     public void Clean_DropsSelfAddress(string raw, string self, string expected)
         => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
 }
+
+public class ThirdPersonSelfTest
+{
+    [Theory]
+    [InlineData("You're not the excuse. Lena's head is still pounding.", "Lena Brandt", "You're not the excuse. My head is still pounding.")]
+    [InlineData("go easy, lena's neck is done", "Lena Brandt", "go easy, my neck is done")]
+    [InlineData("Pieter's tin is still there.", "Lena Brandt", "Pieter's tin is still there.")]
+    public void Clean_FixesSelfPossessive(string raw, string self, string expected)
+        => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
+}

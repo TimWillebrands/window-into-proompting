@@ -53,6 +53,9 @@ public static partial class SpeechCleanup
             var self = Regex.Match(s, $@"^(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})\s*,\s*(?=\S)", RegexOptions.IgnoreCase);
             if (self.Success && s.Length - self.Length >= 3)
                 s = char.ToUpperInvariant(s[self.Length]) + s[(self.Length + 1)..];
+            // "Lena's head is still pounding" from Lena: talking about yourself in third person is a model slip.
+            s = Regex.Replace(s, $@"(^|[.!?]\s+)(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})['’]s\b", "$1My", RegexOptions.IgnoreCase);
+            s = Regex.Replace(s, $@"\b(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})['’]s\b", "my", RegexOptions.IgnoreCase);
         }
         return StripStageDirections(s.Trim());
     }
