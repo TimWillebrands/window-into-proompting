@@ -137,3 +137,21 @@ public class UtteranceRhythmTest
         Assert.InRange(shortShare, 60, 80);
     }
 }
+
+public class OpenersTest
+{
+    [Fact]
+    public void ParseList_StripsBulletsAndNumbers_CapsAtFour()
+    {
+        var list = SelfMath.ParseList("- watched the new season of that baking show\n2. client wants dark mode\n* ok\n• why is oat milk 3 euros now\nfive\nsix things");
+        Assert.Equal(new[] { "watched the new season of that baking show", "client wants dark mode", "why is oat milk 3 euros now", "five" }, list);
+    }
+
+    [Fact]
+    public void Presence_ShowsOpeners()
+    {
+        var day = new SelfState { Beats = SelfMath.ParseBeats("08:00 coffee"), Openers = new() { "oat milk prices" } };
+        var text = SelfRender.Presence(day, 1, new DateTimeOffset(2026, 10, 21, 9, 0, 0, TimeSpan.Zero), Array.Empty<string>());
+        Assert.Contains("Things you might bring up if there's a lull (or not at all): oat milk prices", text);
+    }
+}

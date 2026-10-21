@@ -47,10 +47,38 @@ public sealed partial class PersonaSelfGrain(
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
 
+    private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing that happened, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings.";
+
+    /// <summary>Days generated before openers existed get them from one small call.</summary>
+    private async Task EnsureOpenersAsync(Guid partyId, Guid personaId)
+    {
+        state.State.OpenersTried = true;
+        var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        if (self is null) return;
+        using var cts = new CancellationTokenSource(DayBudget);
+        try
+        {
+            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+                $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"openers\": {OpenersSpec}",
+                $"Their day so far:\n{string.Join("\n", state.State.Beats.Select(b => b.Text))}",
+                cts.Token, 0.9, ["openers"]);
+            state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
+            await state.WriteStateAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Openers failed for {Persona}", self.Name);
+        }
+    }
+
     private async Task EnsureDayAsync(Guid partyId, Guid personaId, DateTimeOffset now)
     {
         var key = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        if (state.State.DayKey == key) return;
+        if (state.State.DayKey == key)
+        {
+            if (state.State.Openers.Count == 0 && !state.State.OpenersTried) await EnsureOpenersAsync(partyId, personaId);
+            return;
+        }
         if (now.ToUnixTimeMilliseconds() - state.State.DayAttemptAt < DayRetry.TotalMilliseconds) return;
         state.State.DayAttemptAt = now.ToUnixTimeMilliseconds();
 
@@ -78,9 +106,10 @@ public sealed partial class PersonaSelfGrain(
                 - energy: low, medium or high
                 - preoccupation: one plain sentence, a practical thing from their own life nagging at them today
                 - beats: 7-10 lines "HH:MM what happens", chronological from waking to bed, one per line
+                - openers: {OpenersSpec}
                 """,
                 $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.\nYesterday: {yesterday}",
-                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats"]);
+                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
             {
@@ -92,6 +121,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.Mood = json?["mood"]?.ToString()?.Trim() ?? state.State.Mood;
             state.State.Energy = json?["energy"]?.ToString()?.Trim().ToLowerInvariant() ?? "medium";
             state.State.Preoccupation = json?["preoccupation"]?.ToString()?.Trim();
+            state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
             // A night's sleep recharges.
             state.State.Battery = 1;
             state.State.BatteryAt = now.ToUnixTimeMilliseconds();
@@ -119,6 +149,15 @@ public static partial class SelfMath
         var hours = Math.Max(0, (now.ToUnixTimeMilliseconds() - s.BatteryAt) / 3_600_000.0);
         return Math.Clamp(s.Battery + hours * RechargePerHour, 0, 1);
     }
+
+    public static List<string> ParseList(string? raw)
+        => (raw ?? string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim().TrimStart('-', '*', '•', ' ').Trim())
+            .Select(l => System.Text.RegularExpressions.Regex.Replace(l, @"^\d+[.)]\s*", ""))
+            .Where(l => l.Length > 3)
+            .Take(4)
+            .ToList();
 
     /// <summary>Talking costs more for the less chatty.</summary>
     public static double Drain(double battery, double chattiness)
@@ -158,6 +197,7 @@ public static class SelfRender
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this chat): {day.Preoccupation}");
+            if (day.Openers.Count > 0) lines.Add($"Things you might bring up if there's a lull (or not at all): {string.Join("; ", day.Openers)}");
         }
         lines.Add(battery switch
         {
@@ -202,6 +242,8 @@ public sealed class SelfState
     [Id(5)] public double Battery { get; set; } = 1;
     [Id(6)] public long BatteryAt { get; set; }
     [Id(7)] public long DayAttemptAt { get; set; }
+    [Id(8)] public List<string> Openers { get; set; } = new();
+    [Id(9)] public bool OpenersTried { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]
