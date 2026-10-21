@@ -27,7 +27,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         {
             var going = g.AttendeeIds.Contains(ctx.Self.Id);
             var who = string.Join(", ", g.AttendeeIds.Where(id => id != ctx.Self.Id).Select(ctx.NameOf).Take(4));
-            sb.AppendLine($"- {When(g.StartsAt, ctx.Now)}: \"{g.Title}\" in #{g.RoomName}, hosted by {(g.HostId == ctx.Self.Id ? "you" : g.HostName)}"
+            sb.AppendLine($"- {When(g.StartsAt, ctx.Now)}: \"{g.Title}\" {g.Where}, hosted by {(g.HostId == ctx.Self.Id ? "you" : g.HostName)}"
                 + $"{(who.Length > 0 ? $" — {who} going" : "")}{(going ? " (you're going)" : "")}");
             if (!going)
                 affordances.Add(new Affordance(Id, $"Say you'll come to \"{g.Title}\" ({When(g.StartsAt, ctx.Now)})", 1, g.Id, "rsvp"));
@@ -41,6 +41,14 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
                     myRooms.Add(room);
             foreach (var room in myRooms.OrderBy(_ => Random.Shared.Next()).Take(1))
                 affordances.Add(new Affordance(Id, $"Plan a get-together in #{room.Name} for later", 0, room.Id, "plan"));
+            // Meeting in person: a public Place (spec .scratch/places phase 7).
+            var publicPlaces = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places
+                .Where(p => p.Kind == Places.PlaceKinds.Public).ToList();
+            if (publicPlaces.Count > 0)
+            {
+                var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];
+                affordances.Add(new Affordance(Id, $"Plan to meet people at {place.Name} later", 0, place.Id, "plan-place"));
+            }
         }
 
         if (sb.Length == 0) sb.Append("Nothing planned yet.");
@@ -54,17 +62,31 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         if (affordance.Verb == "rsvp")
             return (await RsvpAsync(ctx.PartyId, target, ctx.Self.Id, true))?.Outcome;
 
+        Places.Place? meetAt = null;
+        if (affordance.Verb == "plan-place")
+            meetAt = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
         var room = ctx.Threads.FirstOrDefault(t => t.Id == target);
-        if (room is null) return null;
+        if (room is null && meetAt is null) return null;
+        var whereText = meetAt is null ? $"in the chat room #{room!.Name}" : $"in person at {meetAt.Name}";
         var json = await llm.CompleteJsonAsync(JobComplexity.General,
-            $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together in the chat room #{room.Name}. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and 240).\nOutput ONLY JSON: {PlanShape}",
+            $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together {whereText}. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and 240).\nOutput ONLY JSON: {PlanShape}",
             $"What you have in mind: {intent}", ct, 0.9, ["title", "minutesFromNow"]);
         var title = json?["title"]?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return null;
         var minutes = int.TryParse(json?["minutesFromNow"]?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : 60;
         var startsAt = ctx.Now.AddMinutes(Math.Clamp(minutes, 15, 240)).ToUnixTimeMilliseconds();
 
-        return (await PlanAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, room, startsAt, ctx.Now)).Outcome;
+        return meetAt is null
+            ? (await PlanAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, room!, startsAt, ctx.Now)).Outcome
+            : (await PlanAtPlaceAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, meetAt, startsAt, ctx.Now)).Outcome;
+    }
+
+    /// <summary>Commit a Gathering at a Place: when it's due, attendees walk there (spec .scratch/places).</summary>
+    public async Task<(Gathering Gathering, ActOutcome Outcome)> PlanAtPlaceAsync(
+        Guid partyId, Guid hostId, string hostName, string title, Places.Place place, long startsAt, DateTimeOffset now)
+    {
+        var planned = await grains.GetGrain<ICalendarGrain>(partyId).PlanAsync(hostId, hostName, title, Guid.Empty, place.Name, startsAt, place.Id);
+        return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" at {place.Name} for {When(startsAt, now)}", null));
     }
 
     /// <summary>Commit a Gathering — Persona-titled or Player-typed alike.</summary>
@@ -80,8 +102,8 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
     {
         var g = await grains.GetGrain<ICalendarGrain>(partyId).RsvpAsync(gatheringId, personaId, going);
         if (g is null) return null;
-        var summary = going ? $"will come to \"{g.Title}\" in #{g.RoomName}" : $"won't make it to \"{g.Title}\" in #{g.RoomName}";
-        return (g, new ActOutcome("rsvp", summary, g.RoomId));
+        var summary = going ? $"will come to \"{g.Title}\" {g.Where}" : $"won't make it to \"{g.Title}\" {g.Where}";
+        return (g, new ActOutcome("rsvp", summary, g.PlaceId is null ? g.RoomId : null));
     }
 
     private const string PlanShape = """{"title": "<short title>", "minutesFromNow": "<number>"}""";

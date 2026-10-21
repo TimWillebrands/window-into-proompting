@@ -270,6 +270,11 @@ public sealed class WorldClockGrain(
         if (due.Count == 0) return;
         foreach (var g in due)
         {
+            if (g.PlaceId is { } placeId)
+            {
+                await StartAtPlaceAsync(g, placeId, now);
+                continue;
+            }
             var room = GrainFactory.GetGrain<IChatGroupGrain>(g.RoomId);
             var members = await room.JoinAsync(g.AttendeeIds.ToList());
             var attendees = g.AttendeeIds.Where(members.Contains).ToList();
@@ -285,6 +290,25 @@ public sealed class WorldClockGrain(
                 StartLife(id, $"It's time for \"{g.Title}\" in #{g.RoomName} — you said you'd be there.");
         }
         await state.WriteStateAsync();
+    }
+
+    /// <summary>A Gathering at a Place: LLM attendees who are awake walk there and get a Life turn; humans come themselves.</summary>
+    private async Task StartAtPlaceAsync(Gathering g, Guid placeId, DateTimeOffset now)
+    {
+        var places = GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId);
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+        var asleep = (await places.GetAsleepAsync()).ToHashSet();
+        var going = ClockPolicy.WalkToGathering(g.AttendeeIds, cast, asleep);
+        foreach (var id in going)
+            await places.MoveAsync(id, placeId, null);
+
+        await RecordAsync(new WorldActivity
+        {
+            PersonaId = g.HostId, PersonaName = g.HostName, App = "calendar", Action = "start",
+            Summary = $"\"{g.Title}\" is starting {g.Where} ({g.AttendeeIds.Count} going)",
+        });
+        foreach (var id in going.Where(id => !IsBusy(id, now)))
+            StartLife(id, $"It's time for \"{g.Title}\" {g.Where}; you're on your way, you said you'd be there.");
     }
 
     /// <summary>Novelty against echo chambers: the Narrator lets something small happen in the world.</summary>

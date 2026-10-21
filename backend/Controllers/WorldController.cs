@@ -184,11 +184,23 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     {
         if (string.IsNullOrWhiteSpace(request.Title) || request.StartsAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             return BadRequest("Title and a future start time are required.");
-        var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups())
-            .FirstOrDefault(g => g.Id == request.RoomId && g.Kind == ChatGroupKinds.Room);
-        if (room is null) return BadRequest("Unknown room.");
         var (hostId, hostName) = await AuthorAsync(partyId, request.HostId);
-        var (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
+        Gathering g;
+        ActOutcome outcome;
+        if (request.PlaceId is { } placeId)
+        {
+            var place = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places
+                .FirstOrDefault(p => p.Id == placeId && p.Kind == World.Places.PlaceKinds.Public);
+            if (place is null) return BadRequest("Unknown public place.");
+            (g, outcome) = await CalendarApp.PlanAtPlaceAsync(partyId, hostId, hostName, request.Title.Trim(), place, request.StartsAt, DateTimeOffset.UtcNow);
+        }
+        else
+        {
+            var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups())
+                .FirstOrDefault(r => r.Id == request.RoomId && r.Kind == ChatGroupKinds.Room);
+            if (room is null) return BadRequest("Unknown room.");
+            (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
+        }
         await RecordAsync(partyId, hostId, hostName, CalendarApp.Id, outcome);
         return Ok(g);
     }
@@ -245,7 +257,7 @@ public sealed record TickResponse(bool Started);
 public sealed record EnsurePlayerRequest(string? Name);
 public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
-public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId);
+public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
 public sealed record PlayerResponse(Guid PlayerId);
 public sealed record CreateBoardPostRequest(string Title, string Body, Guid? AuthorId);

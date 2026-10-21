@@ -64,4 +64,20 @@ public class EarshotTest
         Assert.True(name);
         Assert.Equal("Over at the counter, Denise and Hana are arguing, by the sound of it; you can't make out the words. You think you heard your name.", line);
     }
+
+    [Fact]
+    public void PlaceGathering_WalksAwakeLlmAttendeesOnly()
+    {
+        var (llm, human, sleeper) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var cast = new List<CastMember>
+        {
+            new() { Id = llm, Name = "Denise", DefaultDriver = DriverKind.LLM },
+            new() { Id = human, Name = "Tim", DefaultDriver = DriverKind.User },
+            new() { Id = sleeper, Name = "Pieter", DefaultDriver = DriverKind.LLM },
+        };
+
+        var going = ClockPolicy.WalkToGathering(new[] { llm, human, sleeper }, cast, new HashSet<Guid> { sleeper });
+
+        Assert.Equal(new[] { llm }, going);
+    }
 }

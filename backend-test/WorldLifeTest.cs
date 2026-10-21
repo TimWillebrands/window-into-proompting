@@ -73,6 +73,26 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task DuePlaceGathering_WalksAttendeesThere()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var places = _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlacesGrain>(partyId);
+        var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
+        await _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId)
+            .PlanAsync(denise, "Denise", "Coffee", Guid.Empty, cafe.Name, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 1, cafe.Id);
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        await clock.UpdateAsync(true, 5, 0);
+
+        await clock.PulseAsync();
+
+        var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
+        // Real clock: at night she sleeps through it instead.
+        Assert.True(body.DestPlaceId == cafe.Id || body.PlaceId == cafe.Id || body.Asleep);
+        var started = await clock.GetActivitiesAsync(10, null);
+        Assert.Contains(started, a => a.Action == "start" && a.Summary.Contains("at the Café"));
+    }
+
+    [Fact]
     public async Task LifeTurn_ChoosingZero_Rests()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();
@@ -181,6 +201,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     services.AddSingleton<IWorldApp, BoardApp>();
                     services.AddSingleton<IWorldApp, DiaryApp>();
                     services.AddSingleton<IWorldApp, CalendarApp>();
+                    services.AddSingleton<IWorldApp, PartyTown.World.Places.PlacesApp>();
                 });
             }
         }

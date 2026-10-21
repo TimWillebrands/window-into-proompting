@@ -44,13 +44,22 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan OverheardFades = TimeSpan.FromMinutes(10);
 
     private Guid PartyId => this.GetPrimaryKey();
+    private readonly SemaphoreSlim _saving = new(1, 1);
+
+    /// <summary>Detached tasks (dressing, sleep) interleave with requests; one write at a time keeps the e-tag straight.</summary>
+    private async Task SaveAsync()
+    {
+        await _saving.WaitAsync();
+        try { await state.WriteStateAsync(); }
+        finally { _saving.Release(); }
+    }
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         if (state.State.Places.Count == 0)
         {
             state.State.Places = PlaceSeeds.Public();
-            await state.WriteStateAsync(cancellationToken);
+            await SaveAsync();
         }
         BackfillPrepositions();
         foreach (var place in state.State.Places) EnsureFurni(place);
@@ -108,7 +117,7 @@ public sealed class PlacesGrain(
         if (home is not { Kind: PlaceKinds.Home } || home.OwnerId is not { } owner || owner == visitorId) return false;
         if (!state.State.Bodies.TryGetValue(owner, out var host) || host.IsWalking || host.PlaceId != homeId || host.Asleep) return false;
         home.Knocks[visitorId] = Now();
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishPlaceAsync(home);
         return true;
     }
@@ -119,7 +128,7 @@ public sealed class PlacesGrain(
         if (home is null) return false;
         var knocked = home.Knocks.Remove(visitorId);
         if (!home.Guests.Contains(visitorId)) home.Guests.Add(visitorId);
-        await state.WriteStateAsync();
+        await SaveAsync();
         // Someone at the door walks straight in; an invitation waits for them to come over.
         if (knocked) await MoveAsync(visitorId, home.Id, home.Spots.FirstOrDefault()?.Id);
         await PublishPlaceAsync(home);
@@ -156,7 +165,7 @@ public sealed class PlacesGrain(
         });
         body.Activity = "rearranging their place";
         body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishAsync(body);
         await PublishPlaceAsync(home);
         return $"puts up {label} {AtName(home, Guid.Empty)}";
@@ -198,7 +207,7 @@ public sealed class PlacesGrain(
                 body.Posture = Posture.Lying;
                 body.Activity = "asleep";
                 body.ActivityUntil = null;
-                await state.WriteStateAsync();
+                await SaveAsync();
                 await PublishAsync(body);
                 _ = RestAsync(body.ParticipantId);
             }
@@ -238,7 +247,7 @@ public sealed class PlacesGrain(
         body.Posture = Posture.Sitting;
         body.Activity = how;
         body.ActivityUntil = Now() + (long)showFor.TotalMilliseconds;
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishAsync(body);
     }
 
@@ -272,7 +281,7 @@ public sealed class PlacesGrain(
         if (idle == (body.Activity == Dozing)) return;
         body.Activity = idle ? Dozing : null;
         body.ActivityUntil = null;
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishAsync(body);
     }
 
@@ -283,7 +292,7 @@ public sealed class PlacesGrain(
             if (body.Appearance is not null) body.Appearance.FromBio = false;
             _dressing.Remove(body.ParticipantId);
         }
-        await state.WriteStateAsync();
+        await SaveAsync();
         await SyncCastAsync();
     }
 
@@ -305,7 +314,7 @@ public sealed class PlacesGrain(
             if (json is null || !state.State.Bodies.TryGetValue(who.Id, out var body)) return;
             var picked = json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString());
             body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(who.Id), picked);
-            await state.WriteStateAsync();
+            await SaveAsync();
             await PublishAsync(body);
         }
         catch (Exception ex)
@@ -439,7 +448,7 @@ public sealed class PlacesGrain(
         body.DepartedAt = now;
         body.ArriveAt = now + (long)(body.PlaceId == placeId ? WithinPlace : BetweenPlaces).TotalMilliseconds;
         body.Posture = Posture.Walking;
-        await state.WriteStateAsync();
+        await SaveAsync();
 
         if (leaving is { } left && left != placeId)
         {
@@ -447,7 +456,7 @@ public sealed class PlacesGrain(
             {
                 oldHome.Guests.Clear();
                 oldHome.Knocks.Clear();
-                await state.WriteStateAsync();
+                await SaveAsync();
             }
             await SyncTalkRoomAsync(left);
         }
@@ -478,7 +487,7 @@ public sealed class PlacesGrain(
         if (activity is null) return;
         body.Activity = activity;
         body.ActivityUntil = Now() + (long)ActivityWearsOff.TotalMilliseconds;
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishAsync(body);
     }
 
@@ -516,7 +525,7 @@ public sealed class PlacesGrain(
         }
         body.Activity = FurniRules.BusyWith(furni, care);
         body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
-        await state.WriteStateAsync();
+        await SaveAsync();
         await PublishAsync(body);
         await PublishPlaceAsync(place);
         return $"{done} {AtName(place, Guid.Empty)}";
@@ -625,7 +634,7 @@ public sealed class PlacesGrain(
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
         if (!changed && gone.Count == 0) return;
-        await state.WriteStateAsync();
+        await SaveAsync();
         foreach (var placeId in state.State.Places.Where(p => p.TalkRoomId is not null).Select(p => p.Id).ToList())
             await SyncTalkRoomAsync(placeId);
     }
@@ -644,7 +653,7 @@ public sealed class PlacesGrain(
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
         if (arrived.Count == 0)
         {
-            if (mishapDue != state.State.NextMishapAt) await state.WriteStateAsync();
+            if (mishapDue != state.State.NextMishapAt) await SaveAsync();
             return;
         }
         foreach (var body in arrived)
@@ -660,7 +669,7 @@ public sealed class PlacesGrain(
             body.DepartedAt = null;
             body.ArriveAt = null;
         }
-        await state.WriteStateAsync();
+        await SaveAsync();
         foreach (var placeId in arrived.Select(b => b.PlaceId).Distinct())
             await SyncTalkRoomAsync(placeId);
         foreach (var body in arrived) await PublishAsync(body);
@@ -691,7 +700,7 @@ public sealed class PlacesGrain(
             if (occupants.Count == 0) return;
             var room = await GrainFactory.GetGrain<IPartyGrain>(PartyId).CreatePlaceRoomAsync(TalkName(place));
             place.TalkRoomId = room.Id;
-            await state.WriteStateAsync();
+            await SaveAsync();
         }
         var grain = GrainFactory.GetGrain<IChatGroupGrain>(place.TalkRoomId.Value);
         var current = await grain.GetParticipantIdsAsync();

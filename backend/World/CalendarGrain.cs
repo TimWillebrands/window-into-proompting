@@ -14,7 +14,7 @@ public sealed class CalendarGrain(
     public Task<List<Gathering>> GetGatheringsAsync()
         => Task.FromResult(state.State.Gatherings.OrderBy(g => g.StartsAt).ToList());
 
-    public async Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt)
+    public async Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null)
     {
         var gathering = new Gathering
         {
@@ -26,6 +26,7 @@ public sealed class CalendarGrain(
             RoomName = roomName,
             StartsAt = startsAt,
             AttendeeIds = new List<Guid> { hostId },
+            PlaceId = placeId,
         };
         state.State.Gatherings.Add(gathering);
         if (state.State.Gatherings.Count > MaxKept)
@@ -68,7 +69,7 @@ public sealed class CalendarGrain(
 public interface ICalendarGrain : IGrainWithGuidKey
 {
     [Alias("GetGatheringsAsync")] Task<List<Gathering>> GetGatheringsAsync();
-    [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt);
+    [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null);
     [Alias("RsvpAsync")] Task<Gathering?> RsvpAsync(Guid gatheringId, Guid personaId, bool going);
     /// <summary>Flip every due Planned gathering to Started and return them.</summary>
     [Alias("StartDueAsync")] Task<List<Gathering>> StartDueAsync(long now);
@@ -100,4 +101,9 @@ public sealed class Gathering
     [Id(6)] public long StartsAt { get; set; }
     [Id(7)] public List<Guid> AttendeeIds { get; set; } = new();
     [Id(8)] public GatheringStatus Status { get; set; }
+    /// <summary>Set when it's at a physical Place (RoomName then holds the Place's name); null for Room gatherings.</summary>
+    [Id(9)] public Guid? PlaceId { get; set; }
+
+    /// <summary>"in #kitchen" or "at the Café".</summary>
+    public string Where => PlaceId is null ? $"in #{RoomName}" : $"at {RoomName}";
 }

@@ -98,4 +98,10 @@ public static class ClockPolicy
             .OrderByDescending(m => span.Count(x => x.TriggeredByMessageId == m.MessageId))
             .ThenByDescending(m => m.MessageId)
             .First();
+
+    /// <summary>Who a due Place Gathering walks over: LLM-driven attendees who are awake. Humans come on their own.</summary>
+    public static List<Guid> WalkToGathering(IEnumerable<Guid> attendees, IReadOnlyList<CastMember> cast, IReadOnlySet<Guid> asleep)
+        => attendees
+            .Where(id => cast.FirstOrDefault(c => c.Id == id)?.DefaultDriver == DriverKind.LLM && !asleep.Contains(id))
+            .ToList();
 }
