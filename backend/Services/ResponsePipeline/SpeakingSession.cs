@@ -66,7 +66,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (!string.IsNullOrWhiteSpace(gutReaction))
             guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
-            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite.");
+            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite. If the draft repeats something you already said lately, drop that part.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
         {
             // Small-model crutch (candidate to gate off for stronger models): repeat the

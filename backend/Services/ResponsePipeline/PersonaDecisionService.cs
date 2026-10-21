@@ -290,7 +290,8 @@ is worse than letting the room breathe. Use judgement.
   (empty string) if you'd let it pass. This becomes your message verbatim
   if you speak — write it as the chat message itself, not as a description
   of what you'd say. Do NOT wrap the text in extra quotes; it is a chat
-  message, not a quotation.
+  message, not a quotation. Don't open it with someone's name, and don't
+  repeat anything you already said (see "What you said lately").
 - respond: true iff wouldSay is non-empty.
 """;
     }
