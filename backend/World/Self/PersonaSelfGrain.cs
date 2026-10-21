@@ -306,8 +306,8 @@ public static class SelfRender
         }
         lines.Add(battery switch
         {
-            < 0.25 => "Social battery: nearly empty. You've talked a lot; you'd keep it very short, or drift off.",
-            < 0.5 => "Social battery: low. Shorter answers, less to prove.",
+            < 0.25 => "You're peopled out: you've talked a lot today. You'd keep it very short, or drift off.",
+            < 0.5 => "You've done a fair bit of talking today. Shorter answers, less to prove.",
             _ => string.Empty,
         });
         lines.RemoveAll(string.IsNullOrEmpty);

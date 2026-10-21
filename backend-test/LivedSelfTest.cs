@@ -48,7 +48,7 @@ public class LivedSelfTest
         Assert.Contains("Earlier today: 07:00 burned the toast; 09:00 standup", text);
         Assert.Contains("Coming up: 18:00 groceries", text);
         Assert.Contains("heater", text);
-        Assert.Contains("nearly empty", text);
+        Assert.Contains("peopled out", text);
         Assert.DoesNotContain("Gone stale", text);
     }
 
