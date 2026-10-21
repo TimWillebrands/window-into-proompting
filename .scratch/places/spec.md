@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: in progress, phase 2 (see § Progress)
+Status: in progress, phase 3 done (go), phase 4 next (see § Progress)
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -163,7 +163,15 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
 - **Phase 1 done** (b828d44, ffeb431, d92b8ae, 88f8c8e). `PlacesGrain` holds Places *and* the body index. `PlaceGrain` is deferred until furni exist (phase 4); one grain is enough while Places are just named spots. Lobby + Café seeded; a Home per Participant on first sight (Narrator excluded); others' Homes are not enterable yet. Walking: 6 s within a Place, 60 s between Places, settled by a keep-alive grain timer plus lazily on every read. Place talk Room (`Kind = "place"`) is created on first entry, its cast synced on enter/leave, and hidden from D'Accord. Restlessness: after 45 min in one Place, "go out" Affordances gain +1 pull (otherwise nobody ever leaves an empty-world start). Text-only Places window: Navigator, spots, walking countdown, Place talk.
 - **Phase 2 partly done** (51352a0). The Situation line is in eb's `# Right now` block (`PersonaSelfGrain.GetPresenceAsync`), so Decision, Speaking, Life and Diary prompts all get it. The day beat is relabelled "Off-screen right now": the Body wins for *where*, the day is the life around it. Body activity follows App use for 4 min (phone; laptop for the Board at home; diary), shown in others' Situation. Messenger demotes DMs to people in the same Place.
 - **Place as recall anchor done** (83fa26a, 7e9d4f0). When Place talk goes quiet, the captured Event carries `place_id`. `RecallAsync(…, placeId)` adds a relevant leg for Events at that Place. Life and Board recall pass the Body's Place; the Room pipeline passes the Place of a Place talk Room.
-- **Phase 2 open**: human Body activity (typing). Next: phase 3 (Bench A/B of the Situation line).
+- **Phase 2 done.** Body activity now comes from every message (933e3aa). `PlacesGrain` follows the Party stream, so pipeline replies and humans typing show too, not only Life turns.
+- **Phase 3, Bench A/B** (probe `Places_SituationAB`, 0702333). Setup: same day/mood/openers; Speaking phase with no Situation vs "at the Café, Hana and Pieter here" vs "at home on the sofa for 3 h". 2 personas × 3 openers × 3 samples per arm.
+  - `deepseek`/`mistral-small` tier (bench default): no real effect. Situational words 1 → 2 → 7 of ~165, and replies stay generic. The cheap model ignores the line.
+  - **Production voice model (`claude-haiku-5.5`): clear effect.** Situational/sensory words per 18 replies: none 2 → Café 7 → home 18. Qualitatively:
+    - It grounds without reciting. Vlad at the Café: "whether the café's new espresso machine is a downgrade. It hisses like it's judging me", "saw someone at the counter doing the crossword in ink". At home: "the neighbour's cat … keeps sitting on my windowsill".
+    - Co-presence is used. Denise at the Café, asked about the scheduler: "Ask Hana, she's the one who has to live with it" / "Ask Pieter, he always has an opinion".
+    - Home + 3 h shows up as mood: "been on the sofa since forever".
+  - Not measured: stale metaphors (0 in every arm; eb's style rules already stop the monoculture in single replies, so Places can't claim that), multi-turn drift, and Initiative choices.
+  - **Verdict: go.** The Situation measurably grounds replies on the model that voices them. Next is phase 4 (furni), then phase 5 (renderer). A Life-turn probe (does a Body change *what they choose to do*) is still worth adding.
 - **Verified live**: the API walk → arrival → Café talk Room creation works across a `dotnet watch` reload. Pieter's Life thought mentioned "I've been indoors since…". Browser check of the window blocked: Servo + the dev console-forwarding loop starved the page; data rendered, the Player id never resolved.
 
 ## Review log
