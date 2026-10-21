@@ -3932,6 +3932,95 @@
         }
       }
     },
+    "/worlds/{partyId}/selves": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/voice": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}": {
       "get": {
         "tags": [
@@ -7228,6 +7317,63 @@
           }
         }
       },
+      "SelfSummary": {
+        "required": [
+          "personaId",
+          "name",
+          "mood",
+          "energy",
+          "preoccupation",
+          "battery",
+          "doing",
+          "day"
+        ],
+        "type": "object",
+        "properties": {
+          "personaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mood": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "energy": {
+            "type": "string"
+          },
+          "preoccupation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "battery": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "doing": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "SituationResponse": {
         "required": [
           "situation"
@@ -7482,6 +7628,48 @@
           }
         }
       },
+      "VoiceWearReport": {
+        "type": "object",
+        "properties": {
+          "wornWords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownWords": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "stageDirectionRate": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          "averageWords": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          }
+        }
+      },
       "WorldActivity": {
         "type": "object",
         "properties": {
@@ -7618,6 +7806,9 @@
     },
     {
       "name": "Places"
+    },
+    {
+      "name": "Self"
     },
     {
       "name": "World"

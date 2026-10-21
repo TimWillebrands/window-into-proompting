@@ -88,6 +88,7 @@ import type {
     SceneDefinition,
     SceneFinalizeResult,
     SceneRunResult,
+    SelfSummary,
     SituationResponse,
     StanceRecord,
     TickRequest,
@@ -97,6 +98,7 @@ import type {
     UpdateChatGroupScenarioRequest,
     UpdatePartyParticipantsRequest,
     UpdateWorldRequest,
+    VoiceWearReport,
     WorldActivity,
     WorldStatus,
 } from './model';
@@ -15185,6 +15187,655 @@ export const usePostWorldsPartyIdPlacesMove = <
         queryClient,
     );
 };
+
+export type getWorldsPartyIdSelvesResponse200TextPlain = {
+    data: SelfSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdSelvesResponse200ApplicationJson = {
+    data: SelfSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdSelvesResponse200TextJson = {
+    data: SelfSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdSelvesResponseSuccess = (
+    | getWorldsPartyIdSelvesResponse200TextPlain
+    | getWorldsPartyIdSelvesResponse200ApplicationJson
+    | getWorldsPartyIdSelvesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdSelvesResponse =
+    getWorldsPartyIdSelvesResponseSuccess;
+
+export const getGetWorldsPartyIdSelvesUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/selves`;
+};
+
+export const getWorldsPartyIdSelves = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdSelvesResponse> => {
+    return customFetch<getWorldsPartyIdSelvesResponse>(
+        getGetWorldsPartyIdSelvesUrl(partyId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdSelvesQueryKey = (partyId: string) => {
+    return [`/api/worlds/${partyId}/selves`] as const;
+};
+
+export const getGetWorldsPartyIdSelvesQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdSelvesQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+    > = ({ signal }) =>
+        getWorldsPartyIdSelves(partyId, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!partyId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdSelvesQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+>;
+export type GetWorldsPartyIdSelvesQueryError = unknown;
+
+export function useGetWorldsPartyIdSelves<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdSelves<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdSelves<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdSelves<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdSelvesQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdSelvesSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdSelvesQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+    > = ({ signal }) =>
+        getWorldsPartyIdSelves(partyId, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdSelvesSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdSelves>>
+>;
+export type GetWorldsPartyIdSelvesSuspenseQueryError = unknown;
+
+export function useGetWorldsPartyIdSelvesSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdSelvesSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdSelvesSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdSelvesSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdSelves>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdSelvesSuspenseQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getWorldsPartyIdVoiceResponse200TextPlain = {
+    data: VoiceWearReport;
+    status: 200;
+};
+
+export type getWorldsPartyIdVoiceResponse200ApplicationJson = {
+    data: VoiceWearReport;
+    status: 200;
+};
+
+export type getWorldsPartyIdVoiceResponse200TextJson = {
+    data: VoiceWearReport;
+    status: 200;
+};
+
+export type getWorldsPartyIdVoiceResponseSuccess = (
+    | getWorldsPartyIdVoiceResponse200TextPlain
+    | getWorldsPartyIdVoiceResponse200ApplicationJson
+    | getWorldsPartyIdVoiceResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdVoiceResponse =
+    getWorldsPartyIdVoiceResponseSuccess;
+
+export const getGetWorldsPartyIdVoiceUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/voice`;
+};
+
+export const getWorldsPartyIdVoice = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdVoiceResponse> => {
+    return customFetch<getWorldsPartyIdVoiceResponse>(
+        getGetWorldsPartyIdVoiceUrl(partyId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdVoiceQueryKey = (partyId: string) => {
+    return [`/api/worlds/${partyId}/voice`] as const;
+};
+
+export const getGetWorldsPartyIdVoiceQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdVoiceQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+    > = ({ signal }) =>
+        getWorldsPartyIdVoice(partyId, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!partyId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdVoiceQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+>;
+export type GetWorldsPartyIdVoiceQueryError = unknown;
+
+export function useGetWorldsPartyIdVoice<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdVoice<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdVoice<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdVoice<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdVoiceQueryOptions(partyId, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdVoiceSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdVoiceQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+    > = ({ signal }) =>
+        getWorldsPartyIdVoice(partyId, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdVoiceSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdVoice>>
+>;
+export type GetWorldsPartyIdVoiceSuspenseQueryError = unknown;
+
+export function useGetWorldsPartyIdVoiceSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdVoiceSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdVoiceSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdVoiceSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdVoice>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdVoiceSuspenseQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export type getWorldsPartyIdResponse200TextPlain = {
     data: WorldStatus;
