@@ -42,6 +42,8 @@ interface Props {
     playerId: string | null;
     /** Author view: show the words of talk the Player is out of Earshot of. */
     allEars?: boolean;
+    /** Clicked a Body (feet to head). */
+    onBodyClick?: (participantId: string) => void;
     /** Clicked near a spot; null when the click hit nothing walkable. */
     onSpotClick?: (spotId: string) => void;
 }
@@ -54,6 +56,7 @@ export default function PlaceCanvas({
     playerId,
     allEars = false,
     onSpotClick,
+    onBodyClick,
 }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
@@ -65,6 +68,7 @@ export default function PlaceCanvas({
     const walks = useRef(new Map<string, Walk>());
     const shown = useRef(new Map<string, Pt>());
     const hover = useRef<Pt | null>(null);
+    const feet = useRef(new Map<string, Pt>());
     const latest = useRef({ bodies, furni, messages, playerId, allEars });
     latest.current = { bodies, furni, messages, playerId, allEars };
 
@@ -103,12 +107,31 @@ export default function PlaceCanvas({
                     walks.current,
                     shown.current,
                     hover.current,
+                    feet.current,
                 );
             raf = requestAnimationFrame(draw);
         };
         raf = requestAnimationFrame(draw);
         return () => cancelAnimationFrame(raf);
     }, [layout, place]);
+
+    /** The Body drawn under the pointer (feet to head), if any. */
+    const bodyAt = (e: React.MouseEvent<HTMLCanvasElement>): string | null => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        const { scale, origin } = frame(rect.width, layout);
+        const x = e.clientX - rect.left - origin.x;
+        const y = e.clientY - rect.top - origin.y;
+        for (const [id, p] of feet.current)
+            if (
+                Math.abs(x - p.x) < 12 * scale &&
+                y < p.y + 4 * scale &&
+                y > p.y - 60 * scale
+            )
+                return id;
+        return null;
+    };
 
     const tileAt = (e: React.MouseEvent<HTMLCanvasElement>): Pt | null => {
         const canvas = canvasRef.current;
@@ -143,6 +166,11 @@ export default function PlaceCanvas({
                     hover.current = null;
                 }}
                 onClick={(e) => {
+                    const body = bodyAt(e);
+                    if (body && onBodyClick) {
+                        onBodyClick(body);
+                        return;
+                    }
                     const t = tileAt(e);
                     const spot = t && nearestSpot(layout, t);
                     if (spot && onSpotClick) onSpotClick(spot);
@@ -219,8 +247,10 @@ function render(
     walks: Map<string, Walk>,
     shown: Map<string, Pt>,
     hover: Pt | null,
+    feet: Map<string, Pt>,
 ) {
     const { scale, origin, height } = frame(width, layout);
+    feet.clear();
     const dpr = window.devicePixelRatio || 1;
     if (
         canvas.width !== Math.round(width * dpr) ||
@@ -270,6 +300,7 @@ function render(
         shown.set(id, pos.tile);
         const p = at(pos.tile);
         speakers.set(id, p);
+        feet.set(id, p);
         items.push({
             d: depth(pos.tile) + 0.5,
             draw: () =>

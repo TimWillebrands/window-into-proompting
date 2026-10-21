@@ -5,6 +5,7 @@ import {
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdPlacesSituationParticipantId,
     useGetWorldsPartyIdPlacesSuspense,
+    useGetWorldsPartyIdSelves,
     usePostPartyIdPrompt,
     usePostWorldsPartyIdPlacesDecorate,
     usePostWorldsPartyIdPlacesFurni,
@@ -234,6 +235,8 @@ function PlaceView({
     const [allEars, setAllEars] = useAllEars();
     const ownHome = place.kind === 'home' && place.ownerId === playerId;
     const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
+    const [profileId, setProfileId] = useState<string | null>(null);
+    const profiled = allBodies.find((b) => b.participantId === profileId);
     const amHere = !!me && me.placeId === place.id && !me.destPlaceId;
     const heading = !!me && me.destPlaceId === place.id;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
@@ -364,12 +367,20 @@ function PlaceView({
                 <Droste onClose={() => setLaptopOpen(false)} />
             ) : null}
             {amHere && ownHome ? <DecorateForm playerId={playerId} /> : null}
+            {profiled ? (
+                <BodyProfile
+                    body={profiled}
+                    isMe={profiled.participantId === playerId}
+                    onClose={() => setProfileId(null)}
+                />
+            ) : null}
             <PlaceCanvas
                 place={place}
                 bodies={allBodies}
                 furni={furni}
                 playerId={playerId}
                 allEars={allEars}
+                onBodyClick={setProfileId}
                 onSpotClick={
                     amHere || canGo ? (spotId) => goTo(spotId) : undefined
                 }
@@ -462,6 +473,74 @@ function PlaceView({
             ) : amHere ? (
                 <div style={{ color: '#666' }}>Nobody to talk to here yet.</div>
             ) : null}
+        </div>
+    );
+}
+
+/** Who someone is at a glance: their look, what they're doing, their mood. */
+function BodyProfile({
+    body,
+    isMe,
+    onClose,
+}: {
+    body: Body;
+    isMe: boolean;
+    onClose: () => void;
+}) {
+    const selves = useGetWorldsPartyIdSelves(WORLD_ID).data?.data ?? [];
+    const self = selves.find((s) => s.personaId === body.participantId);
+    const a = body.appearance;
+    const look = a
+        ? [
+              `${a.hair} ${a.hairStyle === 'bald' ? '' : `${a.hairStyle} `}hair`.replace(
+                  '  ',
+                  ' ',
+              ),
+              `${a.top} top`,
+              a.accessory && a.accessory !== 'none' ? a.accessory : null,
+          ]
+              .filter(Boolean)
+              .join(', ')
+        : null;
+    return (
+        <div
+            className="flex items-start"
+            style={{
+                ...panel,
+                padding: '4px 6px',
+                gap: 8,
+                background: '#f3f7ff',
+            }}
+        >
+            <span style={{ fontSize: 22 }}>{postureIcon(body)}</span>
+            <div className="min-w-0 flex-1">
+                <strong>{isMe ? 'You' : body.name}</strong>
+                {body.isHuman ? (
+                    <span style={{ color: '#888' }}> (human)</span>
+                ) : null}
+                {look ? <div style={{ color: '#555' }}>{look}</div> : null}
+                <div>
+                    {body.asleep
+                        ? 'Asleep.'
+                        : (body.activity ??
+                          (body.destPlaceId
+                              ? 'On the move.'
+                              : 'Just hanging around.'))}
+                </div>
+                {self?.mood ? (
+                    <div style={{ color: '#555' }}>
+                        Mood: {self.mood}
+                        {self.doing ? ` · ${self.doing}` : ''}
+                    </div>
+                ) : null}
+            </div>
+            <button
+                type="button"
+                style={{ minWidth: 0, padding: '0 6px' }}
+                onClick={onClose}
+            >
+                ✕
+            </button>
         </div>
     );
 }

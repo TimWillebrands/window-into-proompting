@@ -13,6 +13,7 @@ import type { BoardThread } from '../api/model/boardThread';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
 import type { Gathering } from '../api/model/gathering';
 import type { WorldActivity } from '../api/model/worldActivity';
+import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
 import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
 
@@ -124,6 +125,7 @@ export function WorldRealtimeBridge() {
     const pushToast = useWorldToasts((s) => s.push);
     const openDirectChat = useOpenDirectChat();
     const { openWindow, desktopState } = useDesktopContext();
+    usePlayerIdle();
 
     useEffect(() => {
         connectPartyRealtime(WORLD_ID);
