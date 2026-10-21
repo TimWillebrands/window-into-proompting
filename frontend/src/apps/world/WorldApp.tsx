@@ -33,6 +33,7 @@ const APPS: Record<string, { icon: string; label: string }> = {
     messenger: { icon: '🦋', label: 'Messenger' },
     board: { icon: '📌', label: 'Board' },
     diary: { icon: '📓', label: 'Diary' },
+    calendar: { icon: '📅', label: 'Calendar' },
     life: { icon: '🌱', label: 'Life' },
     memory: { icon: '🧠', label: 'Memory' },
     world: { icon: '📣', label: 'World' },

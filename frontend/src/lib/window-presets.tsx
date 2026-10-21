@@ -1,4 +1,5 @@
 import BoardApp from '../apps/board/BoardApp';
+import CalendarApp from '../apps/calendar/CalendarApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
 import DiaryApp from '../apps/diary/DiaryApp';
@@ -43,6 +44,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: BoardApp,
         initialPosition: { x: 240, y: 120 },
         initialSize: { width: 860, height: 600 },
+    },
+    {
+        id: 'calendar',
+        title: 'Calendar',
+        icon: '📅',
+        component: CalendarApp,
+        initialPosition: { x: 360, y: 140 },
+        initialSize: { width: 620, height: 520 },
     },
     {
         id: 'diary',
@@ -119,6 +128,12 @@ export const DESKTOP_ICONS = [
         label: 'Partyboard',
         icon: '/img/842.ico',
         windowId: 'board',
+    },
+    {
+        id: 'calendar',
+        label: 'Calendar',
+        icon: '/img/842.ico',
+        windowId: 'calendar',
     },
     {
         id: 'diary',

@@ -11,6 +11,7 @@ import { useDesktopContext } from '#lib/desktop-context';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
 import type { BoardThread } from '../api/model/boardThread';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
+import type { Gathering } from '../api/model/gathering';
 import type { WorldActivity } from '../api/model/worldActivity';
 import { ROOT_PARTY_ID } from './chat-api';
 import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
@@ -225,6 +226,23 @@ export function WorldRealtimeBridge() {
             case 'diary':
                 invalidatePrefix(worldPrefix('/diary'));
                 break;
+            case 'calendar': {
+                invalidatePrefix(worldPrefix('/gatherings'));
+                const g = payload as Gathering;
+                if (
+                    g.status === 'Started' &&
+                    playerId &&
+                    g.attendeeIds?.includes(playerId)
+                ) {
+                    pushToast({
+                        title: `“${g.title}” is starting`,
+                        body: `In #${g.roomName} — you said you'd be there.`,
+                        icon: '📅',
+                        onOpen: () => openWindow('open-party'),
+                    });
+                }
+                break;
+            }
         }
     });
 
