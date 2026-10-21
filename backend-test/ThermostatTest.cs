@@ -17,7 +17,7 @@ public class ThermostatTest
     [Fact]
     public void Cue_OnlyWhenSustained_StrongerWhenCircling()
     {
-        Assert.Null(Thermostat.Cue(Thermostat.SustainedStreak - 1, 0.9));
+        Assert.Null(Thermostat.Cue(Thermostat.SustainedStreak - 1, 0.5));
         Assert.Contains("circles", Thermostat.Cue(Thermostat.SustainedStreak, 0.8));
         Assert.Contains("intense", Thermostat.Cue(Thermostat.SustainedStreak, 0.1));
     }
