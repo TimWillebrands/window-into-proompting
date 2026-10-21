@@ -1,6 +1,8 @@
 using System.Text;
+using Orleans.Streams;
 using PartyTown.Grains;
 using PartyTown.Model;
+using PartyTown.Services.Streaming;
 
 namespace PartyTown.World.Places;
 
@@ -19,6 +21,7 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
     private IGrainTimer? _arrivals;
+    private readonly Dictionary<Guid, string> _roomKinds = new();
 
     private Guid PartyId => this.GetPrimaryKey();
 
@@ -33,6 +36,37 @@ public sealed class PlacesGrain(
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
         if (state.State.Bodies.Values.Any(b => b.IsWalking)) WatchArrivals();
+        await FollowMessagesAsync();
+    }
+
+    /// <summary>Every message anyone sends shows on their Body: pipeline replies and humans typing included.</summary>
+    private async Task FollowMessagesAsync()
+    {
+        var stream = this.GetStreamProvider(PartyStreamIds.Provider).GetStream<PartyStreamEvent>(
+            PartyStreamIds.PartyEventsNamespace, PartyStreamIds.PartyEventId(PartyId));
+        var handles = await stream.GetAllSubscriptionHandles();
+        if (handles.Count == 0)
+            await stream.SubscribeAsync((e, _) => OnPartyEventAsync(e));
+        else
+            foreach (var h in handles) await h.ResumeAsync((e, _) => OnPartyEventAsync(e));
+    }
+
+    private async Task OnPartyEventAsync(PartyStreamEvent e)
+    {
+        if (e.Type != "message" || e.Message is not { } m || string.IsNullOrWhiteSpace(m.Content)) return;
+        if (!state.State.Bodies.ContainsKey(m.SenderId)) return;
+        if (!_roomKinds.TryGetValue(e.ChatGroupId, out var kind))
+        {
+            foreach (var g in await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups()) _roomKinds[g.Id] = g.Kind;
+            if (!_roomKinds.TryGetValue(e.ChatGroupId, out kind)) return;
+        }
+        var app = kind switch
+        {
+            ChatGroupKinds.Direct => "messenger",
+            ChatGroupKinds.Room => "rooms",
+            _ => null,
+        };
+        if (app is not null) await NoteActivityAsync(m.SenderId, app);
     }
 
     public async Task<PlacesSnapshot> GetSnapshotAsync()

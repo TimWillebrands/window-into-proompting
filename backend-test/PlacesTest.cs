@@ -88,6 +88,26 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
         Assert.True((await room.GetParticipantIdsAsync()).SetEquals(new[] { pieter }));
     }
 
+    [Fact]
+    public async Task TextingShowsOnTheBody()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        await places.GetSnapshotAsync();
+        var dm = await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(denise, pieter);
+
+        await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).SendNewMessageAsync(denise, "you around?", null, null);
+
+        string? activity = null;
+        for (var i = 0; i < 50 && activity is null; i++)
+        {
+            await Task.Delay(100);
+            activity = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Activity;
+        }
+        Assert.Equal("on their phone, texting", activity);
+        Assert.Contains("on your phone, texting", await places.GetSituationAsync(denise));
+    }
+
     public sealed class Fixture : IAsyncLifetime
     {
         public TestCluster Cluster { get; private set; } = null!;
