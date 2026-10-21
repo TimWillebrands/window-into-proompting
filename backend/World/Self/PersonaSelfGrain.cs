@@ -53,6 +53,15 @@ public sealed partial class PersonaSelfGrain(
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
 
+    public async Task ShiftValenceAsync(double better, string where)
+    {
+        var now = DateTimeOffset.Now;
+        state.State.Valence = SelfMath.Shift(SelfMath.Valence(state.State, now), better);
+        state.State.ValenceAt = now.ToUnixTimeMilliseconds();
+        if (Math.Abs(better - 0.5) >= 0.15) state.State.ValenceSource = where;
+        await state.WriteStateAsync();
+    }
+
     public async Task<DayWindow> GetDayWindowAsync()
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -177,8 +186,10 @@ public sealed partial class PersonaSelfGrain(
             state.State.Energy = json?["energy"]?.ToString()?.Trim().ToLowerInvariant() ?? "medium";
             state.State.Preoccupation = json?["preoccupation"]?.ToString()?.Trim();
             state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
-            // A night's sleep recharges.
+            // A night's sleep recharges and resets the mood drift.
             state.State.Battery = 1;
+            state.State.Valence = 0;
+            state.State.ValenceSource = null;
             state.State.BatteryAt = now.ToUnixTimeMilliseconds();
             await state.WriteStateAsync();
             logger.LogInformation("Self day for {Persona}: {Mood}, {Energy}, {Beats} beats", self.Name, state.State.Mood, state.State.Energy, beats.Count);
@@ -234,6 +245,15 @@ public static partial class SelfMath
             : raw.Select(p => 0.2 + 0.8 * (p - min) / (max - min)).ToList();
     }
 
+    private const double ValenceHalfLifeHours = 3;
+
+    /// <summary>Mood drift since the morning, fading back toward the day's baseline.</summary>
+    public static double Valence(SelfState s, DateTimeOffset now)
+        => s.ValenceAt == 0 ? 0 : s.Valence * Math.Pow(0.5, Math.Max(0, (now.ToUnixTimeMilliseconds() - s.ValenceAt) / 3_600_000.0) / ValenceHalfLifeHours);
+
+    /// <summary>One appraisal (p better) moves valence by up to ±0.4.</summary>
+    public static double Shift(double valence, double better) => Math.Clamp(valence + (better - 0.5) * 0.8, -1, 1);
+
     /// <summary>Talking costs more for the less chatty.</summary>
     public static double Drain(double battery, double chattiness)
         => Math.Clamp(battery - (0.04 + 0.06 * (1 - Math.Clamp(chattiness, 0, 1))), 0, 1);
@@ -276,6 +296,7 @@ public static class SelfRender
             if (earlier.Count > 0) lines.Add($"Earlier today: {string.Join("; ", earlier.Select(Beat))}");
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
+            if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this chat): {day.Preoccupation}");
             if (day.Openers.Count > 0) lines.Add($"Things you might bring up if there's a lull (or not at all): {string.Join("; ", day.Openers)}");
         }
@@ -298,6 +319,19 @@ public static class SelfRender
         return block;
     }
 
+    public static string? Drift(double valence, string? source)
+    {
+        var from = string.IsNullOrWhiteSpace(source) ? string.Empty : $" (what happened in {source})";
+        return valence switch
+        {
+            >= 0.5 => $"Since this morning your mood's lifted quite a bit{from}.",
+            >= 0.2 => $"You're in a somewhat better mood than this morning{from}.",
+            <= -0.5 => $"Things have really worn on you since this morning{from}.",
+            <= -0.2 => $"You're a bit worse for wear compared to this morning{from}.",
+            _ => null,
+        };
+    }
+
     private static string Beat(DayBeat b) => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}";
 }
 
@@ -312,6 +346,8 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
+    /// <summary>A closed Moment's appraisal: <paramref name="better"/> = p(it left them in a better mood).</summary>
+    [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayWindow")]
@@ -332,6 +368,9 @@ public sealed class SelfState
     [Id(9)] public bool OpenersTried { get; set; }
     [Id(10)] public string? AvailabilityTried { get; set; }
     [Id(11)] public int AvailabilityVersion { get; set; }
+    [Id(12)] public double Valence { get; set; }
+    [Id(13)] public long ValenceAt { get; set; }
+    [Id(14)] public string? ValenceSource { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

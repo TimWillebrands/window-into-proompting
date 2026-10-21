@@ -112,7 +112,8 @@ public sealed class WorldMemory(
     IMemoryRepository repository,
     ConsolidationService consolidation,
     IGrainFactory grains,
-    ILogger<WorldMemory> logger)
+    ILogger<WorldMemory> logger,
+    Self.MomentAppraisal? appraisal = null)
 {
     /// <summary>The one Capture entry: capture, then gauge whoever's pile grew. Null on failure.</summary>
     public async Task<MemoryCaptureResult?> CaptureAsync(Moment moment, CancellationToken ct)
@@ -124,6 +125,17 @@ public sealed class WorldMemory(
             logger.LogInformation(
                 "{Source} capture in {ThreadId}@{Mark}: event={Event} recollections={Count}",
                 moment.Source, threadId, moment.MarkIndex, result.EventCreated, result.RecollectionsCreated);
+
+            // Conversations move moods (ADR 0021): whoever took something away gets appraised, detached from capture.
+            if (appraisal is not null && result.EventCreated && result.RecollectionPersonaIds.Count > 0)
+            {
+                var who = result.RecollectionPersonaIds.ToHashSet();
+                _ = Task.Run(async () =>
+                {
+                    try { await appraisal.AppraiseAsync(moment, who); }
+                    catch (Exception ex) { logger.LogDebug(ex, "Appraisal failed for {ThreadId}", threadId); }
+                });
+            }
 
             if (result.RecollectionPersonaIds.Count > 0)
             {

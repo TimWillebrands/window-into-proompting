@@ -280,3 +280,27 @@ public class ThreadCourseTest
         Assert.True(PartyTown.World.Apps.BoardApp.RunItsCourse(PartyTown.World.Apps.BoardApp.MaxReplies));
     }
 }
+
+public class ValenceTest
+{
+    [Fact]
+    public void Shift_MovesWithAppraisal_AndFadesOverHours()
+    {
+        Assert.Equal(0.4, SelfMath.Shift(0, 1), 3);
+        Assert.Equal(-0.4, SelfMath.Shift(0, 0), 3);
+        Assert.Equal(1, SelfMath.Shift(0.9, 1), 3);
+
+        var now = DateTimeOffset.UtcNow;
+        var s = new SelfState { Valence = 0.8, ValenceAt = now.AddHours(-3).ToUnixTimeMilliseconds() };
+        Assert.Equal(0.4, SelfMath.Valence(s, now), 3);
+        Assert.Equal(0, SelfMath.Valence(new SelfState(), now));
+    }
+
+    [Fact]
+    public void Drift_RendersOnlyClearShifts()
+    {
+        Assert.Null(SelfRender.Drift(0.1, "#Café"));
+        Assert.Equal("You're in a somewhat better mood than this morning (what happened in #Café).", SelfRender.Drift(0.3, "#Café"));
+        Assert.Contains("worn on you", SelfRender.Drift(-0.6, null));
+    }
+}

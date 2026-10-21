@@ -80,6 +80,7 @@ if (!openApiBuild)
     });
     builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20));
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
+    builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.RoomsApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.MessengerApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.BoardApp>();
