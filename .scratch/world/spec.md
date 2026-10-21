@@ -30,7 +30,7 @@ Proompting was a group chat with memory. The goal of this effort: a **world** wh
   - The XP Welcome screen signs a named Player in. Several humans can share one world.
   - Personas DM humans on their own, and toasts notify the human.
   - Humans can read persona↔persona DMs read-only from the World Monitor.
-- **System One port** (ADR 0019): TypeSafe Jev weighs Initiative choices and gates Capture when `TYPESAFE_API_KEY` is set. The LLM only does the voicing.
+- **System One / System Two split** (ADR 0019): a decision model weighs Initiative, Interruption and Capture. The chain is local Clef-Flash on llama.cpp first, then Jev on OpenRouter. LLMs do the voicing: Haiku 5.5 speaks, and deepseek-flash thinks and extracts memories.
 - **Calendar**: Gatherings planned by personas or humans in Rooms, with RSVPs. When one comes due, the clock pulls the attendees in. Verified live: Tim planned "Storm stories", all four personas RSVP'd on their own, and three showed up in #test to tell stories.
 - **Residents**: the World Monitor can invite library personas. Personas can also drop into Rooms they aren't in yet.
 
