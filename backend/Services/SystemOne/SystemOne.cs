@@ -152,7 +152,11 @@ public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger
             {
                 last = ex;
                 _benchedUntil[i] = DateTimeOffset.UtcNow + Bench;
-                logger.LogWarning(ex, "System One judge #{Index} failed; benched for {Minutes} min", i, Bench.TotalMinutes);
+                // Down or unreachable is expected (local Clef not running): one line, no stack trace.
+                if (ex is HttpRequestException or TaskCanceledException)
+                    logger.LogWarning("System One judge #{Index} unavailable ({Error}); benched for {Minutes} min", i, ex.Message, Bench.TotalMinutes);
+                else
+                    logger.LogWarning(ex, "System One judge #{Index} failed; benched for {Minutes} min", i, Bench.TotalMinutes);
             }
         }
         throw last ?? new InvalidOperationException("No System One judge configured.");

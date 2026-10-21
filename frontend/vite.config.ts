@@ -11,7 +11,8 @@ export default defineConfig({
         tsconfigPaths: true,
     },
     plugins: [
-        devtools(),
+        // Vite already forwards browser logs to the terminal; piping server logs back into the browser loops forever.
+        devtools({ consolePiping: { enabled: false } }),
         tailwindcss(),
         tanstackStart(),
         // React's vite plugin must come after start's vite plugin

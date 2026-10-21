@@ -70,7 +70,10 @@ if (!openApiBuild)
         return new PartyTown.Services.SystemOne.FailoverJudge(judges,
             sp.GetRequiredService<ILogger<PartyTown.Services.SystemOne.FailoverJudge>>());
     });
-    builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20));
+    // FailoverJudge is the resilience here: retrying a down local judge only adds latency and log noise.
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is still marked experimental
+    builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Self.FollowThrough>();

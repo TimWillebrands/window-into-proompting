@@ -33,6 +33,11 @@ internal sealed class StreamFanoutSession<TEvent>(
         {
             await ReceiveUntilClosedAsync(client, cancellationToken);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
+        {
+            // A tab closing or reloading mid-frame is a normal goodbye, not an error.
+            logger.LogDebug(ex, "Realtime client went away");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Realtime connection error");
