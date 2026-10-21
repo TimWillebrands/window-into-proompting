@@ -142,16 +142,9 @@ public sealed class MemoryRepository(
         };
     }
 
-    // How many recent edges the recency arm considers before C#-side salience ranking. Far
-    // above the surfaced N≈10 so a fresh low-weight burst can't push an oft-recalled older
-    // memory out of the candidate set before scoring sees it. The relevant arm is NOT
-    // pooled — the graph walk reaches arbitrarily deep into the past by design.
-    private const int RecallCandidatePool = 50;
-
-    // Quota for the relevant arm (ADR 0015 two-arm union): up to ~5 slots, recency fills
-    // the remainder. Structural tension, not a merged formula — guarantees a serendipity
-    // budget of recent-but-unrelated memories even on a hot topic.
-    private const int RelevantArmSlots = 5;
+    // Recency pool far above the surfaced N≈10 so a fresh low-weight burst can't push an oft-recalled
+    // memory out before scoring; the relevant arm is unpooled by design. Shared with RecallRanking.
+    private const int RecallCandidatePool = RecallRanking.CandidatePool;
 
     // Bounds on the anchor literals inlined into the walk query: untrusted message text
     // (multi-user boundary) must not balloon the Cypher source.
@@ -207,7 +200,7 @@ public sealed class MemoryRepository(
             // the recent leg (and a UNION row per flag value) — keep one entry, relevance
             // wins. Pre-ADR-0015 edges lack an id; a snippet+ts composite keeps two distinct
             // legacy edges from collapsing into one.
-            var byKey = new Dictionary<string, (RecalledMemory Memory, bool Relevant)>(StringComparer.Ordinal);
+            var rows = new List<RecallCandidate>();
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
@@ -231,18 +224,12 @@ public sealed class MemoryRepository(
                 var key = edgeId != Guid.Empty
                     ? edgeId.ToString("N")
                     : $"legacy|{Get(5)}|{snippet}";
-                if (byKey.TryGetValue(key, out var existing))
-                {
-                    byKey[key] = (existing.Memory, existing.Relevant || relevant);
-                    continue;
-                }
-
                 var salience = SalienceMath.Score(weight, capturedAt, recallCount, lastRecalled, now);
-                byKey[key] = (new RecalledMemory(
-                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience), relevant);
+                rows.Add(new RecallCandidate(key, new RecalledMemory(
+                    edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience), relevant));
             }
 
-            return QuotaUnion(byKey, limit);
+            return RecallRanking.QuotaUnion(RecallRanking.Dedup(rows), limit);
         }
         finally
         {
@@ -250,42 +237,6 @@ public sealed class MemoryRepository(
         }
     }
 
-    /// <summary>
-    /// The quota union (ADR 0015): relevant arm takes up to <see cref="RelevantArmSlots"/>,
-    /// recency arm fills the remainder, both internally salience-ranked, no cross-arm
-    /// formula. The merged list is re-ordered by salience so the prompt block stays one
-    /// undifferentiated ranking — the model never knows which arm surfaced a memory.
-    /// </summary>
-    private static IReadOnlyList<RecalledMemory> QuotaUnion(
-        Dictionary<string, (RecalledMemory Memory, bool Relevant)> byKey,
-        int limit)
-    {
-        var relevantArm = byKey
-            .Where(kv => kv.Value.Relevant)
-            .OrderByDescending(kv => kv.Value.Memory.Salience)
-            .ThenByDescending(kv => kv.Value.Memory.CapturedAt)
-            .Take(Math.Min(RelevantArmSlots, limit))
-            .ToList();
-        var taken = relevantArm.Select(kv => kv.Key).ToHashSet(StringComparer.Ordinal);
-
-        // The recency arm sees the same pool the pre-walk query produced: the
-        // RecallCandidatePool newest edges, salience-ranked. A relevant-flagged edge that
-        // missed the relevant quota still competes here — dedup'd by key, never duplicated.
-        var recentArm = byKey
-            .OrderByDescending(kv => kv.Value.Memory.CapturedAt)
-            .Take(RecallCandidatePool)
-            .Where(kv => !taken.Contains(kv.Key))
-            .OrderByDescending(kv => kv.Value.Memory.Salience)
-            .ThenByDescending(kv => kv.Value.Memory.CapturedAt)
-            .Take(limit - relevantArm.Count);
-
-        return relevantArm
-            .Select(kv => kv.Value.Memory with { Arm = RecallArm.Relevant })
-            .Concat(recentArm.Select(kv => kv.Value.Memory with { Arm = RecallArm.Recent }))
-            .OrderByDescending(m => m.Salience)
-            .ThenByDescending(m => m.CapturedAt)
-            .ToList();
-    }
 
     /// <summary>
     /// One Cypher round-trip for both arms. With anchors: a 3-leg UNION — Participant-anchor
@@ -370,6 +321,21 @@ public sealed class MemoryRepository(
     /// longer names wait for the embeddings arm (ADR 0015 deferral). Counts and input
     /// length are capped — the message is untrusted boundary input.
     /// </summary>
+    /// <summary>Lowercase letter/digit runs of untrusted text, length-capped — the word stream Concept matching reads.</summary>
+    internal static List<string> AnchorWords(string? text)
+    {
+        var words = new List<string>();
+        if (string.IsNullOrWhiteSpace(text)) return words;
+        var sb = new StringBuilder();
+        foreach (var c in (text.Length > MaxAnchorTextChars ? text[..MaxAnchorTextChars] : text).ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c)) sb.Append(c);
+            else if (sb.Length > 0) { words.Add(sb.ToString()); sb.Clear(); }
+        }
+        if (sb.Length > 0) words.Add(sb.ToString());
+        return words;
+    }
+
     internal static IReadOnlyList<string> TokenizeAnchorText(string? anchorText)
     {
         if (string.IsNullOrWhiteSpace(anchorText))
@@ -377,28 +343,7 @@ public sealed class MemoryRepository(
             return Array.Empty<string>();
         }
 
-        var text = anchorText.Length > MaxAnchorTextChars
-            ? anchorText[..MaxAnchorTextChars]
-            : anchorText;
-
-        var raw = new List<string>();
-        var sb = new StringBuilder();
-        foreach (var c in text.ToLowerInvariant())
-        {
-            if (char.IsLetterOrDigit(c))
-            {
-                sb.Append(c);
-            }
-            else if (sb.Length > 0)
-            {
-                raw.Add(sb.ToString());
-                sb.Clear();
-            }
-        }
-        if (sb.Length > 0)
-        {
-            raw.Add(sb.ToString());
-        }
+        var raw = AnchorWords(anchorText);
 
         var anchors = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -512,19 +457,6 @@ public sealed class MemoryRepository(
 
     // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
 
-    // One raw STANCE edge as read back, before latest-wins/anchor filtering. A row is either
-    // a Participant target (TargetPersonaId set) or a Concept target (ConceptName set).
-    private sealed record StanceEdgeRow(
-        Guid Id,
-        double Valence,
-        string Reasoning,
-        DateTimeOffset Ts,
-        Guid? TargetPersonaId,
-        string? ConceptName,
-        string? ConceptDisplay,
-        StanceOrigin Origin,
-        Guid? RunId,
-        Guid? RetractsId);
 
     public async Task<Guid> AppendStanceAsync(
         Guid partyId,
@@ -648,19 +580,10 @@ public sealed class MemoryRepository(
         var rows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
 
         // Newest-first already (ORDER BY ts DESC); the first row per target is current.
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var records = new List<StanceRecord>(rows.Count);
-        foreach (var row in rows)
-        {
-            var isCurrent = seen.Add(TargetKey(row));
-            records.Add(ToRecord(row, sourcePersonaId, isCurrent));
-        }
-        return records;
+        return StanceProjection.WithCurrent(rows)
+            .Select(r => StanceProjection.ToRecord(r.Row, sourcePersonaId, r.IsCurrent))
+            .ToList();
     }
-
-    // At most this many ambivalence pairs render per beat (ADR 0016) — the rest of the block
-    // stays plain latest-wins so an ever-present tension doesn't drown the orientation lines.
-    private const int MaxAmbivalencePairs = 2;
 
     public async Task<IReadOnlyList<StanceLine>> RecallStancesAsync(
         Guid partyId,
@@ -675,133 +598,11 @@ public sealed class MemoryRepository(
             return Array.Empty<StanceLine>();
         }
 
-        // Union Acquired (Participant-scope) + Intrinsic (Persona-scope) edges; latest-wins
-        // across both scopes per (source, target) key — ADR 0016 Intrinsic Stance slice.
-        var acquiredRows = await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct);
-        var intrinsicRows = await FetchIntrinsicStanceEdgesAsync(sourcePersonaId, ct);
-        var rows = acquiredRows.Count == 0
-            ? intrinsicRows
-            : intrinsicRows.Count == 0
-                ? acquiredRows
-                : acquiredRows.Concat(intrinsicRows).OrderByDescending(r => r.Ts).ToList();
-        var present = new HashSet<Guid>(presentPersonaIds);
-        var text = anchorText ?? string.Empty;
-
-        // Group a target's edges together, newest-first (rows already ORDER BY ts DESC) — the
-        // first per target is the latest-wins current; the rest are its history, which the
-        // ambivalence read scans for a contradicting earlier belief.
-        var byTarget = new Dictionary<string, List<StanceEdgeRow>>(StringComparer.Ordinal);
-        var order = new List<string>();
-        foreach (var row in rows)
-        {
-            var key = TargetKey(row);
-            if (!byTarget.TryGetValue(key, out var history))
-            {
-                history = new List<StanceEdgeRow>();
-                byTarget[key] = history;
-                order.Add(key);
-            }
-            history.Add(row);
-        }
-
-        var anchored = new List<(StanceEdgeRow Current, string? Contrast)>();
-        foreach (var key in order)
-        {
-            var history = byTarget[key];
-            var current = history[0];
-
-            // A retract-current target holds no belief: the neutralizing edge masks the
-            // retracted one and itself renders nothing — its reasoning is log-facing, not
-            // prompt-facing.
-            if (current.Origin == StanceOrigin.Retract)
-            {
-                continue;
-            }
-
-            var keep = current.TargetPersonaId is Guid tp
-                // A Participant target (self included — source is in the present cast) renders
-                // only while that Participant is in the room.
-                ? present.Contains(tp)
-                // A Concept renders only when it's live in the triggering message.
-                : ConceptMatchesAnchor(current, text);
-
-            if (keep)
-            {
-                anchored.Add((current, FindContradiction(current, history)));
-            }
-        }
-
-        // Most-strongly-felt first, capped to the block's line budget. Ambivalence is then
-        // capped separately to the 1–2 most-salient pairs (ADR 0016) so the block never reads
-        // as wall-to-wall tension — surplus contradictions degrade to the plain latest-wins line.
-        var pairs = 0;
-        return anchored
-            .OrderByDescending(a => Math.Abs(a.Current.Valence))
-            .ThenByDescending(a => a.Current.Ts)
-            .Take(limit)
-            .Select(a =>
-            {
-                var contrast = a.Contrast is not null && ++pairs <= MaxAmbivalencePairs ? a.Contrast : null;
-                return new StanceLine(a.Current.Reasoning, a.Current.Valence, contrast);
-            })
-            .ToList();
-    }
-
-    // Ambivalence read (ADR 0016): the reasoning of the earlier edge that most sharply
-    // contradicts the current stance — sign-flip or |Δvalence| ≥ 1.0 — strongest tension first,
-    // ties to the oldest ("you used to"). Retract edges aren't beliefs, so they never count as
-    // the contradicting past. Null when the history is monotone.
-    private static string? FindContradiction(StanceEdgeRow current, List<StanceEdgeRow> history)
-    {
-        StanceEdgeRow? best = null;
-        var bestDelta = 0.0;
-        for (var i = 1; i < history.Count; i++)
-        {
-            var past = history[i];
-            if (past.Origin == StanceOrigin.Retract || !Contradicts(current.Valence, past.Valence))
-            {
-                continue;
-            }
-            var delta = Math.Abs(current.Valence - past.Valence);
-            if (delta > bestDelta || (delta == bestDelta && (best is null || past.Ts < best.Ts)))
-            {
-                bestDelta = delta;
-                best = past;
-            }
-        }
-        return best?.Reasoning;
-    }
-
-    // A past valence contradicts the current one when their signs flip (both non-zero, opposite)
-    // or they're at least a full valence-unit apart — exactly ADR 0016's two criteria.
-    private static bool Contradicts(double current, double past)
-        => (Math.Sign(current) != 0 && Math.Sign(past) != 0 && Math.Sign(current) != Math.Sign(past))
-            || Math.Abs(current - past) >= 1.0;
-
-    private static bool ConceptMatchesAnchor(StanceEdgeRow row, string anchorText)
-        => (row.ConceptName is { Length: > 0 } name
-                && anchorText.Contains(name, StringComparison.OrdinalIgnoreCase))
-            || (row.ConceptDisplay is { Length: > 0 } display
-                && anchorText.Contains(display, StringComparison.OrdinalIgnoreCase));
-
-    // Dedup key for latest-wins. A Participant target keys on its persona id; a Concept on its
-    // normalised name. Self collapses into its persona-id key like any Participant target.
-    private static string TargetKey(StanceEdgeRow row)
-        => row.TargetPersonaId is Guid tp ? $"p:{tp}" : $"c:{row.ConceptName}";
-
-    private static StanceRecord ToRecord(StanceEdgeRow row, Guid sourcePersonaId, bool isCurrent, bool isIntrinsic = false)
-    {
-        if (row.TargetPersonaId is Guid tp)
-        {
-            var kind = tp == sourcePersonaId ? StanceTargetKind.Self : StanceTargetKind.Participant;
-            return new StanceRecord(
-                row.Id, row.Valence, row.Reasoning, row.Ts,
-                kind, tp, null, null, isCurrent, row.Origin, row.RunId, row.RetractsId, isIntrinsic);
-        }
-        return new StanceRecord(
-            row.Id, row.Valence, row.Reasoning, row.Ts,
-            StanceTargetKind.Concept, null, row.ConceptName, row.ConceptDisplay, isCurrent,
-            row.Origin, row.RunId, row.RetractsId, isIntrinsic);
+        // Latest-wins spans Acquired (Participant-scope) and Intrinsic (Persona-scope) edges — ADR 0016.
+        var rows = StanceProjection.Union(
+            await FetchStanceEdgesAsync(partyId, sourcePersonaId, ct),
+            await FetchIntrinsicStanceEdgesAsync(sourcePersonaId, ct));
+        return StanceProjection.Project(rows, new HashSet<Guid>(presentPersonaIds), anchorText, limit);
     }
 
     // All STANCE edges authored by one Participant, newest first. Single read-only Cypher —
@@ -962,14 +763,9 @@ public sealed class MemoryRepository(
     {
         var rows = await FetchIntrinsicStanceEdgesAsync(personaId, ct);
 
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var records = new List<StanceRecord>(rows.Count);
-        foreach (var row in rows)
-        {
-            var isCurrent = seen.Add(TargetKey(row));
-            records.Add(ToRecord(row, personaId, isCurrent, isIntrinsic: true));
-        }
-        return records;
+        return StanceProjection.WithCurrent(rows)
+            .Select(r => StanceProjection.ToRecord(r.Row, personaId, r.IsCurrent, isIntrinsic: true))
+            .ToList();
     }
 
     public async Task<Guid?> PromoteStanceAsync(
