@@ -250,8 +250,11 @@ public sealed class WorldClockGrain(
         {
             if (judge.Enabled && !await IsMemorableAsync(context, present))
                 return;
+            var placeId = thread.Kind == ChatGroupKinds.Place
+                ? await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetPlaceOfTalkRoomAsync(thread.Id)
+                : null;
             var result = await memory.CaptureAsync(
-                Moment.FromMessages(PartyId, MomentSources.OfKind(thread.Kind), thread.Id, context, anchor.MessageId, present),
+                Moment.FromMessages(PartyId, MomentSources.OfKind(thread.Kind), thread.Id, context, anchor.MessageId, present, placeId),
                 CancellationToken.None);
             if (result is { EventCreated: true, RecollectionsCreated: > 0 })
             {
