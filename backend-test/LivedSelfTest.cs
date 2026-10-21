@@ -172,3 +172,19 @@ public class ThreadFatigueTest
         Assert.Equal(2, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
     }
 }
+
+public class OwnRecentTest
+{
+    [Fact]
+    public void RenderOwnRecent_ListsWhereAndWhat()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var text = VoiceWear.RenderOwnRecent(new[]
+        {
+            new VoiceLine(now.AddMinutes(-3).ToUnixTimeMilliseconds(), "DM Denise & Lena", "Lena", "That tin is still on his shelf.", Guid.NewGuid()),
+        }, now);
+        Assert.Contains("- 3 min ago, DM Denise & Lena: \"That tin is still on his shelf.\"", text);
+        Assert.Contains("Don't say the same thing again", text);
+        Assert.Equal(string.Empty, VoiceWear.RenderOwnRecent(Array.Empty<VoiceLine>(), now));
+    }
+}

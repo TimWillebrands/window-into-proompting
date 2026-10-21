@@ -27,7 +27,9 @@ public sealed partial class PersonaSelfGrain(
         if (withDay) await EnsureDayAsync(partyId, personaId, now);
         var wear = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync();
         var situation = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSituationAsync(personaId);
-        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation);
+        var own = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetOwnLinesAsync(personaId, 3);
+        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation)
+            + VoiceWear.RenderOwnRecent(own, now);
     }
 
     public async Task NoteSpokeAsync(double chattiness)

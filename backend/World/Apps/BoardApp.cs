@@ -48,10 +48,13 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {
         var board = grains.GetGrain<IBoardGrain>(ctx.PartyId);
+        var presence = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetPresenceAsync(withDay: true);
         var system = $"""
 {WorldLlm.Identity(ctx.Self)}
 
-You are writing on the Board — the public forum of the small online world you live in, read by everyone here. Write as yourself: your voice, your opinions, your quirks. Forum register: casual, 1-3 short paragraphs, no hashtags, no sign-off, no meta commentary.
+{presence}
+
+You are writing on the Board — the public forum of the small online world you live in, read by everyone here. Write as yourself: your voice, your opinions, your quirks. Forum register: casual, usually short (a few sentences; a reply can be one line), everyday words, no hashtags, no sign-off, no meta commentary.
 Output ONLY JSON.
 """;
 

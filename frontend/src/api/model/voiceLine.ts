@@ -11,4 +11,5 @@ export interface VoiceLine {
     room: string;
     speaker: string;
     text: string;
+    speakerId: string;
 }

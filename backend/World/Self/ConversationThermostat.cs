@@ -60,7 +60,7 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
 public static class Thermostat
 {
     public const double HeavyThreshold = 0.6;
-    public const int SustainedStreak = 4;
+    public const int SustainedStreak = 2;
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
 

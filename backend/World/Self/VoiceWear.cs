@@ -104,6 +104,14 @@ public static partial class VoiceWear
         return lines;
     }
 
+    /// <summary>Your own latest lines, wherever you said them, so you don't repeat yourself across Rooms.</summary>
+    public static string RenderOwnRecent(IReadOnlyList<VoiceLine> own, DateTimeOffset now)
+    {
+        if (own.Count == 0) return string.Empty;
+        var lines = own.Select(l => $"- {WorldStream.Ago(l.Ts, now)}, {l.Room}: \"{WorldStream.Clip(l.Text, 160)}\"");
+        return $"# What you said lately\n{string.Join("\n", lines)}\nPeople talk to each other; assume it got around. Don't say the same thing again, here or anywhere.\n";
+    }
+
     private static readonly HashSet<string> Stopwords = new(StringComparer.Ordinal)
     {
         "about", "above", "after", "again", "against", "all", "also", "always", "among", "another", "anyone",

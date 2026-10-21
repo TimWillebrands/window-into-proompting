@@ -31,5 +31,10 @@ export interface Body {
     isHuman?: boolean;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     arrivedAt?: number | string;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    activityUntil?: number | string | null;
     isWalking?: boolean;
 }

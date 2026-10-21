@@ -5353,6 +5353,15 @@
             ],
             "format": "int64"
           },
+          "activityUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
           "isWalking": {
             "type": "boolean"
           }
@@ -7706,7 +7715,8 @@
           "ts",
           "room",
           "speaker",
-          "text"
+          "text",
+          "speakerId"
         ],
         "type": "object",
         "properties": {
@@ -7726,6 +7736,10 @@
           },
           "text": {
             "type": "string"
+          },
+          "speakerId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
