@@ -295,6 +295,9 @@ function Rig({
         c.updateProjectionMatrix();
         const ctl = controls.current;
         if (ctl) {
+            // Wheel zoom stays within the same range as the +/− buttons, around the fitted view.
+            ctl.minZoom = zoom * 0.4;
+            ctl.maxZoom = zoom * 2.5;
             ctl.target.copy(target);
             ctl.update();
         }
@@ -307,9 +310,11 @@ function Rig({
                     ref={controls}
                     camera={camera}
                     enableRotate={false}
-                    enableZoom={false}
+                    enableZoom
+                    zoomToCursor
+                    zoomSpeed={0.8}
                     screenSpacePanning
-                    enablePan={!!scene.def.outdoor || zoomBy > 1}
+                    enablePan
                 />
             ) : null}
         </>
