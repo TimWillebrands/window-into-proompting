@@ -128,6 +128,16 @@ background.
     - a step now covers ±0.3 *of the remaining distance* to the limit;
     - "closer" counts at most once per 3h per pair, while friction always counts;
     - stored warmth was halved once (`WarmthVersion`).
+29. **Words become deeds.** A persona texted "coming down in a bit" and never moved: nothing connected what a
+    persona says to what their Body does. `FollowThrough` closes that loop.
+    - **When it checks:** after every spoken persona line in a DM, and at the start of each Life turn for an
+      unanswered DM of theirs (younger than 20 minutes). Each message is checked once.
+    - **The check:** a System One noul, "in their last message, X says they will come over to where Y is".
+    - **At p ≥ 0.6:** after a natural delay ("in a bit" = 45–90 s, "on my way" = 5–15 s) the Body walks to the
+      other person (`JoinAsync`) and the walk is logged, "like they said they would".
+    - **On arrival:** they get a Life turn nudged to say hi in person.
+
+    It runs only if both still have Bodies, the speaker is awake and they're not already together.
 
 ## Why these pieces
 

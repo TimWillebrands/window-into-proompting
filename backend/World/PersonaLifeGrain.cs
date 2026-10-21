@@ -19,7 +19,8 @@ public sealed class PersonaLifeGrain(
     IWorldLlm llm,
     WorldMemory memory,
     ISystemOneJudge judge,
-    ILogger<PersonaLifeGrain> logger)
+    ILogger<PersonaLifeGrain> logger,
+    FollowThrough? followThrough = null)
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
@@ -31,11 +32,12 @@ public sealed class PersonaLifeGrain(
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
     {
+        var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        if (followThrough is not null) await followThrough.ConsiderPendingAsync(partyId, personaId);
         var activity = await LiveCoreAsync(nudge);
         // Time to yourself recharges (ADR 0021): resting and writing are how talked-out people refill.
         if (activity.Action is "rest" or "diary")
         {
-            var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
             try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
             catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
         }

@@ -25,7 +25,8 @@ public sealed class ResponsePipeline(
     IGrainFactory grainFactory,
     IMemoryRepository memoryRepository,
     ILoggerFactory loggerFactory,
-    ILogger<ResponsePipeline> logger)
+    ILogger<ResponsePipeline> logger,
+    World.Self.FollowThrough? followThrough = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
@@ -294,6 +295,7 @@ public sealed class ResponsePipeline(
 
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
+            followThrough?.Consider(partyId, chatGroupId, persona.Id);
 
             if (result.Metadata is not null)
             {
@@ -452,6 +454,7 @@ public sealed class ResponsePipeline(
 
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
+            followThrough?.Consider(partyId, chatGroupId, persona.Id);
             return result.Message;
         }
         catch (OperationCanceledException)
