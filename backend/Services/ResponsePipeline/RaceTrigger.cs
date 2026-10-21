@@ -19,7 +19,10 @@ namespace PartyTown.Services.ResponsePipeline;
 /// Stateless: the per-persona in-flight tracking lives in <see cref="InFlightStore"/>,
 /// passed in per call. One singleton serves every persona.
 /// </summary>
-public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory loggerFactory)
+public sealed class RaceTrigger(
+    IGrainFactory grainFactory,
+    ILoggerFactory loggerFactory,
+    PartyTown.Services.SystemOne.ISystemOneJudge? judge = null)
 {
     // PNR is the absolute generated-token count past which an in-flight generation
     // cannot be cancelled (only repaired on the next turn). Cancel threshold is the
@@ -109,7 +112,8 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
             {
                 var salienceService = new PersonaSalienceService(
                     grainFactory.GetGrain<ILlmRouterGrain>(0),
-                    loggerFactory.CreateLogger<PersonaSalienceService>());
+                    loggerFactory.CreateLogger<PersonaSalienceService>(),
+                    judge);
                 var selfView = new SelfView(
                     persona.Id, persona.Name, DriverKind.LLM,
                     persona.Bio, persona.SystemPrompt,

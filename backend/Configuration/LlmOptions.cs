@@ -31,6 +31,9 @@ public sealed class OpenRouterProviderConfig : ILlmProviderConfig
     /// <summary>Cheap, fast, structured-output capable; the default for env-seeded worlds.</summary>
     public const string DefaultModel = "deepseek/deepseek-v4.1-flash";
 
+    /// <summary>Speaking-phase voice: noticeably better character adherence for ~$0.0002 a line.</summary>
+    public const string DefaultVoiceModel = "anthropic/claude-haiku-5.5";
+
     public string TEMP_ModelName { get; init; } = DefaultModel;
 
     /// <summary>Which <see cref="JobComplexity"/> tiers this provider serves (bound from

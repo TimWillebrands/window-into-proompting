@@ -8,7 +8,7 @@ public class SystemOneTest
     [Fact]
     public void BuildRequest_MapsNoulAndChoiceToJevSchema()
     {
-        var req = JevJudge.BuildRequest("jev-latest", "state text", new Dictionary<string, SystemOneQuestion>
+        var req = HttpSystemOneJudge.BuildRequest("jev-latest", "state text", new Dictionary<string, SystemOneQuestion>
         {
             ["memorable"] = new NoulQuestion("Worth remembering"),
             ["next"] = new ChoiceQuestion("Pick", new Dictionary<string, string?> { ["0"] = "rest", ["1"] = null }),
@@ -32,10 +32,38 @@ public class SystemOneTest
         },"usage":{"input_tokens":10,"output_tokens":3}}
         """;
 
-        var answers = JevJudge.ParseResponse(body);
+        var answers = HttpSystemOneJudge.ParseResponse(body);
 
         Assert.Equal(0.82, answers.Noul("memorable", 0));
         Assert.Equal(0.8, answers.Choices["next"]["1"]);
+    }
+
+    [Fact]
+    public async Task Failover_SkipsFailingJudgeAndBenchesIt()
+    {
+        var broken = new FakeJudge(fail: true);
+        var good = new FakeJudge(fail: false);
+        var judge = new FailoverJudge(new ISystemOneJudge[] { broken, good },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<FailoverJudge>.Instance);
+        var q = new Dictionary<string, SystemOneQuestion> { ["x"] = new NoulQuestion("x") };
+
+        await judge.AskAsync("s", q, CancellationToken.None);
+        await judge.AskAsync("s", q, CancellationToken.None);
+
+        Assert.Equal(1, broken.Calls);
+        Assert.Equal(2, good.Calls);
+    }
+
+    private sealed class FakeJudge(bool fail) : ISystemOneJudge
+    {
+        public int Calls;
+        public bool Enabled => true;
+
+        public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+        {
+            Calls++;
+            return fail ? throw new HttpRequestException("down") : Task.FromResult(new SystemOneAnswers());
+        }
     }
 
     [Fact]

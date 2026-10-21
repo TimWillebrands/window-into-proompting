@@ -37,11 +37,18 @@ public static class LlmConfigurationExtensions
                 var openRouterKey = config["OPENROUTER_API_KEY"];
                 if (!string.IsNullOrWhiteSpace(openRouterKey) && options.Providers.All(p => p.Type != "openrouter"))
                 {
+                    // Cheap fast model thinks; a more capable one speaks.
                     options.Providers.Insert(0, new OpenRouterProviderConfig
                     {
                         ApiKey = openRouterKey,
                         TEMP_ModelName = config["OPENROUTER_MODEL"] ?? OpenRouterProviderConfig.DefaultModel,
-                        SupportedComplexities = JobComplexity.General | JobComplexity.CharacterVoice | JobComplexity.CharacterThoughts,
+                        SupportedComplexities = JobComplexity.General | JobComplexity.CharacterThoughts,
+                    });
+                    options.Providers.Insert(1, new OpenRouterProviderConfig
+                    {
+                        ApiKey = openRouterKey,
+                        TEMP_ModelName = config["OPENROUTER_VOICE_MODEL"] ?? OpenRouterProviderConfig.DefaultVoiceModel,
+                        SupportedComplexities = JobComplexity.CharacterVoice,
                     });
                 }
             });

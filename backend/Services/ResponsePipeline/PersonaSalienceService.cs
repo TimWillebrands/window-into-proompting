@@ -25,8 +25,19 @@ namespace PartyTown.Services.ResponsePipeline;
 /// return salience=0 so the in-flight generation continues. Conservative default —
 /// preserves current behavior rather than introducing a new failure surface.
 /// </summary>
-public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logger)
+public sealed class PersonaSalienceService(
+    ILlmRouterGrain router,
+    ILogger logger,
+    PartyTown.Services.SystemOne.ISystemOneJudge? judge = null)
 {
+    private static readonly IReadOnlyDictionary<string, string?> Kinds = new Dictionary<string, string?>
+    {
+        ["redirect"] = "the new message changes the topic so the reply in progress would seem odd",
+        ["contradict"] = "the new message contradicts what the reply in progress assumes",
+        ["tangent"] = "on-topic, but the reply in progress still works",
+        ["irrelevant"] = "unrelated to the reply in progress",
+    };
+
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
@@ -48,6 +59,42 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
         span?.SetTag("persona.id", self.Id);
         span?.SetTag("persona.name", self.Name);
         span?.SetTag("new_message.sender", newMessageSenderName);
+
+        // Interruption is pure weighing: System One answers it in one calibrated pass when available.
+        if (judge is { Enabled: true })
+        {
+            try
+            {
+                var state = UserPrompt(self.Name, inFlightGutReaction, inFlightWouldSay, inFlightGeneratedSoFar,
+                    newMessage.Content ?? string.Empty, newMessageSenderName);
+                var answers = await judge.AskAsync(state, new Dictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>
+                {
+                    ["interrupt"] = new PartyTown.Services.SystemOne.NoulQuestion(
+                        $"If {self.Name} finishes and sends the in-flight message unchanged, it will look out of touch, wrong or rude given the new message."),
+                    ["kind"] = new PartyTown.Services.SystemOne.ChoiceQuestion(
+                        "How does the new message relate to the in-flight message?", Kinds),
+                }, ct);
+                if (answers.Nouls.ContainsKey("interrupt"))
+                {
+                    var kind = answers.Choices.TryGetValue("kind", out var dist) && dist.Count > 0
+                        ? dist.MaxBy(kv => kv.Value).Key
+                        : "tangent";
+                    var scored = new SalienceScore(Math.Clamp(answers.Noul("interrupt", 0), 0, 1), kind);
+                    span?.SetTag("salience.source", "system-one");
+                    span?.SetTag("salience.value", scored.Value);
+                    span?.SetTag("salience.kind", scored.Kind);
+                    return scored;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Persona {PersonaName} System One salience failed — falling back to LLM", self.Name);
+            }
+        }
 
         var messages = new List<LlmChatMessage>
         {

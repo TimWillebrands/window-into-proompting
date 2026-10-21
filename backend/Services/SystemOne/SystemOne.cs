@@ -52,28 +52,40 @@ public sealed class SystemOneAnswers
     }
 }
 
-/// <summary>TypeSafe Jev over HTTP (<c>POST /v1/systemone</c>). Enabled by <c>TYPESAFE_API_KEY</c>.</summary>
-public sealed class JevJudge(HttpClient http, string apiKey, string model, ILogger<JevJudge> logger) : ISystemOneJudge
+/// <summary>
+/// Any <c>/v1/systemone</c> server: TypeSafe Jev, Jev via OpenRouter, or a local decision model
+/// (Cloudflare Clef via llama.cpp). Same wire format everywhere.
+/// </summary>
+public sealed class HttpSystemOneJudge(HttpClient http, string name, string url, string? apiKey, string model, ILogger<HttpSystemOneJudge> logger)
+    : ISystemOneJudge
 {
-    public const string DefaultModel = "jev-latest";
-    public const string BaseUrl = "https://api.typesafe.ai/v1/systemone";
+    public const string TypeSafeUrl = "https://api.typesafe.ai/v1/systemone";
+    public const string TypeSafeModel = "jev-latest";
+    public const string OpenRouterUrl = "https://openrouter.ai/api/v1/systemone";
+    public const string OpenRouterModel = "~typesafe/jev-latest";
+
+    public string Name => name;
 
     public bool Enabled => true;
 
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Post, BaseUrl)
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(BuildRequest(model, state, questions).ToJsonString(), Encoding.UTF8, "application/json"),
         };
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        if (!string.IsNullOrEmpty(apiKey))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         using var res = await http.SendAsync(req, ct);
         var body = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)
         {
-            logger.LogWarning("Jev {Status}: {Body}", (int)res.StatusCode, LlmJson.LogPreview(body));
+            logger.LogWarning("System One {Judge} {Status}: {Body}", name, (int)res.StatusCode, LlmJson.LogPreview(body));
             res.EnsureSuccessStatusCode();
         }
+        logger.LogInformation("System One {Judge} answered in {Ms:F0}ms",
+            name, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         return ParseResponse(body);
     }
 
@@ -112,6 +124,38 @@ public sealed class JevJudge(HttpClient http, string apiKey, string model, ILogg
                 answers.Choices[a.Name] = probs.EnumerateObject().ToDictionary(o => o.Name, o => o.Value.GetDouble());
         }
         return answers;
+    }
+}
+
+/// <summary>Tries judges in order (local first); a failing judge sits out for a while instead of costing latency every beat.</summary>
+public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger<FailoverJudge> logger) : ISystemOneJudge
+{
+    private static readonly TimeSpan Bench = TimeSpan.FromMinutes(5);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _benchedUntil = new();
+
+    public bool Enabled => judges.Any(j => j.Enabled);
+
+    public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+    {
+        Exception? last = null;
+        for (var i = 0; i < judges.Count; i++)
+        {
+            if (!judges[i].Enabled) continue;
+            if (_benchedUntil.TryGetValue(i, out var until) && until > DateTimeOffset.UtcNow && i < judges.Count - 1) continue;
+            try
+            {
+                var answers = await judges[i].AskAsync(state, questions, ct);
+                _benchedUntil.TryRemove(i, out _);
+                return answers;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                last = ex;
+                _benchedUntil[i] = DateTimeOffset.UtcNow + Bench;
+                logger.LogWarning(ex, "System One judge #{Index} failed; benched for {Minutes} min", i, Bench.TotalMinutes);
+            }
+        }
+        throw last ?? new InvalidOperationException("No System One judge configured.");
     }
 }
 
