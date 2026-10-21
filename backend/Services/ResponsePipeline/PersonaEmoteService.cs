@@ -62,50 +62,19 @@ public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
             JobComplexity = JobComplexity.CharacterThoughts
         };
 
-        ILlmEndpointGrain? generation;
+        string content;
         try
         {
-            generation = await router.RouteAsync(job.JobComplexity, ct);
+            content = (await new LlmCall(router, logger).StreamAsync(job, LlmTiers.ThoughtsOnly, ct, span: span)).Content;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Persona {PersonaName} emote routing failed — using fallback", self.Name);
-            span?.SetTag("emote.fallback", "routing");
+            logger.LogWarning(ex, "Persona {PersonaName} emote call failed — using fallback", self.Name);
+            span?.SetTag("emote.fallback", ex is InvalidOperationException ? "routing" : "generation");
             return GenerationFailureFallback;
         }
 
-        try
-        {
-            var attribution = await generation.GetAttributionAsync();
-            span?.SetTag("llm.provider", attribution?.Provider);
-            span?.SetTag("llm.model", attribution?.ModelName);
-        }
-        catch
-        {
-            // Best-effort instrumentation.
-        }
-
-        var text = new StringBuilder();
-        try
-        {
-            await foreach (var chunk in generation.GenerateAsync(job, ct))
-            {
-                if (chunk.Type == LlmGenerationEvent.ContentChunk)
-                    text.Append(chunk.Data);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Persona {PersonaName} emote generation failed — using fallback", self.Name);
-            span?.SetTag("emote.fallback", "generation");
-            return GenerationFailureFallback;
-        }
-
-        var raw = Sanitize(text.ToString());
+        var raw = Sanitize(content);
         if (string.IsNullOrWhiteSpace(raw))
         {
             span?.SetTag("emote.fallback", "empty");

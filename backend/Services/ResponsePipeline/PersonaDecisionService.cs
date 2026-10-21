@@ -89,7 +89,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
 
-        var text = new StringBuilder();
 
         // Schema field order drives generation order. gutReaction first → the model engages
         // in-character before judging airtime. memoryToReference next — having just felt the
@@ -137,78 +136,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         thinkSpan?.SetTag("persona.name", self.Name);
         thinkSpan?.SetTag("urge.total", urge.Total);
 
-        var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+        var call = await new LlmCall(router, logger).StreamAsync(job, LlmTiers.General, cancellationToken,
+            onEvent is null ? null : chunk => onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false),
+            thinkSpan);
 
-        try
-        {
-            var attribution = await generation.GetAttributionAsync();
-            thinkSpan?.SetTag("llm.provider", attribution?.Provider);
-            thinkSpan?.SetTag("llm.model", attribution?.ModelName);
-        }
-        catch
-        {
-            // Attribution is best-effort instrumentation; don't fail the decision over it.
-        }
-
-        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
-        {
-            if (chunk.Type == "message")
-            {
-                text.Append(chunk.Data);
-            }
-
-            if (onEvent is not null)
-            {
-                await onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false);
-            }
-        }
-
-        var raw = text.ToString().Trim();
+        var raw = call.Content.Trim();
         logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2} coldOpen={ColdOpen:F2} chaos={Chaos:F2}",
             self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore, urge.ColdOpenScore, urge.ChaosScore);
 
-        ShouldRespondResult? parsed = null;
-
-        try
-        {
-            parsed = JsonSerializer.Deserialize<ShouldRespondResult>(raw, WebOptions);
-            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
-                self.Name, urge.Total, parsed?.Respond, raw.Length);
-            if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("Persona {PersonaName} decision raw: {Raw}", self.Name, raw);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug("Persona {PersonaName} decision parse failed (will try cleanup): {Error}", self.Name, ex.Message);
-        }
-
+        var parsed = LlmJsonParsing.TryDeserialize<ShouldRespondResult>(raw, WebOptions);
         if (parsed is null)
-        {
-            // Cleanup pipeline for LLM-produced JSON:
-            //   1. Strip markdown code fences (```json … ```) that some models wrap output in.
-            //   2. Escape raw control chars (newline, tab, etc.) found *inside* string values —
-            //      JsonRepairSharp does not handle these, but the symptom appears often enough
-            //      in multi-line `gutReaction` fields that we fix it before handing off.
-            var cleaned = LlmJsonParsing.ExtractJsonPayload(raw);
-
-            try
-            {
-                parsed = JsonSerializer.Deserialize<ShouldRespondResult>(cleaned, WebOptions);
-            }
-            catch
-            {
-                try
-                {
-                    var repaired = PartyTown.Services.Memory.SafeJsonRepair.Repair(cleaned);
-                    parsed = JsonSerializer.Deserialize<ShouldRespondResult>(repaired, WebOptions);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError("Persona {PersonaName} decision JSON repair failed: {Error}. Raw: {Raw}",
-                        self.Name, ex.Message, raw);
-                }
-            }
-        }
+            logger.LogError("Persona {PersonaName} decision JSON unparseable after repair. Raw: {Raw}", self.Name, raw);
+        else
+            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
+                self.Name, urge.Total, parsed.Respond, raw.Length);
 
         // Fail closed: don't respond if we can't parse the decision. Embed a truncated
         // raw payload in Reason so the thought-log papertrail preserves it past log

@@ -249,22 +249,7 @@ New memories to sleep on (oldest first, weight = how much it stuck):
                 : "someone no longer around",
         };
 
-    /// <summary>
-    /// Consolidation runs in rest, off the beat path — route it to the cheap tier like the
-    /// capture extractors, falling back to General so it degrades in cost, never in function.
-    /// </summary>
-    private async Task<(ILlmEndpointGrain Endpoint, JobComplexity Complexity)> RouteAsync(
-        CancellationToken cancellationToken)
-    {
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        try
-        {
-            return (await router.RouteAsync(JobComplexity.CharacterThoughts, cancellationToken), JobComplexity.CharacterThoughts);
-        }
-        catch (InvalidOperationException)
-        {
-            logger.LogDebug("No cheap-tier provider for consolidation; falling back to General");
-            return (await router.RouteAsync(JobComplexity.General, cancellationToken), JobComplexity.General);
-        }
-    }
+    /// <summary>Consolidation runs in rest, off the beat path: cheap tier, degrading to General.</summary>
+    private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(CancellationToken cancellationToken)
+        => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger).RouteAsync(LlmTiers.Thoughts, cancellationToken);
 }

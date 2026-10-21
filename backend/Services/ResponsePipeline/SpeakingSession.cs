@@ -90,63 +90,25 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             });
         }
 
-        var builder = new StringBuilder();
-        var reasoning = new StringBuilder();
-
         using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);
         generateSpan?.SetTag("persona.id", persona.Id);
         generateSpan?.SetTag("persona.name", persona.Name);
 
-        // The spoken utterance is what the user reads — route it to the CharacterVoice tier
-        // (a smarter model) while the high-frequency Decision phase stays on the fast General
-        // tier. Falls back to General when no CharacterVoice-capable provider is configured
-        // (mirrors MemoryExtractor.RouteExtractionAsync) so speaking degrades in quality,
-        // never in function — without this a General-only setup silently mutes every persona.
-        var complexity = JobComplexity.CharacterVoice;
-        ILlmEndpointGrain generation;
-        try
-        {
-            generation = await router.RouteAsync(complexity, cancellationToken);
-        }
-        catch (InvalidOperationException)
-        {
-            complexity = JobComplexity.General;
-            generation = await router.RouteAsync(complexity, cancellationToken);
-            generateSpan?.SetTag("llm.tier_fallback", true);
-        }
+        // The spoken utterance is what the user reads: CharacterVoice tier, degrading to General
+        // so a General-only setup never mutes every persona.
+        var result = await new LlmCall(router).StreamAsync(
+            new LlmGenerationJob { Messages = messages }, LlmTiers.Voice, cancellationToken,
+            chunk => onEvent(chunk.Type, chunk.Data, false), generateSpan);
 
-        var job = new LlmGenerationJob
-        {
-            Messages = messages,
-            JobComplexity = complexity
-        };
-        var metadata = await generation.GetAttributionAsync();
-        generateSpan?.SetTag("llm.provider", metadata?.Provider);
-        generateSpan?.SetTag("llm.model", metadata?.ModelName);
-
-        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
-        {
-            if (chunk.Type == LlmGenerationEvent.ContentChunk)
-            {
-                builder.Append(chunk.Data);
-            }
-            else if (chunk.Type == LlmGenerationEvent.ReasoningChunk)
-            {
-                reasoning.Append(chunk.Data);
-            }
-
-            await onEvent(chunk.Type, chunk.Data, false);
-        }
-
-        generateSpan?.SetTag("output.length", builder.Length);
+        generateSpan?.SetTag("output.length", result.Content.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
         return new SpeakingResult
         {
             Stop = false,
-            Message = SpeechCleanup.Clean(builder.ToString(), persona.Name),
-            Reasoning = reasoning.ToString(),
-            Metadata = metadata
+            Message = SpeechCleanup.Clean(result.Content, persona.Name),
+            Reasoning = result.Reasoning,
+            Metadata = result.Attribution
         };
     }
 

@@ -139,53 +139,21 @@ public sealed class PersonaSalienceService(
             ResponseFormat = responseFormat.ToJsonString()
         };
 
-        ILlmEndpointGrain? generation = null;
+        // Race path stays on the cheap tier; any failure lets the in-flight draft ride —
+        // an unavailable cheap model must never cancel a generation.
+        string content;
         try
         {
-            generation = await router.RouteAsync(job.JobComplexity, ct);
+            content = (await new LlmCall(router, logger).StreamAsync(job, LlmTiers.ThoughtsOnly, ct, span: span)).Content;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // No CharacterThoughts-capable provider configured, or router itself failed.
-            // Race code will treat this as "let it ride" — we MUST NOT cancel an in-flight
-            // generation just because the cheap model is unavailable.
-            logger.LogWarning(ex, "Persona {PersonaName} salience routing failed — defaulting to 0", self.Name);
-            span?.SetTag("salience.fallback", "routing");
+            logger.LogWarning(ex, "Persona {PersonaName} salience call failed — defaulting to 0", self.Name);
+            span?.SetTag("salience.fallback", ex is InvalidOperationException ? "routing" : "generation");
             return SalienceScore.LetItRide;
         }
 
-        try
-        {
-            var attribution = await generation.GetAttributionAsync();
-            span?.SetTag("llm.provider", attribution?.Provider);
-            span?.SetTag("llm.model", attribution?.ModelName);
-        }
-        catch
-        {
-            // Best-effort instrumentation.
-        }
-
-        var text = new StringBuilder();
-        try
-        {
-            await foreach (var chunk in generation.GenerateAsync(job, ct))
-            {
-                if (chunk.Type == LlmGenerationEvent.ContentChunk)
-                    text.Append(chunk.Data);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Persona {PersonaName} salience generation failed — defaulting to 0", self.Name);
-            span?.SetTag("salience.fallback", "generation");
-            return SalienceScore.LetItRide;
-        }
-
-        var raw = text.ToString().Trim();
+        var raw = content.Trim();
         var parsed = TryParse(raw);
         if (parsed is null)
         {

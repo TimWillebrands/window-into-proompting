@@ -11,6 +11,25 @@ namespace PartyTown.Services.ResponsePipeline;
 /// </summary>
 internal static class LlmJsonParsing
 {
+    /// <summary>Parse ladder for structured output: as-is → <see cref="ExtractJsonPayload"/> → JSON repair. Null when all fail.</summary>
+    public static T? TryDeserialize<T>(string raw, System.Text.Json.JsonSerializerOptions options) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var direct = Attempt<T>(raw, options);
+        if (direct is not null) return direct;
+        var cleaned = ExtractJsonPayload(raw);
+        var afterCleanup = Attempt<T>(cleaned, options);
+        if (afterCleanup is not null) return afterCleanup;
+        try { return Attempt<T>(PartyTown.Services.Memory.SafeJsonRepair.Repair(cleaned), options); }
+        catch { return null; }
+    }
+
+    private static T? Attempt<T>(string candidate, System.Text.Json.JsonSerializerOptions options) where T : class
+    {
+        try { return System.Text.Json.JsonSerializer.Deserialize<T>(candidate, options); }
+        catch { return null; }
+    }
+
     /// <summary>
     /// Normalizes an LLM-produced JSON blob: strips markdown code fences, narrows to the
     /// first balanced object, and escapes raw control characters (LF/CR/TAB) found inside

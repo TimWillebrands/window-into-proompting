@@ -25,18 +25,8 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
     private async Task<string?> CompleteCoreAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, string? responseFormat)
     {
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        ILlmEndpointGrain endpoint;
-        var complexity = preferred;
-        try
-        {
-            endpoint = await router.RouteAsync(preferred, ct);
-        }
-        catch (InvalidOperationException)
-        {
-            complexity = JobComplexity.General;
-            endpoint = await router.RouteAsync(JobComplexity.General, ct);
-        }
+        var (endpoint, complexity) = await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0))
+            .RouteAsync(preferred == JobComplexity.General ? LlmTiers.General : new[] { preferred, JobComplexity.General }, ct);
 
         var job = new LlmGenerationJob
         {
