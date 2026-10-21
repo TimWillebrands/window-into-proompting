@@ -221,7 +221,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
     - When one is due, awake LLM attendees walk there and get a Life turn (`ClockPolicy.WalkToGathering`). Humans come on their own.
     - `PlacesApp` gives +5 pull to head there and +2 to talk once there.
   - **Bug fixed:** a detached task (dressing) and a request wrote grain state at the same time (e-tag mismatch). `PlacesGrain` now serialises its writes.
-- **Still open:** shouts through doors (Places have no adjacency yet), the eavesdrop Bench probe, Appearance editing and a Welcome-screen look picker.
+- **Live tuning** (d554b18): Places had become the busiest App (102 of about 210 non-rest actions), with walks hopping person to person and Café talk circling "the tin / the lid". Changes:
+  - No new walk options right after a walk, and at most one "go over to".
+  - Talking out loud has base pull 1 (+3 when you're named).
+  - When eb's thermostat reads the Place talk as Stale (circling or fizzling), leaving gets +2 and talking −1.
+- **Shouts carry next door** (72c6c6d): public Places are neighbours, and a shout reaches the next one as tone only ("Through the door from the Café, Denise is calling out…"), with a pull to go and see.
+- **Look editor:** `PUT places/appearance` plus palette options. "Change look" in the profile card works for your own look, or anyone's in All ears mode. It lives in Places rather than on the Welcome screen.
+- **Still open:** the eavesdrop Bench probe, and re-measuring the action mix after the tuning.
 
 ## Review log
 
@@ -258,7 +264,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
     - When one is due, awake LLM attendees walk there and get a Life turn (`ClockPolicy.WalkToGathering`). Humans come on their own.
     - `PlacesApp` gives +5 pull to head there and +2 to talk once there.
   - **Bug fixed:** a detached task (dressing) and a request wrote grain state at the same time (e-tag mismatch). `PlacesGrain` now serialises its writes.
-- **Still open:** shouts through doors (Places have no adjacency yet), the eavesdrop Bench probe, Appearance editing and a Welcome-screen look picker.
+- **Live tuning** (d554b18): Places had become the busiest App (102 of about 210 non-rest actions), with walks hopping person to person and Café talk circling "the tin / the lid". Changes:
+  - No new walk options right after a walk, and at most one "go over to".
+  - Talking out loud has base pull 1 (+3 when you're named).
+  - When eb's thermostat reads the Place talk as Stale (circling or fizzling), leaving gets +2 and talking −1.
+- **Shouts carry next door** (72c6c6d): public Places are neighbours, and a shout reaches the next one as tone only ("Through the door from the Café, Denise is calling out…"), with a pull to go and see.
+- **Look editor:** `PUT places/appearance` plus palette options. "Change look" in the profile card works for your own look, or anyone's in All ears mode. It lives in Places rather than on the Welcome screen.
+- **Still open:** the eavesdrop Bench probe, and re-measuring the action mix after the tuning.
 
 ## Review log
 
