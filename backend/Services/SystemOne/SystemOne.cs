@@ -132,6 +132,7 @@ public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger
 {
     private static readonly TimeSpan Bench = TimeSpan.FromMinutes(5);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _benchedUntil = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> _down = new();
 
     public bool Enabled => judges.Any(j => j.Enabled);
 
@@ -146,6 +147,7 @@ public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger
             {
                 var answers = await judges[i].AskAsync(state, questions, ct);
                 _benchedUntil.TryRemove(i, out _);
+                if (_down.TryRemove(i, out _)) logger.LogInformation("System One judge #{Index} is back", i);
                 return answers;
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -153,8 +155,12 @@ public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger
                 last = ex;
                 _benchedUntil[i] = DateTimeOffset.UtcNow + Bench;
                 // Down or unreachable is expected (local Clef not running): one line, no stack trace.
+                // Warn once per outage; retries of a judge that's still down are debug.
                 if (ex is HttpRequestException or TaskCanceledException)
-                    logger.LogWarning("System One judge #{Index} unavailable ({Error}); benched for {Minutes} min", i, ex.Message, Bench.TotalMinutes);
+                {
+                    if (_down.TryAdd(i, 0)) logger.LogWarning("System One judge #{Index} unavailable ({Error}); retrying every {Minutes} min", i, ex.Message, Bench.TotalMinutes);
+                    else logger.LogDebug("System One judge #{Index} still unavailable ({Error})", i, ex.Message);
+                }
                 else
                     logger.LogWarning(ex, "System One judge #{Index} failed; benched for {Minutes} min", i, Bench.TotalMinutes);
             }

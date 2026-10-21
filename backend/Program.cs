@@ -101,6 +101,14 @@ if (!openApiBuild)
     builder.Host.UseOrleans(siloBuilder =>
     {
         siloBuilder.Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
+        // Dev restarts kill the silo without a goodbye: declare the old instance dead fast instead of routing to it for minutes.
+        if (builder.Environment.IsDevelopment())
+            siloBuilder.Configure<ClusterMembershipOptions>(o =>
+            {
+                o.NumVotesForDeathDeclaration = 1;
+                o.NumMissedProbesLimit = 1;
+                o.ProbeTimeout = TimeSpan.FromSeconds(2);
+            });
         siloBuilder.UseAdoNetClustering(options =>
         {
             options.Invariant = "Npgsql";
