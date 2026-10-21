@@ -40,6 +40,22 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return done is null ? Conflict("Not here, or nothing to do with it right now.") : Ok(new FurniActionResponse(done));
     }
 
+    /// <summary>Set the volume of the Player's next line in Place talk (whisper needs an addressee at their spot).</summary>
+    [HttpPost("voice")]
+    public async Task<ActionResult> SetVoice(Guid partyId, [FromBody] VoiceRequest request)
+    {
+        if (request.Volume is not (Volumes.Whisper or Volumes.Talk or Volumes.Shout)) return BadRequest("whisper, talk or shout");
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        await Places(partyId).SetVoiceAsync(who.Value, request.Volume, request.To);
+        return NoContent();
+    }
+
+    /// <summary>Talk the Participant noticed but couldn't make out (tone, maybe their name).</summary>
+    [HttpGet("overheard/{participantId:guid}")]
+    public async Task<ActionResult<List<Overheard>>> GetOverheard(Guid partyId, Guid participantId)
+        => Ok(await Places(partyId).GetOverheardAsync(participantId));
+
     private IPlacesGrain Places(Guid partyId) => grains.GetGrain<IPlacesGrain>(partyId);
 }
 
@@ -47,3 +63,4 @@ public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? Partici
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
+public sealed record VoiceRequest(string Volume, Guid? To, Guid? ParticipantId);

@@ -26,22 +26,42 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             .Where(b => b.ParticipantId != self.ParticipantId && b.PlaceId == self.PlaceId && (b.DestPlaceId == null || b.DestPlaceId == self.PlaceId))
             .ToList();
 
+        var nearby = others.Where(o => o.SpotId == self.SpotId && !o.IsWalking).ToList();
         if (!self.IsWalking && here?.TalkRoomId is { } talkRoomId && others.Count > 0)
         {
-            var recent = await grains.GetGrain<IChatGroupGrain>(talkRoomId).GetRecentMessagesAsync(4);
-            var fresh = recent.Where(m => ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(m.SendAt ?? 0) < TimeSpan.FromMinutes(30)).ToList();
+            // Only what you heard (Earshot): talk at other spots reaches you as tone, below.
+            var recent = await grains.GetGrain<IChatGroupGrain>(talkRoomId).GetRecentMessagesAsync(8);
+            var fresh = recent
+                .Where(m => m.HeardBy is not { } heard || heard.Contains(ctx.Self.Id))
+                .Where(m => ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(m.SendAt ?? 0) < TimeSpan.FromMinutes(30))
+                .TakeLast(4).ToList();
             if (fresh.Count > 0)
             {
-                sb.AppendLine("Said out loud here just now:");
+                sb.AppendLine("Said out loud near you just now:");
                 foreach (var m in fresh)
-                    sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}: {WorldStream.Clip(m.Content, 140)}");
+                    sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}{(m.Volume == Volumes.Whisper ? " (whispering)" : m.Volume == Volumes.Shout ? " (calling out)" : "")}: {WorldStream.Clip(m.Content, 140)}");
             }
             var last = fresh.LastOrDefault();
-            if (last?.SenderId != ctx.Self.Id)
+            if (nearby.Count > 0 && last?.SenderId != ctx.Self.Id)
+            {
+                var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
+                var priority = 2 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
+                affordances.Add(new Affordance(Id, $"Say something to {who}, right here", priority, talkRoomId, "say"));
+                var confidant = nearby[Random.Shared.Next(nearby.Count)];
+                affordances.Add(new Affordance(Id, $"Whisper something to {confidant.Name} only", 0, confidant.ParticipantId, "whisper"));
+            }
+            else if (nearby.Count == 0)
             {
                 var who = string.Join(", ", others.Take(3).Select(o => o.Name));
-                var priority = 2 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
-                affordances.Add(new Affordance(Id, $"Say something out loud to {who}, right here", priority, talkRoomId, "say"));
+                affordances.Add(new Affordance(Id, $"Call out across the room to {who}", 0, talkRoomId, "shout"));
+            }
+
+            foreach (var (line, heard, name) in Overhearing.Lines(await places.GetOverheardAsync(ctx.Self.Id), ctx.Self.Id, here).Take(2))
+            {
+                sb.AppendLine(line);
+                if (heard.SpotId != self.SpotId)
+                    affordances.Add(new Affordance(Id, $"Drift over to {SpotName(here, heard.SpotId)} to hear what they're saying",
+                        name ? 3 : 1, here.Id, $"spot:{heard.SpotId}"));
             }
         }
 
@@ -99,6 +119,20 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 if (string.IsNullOrWhiteSpace(line)) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.TalkRoomId == target);
                 return new ActOutcome("say", $"out loud {PlacesGrain.AtName(place, ctx.Self.Id)}: \"{WorldStream.Clip(line, 160)}\"", target);
+            }
+            case "whisper" or "shout":
+            {
+                var snapshot = await places.GetSnapshotAsync();
+                var self = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == ctx.Self.Id);
+                var room = snapshot.Places.FirstOrDefault(p => p.Id == self?.PlaceId)?.TalkRoomId;
+                if (room is null) return null;
+                var whisper = affordance.Verb == "whisper";
+                await places.SetVoiceAsync(ctx.Self.Id, whisper ? Volumes.Whisper : Volumes.Shout, whisper ? target : null);
+                var line = await grains.GetGrain<IPersonaGrain>(ctx.Self.Id).InitiateAsync(room.Value, intent, thought);
+                if (string.IsNullOrWhiteSpace(line)) return null;
+                return new ActOutcome(affordance.Verb!, whisper
+                    ? $"whispers to {ctx.NameOf(target)}: \"{WorldStream.Clip(line, 160)}\""
+                    : $"calls out across the room: \"{WorldStream.Clip(line, 160)}\"", room);
             }
             case "join":
                 return await places.JoinAsync(ctx.Self.Id, target) is null
