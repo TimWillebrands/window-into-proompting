@@ -11,4 +11,5 @@ export interface Spot {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     capacity?: number | string;
     seat?: boolean;
+    at?: string;
 }

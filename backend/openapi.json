@@ -3981,6 +3981,68 @@
         }
       }
     },
+    "/worlds/{partyId}/voice/lines": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/voice": {
       "get": {
         "tags": [
@@ -5282,6 +5344,14 @@
           },
           "isHuman": {
             "type": "boolean"
+          },
+          "arrivedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           },
           "isWalking": {
             "type": "boolean"
@@ -7407,6 +7477,9 @@
           },
           "seat": {
             "type": "boolean"
+          },
+          "at": {
+            "type": "string"
           }
         }
       },
@@ -7625,6 +7698,34 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "VoiceLine": {
+        "required": [
+          "ts",
+          "room",
+          "speaker",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "ts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "room": {
+            "type": "string"
+          },
+          "speaker": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },

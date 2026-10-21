@@ -29,5 +29,7 @@ export interface Body {
      */
     arriveAt?: number | string | null;
     isHuman?: boolean;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    arrivedAt?: number | string;
     isWalking?: boolean;
 }

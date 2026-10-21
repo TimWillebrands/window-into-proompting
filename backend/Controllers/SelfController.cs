@@ -28,6 +28,10 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
             .ToList());
     }
 
+    [HttpGet("voice/lines")]
+    public async Task<ActionResult<List<VoiceLine>>> GetVoiceLines(Guid partyId, [FromQuery] int limit = 40)
+        => Ok(await grains.GetGrain<IWorldVoiceGrain>(partyId).GetLinesAsync(limit));
+
     [HttpGet("voice")]
     public async Task<ActionResult<VoiceWearReport>> GetVoice(Guid partyId)
         => Ok(await grains.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync());
