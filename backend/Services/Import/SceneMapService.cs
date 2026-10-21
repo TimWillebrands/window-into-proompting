@@ -358,35 +358,10 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
             ResponseFormat = schema.ToJsonString(),
         };
 
-        // Transient provider failures (dropped streams, 429s) degrade the one call — the
-        // conservation ledger accounts for it — instead of aborting the scene run.
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                var router = grains.GetGrain<ILlmRouterGrain>(0);
-                var endpoint = await router.RouteAsync(JobComplexity.General, ct);
-                var raw = (await endpoint.CompleteOneShotAsync(job, ct)).Trim();
-                // reasoning models occasionally spend the whole turn thinking and stream
-                // no content at all — that's transient, not an answer
-                if (raw.Length == 0 && attempt < Attempts)
-                {
-                    logger.LogWarning("Import map call {CallId}: empty content, attempt {Attempt}", callId, attempt);
-                    continue;
-                }
-                return raw;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException && attempt < Attempts)
-            {
-                logger.LogWarning(ex, "Import map call {CallId} failed, attempt {Attempt}", callId, attempt);
-                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Import map call {CallId} failed after {Attempts} attempts", callId, Attempts);
-                return $"<llm-error: {ex.Message}>";
-            }
-        }
+        // Transient failures degrade the one call — the conservation ledger accounts for it.
+        var raw = await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger)
+            .CompleteAsync(job, LlmTiers.General, $"import map {callId}", ct, Attempts);
+        return raw ?? "<llm-error: all attempts failed>";
     }
 
     // ── response schemas (ported verbatim from the probes) ───────────────────────

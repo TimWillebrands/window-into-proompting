@@ -46,6 +46,10 @@
     <ProjectReference Include="..\aspire\Proompting.ServiceDefaults\Proompting.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Services\ResponsePipeline\Prompts\*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <Target Name="RenameOpenApiDocument" AfterTargets="GenerateOpenApiDocuments" Condition="Exists('$(MSBuildProjectDirectory)/backend.json')">
     <Move SourceFiles="$(MSBuildProjectDirectory)/backend.json" DestinationFiles="$(MSBuildProjectDirectory)/openapi.json" OverwriteReadOnlyFiles="true" />
   </Target>

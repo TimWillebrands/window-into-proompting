@@ -34,6 +34,12 @@ public class OllamaEndpointGrain(
             logger.LogWarning("OllamaEndpointGrain {Id}: no config found", this.GetPrimaryKey());
     }
 
+    public Task ApplyConfigAsync(LlmProviderEntry? entry)
+    {
+        _config = entry is { Type: "ollama" } && entry.Id == this.GetPrimaryKey() ? entry : null;
+        return Task.CompletedTask;
+    }
+
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     public Task<ChatMessageMetadata> GetAttributionAsync()

@@ -67,12 +67,7 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         if (provider == null)
             return NotFound();
 
-        var endpoint = provider.Type switch
-        {
-            "ollama" => (ILlmEndpointGrain)grains.GetGrain<IOllamaEndpointGrain>(id),
-            "openrouter" => (ILlmEndpointGrain)grains.GetGrain<IOpenRouterEndpointGrain>(id),
-            _ => throw new InvalidOperationException($"Unknown provider type: {provider.Type}")
-        };
+        var endpoint = LlmEndpoints.Resolve(grains, provider.Type, id);
 
         var models = await endpoint.GetModelsAsync();
         return Ok(models.Select(m => m.Name).ToList());

@@ -107,31 +107,8 @@ public sealed class ImportPersonaFinalizeService(
             ResponseFormat = CardSchema.ToJsonString(),
         };
 
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                var router = grains.GetGrain<ILlmRouterGrain>(0);
-                var endpoint = await router.RouteAsync(JobComplexity.General, ct);
-                var raw = (await endpoint.CompleteOneShotAsync(job, ct)).Trim();
-                if (raw.Length == 0 && attempt < Attempts)
-                {
-                    logger.LogWarning("Persona finalize '{Persona}': empty content, attempt {Attempt}", personaName, attempt);
-                    continue;
-                }
-                return raw;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException && attempt < Attempts)
-            {
-                logger.LogWarning(ex, "Persona finalize '{Persona}' failed, attempt {Attempt}", personaName, attempt);
-                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Persona finalize '{Persona}' failed after {Attempts} attempts", personaName, Attempts);
-                return string.Empty;
-            }
-        }
+        return await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger)
+            .CompleteAsync(job, LlmTiers.General, $"persona finalize '{personaName}'", ct, Attempts) ?? string.Empty;
     }
 
     private static readonly JsonObject CardSchema = new()

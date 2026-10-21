@@ -32,6 +32,12 @@ public class OpenRouterEndpointGrain(
             logger.LogWarning("OpenRouterEndpointGrain {Id}: no config found", this.GetPrimaryKey());
     }
 
+    public Task ApplyConfigAsync(LlmProviderEntry? entry)
+    {
+        _config = entry is { Type: "openrouter" } && entry.Id == this.GetPrimaryKey() ? entry : null;
+        return Task.CompletedTask;
+    }
+
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     public Task<ChatMessageMetadata> GetAttributionAsync()

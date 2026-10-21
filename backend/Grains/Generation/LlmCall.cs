@@ -55,6 +55,36 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null)
         return new LlmCallResult(content.ToString(), reasoning.ToString(), attribution, served);
     }
 
+    /// <summary>
+    /// One-shot completion for batch work: re-routes each attempt (so the router can bench a failing
+    /// provider), treats empty content as transient, backs off 5s × attempt. Returns null when every attempt failed.
+    /// </summary>
+    public async Task<string?> CompleteAsync(
+        LlmGenerationJob job, IReadOnlyList<JobComplexity> tiers, string label, CancellationToken ct, int attempts = 3)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var (endpoint, served) = await RouteAsync(tiers, ct);
+                var raw = (await endpoint.CompleteOneShotAsync(job with { JobComplexity = served }, ct)).Trim();
+                // reasoning models occasionally spend the whole turn thinking and return no content
+                if (raw.Length > 0 || attempt >= attempts) return raw;
+                logger?.LogWarning("LLM call {Label}: empty content, attempt {Attempt}", label, attempt);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && attempt < attempts)
+            {
+                logger?.LogWarning(ex, "LLM call {Label} failed, attempt {Attempt}", label, attempt);
+                await Task.Delay(TimeSpan.FromSeconds(5 * attempt), ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger?.LogWarning(ex, "LLM call {Label} failed after {Attempts} attempts", label, attempts);
+                return null;
+            }
+        }
+    }
+
     private static async Task<ChatMessageMetadata?> AttributionAsync(ILlmEndpointGrain endpoint, Activity? span)
     {
         try
