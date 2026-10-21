@@ -33,6 +33,12 @@ public static class Money
 
     public static string DayKey(DateTimeOffset now) => now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
+    public const int OpensAt = 9;
+    public const int ClosesAt = 21;
+
+    /// <summary>Shops keep hours: buying and presents happen in the day, changing clothes any time.</summary>
+    public static bool ShopsOpen(DateTimeOffset localNow) => localNow.Hour >= OpensAt && localNow.Hour < ClosesAt;
+
     /// <summary>One short line for "Right now"; silent when money isn't on your mind.</summary>
     public static string? Cue(int balance, string? means, bool paidToday)
     {

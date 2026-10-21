@@ -25,16 +25,18 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         sb.AppendLine($"Wearing: {Describe(look)}.");
         if (spare.Count > 0) sb.AppendLine($"Also in your wardrobe: {string.Join(", ", spare.Select(i => i.Name))}.");
         foreach (var g in wallet.NewGifts) sb.AppendLine($"New: {Catalog.Find(g.Key)?.Name ?? "something"}, a present from {g.FromName}.");
-        if (shops.Count > 0) sb.AppendLine($"In the shops today: {string.Join(", ", shops.Select(i => $"{i.Name} ({i.Price})"))}.");
+        var open = Money.ShopsOpen(ctx.Now.ToLocalTime());
+        if (!open) sb.AppendLine($"The shops are closed until {Money.OpensAt}:00.");
+        else if (shops.Count > 0) sb.AppendLine($"In the shops today (open till {Money.ClosesAt}:00): {string.Join(", ", shops.Select(i => $"{i.Name} ({i.Price})"))}.");
 
         var affordances = new List<Affordance>();
         if (spare.Count > 0)
             affordances.Add(new Affordance(Id, "Change into something else from your wardrobe", wallet.NewGifts.Count > 0 ? 1 : 0, null, "wear"));
-        var cheapest = shops.Count == 0 ? int.MaxValue : shops.Min(i => i.Price);
+        var cheapest = shops.Count == 0 || !open ? int.MaxValue : shops.Min(i => i.Price);
         // Spending follows means: someone flush buys more readily than someone counting coins.
         if (wallet.Balance >= cheapest)
             affordances.Add(new Affordance(Id, "Buy something new to wear", wallet.Balance >= wallet.DailyPay * 3 ? 1 : 0, null, "buy"));
-        if (wallet.Balance >= cheapest * 2 && ctx.Others.OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } friend)
+        if (open && wallet.Balance >= cheapest * 2L && ctx.Others.OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } friend)
             affordances.Add(new Affordance(Id, $"Get {friend.Name} a little present", 0, friend.Id, "gift"));
 
         return new AppPerception(Id, "Wardrobe and money", sb.ToString().TrimEnd(), affordances);

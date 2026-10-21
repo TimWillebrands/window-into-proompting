@@ -92,4 +92,13 @@ public class EconomyTest
         Assert.Contains("Denise gave you a scarf", text);
         Assert.Equal(string.Empty, Money.Render(wallet with { Balance = 100, NewGifts = new List<GiftNote>() }, now));
     }
+
+    [Fact]
+    public void Shops_KeepHours()
+    {
+        var day = new DateTimeOffset(2026, 10, 21, 14, 0, 0, TimeSpan.FromHours(2));
+        Assert.True(Money.ShopsOpen(day));
+        Assert.False(Money.ShopsOpen(day.AddHours(9)));
+        Assert.False(Money.ShopsOpen(day.AddHours(-6)));
+    }
 }

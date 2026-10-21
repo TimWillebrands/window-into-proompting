@@ -32,6 +32,9 @@ through `SetAppearanceAsync` and the snapshot.
    - Buy something new: priority 1 once they have three days' pay, else 0. Spending follows means.
    - Get someone a little present.
 
+   Shops keep hours (09:00–21:00 local): at night Life sees "the shops are closed", and only changing clothes
+   is offered.
+
    The Persona's intent picks the item by word match, weighting the noun over the colour. When the intent
    names nothing ("something warm for the bus stop"), a System One choice over today's affordable shop
    items picks one.
