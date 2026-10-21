@@ -141,7 +141,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         return new SpeakingResult
         {
             Stop = false,
-            Message = builder.ToString(),
+            Message = SpeechCleanup.Clean(builder.ToString(), persona.Name),
             Reasoning = reasoning.ToString(),
             Metadata = metadata
         };

@@ -70,3 +70,14 @@ public class WorldPureTest
         Assert.Equal(1.0, UrgeMath.CalculateResponseUrge(self, history, 0, directlyAddressed: true).MentionScore);
     }
 }
+
+public class SpeechCleanupTest
+{
+    [Theory]
+    [InlineData("<|channel|>private<|message|> Denise: hey... the lantern", "hey... the lantern")]
+    [InlineData("**Denise:** oui", "oui")]
+    [InlineData("Denise said hi to Pieter: fine", "Denise said hi to Pieter: fine")]
+    [InlineData("plain line", "plain line")]
+    public void Clean_StripsTemplateTokensAndSelfLabel(string raw, string expected)
+        => Assert.Equal(expected, PartyTown.Services.ResponsePipeline.SpeechCleanup.Clean(raw, "Denise"));
+}
