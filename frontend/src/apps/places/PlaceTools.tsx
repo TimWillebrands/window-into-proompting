@@ -14,37 +14,32 @@ import {
 } from '../../api/party-zone';
 import { WORLD_ID } from '../../lib/world';
 
-const panel: React.CSSProperties = {
-    border: '1px solid #b7c4d7',
-    borderRadius: 3,
-    background: '#fff',
-    padding: '4px 6px',
+const POSE_ICON: Record<string, [string, string]> = {
+    lean: ['🫱', 'Lean'],
+    lounge: ['🛋️', 'Lounge'],
+    perch: ['🪑', 'Perch'],
+    dance: ['💃', 'Dance'],
+    lie: ['😴', 'Lie down'],
+    'cross-legged': ['🧘', 'Sit'],
+    think: ['🤔', 'Think'],
+    wave: ['👋', 'Wave'],
+    hug: ['🤗', 'Hug'],
+    'slow-dance': ['💞', 'Slow dance'],
+    'high-five': ['✋', 'High five'],
+    'hold-hands': ['🤝', 'Hold hands'],
 };
 
-const POSE_LABEL: Record<string, string> = {
-    lean: '🫱 Lean',
-    lounge: '🛋 Lounge',
-    perch: '🪑 Perch',
-    dance: '💃 Dance',
-    lie: '😴 Lie down',
-    'cross-legged': '🧘 Cross-legged',
-    think: '🤔 Think',
-    wave: '👋 Wave',
-    hug: '🤗 Hug',
-    'slow-dance': '💞 Slow dance',
-    'high-five': '✋ High five',
-    'hold-hands': '🤝 Hold hands',
-};
-
-/** Hang-out poses at your spot (ADR 0025): the spot's own, think and wave, and pair ones with whoever's next to you. */
+/** Hang-out poses at your spot (ADR 0025), as an IMVU-style dock over the view: the spot's own, think and wave, and pair ones with whoever's next to you. */
 export function PoseBar({
     place,
     me,
     bodies,
+    bottom,
 }: {
     place: Place;
     me: Body;
     bodies: Body[];
+    bottom?: number;
 }) {
     const pose = usePostWorldsPartyIdPlacesPose();
     const spot = (place.spots ?? []).find((s) => s.id === me.spotId);
@@ -73,43 +68,48 @@ export function PoseBar({
                 participantId: me.participantId ?? null,
             },
         });
+    const button = (p: string, withBody?: Body) => {
+        const [icon, label] = POSE_ICON[p] ?? ['✨', p];
+        const on =
+            me.pose === p &&
+            (!withBody || me.poseWith === withBody.participantId);
+        return (
+            <button
+                key={`${withBody?.participantId ?? ''}:${p}`}
+                type="button"
+                className={`pl-pose${withBody ? ' pl-pose--pair' : ''}`}
+                aria-pressed={on}
+                disabled={pose.isPending}
+                title={withBody ? `${label} ${withBody.name}` : label}
+                onClick={() =>
+                    on
+                        ? strike(null)
+                        : strike(p, withBody?.participantId ?? undefined)
+                }
+            >
+                <b>{icon}</b>
+                {withBody
+                    ? `${label.split(' ')[0]} ${(withBody.name ?? '').split(' ')[0]}`
+                    : label}
+            </button>
+        );
+    };
     return (
         <div
-            className="flex flex-wrap items-center"
-            style={{ ...panel, gap: 4 }}
+            className="pl-dock"
+            style={
+                bottom === undefined
+                    ? {
+                          position: 'static',
+                          transform: 'none',
+                          alignSelf: 'center',
+                      }
+                    : { bottom }
+            }
         >
-            <span style={{ color: '#555' }}>Pose:</span>
-            {solo.map((p) => (
-                <button
-                    key={p}
-                    type="button"
-                    disabled={pose.isPending}
-                    aria-pressed={me.pose === p}
-                    onClick={() => strike(p)}
-                >
-                    {POSE_LABEL[p] ?? p}
-                </button>
-            ))}
-            {company.flatMap((b) =>
-                pairs.map((p) => (
-                    <button
-                        key={`${b.participantId}:${p}`}
-                        type="button"
-                        disabled={pose.isPending}
-                        aria-pressed={
-                            me.pose === p && me.poseWith === b.participantId
-                        }
-                        onClick={() => strike(p, b.participantId ?? undefined)}
-                    >
-                        {POSE_LABEL[p] ?? p} {(b.name ?? '').split(' ')[0]}
-                    </button>
-                )),
-            )}
-            {me.pose ? (
-                <button type="button" onClick={() => strike(null)}>
-                    Stop
-                </button>
-            ) : null}
+            {solo.map((p) => button(p))}
+            {company.length > 0 ? <span className="pl-dock-sep" /> : null}
+            {company.slice(0, 3).flatMap((b) => pairs.map((p) => button(p, b)))}
         </div>
     );
 }
@@ -167,19 +167,17 @@ export function ArrangeTools({
             data: { placeId: place.id, wall, floor, participantId },
         });
     return (
-        <div
-            className="flex flex-col"
-            style={{ ...panel, gap: 4, background: '#f3f8ff' }}
-        >
+        <div className="pl-card pl-card--tool flex flex-col" style={{ gap: 5 }}>
             <div className="flex items-center" style={{ gap: 6 }}>
-                <strong>Arranging</strong>
-                <span style={{ color: '#555' }}>
+                <strong className="pl-card-title">🪑 Arranging</strong>
+                <span style={{ color: '#5b6b8c' }}>
                     {thing
                         ? `${thing.name}: click a tile to put it there.`
                         : 'Click a thing to pick it up.'}
                 </span>
                 <button
                     type="button"
+                    className="pl-btn pl-btn--go pl-btn--small"
                     style={{ marginLeft: 'auto' }}
                     onClick={onDone}
                 >
@@ -188,11 +186,16 @@ export function ArrangeTools({
             </div>
             {thing && place.id ? (
                 <div className="flex flex-wrap" style={{ gap: 4 }}>
-                    <button type="button" onClick={onRotate}>
+                    <button
+                        type="button"
+                        className="pl-btn pl-btn--small"
+                        onClick={onRotate}
+                    >
                         ↻ Turn ({rot * 90}°)
                     </button>
                     <button
                         type="button"
+                        className="pl-btn pl-btn--small"
                         onClick={() =>
                             arrange.mutate({
                                 partyId: WORLD_ID,
@@ -213,6 +216,7 @@ export function ArrangeTools({
                         <>
                             <button
                                 type="button"
+                                className="pl-btn pl-btn--warm pl-btn--small"
                                 onClick={() =>
                                     remove.mutate({
                                         partyId: WORLD_ID,
@@ -228,6 +232,7 @@ export function ArrangeTools({
                             </button>
                             <button
                                 type="button"
+                                className="pl-btn pl-btn--small"
                                 title="Have the model made again"
                                 onClick={() =>
                                     remodel.mutate({
@@ -275,29 +280,23 @@ function Swatches({
 }) {
     return (
         <div className="flex items-center" style={{ gap: 3 }}>
-            <span style={{ color: '#555', width: 40 }}>{label}</span>
+            <span style={{ color: '#5b6b8c', width: 40 }}>{label}</span>
             {colours.map((c) => (
                 <button
                     key={c}
                     type="button"
+                    className="pl-swatch"
                     title={c}
                     aria-pressed={current === c}
                     onClick={() => onPick(c)}
-                    style={{
-                        width: 18,
-                        height: 18,
-                        minWidth: 0,
-                        padding: 0,
-                        background: c,
-                        outline:
-                            current === c ? '2px solid #245edb' : undefined,
-                    }}
+                    style={{ background: c }}
                 />
             ))}
             <button
                 type="button"
+                className="pl-btn pl-btn--ghost pl-btn--small"
+                style={{ color: '#245edb', borderColor: '#9fb3df' }}
                 onClick={() => onPick(null)}
-                style={{ minWidth: 0 }}
             >
                 Default
             </button>
@@ -320,10 +319,7 @@ export function MakerTools({
     const [outdoor, setOutdoor] = useState(false);
     const [what, setWhat] = useState('');
     return (
-        <div
-            className="flex flex-col"
-            style={{ ...panel, gap: 4, background: '#fbf7ff' }}
-        >
+        <div className="pl-card pl-card--tool flex flex-col" style={{ gap: 5 }}>
             <form
                 className="flex items-center"
                 style={{ gap: 4 }}
@@ -339,7 +335,7 @@ export function MakerTools({
                     );
                 }}
             >
-                <span style={{ color: '#555' }}>New Place:</span>
+                <strong className="pl-card-title">✨ New Place:</strong>
                 <input
                     value={idea}
                     style={{ flex: 1 }}
@@ -354,7 +350,11 @@ export function MakerTools({
                     />{' '}
                     outdoors
                 </label>
-                <button type="submit" disabled={create.isPending}>
+                <button
+                    type="submit"
+                    className="pl-btn pl-btn--go"
+                    disabled={create.isPending}
+                >
                     {create.isPending ? 'Designing…' : 'Build'}
                 </button>
             </form>
@@ -382,20 +382,25 @@ export function MakerTools({
                     );
                 }}
             >
-                <span style={{ color: '#555' }}>Make a thing here:</span>
+                <strong className="pl-card-title">🎁 Make a thing:</strong>
                 <input
                     value={what}
                     style={{ flex: 1 }}
                     placeholder="a lava lamp shaped like a cat"
                     onChange={(e) => setWhat(e.currentTarget.value)}
                 />
-                <button type="submit" disabled={thing.isPending}>
+                <button
+                    type="submit"
+                    className="pl-btn pl-btn--go"
+                    disabled={thing.isPending}
+                >
                     Make
                 </button>
             </form>
             {place.customScene && place.id ? (
                 <button
                     type="button"
+                    className="pl-btn pl-btn--warm pl-btn--small"
                     style={{ alignSelf: 'flex-start' }}
                     onClick={() => {
                         if (

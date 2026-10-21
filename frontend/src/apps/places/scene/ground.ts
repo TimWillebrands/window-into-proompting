@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeAll, type Placement, slab } from './build';
+import { mergeAll, type Placement, slab, unindexed } from './build';
 import { rng } from './prefab';
 import { HOUSE, HOUSE_STUB, mix } from './prefabs';
 import {
@@ -351,16 +351,15 @@ function arches(s: Scene) {
                 if (dir === 'x') disc.rotateZ(Math.PI / 2);
                 else disc.rotateX(Math.PI / 2).rotateZ(Math.PI / 2);
                 disc.translate(cx, -0.42, cz);
-                const dark = paintAll(disc.toNonIndexed(), '#122027');
+                const dark = paintAll(unindexed(disc), '#122027');
                 const lights: THREE.BufferGeometry[] = [];
                 for (let i = 1; i < 10; i++) {
                     const a = (i / 10) * Math.PI;
                     const along = Math.cos(a) * (r + 0.06);
                     const up = Math.sin(a) * (r + 0.06) - 0.42;
-                    const b = new THREE.IcosahedronGeometry(
-                        0.035,
-                        0,
-                    ).toNonIndexed();
+                    const b = unindexed(
+                        new THREE.IcosahedronGeometry(0.035, 0),
+                    );
                     b.translate(
                         dir === 'x' ? cx + 0.02 : cx + along,
                         up,

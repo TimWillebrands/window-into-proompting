@@ -35,6 +35,10 @@ export interface Built {
     }[];
 }
 
+/** Flat-shading wants one vertex per face corner; already-flat geometry stays as it is. */
+export const unindexed = (g: THREE.BufferGeometry) =>
+    g.index ? g.toNonIndexed() : g;
+
 /** Triangular prism, ridge along x. */
 function prism(w: number, h: number, d: number): THREE.BufferGeometry {
     const x0 = -w / 2;
@@ -112,7 +116,7 @@ function shape(part: Part): THREE.BufferGeometry | null {
     if (part.ry) g.rotateY(part.ry);
     const [x, y, z] = part.at ?? [0, 0, 0];
     g.translate(x, y, z);
-    return g.index ? g.toNonIndexed() : g;
+    return unindexed(g);
 }
 
 function paint(g: THREE.BufferGeometry, hex: string) {
@@ -242,9 +246,9 @@ export function slab(
     top: string,
     side: string,
 ) {
-    const g = new THREE.BoxGeometry(w, h, d)
-        .translate(x, y + h / 2, z)
-        .toNonIndexed();
+    const g = unindexed(
+        new THREE.BoxGeometry(w, h, d).translate(x, y + h / 2, z),
+    );
     const t = new THREE.Color(top);
     const s = new THREE.Color(side);
     const n = g.getAttribute('position').count;

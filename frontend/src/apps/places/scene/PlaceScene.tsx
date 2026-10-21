@@ -1,6 +1,14 @@
-import { Html, MapControls, OrthographicCamera } from '@react-three/drei';
+import { MapControls, OrthographicCamera } from '@react-three/drei';
 import { Canvas, type ThreeEvent, useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    createContext,
+    type ReactNode,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import * as THREE from 'three';
 import { useChatGroupMessages } from '#lib/realtime-store';
 import type { Body } from '../../../api/model/body';
@@ -38,6 +46,8 @@ interface Props {
     onSpotClick?: (spotId: string) => void;
     /** Pin the hour (previews); defaults to the local clock. */
     hour?: number;
+    /** Overlaid on the view: nameplate, caption, action dock. */
+    hud?: ReactNode;
     /** Arranging a Home: click a thing to pick it, then a tile to put it there. */
     arrange?: {
         selected: string | null;
@@ -71,86 +81,101 @@ export default function PlaceScene(props: Props) {
     }, []);
     const height = Math.round(Math.min(560, Math.max(300, width * 0.62)));
     const here = furni.filter((f) => f.placeId === place.id);
+    const overlay = useMemo<Overlay>(
+        () => ({ anchors: new Map(), labels: new Map() }),
+        [],
+    );
 
     return (
-        <div
-            ref={wrap}
-            style={{
-                position: 'relative',
-                width: '100%',
-                height,
-                flexShrink: 0,
-                borderRadius: 2,
-                overflow: 'hidden',
-                background: sky.background,
-            }}
-        >
-            <Canvas
-                shadows
-                flat
-                dpr={pixel ? 0.5 : [1, 2]}
-                gl={{ antialias: !pixel }}
-                style={{
-                    imageRendering: pixel ? 'pixelated' : 'auto',
-                    cursor: props.onSpotClick ? 'pointer' : 'default',
-                }}
-            >
-                <color attach="background" args={[sky.background]} />
-                <Rig
-                    scene={scene}
-                    width={width}
-                    height={height}
-                    zoomBy={zoomBy}
-                    recentre={recentre}
-                    focus={focusOf(scene, props)}
-                />
-                <Lights scene={scene} sky={sky} />
-                <World {...props} scene={scene} sky={sky} furni={here} />
-            </Canvas>
+        <OverlayContext.Provider value={overlay}>
             <div
+                ref={wrap}
+                className="pl-view"
                 style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    display: 'flex',
-                    gap: 2,
+                    width: '100%',
+                    height,
+                    flexShrink: 0,
+                    background: sky.background,
                 }}
             >
-                <button
-                    type="button"
-                    title="Zoom in"
-                    onClick={() => setZoomBy((z) => Math.min(2.5, z * 1.25))}
+                <Canvas
+                    shadows="percentage"
+                    flat
+                    dpr={pixel ? 0.5 : [1, 2]}
+                    gl={{ antialias: !pixel }}
+                    style={{
+                        imageRendering: pixel ? 'pixelated' : 'auto',
+                        cursor:
+                            props.onSpotClick || props.arrange
+                                ? 'pointer'
+                                : 'default',
+                    }}
                 >
-                    +
-                </button>
-                <button
-                    type="button"
-                    title="Zoom out"
-                    onClick={() => setZoomBy((z) => Math.max(0.4, z / 1.25))}
-                >
-                    −
-                </button>
-                <button
-                    type="button"
-                    title="Back to you"
-                    onClick={() => setRecentre((n) => n + 1)}
-                >
-                    ⌖
-                </button>
-                <button
-                    type="button"
-                    title="Pixel look on/off"
-                    onClick={() =>
-                        setPixel((p) => {
-                            localStorage.setItem(PIXEL_KEY, p ? 'off' : 'on');
-                            return !p;
-                        })
-                    }
-                >
-                    {pixel ? '▦' : '▢'}
-                </button>
+                    <color attach="background" args={[sky.background]} />
+                    <Rig
+                        scene={scene}
+                        width={width}
+                        height={height}
+                        zoomBy={zoomBy}
+                        recentre={recentre}
+                        focus={focusOf(scene, props)}
+                    />
+                    <Lights scene={scene} sky={sky} />
+                    <World {...props} scene={scene} sky={sky} furni={here} />
+                    <Projector />
+                </Canvas>
+                <Labels {...props} overlay={overlay} />
+                <div className="pl-hud">
+                    {props.hud}
+                    <div className="pl-zoom">
+                        <button
+                            type="button"
+                            className="pl-round"
+                            title="Zoom in"
+                            onClick={() =>
+                                setZoomBy((z) => Math.min(2.5, z * 1.25))
+                            }
+                        >
+                            +
+                        </button>
+                        <button
+                            type="button"
+                            className="pl-round"
+                            title="Zoom out"
+                            onClick={() =>
+                                setZoomBy((z) => Math.max(0.4, z / 1.25))
+                            }
+                        >
+                            −
+                        </button>
+                        <button
+                            type="button"
+                            className="pl-round"
+                            title="Back to you"
+                            onClick={() => setRecentre((n) => n + 1)}
+                        >
+                            ⌖
+                        </button>
+                        <button
+                            type="button"
+                            className="pl-round"
+                            title="Pixel look on/off"
+                            onClick={() =>
+                                setPixel((p) => {
+                                    localStorage.setItem(
+                                        PIXEL_KEY,
+                                        p ? 'off' : 'on',
+                                    );
+                                    return !p;
+                                })
+                            }
+                        >
+                            {pixel ? '▦' : '▢'}
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </OverlayContext.Provider>
     );
 }
 
@@ -504,31 +529,7 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                 ]}
                 sky={sky}
             />
-            {furniProps.map(({ prop, view }) =>
-                view?.notable ? (
-                    <Html
-                        key={prop.furniId}
-                        position={[
-                            prop.at[0] + prop.size[0] / 2,
-                            1.5 + (prop.y ?? 0),
-                            prop.at[1] + prop.size[1] / 2,
-                        ]}
-                        center
-                        zIndexRange={[20, 0]}
-                    >
-                        <span
-                            title={view.notable ?? ''}
-                            style={{
-                                fontSize: 14,
-                                pointerEvents: 'auto',
-                                cursor: 'help',
-                            }}
-                        >
-                            ❗
-                        </span>
-                    </Html>
-                ) : null,
-            )}
+            <FurniAnchors props={furniProps.map((f) => f.prop)} />
             {hover && (onSpotClick || arrange) ? (
                 <Hover scene={scene} tile={hover} />
             ) : null}
@@ -670,21 +671,7 @@ function Tagged({ tag, geometry, colour, at }: Built['tagged'][number]) {
                 Math.cos(t * 0.17 + seed) * 0.35,
             );
     });
-    if (tag === 'notes')
-        return (
-            <Html position={at} center zIndexRange={[15, 0]}>
-                <span
-                    className="places-notes"
-                    style={{
-                        fontSize: 14,
-                        color: '#2d2d6b',
-                        animation: 'places-notes 2.4s linear infinite',
-                    }}
-                >
-                    ♪ ♫
-                </span>
-            </Html>
-        );
+    if (tag === 'notes') return null;
     const glows = tag === 'flicker' || tag === 'light' || tag === 'disco';
     return (
         <mesh ref={ref} geometry={geometry} castShadow={tag === 'paddle'}>
@@ -836,7 +823,6 @@ function Bodies({
     places,
     bodies,
     playerId,
-    allEars,
     onBodyClick,
 }: BodiesProps) {
     const messages = useChatGroupMessages(place.talkRoomId ?? '');
@@ -886,7 +872,6 @@ function Bodies({
                 );
                 const mine = recent.filter((m) => m.senderId === id).slice(-2);
                 const busy = b.activity ?? '';
-                const first = (b.name ?? '').split(' ')[0];
                 const isMe = id === playerId;
                 const state = (): AvatarState | null => {
                     const pose = poseOf(
@@ -932,44 +917,10 @@ function Bodies({
                             onBodyClick ? () => onBodyClick(id) : undefined
                         }
                     >
-                        <Html
-                            position={[
-                                0,
-                                b.asleep || b.posture === 'Lying' ? 0.9 : 1.62,
-                                0,
-                            ]}
-                            center
-                            zIndexRange={[30, 0]}
-                            style={{ pointerEvents: 'none' }}
-                        >
-                            <Overhead
-                                name={isMe ? `${first} (you)` : first}
-                                asleep={!!b.asleep}
-                                icon={
-                                    busy.includes('laptop')
-                                        ? '💻'
-                                        : busy.includes('diary')
-                                          ? '📓'
-                                          : busy && !busy.includes('phone')
-                                            ? '✋'
-                                            : ''
-                                }
-                                bubbles={mine.map((m) => {
-                                    const heard = canHear(m, playerId, allEars);
-                                    return {
-                                        id: String(m.messageId ?? m.sendAt),
-                                        text: heard
-                                            ? (m.content ?? '')
-                                            : scribble(m.content),
-                                        heard,
-                                        volume: volumeOf(m),
-                                        age:
-                                            (now - (m.sendAt ?? now)) /
-                                            BUBBLE_MS,
-                                    };
-                                })}
-                            />
-                        </Html>
+                        <Anchor
+                            id={`body:${id}`}
+                            y={b.asleep || b.posture === 'Lying' ? 0.95 : 1.62}
+                        />
                     </Avatar>
                 );
             })}
@@ -977,73 +928,193 @@ function Bodies({
     );
 }
 
-interface Bubble {
-    id: string;
-    text: string;
-    heard: boolean;
-    volume: string;
-    age: number;
+/** World points the DOM labels follow: avatars' heads and things that want attention. */
+interface Overlay {
+    anchors: Map<string, (v: THREE.Vector3) => boolean>;
+    labels: Map<string, HTMLElement>;
 }
 
-function Overhead({
-    name,
-    bubbles,
-    asleep,
-    icon,
-}: {
-    name: string;
-    bubbles: Bubble[];
-    asleep: boolean;
-    icon: string;
-}) {
+const OverlayContext = createContext<Overlay | null>(null);
+
+/** A point on an avatar (or anything) its label tracks; hidden when an ancestor is. */
+function Anchor({ id, y }: { id: string; y: number }) {
+    const overlay = useContext(OverlayContext);
+    const ref = useRef<THREE.Group>(null);
+    useEffect(() => {
+        const g = ref.current;
+        if (!overlay || !g) return;
+        overlay.anchors.set(id, (v) => {
+            for (let o: THREE.Object3D | null = g; o; o = o.parent)
+                if (!o.visible) return false;
+            g.getWorldPosition(v);
+            return true;
+        });
+        return () => {
+            overlay.anchors.delete(id);
+        };
+    }, [overlay, id]);
+    return <group ref={ref} position={[0, y, 0]} />;
+}
+
+function FurniAnchors({ props }: { props: PlacedProp[] }) {
+    const overlay = useContext(OverlayContext);
+    useEffect(() => {
+        if (!overlay) return;
+        const ids = props
+            .filter((p) => p.furniId)
+            .map((p) => {
+                const id = `furni:${p.furniId}`;
+                const x = p.at[0] + p.size[0] / 2;
+                const z = p.at[1] + p.size[1] / 2;
+                const y = 1.45 + (p.y ?? 0);
+                overlay.anchors.set(id, (v) => {
+                    v.set(x, y, z);
+                    return true;
+                });
+                return id;
+            });
+        return () => {
+            for (const id of ids) overlay.anchors.delete(id);
+        };
+    }, [overlay, props]);
+    return null;
+}
+
+/** Moves every label onto its anchor's screen point, once per frame; no React renders. */
+function Projector() {
+    const overlay = useContext(OverlayContext);
+    const v = useMemo(() => new THREE.Vector3(), []);
+    useFrame(({ camera, size }) => {
+        if (!overlay) return;
+        for (const [id, el] of overlay.labels) {
+            const at = overlay.anchors.get(id);
+            if (!at?.(v)) {
+                el.style.visibility = 'hidden';
+                continue;
+            }
+            v.project(camera);
+            const x = ((v.x + 1) / 2) * size.width;
+            const y = ((1 - v.y) / 2) * size.height;
+            el.style.visibility = 'visible';
+            el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+        }
+    });
+    return null;
+}
+
+/** Names, talk bubbles and ❗ markers over the scene, as plain DOM (crisp in pixel mode). */
+function Labels({
+    place,
+    bodies,
+    furni,
+    playerId,
+    allEars,
+    overlay,
+}: Props & { overlay: Overlay }) {
+    const messages = useChatGroupMessages(place.talkRoomId ?? '');
+    const now = useNow(1000);
+    const recent = messages
+        .filter(
+            (m) => m.content?.trim() && m.sendAt && now - m.sendAt < BUBBLE_MS,
+        )
+        .slice(-8);
+    const track = (id: string) => (el: HTMLDivElement | null) => {
+        if (el) overlay.labels.set(id, el);
+        else overlay.labels.delete(id);
+    };
+    const here = bodies.filter(
+        (b) =>
+            (b.destPlaceId ?? b.placeId) === place.id || b.placeId === place.id,
+    );
     return (
-        <div
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 3,
-                transform: 'translateY(-50%)',
-                whiteSpace: 'nowrap',
-            }}
-        >
-            {bubbles.map((b) => (
-                <div
-                    key={b.id}
-                    style={{
-                        width: 'max-content',
-                        maxWidth: 220,
-                        whiteSpace: 'normal',
-                        background: b.heard ? '#fff' : '#eee',
-                        color: b.heard ? '#111' : '#777',
-                        border: `1px ${b.volume === 'whisper' ? 'dashed' : 'solid'} #444`,
-                        borderRadius: 7,
-                        padding: '2px 7px',
-                        font: `${b.volume === 'whisper' ? 'italic ' : ''}${b.volume === 'shout' ? 'bold 13px' : '11px'} Tahoma, sans-serif`,
-                        opacity:
-                            Math.max(0.25, 1 - b.age * 0.8) *
-                            (b.heard ? 1 : 0.7),
-                        transform: `translateY(${-b.age * 18}px)`,
-                        boxShadow: '0 1px 0 rgba(0,0,0,.25)',
-                        textAlign: 'left',
-                    }}
-                >
-                    {b.text.length > 120 ? `${b.text.slice(0, 119)}…` : b.text}
-                </div>
-            ))}
-            <div
-                style={{
-                    font: 'bold 10px Tahoma, sans-serif',
-                    color: '#fff',
-                    background: 'rgba(0,0,0,.45)',
-                    borderRadius: 3,
-                    padding: '0 4px',
-                }}
-            >
-                {asleep ? '💤 ' : ''}
-                {name}
-                {icon ? ` ${icon}` : ''}
-            </div>
+        <div className="pl-labels">
+            {here.map((b) => {
+                const id = b.participantId ?? '';
+                const isMe = id === playerId;
+                const first = (b.name ?? '').split(' ')[0];
+                const look = lookOf(
+                    b.appearance,
+                    avatarColour(b.participantId),
+                );
+                const busy = b.activity ?? '';
+                const icon = b.asleep
+                    ? '💤'
+                    : busy.includes('laptop')
+                      ? '💻'
+                      : busy.includes('diary')
+                        ? '📓'
+                        : busy.includes('phone')
+                          ? '📱'
+                          : busy
+                            ? '✋'
+                            : '';
+                return (
+                    <div
+                        key={id}
+                        ref={track(`body:${id}`)}
+                        className="pl-label"
+                    >
+                        {recent
+                            .filter((m) => m.senderId === id)
+                            .slice(-2)
+                            .map((m) => {
+                                const heard = canHear(m, playerId, allEars);
+                                const volume = volumeOf(m);
+                                const age =
+                                    (now - (m.sendAt ?? now)) / BUBBLE_MS;
+                                const text = heard
+                                    ? (m.content ?? '')
+                                    : scribble(m.content);
+                                return (
+                                    <div
+                                        key={m.messageId}
+                                        className={`pl-bubble${volume === 'shout' ? ' pl-bubble--shout' : volume === 'whisper' ? ' pl-bubble--whisper' : ''}${heard ? '' : ' pl-bubble--muffled'}`}
+                                        style={{
+                                            borderLeftColor: look.top,
+                                            opacity: Math.max(
+                                                0.3,
+                                                1 - age * 0.75,
+                                            ),
+                                            translate: `0 ${(-age * 16).toFixed(1)}px`,
+                                        }}
+                                    >
+                                        <b style={{ color: look.top }}>
+                                            {first}
+                                        </b>
+                                        {text.length > 120
+                                            ? `${text.slice(0, 119)}…`
+                                            : text}
+                                    </div>
+                                );
+                            })}
+                        <span
+                            className={`pl-name${isMe ? ' pl-name--me' : ''}`}
+                        >
+                            <i style={{ background: look.top }} />
+                            {isMe ? `${first} ★` : first}
+                            {icon ? ` ${icon}` : ''}
+                        </span>
+                    </div>
+                );
+            })}
+            {furni
+                .filter((f) => f.placeId === place.id && (f.notable || f.on))
+                .map((f) => (
+                    <div
+                        key={f.furniId}
+                        ref={track(`furni:${f.furniId}`)}
+                        className="pl-label"
+                    >
+                        {f.on && f.kind === 'jukebox' ? (
+                            <span className="pl-notes">♪ ♫</span>
+                        ) : null}
+                        {f.notable ? (
+                            <span className="pl-mark" title={f.notable}>
+                                !
+                            </span>
+                        ) : null}
+                    </div>
+                ))}
         </div>
     );
 }

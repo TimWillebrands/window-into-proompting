@@ -134,3 +134,51 @@ export const scribble = (text: string | null | undefined) =>
             '~'.repeat(Math.min(5, Math.max(2, Math.ceil(w.length / 2)))),
         )
         .join(' ');
+
+/** A Place's icon in the Navigator and on its nameplate, from its scene or what it's called. */
+export function placeIcon(place: Place, viewerId: string | null): string {
+    if (place.kind === 'home')
+        return place.ownerId === viewerId
+            ? '🏠'
+            : mayEnter(place, viewerId)
+              ? '🏡'
+              : '🔒';
+    const scene: Record<string, string> = {
+        cafe: '☕',
+        lobby: '🛎️',
+        centre: '🌳',
+    };
+    if (place.scene && scene[place.scene]) return scene[place.scene];
+    const name = (place.name ?? '').toLowerCase();
+    const cues: [RegExp, string][] = [
+        [/record|vinyl|music/, '💿'],
+        [/bar|pub|club|lounge/, '🍸'],
+        [/shop|store|market|boutique/, '🛍️'],
+        [/park|garden|square|beach/, '🌳'],
+        [/library|book/, '📚'],
+        [/gym|pool|sport/, '🏊'],
+        [/arcade|game/, '🕹️'],
+        [/restaurant|diner|kitchen|bakery/, '🍽️'],
+        [/roof|terrace/, '🌆'],
+    ];
+    return (
+        cues.find(([re]) => re.test(name))?.[1] ??
+        (place.customScene ? '✨' : '🏢')
+    );
+}
+
+/** Habbo navigator occupancy: how full a Place is, for the bar's colour. */
+export function occupancy(
+    place: Place,
+    count: number,
+): { share: number; level: 'calm' | 'busy' | 'full' } {
+    const capacity = Math.max(
+        1,
+        (place.spots ?? []).reduce((n, s) => n + Number(s.capacity ?? 1), 0),
+    );
+    const share = Math.min(1, count / capacity);
+    return {
+        share,
+        level: share >= 0.8 ? 'full' : share >= 0.45 ? 'busy' : 'calm',
+    };
+}

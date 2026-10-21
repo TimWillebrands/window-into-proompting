@@ -26,6 +26,8 @@ import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
 import PlaceCanvas from './iso/PlaceCanvas';
+import './places.css';
+import { lookOf } from './iso/appearance';
 import { ArrangeTools, MakerTools, PoseBar } from './PlaceTools';
 
 const PlaceScene = lazy(() => import('./scene/PlaceScene'));
@@ -47,6 +49,8 @@ import {
     furniIcon,
     mayEnter,
     navigatorPlaces,
+    occupancy,
+    placeIcon,
     placeLabel,
     postureIcon,
     scribble,
@@ -70,6 +74,7 @@ export default function PlacesApp() {
     const me = bodies.find((b) => b.participantId === playerId);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const now = useNow();
+    const [allEars, setAllEars] = useAllEars();
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -96,7 +101,7 @@ export default function PlacesApp() {
         places[0];
 
     return (
-        <div className="app-surface flex h-full" style={{ gap: 6, padding: 6 }}>
+        <div className="pl-app">
             <Navigator
                 places={navigatorPlaces(places, playerId)}
                 bodies={bodies}
@@ -104,6 +109,8 @@ export default function PlacesApp() {
                 playerId={playerId}
                 selectedId={selected?.id}
                 onSelect={setSelectedId}
+                allEars={allEars}
+                onAllEars={setAllEars}
             />
             {selected ? (
                 <PlaceView
@@ -117,6 +124,7 @@ export default function PlacesApp() {
                     me={me}
                     playerId={playerId}
                     now={now}
+                    allEars={allEars}
                 />
             ) : null}
         </div>
@@ -157,6 +165,8 @@ function Navigator({
     playerId,
     selectedId,
     onSelect,
+    allEars,
+    onAllEars,
 }: {
     places: Place[];
     bodies: Body[];
@@ -164,66 +174,104 @@ function Navigator({
     playerId: string | null;
     selectedId: string | undefined;
     onSelect: (id: string) => void;
+    allEars: boolean;
+    onAllEars: (on: boolean) => void;
 }) {
+    const sections: [string, Place[]][] = [
+        [
+            'Out and about',
+            places.filter((p) => p.kind !== 'home' && !p.customScene),
+        ],
+        [
+            'Made by the World',
+            places.filter((p) => p.kind !== 'home' && !!p.customScene),
+        ],
+        ['Homes', places.filter((p) => p.kind === 'home')],
+    ];
     return (
-        <fieldset className="flex flex-col" style={{ width: 230, margin: 0 }}>
-            <legend>Navigator</legend>
-            <div className="flex-1 overflow-y-auto" style={panel}>
-                {places.map((p) => {
-                    const here = bodiesIn(bodies, p.id);
-                    const mine = me && (me.destPlaceId ?? me.placeId) === p.id;
-                    return (
-                        <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => p.id && onSelect(p.id)}
-                            className="block w-full text-left"
-                            style={{
-                                padding: '4px 6px',
-                                border: 'none',
-                                borderBottom: '1px solid #eee',
-                                boxShadow: 'none',
-                                minHeight: 0,
-                                background:
-                                    p.id === selectedId
-                                        ? '#dbe7fb'
-                                        : 'transparent',
-                            }}
-                        >
-                            <div
-                                className="flex items-center"
-                                style={{ gap: 4 }}
-                            >
-                                <span>
-                                    {p.kind !== 'home'
-                                        ? '🏢'
-                                        : mayEnter(p, playerId)
-                                          ? '🏠'
-                                          : '🔒'}
-                                </span>
-                                <strong>{placeLabel(p, playerId)}</strong>
-                                {mine ? (
-                                    <span style={{ color: '#2a7' }}>• you</span>
-                                ) : null}
-                                <span
-                                    style={{
-                                        marginLeft: 'auto',
-                                        color: '#666',
-                                    }}
+        <nav className="pl-nav" aria-label="Places">
+            <div className="pl-nav-brand">🧭 Navigator</div>
+            {sections
+                .filter(([, list]) => list.length > 0)
+                .map(([title, list]) => (
+                    <section key={title} className="pl-pane">
+                        <div className="pl-pane-head">
+                            {title}
+                            <small>
+                                {list.reduce(
+                                    (n, p) => n + bodiesIn(bodies, p.id).length,
+                                    0,
+                                )}{' '}
+                                here
+                            </small>
+                        </div>
+                        {list.map((p) => {
+                            const here = bodiesIn(bodies, p.id);
+                            const mine =
+                                me && (me.destPlaceId ?? me.placeId) === p.id;
+                            const occ = occupancy(p, here.length);
+                            return (
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    className="pl-room"
+                                    aria-current={p.id === selectedId}
+                                    onClick={() => p.id && onSelect(p.id)}
                                 >
-                                    {here.length}
-                                </span>
-                            </div>
-                            <div style={{ color: '#666', fontSize: 11 }}>
-                                {here.length === 0
-                                    ? 'nobody'
-                                    : here.map((b) => b.name).join(', ')}
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-        </fieldset>
+                                    <span className="pl-room-icon">
+                                        {placeIcon(p, playerId)}
+                                    </span>
+                                    <span className="pl-room-name">
+                                        {placeLabel(p, playerId)}
+                                        {mine ? (
+                                            <span className="pl-you">YOU</span>
+                                        ) : null}
+                                    </span>
+                                    <span
+                                        className="pl-occ"
+                                        title={`${here.length} here`}
+                                    >
+                                        <span
+                                            className="pl-occ-bar"
+                                            data-level={occ.level}
+                                        >
+                                            <i
+                                                style={{
+                                                    width: `${Math.max(here.length ? 12 : 0, occ.share * 100)}%`,
+                                                }}
+                                            />
+                                        </span>
+                                        {here.length}
+                                    </span>
+                                    <span className="pl-room-who">
+                                        {here.length === 0
+                                            ? 'nobody around'
+                                            : here
+                                                  .map(
+                                                      (b) =>
+                                                          (b.name ?? '').split(
+                                                              ' ',
+                                                          )[0],
+                                                  )
+                                                  .join(', ')}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </section>
+                ))}
+            <label
+                className="pl-nav-foot"
+                title="Author view: hear Place talk beyond your Earshot, and build things"
+            >
+                <input
+                    type="checkbox"
+                    checked={allEars}
+                    onChange={(e) => onAllEars(e.currentTarget.checked)}
+                />{' '}
+                All ears (author)
+            </label>
+        </nav>
     );
 }
 
@@ -236,6 +284,7 @@ function PlaceView({
     me,
     playerId,
     now,
+    allEars,
 }: {
     place: Place;
     bodies: Body[];
@@ -245,6 +294,7 @@ function PlaceView({
     me: Body | undefined;
     playerId: string | null;
     now: number;
+    allEars: boolean;
 }) {
     const move = usePostWorldsPartyIdPlacesMove();
     const situation = useGetWorldsPartyIdPlacesSituationParticipantId(
@@ -252,7 +302,6 @@ function PlaceView({
         playerId ?? '',
         { query: { enabled: !!playerId } },
     ).data?.data.situation;
-    const [allEars, setAllEars] = useAllEars();
     const ownHome = place.kind === 'home' && place.ownerId === playerId;
     const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
     const [profileId, setProfileId] = useState<string | null>(null);
@@ -311,62 +360,90 @@ function PlaceView({
             },
         });
 
-    return (
-        <div
-            className="flex min-w-0 flex-1 flex-col overflow-y-auto"
-            style={{ gap: 6 }}
-        >
-            <div className="flex items-center" style={{ gap: 8 }}>
-                <div className="min-w-0 flex-1">
-                    <h3 style={{ margin: 0, fontSize: 14 }}>
-                        {placeLabel(place, playerId)}
-                    </h3>
-                    <div style={{ color: '#666' }}>{place.description}</div>
-                </div>
-                <label
-                    style={{ color: '#666', whiteSpace: 'nowrap' }}
-                    title="Author view: hear Place talk beyond your Earshot"
-                >
-                    <input
-                        type="checkbox"
-                        checked={allEars}
-                        onChange={(e) => setAllEars(e.currentTarget.checked)}
-                    />{' '}
-                    All ears
-                </label>
-                {canKnock ? (
-                    <button
-                        type="button"
-                        disabled={knock.isPending || knock.isSuccess}
-                        onClick={() =>
-                            place.id &&
-                            knock.mutate({
-                                partyId: WORLD_ID,
-                                data: {
-                                    homeId: place.id,
-                                    participantId: playerId,
-                                },
-                            })
-                        }
-                    >
-                        {knock.isSuccess ? 'Knocked…' : 'Knock'}
-                    </button>
-                ) : null}
-                {canGo ? (
-                    <button
-                        type="button"
-                        onClick={() => goTo()}
-                        disabled={move.isPending}
-                    >
-                        Go here
-                    </button>
-                ) : null}
-                {mayArrange && !arranging ? (
-                    <button type="button" onClick={() => setArranging(true)}>
-                        Arrange
-                    </button>
-                ) : null}
+    const onSpot =
+        amHere || canGo ? (spotId: string) => goTo(spotId) : undefined;
+    const here = bodies.length;
+    const hud = (
+        <>
+            <div className="pl-plate">
+                <span className="pl-room-icon">
+                    {placeIcon(place, playerId)}
+                </span>
+                {placeLabel(place, playerId)}
+                <span style={{ fontWeight: 'normal', opacity: 0.8 }}>
+                    · {here === 0 ? 'empty' : `${here} here`}
+                </span>
             </div>
+            {amHere && me && !arranging ? (
+                <PoseBar
+                    place={place}
+                    me={me}
+                    bodies={allBodies}
+                    bottom={situation ? 58 : 10}
+                />
+            ) : null}
+            {situation ? <div className="pl-caption">{situation}</div> : null}
+        </>
+    );
+
+    return (
+        <main className="pl-stage">
+            <header className="pl-roombar">
+                <div className="min-w-0 flex-1">
+                    <h3>{placeLabel(place, playerId)}</h3>
+                    <p>{place.description}</p>
+                </div>
+                <div className="pl-actions">
+                    {canKnock ? (
+                        <button
+                            type="button"
+                            className="pl-btn pl-btn--warm"
+                            disabled={knock.isPending || knock.isSuccess}
+                            onClick={() =>
+                                place.id &&
+                                knock.mutate({
+                                    partyId: WORLD_ID,
+                                    data: {
+                                        homeId: place.id,
+                                        participantId: playerId,
+                                    },
+                                })
+                            }
+                        >
+                            🚪 {knock.isSuccess ? 'Knocked…' : 'Knock'}
+                        </button>
+                    ) : null}
+                    {canGo ? (
+                        <button
+                            type="button"
+                            className="pl-btn pl-btn--go"
+                            onClick={() => goTo()}
+                            disabled={move.isPending}
+                        >
+                            ➜ Go here
+                        </button>
+                    ) : null}
+                    {heading ? (
+                        <span className="pl-btn pl-btn--ghost">
+                            🚶 On your way…
+                        </span>
+                    ) : null}
+                    {mayArrange && !arranging ? (
+                        <button
+                            type="button"
+                            className="pl-btn pl-btn--ghost"
+                            onClick={() => setArranging(true)}
+                        >
+                            🪑 Arrange
+                        </button>
+                    ) : null}
+                </div>
+            </header>
+            {!playerId ? (
+                <div className="pl-card pl-card--note">
+                    Sign in on the Welcome screen to have a body here.
+                </div>
+            ) : null}
             {allEars ? <MakerTools place={place} playerId={playerId} /> : null}
             {arranging && mayArrange ? (
                 <ArrangeTools
@@ -388,41 +465,21 @@ function PlaceView({
                     }}
                 />
             ) : null}
-            {amHere && me && !arranging ? (
-                <PoseBar place={place} me={me} bodies={allBodies} />
-            ) : null}
-            {situation ? (
-                <div
-                    style={{
-                        ...panel,
-                        padding: '4px 6px',
-                        background: '#ffffe1',
-                    }}
-                >
-                    {situation}
-                </div>
-            ) : !playerId ? (
-                <div style={{ color: '#666' }}>
-                    Sign in on the Welcome screen to have a body here.
-                </div>
-            ) : null}
             {knockers.map((id) => (
                 <div
                     key={id}
-                    className="flex items-center"
-                    style={{
-                        ...panel,
-                        padding: '4px 6px',
-                        gap: 6,
-                        background: '#fff6d5',
-                    }}
+                    className="pl-card pl-card--note flex items-center"
+                    style={{ gap: 6 }}
                 >
                     🚪{' '}
-                    {allBodies.find((b) => b.participantId === id)?.name ??
-                        'Someone'}{' '}
+                    <strong>
+                        {allBodies.find((b) => b.participantId === id)?.name ??
+                            'Someone'}
+                    </strong>{' '}
                     is knocking at your door.
                     <button
                         type="button"
+                        className="pl-btn pl-btn--go pl-btn--small"
                         style={{ marginLeft: 'auto' }}
                         disabled={letIn.isPending}
                         onClick={() =>
@@ -439,7 +496,6 @@ function PlaceView({
             {amHere && ownHome && laptopOpen ? (
                 <Droste onClose={() => setLaptopOpen(false)} />
             ) : null}
-            {amHere && ownHome ? <DecorateForm playerId={playerId} /> : null}
             {profiled ? (
                 <BodyProfile
                     body={profiled}
@@ -449,9 +505,14 @@ function PlaceView({
                 />
             ) : null}
             {webgl2 ? (
-                <Suspense fallback={<div style={{ height: 300 }} />}>
+                <Suspense
+                    fallback={
+                        <div className="pl-view" style={{ height: 320 }} />
+                    }
+                >
                     <PlaceScene
                         places={places}
+                        hud={hud}
                         arrange={
                             arranging && mayArrange
                                 ? {
@@ -476,115 +537,148 @@ function PlaceView({
                         playerId={playerId}
                         allEars={allEars}
                         onBodyClick={setProfileId}
-                        onSpotClick={
-                            amHere || canGo
-                                ? (spotId) => goTo(spotId)
-                                : undefined
-                        }
+                        onSpotClick={onSpot}
                     />
                 </Suspense>
             ) : (
-                <PlaceCanvas
-                    place={place}
-                    bodies={allBodies}
-                    furni={furni}
-                    playerId={playerId}
-                    allEars={allEars}
-                    onBodyClick={setProfileId}
-                    onSpotClick={
-                        amHere || canGo ? (spotId) => goTo(spotId) : undefined
-                    }
-                />
+                <>
+                    {situation ? (
+                        <div className="pl-card pl-card--note">{situation}</div>
+                    ) : null}
+                    {amHere && me ? (
+                        <PoseBar place={place} me={me} bodies={allBodies} />
+                    ) : null}
+                    <PlaceCanvas
+                        place={place}
+                        bodies={allBodies}
+                        furni={furni}
+                        playerId={playerId}
+                        allEars={allEars}
+                        onBodyClick={setProfileId}
+                        onSpotClick={onSpot}
+                    />
+                </>
             )}
-            <div
-                className="grid"
-                style={{
-                    gridTemplateColumns:
-                        'repeat(auto-fill, minmax(150px, 1fr))',
-                    gap: 6,
-                }}
-            >
-                {(place.spots ?? []).map((s) => {
-                    const at = bodies.filter((b) => bodySpotId(b) === s.id);
-                    const full = at.length >= Number(s.capacity ?? 1);
-                    const mineSpot = at.some(
-                        (b) => b.participantId === playerId,
-                    );
-                    const things = furni.filter((f) => f.spotId === s.id);
-                    return (
-                        <div
-                            key={s.id}
-                            style={{ ...panel, padding: 6, minHeight: 64 }}
-                        >
+            {amHere && ownHome ? <DecorateForm playerId={playerId} /> : null}
+            <div className="pl-lower">
+                <div className="pl-spots">
+                    {(place.spots ?? []).map((s) => {
+                        const at = bodies.filter((b) => bodySpotId(b) === s.id);
+                        const capacity = Number(s.capacity ?? 1);
+                        const full = at.length >= capacity;
+                        const mineSpot = at.some(
+                            (b) => b.participantId === playerId,
+                        );
+                        const things = furni.filter((f) => f.spotId === s.id);
+                        return (
                             <div
-                                className="flex items-center"
-                                style={{ gap: 4 }}
+                                key={s.id}
+                                className="pl-spot"
+                                data-mine={mineSpot}
                             >
-                                <strong>{s.name}</strong>
-                                <span style={{ color: '#888' }}>
-                                    {at.length}/{s.capacity}
-                                </span>
-                                {amHere && !mineSpot && !full ? (
-                                    <button
-                                        type="button"
-                                        style={{
-                                            marginLeft: 'auto',
-                                            minWidth: 0,
-                                            padding: '0 6px',
-                                        }}
-                                        disabled={move.isPending}
-                                        onClick={() => goTo(s.id)}
+                                <div className="pl-spot-head">
+                                    <strong title={s.name ?? ''}>
+                                        {s.name}
+                                    </strong>
+                                    <span
+                                        className="pl-seats"
+                                        title={`${at.length} of ${capacity}`}
                                     >
-                                        Move here
-                                    </button>
-                                ) : null}
+                                        {Array.from(
+                                            { length: capacity },
+                                            (_, n) => (
+                                                <i
+                                                    key={`${s.id}-seat-${n}`}
+                                                    data-on={n < at.length}
+                                                />
+                                            ),
+                                        )}
+                                    </span>
+                                    {amHere && !mineSpot && !full ? (
+                                        <button
+                                            type="button"
+                                            className="pl-btn pl-btn--small"
+                                            disabled={move.isPending}
+                                            onClick={() => goTo(s.id)}
+                                        >
+                                            Go
+                                        </button>
+                                    ) : null}
+                                </div>
+                                <div className="pl-spot-body">
+                                    {at.length > 0 ? (
+                                        <div
+                                            className="flex flex-wrap"
+                                            style={{ gap: 3 }}
+                                        >
+                                            {at.map((b) => (
+                                                <BodyChip
+                                                    key={b.participantId}
+                                                    body={b}
+                                                    now={now}
+                                                    isMe={
+                                                        b.participantId ===
+                                                        playerId
+                                                    }
+                                                    onClick={() =>
+                                                        setProfileId(
+                                                            b.participantId ??
+                                                                null,
+                                                        )
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span style={{ color: '#97a3bd' }}>
+                                            nobody
+                                        </span>
+                                    )}
+                                    {things.map((f) => (
+                                        <FurniRow
+                                            key={f.furniId}
+                                            furni={f}
+                                            canAct={amHere}
+                                            playerId={playerId}
+                                            onOpen={
+                                                ownHome
+                                                    ? () => setLaptopOpen(true)
+                                                    : undefined
+                                            }
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                            <div
-                                className="flex flex-wrap"
-                                style={{ gap: 4, marginTop: 4 }}
-                            >
-                                {at.map((b) => (
-                                    <BodyChip
-                                        key={b.participantId}
-                                        body={b}
-                                        now={now}
-                                        isMe={b.participantId === playerId}
-                                    />
-                                ))}
-                            </div>
-                            {things.map((f) => (
-                                <FurniRow
-                                    key={f.furniId}
-                                    furni={f}
-                                    canAct={amHere}
-                                    playerId={playerId}
-                                    onOpen={
-                                        ownHome
-                                            ? () => setLaptopOpen(true)
-                                            : undefined
-                                    }
-                                />
-                            ))}
+                        );
+                    })}
+                </div>
+                {amHere && place.talkRoomId ? (
+                    <PlaceTalk
+                        roomId={place.talkRoomId}
+                        playerId={playerId}
+                        allEars={allEars}
+                        nearby={bodies.filter(
+                            (b) =>
+                                b.participantId !== playerId &&
+                                !b.destPlaceId &&
+                                b.spotId === me?.spotId,
+                        )}
+                    />
+                ) : (
+                    <div className="pl-chat">
+                        <div className="pl-chat-head">💬 Talk here</div>
+                        <div
+                            className="pl-chat-log"
+                            style={{ color: '#7a86a0' }}
+                        >
+                            {amHere
+                                ? 'Nobody to talk to here yet.'
+                                : 'Go here to hear what people are saying.'}
                         </div>
-                    );
-                })}
+                    </div>
+                )}
             </div>
-            {amHere && place.talkRoomId ? (
-                <PlaceTalk
-                    roomId={place.talkRoomId}
-                    playerId={playerId}
-                    allEars={allEars}
-                    nearby={bodies.filter(
-                        (b) =>
-                            b.participantId !== playerId &&
-                            !b.destPlaceId &&
-                            b.spotId === me?.spotId,
-                    )}
-                />
-            ) : amHere ? (
-                <div style={{ color: '#666' }}>Nobody to talk to here yet.</div>
-            ) : null}
-        </div>
+        </main>
     );
 }
 
@@ -875,24 +969,28 @@ function FurniRow({
                 participantId: playerId,
             },
         });
+    const careWord = furni.careLabel?.split(' ')[0];
     return (
         <div
-            className="flex items-center"
-            style={{ gap: 4, marginTop: 4, fontSize: 11 }}
-            title={furni.notable ?? undefined}
+            className="pl-thing"
+            data-notable={!!furni.notable}
+            title={furni.notable ?? furni.name ?? undefined}
         >
             <span>{furniIcon(furni)}</span>
-            <span style={{ color: furni.notable ? '#a33' : '#555' }}>
+            <span
+                className="min-w-0"
+                style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                }}
+            >
                 {furni.notable ?? furni.name}
             </span>
             {canAct && onOpen && furni.kind === 'laptop' ? (
                 <button
                     type="button"
-                    style={{
-                        marginLeft: 'auto',
-                        minWidth: 0,
-                        padding: '0 6px',
-                    }}
+                    className="pl-btn pl-btn--small"
                     onClick={onOpen}
                 >
                     Open
@@ -901,26 +999,16 @@ function FurniRow({
             {canAct && furni.careLabel ? (
                 <button
                     type="button"
-                    style={{
-                        marginLeft: 'auto',
-                        minWidth: 0,
-                        padding: '0 6px',
-                    }}
+                    className="pl-btn pl-btn--warm pl-btn--small"
                     disabled={act.isPending}
                     onClick={() => run(true)}
                 >
-                    {furni.careLabel.split(' ')[0] === 'Try'
-                        ? 'Fix'
-                        : furni.careLabel.split(' ')[0]}
+                    {careWord === 'Try' ? 'Fix' : careWord}
                 </button>
             ) : canAct && furni.useLabel ? (
                 <button
                     type="button"
-                    style={{
-                        marginLeft: 'auto',
-                        minWidth: 0,
-                        padding: '0 6px',
-                    }}
+                    className="pl-btn pl-btn--small"
                     disabled={act.isPending}
                     onClick={() => run(false)}
                     title={furni.useLabel}
@@ -936,35 +1024,39 @@ function BodyChip({
     body,
     now,
     isMe,
+    onClick,
 }: {
     body: Body;
     now: number;
     isMe: boolean;
+    onClick?: () => void;
 }) {
     const walking = walkingText(body, now);
+    const look = lookOf(body.appearance, avatarColour(body.participantId));
     return (
-        <span
-            className="inline-flex items-center"
-            style={{
-                gap: 3,
-                padding: '1px 5px',
-                borderRadius: 9,
-                background: avatarColour(body.participantId),
-                color: '#fff',
-                fontSize: 11,
-                outline: isMe ? '2px solid #245edb' : undefined,
-                opacity: walking ? 0.6 : 1,
-            }}
+        <button
+            type="button"
+            className="pl-chip"
+            data-me={isMe}
+            data-walking={!!walking}
+            onClick={onClick}
+            style={{ minWidth: 0, minHeight: 0, cursor: 'pointer' }}
             title={
                 [body.activity, walking].filter(Boolean).join(' · ') ||
                 undefined
             }
         >
-            {postureIcon(body)} {body.name}
-            {isMe ? ' (you)' : ''}
-            {body.activity ? ' 📱' : ''}
-            {walking ? ` (${walking})` : ''}
-        </span>
+            <span
+                className="pl-face"
+                style={{
+                    background: look.skin,
+                    boxShadow: `inset 0 5px 0 ${look.hair}, 0 0 0 2px ${look.top}`,
+                }}
+            ></span>
+            {(body.name ?? '').split(' ')[0]}
+            {isMe ? ' ★' : ''}
+            {body.activity?.includes('phone') ? ' 📱' : ''}
+        </button>
     );
 }
 
@@ -984,7 +1076,14 @@ function PlaceTalk({
     const { messages, phaseByPersona } = useRoomConversation(WORLD_ID, roomId);
     const speaking = [...phaseByPersona.values()]
         .filter((p) => p.phase === 'typing' || p.phase === 'streaming')
-        .map((p) => (p.personaName ?? '').split(' ')[0]);
+        // The attend event carries the persona id, not the name.
+        .map((p) => p.personaName ?? '')
+        .map(
+            (id) =>
+                (lives.find((l) => l.personaId === id)?.name ?? id).split(
+                    ' ',
+                )[0],
+        );
     const shown = useMemo(
         () => messages.filter((m) => m.content?.trim()).slice(-40),
         [messages],
@@ -1027,17 +1126,11 @@ function PlaceTalk({
     };
 
     return (
-        <fieldset
-            className="flex flex-col"
-            style={{ margin: 0, minHeight: 180 }}
-        >
-            <legend>Said out loud here</legend>
-            <div
-                className="min-h-0 flex-1 overflow-y-auto"
-                style={{ ...panel, padding: 6 }}
-            >
+        <section className="pl-chat">
+            <div className="pl-chat-head">💬 Said out loud here</div>
+            <div className="pl-chat-log">
                 {shown.length === 0 ? (
-                    <div style={{ color: '#888' }}>Quiet.</div>
+                    <div style={{ color: '#7a86a0' }}>Quiet.</div>
                 ) : null}
                 {shown.map((m) => {
                     const heard = canHear(m, playerId, allEars);
@@ -1045,31 +1138,22 @@ function PlaceTalk({
                     return (
                         <div
                             key={m.messageId}
-                            style={{
-                                marginBottom: 3,
-                                color: heard ? undefined : '#999',
-                                fontStyle:
-                                    heard && v !== 'whisper'
-                                        ? undefined
-                                        : 'italic',
-                                fontWeight: v === 'shout' ? 'bold' : undefined,
-                            }}
+                            className={`pl-line${heard ? '' : ' pl-line--muffled'}${v === 'whisper' ? ' pl-line--whisper' : v === 'shout' ? ' pl-line--shout' : ''}`}
                         >
-                            <strong style={{ color: avatarColour(m.senderId) }}>
+                            <b style={{ background: avatarColour(m.senderId) }}>
                                 {nameOf(m.senderId)}
                                 {v === 'whisper'
-                                    ? ' (whispers)'
+                                    ? ' 🤫'
                                     : v === 'shout'
-                                      ? ' (calls out)'
+                                      ? ' 📣'
                                       : ''}
-                                :
-                            </strong>{' '}
+                            </b>
                             {heard ? m.content : scribble(m.content)}
                         </div>
                     );
                 })}
                 {speaking.length > 0 ? (
-                    <div style={{ color: '#888', fontStyle: 'italic' }}>
+                    <div className="pl-typing">
                         💬 {speaking.join(', ')}{' '}
                         {speaking.length === 1 ? 'is' : 'are'} about to say
                         something…
@@ -1078,27 +1162,38 @@ function PlaceTalk({
                 <div ref={endRef} />
             </div>
             <form
-                className="flex"
-                style={{ gap: 4, marginTop: 4 }}
+                className="pl-chat-form"
                 onSubmit={(e) => {
                     e.preventDefault();
                     void say();
                 }}
             >
-                <select
-                    value={volume}
-                    onChange={(e) =>
-                        setVolume(e.currentTarget.value as typeof volume)
-                    }
-                    disabled={!playerId}
+                <div
+                    className="pl-volume"
                     title="Talk reaches your spot, a shout the whole Place, a whisper one person next to you"
                 >
-                    <option value="talk">Talk</option>
-                    <option value="whisper" disabled={nearby.length === 0}>
-                        Whisper
-                    </option>
-                    <option value="shout">Shout</option>
-                </select>
+                    {(
+                        [
+                            ['whisper', '🤫'],
+                            ['talk', '💬'],
+                            ['shout', '📣'],
+                        ] as const
+                    ).map(([v, icon]) => (
+                        <button
+                            key={v}
+                            type="button"
+                            title={v}
+                            aria-pressed={volume === v}
+                            disabled={
+                                !playerId ||
+                                (v === 'whisper' && nearby.length === 0)
+                            }
+                            onClick={() => setVolume(v)}
+                        >
+                            {icon}
+                        </button>
+                    ))}
+                </div>
                 {volume === 'whisper' && nearby.length > 0 ? (
                     <select
                         value={to}
@@ -1109,27 +1204,33 @@ function PlaceTalk({
                                 key={b.participantId}
                                 value={b.participantId}
                             >
-                                to {b.name}
+                                to {(b.name ?? '').split(' ')[0]}
                             </option>
                         ))}
                     </select>
                 ) : null}
                 <input
-                    className="flex-1"
                     value={draft}
                     onChange={(e) => setDraft(e.currentTarget.value)}
                     placeholder={
-                        playerId ? 'Say something out loud…' : 'Sign in to talk'
+                        playerId
+                            ? volume === 'shout'
+                                ? 'Call out…'
+                                : volume === 'whisper'
+                                  ? 'Whisper…'
+                                  : 'Say something out loud…'
+                            : 'Sign in to talk'
                     }
                     disabled={!playerId}
                 />
                 <button
                     type="submit"
+                    className="pl-btn pl-btn--go"
                     disabled={!playerId || !draft.trim() || prompt.isPending}
                 >
                     Say
                 </button>
             </form>
-        </fieldset>
+        </section>
     );
 }

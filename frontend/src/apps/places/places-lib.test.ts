@@ -6,6 +6,8 @@ import {
     canHear,
     mayEnter,
     navigatorPlaces,
+    occupancy,
+    placeIcon,
     placeLabel,
     scribble,
     walkingText,
@@ -67,5 +69,28 @@ describe('places-lib', () => {
         expect(scribble('honestly Pieter has been impossible')).toBe(
             '~~~~ ~~~ ~~ ~~ ~~~~~',
         );
+    });
+
+    it('gives Places an icon and an occupancy level', () => {
+        expect(placeIcon(cafe, 'me')).toBe('🏢');
+        expect(placeIcon({ ...cafe, scene: 'cafe' }, 'me')).toBe('☕');
+        expect(
+            placeIcon(
+                { ...cafe, name: 'the Rooftop Bar', customScene: '{}' },
+                'me',
+            ),
+        ).toBe('🍸');
+        expect(placeIcon(myHome, 'me')).toBe('🏠');
+        expect(placeIcon(theirHome, 'me')).toBe('🔒');
+        const roomy: Place = {
+            ...cafe,
+            spots: [
+                { id: 'a', capacity: 4 },
+                { id: 'b', capacity: 6 },
+            ],
+        };
+        expect(occupancy(roomy, 2).level).toBe('calm');
+        expect(occupancy(roomy, 5).level).toBe('busy');
+        expect(occupancy(roomy, 9).level).toBe('full');
     });
 });
