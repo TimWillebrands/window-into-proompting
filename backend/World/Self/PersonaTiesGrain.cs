@@ -35,6 +35,13 @@ public sealed class PersonaTiesGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task<TieRead> GetTieAsync(Guid otherId)
+    {
+        await EnsureSeededAsync();
+        var tie = state.State.Ties.GetValueOrDefault(otherId);
+        return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow));
+    }
+
     public async Task<string> RenderAsync(List<Guid> presentIds)
     {
         await EnsureSeededAsync();
@@ -122,8 +129,16 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
 {
     [Alias("NoteExchangeAsync")] Task NoteExchangeAsync(List<Guid> withIds, bool direct);
     [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds);
+    /// <summary>How well this persona knows one other, and how warm it feels now.</summary>
+    [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
     /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
     [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
+}
+
+[GenerateSerializer, Alias("PartyTown.World.Self.TieRead")]
+public sealed record TieRead([property: Id(0)] double Exchanges, [property: Id(1)] double Warmth)
+{
+    public static readonly TieRead None = new(0, 0);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.TiesState")]

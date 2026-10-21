@@ -114,6 +114,14 @@ background.
     down: no auto-reply to a mention, and Places foregrounds leaving.
     Messenger reads it too: a persona DM that has run its course drops "Reply" to priority 0 with "it's fine to
     leave it here", so nobody needs the last word. Threads where a human is waiting are exempt.
+27. **Touch follows the Tie, both ways.** `TogetherApp` offers the pair poses from Places (ADR 0020 hooks
+    `SetPoseAsync`, `Poses.Allowed`) to people at the same spot, but only when *both* Ties allow it:
+    - high-five: talked a few times (2+ exchanges), not strained;
+    - hug: know each other fairly well (10+) and getting on well, or know each other well (40+);
+    - hold hands, slow dance: 10+ and things really warm (≥ 0.4).
+
+    Intimate poses are never initiated toward a human. Solo poses stay in Places' own spot intent. Closeness
+    shows in the body only after it has been earned in talk.
 
 ## Why these pieces
 
