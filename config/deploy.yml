@@ -7,7 +7,9 @@ servers:
     - static.74.157.104.178.clients.your-server.de
 
 proxy:
-  host: static.74.157.104.178.clients.your-server.de
+  hosts:
+    - proompting.party
+    - static.74.157.104.178.clients.your-server.de
   app_port: 5072
   path_prefix: /api
   strip_path_prefix: false

@@ -6,7 +6,9 @@ servers:
     - static.74.157.104.178.clients.your-server.de
 
 proxy:
-  host: static.74.157.104.178.clients.your-server.de
+  hosts:
+    - proompting.party
+    - static.74.157.104.178.clients.your-server.de
   ssl: true
   app_port: 3000
   healthcheck:
