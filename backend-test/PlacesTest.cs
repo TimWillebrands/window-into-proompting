@@ -251,6 +251,27 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task OnlyHumansDoze_AndWakeWhenBack()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var human = Guid.NewGuid();
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var participants = (await party.GetParty()).Participants.ToList();
+        participants.Add(new PartyParticipant { Id = human, Name = "Tim", Driver = DriverKind.User });
+        await party.SetParticipants(participants);
+        await places.GetSnapshotAsync();
+
+        await places.SetIdleAsync(denise, true);
+        await places.SetIdleAsync(human, true);
+        Assert.DoesNotContain("dozing", await places.GetSituationAsync(denise));
+        Assert.Contains("dozing off in front of the screen", await places.GetSituationAsync(human));
+
+        await places.SetIdleAsync(human, false);
+        Assert.DoesNotContain("dozing", await places.GetSituationAsync(human));
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

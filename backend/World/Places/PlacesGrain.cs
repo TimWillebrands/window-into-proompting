@@ -31,6 +31,8 @@ public sealed class PlacesGrain(
     private IGrainTimer? _arrivals;
     private readonly Dictionary<Guid, ChatGroupInfo> _rooms = new();
     private readonly HashSet<Guid> _dressing = new();
+    private readonly Queue<CastMember> _dressQueue = new();
+    private bool _dressingRuns;
     private readonly Dictionary<Guid, (int Bed, int Wake, long At)> _sleepWindows = new();
     private long _lastSleepCheck;
     private static readonly TimeSpan SleepCheckEvery = TimeSpan.FromSeconds(20);
@@ -248,13 +250,57 @@ public sealed class PlacesGrain(
         await WakeAsync(body, "woken by a message, groggy", GroggyFor);
     }
 
+    /// <summary>One at a time, so each sees how the others already dressed.</summary>
+    private async Task DressInTurnAsync()
+    {
+        _dressingRuns = true;
+        try
+        {
+            while (_dressQueue.TryDequeue(out var who)) await DressAsync(who);
+        }
+        finally
+        {
+            _dressingRuns = false;
+        }
+    }
+
+    private const string Dozing = "dozing off in front of the screen";
+
+    public async Task SetIdleAsync(Guid participantId, bool idle)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || !body.IsHuman) return;
+        if (idle == (body.Activity == Dozing)) return;
+        body.Activity = idle ? Dozing : null;
+        body.ActivityUntil = null;
+        await state.WriteStateAsync();
+        await PublishAsync(body);
+    }
+
+    public async Task RedressAsync(Guid? participantId)
+    {
+        foreach (var body in state.State.Bodies.Values.Where(b => !b.IsHuman && (participantId is null || b.ParticipantId == participantId)))
+        {
+            if (body.Appearance is not null) body.Appearance.FromBio = false;
+            _dressing.Remove(body.ParticipantId);
+        }
+        await state.WriteStateAsync();
+        await SyncCastAsync();
+    }
+
     /// <summary>Once per Persona: they pick their look from their bio. Detached; the default stands meanwhile.</summary>
     private async Task DressAsync(CastMember who)
     {
         try
         {
+            // Others' looks so far: a small world reads better when people don't all pick the same hair.
+            var others = state.State.Bodies.Values
+                .Where(b => b.ParticipantId != who.Id && b.Appearance is { FromBio: true })
+                .Select(b => $"{b.Name.Split(' ')[0]}: {b.Appearance!.Hair} {b.Appearance.HairStyle} hair, {b.Appearance.Top} top, {b.Appearance.Accessory}")
+                .ToList();
+            var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}"
+                + (others.Count == 0 ? string.Empty : $"\n\nOthers here already look like this; be recognisably different:\n{string.Join("\n", others)}");
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General, AppearanceRules.Prompt,
-                $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}", CancellationToken.None, 0.7,
+                user, CancellationToken.None, 0.9,
                 new[] { "skin", "hair", "hairStyle", "top", "bottom", "accessory" });
             if (json is null || !state.State.Bodies.TryGetValue(who.Id, out var body)) return;
             var picked = json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString());
@@ -573,8 +619,9 @@ public sealed class PlacesGrain(
                 changed = true;
             }
             if (!body.Appearance.FromBio && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
-                _ = DressAsync(c);
+                _dressQueue.Enqueue(c);
         }
+        if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
         if (!changed && gone.Count == 0) return;
@@ -764,6 +811,12 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Put something up in your own Home, from your own words. Null when not home or over today's allowance.</summary>
     [Alias("DecorateAsync")] Task<string?> DecorateAsync(Guid participantId, string description);
+
+    /// <summary>A human's tab went idle (their Body dozes off) or came back.</summary>
+    [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);
+
+    /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
+    [Alias("RedressAsync")] Task RedressAsync(Guid? participantId);
 
     /// <summary>Knock on someone's Home; only when they're in and awake.</summary>
     [Alias("KnockAsync")] Task<bool> KnockAsync(Guid visitorId, Guid homeId);

@@ -87,6 +87,24 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return done is null ? Conflict("Only at home, and at most two new things a day.") : Ok(new FurniActionResponse(done));
     }
 
+    /// <summary>The Player's tab is idle (Body dozes) or back.</summary>
+    [HttpPost("idle")]
+    public async Task<ActionResult> SetIdle(Guid partyId, [FromBody] IdleRequest request)
+    {
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        await Places(partyId).SetIdleAsync(who.Value, request.Idle);
+        return NoContent();
+    }
+
+    /// <summary>Author: let Personas pick their look again (all, or one), each seeing the others'.</summary>
+    [HttpPost("redress")]
+    public async Task<ActionResult> Redress(Guid partyId, [FromQuery] Guid? participantId)
+    {
+        await Places(partyId).RedressAsync(participantId);
+        return Accepted();
+    }
+
     private IPlacesGrain Places(Guid partyId) => grains.GetGrain<IPlacesGrain>(partyId);
 }
 
@@ -94,6 +112,7 @@ public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? Partici
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
+public sealed record IdleRequest(bool Idle, Guid? ParticipantId);
 public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);
 public sealed record LetInRequest(Guid VisitorId, Guid? OwnerId);
