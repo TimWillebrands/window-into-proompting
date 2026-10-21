@@ -41,7 +41,7 @@ public sealed class SalienceMathTest
     public void OftRecalledOldMemory_OutranksFreshLowWeightOne()
     {
         // Same old memory, but the persona kept picking it — the use bonus keeps it warm.
-        var oldButUsed = SalienceMath.Score(0.9, Now.AddDays(-30), recallCount: 5, lastRecalled: Now.AddHours(-1), Now);
+        var oldButUsed = SalienceMath.Score(0.9, Now.AddDays(-30), recallCount: 5, lastRecalled: Now.AddDays(-1), Now);
         var freshLow = SalienceMath.Score(0.3, Now, 0, null, Now);
         Assert.True(oldButUsed > freshLow,
             $"oft-recalled old memory ({oldButUsed:F4}) should outrank fresh weight-0.3 ({freshLow:F4})");
@@ -72,5 +72,17 @@ public sealed class SalienceMathTest
     {
         Assert.Equal(0, SalienceMath.UseBonus(0, null, Now));
         Assert.Equal(0, SalienceMath.UseBonus(0, Now, Now));
+    }
+
+    [Fact]
+    public void Refractory_DampsAJustToldStory_ThenRecovers()
+    {
+        Assert.Equal(0.25, SalienceMath.Refractory(Now, Now), precision: 6);
+        Assert.Equal(1.0, SalienceMath.Refractory(Now.AddHours(-SalienceMath.RefractoryHours), Now), precision: 6);
+        Assert.Equal(1.0, SalienceMath.Refractory(null, Now), precision: 6);
+
+        var justTold = SalienceMath.Score(0.9, Now.AddHours(-2), recallCount: 3, lastRecalled: Now.AddMinutes(-10), Now);
+        var untouched = SalienceMath.Score(0.6, Now.AddHours(-2), recallCount: 0, lastRecalled: null, Now);
+        Assert.True(untouched > justTold);
     }
 }

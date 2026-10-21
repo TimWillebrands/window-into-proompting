@@ -432,12 +432,25 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal(lightSnippet, afterDecay[0].Snippet);
         Assert.Equal(heavySnippet, afterDecay[1].Snippet);
 
-        // Strengthen the decayed memory (several picks, just recalled): the use bonus
-        // (≈ 0.15·ln(1+n), undecayed) lifts it back above the fresh light one.
+        // Strengthen the decayed memory (several picks).
         for (var i = 0; i < 5; i++)
         {
             await repo.StrengthenRecollectionAsync(heavyEdgeId, CancellationToken.None);
         }
+
+        // Just picked: the refractory damping (ADR 0021) keeps a just-told story down for a few hours.
+        var justPicked = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        Assert.Equal(lightSnippet, justPicked[0].Snippet);
+
+        // Once the refractory window has passed, the use bonus lifts it back above the fresh light one.
+        var pastRefractoryIso = DateTimeOffset.UtcNow.AddHours(-(SalienceMath.RefractoryHours + 1)).ToString("o");
+        await ExecuteCypherAsync($$"""
+            SELECT * FROM cypher('memory', $cy$
+              MATCH (:Participant)-[r:RECOLLECTS {id: '{{heavyEdgeId}}'}]->(:Event)
+              SET r.last_recalled = '{{pastRefractoryIso}}'
+              RETURN r.id
+            $cy$) AS (id ag_catalog.agtype);
+            """);
 
         var afterStrengthening = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(heavySnippet, afterStrengthening[0].Snippet);

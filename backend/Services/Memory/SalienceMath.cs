@@ -2,7 +2,7 @@ namespace PartyTown.Services.Memory;
 
 /// <summary>
 /// Read-time Salience scoring (ADR 0015):
-/// <c>salience = weight × decay(now − ts) + use_bonus(recall_count, last_recalled)</c>.
+/// <c>salience = (weight × decay(now − ts) + use_bonus(recall_count, last_recalled)) × refractory(last_recalled)</c>.
 /// Pure arithmetic over the candidate set, computed in C# — never in Cypher, never an
 /// LLM call. Decay runs on wall-clock time, deliberately (ADR 0015 rejected ordinal
 /// decay): a Party left alone for three weeks comes back with somewhat hazy personas.
@@ -56,11 +56,20 @@ public static class SalienceMath
         return bonus * Math.Pow(0.5, Math.Max(0, (now - lastRecalled.Value).TotalDays) / UseBonusHalfLifeDays);
     }
 
+    /// <summary>Hours after a pick during which the memory is damped: you don't retell the story you just told (ADR 0021).</summary>
+    public const double RefractoryHours = 4.0;
+
+    /// <summary>Short-term habituation, the counterweight to <see cref="UseBonus"/>: just-picked → 0.25, back to 1 after <see cref="RefractoryHours"/>.</summary>
+    public static double Refractory(DateTimeOffset? lastRecalled, DateTimeOffset now)
+        => lastRecalled is null
+            ? 1
+            : 0.25 + 0.75 * Math.Clamp((now - lastRecalled.Value).TotalHours / RefractoryHours, 0, 1);
+
     public static double Score(
         double weight,
         DateTimeOffset capturedAt,
         int recallCount,
         DateTimeOffset? lastRecalled,
         DateTimeOffset now)
-        => weight * Decay(now - capturedAt) + UseBonus(recallCount, lastRecalled, now);
+        => (weight * Decay(now - capturedAt) + UseBonus(recallCount, lastRecalled, now)) * Refractory(lastRecalled, now);
 }
