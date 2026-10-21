@@ -256,7 +256,7 @@ public sealed class WorldClockGrain(
             if (judge.Enabled && !await IsMemorableAsync(context, present))
                 return;
             var result = await memory.CaptureAsync(PartyId, thread.Id, anchor.MessageId, context, present, CancellationToken.None);
-            if (result is { EventCreated: true })
+            if (result is { EventCreated: true, RecollectionsCreated: > 0 })
             {
                 var where = thread.Kind == ChatGroupKinds.Direct ? $"the chat {thread.Name}" : $"#{thread.Name}";
                 await RecordAsync(new WorldActivity

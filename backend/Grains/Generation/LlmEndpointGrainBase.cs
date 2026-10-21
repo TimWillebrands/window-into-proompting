@@ -22,6 +22,9 @@ public static class LlmEndpointGrainUtils
 
         try
         {
+          for (var attempt = 0; attempt < 2 && chunkCount == 0; attempt++)
+          {
+            if (attempt > 0) logger.LogWarning("LLM stream produced no content; retrying once");
             await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
             {
                 foreach (var part in update.ContentUpdate ?? [])
@@ -46,6 +49,7 @@ public static class LlmEndpointGrainUtils
                     yield break;
                 }
             }
+          }
         }
         finally
         {
@@ -69,11 +73,17 @@ public static class LlmEndpointGrainUtils
 
         try
         {
-            var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
-            var text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
+            var text = string.Empty;
+            // Cheap models occasionally return an empty completion; one retry recovers nearly all of them.
+            for (var attempt = 0; attempt < 2 && string.IsNullOrWhiteSpace(text); attempt++)
+            {
+                if (attempt > 0) logger.LogWarning("LLM one-shot returned empty content; retrying once");
+                var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+                text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
 
-            if (completion.Value.FinishReason != ChatFinishReason.Stop)
-                logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
+                if (completion.Value.FinishReason != ChatFinishReason.Stop)
+                    logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
+            }
 
             return text;
         }

@@ -81,3 +81,14 @@ public class SpeechCleanupTest
     public void Clean_StripsTemplateTokensAndSelfLabel(string raw, string expected)
         => Assert.Equal(expected, PartyTown.Services.ResponsePipeline.SpeechCleanup.Clean(raw, "Denise"));
 }
+
+public class WorldLlmJsonTest
+{
+    [Fact]
+    public void ParseLastWins_ToleratesDuplicateKeys()
+    {
+        var obj = PartyTown.World.WorldLlm.ParseLastWins("""{"intent":"a","choice":"1","intent":"b"}""");
+        Assert.Equal("b", obj!["intent"]!.GetValue<string>());
+        Assert.Equal("1", obj["choice"]!.GetValue<string>());
+    }
+}

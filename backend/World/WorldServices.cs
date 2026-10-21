@@ -58,13 +58,24 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
         }
         try
         {
-            return JsonNode.Parse(json) as JsonObject;
+            return ParseLastWins(json);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "World LLM JSON parse failed: {Preview}", LlmJson.LogPreview(raw));
             return null;
         }
+    }
+
+    /// <summary>Models sometimes repeat a key; JsonObject throws on that, so rebuild it last-wins.</summary>
+    public static JsonObject? ParseLastWins(string json)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+        var obj = new JsonObject();
+        foreach (var prop in doc.RootElement.EnumerateObject())
+            obj[prop.Name] = JsonNode.Parse(prop.Value.GetRawText());
+        return obj;
     }
 
     /// <summary>Who the Persona is, for prompts outside the Room pipeline.</summary>
