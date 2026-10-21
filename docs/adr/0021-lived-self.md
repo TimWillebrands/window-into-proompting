@@ -91,7 +91,12 @@ background.
     read the distilled version. The authored sheet stays untouched in the library, and an edit to it (a new
     hash) triggers a new distillation. This was the root cause: style instructions in the sheet ("uses
     architectural metaphors") overrode everything around them.
-22. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+22. **Warmth.** The same appraisal also asks, for each recollecting persona and each other speaker, "by the end,
+    how did X feel toward Y: closer, the same, or more distant?". The answer shifts the Tie's warmth by up to
+    ±0.3, and it fades with a 2-day half-life. *Who these people are to you* adds "getting on well lately" or
+    "a bit tense lately". Relationships now change with what happens between people, not only with how much
+    they talk.
+23. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces

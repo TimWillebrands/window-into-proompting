@@ -20,6 +20,13 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
         ["worse"] = "worse than before",
     };
 
+    private static readonly IReadOnlyDictionary<string, string?> Closeness = new Dictionary<string, string?>
+    {
+        ["better"] = "closer than before",
+        ["same"] = "about the same",
+        ["worse"] = "more distant or put off",
+    };
+
     private async Task<string> WhereAsync(Moment moment)
     {
         if (moment.Source == MomentSources.Board) return "the Board";
@@ -40,13 +47,23 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
             var transcript = string.Join("\n", moment.Lines.TakeLast(MaxLines)
                 .Select(l => $"{names.GetValueOrDefault(l.SenderId, "Someone")}: {WorldStream.Clip(l.Text, 240)}"));
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            // A three-way choice, not a noul: decision models compress p, and "about the same" absorbs the neutral mass.
-            var answers = await judge.AskAsync(transcript, personas.ToDictionary(
+            // Three-way choices, not nouls: decision models compress p, and "about the same" absorbs the neutral mass.
+            var speakers = moment.Lines.Select(l => l.SenderId).ToHashSet();
+            var pairs = personas
+                .SelectMany(p => moment.Present.Where(q => q.Id != p.Id && speakers.Contains(q.Id) && q.Driver != DriverKind.System).Select(q => (p, q)))
+                .ToList();
+            var questions = personas.ToDictionary(
                 p => p.Id.ToString("N"),
-                p => (SystemOneQuestion)new ChoiceQuestion($"How did this conversation leave {p.Name}'s mood, compared to before it?", Moods)), cts.Token);
+                p => (SystemOneQuestion)new ChoiceQuestion($"How did this conversation leave {p.Name}'s mood, compared to before it?", Moods));
+            foreach (var (p, q) in pairs)
+                questions[$"{p.Id:N}-{q.Id:N}"] = new ChoiceQuestion($"By the end of this, how did {p.Name} feel toward {q.Name}?", Closeness);
+            var answers = await judge.AskAsync(transcript, questions, cts.Token);
             var shifts = personas.Select(p => (p, Better: Appraisal.Better(answers.Choices.GetValueOrDefault(p.Id.ToString("N"))))).ToList();
             foreach (var (p, better) in shifts)
                 await grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(moment.PartyId, p.Id)).ShiftValenceAsync(better, where);
+            foreach (var (p, q) in pairs)
+                await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(moment.PartyId, p.Id))
+                    .ShiftWarmthAsync(q.Id, Appraisal.Better(answers.Choices.GetValueOrDefault($"{p.Id:N}-{q.Id:N}")));
             logger.LogInformation("Appraisal in {Where}: {Values}", where, string.Join(", ", shifts.Select(x => $"{x.p.Name}={x.Better:F2}")));
         }
         catch (Exception ex)

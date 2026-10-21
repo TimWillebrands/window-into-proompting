@@ -25,6 +25,16 @@ public sealed class PersonaTiesGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task ShiftWarmthAsync(Guid otherId, double closer)
+    {
+        await EnsureSeededAsync();
+        var tie = state.State.Ties.TryGetValue(otherId, out var t) ? t : state.State.Ties[otherId] = new Tie();
+        var now = DateTimeOffset.UtcNow;
+        tie.Warmth = Ties.ShiftWarmth(Ties.Warmth(tie, now), closer);
+        tie.WarmthAt = now.ToUnixTimeMilliseconds();
+        await state.WriteStateAsync();
+    }
+
     public async Task<string> RenderAsync(List<Guid> presentIds)
     {
         await EnsureSeededAsync();
@@ -71,6 +81,24 @@ public static class Ties
         }
     }
 
+    private const double WarmthHalfLifeDays = 2;
+
+    /// <summary>How warm things feel lately, fading back to neutral over days.</summary>
+    public static double Warmth(Tie tie, DateTimeOffset now)
+        => tie.WarmthAt == 0 ? 0 : tie.Warmth * Math.Pow(0.5, Math.Max(0, (now.ToUnixTimeMilliseconds() - tie.WarmthAt) / 86_400_000.0) / WarmthHalfLifeDays);
+
+    /// <summary>One appraisal (p closer) moves warmth by up to ±0.3.</summary>
+    public static double ShiftWarmth(double warmth, double closer) => Math.Clamp(warmth + (closer - 0.5) * 0.6, -1, 1);
+
+    public static string? Lately(double warmth) => warmth switch
+    {
+        >= 0.4 => "things have felt really warm between you lately",
+        >= 0.2 => "you've been getting on well lately",
+        <= -0.4 => "things have been strained between you lately",
+        <= -0.2 => "it's been a bit tense between you lately",
+        _ => null,
+    };
+
     public static string Closeness(double exchanges) => exchanges switch
     {
         < 2 => "you barely know them",
@@ -84,7 +112,7 @@ public static class Ties
         if (people.Count == 0) return string.Empty;
         var lines = people.Select(p => p.Tie is null || p.Tie.Exchanges <= 0
             ? $"- {p.Name}: you've never really talked"
-            : $"- {p.Name}: {Closeness(p.Tie.Exchanges)}; last talked {WorldStream.Ago(p.Tie.LastAt, now)}");
+            : $"- {p.Name}: {Closeness(p.Tie.Exchanges)}; last talked {WorldStream.Ago(p.Tie.LastAt, now)}{(Lately(Warmth(p.Tie, now)) is { } lately ? $"; {lately}" : "")}");
         return $"# Who these people are to you\n{string.Join("\n", lines)}\nHow close you are shapes what you share. With people you barely know you keep it light; personal things are for people you know well, and even then not all the time.\n";
     }
 }
@@ -94,6 +122,8 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
 {
     [Alias("NoteExchangeAsync")] Task NoteExchangeAsync(List<Guid> withIds, bool direct);
     [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds);
+    /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
+    [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.TiesState")]
@@ -108,4 +138,6 @@ public sealed class Tie
 {
     [Id(0)] public double Exchanges { get; set; }
     [Id(1)] public long LastAt { get; set; }
+    [Id(2)] public double Warmth { get; set; }
+    [Id(3)] public long WarmthAt { get; set; }
 }

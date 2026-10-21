@@ -54,3 +54,29 @@ public class TiesTest
         Assert.Equal(string.Empty, Ties.Render(Array.Empty<(string, Tie?)>(), now));
     }
 }
+
+public class WarmthTest
+{
+    [Fact]
+    public void Warmth_ShiftsAndFadesOverDays()
+    {
+        Assert.Equal(0.3, Ties.ShiftWarmth(0, 1), 3);
+        Assert.Equal(-0.3, Ties.ShiftWarmth(0, 0), 3);
+        var now = DateTimeOffset.UtcNow;
+        var tie = new Tie { Warmth = 0.8, WarmthAt = now.AddDays(-2).ToUnixTimeMilliseconds() };
+        Assert.Equal(0.4, Ties.Warmth(tie, now), 3);
+    }
+
+    [Fact]
+    public void Render_SaysHowThingsFeelLately()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var text = Ties.Render(new (string, Tie?)[]
+        {
+            ("Lena", new Tie { Exchanges = 50, LastAt = now.ToUnixTimeMilliseconds(), Warmth = 0.5, WarmthAt = now.ToUnixTimeMilliseconds() }),
+            ("Pieter", new Tie { Exchanges = 5, LastAt = now.ToUnixTimeMilliseconds(), Warmth = -0.3, WarmthAt = now.ToUnixTimeMilliseconds() }),
+        }, now);
+        Assert.Contains("Lena: you know each other well; last talked just now; things have felt really warm between you lately", text);
+        Assert.Contains("Pieter: you've talked a few times; last talked just now; it's been a bit tense between you lately", text);
+    }
+}
