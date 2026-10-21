@@ -34,7 +34,7 @@ public sealed class LivedSheetGrain(
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         try
         {
-            var text = await llm.CompleteAsync(JobComplexity.CharacterThoughts, LivedSheets.DistillPrompt,
+            var text = await llm.CompleteAsync(JobComplexity.CharacterVoice, LivedSheets.DistillPrompt,
                 $"Name: {name}\n\nTheir description:\n{source}", cts.Token, 0.5);
             text = text?.Trim();
             if (string.IsNullOrWhiteSpace(text) || text.Length < 200) return null;
@@ -72,12 +72,17 @@ public static class LivedSheets
           a loose habit in one plain sentence
         - epithets and archetype labels ("The Syncretic Architect")
         - grand themes and symbolism
-        Where the description is thin, add ordinary specifics that fit (daily rhythm, a few offscreen people,
-        small tastes). 300–500 words. Output only the rewritten description.
+        Write it in your own plain words; don't copy sentences or imagery from the description. Looks get at most
+        one sentence. No essays about their inner psychology: show it through ordinary facts (a habit, a fight they
+        keep having, what they avoid). Where the description is thin, add ordinary specifics that fit (daily rhythm,
+        a few named offscreen people, small tastes, money, health). 300–500 words. Output only the rewritten description.
         """;
 
+    /// <summary>Bump to redo every distillation after a prompt change.</summary>
+    private const int Version = 2;
+
     public static string Hash(string source)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)))[..16];
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"v{Version}\n{source}")))[..16];
 
     public static void Remember(Guid personaId, string hash, string text) => Cache[personaId] = (hash, text);
 
