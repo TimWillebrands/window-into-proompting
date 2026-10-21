@@ -358,7 +358,9 @@ public sealed class PlacesGrain(
         var now = Now();
         _overheard.RemoveAll(o => now - o.At > OverheardFades.TotalMilliseconds);
         var place = state.State.Bodies.TryGetValue(participantId, out var b) && !b.IsWalking ? b.PlaceId : Guid.Empty;
-        return Task.FromResult(_overheard.Where(o => o.PlaceId == place && o.Listeners.Contains(participantId)).ToList());
+        return Task.FromResult(_overheard
+            .Where(o => o.Listeners.Contains(participantId) && (o.PlaceId == place || o.NextDoor.Contains(participantId)))
+            .ToList());
     }
 
     /// <summary>Those in the Place but out of Earshot notice the talk; System One reads tone and their name, never the words.</summary>
@@ -368,10 +370,15 @@ public sealed class PlacesGrain(
         var place = state.State.Places.FirstOrDefault(p => p.TalkRoomId == talkRoomId);
         if (place is null || !state.State.Bodies.TryGetValue(m.SenderId, out var speaker)) return;
         var listeners = Occupants(place.Id).Where(b => !heard.Contains(b.ParticipantId)).ToList();
+        var nextDoor = m.Volume == Volumes.Shout
+            ? state.State.Places.Where(p => Overhearing.NextDoor(place, p)).SelectMany(p => Occupants(p.Id)).ToList()
+            : new List<Body>();
+        listeners.AddRange(nextDoor);
         if (listeners.Count == 0) return;
         var record = new Overheard
         {
-            PlaceId = place.Id, SpeakerId = m.SenderId, SpeakerName = speaker.Name.Split(' ')[0], SpotId = speaker.SpotId,
+            PlaceId = place.Id, PlaceName = place.Name, SpeakerId = m.SenderId, SpeakerName = speaker.Name.Split(' ')[0], SpotId = speaker.SpotId,
+            NextDoor = nextDoor.Select(b => b.ParticipantId).ToList(),
             Volume = m.Volume ?? Volumes.Talk, At = Now(),
             Listeners = listeners.Select(l => l.ParticipantId).ToList(),
             WithNames = heard.Where(id => id != m.SenderId && state.State.Bodies.ContainsKey(id))

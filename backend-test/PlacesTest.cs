@@ -272,6 +272,33 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task AShout_CarriesThroughTheDoor_AsTone()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+        var lobby = snapshot.Places.Single(p => p.Name == "the Lobby");
+        await places.MoveAsync(denise, cafe.Id, null);
+        await places.MoveAsync(pieter, lobby.Id, null);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Id == cafe.Id);
+
+        await places.SetVoiceAsync(denise, Volumes.Shout, null);
+        await _fx.GrainFactory.GetGrain<IChatGroupGrain>(cafe.TalkRoomId!.Value).SendNewMessageAsync(denise, "PIETER, your coffee's ready", null, null);
+
+        List<Overheard> heard = new();
+        for (var i = 0; i < 50 && heard.Count == 0; i++)
+        {
+            await Task.Delay(100);
+            heard = await places.GetOverheardAsync(pieter);
+        }
+        var (line, _, name) = Assert.Single(Overhearing.Lines(heard, pieter, lobby));
+        Assert.StartsWith("Through the door from the Café, Denise is calling out", line);
+        Assert.True(name);
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

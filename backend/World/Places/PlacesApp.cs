@@ -60,7 +60,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             foreach (var (line, heard, name) in Overhearing.Lines(await places.GetOverheardAsync(ctx.Self.Id), ctx.Self.Id, here).Take(2))
             {
                 sb.AppendLine(line);
-                if (heard.SpotId != self.SpotId)
+                if (heard.PlaceId != here.Id)
+                    affordances.Add(new Affordance(Id, $"Go see what's going on at {heard.PlaceName}", name ? 3 : 1, heard.PlaceId, "go"));
+                else if (heard.SpotId != self.SpotId)
                     affordances.Add(new Affordance(Id, $"Drift over to {SpotName(here, heard.SpotId)} to hear what they're saying",
                         name ? 3 : 1, here.Id, $"spot:{heard.SpotId}"));
             }
@@ -111,6 +113,16 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             }
         }
 
+        // Talk here going round in circles or fizzling: leaving is the natural move (eb's thermostat read).
+        var stale = !self.IsWalking && here?.TalkRoomId is { } roomForRead
+            && (await grains.GetGrain<Self.IConversationThermostatGrain>(roomForRead).GetReadAsync()).Stale;
+        if (stale)
+        {
+            sb.AppendLine("The talk here keeps going round in circles; it might be time to be somewhere else.");
+            for (var i = 0; i < affordances.Count; i++)
+                if (affordances[i].Verb == "say") affordances[i] = affordances[i] with { Priority = affordances[i].Priority - 1 };
+        }
+
         var elsewhere = new List<string>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
@@ -136,7 +148,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
             var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
             // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
-            var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0);
+            var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0);
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");

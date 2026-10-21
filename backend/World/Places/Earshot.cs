@@ -48,20 +48,30 @@ public sealed class Overheard
     [Id(8)] public long At { get; set; }
     /// <summary>Who the speaker was talking with (the ones who did hear).</summary>
     [Id(9)] public List<string> WithNames { get; set; } = new();
+    [Id(10)] public string PlaceName { get; set; } = string.Empty;
+    /// <summary>Listeners next door who caught a shout through the door.</summary>
+    [Id(11)] public List<Guid> NextDoor { get; set; } = new();
 }
 
 public static class Overhearing
 {
     public static readonly string[] Tones = { "laughing", "arguing", "serious", "flirting", "chatting" };
 
-    /// <summary>One perception line per group of speakers at a spot, newest first.</summary>
+    /// <summary>Public Places share doors; a shout carries into the next one.</summary>
+    public static bool NextDoor(Place a, Place b) => a.Id != b.Id && a.Kind == PlaceKinds.Public && b.Kind == PlaceKinds.Public;
+
+    /// <summary>One perception line per group of speakers at a spot (or next door), newest first.</summary>
     public static List<(string Line, Overheard Latest, bool Name)> Lines(IEnumerable<Overheard> heard, Guid listener, Place place)
         => heard
-            .GroupBy(o => o.SpotId)
+            .GroupBy(o => o.PlaceId == place.Id ? o.SpotId : $"door:{o.PlaceId}")
             .Select(g =>
             {
                 var latest = g.OrderByDescending(o => o.At).First();
                 var who = g.Select(o => o.SpeakerName).Concat(g.SelectMany(o => o.WithNames)).Distinct().Take(3).ToList();
+                if (latest.PlaceId != place.Id)
+                    return ($"Through the door from {latest.PlaceName}, {Join(who)} {(who.Count == 1 ? "is" : "are")} calling out; you can't make out the words."
+                        + (g.Any(o => o.NameHeardBy.Contains(listener)) ? " You think you heard your name." : string.Empty),
+                        latest, g.Any(o => o.NameHeardBy.Contains(listener)));
                 var spot = place.Spots.FirstOrDefault(s => s.Id == g.Key)?.Name ?? "the other side";
                 var how = latest.Volume == Volumes.Whisper ? "whispering" : latest.Tone switch
                 {
