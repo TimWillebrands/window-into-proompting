@@ -299,6 +299,14 @@ _Avoid_: eavesdrop log, muffled message.
 How a Place looks in 3D: an ASCII map plus **Prefabs** by name, pinning the Place's Spots and Furni to tiles. Presentation only; Places nobody drew get a generated one. See [ADR 0023](docs/adr/0023-places-scenes-and-prefabs.md).
 _Avoid_: level, map (the ASCII is one part of it), room layout.
 
+**Pose**:
+How a Body is hanging out at its spot: leaning, lounging, perched, dancing, or a pair pose with someone next to you (a hug, a slow dance). Spots list the solo poses they afford; walking off ends a pose. See [ADR 0025](docs/adr/0025-places-making-and-hanging-out.md).
+_Avoid_: animation, emote (taken: race-cancelled lines), stance (taken).
+
+**Made Place**:
+A public Place designed by the LLM from a description (spots plus a scene), checked before it exists; has a `MadeBy` instead of an owner.
+_Avoid_: custom room, user level.
+
 **Prefab**:
 A named, reusable 3D thing built from coloured primitives (a sofa, a canal house, a herring cart), with seats, tints and a variant seed; Furni state can restyle it.
 _Avoid_: model, asset, mesh.
