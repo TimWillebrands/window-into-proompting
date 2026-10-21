@@ -7,6 +7,7 @@
 import type { VoiceWearReportAverageWords } from './voiceWearReportAverageWords';
 import type { VoiceWearReportOwnWords } from './voiceWearReportOwnWords';
 import type { VoiceWearReportRepeatRate } from './voiceWearReportRepeatRate';
+import type { VoiceWearReportSignatureMark } from './voiceWearReportSignatureMark';
 import type { VoiceWearReportStageDirectionRate } from './voiceWearReportStageDirectionRate';
 import type { VoiceWearReportVocativeRate } from './voiceWearReportVocativeRate';
 
@@ -17,4 +18,5 @@ export interface VoiceWearReport {
     averageWords?: VoiceWearReportAverageWords;
     vocativeRate?: VoiceWearReportVocativeRate;
     repeatRate?: VoiceWearReportRepeatRate;
+    signatureMark?: VoiceWearReportSignatureMark;
 }

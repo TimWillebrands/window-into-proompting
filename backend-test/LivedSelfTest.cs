@@ -332,3 +332,21 @@ public class AppraisalTest
         Assert.DoesNotContain("the", VoiceWear.Analyze(lines).WornWords);
     }
 }
+
+public class SignatureMarkTest
+{
+    [Fact]
+    public void Analyze_FindsASignatureEmojiOrEmoticon()
+    {
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        var lines = new List<Utterance>
+        {
+            new(a, "Send it over. 🌿"), new(a, "Six works 🌿"), new(a, "fine"), new(a, "the seam talk 🌿"),
+            new(b, "go rest :-P"), new(b, "ok"), new(b, "sandwich time"), new(b, "numbers later :-)"),
+        };
+        var report = VoiceWear.Analyze(lines);
+        Assert.Equal("🌿", report.SignatureMark[a]);
+        Assert.False(report.SignatureMark.ContainsKey(b));
+        Assert.Contains(VoiceWear.RenderFor(report, a), l => l.Contains("🌿"));
+    }
+}

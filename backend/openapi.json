@@ -8831,6 +8831,12 @@
               ],
               "format": "double"
             }
+          },
+          "signatureMark": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       },

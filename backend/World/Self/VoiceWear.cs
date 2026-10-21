@@ -27,6 +27,9 @@ public sealed record VoiceWearReport
     /// <summary>Per speaker: share of lines that mostly restate one of their previous 5.</summary>
     [Id(5)] public Dictionary<Guid, double> RepeatRate { get; init; } = new();
 
+    /// <summary>Per speaker: an emoji or emoticon on half their lines or more (a signature tic).</summary>
+    [Id(6)] public Dictionary<Guid, string> SignatureMark { get; init; } = new();
+
     public static readonly VoiceWearReport Empty = new();
 }
 
@@ -61,6 +64,9 @@ public static partial class VoiceWear
     [GeneratedRegex(@"[\p{L}][\p{L}'\-]*[\p{L}]")]
     private static partial Regex Word();
 
+    [GeneratedRegex(@"\p{So}|\p{Cs}{2}|[:;]-?[)(PDp/]|\^_\^;*|[xX]D\b")]
+    private static partial Regex Mark();
+
     [GeneratedRegex(@"^\s*\*[^*\n]{2,}\*")]
     private static partial Regex LeadingAction();
 
@@ -92,6 +98,7 @@ public static partial class VoiceWear
         var avg = new Dictionary<Guid, double>();
         var vocative = new Dictionary<Guid, double>();
         var repeat = new Dictionary<Guid, double>();
+        var marks = new Dictionary<Guid, string>();
         var firstNames = (names ?? Array.Empty<string>())
             .Select(n => n.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant())
             .Where(n => !string.IsNullOrEmpty(n)).ToHashSet();
@@ -108,6 +115,9 @@ public static partial class VoiceWear
                 .ToList();
             stage[speaker.Key] = lines.Count(u => LeadingAction().IsMatch(u.Text)) / (double)lines.Count;
             avg[speaker.Key] = lines.Average(u => u.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length);
+            if (lines.Count >= 4 && lines.SelectMany(u => Mark().Matches(u.Text).Select(m => m.Value).Distinct())
+                    .GroupBy(m => m).OrderByDescending(g => g.Count()).FirstOrDefault() is { } top && top.Count() * 2 >= lines.Count)
+                marks[speaker.Key] = top.Key;
             vocative[speaker.Key] = lines.Count(u => OpensWithName(u.Text, firstNames!)) / (double)lines.Count;
             repeat[speaker.Key] = lines.Count == 1 ? 0 : lines.Select((u, i) => lines.Skip(Math.Max(0, i - 5)).Take(Math.Min(i, 5))
                     .Any(prev => Overlap(prev.Tokens, u.Tokens) >= RepeatOverlap)).Count(r => r) / (double)lines.Count;
@@ -116,7 +126,7 @@ public static partial class VoiceWear
         return new VoiceWearReport
         {
             WornWords = worn, OwnWords = own, StageDirectionRate = stage, AverageWords = avg,
-            VocativeRate = vocative, RepeatRate = repeat,
+            VocativeRate = vocative, RepeatRate = repeat, SignatureMark = marks,
         };
     }
 
@@ -136,6 +146,8 @@ public static partial class VoiceWear
             lines.Add("Most of your lines open with someone's name. In a small chat nobody does that; just say it.");
         if (report.RepeatRate.TryGetValue(speakerId, out var rep) && rep >= 0.3)
             lines.Add("You've been saying the same things over and over. Say something new or say nothing.");
+        if (report.SignatureMark.TryGetValue(speakerId, out var mark))
+            lines.Add($"You put {mark} on most of your messages. Leave it off most of the time.");
         if (report.AverageWords.TryGetValue(speakerId, out var words) && words >= 60)
             lines.Add($"Your messages have been long (about {Math.Round(words)} words). People skim; keep it short.");
         return lines;
