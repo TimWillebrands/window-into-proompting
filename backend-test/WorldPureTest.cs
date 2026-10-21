@@ -145,3 +145,13 @@ public class VocativeTest
     public void DropObviousVocative_OnlyForTheLastSpeaker(string text, string last, string expected)
         => Assert.Equal(expected, SpeechCleanup.DropObviousVocative(text, last));
 }
+
+public class SelfAddressTest
+{
+    [Theory]
+    [InlineData("Eiko, you're still at the counter.", "Eiko Tanaka", "You're still at the counter.")]
+    [InlineData("Eiko Tanaka, sit down.", "Eiko Tanaka", "Sit down.")]
+    [InlineData("Denise, sit down.", "Eiko Tanaka", "Denise, sit down.")]
+    public void Clean_DropsSelfAddress(string raw, string self, string expected)
+        => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
+}

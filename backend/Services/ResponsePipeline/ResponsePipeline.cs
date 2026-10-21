@@ -496,6 +496,7 @@ public sealed class ResponsePipeline(
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
+        var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -528,7 +529,8 @@ public sealed class ResponsePipeline(
                     memoryToReference,
                     stances,
                     gutReaction,
-                    presence);
+                    presence,
+                    avoidWords);
                 break;
             }
             catch (OperationCanceledException)
@@ -589,6 +591,20 @@ public sealed class ResponsePipeline(
         {
             logger.LogDebug(ex, "Sleep check failed for {PersonaName}", self.Name);
             return false;
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> StaleWordsAsync(IChatGroupGrain chatGroupGrain, Guid personaId)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            return await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Stale words lookup failed");
+            return Array.Empty<string>();
         }
     }
 

@@ -48,6 +48,11 @@ public static partial class SpeechCleanup
         {
             var prefix = new Regex($@"^\**{Regex.Escape(selfName)}\**\s*:\s*\**\s*", RegexOptions.IgnoreCase);
             s = prefix.Replace(s, string.Empty);
+            // Addressing yourself ("Eiko, you're still at the counter" from Eiko) is a model slip; drop the name.
+            var first = selfName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+            var self = Regex.Match(s, $@"^(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})\s*,\s*(?=\S)", RegexOptions.IgnoreCase);
+            if (self.Success && s.Length - self.Length >= 3)
+                s = char.ToUpperInvariant(s[self.Length]) + s[(self.Length + 1)..];
         }
         return StripStageDirections(s.Trim());
     }

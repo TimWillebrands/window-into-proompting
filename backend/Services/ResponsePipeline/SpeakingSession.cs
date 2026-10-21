@@ -30,7 +30,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? memoryToReference = null,
         IReadOnlyList<string>? stances = null,
         string? gutReaction = null,
-        string? presence = null)
+        string? presence = null,
+        IReadOnlyList<string>? avoidWords = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -79,6 +80,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.{addressCue}");
         }
         var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
+        // Stale words (ADR 0021) restated at the recency slot: the history full of them outweighs the system block.
+        if (avoidWords is { Count: > 0 })
+            guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
         guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
         if (guidanceParts.Count > 0)
         {
