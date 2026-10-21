@@ -53,6 +53,14 @@ public sealed partial class PersonaSelfGrain(
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
 
+    public async Task<DayWindow> GetDayWindowAsync()
+    {
+        var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        await EnsureDayAsync(partyId, personaId, DateTimeOffset.Now);
+        var beats = state.State.Beats;
+        return beats.Count == 0 ? new DayWindow(null, null) : new DayWindow(beats[0].Minute, beats[^1].Minute);
+    }
+
     public async Task<double> GetAvailabilityAsync()
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -299,7 +307,12 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("SetMoodAsync")] Task SetMoodAsync(string mood);
     [Alias("GetStateAsync")] Task<SelfState> GetStateAsync();
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
+    /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>
+    [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
 }
+
+[GenerateSerializer, Alias("PartyTown.World.Self.DayWindow")]
+public sealed record DayWindow([property: Id(0)] int? FirstBeatMinute, [property: Id(1)] int? LastBeatMinute);
 
 [GenerateSerializer, Alias("PartyTown.World.Self.SelfState")]
 public sealed class SelfState
