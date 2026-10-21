@@ -11,4 +11,5 @@ export const Posture = {
     Standing: 'Standing',
     Sitting: 'Sitting',
     Walking: 'Walking',
+    Lying: 'Lying',
 } as const;

@@ -28,7 +28,9 @@ export const placeLabel = (
 
 /** Others' Homes are private in phase 1. */
 export const mayEnter = (place: Place, viewerId: string | null) =>
-    place.kind !== 'home' || place.ownerId === viewerId;
+    place.kind !== 'home' ||
+    place.ownerId === viewerId ||
+    (!!viewerId && (place.guests ?? []).includes(viewerId));
 
 /** "arriving in 42s" while walking; null when settled. */
 export function walkingText(b: Body, now: number): string | null {
@@ -38,10 +40,11 @@ export function walkingText(b: Body, now: number): string | null {
 }
 
 /** Ordered for the Navigator: public Places first, then the viewer's Home. */
-export const navigatorPlaces = (places: Place[], viewerId: string | null) =>
-    places
-        .filter((p) => mayEnter(p, viewerId) || p.kind === 'public')
-        .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'public' ? -1 : 1));
+export const navigatorPlaces = (places: Place[], viewerId: string | null) => {
+    const rank = (p: Place) =>
+        p.kind === 'public' ? 0 : p.ownerId === viewerId ? 1 : 2;
+    return [...places].sort((a, b) => rank(a) - rank(b));
+};
 
 const AVATAR_COLOURS = [
     '#e57373',
@@ -62,7 +65,13 @@ export function avatarColour(id: string | undefined): string {
 }
 
 export const postureIcon = (b: Body) =>
-    b.destPlaceId ? '🚶' : b.posture === 'Sitting' ? '🪑' : '🧍';
+    b.destPlaceId
+        ? '🚶'
+        : b.asleep
+          ? '💤'
+          : b.posture === 'Sitting'
+            ? '🪑'
+            : '🧍';
 
 /** Icon per furni kind, worse-looking when it needs care. */
 export function furniIcon(f: FurniView): string {

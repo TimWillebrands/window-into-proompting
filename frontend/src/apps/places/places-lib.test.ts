@@ -45,11 +45,12 @@ describe('places-lib', () => {
         expect(placeLabel(theirHome, 'me')).toBe("Hana's place");
     });
 
-    it('hides other people’s Homes from the Navigator', () => {
+    it('lists your Home before other people’s, which you can’t just walk into', () => {
         expect(mayEnter(theirHome, 'me')).toBe(false);
+        expect(mayEnter({ ...theirHome, guests: ['me'] }, 'me')).toBe(true);
         expect(
             navigatorPlaces([theirHome, myHome, cafe], 'me').map((p) => p.id),
-        ).toEqual(['c', 'h1']);
+        ).toEqual(['c', 'h1', 'h2']);
     });
 
     it('counts down while walking', () => {

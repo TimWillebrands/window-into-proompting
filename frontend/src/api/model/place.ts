@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Furni } from './furni';
+import type { PlaceKnocks } from './placeKnocks';
 import type { Spot } from './spot';
 
 export interface Place {
@@ -18,4 +19,6 @@ export interface Place {
     /** @nullable */
     talkRoomId?: string | null;
     furni?: Furni[];
+    guests?: string[];
+    knocks?: PlaceKnocks;
 }

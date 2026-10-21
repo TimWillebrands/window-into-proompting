@@ -7,6 +7,8 @@ import {
     useGetWorldsPartyIdPlacesSuspense,
     usePostPartyIdPrompt,
     usePostWorldsPartyIdPlacesFurni,
+    usePostWorldsPartyIdPlacesKnock,
+    usePostWorldsPartyIdPlacesLetIn,
     usePostWorldsPartyIdPlacesMove,
     usePostWorldsPartyIdPlacesVoice,
 } from '#api/party-zone';
@@ -174,7 +176,13 @@ function Navigator({
                                 className="flex items-center"
                                 style={{ gap: 4 }}
                             >
-                                <span>{p.kind === 'home' ? '🏠' : '🏢'}</span>
+                                <span>
+                                    {p.kind !== 'home'
+                                        ? '🏢'
+                                        : mayEnter(p, playerId)
+                                          ? '🏠'
+                                          : '🔒'}
+                                </span>
                                 <strong>{placeLabel(p, playerId)}</strong>
                                 {mine ? (
                                     <span style={{ color: '#2a7' }}>• you</span>
@@ -228,6 +236,21 @@ function PlaceView({
     const amHere = !!me && me.placeId === place.id && !me.destPlaceId;
     const heading = !!me && me.destPlaceId === place.id;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
+    const owner = allBodies.find((b) => b.participantId === place.ownerId);
+    const canKnock =
+        !!me &&
+        place.kind === 'home' &&
+        !mayEnter(place, playerId) &&
+        !!owner &&
+        owner.placeId === place.id &&
+        !owner.destPlaceId &&
+        !owner.asleep;
+    const knockers =
+        place.ownerId && place.ownerId === playerId
+            ? Object.keys(place.knocks ?? {})
+            : [];
+    const knock = usePostWorldsPartyIdPlacesKnock();
+    const letIn = usePostWorldsPartyIdPlacesLetIn();
 
     const goTo = (spotId?: string) =>
         place.id &&
@@ -263,6 +286,24 @@ function PlaceView({
                     />{' '}
                     All ears
                 </label>
+                {canKnock ? (
+                    <button
+                        type="button"
+                        disabled={knock.isPending || knock.isSuccess}
+                        onClick={() =>
+                            place.id &&
+                            knock.mutate({
+                                partyId: WORLD_ID,
+                                data: {
+                                    homeId: place.id,
+                                    participantId: playerId,
+                                },
+                            })
+                        }
+                    >
+                        {knock.isSuccess ? 'Knocked…' : 'Knock'}
+                    </button>
+                ) : null}
                 {canGo ? (
                     <button
                         type="button"
@@ -288,6 +329,36 @@ function PlaceView({
                     Sign in on the Welcome screen to have a body here.
                 </div>
             ) : null}
+            {knockers.map((id) => (
+                <div
+                    key={id}
+                    className="flex items-center"
+                    style={{
+                        ...panel,
+                        padding: '4px 6px',
+                        gap: 6,
+                        background: '#fff6d5',
+                    }}
+                >
+                    🚪{' '}
+                    {allBodies.find((b) => b.participantId === id)?.name ??
+                        'Someone'}{' '}
+                    is knocking at your door.
+                    <button
+                        type="button"
+                        style={{ marginLeft: 'auto' }}
+                        disabled={letIn.isPending}
+                        onClick={() =>
+                            letIn.mutate({
+                                partyId: WORLD_ID,
+                                data: { visitorId: id, ownerId: playerId },
+                            })
+                        }
+                    >
+                        Let in
+                    </button>
+                </div>
+            ))}
             <PlaceCanvas
                 place={place}
                 bodies={allBodies}

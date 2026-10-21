@@ -450,6 +450,10 @@ function drawBody(
     now: number,
     isMe: boolean,
 ) {
+    if (!moving && (b.asleep || b.posture === 'Lying')) {
+        drawSleeper(ctx, b, p, scale, now);
+        return;
+    }
     const sitting = !moving && b.posture === 'Sitting';
     const bob = moving ? Math.abs(Math.sin(now / 90)) * 3 * scale : 0;
     const legs = (sitting ? 6 : 14) * scale;
@@ -506,6 +510,43 @@ function drawBody(
     ctx.fillStyle = '#222';
     ctx.fillText(name, p.x, headY - 10 * scale);
     ctx.lineWidth = 1;
+}
+
+function drawSleeper(
+    ctx: CanvasRenderingContext2D,
+    b: Body,
+    p: Pt,
+    scale: number,
+    now: number,
+) {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 2 * scale, 18 * scale, 6 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8fa8d8';
+    ctx.fillRect(p.x - 16 * scale, p.y - 8 * scale, 32 * scale, 8 * scale);
+    ctx.fillStyle = avatarColour(b.participantId);
+    ctx.fillRect(p.x - 8 * scale, p.y - 11 * scale, 18 * scale, 6 * scale);
+    ctx.fillStyle = '#f1c9a5';
+    ctx.beginPath();
+    ctx.arc(p.x - 12 * scale, p.y - 9 * scale, 6 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    const drift = (now / 60) % 20;
+    ctx.globalAlpha = 1 - drift / 20;
+    ctx.font = `bold ${Math.round(12 * scale)}px Tahoma, sans-serif`;
+    ctx.fillStyle = '#245edb';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+        'z',
+        p.x - 10 * scale + drift * 0.6 * scale,
+        p.y - 20 * scale - drift * scale,
+    );
+    ctx.fillText(
+        'Z',
+        p.x - 4 * scale + drift * 0.6 * scale,
+        p.y - 30 * scale - drift * scale,
+    );
+    ctx.globalAlpha = 1;
 }
 
 function drawBubbles(

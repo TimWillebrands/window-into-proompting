@@ -36,5 +36,11 @@ export interface Body {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     activityUntil?: number | string | null;
+    asleep?: boolean;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    wokenUntil?: number | string | null;
     isWalking?: boolean;
 }
