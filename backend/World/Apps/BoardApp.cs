@@ -5,7 +5,7 @@ using PartyTown.Model;
 namespace PartyTown.World.Apps;
 
 /// <summary>Board: asynchronous, public, threaded. Written in voice; every post is a captured moment.</summary>
-public sealed class BoardApp(IGrainFactory grains, WorldLlm llm, WorldMemory memory, ILogger<BoardApp> logger) : IWorldApp
+public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory memory, ILogger<BoardApp> logger) : IWorldApp
 {
     private const string PostShape = """{"title": "<short catchy title>", "body": "<the post>"}""";
     private const string ReplyShape = """{"body": "<your reply>"}""";
@@ -135,7 +135,7 @@ Output: {ReplyShape}
 }
 
 /// <summary>Diary: private and reflective. Writing is rest — Consolidation runs alongside.</summary>
-public sealed class DiaryApp(IGrainFactory grains, WorldLlm llm, WorldMemory memory) : IWorldApp
+public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory memory) : IWorldApp
 {
     private const string EntryShape = """{"mood": "<one or two words>", "entry": "<the diary entry>"}""";
 

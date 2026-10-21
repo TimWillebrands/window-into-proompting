@@ -6,8 +6,16 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.World;
 
+/// <summary>Voicing seam for World Apps (System Two): one-shot text or JSON in a persona's voice.</summary>
+public interface IWorldLlm
+{
+    Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null);
+
+    Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null);
+}
+
 /// <summary>One-shot LLM calls for World Apps: tier routing with General fallback + JSON repair.</summary>
-public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger)
+public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : IWorldLlm
 {
     public async Task<string?> CompleteAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)

@@ -15,7 +15,7 @@ namespace PartyTown.World;
 /// </summary>
 public sealed class PersonaLifeGrain(
     IEnumerable<IWorldApp> apps,
-    WorldLlm llm,
+    IWorldLlm llm,
     WorldMemory memory,
     ISystemOneJudge judge,
     ILogger<PersonaLifeGrain> logger)
