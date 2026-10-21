@@ -4196,6 +4196,66 @@
         }
       }
     },
+    "/worlds/{partyId}/places/decorate": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/selves": {
       "get": {
         "tags": [
@@ -5424,6 +5484,32 @@
           }
         }
       },
+      "Appearance": {
+        "type": "object",
+        "properties": {
+          "skin": {
+            "type": "string"
+          },
+          "hair": {
+            "type": "string"
+          },
+          "hairStyle": {
+            "type": "string"
+          },
+          "top": {
+            "type": "string"
+          },
+          "bottom": {
+            "type": "string"
+          },
+          "accessory": {
+            "type": "string"
+          },
+          "fromBio": {
+            "type": "boolean"
+          }
+        }
+      },
       "AppendStanceRequest": {
         "required": [
           "valence",
@@ -5637,6 +5723,16 @@
               "string"
             ],
             "format": "int64"
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Appearance"
+              }
+            ]
           },
           "isWalking": {
             "type": "boolean"
@@ -5884,6 +5980,25 @@
           }
         }
       },
+      "DecorateRequest": {
+        "required": [
+          "text",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "DedupDrop": {
         "type": "object",
         "properties": {
@@ -6122,6 +6237,12 @@
               "null",
               "string"
             ]
+          },
+          "style": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6207,6 +6328,12 @@
           },
           "on": {
             "type": "boolean"
+          },
+          "style": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -73,6 +73,17 @@ export const postureIcon = (b: Body) =>
             ? '🪑'
             : '🧍';
 
+const DECOR: Record<string, string> = {
+    poster: '📜',
+    painting: '🖼️',
+    photo: '📷',
+    plant: '🌿',
+    rug: '🟫',
+    lamp: '🕯️',
+    books: '📚',
+    guitar: '🎸',
+};
+
 /** Icon per furni kind, worse-looking when it needs care. */
 export function furniIcon(f: FurniView): string {
     const bad = Number(f.condition ?? 1) < 0.35;
@@ -91,6 +102,8 @@ export function furniIcon(f: FurniView): string {
             return '💻';
         case 'bed':
             return '🛏️';
+        case 'decor':
+            return DECOR[f.style ?? ''] ?? '🏺';
         default:
             return '📦';
     }

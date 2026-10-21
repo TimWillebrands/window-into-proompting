@@ -6,6 +6,7 @@
  */
 
 export * from './announceRequest';
+export * from './appearance';
 export * from './appendStanceRequest';
 export * from './appendStanceResponse';
 export * from './boardReply';
@@ -20,6 +21,7 @@ export * from './createBoardPostRequest';
 export * from './createBoardReplyRequest';
 export * from './createChatGroupRequest';
 export * from './createPartyRequest';
+export * from './decorateRequest';
 export * from './dedupDrop';
 export * from './defaultPersonaTemplate';
 export * from './degradedRecord';

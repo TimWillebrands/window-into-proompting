@@ -35,6 +35,7 @@ import type {
     CreateBoardReplyRequest,
     CreateChatGroupRequest,
     CreatePartyRequest,
+    DecorateRequest,
     DefaultPersonaTemplate,
     DiaryEntry,
     DirectChatSummary,
@@ -16097,6 +16098,124 @@ export const usePostWorldsPartyIdPlacesLetIn = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlacesLetInMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesDecorateResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesDecorateResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesDecorateResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesDecorateResponseError = (
+    | postWorldsPartyIdPlacesDecorateResponse409TextPlain
+    | postWorldsPartyIdPlacesDecorateResponse409ApplicationJson
+    | postWorldsPartyIdPlacesDecorateResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesDecorateResponse =
+    postWorldsPartyIdPlacesDecorateResponseError;
+
+export const getPostWorldsPartyIdPlacesDecorateUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/decorate`;
+};
+
+export const postWorldsPartyIdPlacesDecorate = async (
+    partyId: string,
+    decorateRequest: DecorateRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesDecorateResponse> => {
+    return customFetch<postWorldsPartyIdPlacesDecorateResponse>(
+        getPostWorldsPartyIdPlacesDecorateUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(decorateRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesDecorateMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>,
+        TError,
+        { partyId: string; data: DecorateRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>,
+    TError,
+    { partyId: string; data: DecorateRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesDecorate'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>,
+        { partyId: string; data: DecorateRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesDecorate(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesDecorateMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>
+>;
+export type PostWorldsPartyIdPlacesDecorateMutationBody = DecorateRequest;
+export type PostWorldsPartyIdPlacesDecorateMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesDecorate = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>,
+            TError,
+            { partyId: string; data: DecorateRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesDecorate>>,
+    TError,
+    { partyId: string; data: DecorateRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesDecorateMutationOptions(options),
         queryClient,
     );
 };

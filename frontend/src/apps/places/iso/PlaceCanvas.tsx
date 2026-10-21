@@ -11,6 +11,7 @@ import {
     toMs,
     volumeOf,
 } from '../places-lib';
+import { drawHead, drawScarf, lookOf } from './appearance';
 import {
     depth,
     type Pt,
@@ -454,6 +455,7 @@ function drawBody(
         drawSleeper(ctx, b, p, scale, now);
         return;
     }
+    const look = lookOf(b.appearance, avatarColour(b.participantId));
     const sitting = !moving && b.posture === 'Sitting';
     const bob = moving ? Math.abs(Math.sin(now / 90)) * 3 * scale : 0;
     const legs = (sitting ? 6 : 14) * scale;
@@ -464,21 +466,21 @@ function drawBody(
     ctx.beginPath();
     ctx.ellipse(p.x, p.y + 3 * scale, 11 * scale, 5 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#3b3f58';
+    ctx.fillStyle = look.bottom;
     ctx.fillRect(p.x - w / 2, footY - legs, w, legs);
-    ctx.fillStyle = avatarColour(b.participantId);
+    ctx.fillStyle = look.top;
     ctx.fillRect(
         p.x - w / 2 - 2 * scale,
         footY - legs - torso,
         w + 4 * scale,
         torso,
     );
+    drawScarf(ctx, look, p.x, footY - legs - torso, w + 6 * scale, 4 * scale);
     const headY = footY - legs - torso - 8 * scale;
-    ctx.fillStyle = '#f1c9a5';
-    ctx.beginPath();
-    ctx.arc(p.x, headY, 8 * scale, 0, Math.PI * 2);
-    ctx.fill();
+    drawHead(ctx, look, p.x, headY, 8 * scale);
     if (isMe) {
+        ctx.beginPath();
+        ctx.arc(p.x, headY, 9 * scale, 0, Math.PI * 2);
         ctx.strokeStyle = '#245edb';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -525,9 +527,10 @@ function drawSleeper(
     ctx.fill();
     ctx.fillStyle = '#8fa8d8';
     ctx.fillRect(p.x - 16 * scale, p.y - 8 * scale, 32 * scale, 8 * scale);
-    ctx.fillStyle = avatarColour(b.participantId);
+    const look = lookOf(b.appearance, avatarColour(b.participantId));
+    ctx.fillStyle = look.top;
     ctx.fillRect(p.x - 8 * scale, p.y - 11 * scale, 18 * scale, 6 * scale);
-    ctx.fillStyle = '#f1c9a5';
+    ctx.fillStyle = look.skin;
     ctx.beginPath();
     ctx.arc(p.x - 12 * scale, p.y - 9 * scale, 6 * scale, 0, Math.PI * 2);
     ctx.fill();

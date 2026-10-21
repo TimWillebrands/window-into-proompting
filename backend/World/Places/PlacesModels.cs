@@ -94,6 +94,7 @@ public sealed class FurniView
     [Id(7)] public string? CareLabel { get; set; }
     [Id(8)] public string? UseLabel { get; set; }
     [Id(9)] public bool On { get; set; }
+    [Id(10)] public string? Style { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.PlacesState")]

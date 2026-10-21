@@ -20,4 +20,6 @@ export interface FurniView {
     /** @nullable */
     useLabel?: string | null;
     on?: boolean;
+    /** @nullable */
+    style?: string | null;
 }

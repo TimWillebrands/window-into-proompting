@@ -6,6 +6,7 @@ import {
     useGetWorldsPartyIdPlacesSituationParticipantId,
     useGetWorldsPartyIdPlacesSuspense,
     usePostPartyIdPrompt,
+    usePostWorldsPartyIdPlacesDecorate,
     usePostWorldsPartyIdPlacesFurni,
     usePostWorldsPartyIdPlacesKnock,
     usePostWorldsPartyIdPlacesLetIn,
@@ -233,6 +234,8 @@ function PlaceView({
         { query: { enabled: !!playerId } },
     ).data?.data.situation;
     const [allEars, setAllEars] = useAllEars();
+    const ownHome = place.kind === 'home' && place.ownerId === playerId;
+    const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
     const amHere = !!me && me.placeId === place.id && !me.destPlaceId;
     const heading = !!me && me.destPlaceId === place.id;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
@@ -359,6 +362,10 @@ function PlaceView({
                     </button>
                 </div>
             ))}
+            {amHere && ownHome && laptopOpen ? (
+                <Droste onClose={() => setLaptopOpen(false)} />
+            ) : null}
+            {amHere && ownHome ? <DecorateForm playerId={playerId} /> : null}
             <PlaceCanvas
                 place={place}
                 bodies={allBodies}
@@ -431,6 +438,11 @@ function PlaceView({
                                     furni={f}
                                     canAct={amHere}
                                     playerId={playerId}
+                                    onOpen={
+                                        ownHome
+                                            ? () => setLaptopOpen(true)
+                                            : undefined
+                                    }
                                 />
                             ))}
                         </div>
@@ -456,14 +468,115 @@ function PlaceView({
     );
 }
 
+const DROSTE_MAX = 3;
+
+/** How many laptops deep this desktop is (0 = the real one). */
+const drosteDepth = () =>
+    typeof window === 'undefined'
+        ? 0
+        : Number(
+              new URLSearchParams(window.location.search).get('droste') ?? 0,
+          );
+
+/** Your laptop shows the desktop, which shows Places, which shows you at your laptop… */
+function Droste({ onClose }: { onClose: () => void }) {
+    const depth = drosteDepth();
+    const src = useMemo(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('droste', String(depth + 1));
+        return url.toString();
+    }, [depth]);
+    return (
+        <fieldset style={{ margin: 0 }}>
+            <legend>
+                💻 Your laptop{' '}
+                <button
+                    type="button"
+                    style={{ minWidth: 0, padding: '0 6px' }}
+                    onClick={onClose}
+                >
+                    Close
+                </button>
+            </legend>
+            {depth >= DROSTE_MAX ? (
+                <div style={{ color: '#666', padding: 8 }}>
+                    It's laptops all the way down.
+                </div>
+            ) : (
+                <div
+                    style={{
+                        width: 480,
+                        height: 300,
+                        overflow: 'hidden',
+                        border: '2px solid #333',
+                    }}
+                >
+                    <iframe
+                        title="Your laptop"
+                        src={src}
+                        style={{
+                            width: 960,
+                            height: 600,
+                            border: 0,
+                            transform: 'scale(0.5)',
+                            transformOrigin: '0 0',
+                        }}
+                    />
+                </div>
+            )}
+        </fieldset>
+    );
+}
+
+/** Put something up at home, in your own words (2 a day). */
+function DecorateForm({ playerId }: { playerId: string | null }) {
+    const decorate = usePostWorldsPartyIdPlacesDecorate();
+    const [text, setText] = useState('');
+    return (
+        <form
+            className="flex items-center"
+            style={{ gap: 4 }}
+            onSubmit={(e) => {
+                e.preventDefault();
+                if (!text.trim()) return;
+                decorate.mutate(
+                    {
+                        partyId: WORLD_ID,
+                        data: { text: text.trim(), participantId: playerId },
+                    },
+                    { onSuccess: () => setText('') },
+                );
+            }}
+        >
+            <span>🖼️</span>
+            <input
+                className="flex-1"
+                value={text}
+                maxLength={200}
+                onChange={(e) => setText(e.currentTarget.value)}
+                placeholder="Put something up… (a Bowie poster over the sofa)"
+            />
+            <button type="submit" disabled={!text.trim() || decorate.isPending}>
+                Put up
+            </button>
+            {decorate.isError ? (
+                <span style={{ color: '#a33' }}>Two new things a day.</span>
+            ) : null}
+        </form>
+    );
+}
+
 function FurniRow({
     furni,
     canAct,
     playerId,
+    onOpen,
 }: {
     furni: FurniView;
     canAct: boolean;
     playerId: string | null;
+    /** The laptop at home opens the desktop (the Droste easter egg). */
+    onOpen?: () => void;
 }) {
     const act = usePostWorldsPartyIdPlacesFurni();
     const run = (care: boolean) =>
@@ -489,6 +602,19 @@ function FurniRow({
             <span style={{ color: furni.notable ? '#a33' : '#555' }}>
                 {furni.notable ?? furni.name}
             </span>
+            {canAct && onOpen && furni.kind === 'laptop' ? (
+                <button
+                    type="button"
+                    style={{
+                        marginLeft: 'auto',
+                        minWidth: 0,
+                        padding: '0 6px',
+                    }}
+                    onClick={onOpen}
+                >
+                    Open
+                </button>
+            ) : null}
             {canAct && furni.careLabel ? (
                 <button
                     type="button"

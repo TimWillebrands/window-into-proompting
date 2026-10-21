@@ -24,4 +24,6 @@ export interface Furni {
     playing?: string | null;
     /** @nullable */
     playedBy?: string | null;
+    /** @nullable */
+    style?: string | null;
 }

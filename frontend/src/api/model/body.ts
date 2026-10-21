@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { Appearance } from './appearance';
 import type { Posture } from './posture';
 
 export interface Body {
@@ -42,5 +43,6 @@ export interface Body {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     wokenUntil?: number | string | null;
+    appearance?: null | Appearance;
     isWalking?: boolean;
 }

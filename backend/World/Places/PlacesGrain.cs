@@ -506,6 +506,7 @@ public sealed class PlacesGrain(
         CareLabel = FurniRules.CareFor(f, now)?.Label,
         UseLabel = FurniRules.UseOf(f, now)?.Label,
         On = FurniRules.IsOn(f, now),
+        Style = f.Style,
     };
 
     private static long NextMishapDelay()
