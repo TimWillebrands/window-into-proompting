@@ -22,7 +22,7 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
 
     [HttpPut]
     public async Task<ActionResult<WorldStatus>> Update(Guid partyId, [FromBody] UpdateWorldRequest request)
-        => Ok(await Clock(partyId).UpdateAsync(request.Running, request.TickSeconds, request.MaxActionsPerHour));
+        => Ok(await Clock(partyId).UpdateAsync(request.Running, request.TickSeconds, request.MaxActionsPerHour, request.AmbientMinutes));
 
     /// <summary>Give one Persona (or a weighted pick) a Life turn right now.</summary>
     [HttpPost("tick")]
@@ -204,7 +204,7 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
     }
 }
 
-public sealed record UpdateWorldRequest(bool? Running, int? TickSeconds, int? MaxActionsPerHour);
+public sealed record UpdateWorldRequest(bool? Running, int? TickSeconds, int? MaxActionsPerHour, int? AmbientMinutes = null);
 public sealed record TickRequest(Guid? PersonaId, string? Nudge);
 public sealed record TickResponse(bool Started);
 public sealed record EnsurePlayerRequest(string? Name);

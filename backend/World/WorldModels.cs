@@ -35,6 +35,7 @@ public sealed record class WorldStatus
     [Id(5)] public Guid? PlayerId { get; init; }
     [Id(6)] public List<Guid> BusyPersonaIds { get; init; } = new();
     [Id(7)] public long? LastTickAt { get; init; }
+    [Id(8)] public int AmbientMinutes { get; init; }
 }
 
 public static class WorldStream

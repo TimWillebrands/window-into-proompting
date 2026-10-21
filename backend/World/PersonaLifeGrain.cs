@@ -74,6 +74,7 @@ public sealed class PersonaLifeGrain(
 You live in a small online world — a retro desktop where a handful of people hang out across a few apps: chat rooms, private messages, a public Board, and your own diary. Nobody is asking anything of you right now. You're deciding what you feel like doing next, as yourself.
 
 Pick ONE option. Let your character, mood and relationships decide. Someone waiting on a reply usually matters — unless you'd rather avoid them. Don't repeat what you just did; people drift between apps. Resting is a fine choice.
+You have a life beyond this desktop — your work, your interests, small things that happened to you today (invent plausible ones that fit who you are). Not everything has to be about what the others are discussing; bring your own world in.
 Output ONLY JSON: {ChoiceShape}
 """;
 

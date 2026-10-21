@@ -15,6 +15,7 @@ public sealed class WorldClockGrain(
     IPersistentState<WorldClockState> state,
     WorldMemory memory,
     ISystemOneJudge judge,
+    IWorldLlm llm,
     ILogger<WorldClockGrain> logger)
     : Grain, IWorldClockGrain
 {
@@ -23,6 +24,7 @@ public sealed class WorldClockGrain(
     private static readonly TimeSpan Lull = TimeSpan.FromSeconds(90);
     private const int MinNewMessagesForCapture = 3;
     private const double MemorableThreshold = 0.35;
+    private const string AmbientShape = """{"happening": "<one or two sentences>"}""";
 
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
     private readonly HashSet<Guid> _capturing = new();
@@ -31,8 +33,9 @@ public sealed class WorldClockGrain(
 
     public Task<WorldStatus> GetStatusAsync() => Task.FromResult(Status());
 
-    public async Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour)
+    public async Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour, int? ambientMinutes = null)
     {
+        if (ambientMinutes is { } am) state.State.AmbientMinutes = Math.Clamp(am, 0, 24 * 60);
         if (running is { } r) state.State.Running = r;
         if (tickSeconds is { } t) state.State.TickSeconds = Math.Clamp(t, 5, 3600);
         if (maxActionsPerHour is { } m) state.State.MaxActionsPerHour = Math.Clamp(m, 0, 2000);
@@ -51,6 +54,12 @@ public sealed class WorldClockGrain(
 
         await CaptureLullsAsync(now);
         if (!WithinBudget(now)) return;
+        if (AmbientDue(now))
+        {
+            state.State.LastAmbientAt = now.ToUnixTimeMilliseconds();
+            state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
+            _ = AmbientHappeningAsync();
+        }
 
         var personaId = await PickPersonaAsync(now);
         if (personaId is null) return;
@@ -263,6 +272,42 @@ public sealed class WorldClockGrain(
         }
     }
 
+    private bool AmbientDue(DateTimeOffset now)
+    {
+        if (state.State.AmbientMinutes <= 0) return false;
+        if (state.State.LastAmbientAt is null)
+        {
+            // First sight: start the interval now rather than firing immediately.
+            state.State.LastAmbientAt = now.ToUnixTimeMilliseconds();
+            return false;
+        }
+        return now.ToUnixTimeMilliseconds() - state.State.LastAmbientAt.Value >= state.State.AmbientMinutes * 60_000L;
+    }
+
+    /// <summary>Novelty against echo chambers: the Narrator lets something small happen in the world.</summary>
+    private async Task AmbientHappeningAsync()
+    {
+        try
+        {
+            var recent = state.State.Activities
+                .Where(a => a.Action == "happening").TakeLast(6).Select(a => $"- {a.Summary}");
+            var talk = state.State.Activities
+                .Where(a => a.Action is "post" or "reply" or "say" or "dm").TakeLast(6).Select(a => $"- {a.PersonaName} {a.Summary}");
+            var local = DateTimeOffset.Now;
+            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
+                $"You are the narrator of a small online world shared by a handful of people. Let ONE small, concrete thing happen in their surroundings — weather, a local event, a glitch, news, a delivery, a neighbourhood rumour. Everyday scale, no catastrophes, nothing about any person's inner life. It should give people something new to react to, unrelated to what they're already discussing. One or two sentences, present tense.\nOutput ONLY JSON: {AmbientShape}",
+                $"It is {local:dddd HH:mm}.\n\nRecent happenings (don't repeat):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
+                CancellationToken.None, 1.0);
+            var text = json?["happening"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(text))
+                await AnnounceAsync(text);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Ambient happening failed");
+        }
+    }
+
     /// <summary>Capture as relevance realization: System One judges whether the span is worth a memory at all.</summary>
     private async Task<bool> IsMemorableAsync(List<ChatMessage> context, List<ParticipantView> present)
     {
@@ -315,6 +360,7 @@ public sealed class WorldClockGrain(
             PlayerId = state.State.PlayerId,
             BusyPersonaIds = _busy.Keys.ToList(),
             LastTickAt = state.State.LastTickAt,
+            AmbientMinutes = state.State.AmbientMinutes,
         };
     }
 
@@ -326,7 +372,7 @@ public sealed class WorldClockGrain(
 public interface IWorldClockGrain : IGrainWithGuidKey
 {
     [Alias("GetStatusAsync")] Task<WorldStatus> GetStatusAsync();
-    [Alias("UpdateAsync")] Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour);
+    [Alias("UpdateAsync")] Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour, int? ambientMinutes = null);
     [Alias("PulseAsync")] Task PulseAsync();
     /// <summary>Force one Life turn now (ignores pause and interval, respects busy).</summary>
     [Alias("TickNowAsync")] Task<bool> TickNowAsync(Guid? personaId, string? nudge);
@@ -350,4 +396,7 @@ public sealed class WorldClockState
     [Id(6)] public Dictionary<Guid, long> LastActedAt { get; set; } = new();
     [Id(7)] public Dictionary<Guid, int> CaptureCursors { get; set; } = new();
     [Id(8)] public Guid? PlayerId { get; set; }
+    /// <summary>Minutes between Narrator-generated Happenings; 0 = off.</summary>
+    [Id(9)] public int AmbientMinutes { get; set; } = 30;
+    [Id(10)] public long? LastAmbientAt { get; set; }
 }
