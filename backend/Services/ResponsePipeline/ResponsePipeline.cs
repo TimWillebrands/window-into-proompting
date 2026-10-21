@@ -157,7 +157,8 @@ public sealed class ResponsePipeline(
             {
                 recollections = await memoryRepository.RecallAsync(
                     persona.Id, partyId, presentPersonaIds,
-                    triggeringMessage.Content ?? string.Empty, limit: 10, linkedCt);
+                    triggeringMessage.Content ?? string.Empty, limit: 10, linkedCt,
+                    await PlaceOfAsync(roomCast, partyId, chatGroupId));
             }
             catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
             {
@@ -459,7 +460,8 @@ public sealed class ResponsePipeline(
             IReadOnlyList<string> stanceLines = Array.Empty<string>();
             try
             {
-                var recalled = await memoryRepository.RecallAsync(persona.Id, partyId, presentIds, intent, limit: 5, linkedCt);
+                var recalled = await memoryRepository.RecallAsync(persona.Id, partyId, presentIds, intent, limit: 5, linkedCt,
+                    await PlaceOfAsync(roomCast, partyId, chatGroupId));
                 memory = recalled.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
                 stanceLines = (await memoryRepository.RecallStancesAsync(partyId, persona.Id, presentIds, intent, limit: 5, linkedCt))
                     .Select(StanceBlock.FormatLine).ToList();
@@ -701,4 +703,10 @@ public sealed class ResponsePipeline(
             Data = data,
             Done = done
         });
+
+    /// <summary>A Place talk Room anchors recall on its Place; other Rooms don't.</summary>
+    private Task<Guid?> PlaceOfAsync(RoomCast roomCast, Guid partyId, Guid chatGroupId)
+        => roomCast.Kind == ChatGroupKinds.Place
+            ? grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetPlaceOfTalkRoomAsync(chatGroupId)
+            : Task.FromResult<Guid?>(null);
 }

@@ -88,6 +88,9 @@ public sealed class PlacesGrain(
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
     }
 
+    public Task<Guid?> GetPlaceOfAsync(Guid participantId)
+        => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var b) && !b.IsWalking ? b.PlaceId : (Guid?)null);
+
     public Task<Guid?> GetPlaceOfTalkRoomAsync(Guid talkRoomId)
         => Task.FromResult(state.State.Places.FirstOrDefault(p => p.TalkRoomId == talkRoomId)?.Id);
 
@@ -316,6 +319,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Walk over to another Body's spot.</summary>
     [Alias("JoinAsync")] Task<Body?> JoinAsync(Guid participantId, Guid otherId);
+
+    /// <summary>The Place a Body is settled in; null while walking or without a Body.</summary>
+    [Alias("GetPlaceOfAsync")] Task<Guid?> GetPlaceOfAsync(Guid participantId);
 
     /// <summary>Which Place a Place talk Room belongs to; null for any other Room.</summary>
     [Alias("GetPlaceOfTalkRoomAsync")] Task<Guid?> GetPlaceOfTalkRoomAsync(Guid talkRoomId);

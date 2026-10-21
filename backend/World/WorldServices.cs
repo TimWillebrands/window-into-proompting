@@ -175,7 +175,8 @@ public sealed class WorldMemory(
         IReadOnlyList<string> stances = Array.Empty<string>();
         try
         {
-            memories = await repository.RecallAsync(personaId, partyId, anchors, anchorText, 8, ct);
+            var placeId = await grains.GetGrain<Places.IPlacesGrain>(partyId).GetPlaceOfAsync(personaId);
+            memories = await repository.RecallAsync(personaId, partyId, anchors, anchorText, 8, ct, placeId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

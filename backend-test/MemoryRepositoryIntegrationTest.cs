@@ -560,6 +560,29 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     }
 
     [Fact]
+    public async Task Recall_PlaceAnchor_SurfacesWhatHappenedHere()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var cafe = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var repo = MakeRepo();
+
+        var atTheCafe = $"cafe-moment-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, atTheCafe, weight: 0.5, placeId: cafe);
+        for (var i = 0; i < 10; i++)
+            await CaptureForAsync(repo, partyId, roomId, hana, $"filler-{i}-{Guid.NewGuid():N}", weight: 0.6);
+
+        var elsewhere = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None, Guid.NewGuid());
+        Assert.DoesNotContain(atTheCafe, elsewhere.Select(m => m.Snippet));
+
+        var backAtTheCafe = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None, cafe);
+        Assert.Equal(RecallArm.Relevant, Assert.Single(backAtTheCafe, m => m.Snippet == atTheCafe).Arm);
+    }
+
+    [Fact]
     public async Task Recall_ColdBeat_IdenticalToRecencyOnlyRecall()
     {
         RequireDevStack();
@@ -906,7 +929,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         MemoryRepository _, Guid partyId, Guid roomId, ParticipantView participant,
         string snippet, double weight,
         IReadOnlyList<Guid>? aboutParticipantIds = null,
-        ConceptTag? concept = null)
+        ConceptTag? concept = null,
+        Guid? placeId = null)
     {
         var messageId = unchecked((int)((DateTimeOffset.UtcNow.Ticks + Environment.TickCount64) & 0x7FFFFFFF));
         var source = new ChatMessage
@@ -927,7 +951,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 [participant.Name] = new(snippet, weight),
             });
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        var result = await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { participant }), CancellationToken.None);
+        var result = await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { participant }, placeId), CancellationToken.None);
         Assert.True(result.EventCreated);
         Assert.Equal(1, result.RecollectionsCreated);
     }

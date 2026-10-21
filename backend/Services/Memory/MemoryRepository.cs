@@ -166,7 +166,8 @@ public sealed class MemoryRepository(
         IReadOnlyList<Guid> presentPersonaIds,
         string anchorText,
         int limit,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? placeId = null)
     {
         if (limit <= 0)
         {
@@ -195,7 +196,7 @@ public sealed class MemoryRepository(
             // for `ag_catalog.agtype`. weight is projected as text and parsed in C# to stay
             // on that proven cast path. Salience is deliberately NOT computed in Cypher
             // (ADR 0015) — fetch candidates, score and rank here.
-            var sql = BuildRecallSql(personaId, partyId, castAnchors, tokenAnchors);
+            var sql = BuildRecallSql(personaId, partyId, castAnchors, tokenAnchors, placeId);
 
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
             await using var cmd = conn.CreateCommand();
@@ -299,7 +300,8 @@ public sealed class MemoryRepository(
         Guid personaId,
         Guid partyId,
         IReadOnlyList<Guid> castAnchors,
-        IReadOnlyList<string> tokenAnchors)
+        IReadOnlyList<string> tokenAnchors,
+        Guid? placeId = null)
     {
         var match =
             $"MATCH (part:Participant {{persona_id: '{personaId}', party_id: '{partyId}'}})-[r:RECOLLECTS]->";
@@ -309,7 +311,7 @@ public sealed class MemoryRepository(
         const string asClause =
             "AS (id text, snippet text, weight text, recall_count int, last_recalled text, ts text, relevant int)";
 
-        if (castAnchors.Count == 0 && tokenAnchors.Count == 0)
+        if (castAnchors.Count == 0 && tokenAnchors.Count == 0 && placeId is null)
         {
             return $"""
                 SELECT * FROM cypher('memory', $cy$
@@ -337,6 +339,15 @@ public sealed class MemoryRepository(
             legs.Add($"""
                   {match}(:Event)-[:ABOUT]->(c:Concept)
                   WHERE c.name IN [{names}]
+                  RETURN {columns}, 1 AS relevant
+                """);
+        }
+        if (placeId is { } place)
+        {
+            // Being back where it happened: Place talk Events carry place_id (spec .scratch/places).
+            legs.Add($"""
+                  {match}(e:Event)
+                  WHERE e.place_id = '{place}'
                   RETURN {columns}, 1 AS relevant
                 """);
         }

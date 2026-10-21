@@ -41,13 +41,15 @@ public interface IMemoryRepository
     /// <param name="presentPersonaIds">The Room's live cast (self included) — Participant anchors.</param>
     /// <param name="anchorText">The triggering message — tokenised into Concept anchors.</param>
     /// <param name="limit">Maximum number of memories to return. Caller picks the budget.</param>
+    /// <param name="placeId">Where the Persona's Body is: Events that happened there are relevant.</param>
     Task<IReadOnlyList<RecalledMemory>> RecallAsync(
         Guid personaId,
         Guid partyId,
         IReadOnlyList<Guid> presentPersonaIds,
         string anchorText,
         int limit,
-        CancellationToken ct);
+        CancellationToken ct,
+        Guid? placeId = null);
 
     /// <summary>
     /// Strengthening write (ADR 0015): the Decision phase *picked* this memory — not mere

@@ -20,7 +20,8 @@ public sealed class StubMemoryRepository : IMemoryRepository
         IReadOnlyList<Guid> presentPersonaIds,
         string anchorText,
         int limit,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? placeId = null)
         => Task.FromResult<IReadOnlyList<RecalledMemory>>(Array.Empty<RecalledMemory>());
 
     public Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
