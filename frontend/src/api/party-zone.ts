@@ -19675,6 +19675,126 @@ export const usePostWorldsPartyIdPlayer = <
     );
 };
 
+export type deleteWorldsPartyIdPlayersPlayerIdResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteWorldsPartyIdPlayersPlayerIdResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteWorldsPartyIdPlayersPlayerIdResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+export type deleteWorldsPartyIdPlayersPlayerIdResponseError = (
+    | deleteWorldsPartyIdPlayersPlayerIdResponse404TextPlain
+    | deleteWorldsPartyIdPlayersPlayerIdResponse404ApplicationJson
+    | deleteWorldsPartyIdPlayersPlayerIdResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type deleteWorldsPartyIdPlayersPlayerIdResponse =
+    deleteWorldsPartyIdPlayersPlayerIdResponseError;
+
+export const getDeleteWorldsPartyIdPlayersPlayerIdUrl = (
+    partyId: string,
+    playerId: string,
+) => {
+    return `/api/worlds/${partyId}/players/${playerId}`;
+};
+
+export const deleteWorldsPartyIdPlayersPlayerId = async (
+    partyId: string,
+    playerId: string,
+    options?: RequestInit,
+): Promise<deleteWorldsPartyIdPlayersPlayerIdResponse> => {
+    return customFetch<deleteWorldsPartyIdPlayersPlayerIdResponse>(
+        getDeleteWorldsPartyIdPlayersPlayerIdUrl(partyId, playerId),
+        {
+            ...options,
+            method: 'DELETE',
+        },
+    );
+};
+
+export const getDeleteWorldsPartyIdPlayersPlayerIdMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>,
+        TError,
+        { partyId: string; playerId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>,
+    TError,
+    { partyId: string; playerId: string },
+    TContext
+> => {
+    const mutationKey = ['deleteWorldsPartyIdPlayersPlayerId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>,
+        { partyId: string; playerId: string }
+    > = (props) => {
+        const { partyId, playerId } = props ?? {};
+
+        return deleteWorldsPartyIdPlayersPlayerId(
+            partyId,
+            playerId,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorldsPartyIdPlayersPlayerIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>
+>;
+
+export type DeleteWorldsPartyIdPlayersPlayerIdMutationError = ProblemDetails;
+
+export const useDeleteWorldsPartyIdPlayersPlayerId = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>,
+            TError,
+            { partyId: string; playerId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlayersPlayerId>>,
+    TError,
+    { partyId: string; playerId: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteWorldsPartyIdPlayersPlayerIdMutationOptions(options),
+        queryClient,
+    );
+};
+
 export type getWorldsPartyIdBoardResponse200TextPlain = {
     data: BoardThread[];
     status: 200;
