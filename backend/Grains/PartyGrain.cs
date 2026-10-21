@@ -67,6 +67,32 @@ public sealed class PartyGrain(
         await ConfirmEvents();
     }
 
+    public async Task<List<PartyParticipant>> AddParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var known = State.Participants.Select(p => p.Id).ToHashSet();
+        var added = participants.Where(p => p.Id != Guid.Empty && known.Add(p.Id)).ToList();
+        if (added.Count > 0)
+            await SetParticipants(State.Participants.Concat(added).ToList());
+        return added;
+    }
+
+    public async Task UpsertParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var byId = State.Participants.ToDictionary(p => p.Id);
+        foreach (var p in participants.Where(p => p.Id != Guid.Empty))
+            byId[p.Id] = p;
+        await SetParticipants(byId.Values.ToList());
+    }
+
+    public async Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId)
+    {
+        // Narrator is enforced on every write; removing it would just re-add it.
+        var leaving = State.Participants.FirstOrDefault(p => p.Id == personaId && p.Id != Narrator.PersonaId);
+        if (leaving is not null)
+            await SetParticipants(State.Participants.Where(p => p.Id != personaId).ToList());
+        return leaving;
+    }
+
     private static bool ParticipantsEqual(List<PartyParticipant> a, List<PartyParticipant> b)
     {
         if (a.Count != b.Count) return false;
@@ -295,8 +321,21 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("SetParty")]
     Task SetParty(PartyInfo party);
 
+    /// <summary>Wholesale replace — seeding and the cast editor only; prefer the intent commands.</summary>
     [Alias("SetParticipants")]
     Task SetParticipants(List<PartyParticipant> participants);
+
+    /// <summary>Add Participants not yet in the cast; returns the ones actually added.</summary>
+    [Alias("AddParticipantsAsync")]
+    Task<List<PartyParticipant>> AddParticipantsAsync(List<PartyParticipant> participants);
+
+    /// <summary>Add or overwrite Participants by id (import re-runs).</summary>
+    [Alias("UpsertParticipantsAsync")]
+    Task UpsertParticipantsAsync(List<PartyParticipant> participants);
+
+    /// <summary>Remove one Participant; returns it, or null when absent (or the Narrator).</summary>
+    [Alias("RemoveParticipantAsync")]
+    Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId);
 
     [AlwaysInterleave]
     [Alias("GetChatGroups")]

@@ -239,8 +239,7 @@ public sealed class PartyController(
                     Driver = DriverKind.LLM,
                 })
                 .ToList();
-            var nextCast = party.Participants.Concat(promoted).ToList();
-            await partyGrain.SetParticipants(nextCast);
+            await partyGrain.AddParticipantsAsync(promoted);
         }
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);

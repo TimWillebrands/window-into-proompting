@@ -67,19 +67,11 @@ public sealed class ImportCommitService(
         // 2. Membership: merge the import cast into the Party (dedup by id — reruns and
         //    later scenes are no-ops), then pin this Room's cast. The Narrator rides along
         //    automatically (PartyGrain enforces it; model-role messages are sent as it).
-        var partyGrain = grains.GetGrain<IPartyGrain>(target.PartyId);
-        var party = await partyGrain.GetParty();
-        var byId = party.Participants.ToDictionary(p => p.Id);
-        foreach (var participant in plan.Participants)
-            byId[participant.Id] = participant;
-        await partyGrain.SetParticipants(byId.Values.ToList());
+        await grains.GetGrain<IPartyGrain>(target.PartyId).UpsertParticipantsAsync(plan.Participants.ToList());
 
         var room = grains.GetGrain<IChatGroupGrain>(target.RoomId);
-        var roomIds = new HashSet<Guid>(await room.GetParticipantIdsAsync());
-        foreach (var participant in plan.Participants)
-            roomIds.Add(participant.Id);
-        roomIds.Add(Narrator.PersonaId);
-        await room.SetParticipantIdsAsync(roomIds);
+        await room.JoinAsync(
+            plan.Participants.Select(p => p.Id).Append(Narrator.PersonaId).ToList());
 
         // 3. History messages — append once, flag persisted so retries never double-write.
         var messagesWritten = 0;

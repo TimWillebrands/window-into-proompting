@@ -67,13 +67,12 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
     {
         var persona = await grains.GetGrain<IPersonaGrain>(request.PersonaId).GetPersona();
         if (string.IsNullOrEmpty(persona.Name) || request.PersonaId == Narrator.PersonaId) return NotFound();
-        var party = grains.GetGrain<IPartyGrain>(partyId);
-        var info = await party.GetParty();
-        if (info.Participants.All(p => p.Id != request.PersonaId))
+        var added = await grains.GetGrain<IPartyGrain>(partyId).AddParticipantsAsync(new List<PartyParticipant>
         {
-            var participants = info.Participants.ToList();
-            participants.Add(new PartyParticipant { Id = request.PersonaId, Name = persona.Name, Driver = DriverKind.LLM });
-            await party.SetParticipants(participants);
+            new() { Id = request.PersonaId, Name = persona.Name, Driver = DriverKind.LLM },
+        });
+        if (added.Count > 0)
+        {
             await Clock(partyId).RecordAsync(new WorldActivity
             {
                 PersonaId = request.PersonaId, PersonaName = persona.Name, App = "world", Action = "arrive",
@@ -89,9 +88,8 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
     {
         var party = grains.GetGrain<IPartyGrain>(partyId);
         var info = await party.GetParty();
-        var leaving = info.Participants.FirstOrDefault(p => p.Id == personaId && p.Driver == DriverKind.LLM);
-        if (leaving is null) return NotFound();
-        await party.SetParticipants(info.Participants.Where(p => p.Id != personaId).ToList());
+        if (info.Participants.All(p => p.Id != personaId || p.Driver != DriverKind.LLM)) return NotFound();
+        if (await party.RemoveParticipantAsync(personaId) is not { } leaving) return NotFound();
         await Clock(partyId).RecordAsync(new WorldActivity
         {
             PersonaId = personaId, PersonaName = leaving.Name, App = "world", Action = "leave", Summary = "moved out of the world",

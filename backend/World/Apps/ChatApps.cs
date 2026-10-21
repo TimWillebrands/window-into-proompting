@@ -84,10 +84,7 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         if (affordance.TargetId is not { } roomId) return null;
         if (affordance.Verb == "join")
         {
-            var room = grains.GetGrain<IChatGroupGrain>(roomId);
-            var members = (await room.GetParticipantIdsAsync()).ToHashSet();
-            members.Add(ctx.Self.Id);
-            await room.SetParticipantIdsAsync(members);
+            await grains.GetGrain<IChatGroupGrain>(roomId).JoinAsync(new List<Guid> { ctx.Self.Id });
         }
         var line = await grains.GetGrain<IPersonaGrain>(ctx.Self.Id).InitiateAsync(roomId, intent, thought);
         if (string.IsNullOrWhiteSpace(line)) return null;

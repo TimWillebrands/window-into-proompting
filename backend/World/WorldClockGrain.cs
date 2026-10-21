@@ -138,10 +138,8 @@ public sealed class WorldClockGrain(
             var display = wanted ?? "You";
             await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(
                 new Persona(id, display, "A human visiting this world.", "A real person, not a character."));
-            var participants = info.Participants.ToList();
-            participants.Add(new PartyParticipant { Id = id, Name = display, Driver = DriverKind.User });
-            await party.SetParticipants(participants);
-            link = participants[^1];
+            link = new PartyParticipant { Id = id, Name = display, Driver = DriverKind.User };
+            await party.AddParticipantsAsync(new List<PartyParticipant> { link });
         }
 
         if (state.State.PlayerId is null || humans.All(h => h.Id != state.State.PlayerId))
@@ -283,14 +281,12 @@ public sealed class WorldClockGrain(
     {
         var due = await GrainFactory.GetGrain<ICalendarGrain>(PartyId).StartDueAsync(now.ToUnixTimeMilliseconds());
         if (due.Count == 0) return;
-        var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
         foreach (var g in due)
         {
-            var attendees = g.AttendeeIds.Where(id => cast.Any(c => c.Id == id)).ToList();
             var room = GrainFactory.GetGrain<IChatGroupGrain>(g.RoomId);
-            var members = (await room.GetParticipantIdsAsync()).ToHashSet();
-            members.UnionWith(attendees);
-            await room.SetParticipantIdsAsync(members);
+            var members = await room.JoinAsync(g.AttendeeIds.ToList());
+            var attendees = g.AttendeeIds.Where(members.Contains).ToList();
+            var roomCast = await room.GetCastAsync();
 
             await RecordAsync(new WorldActivity
             {
@@ -298,7 +294,7 @@ public sealed class WorldClockGrain(
                 Summary = $"\"{g.Title}\" is starting in #{g.RoomName} ({attendees.Count} going)",
             });
 
-            foreach (var id in attendees.Where(id => cast.First(c => c.Id == id).DefaultDriver == DriverKind.LLM && !IsBusy(id, now)))
+            foreach (var id in attendees.Where(id => roomCast.EffectiveOf(id) == DriverKind.LLM && !IsBusy(id, now)))
                 StartLife(id, $"It's time for \"{g.Title}\" in #{g.RoomName} — you said you'd be there.");
         }
         await state.WriteStateAsync();

@@ -110,6 +110,17 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await ConfirmEvents();
     }
 
+    public async Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds)
+    {
+        // Room ⊆ Party: ids outside the Party cast never enter the Room.
+        var party = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetParty();
+        var cast = party.Participants.Select(p => p.Id).ToHashSet();
+        var next = new HashSet<Guid>(State.ParticipantIds);
+        next.UnionWith(personaIds.Where(cast.Contains));
+        await SetParticipantIdsAsync(next);
+        return State.ParticipantIds;
+    }
+
     // Orleans serializes the return value across the grain boundary, so an in-grain
     // defensive copy would be wasted work.
     public Task<IReadOnlySet<Guid>> GetParticipantIdsAsync()
@@ -549,6 +560,10 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     /// it lives on the Participant (Default Driver) and the Room override map.</summary>
     [Alias("GetParticipantIdsAsync")]
     Task<IReadOnlySet<Guid>> GetParticipantIdsAsync();
+
+    /// <summary>Add Personas to the Room; ids not in the Party cast are dropped. Returns membership.</summary>
+    [Alias("JoinAsync")]
+    Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds);
 
     /// <summary>The sparse per-Persona Driver override map for this Room. A missing
     /// entry means the Participant's Default Driver applies.</summary>
