@@ -54,7 +54,14 @@ background.
 11. **No repeating yourself.** Each persona sees their last 3 lines from anywhere (Rooms, DMs and the
     Board), since people talk and things get around. The Board counts toward stale words and gets the
     block too.
-12. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+12. **Recall refractory** (`SalienceMath.Refractory`). Picking a memory strengthens it. With nothing to
+    balance that, the most-told story kept winning. Now a memory picked within 4 h is damped, starting at
+    ×0.25 and recovering over those 4 h. Long-term strengthening is unchanged: you don't retell the story
+    you just told.
+13. **Winding down.** The thermostat also asks *fizzling?* ("mostly acknowledgments"). While a chat is
+    fizzling, it cues letting it end, and the name-mention auto-reply is off. That stops "still here" /
+    "fine by me" ping-pong.
+14. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
