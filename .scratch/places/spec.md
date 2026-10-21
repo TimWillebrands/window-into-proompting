@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: ready-for-agent (reviewed 2026-10-21, see § Review log; phases reordered)
+Status: in progress, phase 2 (see § Progress)
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -157,6 +157,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
 2. **Shared Places at start?** Lobby + Café, plus Homes. "Found a new Place" comes later as an Initiative Affordance (it's a good consequence-making action).
 3. **Earshot tuning?** Whisper 1 tile, talk 4, shout the whole Place (and through open doors). Snapshot at send time; a speaker walking mid-sentence doesn't matter.
 4. **Muffled detail?** Tone and "heard your name", via System One; never the topic. See § Sound.
+
+## Progress
+
+- **Phase 1 done** (b828d44, ffeb431, d92b8ae, 88f8c8e). `PlacesGrain` holds Places *and* the body index. `PlaceGrain` is deferred until furni exist (phase 4); one grain is enough while Places are just named spots. Lobby + Café seeded; a Home per Participant on first sight (Narrator excluded); others' Homes are not enterable yet. Walking: 6 s within a Place, 60 s between Places, settled by a keep-alive grain timer plus lazily on every read. Place talk Room (`Kind = "place"`) is created on first entry, its cast synced on enter/leave, and hidden from D'Accord. Restlessness: after 45 min in one Place, "go out" Affordances gain +1 pull (otherwise nobody ever leaves an empty-world start). Text-only Places window: Navigator, spots, walking countdown, Place talk.
+- **Phase 2 partly done** (51352a0). The Situation line is in eb's `# Right now` block (`PersonaSelfGrain.GetPresenceAsync`), so Decision, Speaking, Life and Diary prompts all get it. The day beat is relabelled "Off-screen right now": the Body wins for *where*, the day is the life around it. Body activity follows App use for 4 min (phone; laptop for the Board at home; diary), shown in others' Situation. Messenger demotes DMs to people in the same Place.
+- **Phase 2 open**: Place as recall anchor (`place_id` on captured Events). This waits on fa's Capture-verb refactor. Human Body activity (typing) isn't tracked yet.
+- **Verified live**: the API walk → arrival → Café talk Room creation works across a `dotnet watch` reload. Pieter's Life thought mentioned "I've been indoors since…". Browser check of the window blocked: Servo + the dev console-forwarding loop starved the page; data rendered, the Player id never resolved.
 
 ## Review log
 
