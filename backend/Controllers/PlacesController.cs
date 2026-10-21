@@ -75,6 +75,18 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return await Places(partyId).LetInAsync(who.Value, request.VisitorId) ? NoContent() : Conflict("No home to let them into.");
     }
 
+    /// <summary>Put something up in your own Home (default: the Player). 409 when not home or over today's allowance.</summary>
+    [HttpPost("decorate")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<FurniActionResponse>> Decorate(Guid partyId, [FromBody] DecorateRequest request)
+    {
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 200) return BadRequest("Describe it in under 200 characters.");
+        var done = await Places(partyId).DecorateAsync(who.Value, request.Text);
+        return done is null ? Conflict("Only at home, and at most two new things a day.") : Ok(new FurniActionResponse(done));
+    }
+
     private IPlacesGrain Places(Guid partyId) => grains.GetGrain<IPlacesGrain>(partyId);
 }
 
@@ -82,6 +94,7 @@ public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? Partici
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
+public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);
 public sealed record LetInRequest(Guid VisitorId, Guid? OwnerId);
 public sealed record VoiceRequest(string Volume, Guid? To, Guid? ParticipantId);

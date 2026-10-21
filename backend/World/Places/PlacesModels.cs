@@ -66,6 +66,7 @@ public sealed class Body
     [Id(13)] public bool Asleep { get; set; }
     /// <summary>Woken in the night (a human's message); stays up until then.</summary>
     [Id(14)] public long? WokenUntil { get; set; }
+    [Id(15)] public Appearance? Appearance { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

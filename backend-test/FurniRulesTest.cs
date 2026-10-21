@@ -59,4 +59,15 @@ public class FurniRulesTest
         Assert.Null(FurniRules.UseOf(jukebox, 60_000));
         Assert.Null(FurniRules.Notable(jukebox, FurniRules.SongLasts.Ticks / TimeSpan.TicksPerMillisecond + 1));
     }
+
+    [Theory]
+    [InlineData("I'll hang a vintage Bowie poster over the sofa.", "poster", "a vintage Bowie poster over the sofa")]
+    [InlineData("put up a print that says Lisp is elegant", "poster", "a print that says Lisp is elegant")]
+    [InlineData("bring out my old ukulele", "guitar", "my old ukulele")]
+    [InlineData("a tiny brass owl from the flea market", "thing", "a tiny brass owl from the flea market")]
+    public void Decor_ReadsStyleAndLabelFromTheirWords(string said, string style, string label)
+    {
+        Assert.Equal(style, Decor.StyleOf(said));
+        Assert.Equal(label, Decor.Label(said));
+    }
 }

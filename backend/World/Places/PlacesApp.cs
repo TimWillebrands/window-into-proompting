@@ -127,6 +127,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 sb.AppendLine($"{ctx.NameOf(visitor)} is knocking at your door.");
                 affordances.Add(new Affordance(Id, $"Let {ctx.NameOf(visitor)} in", 3, visitor, "letin"));
             }
+            // Making it yours: stances and interests end up on the walls (the intent is what goes up).
+            var decor = here.Furni.Where(f => f.Kind == FurniKinds.Decor).ToList();
+            if (decor.Count > 0) sb.AppendLine($"Your place has: {string.Join("; ", decor.OrderByDescending(f => f.TendedAt).Take(4).Select(f => f.Name))}.");
+            affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
+
             var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId)).ToList();
             if (away.Count > 0)
             {
@@ -164,6 +169,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 return new ActOutcome(affordance.Verb!, whisper
                     ? $"whispers to {ctx.NameOf(target)}: \"{WorldStream.Clip(line, 160)}\""
                     : $"calls out across the room: \"{WorldStream.Clip(line, 160)}\"", room);
+            }
+            case "decorate":
+            {
+                var done = await places.DecorateAsync(ctx.Self.Id, intent);
+                return done is null ? null : new ActOutcome("decorate", done, null);
             }
             case "knock":
             {

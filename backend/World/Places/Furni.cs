@@ -18,6 +18,8 @@ public sealed class Furni
     /// <summary>What it's doing while on, e.g. the song on the jukebox.</summary>
     [Id(8)] public string? Playing { get; set; }
     [Id(9)] public string? PlayedBy { get; set; }
+    /// <summary>Decor only: poster, painting, plant, rug, lamp, books, guitar, photo or thing.</summary>
+    [Id(10)] public string? Style { get; set; }
 }
 
 public static class FurniKinds
@@ -29,6 +31,47 @@ public static class FurniKinds
     public const string Lamp = "lamp";
     public const string Laptop = "laptop";
     public const string Bed = "bed";
+    public const string Decor = "decor";
+}
+
+/// <summary>Making a Home yours (spec phase 8): what someone puts up, from their own words.</summary>
+public static class Decor
+{
+    public const int PerDay = 2;
+    public const int MaxInHome = 8;
+
+    private static readonly (string Style, string[] Words)[] Styles =
+    {
+        ("poster", new[] { "poster", "print" }),
+        ("painting", new[] { "painting", "canvas", "artwork", "art" }),
+        ("photo", new[] { "photo", "picture", "polaroid", "frame" }),
+        ("plant", new[] { "plant", "monstera", "cactus", "fern", "flowers", "succulent" }),
+        ("rug", new[] { "rug", "carpet", "mat" }),
+        ("lamp", new[] { "lamp", "lights", "candle", "fairy" }),
+        ("books", new[] { "book", "books", "shelf", "bookshelf", "records", "vinyl" }),
+        ("guitar", new[] { "guitar", "piano", "keyboard", "instrument", "ukulele" }),
+    };
+
+    /// <summary>The style a description reads as; "thing" when nothing matches.</summary>
+    public static string StyleOf(string description)
+    {
+        var lower = description.ToLowerInvariant();
+        return Styles.FirstOrDefault(s => s.Words.Any(w => lower.Contains(w))).Style ?? "thing";
+    }
+
+    /// <summary>"I'll hang a vintage Bowie poster over the sofa." → "a vintage Bowie poster over the sofa".</summary>
+    public static string Label(string description)
+    {
+        var t = System.Text.RegularExpressions.Regex.Replace(description.Trim(),
+            @"^(i('ll| will| want to| think i'll)?\s+)?(finally\s+)?(put up|hang( up)?|put|place|set up|add|bring out|buy|get)\s+",
+            string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        t = t.TrimEnd('.', '!', ' ');
+        return WorldStream.Clip(t.Length > 0 ? t : description, 60);
+    }
+
+    /// <summary>How many were put up since local midnight.</summary>
+    public static int PlacedToday(IEnumerable<Furni> furni, long now, long localMidnight)
+        => furni.Count(f => f.Kind == FurniKinds.Decor && f.TendedAt >= localMidnight && f.TendedAt <= now);
 }
 
 /// <summary>What one use or care action asks of the Places grain.</summary>

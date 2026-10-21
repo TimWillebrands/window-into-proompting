@@ -18,6 +18,7 @@ public sealed class PlacesGrain(
     TimeProvider time,
     ISystemOneJudge judge,
     WorldMemory memory,
+    IWorldLlm llm,
     ILogger<PlacesGrain> logger)
     : Grain, IPlacesGrain
 {
@@ -29,6 +30,7 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan MishapMax = TimeSpan.FromHours(8);
     private IGrainTimer? _arrivals;
     private readonly Dictionary<Guid, ChatGroupInfo> _rooms = new();
+    private readonly HashSet<Guid> _dressing = new();
     private readonly Dictionary<Guid, (int Bed, int Wake, long At)> _sleepWindows = new();
     private long _lastSleepCheck;
     private static readonly TimeSpan SleepCheckEvery = TimeSpan.FromSeconds(20);
@@ -130,6 +132,34 @@ public sealed class PlacesGrain(
             ?? new List<Guid>());
     }
 
+    public async Task<string?> DecorateAsync(Guid participantId, string description)
+    {
+        await SettleAsync();
+        if (string.IsNullOrWhiteSpace(description)) return null;
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking) return null;
+        var home = Find(body.PlaceId);
+        if (home is not { Kind: PlaceKinds.Home } || home.OwnerId != participantId) return null;
+        var now = Now();
+        var midnight = new DateTimeOffset(time.GetLocalNow().Date, time.GetLocalNow().Offset).ToUnixTimeMilliseconds();
+        if (Decor.PlacedToday(home.Furni, now, midnight) >= Decor.PerDay) return null;
+
+        var decor = home.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderBy(f => f.TendedAt).ToList();
+        if (decor.Count >= Decor.MaxInHome) home.Furni.Remove(decor[0]);
+        var label = Decor.Label(description);
+        var spot = home.Spots[Random.Shared.Next(home.Spots.Count)];
+        home.Furni.Add(new Furni
+        {
+            Id = $"decor-{now}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
+            Name = label, SpotId = spot.Id, TendedAt = now,
+        });
+        body.Activity = "rearranging their place";
+        body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
+        await state.WriteStateAsync();
+        await PublishAsync(body);
+        await PublishPlaceAsync(home);
+        return $"puts up {label} {AtName(home, Guid.Empty)}";
+    }
+
     public async Task<List<Guid>> GetAsleepAsync()
     {
         await SettleAsync();
@@ -216,6 +246,26 @@ public sealed class PlacesGrain(
         if (!state.State.Bodies.TryGetValue(participantId, out var body) || !body.Asleep) return;
         body.WokenUntil = Now() + (long)GroggyFor.TotalMilliseconds;
         await WakeAsync(body, "woken by a message, groggy", GroggyFor);
+    }
+
+    /// <summary>Once per Persona: they pick their look from their bio. Detached; the default stands meanwhile.</summary>
+    private async Task DressAsync(CastMember who)
+    {
+        try
+        {
+            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General, AppearanceRules.Prompt,
+                $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}", CancellationToken.None, 0.7,
+                new[] { "skin", "hair", "hairStyle", "top", "bottom", "accessory" });
+            if (json is null || !state.State.Bodies.TryGetValue(who.Id, out var body)) return;
+            var picked = json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString());
+            body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(who.Id), picked);
+            await state.WriteStateAsync();
+            await PublishAsync(body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Dressing {Persona} failed; keeping the default look", who.Name);
+        }
     }
 
     private async Task RestAsync(Guid personaId)
@@ -513,6 +563,17 @@ public sealed class PlacesGrain(
             };
             changed = true;
         }
+        foreach (var c in present)
+        {
+            var body = state.State.Bodies[c.Id];
+            if (body.Appearance is null)
+            {
+                body.Appearance = AppearanceRules.Default(c.Id);
+                changed = true;
+            }
+            if (!body.Appearance.FromBio && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
+                _ = DressAsync(c);
+        }
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
         if (!changed && gone.Count == 0) return;
@@ -628,6 +689,12 @@ public sealed class PlacesGrain(
                 : $"{o.Name} ({PostureAt(place, o)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
+        // Someone else's Home shows who they are.
+        if (place is { Kind: PlaceKinds.Home } && place.OwnerId != body.ParticipantId)
+        {
+            var shown = place.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderByDescending(f => f.TendedAt).Take(2).Select(f => f.Name).ToList();
+            if (shown.Count > 0) sb.Append(" On display: ").Append(string.Join("; ", shown)).Append('.');
+        }
         return sb.ToString();
     }
 
@@ -693,6 +760,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
+
+    /// <summary>Put something up in your own Home, from your own words. Null when not home or over today's allowance.</summary>
+    [Alias("DecorateAsync")] Task<string?> DecorateAsync(Guid participantId, string description);
 
     /// <summary>Knock on someone's Home; only when they're in and awake.</summary>
     [Alias("KnockAsync")] Task<bool> KnockAsync(Guid visitorId, Guid homeId);

@@ -224,6 +224,33 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task Decorating_IsAtHomeOnly_TwiceADay_AndVisitorsSeeIt()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
+
+        Assert.Equal("puts up a Lisp poster at Denise's place", await places.DecorateAsync(denise, "put up a Lisp poster"));
+        Assert.NotNull(await places.DecorateAsync(denise, "a monstera by the window"));
+        Assert.Null(await places.DecorateAsync(denise, "a third thing today"));
+
+        await places.KnockAsync(pieter, home.Id);
+        await places.LetInAsync(denise, pieter);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.Null(await places.DecorateAsync(pieter, "a poster in Denise's place"));
+        Assert.Contains("On display: a monstera by the window; a Lisp poster", await places.GetSituationAsync(pieter));
+        Assert.DoesNotContain("On display", await places.GetSituationAsync(denise));
+    }
+
+    [Fact]
+    public async Task EveryBody_HasALook()
+    {
+        var (partyId, _, _) = await _fx.CreateWorldAsync();
+        var bodies = (await _fx.Places(partyId).GetSnapshotAsync()).Bodies;
+        Assert.All(bodies, b => Assert.Contains(b.Appearance!.HairStyle, AppearanceRules.Styles));
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
@@ -293,6 +320,7 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
                     services.AddSingleton(Moq.Mock.Of<PartyTown.Services.Memory.IStanceConsolidator>());
                     services.AddSingleton<PartyTown.Services.Memory.ConsolidationService>();
                     services.AddSingleton<PartyTown.World.WorldMemory>();
+                    services.AddSingleton(Moq.Mock.Of<PartyTown.World.IWorldLlm>());
                 });
             }
         }
