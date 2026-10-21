@@ -17,7 +17,8 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
     {
         var cast = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Where(c => c.Id != Narrator.PersonaId).ToList();
         var wallets = await Task.WhenAll(cast.Select(c => Wallet(partyId, c.Id).GetAsync()));
-        return Ok(cast.Select((c, i) => Summary(c.Id, c.Name, wallets[i])).ToList());
+        var looks = await LooksAsync(partyId);
+        return Ok(cast.Select((c, i) => Summary(c.Id, c.Name, wallets[i], looks)).ToList());
     }
 
     /// <summary>What's in the shops today for one participant (their own window display).</summary>
@@ -59,16 +60,22 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
             PersonaId = who.Id, PersonaName = who.Name, App = wardrobe.Id, Action = outcome.Action,
             Summary = outcome.Summary, TargetId = outcome.TargetId, WithPersonaId = outcome.WithPersonaId,
         });
-        return Ok(Summary(who.Id, who.Name, await Wallet(partyId, participantId).GetAsync()));
+        return Ok(Summary(who.Id, who.Name, await Wallet(partyId, participantId).GetAsync(), await LooksAsync(partyId)));
     }
+
+    private async Task<Dictionary<Guid, List<string>>> LooksAsync(Guid partyId)
+        => (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies
+            .Where(b => b.Appearance is not null)
+            .ToDictionary(b => b.ParticipantId, b => Catalog.Wearing(b.Appearance!));
 
     private IWalletGrain Wallet(Guid partyId, Guid who) => grains.GetGrain<IWalletGrain>(WorldKeys.Life(partyId, who));
 
-    private static WalletSummary Summary(Guid id, string name, WalletView w) => new(
+    private static WalletSummary Summary(Guid id, string name, WalletView w, Dictionary<Guid, List<string>> looks) => new(
         id, name, w.Balance, w.Means, w.DailyPay, w.PaidToday,
         w.Wardrobe.Select(Catalog.Find).OfType<ShopItem>().ToList(),
         w.Ledger,
-        w.NewGifts.Select(g => new GiftSummary(g.FromId, g.FromName, Catalog.Find(g.Key)?.Name ?? g.Key, g.At)).ToList());
+        w.NewGifts.Select(g => new GiftSummary(g.FromId, g.FromName, Catalog.Find(g.Key)?.Name ?? g.Key, g.At)).ToList(),
+        looks.GetValueOrDefault(id) ?? new List<string>());
 }
 
 public sealed record WardrobeRequest(string Key, Guid? ToId = null);
@@ -84,4 +91,6 @@ public sealed record WalletSummary(
     bool PaidToday,
     List<ShopItem> Wardrobe,
     List<LedgerEntry> Ledger,
-    List<GiftSummary> NewGifts);
+    List<GiftSummary> NewGifts,
+    /// <summary>Catalog keys of what they have on right now.</summary>
+    List<string> Wearing);

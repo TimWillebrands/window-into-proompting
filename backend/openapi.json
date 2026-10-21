@@ -7345,9 +7345,9 @@
         "required": [
           "key",
           "slot",
-          "value",
           "name",
-          "price"
+          "price",
+          "picks"
         ],
         "type": "object",
         "properties": {
@@ -7355,9 +7355,6 @@
             "type": "string"
           },
           "slot": {
-            "type": "string"
-          },
-          "value": {
             "type": "string"
           },
           "name": {
@@ -7370,6 +7367,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "picks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       },

@@ -76,7 +76,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     {
         var wallet = await WalletOf(partyId, who).GetAsync();
         if (!wallet.Wardrobe.Contains(item.Key)) return null;
-        await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, new Dictionary<string, string?> { [item.Slot] = item.Value });
+        await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, Picks(item));
         return new ActOutcome("wear", $"changed into {item.Name}", null);
     }
 
@@ -86,7 +86,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         var wallet = WalletOf(partyId, who);
         if (!await wallet.SpendAsync(item.Price, item.Name)) return null;
         if (!Catalog.IsService(item)) await wallet.AddToWardrobeAsync(item.Key, null, null);
-        await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, new Dictionary<string, string?> { [item.Slot] = item.Value });
+        await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, Picks(item));
         return new ActOutcome("buy", Catalog.IsService(item) ? $"got {item.Name} ({item.Price} credits)" : $"bought {item.Name} ({item.Price} credits) and put it on", null);
     }
 
@@ -129,6 +129,12 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         => (await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Appearance
             ?? AppearanceRules.Default(who);
 
+    private static Dictionary<string, string?> Picks(ShopItem item) => item.Picks.ToDictionary(p => p.Key, p => (string?)p.Value);
+
     public static string Describe(Appearance look)
-        => $"{look.Hair} {look.HairStyle} hair, a {look.Top} top, {look.Bottom} trousers{(look.Accessory == "none" ? "" : $", {Catalog.Find($"accessory:{look.Accessory}")?.Name ?? look.Accessory}")}";
+    {
+        var parts = new List<string> { $"{look.Hair} {look.HairStyle} hair" };
+        parts.AddRange(Catalog.Wearing(look).Skip(2).Select(Catalog.Find).OfType<ShopItem>().Select(i => i.Name));
+        return string.Join(", ", parts);
+    }
 }

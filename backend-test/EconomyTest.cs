@@ -34,14 +34,17 @@ public class EconomyTest
     public void Catalog_CoversThePaletteButNeverSkin()
     {
         Assert.Contains(Catalog.All, i => i.Key == "accessory:scarf" && i.Price == 30);
-        Assert.Contains(Catalog.All, i => i.Key == "top:green");
-        Assert.DoesNotContain(Catalog.All, i => i.Slot == "skin" || i.Value == "none");
+        Assert.Contains(Catalog.All, i => i.Key == "top:hoodie:navy" && i.Name == "a navy hoodie" && i.Picks["topStyle"] == "hoodie");
+        Assert.Contains(Catalog.All, i => i.Key == "bottom:jeans:black" && i.Name == "black jeans");
+        Assert.Contains(Catalog.All, i => i.Name == "an afro haircut");
+        Assert.DoesNotContain(Catalog.All, i => i.Picks.ContainsKey("skin") || i.Picks.ContainsValue("none"));
         Assert.Equal(Catalog.All.Count, Catalog.All.Select(i => i.Key).Distinct().Count());
     }
 
     [Theory]
     [InlineData("treat myself to that green scarf", "accessory:scarf")]
-    [InlineData("a red top for the weekend", "top:red")]
+    [InlineData("a red hoodie for the weekend", "top:hoodie:red")]
+    [InlineData("new black jeans", "bottom:jeans:black")]
     [InlineData("dye my hair pink, why not", "hair:pink")]
     public void Match_FindsTheMeantItem(string intent, string key)
         => Assert.Equal(key, Catalog.Match(intent, Catalog.All)?.Key);
@@ -65,8 +68,16 @@ public class EconomyTest
     [Fact]
     public void Wearing_ListsTheLookAsKeys()
     {
-        var look = new Appearance { Hair = "red", HairStyle = "bun", Top = "teal", Bottom = "black", Accessory = "glasses" };
-        Assert.Equal(new[] { "hair:red", "hairStyle:bun", "top:teal", "bottom:black", "accessory:glasses" }, Catalog.Wearing(look));
+        var look = new Appearance { Hair = "red", HairStyle = "bun", TopStyle = "jacket", Top = "teal", BottomStyle = "skirt", Bottom = "black", Shoes = "white", Accessory = "glasses" };
+        Assert.Equal(new[] { "hair:red", "hairStyle:bun", "top:jacket:teal", "bottom:skirt:black", "shoes:white", "accessory:glasses" }, Catalog.Wearing(look));
+    }
+
+    [Fact]
+    public void Find_MigratesV1Keys()
+    {
+        Assert.Equal("top:tshirt:red", Catalog.Normalize("top:red"));
+        Assert.Equal("bottom:trousers:navy", Catalog.Normalize("bottom:navy"));
+        Assert.Null(Catalog.Normalize("top:chartreuse"));
     }
 
     [Fact]

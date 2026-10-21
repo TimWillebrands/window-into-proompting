@@ -9,6 +9,7 @@ import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
 import PersonasApp from '../apps/personas/PersonasApp';
 import PlacesApp from '../apps/places/PlacesApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
+import WardrobeApp from '../apps/wardrobe/WardrobeApp';
 import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
 
@@ -68,6 +69,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: DiaryApp,
         initialPosition: { x: 300, y: 160 },
         initialSize: { width: 640, height: 500 },
+    },
+    {
+        id: 'wardrobe',
+        title: 'Wardrobe',
+        icon: '👗',
+        component: WardrobeApp,
+        initialPosition: { x: 320, y: 140 },
+        initialSize: { width: 680, height: 520 },
     },
     {
         id: 'personas',
@@ -145,6 +154,12 @@ export const DESKTOP_ICONS = [
         label: 'Diaries',
         icon: '/img/842.ico',
         windowId: 'diary',
+    },
+    {
+        id: 'wardrobe',
+        label: 'Wardrobe',
+        icon: '/img/842.ico',
+        windowId: 'wardrobe',
     },
     {
         id: 'personas',

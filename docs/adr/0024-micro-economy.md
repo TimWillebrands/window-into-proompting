@@ -19,8 +19,11 @@ through `SetAppearanceAsync` and the snapshot.
    - **Payday:** once per local day the wallet pays the daily rate for those means (30 / 50 / 80). It starts
      at three days' pay.
    - **Starting wardrobe:** what they're wearing when the wallet opens.
-2. **Catalog**, built from the Appearance palette, so new palette values are buyable automatically. It
-   covers hair dye, haircuts, tops, trousers and accessories. Skin is never sold. Haircuts and dye are
+2. **Catalog**, built from the Appearance palette (v2), so new palette values are buyable automatically.
+   Garments are style + colour pairs: "a navy hoodie" sets `{topStyle, top}`, "black jeans" sets
+   `{bottomStyle, bottom}`. It also covers shoes, accessories, hair dye and haircuts. The body (skin, build,
+   height, eyes, facial hair) is never sold. v1 wardrobe keys (`top:red`) migrate to the plain garment
+   (a red T-shirt). Haircuts and dye are
    *services*: you get them done, you don't own them. "In the shops today" is a stable handful per person per
    day, so different people see different windows.
 3. **Wardrobe app** (`WardrobeApp`, an `IWorldApp`). Life sees its balance, what it's wearing, what else

@@ -40,6 +40,7 @@ public sealed class WalletGrain(
     public async Task AddToWardrobeAsync(string key, Guid? fromId, string? fromName)
     {
         await EnsureAsync();
+        state.State.Wardrobe = state.State.Wardrobe.Select(Catalog.Normalize).OfType<string>().Distinct().ToList();
         if (!state.State.Wardrobe.Contains(key)) state.State.Wardrobe.Add(key);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         if (fromId is { } from)
@@ -116,7 +117,7 @@ public sealed class WalletGrain(
         state.State.Means ?? Money.GettingBy,
         Money.DailyPay(state.State.Means),
         state.State.PaidDay == Money.DayKey(DateTimeOffset.Now),
-        state.State.Wardrobe.ToList(),
+        state.State.Wardrobe.Select(Catalog.Normalize).OfType<string>().Distinct().ToList(),
         state.State.Ledger.TakeLast(10).Reverse().ToList(),
         state.State.Gifts.Where(g => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - g.At < Money.GiftFreshMs).ToList());
 }

@@ -77,6 +77,7 @@ export * from './repromptRequest';
 export * from './rsvpRequest';
 export * from './selfSummary';
 export * from './shopItem';
+export * from './shopItemPicks';
 export * from './situationResponse';
 export * from './spot';
 export * from './stanceOrigin';

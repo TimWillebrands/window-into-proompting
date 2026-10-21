@@ -4,12 +4,13 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { ShopItemPicks } from './shopItemPicks';
 
 export interface ShopItem {
     key: string;
     slot: string;
-    value: string;
     name: string;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     price: number | string;
+    picks: ShopItemPicks;
 }
