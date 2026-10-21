@@ -175,13 +175,14 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task<RoomCast> GetCastAsync()
     {
-        var party = GrainFactory.GetGrain<IPartyGrain>(State.PartyId);
-        var castTask = party.GetCastAsync();
-        var roomsTask = party.GetChatGroups();
-        await Task.WhenAll(castTask, roomsTask);
-        var kind = roomsTask.Result.FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind;
-        return RoomCast.Create(castTask.Result, State.ParticipantIds, State.DriverOverrides, kind);
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetCastAsync();
+        return RoomCast.Create(cast, State.ParticipantIds, State.DriverOverrides, await KindAsync());
     }
+
+    /// <summary>Kind never changes after creation; read once per activation.</summary>
+    private async Task<string> KindAsync()
+        => _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
+            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
 
     public async Task SetDriverOverrideAsync(Guid personaId, DriverKind kind)
     {
@@ -568,9 +569,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     /// <summary>Place talk only: who hears this sender right now (spec .scratch/places § Sound). Null elsewhere.</summary>
     private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
     {
-        _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
-            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
-        if (_kind != ChatGroupKinds.Place) return null;
+        if (await KindAsync() != ChatGroupKinds.Place) return null;
         return await GrainFactory.GetGrain<World.Places.IPlacesGrain>(State.PartyId).EarshotAsync(this.GetPrimaryKey(), senderId);
     }
 

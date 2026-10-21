@@ -217,7 +217,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         => Clock(partyId).RecordAsync(new WorldActivity
         {
             PersonaId = actorId, PersonaName = actorName, App = app, Action = outcome.Action,
-            Summary = outcome.Summary, TargetId = outcome.TargetId,
+            Summary = outcome.Summary, TargetId = outcome.TargetId, WithPersonaId = outcome.WithPersonaId,
         });
 
     /// <summary>Capture views from the Party cast; unknown authors are someone human.</summary>

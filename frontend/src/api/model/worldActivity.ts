@@ -18,4 +18,6 @@ export interface WorldActivity {
     thought?: string | null;
     /** @nullable */
     targetId?: string | null;
+    /** @nullable */
+    withPersonaId?: string | null;
 }

@@ -35,7 +35,8 @@ public sealed record Affordance(string AppId, string Label, int Priority, Guid? 
 /// <summary>What the Persona sees of one App: a prose block plus the Affordances it offers.</summary>
 public sealed record AppPerception(string AppId, string Title, string Block, IReadOnlyList<Affordance> Affordances);
 
-public sealed record ActOutcome(string Action, string Summary, Guid? TargetId);
+/// <param name="WithPersonaId">The other party of a 1:1 act (a DM), so clients never parse it out of Summary.</param>
+public sealed record ActOutcome(string Action, string Summary, Guid? TargetId, Guid? WithPersonaId = null);
 
 /// <summary>A mode of engagement inside a Party. Adding a mode = adding an App; Life is untouched.</summary>
 public interface IWorldApp

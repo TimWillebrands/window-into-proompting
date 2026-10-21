@@ -8254,6 +8254,13 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "withPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

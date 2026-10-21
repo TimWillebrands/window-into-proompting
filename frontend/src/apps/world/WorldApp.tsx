@@ -824,9 +824,8 @@ function ActivityFeed({
             const dm = dms.find((d) => d.chatGroupId === target);
             if (dm) return () => openDirectChat(dm.chatGroupId, dm.withName);
             // Someone else's DM: read along without being part of it.
-            const other = /^to (.+?):/.exec(a.summary ?? '')?.[1];
-            if (a.app !== 'messenger' || !other) return null;
-            const pair = `${a.personaName} & ${other}`;
+            if (a.app !== 'messenger' || !a.withPersonaId) return null;
+            const pair = `${a.personaName} & ${nameById.get(a.withPersonaId) ?? 'someone'}`;
             return () =>
                 openWindow('messenger-chat', {
                     instanceId: `dm-${target}`,

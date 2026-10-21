@@ -163,7 +163,7 @@ Output ONLY JSON: {ChoiceShape}
             var outcome = await app.ActAsync(ctx, picked, string.IsNullOrWhiteSpace(intent) ? picked.Label : intent, thought, ct);
             return outcome is null
                 ? Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought)
-                : Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId);
+                : Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId);
         }
         catch (Exception ex)
         {
@@ -193,11 +193,11 @@ Output ONLY JSON: {ChoiceShape}
     }
 
     private static WorldActivity Activity(Guid personaId, string name, string app, string action, string summary,
-        string? thought = null, Guid? target = null)
+        string? thought = null, Guid? target = null, Guid? with = null)
         => new()
         {
             PersonaId = personaId, PersonaName = name, App = app, Action = action,
-            Summary = summary, Thought = thought, TargetId = target,
+            Summary = summary, Thought = thought, TargetId = target, WithPersonaId = with,
         };
 }
 

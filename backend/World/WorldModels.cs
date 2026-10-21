@@ -21,6 +21,8 @@ public sealed record class WorldActivity
     [Id(7)] public string? Thought { get; init; }
     /// <summary>Room/DM/thread the activity happened in, for click-through.</summary>
     [Id(8)] public Guid? TargetId { get; init; }
+    /// <summary>The other party of a 1:1 act (DM partner).</summary>
+    [Id(9)] public Guid? WithPersonaId { get; init; }
 }
 
 /// <summary>Clock + budget snapshot for the World control surface.</summary>

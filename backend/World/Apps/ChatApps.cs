@@ -164,9 +164,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         if (string.IsNullOrWhiteSpace(line)) return null;
 
         var dm = ctx.Threads.FirstOrDefault(t => t.Id == dmId);
-        var other = affordance.Verb == "open"
-            ? ctx.NameOf(target)
-            : ctx.NameOf(dm?.MemberIds?.FirstOrDefault(id => id != ctx.Self.Id) ?? Guid.Empty);
-        return new ActOutcome("dm", $"to {other}: \"{WorldStream.Clip(line, 160)}\"", dmId);
+        var otherId = affordance.Verb == "open" ? target : dm?.MemberIds?.FirstOrDefault(id => id != ctx.Self.Id) ?? Guid.Empty;
+        return new ActOutcome("dm", $"to {ctx.NameOf(otherId)}: \"{WorldStream.Clip(line, 160)}\"", dmId, otherId);
     }
 }
