@@ -6,6 +6,8 @@ using Npgsql;
 using PartyTown.Data;
 using PartyTown.Model;
 
+using static PartyTown.Services.Memory.MemoryGraphWrites;
+
 namespace PartyTown.Services.Memory;
 
 /// <summary>
@@ -89,11 +91,12 @@ public sealed class MemoryRepository(
         // LOAD 'age' is fired automatically by AgeOperatorInterceptor when this connection
         // opens. search_path lives at the database level (05-age-setup.sql), so qualified
         // agtype casts resolve without a per-session SET.
-        await CreateEventAsync(db, moment, sourceMessage.MessageId, eventId, extraction.Description, nowIso, ct);
+        await CreateEventAsync(db, new EventVertex(eventId, extraction.Description, nowIso, partyId, roomId,
+            moment.Source, sourceMessage.MessageId, moment.PlaceId), ct);
 
         foreach (var concept in extraction.Concepts)
         {
-            await AddConceptEdgeAsync(db, eventId, concept, ct);
+            await AddConceptEdgeAsync(db, eventId, concept.Name, concept.Display, ct);
         }
 
         foreach (var aboutParticipantId in extraction.ParticipantIds)
@@ -120,7 +123,7 @@ public sealed class MemoryRepository(
                 }
             }
 
-            await AddRecollectionAsync(db, eventId, partyId, personaId, draft, nowIso, ct);
+            await AddRecollectionAsync(db, eventId, partyId, personaId, Guid.NewGuid(), draft.Snippet, nowIso, draft.Weight, ct);
             writtenPersonaIds.Add(personaId);
         }
 
@@ -453,32 +456,6 @@ public sealed class MemoryRepository(
     // Untrusted strings (LLM-sourced description/snippet, persona-supplied concept names)
     // go through CypherStr; Guids and ints serialise unambiguously.
 
-    private static Task CreateEventAsync(
-        AppDbContext db,
-        Moment moment, int messageId,
-        Guid eventId, string description, string nowIso,
-        CancellationToken ct)
-    {
-        // The Event carries its anchor (room_id / party_id / anchor_message_id) as plain
-        // properties — no Room/Message vertices, no ANCHORED_TO edge. party_id is the scope
-        // key the viz and any per-Party walk anchor on; source names the App (ADR 0018).
-        var place = moment.PlaceId is { } placeId ? $",\n                place_id: '{placeId}'" : string.Empty;
-        var sql = $$"""
-            SELECT * FROM cypher('memory', $cy$
-              CREATE (e:Event {
-                event_id: '{{eventId}}',
-                description: {{CypherStr(description)}},
-                created_at: '{{nowIso}}',
-                party_id: '{{moment.PartyId}}',
-                room_id: '{{moment.ThreadId}}',
-                source: {{CypherStr(moment.Source)}},
-                anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}{{place}}
-              })
-              RETURN e.event_id
-            $cy$) AS (event_id ag_catalog.agtype)
-            """;
-        return ExecuteCypherAsync(db, sql, ct);
-    }
 
     // Existing Concept display labels, for the match-or-mint guidance in event extraction.
     // Read-only, single command — explicit open/close per the EF connection-lifetime footgun.
@@ -1394,34 +1371,7 @@ public sealed class MemoryRepository(
         }
     }
 
-    private static Task AddConceptEdgeAsync(AppDbContext db, Guid eventId, ConceptTag concept, CancellationToken ct)
-    {
-        // AGE's Cypher parser doesn't accept `ON CREATE SET`. coalesce() keeps the
-        // first-written display while still setting it on the very first MERGE.
-        var sql = $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event {event_id: '{{eventId}}'})
-              MERGE (c:Concept {name: {{CypherStr(concept.Name)}}})
-              SET c.display = coalesce(c.display, {{CypherStr(concept.Display)}})
-              CREATE (e)-[:ABOUT]->(c)
-              RETURN c.name
-            $cy$) AS (concept_name ag_catalog.agtype)
-            """;
-        return ExecuteCypherAsync(db, sql, ct);
-    }
 
-    private static Task AddAboutParticipantEdgeAsync(AppDbContext db, Guid eventId, Guid partyId, Guid participantPersonaId, CancellationToken ct)
-    {
-        var sql = $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event {event_id: '{{eventId}}'})
-              MERGE (p:Participant {persona_id: '{{participantPersonaId}}', party_id: '{{partyId}}'})
-              CREATE (e)-[:ABOUT]->(p)
-              RETURN p.persona_id
-            $cy$) AS (persona_id ag_catalog.agtype)
-            """;
-        return ExecuteCypherAsync(db, sql, ct);
-    }
 
     // The persona's newest snippets — the recency-capped dedup pool for substituted drafts.
     private static async Task<List<string>> ListRecentSnippetsAsync(
@@ -1450,76 +1400,5 @@ public sealed class MemoryRepository(
         return snippets;
     }
 
-    private static Task AddRecollectionAsync(
-        AppDbContext db,
-        Guid eventId, Guid partyId, Guid personaId, RecollectionDraft draft, string nowIso,
-        CancellationToken ct)
-    {
-        // ADR 0015 salience substrate: id is the edge's stable identity (strengthening key,
-        // future-embeddings join key); weight rode the extraction call; recall_count starts
-        // 0. last_recalled is deliberately absent until the first pick — Cypher SET-to-null
-        // removes a property anyway, so absence IS the null representation.
-        var sql = $$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event {event_id: '{{eventId}}'})
-              MERGE (persona:Persona {id: '{{personaId}}'})
-              MERGE (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})
-              MERGE (persona)-[:HAS_PARTICIPANT]->(part)
-              CREATE (part)-[:RECOLLECTS {
-                id: '{{Guid.NewGuid()}}',
-                snippet: {{CypherStr(draft.Snippet)}},
-                ts: '{{nowIso}}',
-                weight: {{Math.Clamp(draft.Weight, 0.0, 1.0).ToString("0.0###", CultureInfo.InvariantCulture)}},
-                recall_count: 0
-              }]->(e)
-              RETURN part.persona_id
-            $cy$) AS (persona_id ag_catalog.agtype)
-            """;
-        return ExecuteCypherAsync(db, sql, ct);
-    }
 
-    // We bypass EF's ExecuteSqlRawAsync because it routes the SQL through String.Format and
-    // the Cypher payload's literal `{` / `}` break formatting. The raw NpgsqlCommand path
-    // sends the text untouched; we still piggy-back on EF's connection + active transaction.
-    private static async Task ExecuteCypherAsync(AppDbContext db, string sql, CancellationToken ct)
-    {
-        var conn = (NpgsqlConnection)db.Database.GetDbConnection();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = sql;
-        cmd.Transaction = (NpgsqlTransaction?)db.Database.CurrentTransaction?.GetDbTransaction();
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    // Cypher single-quoted string literal with backslash-escaping per the openCypher spec.
-    // Keeps untrusted input from terminating the literal or smuggling in a `$cy$` close.
-    private static string CypherStr(string s)
-    {
-        var sb = new StringBuilder(s.Length + 2);
-        sb.Append('\'');
-        foreach (var c in s)
-        {
-            switch (c)
-            {
-                case '\'': sb.Append("\\'"); break;
-                case '\\': sb.Append("\\\\"); break;
-                case '\n': sb.Append("\\n"); break;
-                case '\r': sb.Append("\\r"); break;
-                case '\t': sb.Append("\\t"); break;
-                case '\b': sb.Append("\\b"); break;
-                case '\f': sb.Append("\\f"); break;
-                default:
-                    if (c < 0x20)
-                    {
-                        sb.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
-                    }
-                    else
-                    {
-                        sb.Append(c);
-                    }
-                    break;
-            }
-        }
-        sb.Append('\'');
-        return sb.ToString();
-    }
 }
