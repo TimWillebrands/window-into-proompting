@@ -315,6 +315,20 @@ public sealed class ResponsePipeline(
                     "Persona {PersonaName} race-cancelled (msg {MessageId}, drafted {Chars} chars)",
                     persona.Name, messageId, snap.GeneratedText.Length);
 
+                // Cut off while still deciding: nobody saw them start, so no canned "*starts to speak*" line (ADR 0021).
+                if (string.IsNullOrWhiteSpace(snap.GeneratedText))
+                {
+                    await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(JsonSerializer.Serialize(new
+                    {
+                        personaId = persona.Id,
+                        instruction = (string?)null,
+                        reason = string.IsNullOrWhiteSpace(snap.GutReaction) ? "Race-cancelled before deciding." : snap.GutReaction,
+                        stop = false,
+                        raceCancelled = true
+                    }, WebOptions)));
+                    return;
+                }
+
                 string emote;
                 try
                 {

@@ -98,6 +98,9 @@ background.
     they talk.
 23. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
+24. **No canned hesitation.** A persona the stop-signal race cuts off before they drafted anything just
+    doesn't speak. Nobody saw them start, and the canned "*starts to speak, then doesn't*" line turned into a
+    tic that others kept reacting to. Cut-off drafts still get their in-character emote.
 
 ## Why these pieces
 
