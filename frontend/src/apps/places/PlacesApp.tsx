@@ -13,13 +13,11 @@ import {
     usePostWorldsPartyIdPlacesMove,
     usePostWorldsPartyIdPlacesVoice,
 } from '#api/party-zone';
-import {
-    useChatGroupMessages,
-    useRealtimeStoreActions,
-} from '#lib/realtime-store';
+import { useRealtimeStoreActions } from '#lib/realtime-store';
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
+import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
 import PlaceCanvas from './iso/PlaceCanvas';
@@ -697,7 +695,10 @@ function PlaceTalk({
     allEars: boolean;
 }) {
     const lives = useGetWorldsPartyIdLivesSuspense(WORLD_ID).data.data ?? [];
-    const messages = useChatGroupMessages(roomId);
+    const { messages, phaseByPersona } = useRoomConversation(WORLD_ID, roomId);
+    const speaking = [...phaseByPersona.values()]
+        .filter((p) => p.phase === 'typing' || p.phase === 'streaming')
+        .map((p) => (p.personaName ?? '').split(' ')[0]);
     const shown = useMemo(
         () => messages.filter((m) => m.content?.trim()).slice(-40),
         [messages],
@@ -781,6 +782,13 @@ function PlaceTalk({
                         </div>
                     );
                 })}
+                {speaking.length > 0 ? (
+                    <div style={{ color: '#888', fontStyle: 'italic' }}>
+                        💬 {speaking.join(', ')}{' '}
+                        {speaking.length === 1 ? 'is' : 'are'} about to say
+                        something…
+                    </div>
+                ) : null}
                 <div ref={endRef} />
             </div>
             <form
