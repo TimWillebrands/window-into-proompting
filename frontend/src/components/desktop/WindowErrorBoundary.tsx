@@ -97,7 +97,10 @@ function summarize(error: Error): { headline: string; status?: number } {
                   : undefined;
         return {
             headline: error.message,
-            status: status !== undefined && !Number.isNaN(status) ? status : undefined,
+            status:
+                status !== undefined && !Number.isNaN(status)
+                    ? status
+                    : undefined,
         };
     }
     return { headline: error.message || 'Unexpected error' };

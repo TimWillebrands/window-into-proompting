@@ -27,14 +27,40 @@ export function useWorldEvents(handler: (envelope: WorldEnvelope) => void) {
     useEffect(() => worldBus.subscribe((e) => ref.current(e)), []);
 }
 
-/** The human's Participant id in this World, created on first use. */
+const PLAYER_KEY = 'proompting.player';
+
+interface PlayerSession {
+    name: string | null;
+    signIn: (name: string) => void;
+    signOut: () => void;
+}
+
+/** Which human sits at this browser. Several humans can share a World, each signed in by name. */
+export const usePlayerSession = create<PlayerSession>((set) => ({
+    name:
+        typeof window === 'undefined'
+            ? null
+            : window.localStorage.getItem(PLAYER_KEY),
+    signIn: (name) => {
+        window.localStorage.setItem(PLAYER_KEY, name);
+        set({ name });
+    },
+    signOut: () => {
+        window.localStorage.removeItem(PLAYER_KEY);
+        set({ name: null });
+    },
+}));
+
+/** The signed-in human's Participant id in this World, created on first use. */
 export function usePlayerId(): string | null {
+    const name = usePlayerSession((s) => s.name);
     const { data } = useQuery({
-        queryKey: ['world-player', WORLD_ID],
+        queryKey: ['world-player', WORLD_ID, name],
         queryFn: async () => {
-            const res = await postWorldsPartyIdPlayer(WORLD_ID, { name: null });
+            const res = await postWorldsPartyIdPlayer(WORLD_ID, { name });
             return res.data.playerId as string;
         },
+        enabled: !!name,
         staleTime: Number.POSITIVE_INFINITY,
     });
     return data ?? null;
@@ -93,7 +119,7 @@ export function WorldRealtimeBridge() {
     const playerId = usePlayerId();
     const pushToast = useWorldToasts((s) => s.push);
     const openDirectChat = useOpenDirectChat();
-    const { openWindow } = useDesktopContext();
+    const { openWindow, desktopState } = useDesktopContext();
 
     useEffect(() => {
         connectPartyRealtime(WORLD_ID);
@@ -114,9 +140,13 @@ export function WorldRealtimeBridge() {
                 message?: { senderId?: string; content?: string | null };
             };
             const dms =
-                queryClient.getQueryData<{ data: DirectChatSummary[] }>(
-                    getGetWorldsPartyIdMessengerQueryKey(WORLD_ID),
-                )?.data ?? [];
+                (playerId
+                    ? queryClient.getQueryData<{ data: DirectChatSummary[] }>(
+                          getGetWorldsPartyIdMessengerQueryKey(WORLD_ID, {
+                              personaId: playerId,
+                          }),
+                      )?.data
+                    : undefined) ?? [];
             invalidatePrefix(worldPrefix('/messenger'));
             const dm = dms.find((d) => d.chatGroupId === data.chatGroupId);
             const content = data.message?.content;
@@ -126,7 +156,12 @@ export function WorldRealtimeBridge() {
                 data.message?.senderId !== playerId &&
                 (dm || !data.chatGroupId)
             ) {
-                if (dm) {
+                const focused = desktopState.focusedId;
+                const dmFocused =
+                    dm &&
+                    focused === `dm-${dm.chatGroupId}` &&
+                    !desktopState.windows[focused]?.minimized;
+                if (dm && !dmFocused) {
                     pushToast({
                         title: `${dm.withName} says:`,
                         body: clip(content, 140),

@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './announceRequest';
 export * from './appendStanceRequest';
 export * from './appendStanceResponse';
 export * from './boardReply';
@@ -65,6 +66,7 @@ export * from './postImportParams';
 export * from './problemDetails';
 export * from './proceedRequest';
 export * from './promptRequest';
+export * from './providerUsage';
 export * from './registryCastEdit';
 export * from './registryCastEntry';
 export * from './registryConceptEdit';

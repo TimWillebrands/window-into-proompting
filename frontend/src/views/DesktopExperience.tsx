@@ -4,12 +4,13 @@ import DesktopIcon from '../components/desktop/DesktopIcon';
 import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
 import StartMenu from '../components/desktop/StartMenu';
+import WelcomeScreen from '../components/desktop/WelcomeScreen';
 import WindowFrame from '../components/desktop/WindowFrame';
 import WorldToasts from '../components/desktop/WorldToasts';
 import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
-import { WorldRealtimeBridge } from '../lib/world';
+import { usePlayerSession, WorldRealtimeBridge } from '../lib/world';
 
 const TASKBAR_HEIGHT = 30;
 const MIN_WIDTH = 360;
@@ -152,7 +153,7 @@ function DesktopWindowLayer() {
                             >
                                 <WindowFrame
                                     id={windowState.id}
-                                    title={preset.title}
+                                    title={windowState.title ?? preset.title}
                                     width={windowState.width}
                                     height={windowState.height}
                                     zIndex={windowState.zIndex}
@@ -208,6 +209,8 @@ function DesktopWindowLayer() {
 }
 
 export default function DesktopExperience() {
+    const playerName = usePlayerSession((s) => s.name);
+    if (!playerName) return <WelcomeScreen />;
     return (
         <section className="fixed inset-0">
             <DesktopWallpaper />
