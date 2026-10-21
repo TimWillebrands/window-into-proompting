@@ -210,6 +210,10 @@ function DesktopWindowLayer() {
 
 export default function DesktopExperience() {
     const playerName = usePlayerSession((s) => s.name);
+    const hydrated = usePlayerSession((s) => s.hydrated);
+    const hydrate = usePlayerSession((s) => s.hydrate);
+    useEffect(() => hydrate(), [hydrate]);
+    if (!hydrated) return <DesktopWallpaper />;
     if (!playerName) return <WelcomeScreen />;
     return (
         <section className="fixed inset-0">

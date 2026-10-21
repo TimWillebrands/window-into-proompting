@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useGetWorldsPartyIdBoardSuspense } from '#api/party-zone';
 import { useDesktopStore } from '#lib/desktop-context';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
-import { usePlayerId, WORLD_ID } from '../../lib/world';
+import { usePlayerId, usePlayerSession, WORLD_ID } from '../../lib/world';
 import { avatarUrl, ms, postCounts } from './board-lib';
 import NewTopicForm from './NewTopicForm';
 import ThreadList from './ThreadList';
@@ -20,6 +20,7 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const { windowId } = useWindowInstance();
     const setWindowProps = useDesktopStore((s) => s.setWindowProps);
     const playerId = usePlayerId();
+    const playerName = usePlayerSession((s) => s.name);
     const { data } = useGetWorldsPartyIdBoardSuspense(WORLD_ID);
     const scrollRef = useRef<HTMLDivElement>(null);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -88,7 +89,8 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
                         />
                     )}
                     <span className="pb-muted">
-                        Logged in as <b className="pb-player-name">you</b>
+                        Logged in as{' '}
+                        <b className="pb-player-name">{playerName ?? 'you'}</b>
                     </span>
                 </div>
             </div>

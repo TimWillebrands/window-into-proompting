@@ -31,16 +31,19 @@ const PLAYER_KEY = 'proompting.player';
 
 interface PlayerSession {
     name: string | null;
+    /** False until the browser's stored sign-in is read; SSR and first paint agree on "unknown". */
+    hydrated: boolean;
+    hydrate: () => void;
     signIn: (name: string) => void;
     signOut: () => void;
 }
 
 /** Which human sits at this browser. Several humans can share a World, each signed in by name. */
 export const usePlayerSession = create<PlayerSession>((set) => ({
-    name:
-        typeof window === 'undefined'
-            ? null
-            : window.localStorage.getItem(PLAYER_KEY),
+    name: null,
+    hydrated: false,
+    hydrate: () =>
+        set({ name: window.localStorage.getItem(PLAYER_KEY), hydrated: true }),
     signIn: (name) => {
         window.localStorage.setItem(PLAYER_KEY, name);
         set({ name });
