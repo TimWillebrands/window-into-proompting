@@ -152,25 +152,11 @@ public sealed class ResponsePipeline(
             // continue with an empty list so a memory outage never blocks the persona from
             // responding.
             var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
-            IReadOnlyList<RecalledMemory> recollections;
-            try
-            {
-                recollections = await memoryRepository.RecallAsync(
-                    persona.Id, partyId, presentPersonaIds,
-                    triggeringMessage.Content ?? string.Empty, limit: 10, linkedCt,
-                    await PlaceOfAsync(roomCast, partyId, chatGroupId));
-            }
-            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Recall failed for persona {PersonaName} in party {PartyId}; proceeding without recollections",
-                    persona.Name, partyId);
-                recollections = Array.Empty<RecalledMemory>();
-            }
+            var beat = await memoryRepository.RecallBeatAsync(
+                new BeatAnchors(persona.Id, partyId, presentPersonaIds, triggeringMessage.Content ?? string.Empty,
+                    await PlaceOfAsync(roomCast, partyId, chatGroupId)),
+                memoryLimit: 10, stanceLimit: 5, logger, linkedCt);
+            var recollections = beat.Memories;
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
             // Observability (ADR 0015): the candidate set — with per-candidate arm
@@ -185,32 +171,9 @@ public sealed class ResponsePipeline(
                         $"#{i + 1} {r.EdgeId:N}={r.Salience:F3} ({ArmTag(r.Arm)})")));
             }
 
-            // ADR 0016 stance floor: anchor-scoped, latest-wins Stance lines for the ambient
-            // "# Where you stand" block. Anchors are the beat's live cast (present persona ids,
-            // self included) + Concepts named in the triggering message. Pure DB read — zero
-            // LLM calls on the beat path. Non-fatal like recall: a memory outage never mutes
-            // the persona.
-            IReadOnlyList<string> stanceLines;
-            var ambivalenceCount = 0;
-            try
-            {
-                var stances = await memoryRepository.RecallStancesAsync(
-                    partyId, persona.Id, presentPersonaIds,
-                    triggeringMessage.Content ?? string.Empty, limit: 5, linkedCt);
-                stanceLines = stances.Select(StanceBlock.FormatLine).ToList();
-                ambivalenceCount = stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
-            }
-            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Stance recall failed for persona {PersonaName} in party {PartyId}; proceeding without stances",
-                    persona.Name, partyId);
-                stanceLines = Array.Empty<string>();
-            }
+            // ADR 0016 stance floor for the ambient "# Where you stand" block — zero LLM calls on the beat path.
+            IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
+            var ambivalenceCount = beat.Stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
             turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
@@ -456,20 +419,11 @@ public sealed class ResponsePipeline(
             var scenario = await chatGroupGrain.GetScenarioAsync();
             var presentIds = participantViews.Select(p => p.Id).ToList();
 
-            string? memory = null;
-            IReadOnlyList<string> stanceLines = Array.Empty<string>();
-            try
-            {
-                var recalled = await memoryRepository.RecallAsync(persona.Id, partyId, presentIds, intent, limit: 5, linkedCt,
-                    await PlaceOfAsync(roomCast, partyId, chatGroupId));
-                memory = recalled.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
-                stanceLines = (await memoryRepository.RecallStancesAsync(partyId, persona.Id, presentIds, intent, limit: 5, linkedCt))
-                    .Select(StanceBlock.FormatLine).ToList();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Initiative recall failed for {PersonaName}; speaking without memory", persona.Name);
-            }
+            var beat = await memoryRepository.RecallBeatAsync(
+                new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
+                memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
+            var memory = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
+            IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
             inFlight.MarkGenerationStarted(feeling, intent);
             var result = await RunSpeakingPhaseAsync(
@@ -733,8 +687,18 @@ public sealed class ResponsePipeline(
         });
 
     /// <summary>A Place talk Room anchors recall on its Place; other Rooms don't.</summary>
-    private Task<Guid?> PlaceOfAsync(RoomCast roomCast, Guid partyId, Guid chatGroupId)
-        => roomCast.Kind == ChatGroupKinds.Place
-            ? grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetPlaceOfTalkRoomAsync(chatGroupId)
-            : Task.FromResult<Guid?>(null);
+    /// <summary>The talk Room's Place as a recall anchor; non-fatal like recall itself.</summary>
+    private async Task<Guid?> PlaceOfAsync(RoomCast roomCast, Guid partyId, Guid chatGroupId)
+    {
+        if (roomCast.Kind != ChatGroupKinds.Place) return null;
+        try
+        {
+            return await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetPlaceOfTalkRoomAsync(chatGroupId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Place lookup failed for chat group {ChatGroupId}; recalling without it", chatGroupId);
+            return null;
+        }
+    }
 }

@@ -173,26 +173,12 @@ public sealed class WorldMemory(
     public async Task<(IReadOnlyList<RecalledMemory> Memories, IReadOnlyList<string> Stances)> RecallAsync(
         Guid partyId, Guid personaId, IReadOnlyList<Guid> anchors, string anchorText, CancellationToken ct)
     {
-        IReadOnlyList<RecalledMemory> memories = Array.Empty<RecalledMemory>();
-        IReadOnlyList<string> stances = Array.Empty<string>();
-        try
-        {
-            var placeId = await grains.GetGrain<Places.IPlacesGrain>(partyId).GetPlaceOfAsync(personaId);
-            memories = await repository.RecallAsync(personaId, partyId, anchors, anchorText, 8, ct, placeId);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "World recall failed for {PersonaId}", personaId);
-        }
-        try
-        {
-            stances = (await repository.RecallStancesAsync(partyId, personaId, anchors, anchorText, 6, ct))
-                .Select(Services.ResponsePipeline.StanceBlock.FormatLine).ToList();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "World stance recall failed for {PersonaId}", personaId);
-        }
-        return (memories, stances);
+        Guid? placeId = null;
+        try { placeId = await grains.GetGrain<Places.IPlacesGrain>(partyId).GetPlaceOfAsync(personaId); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Place lookup failed for {PersonaId}", personaId); }
+
+        var beat = await repository.RecallBeatAsync(
+            new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 8, stanceLimit: 6, logger, ct);
+        return (beat.Memories, beat.Stances.Select(Services.ResponsePipeline.StanceBlock.FormatLine).ToList());
     }
 }
