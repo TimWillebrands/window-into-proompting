@@ -48,6 +48,10 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
 
     [Alias("InvalidateCacheAsync")]
     Task InvalidateCacheAsync();
+
+    /// <summary>An endpoint hit a hard failure (auth, quota, missing model); route around it for a while.</summary>
+    [Alias("ReportFailureAsync")]
+    Task ReportFailureAsync(Guid providerId, string reason);
 }
 
 [GenerateSerializer]

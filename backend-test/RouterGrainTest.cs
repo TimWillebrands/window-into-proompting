@@ -11,7 +11,8 @@ public class RouterGrainTest : TestKitBase
 
     private List<FakeEndpointGrain> SetupEndpoints(
         int count,
-        JobComplexity supportedComplexities = JobComplexity.General)
+        JobComplexity supportedComplexities = JobComplexity.General,
+        int[]? priorities = null)
     {
         var endpoints = Enumerable.Range(0, count)
             .Select(_ => new FakeEndpointGrain(Guid.NewGuid(), supportedComplexities))
@@ -20,8 +21,9 @@ public class RouterGrainTest : TestKitBase
         foreach (var ep in endpoints)
             ep.RegisterOn(Silo);
 
-        var entries = endpoints.Select(ep => new LlmProviderEntry
+        var entries = endpoints.Select((ep, i) => new LlmProviderEntry
         {
+            Priority = priorities?[i] ?? 0,
             Id = ep.Id,
             Type = "ollama",
             BaseUrl = "http://fake",
@@ -71,6 +73,30 @@ public class RouterGrainTest : TestKitBase
         // Pressure released after generation completes
         Assert.Equal(0, await grain.PressureAsync());
         Assert.Equal(1, endpoints[0].TotalJobsReceived);
+    }
+
+    [Fact]
+    public async Task RouteAsync_PrefersLowerPriorityNumber()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 10, 0 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task RouteAsync_SkipsBenchedProviderButFallsBackWhenAlone()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.ReportFailureAsync(endpoints[0].Id, "402 out of credit");
+
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+
+        await router.ReportFailureAsync(endpoints[1].Id, "host down");
+        // Everyone benched: least-bad still routes rather than throwing.
+        Assert.Same(endpoints[0].Reference, await router.RouteAsync(JobComplexity.General));
     }
 
     [Fact]

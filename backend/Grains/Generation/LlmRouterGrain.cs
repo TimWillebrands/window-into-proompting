@@ -9,6 +9,16 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
 {
     private IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>? _cachedProviders;
 
+    private readonly Dictionary<Guid, DateTimeOffset> _benchedUntil = new();
+    private static readonly TimeSpan BenchFor = TimeSpan.FromMinutes(10);
+
+    public Task ReportFailureAsync(Guid providerId, string reason)
+    {
+        _benchedUntil[providerId] = DateTimeOffset.UtcNow + BenchFor;
+        logger.LogWarning("Provider {ProviderId} benched for {Minutes} min: {Reason}", providerId, BenchFor.TotalMinutes, reason);
+        return Task.CompletedTask;
+    }
+
     public Task InvalidateCacheAsync()
     {
         _cachedProviders = null;
@@ -56,6 +66,8 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             return new
             {
                 Grain = p.Grain,
+                Priority = p.Entry.Priority,
+                Benched = _benchedUntil.TryGetValue(p.Entry.Id, out var until) && until > DateTimeOffset.UtcNow,
                 Pressure = await p.Grain.PressureAsync(),
                 CompatibleModels = supports ? new List<string> { p.Entry.ModelName } : new List<string>(),
                 Failed = false,
@@ -82,9 +94,12 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             }));
         }
 
+        // Healthy before benched (a benched provider is still better than none), then priority, then load.
         var compatibleProvider = finishedTasks
             .Where(provider => !provider.Failed && provider.CompatibleModels.Any())
-            .OrderBy(provider => provider.Pressure)
+            .OrderBy(provider => provider.Benched)
+            .ThenBy(provider => provider.Priority)
+            .ThenBy(provider => provider.Pressure)
             .FirstOrDefault();
 
         if (compatibleProvider is null)

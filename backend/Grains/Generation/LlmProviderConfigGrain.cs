@@ -140,4 +140,6 @@ public sealed record class LlmProviderEntry
     [Id(5)] public JobComplexity SupportedComplexities { get; init; } = JobComplexity.General;
     [Id(6)] public TimeSpan? GenerationTimeout { get; init; }
     [Id(7)] public bool IsEnabled { get; init; } = true;
+    /// <summary>Lower routes first; equal priorities balance by load. Give a local fallback a higher number.</summary>
+    [Id(8)] public int Priority { get; init; }
 }
