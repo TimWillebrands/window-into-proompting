@@ -13,6 +13,13 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
 {
     private const int MaxLines = 14;
 
+    private static readonly IReadOnlyDictionary<string, string?> Moods = new Dictionary<string, string?>
+    {
+        ["better"] = "better than before",
+        ["same"] = "about the same",
+        ["worse"] = "worse than before",
+    };
+
     private async Task<string> WhereAsync(Moment moment)
     {
         if (moment.Source == MomentSources.Board) return "the Board";
@@ -33,20 +40,30 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
             var transcript = string.Join("\n", moment.Lines.TakeLast(MaxLines)
                 .Select(l => $"{names.GetValueOrDefault(l.SenderId, "Someone")}: {WorldStream.Clip(l.Text, 240)}"));
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            // A three-way choice, not a noul: decision models compress p, and "about the same" absorbs the neutral mass.
             var answers = await judge.AskAsync(transcript, personas.ToDictionary(
                 p => p.Id.ToString("N"),
-                p => (SystemOneQuestion)new NoulQuestion($"This conversation left {p.Name} in a better mood than before it.")), cts.Token);
-            foreach (var p in personas)
-            {
-                var better = answers.Noul(p.Id.ToString("N"), 0.5);
+                p => (SystemOneQuestion)new ChoiceQuestion($"How did this conversation leave {p.Name}'s mood, compared to before it?", Moods)), cts.Token);
+            var shifts = personas.Select(p => (p, Better: Appraisal.Better(answers.Choices.GetValueOrDefault(p.Id.ToString("N"))))).ToList();
+            foreach (var (p, better) in shifts)
                 await grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(moment.PartyId, p.Id)).ShiftValenceAsync(better, where);
-            }
-            logger.LogInformation("Appraisal in {Where}: {Values}", where,
-                string.Join(", ", personas.Select(p => $"{p.Name}={answers.Noul(p.Id.ToString("N"), 0.5):F2}")));
+            logger.LogInformation("Appraisal in {Where}: {Values}", where, string.Join(", ", shifts.Select(x => $"{x.p.Name}={x.Better:F2}")));
         }
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Moment appraisal failed in {ThreadId}", moment.ThreadId);
         }
+    }
+}
+
+/// <summary>Pure: a mood choice distribution → p(better) on the 0..1 scale <see cref="SelfMath.Shift"/> expects.</summary>
+public static class Appraisal
+{
+    public static double Better(IReadOnlyDictionary<string, double>? choice)
+    {
+        if (choice is null || choice.Count == 0) return 0.5;
+        var better = choice.GetValueOrDefault("better");
+        var worse = choice.GetValueOrDefault("worse");
+        return Math.Clamp(0.5 + (better - worse) / 2, 0, 1);
     }
 }

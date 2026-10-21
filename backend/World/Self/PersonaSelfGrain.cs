@@ -75,7 +75,8 @@ public sealed partial class PersonaSelfGrain(
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         if (await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).IsAsleepAsync(personaId)) return SelfMath.Asleep;
         await EnsureAvailabilityAsync(partyId, personaId);
-        return SelfMath.Availability(state.State, DateTimeOffset.Now);
+        var now = DateTimeOffset.Now;
+        return SelfMath.Inclination(SelfMath.Availability(state.State, now), SelfMath.Battery(state.State, now));
     }
 
     /// <summary>System One rates each beat: could they glance at a screen and chat during it? Once per day.</summary>
@@ -225,6 +226,9 @@ public static partial class SelfMath
             .Where(l => l.Length > 3)
             .Take(4)
             .ToList();
+
+    /// <summary>Free and wanting to: an empty social battery halves how often you reach out.</summary>
+    public static double Inclination(double availability, double battery) => availability * (0.4 + 0.6 * Math.Clamp(battery, 0, 1));
 
     /// <summary>How free they are now: the current beat's rating; before the day starts they're asleep.</summary>
     public static double Availability(SelfState s, DateTimeOffset now)

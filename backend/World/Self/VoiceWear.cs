@@ -36,7 +36,7 @@ public sealed record VoiceWearReport
 /// </summary>
 public static partial class VoiceWear
 {
-    private const int MinWordLength = 4;
+    private const int MinWordLength = 3;
     private const int WornMinSpeakers = 2;
     private const int WornMinCount = 5;
     private const int OwnMinCount = 3;
@@ -174,5 +174,12 @@ public static partial class VoiceWear
         "im", "ive", "youre", "lot", "lets", "else", "anyway", "pretty", "quite", "rather", "seems", "seem",
         "thank", "thanks", "word", "words", "whole", "years", "year", "week", "night", "day", "days",
         "room", "rooms", "chat", "message", "messages",
+        "the", "and", "you", "for", "are", "but", "not", "all", "any", "can", "had", "has", "her", "him", "his",
+        "how", "its", "let", "may", "now", "off", "old", "one", "our", "out", "own", "say", "she", "too", "two",
+        "use", "was", "way", "who", "why", "yes", "yet", "did", "get", "got", "see", "saw", "put", "ask", "lot",
+        "bit", "ok", "okay", "yep", "nah", "hey", "huh", "hmm", "man", "guy", "day", "new", "big", "few", "far",
+        "off", "per", "via", "etc", "i'm", "i'd", "it's", "don", "won", "isn", "aren", "also", "just", "into", "with",
+        "from", "that", "this", "they", "them", "what", "when", "then", "than", "your", "have", "been", "were",
+        "will", "would", "could", "should", "there", "their", "about", "still", "here", "back", "only", "even",
     };
 }

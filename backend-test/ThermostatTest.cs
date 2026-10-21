@@ -33,3 +33,13 @@ public class WindingDownTest
         Assert.Null(Thermostat.Cue(0, 0, fizzling: 0.3));
     }
 }
+
+public class CirclingTest
+{
+    [Fact]
+    public void Circling_AloneCuesMovingOn()
+    {
+        Assert.Contains("same thing", Thermostat.Cue(0, 0.8));
+        Assert.Null(Thermostat.Cue(0, 0.6));
+    }
+}

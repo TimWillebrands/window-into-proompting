@@ -304,3 +304,31 @@ public class ValenceTest
         Assert.Contains("worn on you", SelfRender.Drift(-0.6, null));
     }
 }
+
+public class AppraisalTest
+{
+    [Fact]
+    public void Better_FromChoice()
+    {
+        Assert.Equal(0.5, Appraisal.Better(null));
+        Assert.Equal(0.5, Appraisal.Better(new Dictionary<string, double> { ["same"] = 1 }), 3);
+        Assert.Equal(0.8, Appraisal.Better(new Dictionary<string, double> { ["better"] = 0.7, ["same"] = 0.2, ["worse"] = 0.1 }), 3);
+        Assert.Equal(0.25, Appraisal.Better(new Dictionary<string, double> { ["better"] = 0.1, ["same"] = 0.3, ["worse"] = 0.6 }), 3);
+    }
+
+    [Fact]
+    public void Inclination_EmptyBatteryHalvesIt()
+    {
+        Assert.Equal(1, SelfMath.Inclination(1, 1), 3);
+        Assert.Equal(0.4, SelfMath.Inclination(1, 0), 3);
+    }
+
+    [Fact]
+    public void ThreeLetterWords_CanGoStale()
+    {
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        var lines = Enumerable.Range(0, 6).Select(i => new Utterance(i % 2 == 0 ? a : b, "the tin is on the sill")).ToList();
+        Assert.Contains("tin", VoiceWear.Analyze(lines).WornWords);
+        Assert.DoesNotContain("the", VoiceWear.Analyze(lines).WornWords);
+    }
+}

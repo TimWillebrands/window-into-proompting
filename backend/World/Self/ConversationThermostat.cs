@@ -72,6 +72,7 @@ public static class Thermostat
     public const double HeavyThreshold = 0.6;
     public const int SustainedStreak = 2;
     public const double FizzlingThreshold = 0.6;
+    public const double CirclingThreshold = 0.75;
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
 
@@ -79,7 +80,10 @@ public static class Thermostat
     {
         if (fizzling >= FizzlingThreshold)
             return "This conversation is winding down: mostly acknowledgments now. Real people let it end here. Say nothing, or bring something genuinely new; don't answer just to answer, even if your name came up.";
-        if (heavyStreak < SustainedStreak) return null;
+        if (heavyStreak < SustainedStreak)
+            return circling >= CirclingThreshold
+                ? "This chat keeps going round the same thing. People move on: something from your day, a question, a joke, or nothing."
+                : null;
         return circling >= 0.5
             ? "This conversation has been heavy and going round in circles for a while. Real people lighten it at some point: a joke, a change of subject, something from their day, or they drift off. Unless something genuinely new just happened, don't go deeper."
             : "This conversation has been intense for a while. It's fine to keep it light for a moment, or step away.";
