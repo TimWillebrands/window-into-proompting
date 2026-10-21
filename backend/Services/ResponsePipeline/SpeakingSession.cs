@@ -29,7 +29,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? scenario = null,
         string? memoryToReference = null,
         IReadOnlyList<string>? stances = null,
-        string? gutReaction = null)
+        string? gutReaction = null,
+        string? presence = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -41,7 +42,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances),
+                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances, presence),
                 Name = persona.Id.ToString()
             }
         };
@@ -184,7 +185,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
     };
 
-    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -238,29 +239,21 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // and what's live, rendered in both phases (no Decision→Speaking handoff field). Lands
         // right after the roster, before the generic style rules. Omitted when nothing anchors.
         var stanceSection = StanceBlock.Render(stances);
+        var presenceSection = string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n";
 
         // Persona identity block claims the primacy position; chat-style rules land after,
         // so the model sees who it is before it sees generic etiquette.
         return $"""
 # You are: {self.Name} (ID: {self.Id})
+{LivedSelf.SheetFraming}
 {personaPrompt}
 {scenarioSection}
 # Other participants
 {othersSection}
 {stanceSection}
+{presenceSection}
 # Style
-You are in a (group) chat with other people. Stay completely in character as
-your persona — never acknowledge that you are an AI or playing a role.
-
-Talk like a real person in a casual group chat: short, reactive, and natural.
-Actually respond to what others just said — agree, disagree, interrupt, joke,
-get annoyed, ask follow-up questions. Don't monologue or lecture.
-
-Keep your messages short — a few sentences at most, like a real chat message.
-Only go longer if you're genuinely explaining something or telling a story.
-
-You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
-*leans back*), but don't narrate elaborate scenes or stage directions.
+{LivedSelf.ChatStyle}
 {memorySection}
 """;
     }

@@ -94,3 +94,16 @@ public class WorldLlmJsonTest
         Assert.Equal("1", obj["choice"]!.GetValue<string>());
     }
 }
+
+public class StageDirectionTest
+{
+    [Theory]
+    [InlineData("*sets the phone down on the table*  Denise, you were right.", "Denise, you were right.")]
+    [InlineData("*sigh* fine.", "*sigh* fine.")]
+    [InlineData("Not happy. Something better — *unarmed.* That's the word.", "Not happy. Something better — *unarmed.* That's the word.")]
+    [InlineData("*I really mean it this time*", "*I really mean it this time*")]
+    [InlineData("ok *leans back in the chair* so what now", "ok so what now")]
+    [InlineData("*long pause before typing*", "*long pause before typing*")]
+    public void StripStageDirections_DropsNarrationKeepsEmphasis(string raw, string expected)
+        => Assert.Equal(expected, SpeechCleanup.StripStageDirections(raw));
+}

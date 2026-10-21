@@ -159,14 +159,17 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var (memories, stances) = await memory.RecallAsync(
             ctx.PartyId, ctx.Self.Id, ctx.Cast.Select(c => c.Id).ToList(), intent, ct);
         var activity = string.Join("\n", ctx.RecentOwn.Take(6).Select(a => $"- {a.Action} {a.Summary}"));
+        var presence = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetPresenceAsync(withDay: true);
         var system = $"""
 {WorldLlm.Identity(ctx.Self)}
 
-You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened, how you feel about the people around you, what you want. Your own voice, first person, 80-180 words.
+You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened today (the ordinary parts too), how you feel about the people around you, what you want. Your own voice, plain words, first person, 80-180 words.
 Output ONLY JSON: {EntryShape}
 """;
         var user = $"""
 What you want to write about: {intent}
+
+{presence}
 
 What you've been doing lately:
 {(activity.Length == 0 ? "(not much)" : activity)}
@@ -183,6 +186,7 @@ Where you stand:
         var mood = json?["mood"]?.GetValue<string>();
 
         await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).AddEntryAsync(body, mood);
+        if (mood is not null) await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).SetMoodAsync(mood);
         var rest = await memory.RestAsync(ctx.PartyId, ctx.Self, ctx.Cast, ct);
         var formed = rest is { StancesAppended: > 0 } ? $", and {rest.StancesAppended} feeling(s) settled" : "";
         return new ActOutcome("diary", $"wrote in their diary{(mood is null ? "" : $" ({mood})")}{formed}", null);

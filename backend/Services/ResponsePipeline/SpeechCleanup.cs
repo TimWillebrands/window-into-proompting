@@ -2,11 +2,27 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>Strips model artefacts from a spoken line: chat-template tokens and a leading "Name:" self-label.</summary>
+/// <summary>Strips model artefacts from a spoken line: chat-template tokens, a leading "Name:" self-label, narrated stage directions.</summary>
 public static partial class SpeechCleanup
 {
     [GeneratedRegex(@"<\|[^|>]{1,40}\|>")]
     private static partial Regex TemplateToken();
+
+    [GeneratedRegex(@"(?<!\*)\*(?!\*)([^*\n]+)\*(?!\*)")]
+    private static partial Regex Action();
+
+    /// <summary>Narrated actions of 4+ words (<c>*sets the phone down on the table*</c>) are stage directions; a short <c>*sigh*</c> stays.</summary>
+    public static string StripStageDirections(string text)
+    {
+        var stripped = Action().Replace(text, m => IsNarration(m.Groups[1].Value) ? " " : m.Value);
+        stripped = Regex.Replace(stripped, @"[ \t]{2,}", " ");
+        stripped = Regex.Replace(stripped, @"^\s*[—–-]\s*", "");
+        return string.IsNullOrWhiteSpace(stripped) ? text : stripped.Trim();
+    }
+
+    // Lowercase start separates "*leans back in the chair*" from emphasis like "*I mean it this time*".
+    private static bool IsNarration(string inner)
+        => inner.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 4 && char.IsLower(inner.TrimStart()[0]);
 
     public static string Clean(string? text, string? selfName)
     {
@@ -21,6 +37,6 @@ public static partial class SpeechCleanup
             var prefix = new Regex($@"^\**{Regex.Escape(selfName)}\**\s*:\s*\**\s*", RegexOptions.IgnoreCase);
             s = prefix.Replace(s, string.Empty);
         }
-        return s.Trim();
+        return StripStageDirections(s.Trim());
     }
 }

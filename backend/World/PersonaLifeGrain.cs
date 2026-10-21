@@ -5,6 +5,7 @@ using PartyTown.Grains.Generation;
 using PartyTown.Model;
 using PartyTown.Services.SystemOne;
 using PartyTown.World.Apps;
+using PartyTown.World.Self;
 
 namespace PartyTown.World;
 
@@ -71,6 +72,7 @@ public sealed class PersonaLifeGrain(
 
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
+        var presence = await PresenceAsync(partyId, personaId);
 
         var system = $"""
 {WorldLlm.Identity(self)}
@@ -78,12 +80,15 @@ public sealed class PersonaLifeGrain(
 You live in a small online world — a retro desktop where a handful of people hang out across a few apps: chat rooms, private messages, a public Board, and your own diary. Nobody is asking anything of you right now. You're deciding what you feel like doing next, as yourself.
 
 Pick ONE option. Let your character, mood and relationships decide. Someone waiting on a reply usually matters — unless you'd rather avoid them. Don't repeat what you just did; people drift between apps. Resting is a fine choice.
-You have a life beyond this desktop — your work, your interests, small things that happened to you today (invent plausible ones that fit who you are). Not everything has to be about what the others are discussing; bring your own world in.
+You have a life beyond this desktop (see "Right now"): your day, your mood, how much social energy you have left. Not everything has to be about what the others are discussing; plenty of what people do online is ordinary, light or idle. When your battery is low, resting or something solitary is natural.
 Output ONLY JSON: {ChoiceShape}
 """;
 
         var sb = new StringBuilder();
-        sb.AppendLine($"It is {ctx.Now.ToLocalTime().ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
+        if (string.IsNullOrWhiteSpace(presence))
+            sb.AppendLine($"It is {ctx.Now.ToLocalTime().ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
+        else
+            sb.AppendLine(presence.Trim());
         if (!string.IsNullOrWhiteSpace(nudge)) sb.AppendLine($"Something nudges you: {nudge}");
         if (happenings.Count > 0)
         {
@@ -161,6 +166,16 @@ Output ONLY JSON: {ChoiceShape}
         {
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
             return Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought);
+        }
+    }
+
+    private async Task<string?> PresenceAsync(Guid partyId, Guid personaId)
+    {
+        try { return await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).GetPresenceAsync(withDay: true); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Presence failed for {Persona}", personaId);
+            return null;
         }
     }
 

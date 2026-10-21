@@ -52,7 +52,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         RepairHint? repairHint = null,
         IReadOnlyList<string>? recollections = null,
         IReadOnlyList<string>? stances = null,
-        bool isDirect = false)
+        bool isDirect = false,
+        string? presence = null)
     {
         var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup, directlyAddressed: isDirect);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
@@ -83,7 +84,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances, presence) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -262,7 +263,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         string? scenario,
         RepairHint? repairHint,
         IReadOnlyList<string>? recollections,
-        IReadOnlyList<string>? stances)
+        IReadOnlyList<string>? stances,
+        string? presence = null)
     {
         // The trailing grounding line counters small-model scene drift: gut reactions were
         // observed inventing a different time/place than the setting states ("another
@@ -308,13 +310,15 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     _ => $"- {p.Name} (persona)",
 }))}}
 {{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
+{{(string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n")}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
 
 First: what's your honest gut reaction? A quick thought, feeling, eye-roll,
 laugh, disagreement, "huh, interesting" — whatever actually surfaces.
-Always write this. Be specific, in your voice — not a meta-summary.
+Always write this. Be specific, in your voice — not a meta-summary. Plain words,
+the way you'd think them; most reactions are small and ordinary.
 
 Second: would you actually say something out loud right now? Speak when
 your reaction is worth airtime — when you have a take, a feeling, a quip,

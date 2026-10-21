@@ -7,6 +7,8 @@ using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Streaming;
+using PartyTown.World;
+using PartyTown.World.Self;
 
 namespace PartyTown.Services.ResponsePipeline;
 
@@ -574,6 +576,7 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -605,7 +608,8 @@ public sealed class ResponsePipeline(
                     scenario,
                     memoryToReference,
                     stances,
-                    gutReaction);
+                    gutReaction,
+                    presence);
                 break;
             }
             catch (OperationCanceledException)
@@ -625,7 +629,37 @@ public sealed class ResponsePipeline(
             }
         }
 
+        _ = NoteSpokeAsync(chatGroupGrain, self);
         return result!;
+    }
+
+    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
+    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            return await grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id))
+                .GetPresenceAsync(withDay: string.IsNullOrWhiteSpace(scenario));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Presence failed for {PersonaName}; speaking without it", self.Name);
+            return null;
+        }
+    }
+
+    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            await grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id)).NoteSpokeAsync(self.Chattiness);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Social battery update failed for {PersonaName}", self.Name);
+        }
     }
 
     /// <summary>
@@ -665,6 +699,7 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario);
 
         return await decisionService.ShouldRespondAsync(
             self,
@@ -677,7 +712,8 @@ public sealed class ResponsePipeline(
             repairHint: repairHint,
             recollections: recollections,
             stances: stances,
-            isDirect: participants.Count == 2);
+            isDirect: participants.Count == 2,
+            presence: presence);
     }
 
     private static Task NotifyStreamAsync(

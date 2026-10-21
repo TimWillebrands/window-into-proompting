@@ -110,7 +110,7 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
     /// <summary>Who the Persona is, for prompts outside the Room pipeline.</summary>
     public static string Identity(CastMember self)
     {
-        var parts = new List<string> { $"You are {self.Name}." };
+        var parts = new List<string> { $"You are {self.Name}.", Services.ResponsePipeline.LivedSelf.SheetFraming };
         if (!string.IsNullOrWhiteSpace(self.SystemPrompt)) parts.Add(self.SystemPrompt!.Trim());
         if (!string.IsNullOrWhiteSpace(self.Bio)) parts.Add($"About you: {self.Bio!.Trim()}");
         return string.Join("\n", parts);

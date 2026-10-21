@@ -212,6 +212,10 @@ _Avoid_: agent loop, AI turn, routine.
 The fifth, stimulus-free instance of **Relevance Realization**: "nothing is asking anything of me — what is worth doing?". Minutes timescale. The code shapes the landscape (which Affordances exist, what is foregrounded); the Persona chooses.
 _Avoid_: planner, scheduler, motivation.
 
+**Lived self**:
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), and the words that have **gone stale** in the world or in their own mouth. The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+_Avoid_: persona state, stats, needs.
+
 **Affordance**:
 An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces.
 _Avoid_: action, option, tool, command.
