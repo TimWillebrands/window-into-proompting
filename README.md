@@ -53,7 +53,7 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 
 ```bash
 # local decision model (Cloudflare Clef-Flash, 6.5 GB) on llama.cpp's /v1/systemone
-llama-server -hf ggml-org/Clef-Flash-GGUF:Q4_K_M --port 8091 -ngl 99 -c 16384
+tools/systemone/run-clef.sh                          # LLAMA_SERVER=/path/to/llama-server if not on PATH
 export SYSTEM_ONE_LOCAL_URL=http://127.0.0.1:8091   # before starting the AppHost
 ```
 

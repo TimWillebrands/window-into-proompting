@@ -40,7 +40,11 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         var affordances = new List<Affordance>();
         foreach (var (room, recent) in mine.OrderByDescending(r => happeningNow.ContainsKey(r.Room.Id)).ThenByDescending(r => LastAt(r.Room, r.Recent)).Take(4))
         {
-            if (happeningNow.TryGetValue(room.Id, out var gathering))
+            // Once you've spoken there since it started, you've shown up — it's an ordinary room again.
+            if (happeningNow.TryGetValue(room.Id, out var gathering)
+                && recent.Any(m => m.SenderId == ctx.Self.Id && (m.SendAt ?? 0) >= gathering.StartsAt))
+                happeningNow.Remove(room.Id);
+            if (happeningNow.TryGetValue(room.Id, out gathering))
             {
                 sb.AppendLine($"#{room.Name}: \"{gathering.Title}\" is happening there right now — you said you'd come.");
                 affordances.Add(new Affordance(Id, $"Show up for \"{gathering.Title}\" in #{room.Name}", 5, room.Id, "say"));
