@@ -57,6 +57,14 @@ public sealed partial class PersonaSelfGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task RechargeAsync(double amount)
+    {
+        var now = DateTimeOffset.Now;
+        state.State.Battery = Math.Clamp(SelfMath.Battery(state.State, now) + amount, 0, 1);
+        state.State.BatteryAt = now.ToUnixTimeMilliseconds();
+        await state.WriteStateAsync();
+    }
+
     public async Task SetMoodAsync(string mood)
     {
         if (string.IsNullOrWhiteSpace(mood)) return;
@@ -253,6 +261,7 @@ public sealed partial class PersonaSelfGrain(
 public static partial class SelfMath
 {
     private const double RechargePerHour = 0.25;
+    public const double SolitudeRecharge = 0.25;
     public const double Asleep = 0.02;
 
     [GeneratedRegex(@"^\s*[-*•]?\s*(\d{1,2})[:.h](\d{2})\s*([AaPp]\.?[Mm]\.?)?\s*[-—–:]?\s*(.+)$")]
@@ -410,6 +419,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetPresenceAsync")] Task<string> GetPresenceAsync(bool withDay);
     [Alias("NoteSpokeAsync")] Task NoteSpokeAsync(double chattiness);
     [Alias("SetMoodAsync")] Task SetMoodAsync(string mood);
+    [Alias("RechargeAsync")] Task RechargeAsync(double amount);
     [Alias("GetStateAsync")] Task<SelfState> GetStateAsync();
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>

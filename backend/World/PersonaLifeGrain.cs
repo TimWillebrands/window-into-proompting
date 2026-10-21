@@ -31,6 +31,19 @@ public sealed class PersonaLifeGrain(
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
     {
+        var activity = await LiveCoreAsync(nudge);
+        // Time to yourself recharges (ADR 0021): resting and writing are how talked-out people refill.
+        if (activity.Action is "rest" or "diary")
+        {
+            var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+            try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
+            catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
+        }
+        return activity;
+    }
+
+    private async Task<WorldActivity> LiveCoreAsync(string? nudge)
+    {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         // Under the 3 min grain response timeout, so a stalled model call ends as a fizzle, not a timeout.
         using var turnCts = new CancellationTokenSource(TurnBudget);
