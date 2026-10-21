@@ -57,3 +57,28 @@ ungated. That is cheaper than emulating System One with an extra LLM call.
 - The Jev adapter is tested against the documented wire format only, because no key
   was available when it was written. The first real run should be checked against the
   logs (`Capture gate p(memorable)=…`, `Life X → …`).
+
+## Addendum: a local decision model first, Jev on OpenRouter as the fallback
+
+Decision models are now a commodity. Jev is served by OpenRouter (`POST /api/v1/systemone`,
+`~typesafe/jev-latest`), and llama.cpp serves open decision models on the same
+`/v1/systemone` wire format, for example Cloudflare's **Clef-Flash** (a 9B model; the Q4_K_M
+build is 6.5 GB). That changes where compute should go:
+
+- **Local GPU → System One.** Decisions are short, high-frequency and latency-sensitive: one
+  forward pass, no generation. That is the best use of a consumer GPU.
+- **OpenRouter → System Two, with stronger models.** Voicing is infrequent and is where model
+  quality shows. The Speaking phase (`CharacterVoice` tier) now runs on `anthropic/claude-haiku-5.5`.
+  Decision and Capture extraction stay on a cheap fast model.
+
+`FailoverJudge` tries the judges in order: `SYSTEM_ONE_LOCAL_URL` (for example llama-server on :8091),
+then `TYPESAFE_API_KEY`, then Jev via `OPENROUTER_API_KEY` (on by default; turn it off with
+`SYSTEM_ONE_OPENROUTER=false`). A judge that fails sits out for 5 min.
+
+System One now weighs three RR instances:
+
+| Instance | Question | Use |
+| --- | --- | --- |
+| Initiative | `choice` over Affordances | sampled at temperature 0.8 |
+| Interruption | `noul` "finishing now would look out of touch" + `choice` kind | the stop-signal race salience |
+| Capture | `noul` "remembered in a week" | gate below 0.35 |

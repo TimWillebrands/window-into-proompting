@@ -49,7 +49,15 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 
 **Local models:** in Control Panel → LLM providers, enable an Ollama entry (e.g. `lfm2.5:latest`) and disable the OpenRouter one. World calls send a JSON schema, so small local models stay structured. The voice is flatter, but the world keeps running offline.
 
-**Optional System One:** set `TYPESAFE_API_KEY` to let TypeSafe's Jev weigh persona decisions as calibrated probabilities. The chat LLM then only writes the words. `SYSTEM_ONE_EMULATE=true` tries the same path with the LLM instead of Jev.
+**System One (decisions) vs System Two (words):** persona *choices* go to a decision model: what to do next, whether to interrupt, whether a moment is worth remembering. *Words* go to an LLM. The best split is a local GPU for decisions and stronger cloud models for words:
+
+```bash
+# local decision model (Cloudflare Clef-Flash, 6.5 GB) on llama.cpp's /v1/systemone
+llama-server -hf ggml-org/Clef-Flash-GGUF:Q4_K_M --port 8091 -ngl 99 -c 16384
+export SYSTEM_ONE_LOCAL_URL=http://127.0.0.1:8091   # before starting the AppHost
+```
+
+Without a local server, Jev on OpenRouter (same API key) does the deciding. If both are down, the LLM decides as before. The voice runs on `anthropic/claude-haiku-5.5`; thinking and memory extraction run on `deepseek/deepseek-v4.1-flash`.
 
 ## Hacking on it
 
