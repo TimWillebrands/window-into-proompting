@@ -39,6 +39,11 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 sb.AppendLine($"    latest reply, {(r.AuthorId == ctx.Self.Id ? "you" : r.AuthorName)}: {WorldStream.Clip(r.Body, 120)}");
 
             if (lastAuthor == ctx.Self.Id) continue;
+            if (RunItsCourse(t.Replies.Count))
+            {
+                sb.AppendLine("    (this thread has run its course)");
+                continue;
+            }
             var priority = 1 + (answeredYou ? 2 : 0) + (ctx.Mentions(t.Body) || t.Replies.Any(x => ctx.Mentions(x.Body)) ? 1 : 0)
                 - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id);
             affordances.Add(new Affordance(Id, $"Reply to \"{WorldStream.Clip(t.Title, 60)}\" by {author}", priority, t.Id, "reply"));
@@ -50,6 +55,11 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     /// <summary>Threads you keep answering, and long ones, pull less: conversations wind down (ADR 0021).</summary>
     public static int ThreadFatigue(IReadOnlyList<Guid> replyAuthors, Guid self)
         => (replyAuthors.TakeLast(6).Count(a => a == self) >= 2 ? 1 : 0) + (replyAuthors.Count >= 12 ? 1 : 0) + (replyAuthors.Count >= 20 ? 1 : 0);
+
+    /// <summary>Forum threads die: past this length nobody replies any more.</summary>
+    public const int MaxReplies = 25;
+
+    public static bool RunItsCourse(int replies) => replies >= MaxReplies;
 
     /// <summary>A new thread seeded by something from your own day; it pulls harder when you haven't posted lately.</summary>
     public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately)

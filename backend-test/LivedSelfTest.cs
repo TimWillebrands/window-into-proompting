@@ -270,3 +270,13 @@ public class BeatRangeTest
         Assert.Equal("lunch", beats[1].Text);
     }
 }
+
+public class ThreadCourseTest
+{
+    [Fact]
+    public void LongThreadsRunTheirCourse()
+    {
+        Assert.False(PartyTown.World.Apps.BoardApp.RunItsCourse(24));
+        Assert.True(PartyTown.World.Apps.BoardApp.RunItsCourse(PartyTown.World.Apps.BoardApp.MaxReplies));
+    }
+}
