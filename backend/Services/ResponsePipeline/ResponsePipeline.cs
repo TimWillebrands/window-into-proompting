@@ -156,6 +156,7 @@ public sealed class ResponsePipeline(
                 new BeatAnchors(persona.Id, partyId, presentPersonaIds, triggeringMessage.Content ?? string.Empty,
                     await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 10, stanceLimit: 5, logger, linkedCt);
+            beat = await FreshenAsync(beat, partyId, persona.Id);
             var recollections = beat.Memories;
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
@@ -422,6 +423,7 @@ public sealed class ResponsePipeline(
             var beat = await memoryRepository.RecallBeatAsync(
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
+            beat = await FreshenAsync(beat, partyId, persona.Id);
             var memory = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
@@ -587,6 +589,17 @@ public sealed class ResponsePipeline(
         {
             logger.LogDebug(ex, "Sleep check failed for {PersonaName}", self.Name);
             return false;
+        }
+    }
+
+    /// <summary>Stale-word habituation on recall (ADR 0021); non-fatal.</summary>
+    private async Task<RecallBeat> FreshenAsync(RecallBeat beat, Guid partyId, Guid personaId)
+    {
+        try { return StaleRecall.Apply(beat, await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId)); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Stale recall filter failed");
+            return beat;
         }
     }
 

@@ -20,6 +20,12 @@ public sealed class WorldVoiceGrain : Grain, IWorldVoiceGrain
         return _lines.TakeLast(Math.Clamp(limit, 1, Window)).ToList();
     }
 
+    public async Task<List<string>> GetStaleWordsAsync(Guid speakerId)
+    {
+        var report = await GetReportAsync();
+        return report.WornWords.Concat(report.OwnWords.GetValueOrDefault(speakerId) ?? new List<string>()).Distinct().ToList();
+    }
+
     public async Task<List<VoiceLine>> GetOwnLinesAsync(Guid speakerId, int limit)
     {
         await GetReportAsync();
@@ -57,6 +63,8 @@ public interface IWorldVoiceGrain : IGrainWithGuidKey
 {
     [Alias("GetReportAsync")] Task<VoiceWearReport> GetReportAsync();
     [Alias("GetLinesAsync")] Task<List<VoiceLine>> GetLinesAsync(int limit);
+    /// <summary>World-worn words plus this speaker's own over-used ones.</summary>
+    [Alias("GetStaleWordsAsync")] Task<List<string>> GetStaleWordsAsync(Guid speakerId);
     [Alias("GetOwnLinesAsync")] Task<List<VoiceLine>> GetOwnLinesAsync(Guid speakerId, int limit);
 }
 
