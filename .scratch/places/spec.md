@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: in progress, phase 6 done, phase 7 (day and night) next (see § Progress)
+Status: in progress, phase 7 mostly done, phase 8 (decorating, looks) next (see § Progress)
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -196,6 +196,14 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - Docs: ADR 0020 and the CONTEXT.md § Places vocabulary are written.
   - **Not done:** shouts through open doors into the next Place, and the eavesdrop Bench probe.
 
+- **Phase 7 mostly done** (2153ac6 and the commits after it).
+  - **Sleep is owned by Places.** At bedtime the Body walks home to bed and lies down; falling asleep runs `WorldMemory.RestAsync` (Consolidation). Morning wakes them ("just got up").
+  - **Bedtimes:** from eb's `GetDayWindowAsync` (first beat = waking, bed = max(chronotype − 60, last beat + 30)), else a stable chronotype from the id (wake 06:30–09:30, bed 22:30–01:30). Fetched detached, because Self calls back into Places.
+  - The World clock skips sleepers. A human's DM wakes them groggy for 30 min. eb's side: Availability ≈ 0.02 while asleep, Messenger shows Away, and persona-triggered beats decline without an LLM call.
+  - **Homes:** knock when the owner is in and awake. The owner gets "X is knocking" (+3 pull to let them in) and can invite someone over; invitees see "they invited you" (+2 pull). Guests and knocks clear when the owner leaves.
+  - **UI:** sleepers lie in bed with drifting z's; others' Homes show 🔒 with a Knock button; a "Let in" banner appears at your own door.
+  - **Not done:** Gatherings at Places (Calendar is still Room-only), human idle-tab dozing, and cheaper nights beyond skipping sleepers.
+
 ## Review log
 
 - **Phase 6 done** (a691abd, plus the commits after it).
@@ -205,6 +213,14 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - **Human:** Talk/Whisper/Shout picker. Unheard lines show as scribble bubbles (`~~~ ~~`) and greyed in the log. "All ears" is an author switch in the Places window (not the World Monitor).
   - Docs: ADR 0020 and the CONTEXT.md § Places vocabulary are written.
   - **Not done:** shouts through open doors into the next Place, and the eavesdrop Bench probe.
+
+- **Phase 7 mostly done** (2153ac6 and the commits after it).
+  - **Sleep is owned by Places.** At bedtime the Body walks home to bed and lies down; falling asleep runs `WorldMemory.RestAsync` (Consolidation). Morning wakes them ("just got up").
+  - **Bedtimes:** from eb's `GetDayWindowAsync` (first beat = waking, bed = max(chronotype − 60, last beat + 30)), else a stable chronotype from the id (wake 06:30–09:30, bed 22:30–01:30). Fetched detached, because Self calls back into Places.
+  - The World clock skips sleepers. A human's DM wakes them groggy for 30 min. eb's side: Availability ≈ 0.02 while asleep, Messenger shows Away, and persona-triggered beats decline without an LLM call.
+  - **Homes:** knock when the owner is in and awake. The owner gets "X is knocking" (+3 pull to let them in) and can invite someone over; invitees see "they invited you" (+2 pull). Guests and knocks clear when the owner leaves.
+  - **UI:** sleepers lie in bed with drifting z's; others' Homes show 🔒 with a Knock button; a "Let in" banner appears at your own door.
+  - **Not done:** Gatherings at Places (Calendar is still Room-only), human idle-tab dozing, and cheaper nights beyond skipping sleepers.
 
 ## Review log
 
