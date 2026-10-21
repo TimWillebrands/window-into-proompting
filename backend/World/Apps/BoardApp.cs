@@ -5,6 +5,9 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Apps;
 
+/// <summary>Resolves author ids to the views a Capture needs (Persona path: LifeContext; Player path: Party cast).</summary>
+public delegate List<ParticipantView> ViewsOf(IEnumerable<Guid> ids);
+
 /// <summary>Board: asynchronous, public, threaded. Written in voice; every post is a captured moment.</summary>
 public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory memory, ILogger<BoardApp> logger) : IWorldApp
 {
@@ -75,9 +78,7 @@ Output: {PostShape}
             var body = json?["body"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(body)) return null;
 
-            var thread = await board.CreateThreadAsync(ctx.Self.Id, ctx.Self.Name, title, body);
-            CaptureDetached(ctx, thread);
-            return new ActOutcome("post", $"posted \"{thread.Title}\"", thread.Id);
+            return (await PostAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, body, ViewsOf(ctx))).Outcome;
         }
 
         if (affordance.TargetId is not { } threadId || await board.GetThreadAsync(threadId) is not { } target) return null;
@@ -94,11 +95,29 @@ Output: {ReplyShape}
         var replyBody = replyJson?["body"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(replyBody)) return null;
 
-        var updated = await board.ReplyAsync(threadId, ctx.Self.Id, ctx.Self.Name, replyBody);
-        if (updated is null) return null;
-        CaptureDetached(ctx, updated);
-        return new ActOutcome("reply", $"replied to \"{updated.Title}\": \"{WorldStream.Clip(replyBody, 140)}\"", threadId);
+        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, replyBody, ViewsOf(ctx)))?.Outcome;
     }
+
+    /// <summary>Commit a post — the same for a Persona's voiced one and the Player's typed one: store, then remember.</summary>
+    public async Task<(BoardThread Thread, ActOutcome Outcome)> PostAsync(
+        Guid partyId, Guid authorId, string authorName, string title, string body, ViewsOf viewsOf)
+    {
+        var thread = await grains.GetGrain<IBoardGrain>(partyId).CreateThreadAsync(authorId, authorName, title, body);
+        CaptureDetached(partyId, thread, viewsOf);
+        return (thread, new ActOutcome("post", $"posted \"{thread.Title}\"", thread.Id));
+    }
+
+    /// <summary>Commit a reply; null when the thread is gone.</summary>
+    public async Task<(BoardThread Thread, ActOutcome Outcome)?> ReplyAsync(
+        Guid partyId, Guid threadId, Guid authorId, string authorName, string body, ViewsOf viewsOf)
+    {
+        var thread = await grains.GetGrain<IBoardGrain>(partyId).ReplyAsync(threadId, authorId, authorName, body);
+        if (thread is null) return null;
+        CaptureDetached(partyId, thread, viewsOf);
+        return (thread, new ActOutcome("reply", $"replied to \"{thread.Title}\": \"{WorldStream.Clip(body, 140)}\"", thread.Id));
+    }
+
+    private static ViewsOf ViewsOf(LifeContext ctx) => ids => ids.Select(ctx.ViewOf).ToList();
 
     private static string Render(BoardThread t, LifeContext ctx)
     {
@@ -111,14 +130,14 @@ Output: {ReplyShape}
     }
 
     /// <summary>The post just written becomes an Event recollected by everyone in the thread.</summary>
-    private void CaptureDetached(LifeContext ctx, BoardThread thread)
+    private void CaptureDetached(Guid partyId, BoardThread thread, ViewsOf viewsOf)
     {
-        var moment = MomentOf(ctx.PartyId, thread, ids => ids.Select(ctx.ViewOf).ToList());
+        var moment = MomentOf(partyId, thread, viewsOf);
         _ = Task.Run(() => memory.CaptureAsync(moment, CancellationToken.None));
     }
 
     /// <summary>A Board thread as a Moment marked at its latest post; <paramref name="viewsOf"/> resolves its authors.</summary>
-    public static Moment MomentOf(Guid partyId, BoardThread thread, Func<IEnumerable<Guid>, List<ParticipantView>> viewsOf)
+    public static Moment MomentOf(Guid partyId, BoardThread thread, ViewsOf viewsOf)
     {
         var lines = new List<MomentLine> { new(thread.AuthorId, $"[Board post \"{thread.Title}\"] {thread.Body}", thread.CreatedAt) };
         lines.AddRange(thread.Replies.Select(r => new MomentLine(r.AuthorId, $"[Board reply] {r.Body}", r.CreatedAt)));

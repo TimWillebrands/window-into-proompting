@@ -13,8 +13,11 @@ namespace PartyTown.Controllers;
 /// </summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : ControllerBase
+public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps) : ControllerBase
 {
+    private BoardApp BoardApp => apps.OfType<BoardApp>().Single();
+    private CalendarApp CalendarApp => apps.OfType<CalendarApp>().Single();
+
     private const int MaxPostLength = 4000;
 
     [HttpGet]
@@ -118,12 +121,8 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body) || request.Body.Length > MaxPostLength)
             return BadRequest("Title and body are required (body ≤ 4000 chars).");
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
-        var thread = await Board(partyId).CreateThreadAsync(authorId, authorName, request.Title, request.Body);
-        await Clock(partyId).RecordAsync(new WorldActivity
-        {
-            PersonaId = authorId, PersonaName = authorName, App = "board", Action = "post",
-            Summary = $"posted \"{thread.Title}\"", TargetId = thread.Id,
-        });
+        var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Title, request.Body, await ViewsOfAsync(partyId));
+        await RecordAsync(partyId, authorId, authorName, BoardApp.Id, outcome);
         return Ok(thread);
     }
 
@@ -133,22 +132,10 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
         if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Length > MaxPostLength)
             return BadRequest("Body is required (≤ 4000 chars).");
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
-        var thread = await Board(partyId).ReplyAsync(threadId, authorId, authorName, request.Body);
-        if (thread is null) return NotFound();
-        await Clock(partyId).RecordAsync(new WorldActivity
-        {
-            PersonaId = authorId, PersonaName = authorName, App = "board", Action = "reply",
-            Summary = $"replied to \"{thread.Title}\"", TargetId = thread.Id,
-        });
-
-        // The thread's Personas will remember what the human said to them.
-        var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
-        _ = memory.CaptureAsync(BoardApp.MomentOf(partyId, thread, ids => ids
-            .Select(id => cast.FirstOrDefault(c => c.Id == id) is { } c
-                ? new ParticipantView(c.Id, c.Name, c.DefaultDriver)
-                : new ParticipantView(id, "someone", DriverKind.User))
-            .ToList()), CancellationToken.None);
-        return Ok(thread);
+        if (await BoardApp.ReplyAsync(partyId, threadId, authorId, authorName, request.Body, await ViewsOfAsync(partyId)) is not { } done)
+            return NotFound();
+        await RecordAsync(partyId, authorId, authorName, BoardApp.Id, done.Outcome);
+        return Ok(done.Thread);
     }
 
     // ─── Messenger ────────────────────────────────────────────────────────────
@@ -201,13 +188,8 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
             .FirstOrDefault(g => g.Id == request.RoomId && g.Kind == ChatGroupKinds.Room);
         if (room is null) return BadRequest("Unknown room.");
         var (hostId, hostName) = await AuthorAsync(partyId, request.HostId);
-        var g = await grains.GetGrain<ICalendarGrain>(partyId)
-            .PlanAsync(hostId, hostName, request.Title.Trim(), room.Id, room.Name, request.StartsAt);
-        await Clock(partyId).RecordAsync(new WorldActivity
-        {
-            PersonaId = hostId, PersonaName = hostName, App = "calendar", Action = "plan", TargetId = room.Id,
-            Summary = $"planned \"{g.Title}\" in #{room.Name}",
-        });
+        var (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
+        await RecordAsync(partyId, hostId, hostName, CalendarApp.Id, outcome);
         return Ok(g);
     }
 
@@ -215,9 +197,10 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Gathering>> Rsvp(Guid partyId, Guid gatheringId, [FromBody] RsvpRequest request)
     {
-        var (id, _) = await AuthorAsync(partyId, request.PersonaId);
-        return await grains.GetGrain<ICalendarGrain>(partyId).RsvpAsync(gatheringId, id, request.Going) is { } g
-            ? Ok(g) : NotFound();
+        var (id, name) = await AuthorAsync(partyId, request.PersonaId);
+        if (await CalendarApp.RsvpAsync(partyId, gatheringId, id, request.Going) is not { } done) return NotFound();
+        await RecordAsync(partyId, id, name, CalendarApp.Id, done.Outcome);
+        return Ok(done.Gathering);
     }
 
     // ─── Diary ────────────────────────────────────────────────────────────────
@@ -228,6 +211,25 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
 
     private IWorldClockGrain Clock(Guid partyId) => grains.GetGrain<IWorldClockGrain>(partyId);
     private IBoardGrain Board(Guid partyId) => grains.GetGrain<IBoardGrain>(partyId);
+
+    /// <summary>The Player's act lands in the activity log exactly like a Life turn's.</summary>
+    private Task RecordAsync(Guid partyId, Guid actorId, string actorName, string app, ActOutcome outcome)
+        => Clock(partyId).RecordAsync(new WorldActivity
+        {
+            PersonaId = actorId, PersonaName = actorName, App = app, Action = outcome.Action,
+            Summary = outcome.Summary, TargetId = outcome.TargetId,
+        });
+
+    /// <summary>Capture views from the Party cast; unknown authors are someone human.</summary>
+    private async Task<ViewsOf> ViewsOfAsync(Guid partyId)
+    {
+        var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        return ids => ids
+            .Select(id => cast.FirstOrDefault(c => c.Id == id) is { } c
+                ? new ParticipantView(c.Id, c.Name, c.DefaultDriver)
+                : new ParticipantView(id, "someone", DriverKind.User))
+            .ToList();
+    }
 
     private async Task<(Guid Id, string Name)> AuthorAsync(Guid partyId, Guid? authorId)
     {

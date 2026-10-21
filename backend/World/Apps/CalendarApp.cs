@@ -50,13 +50,9 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {
         if (affordance.TargetId is not { } target) return null;
-        var calendar = grains.GetGrain<ICalendarGrain>(ctx.PartyId);
 
         if (affordance.Verb == "rsvp")
-        {
-            var g = await calendar.RsvpAsync(target, ctx.Self.Id, true);
-            return g is null ? null : new ActOutcome("rsvp", $"will come to \"{g.Title}\" in #{g.RoomName}", g.RoomId);
-        }
+            return (await RsvpAsync(ctx.PartyId, target, ctx.Self.Id, true))?.Outcome;
 
         var room = ctx.Threads.FirstOrDefault(t => t.Id == target);
         if (room is null) return null;
@@ -68,8 +64,24 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         var minutes = int.TryParse(json?["minutesFromNow"]?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : 60;
         var startsAt = ctx.Now.AddMinutes(Math.Clamp(minutes, 15, 240)).ToUnixTimeMilliseconds();
 
-        var planned = await calendar.PlanAsync(ctx.Self.Id, ctx.Self.Name, title, room.Id, room.Name, startsAt);
-        return new ActOutcome("plan", $"planned \"{planned.Title}\" in #{room.Name} for {When(startsAt, ctx.Now)}", room.Id);
+        return (await PlanAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, room, startsAt, ctx.Now)).Outcome;
+    }
+
+    /// <summary>Commit a Gathering — Persona-titled or Player-typed alike.</summary>
+    public async Task<(Gathering Gathering, ActOutcome Outcome)> PlanAsync(
+        Guid partyId, Guid hostId, string hostName, string title, ChatGroupInfo room, long startsAt, DateTimeOffset now)
+    {
+        var planned = await grains.GetGrain<ICalendarGrain>(partyId).PlanAsync(hostId, hostName, title, room.Id, room.Name, startsAt);
+        return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" in #{room.Name} for {When(startsAt, now)}", room.Id));
+    }
+
+    /// <summary>Commit an RSVP; null when the Gathering is gone.</summary>
+    public async Task<(Gathering Gathering, ActOutcome Outcome)?> RsvpAsync(Guid partyId, Guid gatheringId, Guid personaId, bool going)
+    {
+        var g = await grains.GetGrain<ICalendarGrain>(partyId).RsvpAsync(gatheringId, personaId, going);
+        if (g is null) return null;
+        var summary = going ? $"will come to \"{g.Title}\" in #{g.RoomName}" : $"won't make it to \"{g.Title}\" in #{g.RoomName}";
+        return (g, new ActOutcome("rsvp", summary, g.RoomId));
     }
 
     private const string PlanShape = """{"title": "<short title>", "minutesFromNow": "<number>"}""";
