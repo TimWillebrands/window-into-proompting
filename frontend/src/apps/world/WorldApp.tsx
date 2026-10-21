@@ -24,7 +24,7 @@ import { useDesktopContext } from '#lib/desktop-context';
 import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
-import { useOpenDirectChat, WORLD_ID } from '../../lib/world';
+import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
 
 const NARRATOR_ID = '0000aaaa-0000-0000-0000-00000000a17e';
 
@@ -802,7 +802,10 @@ function ActivityFeed({
         { limit: 100, ...(filterId ? { personaId: filterId } : {}) },
         { query: { placeholderData: keepPreviousData } },
     );
-    const dmsQuery = useGetWorldsPartyIdMessenger(WORLD_ID);
+    const playerId = usePlayerId();
+    const dmsQuery = useGetWorldsPartyIdMessenger(WORLD_ID, {
+        personaId: playerId ?? undefined,
+    });
     const activities = activitiesQuery.data?.data ?? [];
     const dms = dmsQuery.data?.data ?? [];
 
@@ -818,9 +821,21 @@ function ActivityFeed({
         // Memory captures target the room/DM they came from.
         if (a.app === 'messenger' || a.app === 'memory') {
             const dm = dms.find((d) => d.chatGroupId === target);
-            return dm
-                ? () => openDirectChat(dm.chatGroupId, dm.withName)
-                : null;
+            if (dm) return () => openDirectChat(dm.chatGroupId, dm.withName);
+            // Someone else's DM: read along without being part of it.
+            const other = /^to (.+?):/.exec(a.summary ?? '')?.[1];
+            if (a.app !== 'messenger' || !other) return null;
+            const pair = `${a.personaName} & ${other}`;
+            return () =>
+                openWindow('messenger-chat', {
+                    instanceId: `dm-${target}`,
+                    title: `${pair} — Conversation`,
+                    props: {
+                        chatGroupId: target,
+                        withName: pair,
+                        spectate: true,
+                    },
+                });
         }
         return null;
     };

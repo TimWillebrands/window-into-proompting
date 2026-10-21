@@ -28,6 +28,8 @@ import {
 interface MessengerChatWindowProps {
     chatGroupId?: string;
     withName?: string;
+    /** Read-only view of a DM the player isn't part of (opened from World Monitor). */
+    spectate?: boolean;
 }
 
 const EMOJI = [
@@ -55,6 +57,7 @@ const visible = (m: RealtimeChatMessage) =>
 export default function MessengerChatWindow({
     chatGroupId,
     withName = 'Contact',
+    spectate = false,
 }: MessengerChatWindowProps) {
     if (!chatGroupId) {
         return (
@@ -63,15 +66,23 @@ export default function MessengerChatWindow({
             </div>
         );
     }
-    return <Conversation chatGroupId={chatGroupId} withName={withName} />;
+    return (
+        <Conversation
+            chatGroupId={chatGroupId}
+            withName={withName}
+            spectate={spectate}
+        />
+    );
 }
 
 function Conversation({
     chatGroupId,
     withName,
+    spectate,
 }: {
     chatGroupId: string;
     withName: string;
+    spectate: boolean;
 }) {
     const playerId = usePlayerId();
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
@@ -105,8 +116,9 @@ function Conversation({
     const isReading = !isTyping && phases.some((p) => p.phase === 'deciding');
 
     const isMine = (m: RealtimeChatMessage) =>
-        (!!playerId && m.senderId === playerId) ||
-        (m.senderType === 'user' && m.senderId !== withId);
+        !spectate &&
+        ((!!playerId && m.senderId === playerId) ||
+            (m.senderType === 'user' && m.senderId !== withId));
     const nameOf = (m: RealtimeChatMessage) => {
         if (isMine(m)) return myName;
         if (m.senderId === withId) return withName;
@@ -262,95 +274,112 @@ function Conversation({
                     </div>
 
                     {/* Compose */}
-                    <div
-                        className="relative flex flex-col"
-                        style={{
-                            border: '1px solid #9db6dc',
-                            borderRadius: 4,
-                            background: '#fff',
-                        }}
-                    >
+                    {spectate ? (
                         <div
-                            className="flex items-center gap-1 px-1 py-[2px]"
+                            className="px-2 py-2 text-center"
                             style={{
-                                borderBottom: '1px solid #dbe5f3',
-                                background:
-                                    'linear-gradient(180deg, #ffffff 0%, #eef3fb 100%)',
-                                borderRadius: '4px 4px 0 0',
+                                border: '1px dashed #9db6dc',
+                                borderRadius: 4,
+                                background: '#fff',
+                                color: '#4a6ea9',
                             }}
                         >
-                            <button
-                                type="button"
-                                className="xp-bare rounded-[3px] border border-transparent px-1 hover:border-[#a9c4ea] hover:bg-[#e6effc]"
-                                style={{ fontSize: 13, lineHeight: '16px' }}
-                                title="Select an emoticon"
-                                aria-expanded={emojiOpen}
-                                onClick={() => setEmojiOpen((o) => !o)}
-                            >
-                                🙂 <span style={{ fontSize: 8 }}>▼</span>
-                            </button>
+                            👀 You're reading a private conversation. They can't
+                            see you.
                         </div>
-                        {emojiOpen && (
+                    ) : (
+                        <div
+                            className="relative flex flex-col"
+                            style={{
+                                border: '1px solid #9db6dc',
+                                borderRadius: 4,
+                                background: '#fff',
+                            }}
+                        >
                             <div
-                                className="absolute bottom-full left-0 z-10 mb-1 grid grid-cols-8 gap-[2px] p-1"
+                                className="flex items-center gap-1 px-1 py-[2px]"
                                 style={{
-                                    background: '#fff',
-                                    border: '1px solid #7f9db9',
-                                    boxShadow: '2px 2px 4px rgba(0,0,0,0.25)',
+                                    borderBottom: '1px solid #dbe5f3',
+                                    background:
+                                        'linear-gradient(180deg, #ffffff 0%, #eef3fb 100%)',
+                                    borderRadius: '4px 4px 0 0',
                                 }}
                             >
-                                {EMOJI.map((e) => (
-                                    <button
-                                        key={e}
-                                        type="button"
-                                        className="xp-bare h-[22px] w-[22px] rounded-[2px] border border-transparent hover:border-[#316ac5] hover:bg-[#c1d2ee]"
-                                        style={{ fontSize: 14 }}
-                                        onClick={() => insertEmoji(e)}
-                                    >
-                                        {e}
-                                    </button>
-                                ))}
+                                <button
+                                    type="button"
+                                    className="xp-bare rounded-[3px] border border-transparent px-1 hover:border-[#a9c4ea] hover:bg-[#e6effc]"
+                                    style={{ fontSize: 13, lineHeight: '16px' }}
+                                    title="Select an emoticon"
+                                    aria-expanded={emojiOpen}
+                                    onClick={() => setEmojiOpen((o) => !o)}
+                                >
+                                    🙂 <span style={{ fontSize: 8 }}>▼</span>
+                                </button>
                             </div>
-                        )}
-                        <div className="flex items-stretch gap-[6px] p-1">
-                            <textarea
-                                ref={inputRef}
-                                value={draft}
-                                onChange={(e) => setDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        void send();
-                                    } else if (e.key === 'Escape') {
-                                        setEmojiOpen(false);
-                                    }
-                                }}
-                                rows={3}
-                                maxLength={4000}
-                                aria-label={`Message to ${withName}`}
-                                className="min-w-0 flex-1 resize-none"
-                                style={{
-                                    border: 'none',
-                                    outline: 'none',
-                                    padding: '2px 3px',
-                                    fontSize: 12,
-                                    fontFamily: 'Tahoma, Verdana, sans-serif',
-                                }}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => void send()}
-                                disabled={!canSend}
-                                style={{
-                                    width: 64,
-                                    fontWeight: 700,
-                                    padding: '0 6px',
-                                }}
-                            >
-                                Send
-                            </button>
+                            {emojiOpen && (
+                                <div
+                                    className="absolute bottom-full left-0 z-10 mb-1 grid grid-cols-8 gap-[2px] p-1"
+                                    style={{
+                                        background: '#fff',
+                                        border: '1px solid #7f9db9',
+                                        boxShadow:
+                                            '2px 2px 4px rgba(0,0,0,0.25)',
+                                    }}
+                                >
+                                    {EMOJI.map((e) => (
+                                        <button
+                                            key={e}
+                                            type="button"
+                                            className="xp-bare h-[22px] w-[22px] rounded-[2px] border border-transparent hover:border-[#316ac5] hover:bg-[#c1d2ee]"
+                                            style={{ fontSize: 14 }}
+                                            onClick={() => insertEmoji(e)}
+                                        >
+                                            {e}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex items-stretch gap-[6px] p-1">
+                                <textarea
+                                    ref={inputRef}
+                                    value={draft}
+                                    onChange={(e) => setDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            void send();
+                                        } else if (e.key === 'Escape') {
+                                            setEmojiOpen(false);
+                                        }
+                                    }}
+                                    rows={3}
+                                    maxLength={4000}
+                                    aria-label={`Message to ${withName}`}
+                                    className="min-w-0 flex-1 resize-none"
+                                    style={{
+                                        border: 'none',
+                                        outline: 'none',
+                                        padding: '2px 3px',
+                                        fontSize: 12,
+                                        fontFamily:
+                                            'Tahoma, Verdana, sans-serif',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => void send()}
+                                    disabled={!canSend}
+                                    style={{
+                                        width: 64,
+                                        fontWeight: 700,
+                                        padding: '0 6px',
+                                    }}
+                                >
+                                    Send
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Right: display pictures */}
