@@ -76,7 +76,13 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 if (others.Where(o => o.SpotId != self.SpotId && !o.IsWalking).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } o)
                     affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}", nearby.Count == 0 ? 1 : 0, o.ParticipantId, "join"));
                 if (nearby.Count == 0 && here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
-                    affordances.Add(new Affordance(Id, $"Move over to {spot.Name}", 0, here.Id, $"spot:{spot.Id}"));
+                    affordances.Add(new Affordance(Id, $"Move over to {spot.Name}{PoseHint(spot)}", 0, here.Id, $"spot:{spot.Id}"));
+            }
+            // Getting comfortable where you are: one solo pose the spot affords (ADR 0025).
+            if (self.Pose is null && here?.Spots.FirstOrDefault(s => s.Id == self.SpotId) is { Poses.Count: > 0 } mine)
+            {
+                var pose = mine.Poses[Random.Shared.Next(mine.Poses.Count)];
+                affordances.Add(new Affordance(Id, $"Get comfortable: {Poses.Describe(pose, mine, null)}", 0, here.Id, $"pose:{pose}"));
             }
 
             // Care is capped: only the one thing here that needs it most is offered (spec: decay feeds talk, not housework).
@@ -240,12 +246,25 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             {
                 if (await places.MoveAsync(ctx.Self.Id, target, verb[5..]) is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
-                return new ActOutcome("walk", $"moves over to {SpotName(place, verb[5..])}", null);
+                // A solo pose named in the intent ("lean on the railing") is struck on arrival; pair poses are the Ties' to offer.
+                var spot = place?.Spots.FirstOrDefault(s => s.Id == verb[5..]);
+                var pose = spot is null ? null : Poses.FromIntent(intent, Poses.Allowed(spot, company: false));
+                var posed = pose is null ? null : await places.SetPoseAsync(ctx.Self.Id, pose, null);
+                return new ActOutcome("walk", $"moves over to {SpotName(place, verb[5..])}{(posed is null ? string.Empty : $", {posed}")}", null);
+            }
+            case { } verb when verb.StartsWith("pose:", StringComparison.Ordinal):
+            {
+                var posed = await places.SetPoseAsync(ctx.Self.Id, verb[5..], null);
+                return posed is null ? null : new ActOutcome("pose", posed, null);
             }
             default:
                 return null;
         }
     }
+
+    /// <summary>" (to lean or perch)" for spots that afford poses.</summary>
+    internal static string PoseHint(Spot spot)
+        => spot.Poses.Count == 0 ? string.Empty : $" (to {string.Join(" or ", spot.Poses.Take(2).Select(p => p.Replace('-', ' ')))})";
 
     /// <summary>Walked within the last two own actions (or the last 15 min).</summary>
     internal static bool JustWalked(LifeContext ctx)
