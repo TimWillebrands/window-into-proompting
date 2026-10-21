@@ -438,7 +438,11 @@ public sealed class ResponsePipeline(
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
             beat = await FreshenAsync(beat, partyId, persona.Id);
-            var memory = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant)?.Snippet;
+            // Not a story told in the last few hours; carrying it counts as telling it (refractory, ADR 0021).
+            var carried = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant
+                && (r.LastRecalled is not { } at || (DateTimeOffset.UtcNow - at).TotalHours >= SalienceMath.RefractoryHours));
+            var memory = carried?.Snippet;
+            if (carried is { EdgeId: var edge } && edge != Guid.Empty) _ = StrengthenPickedMemoryAsync(edge, persona.Name);
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
             inFlight.MarkGenerationStarted(feeling, intent);
@@ -624,10 +628,14 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>Stale-word habituation on recall (ADR 0021); non-fatal.</summary>
+    /// <summary>One story per slot plus stale-word habituation on recall (ADR 0021); non-fatal.</summary>
     private async Task<RecallBeat> FreshenAsync(RecallBeat beat, Guid partyId, Guid personaId)
     {
-        try { return StaleRecall.Apply(beat, await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId)); }
+        try
+        {
+            var names = (await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();
+            return StaleRecall.Apply(RecallVariety.Apply(beat, names), await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId));
+        }
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Stale recall filter failed");

@@ -101,6 +101,13 @@ background.
 24. **No canned hesitation.** A persona the stop-signal race cuts off before they drafted anything just
     doesn't speak. Nobody saw them start, and the canned "*starts to speak, then doesn't*" line turned into a
     tic that others kept reacting to. Cut-off drafts still get their in-character emote.
+25. **One story, one slot.** Every retelling is captured as a new memory, so a favourite story ("my coldest
+    address") ended up filling half of recall and got told again: a feedback loop. Recall now collapses
+    near-duplicates to the strongest one (content-word overlap ≥ 0.5, or a shared pair of adjacent content
+    words like "coldest address"). Memories of the form "You told X…" gain "(X already heard this from you)".
+    The initiative path used to carry its top memory without marking it as recalled, so the 4h refractory
+    never applied and the same memory came back on every initiative. It now skips memories recalled in the
+    last 4h and marks the one it carries as recalled.
 
 ## Why these pieces
 

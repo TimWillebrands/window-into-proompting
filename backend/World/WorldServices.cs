@@ -181,7 +181,11 @@ public sealed class WorldMemory(
 
         var beat = await repository.RecallBeatAsync(
             new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 8, stanceLimit: 6, logger, ct);
-        try { beat = Self.StaleRecall.Apply(beat, await grains.GetGrain<Self.IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId)); }
+        try
+        {
+            var names = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();
+            beat = Self.StaleRecall.Apply(Self.RecallVariety.Apply(beat, names), await grains.GetGrain<Self.IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId));
+        }
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogDebug(ex, "Stale recall filter failed"); }
         return (beat.Memories, beat.Stances.Select(Services.ResponsePipeline.StanceBlock.FormatLine).ToList());
     }

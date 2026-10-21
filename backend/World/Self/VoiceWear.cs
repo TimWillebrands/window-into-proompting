@@ -54,11 +54,22 @@ public static partial class VoiceWear
     }
 
     /// <summary>Share of the shorter line's content words found in the other.</summary>
-    private static double Overlap(IReadOnlyList<string> a, IReadOnlyList<string> b)
+    public static double Overlap(IReadOnlyList<string> a, IReadOnlyList<string> b)
     {
         var (sa, sb) = (a.ToHashSet(), b.ToHashSet());
         var smaller = Math.Min(sa.Count, sb.Count);
         return smaller < 3 ? 0 : sa.Intersect(sb).Count() / (double)smaller;
+    }
+
+    /// <summary>Lowercased content words (no stopwords, no name words) of one text.</summary>
+    public static List<string> ContentWords(string text, IEnumerable<string>? names = null)
+    {
+        var nameWords = (names ?? Array.Empty<string>())
+            .SelectMany(n => Word().Matches(n.ToLowerInvariant()).Select(m => m.Value))
+            .SelectMany(w => new[] { w, $"{w}'s", $"{w}’s" })
+            .ToHashSet();
+        return Word().Matches(text.ToLowerInvariant()).Select(m => m.Value.Trim('\'', '-'))
+            .Where(w => w.Length >= MinWordLength && !Stopwords.Contains(w) && !nameWords.Contains(w)).ToList();
     }
 
     [GeneratedRegex(@"[\p{L}][\p{L}'\-]*[\p{L}]")]
