@@ -52,12 +52,16 @@ public sealed class PersonaLifeGrain(
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
 
+        // Habituation: an App you just used pulls less (explore ⇄ exploit); urgent items still surface.
+        var recentApps = ctx.RecentOwn.Take(3).Select(a => a.App).ToList();
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId);
+
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
             .SelectMany(p => p.Affordances
-                .OrderByDescending(a => a.Priority + Random.Shared.NextDouble())
+                .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
                 .Take(MaxOptionsPerApp))
-            .OrderByDescending(a => a.Priority + Random.Shared.NextDouble())
+            .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
             .Take(MaxOptions)
             .ToList();
 
