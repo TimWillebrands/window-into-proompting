@@ -19,8 +19,9 @@ import {
     type Scene,
     spotNear,
     standHeight,
+    withFurni,
 } from './scene';
-import { placeLoose, sceneFor } from './scenes';
+import { placeFurni, sceneFor } from './scenes';
 import { type Sky, skyAt } from './sky';
 
 const BUBBLE_MS = 14_000;
@@ -37,6 +38,12 @@ interface Props {
     onSpotClick?: (spotId: string) => void;
     /** Pin the hour (previews); defaults to the local clock. */
     hour?: number;
+    /** Arranging a Home: click a thing to pick it, then a tile to put it there. */
+    arrange?: {
+        selected: string | null;
+        onPick: (furniId: string) => void;
+        onTile: (tile: Pt) => void;
+    };
 }
 
 const PIXEL_KEY = 'places.pixel';
@@ -347,23 +354,33 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         [scene, ground],
     );
     const furniKey = JSON.stringify(
-        furni.map((f) => [f.furniId, f.condition, f.on, f.notable, f.style]),
+        furni.map((f) => [
+            f.furniId,
+            f.condition,
+            f.on,
+            f.notable,
+            f.style,
+            f.model?.length,
+            f.tileX,
+            f.tileZ,
+            f.rot,
+        ]),
     );
     // biome-ignore lint/correctness/useExhaustiveDependencies: furniKey covers what changes the look
     const furniProps = useMemo(() => {
         const byId = new Map(furni.map((f) => [f.furniId ?? '', f]));
-        const pinned = scene.props.filter(
-            (p) => p.furniId && byId.has(p.furniId),
-        );
-        return [...pinned, ...placeLoose(scene, furni)].map((p) => ({
+        return placeFurni(scene, furni).map((p) => ({
             prop: p,
             view: byId.get(p.furniId ?? ''),
         }));
     }, [scene, furniKey]);
+    // One build per thing, so each can be picked when arranging.
     const furniBuilt = useMemo(
         () =>
-            build(
-                furniProps.map(({ prop, view }) =>
+            furniProps.map(({ prop, view }) => ({
+                id: prop.furniId ?? '',
+                prop,
+                built: build([
                     placement(
                         scene,
                         prop,
@@ -373,9 +390,19 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                             notable: !!view.notable,
                         },
                     ),
-                ),
-            ),
+                ]),
+            })),
         [furniProps, scene],
+    );
+    const { arrange } = props;
+    // Things where they stand now block walking and standing room.
+    const walkable = useMemo(
+        () =>
+            withFurni(
+                scene,
+                furniProps.map((f) => f.prop),
+            ),
+        [scene, furniProps],
     );
     const [hover, setHover] = useState<Pt | null>(null);
     const tileOf = (e: ThreeEvent<PointerEvent | MouseEvent>): Pt => ({
@@ -393,7 +420,12 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                 }}
                 onPointerOut={() => setHover(null)}
                 onClick={(e) => {
-                    if (e.delta > 6 || !onSpotClick) return;
+                    if (e.delta > 6) return;
+                    if (arrange) {
+                        arrange.onTile(tileOf(e));
+                        return;
+                    }
+                    if (!onSpotClick) return;
                     const spot = spotNear(scene, tileOf(e));
                     if (spot) onSpotClick(spot);
                 }}
@@ -415,8 +447,53 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                     <mesh geometry={ground.lights} material={glowMat} />
                 ) : null}
                 <BuiltMeshes built={statics} night={sky.night} />
-                <BuiltMeshes built={furniBuilt} night={sky.night} />
+                {furniBuilt.map((f) => (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: a three.js group, not DOM
+                    <group
+                        key={f.id}
+                        onClick={
+                            arrange
+                                ? (e) => {
+                                      if (e.delta > 6 || !f.id) return;
+                                      e.stopPropagation();
+                                      arrange.onPick(f.id);
+                                  }
+                                : undefined
+                        }
+                    >
+                        <BuiltMeshes built={f.built} night={sky.night} />
+                    </group>
+                ))}
             </group>
+            {arrange?.selected
+                ? furniBuilt
+                      .filter((f) => f.id === arrange.selected)
+                      .map((f) => (
+                          <mesh
+                              key="picked"
+                              position={[
+                                  f.prop.at[0] + f.prop.size[0] / 2,
+                                  standHeight(scene, {
+                                      x: f.prop.at[0],
+                                      y: f.prop.at[1],
+                                  }) + 0.02,
+                                  f.prop.at[1] + f.prop.size[1] / 2,
+                              ]}
+                              rotation={[-Math.PI / 2, 0, 0]}
+                          >
+                              <ringGeometry
+                                  args={[
+                                      0.55 * Math.max(...f.prop.size),
+                                      0.65 * Math.max(...f.prop.size),
+                                      4,
+                                      1,
+                                      Math.PI / 4,
+                                  ]}
+                              />
+                              <meshBasicMaterial color="#3b82f6" />
+                          </mesh>
+                      ))
+                : null}
             {scene.def.outdoor ? <Water scene={scene} sky={sky} /> : null}
             <PropLights
                 scene={scene}
@@ -451,9 +528,11 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                     </Html>
                 ) : null,
             )}
-            {hover && onSpotClick ? <Hover scene={scene} tile={hover} /> : null}
+            {hover && (onSpotClick || arrange) ? (
+                <Hover scene={scene} tile={hover} />
+            ) : null}
             <Bodies
-                scene={scene}
+                scene={walkable}
                 place={place}
                 places={places}
                 bodies={bodies}
@@ -829,6 +908,10 @@ function Bodies({
                         asleep: !!b.asleep,
                         lying: !!b.asleep || b.posture === 'Lying',
                         phone: busy.includes('phone'),
+                        hangout: b.pose ?? null,
+                        partner: b.poseWith
+                            ? (shown.current.get(b.poseWith) ?? null)
+                            : null,
                         talking: mine.some(
                             (m) => Date.now() - (m.sendAt ?? 0) < 3000,
                         ),

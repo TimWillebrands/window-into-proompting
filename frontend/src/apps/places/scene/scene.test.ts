@@ -3,8 +3,23 @@ import type { Body } from '../../../api/model/body';
 import type { Place } from '../../../api/model/place';
 import { targets } from './motion';
 import { PREFABS } from './prefabs';
-import { entrance, key, parseScene, pathIn, rows, WALKABLE } from './scene';
-import { generateScene, placeLoose, SCENES, sceneFor } from './scenes';
+import {
+    entrance,
+    key,
+    parseScene,
+    pathIn,
+    rows,
+    WALKABLE,
+    withFurni,
+} from './scene';
+import {
+    generateScene,
+    modelPrefab,
+    placeFurni,
+    placeLoose,
+    SCENES,
+    sceneFor,
+} from './scenes';
 
 /** Spots and capacities as backend PlaceSeeds has them. */
 const SEEDED: Record<string, Record<string, number>> = {
@@ -184,5 +199,70 @@ describe('prefab catalogue', () => {
                 seats,
             })),
         ).toEqual(mine);
+    });
+});
+
+describe('made and arranged', () => {
+    const rooftop: Place = {
+        id: 'roof',
+        name: 'the Rooftop Bar',
+        kind: 'public',
+        scene: 'custom',
+        wallColour: '#123456',
+        customScene: JSON.stringify({
+            map: '#ww######\n#.......#\n#.......#\nD.......#\n#.......#\n#########',
+            props: [
+                { p: 'counter', at: [1, 1] },
+                { p: 'dance-floor', at: [4, 2] },
+            ],
+            spots: { bar: { at: [2, 2] }, 'dance-floor': { at: [5, 3] } },
+        }),
+        spots: [
+            { id: 'bar', name: 'the bar' },
+            { id: 'dance-floor', name: 'the dance floor' },
+        ],
+    };
+
+    it('draws a made Place from its stored scene, in its own colours', () => {
+        const s = sceneFor(rooftop);
+        expect(s.def.id).toBe('custom:roof');
+        expect(s.def.wall).toBe('#123456');
+        expect(Object.keys(s.spots)).toEqual(['bar', 'dance-floor']);
+    });
+
+    it('falls back to a generated room when a made scene names something unknown', () => {
+        const s = sceneFor({
+            ...rooftop,
+            id: 'bad',
+            customScene: JSON.stringify({ map: '..?..', spots: {} }),
+        });
+        expect(s.def.id).toBe('gen:bad');
+    });
+
+    it('stands moved things where their owner put them, drawn from their model, and walks around them', () => {
+        const s = sceneFor(rooftop);
+        const model = JSON.stringify({
+            wall: false,
+            parts: [{ box: [0.5, 0.5, 0.5], c: '#ff0000' }],
+        });
+        const placed = placeFurni(s, [
+            {
+                furniId: 'cat-lamp',
+                kind: 'decor',
+                style: 'lamp',
+                tileX: 6,
+                tileZ: 4,
+                rot: 1,
+                model,
+            },
+        ]);
+        expect(placed).toHaveLength(1);
+        expect(placed[0].at).toEqual([6, 4]);
+        expect(placed[0].rot).toBe(1);
+        expect(placed[0].p).toBe('model');
+        expect(modelPrefab(model)?.parts).toHaveLength(1);
+        const w = withFurni(s, placed);
+        expect(w.blocked.has('6,4')).toBe(true);
+        expect(s.blocked.has('6,4')).toBe(false);
     });
 });

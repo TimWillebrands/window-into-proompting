@@ -324,7 +324,7 @@ const connected = (p: Pt[]) =>
 
 /** A* on the scene grid, memoised: Bodies walking in and out ask every frame. Seats inside furniture are slid into from the nearest free tile. */
 export function pathIn(s: Scene, from: Pt, to: Pt): Pt[] {
-    const k = `${s.def.id}:${key(from)}>${key(to)}`;
+    const k = `${s.def.id}:${s.blocked.size}:${key(from)}>${key(to)}`;
     const hit = paths.get(k);
     if (hit) return hit;
     let p = findPath(from, to, s.w, s.h, s.blocked);
@@ -354,6 +354,26 @@ export function pathIn(s: Scene, from: Pt, to: Pt): Pt[] {
     if (paths.size > 500) paths.clear();
     paths.set(k, p);
     return p;
+}
+
+/** The scene with things standing where they are now: their tiles blocked, standing room on them dropped. */
+export function withFurni(s: Scene, placed: PlacedProp[]): Scene {
+    const extra = placed
+        .filter((p) => p.prefab.solid !== false && !p.prefab.wall)
+        .flatMap(footprint)
+        .map(key);
+    if (extra.every((k) => s.blocked.has(k))) return s;
+    const blocked = new Set([...s.blocked, ...extra]);
+    const spots = Object.fromEntries(
+        Object.entries(s.spots).map(([id, sp]) => [
+            id,
+            {
+                ...sp,
+                stands: sp.stands.filter((t) => !blocked.has(key(t.tile))),
+            },
+        ]),
+    );
+    return { ...s, blocked, spots };
 }
 
 /** Nearest spot to a clicked tile, within a few tiles. */

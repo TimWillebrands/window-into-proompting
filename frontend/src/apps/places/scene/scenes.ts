@@ -1,7 +1,7 @@
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
 import type { Pt } from '../iso/iso';
-import { pick, rng, turned } from './prefab';
+import { type Part, type Prefab, pick, rng, turned } from './prefab';
 import { FURNI_PREFAB, PREFABS, prefabForSpot } from './prefabs';
 import {
     key,
@@ -330,6 +330,26 @@ export function generateScene(place: Place): SceneDef {
 }
 
 export function sceneDefFor(place: Place): SceneDef {
+    const base = baseDef(place);
+    return {
+        ...base,
+        wall: place.wallColour ?? base.wall,
+        floor: place.floorColour ?? base.floor,
+    };
+}
+
+function baseDef(place: Place): SceneDef {
+    if (place.customScene) {
+        try {
+            const custom = JSON.parse(place.customScene) as Omit<
+                SceneDef,
+                'id'
+            >;
+            return { ...custom, id: `custom:${place.id}` };
+        } catch {
+            return generateScene(place);
+        }
+    }
     if (place.scene === 'home' || place.kind === 'home') return homeFor(place);
     const def = place.scene ? SCENES[place.scene] : undefined;
     return def ?? generateScene(place);
@@ -339,10 +359,22 @@ const parsed = new Map<string, Scene>();
 
 /** Parsed scene for a Place, cached per Place and its spots. */
 export function sceneFor(place: Place): Scene {
-    const k = `${place.id}:${place.scene}:${(place.spots ?? []).map((s) => s.id).join(',')}`;
+    const k = `${place.id}:${place.scene}:${place.wallColour}:${place.floorColour}:${place.customScene?.length}:${(place.spots ?? []).map((s) => s.id).join(',')}`;
     const hit = parsed.get(k);
     if (hit) return hit;
-    const def = sceneDefFor(place);
+    try {
+        const s = parse(sceneDefFor(place));
+        parsed.set(k, s);
+        return s;
+    } catch {
+        // A made scene that names something this client can't draw still gets a room.
+        const s = parse(generateScene(place));
+        parsed.set(k, s);
+        return s;
+    }
+}
+
+function parse(def: SceneDef): Scene {
     const furniProps = Object.fromEntries(
         Object.entries(def.furni ?? {}).map(([id, f]) => [
             id,
@@ -365,8 +397,76 @@ export function sceneFor(place: Place): Scene {
     ids.forEach((id, i) => {
         s.props[first + i].furniId = id;
     });
-    parsed.set(k, s);
     return s;
+}
+
+const models = new Map<string, Prefab>();
+
+/** A generated model (backend ThingModel parts) as a prefab. */
+export function modelPrefab(json: string): Prefab | null {
+    const hit = models.get(json);
+    if (hit) return hit;
+    try {
+        const m = JSON.parse(json) as { wall?: boolean; parts?: Part[] };
+        if (!m.parts?.length) return null;
+        const prefab: Prefab = {
+            wall: !!m.wall,
+            solid: !m.wall,
+            parts: m.parts,
+        };
+        models.set(json, prefab);
+        return prefab;
+    } catch {
+        return null;
+    }
+}
+
+/** Every furni of a Place where it stands: the owner's spot if they moved it, else pinned by the scene, else loose; drawn from its model when it has one. */
+export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
+    const byId = new Map(furni.map((f) => [f.furniId ?? '', f]));
+    const moved = (f?: FurniView) => f?.tileX != null && f.tileZ != null;
+    const pinned = scene.props.filter(
+        (p) => p.furniId && byId.has(p.furniId) && !moved(byId.get(p.furniId)),
+    );
+    const pinnedIds = new Set(pinned.map((p) => p.furniId));
+    const loose = placeLoose(
+        scene,
+        furni.filter((f) => !moved(f) && !pinnedIds.has(f.furniId ?? '')),
+    );
+    const placed: PlacedProp[] = [...pinned, ...loose];
+    for (const f of furni.filter(moved)) {
+        const from = scene.props.find((p) => p.furniId === f.furniId);
+        const name =
+            from?.p ??
+            (f.kind === 'decor' && f.style
+                ? (FURNI_PREFAB[f.style] ?? 'thing')
+                : (FURNI_PREFAB[f.kind ?? ''] ?? 'thing'));
+        const prefab = PREFABS[name] ?? PREFABS.thing;
+        const rot = Number(f.rot ?? 0);
+        placed.push({
+            ...(from ?? {}),
+            p: name,
+            at: [Number(f.tileX ?? 0), Number(f.tileZ ?? 0)],
+            rot,
+            prefab,
+            size: turned(prefab.size ?? [1, 1], rot),
+            seed: from?.seed ?? hash(f.furniId ?? ''),
+            furniId: f.furniId ?? undefined,
+        });
+    }
+    return placed.map((p) => {
+        const model = byId.get(p.furniId ?? '')?.model;
+        const prefab = model ? modelPrefab(model) : null;
+        return prefab
+            ? {
+                  ...p,
+                  p: 'model',
+                  prefab,
+                  size: turned([1, 1], p.rot),
+                  y: prefab.wall ? 0 : p.y,
+              }
+            : p;
+    });
 }
 
 /** Where furni the scene didn't pin go: wall decor on back walls, the rest on free floor near the walls. */

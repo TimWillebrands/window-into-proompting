@@ -14,6 +14,7 @@ import {
     usePostWorldsPartyIdPlacesLetIn,
     usePostWorldsPartyIdPlacesMove,
     usePostWorldsPartyIdPlacesRestyle,
+    usePostWorldsPartyIdPlacesThingsArrange,
     usePostWorldsPartyIdPlacesVoice,
     usePutWorldsPartyIdPlacesAppearance,
 } from '#api/party-zone';
@@ -25,6 +26,7 @@ import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
 import PlaceCanvas from './iso/PlaceCanvas';
+import { ArrangeTools, MakerTools, PoseBar } from './PlaceTools';
 
 const PlaceScene = lazy(() => import('./scene/PlaceScene'));
 
@@ -273,6 +275,30 @@ function PlaceView({
             : [];
     const knock = usePostWorldsPartyIdPlacesKnock();
     const letIn = usePostWorldsPartyIdPlacesLetIn();
+    const arrangeThing = usePostWorldsPartyIdPlacesThingsArrange();
+    const [arranging, setArranging] = useState(false);
+    const [picked, setPicked] = useState<string | null>(null);
+    const [rot, setRot] = useState(0);
+    const mayArrange = (ownHome && amHere) || allEars;
+    const arrangeAs = ownHome
+        ? playerId
+        : allEars
+          ? '00000000-0000-0000-0000-000000000000'
+          : playerId;
+    const put = (x: number, z: number, r: number) =>
+        picked &&
+        place.id &&
+        arrangeThing.mutate({
+            partyId: WORLD_ID,
+            data: {
+                placeId: place.id,
+                furniId: picked,
+                x,
+                z,
+                rot: r,
+                participantId: arrangeAs,
+            },
+        });
 
     const goTo = (spotId?: string) =>
         place.id &&
@@ -335,7 +361,36 @@ function PlaceView({
                         Go here
                     </button>
                 ) : null}
+                {mayArrange && !arranging ? (
+                    <button type="button" onClick={() => setArranging(true)}>
+                        Arrange
+                    </button>
+                ) : null}
             </div>
+            {allEars ? <MakerTools place={place} playerId={playerId} /> : null}
+            {arranging && mayArrange ? (
+                <ArrangeTools
+                    place={place}
+                    furni={furni}
+                    selected={picked}
+                    rot={rot}
+                    participantId={arrangeAs}
+                    onRotate={() => {
+                        const next = (rot + 1) % 4;
+                        setRot(next);
+                        const f = furni.find((x) => x.furniId === picked);
+                        if (f?.tileX != null && f.tileZ != null)
+                            put(Number(f.tileX), Number(f.tileZ), next);
+                    }}
+                    onDone={() => {
+                        setArranging(false);
+                        setPicked(null);
+                    }}
+                />
+            ) : null}
+            {amHere && me && !arranging ? (
+                <PoseBar place={place} me={me} bodies={allBodies} />
+            ) : null}
             {situation ? (
                 <div
                     style={{
@@ -397,6 +452,24 @@ function PlaceView({
                 <Suspense fallback={<div style={{ height: 300 }} />}>
                     <PlaceScene
                         places={places}
+                        arrange={
+                            arranging && mayArrange
+                                ? {
+                                      selected: picked,
+                                      onPick: (id) => {
+                                          setPicked(id);
+                                          setRot(
+                                              Number(
+                                                  furni.find(
+                                                      (f) => f.furniId === id,
+                                                  )?.rot ?? 0,
+                                              ),
+                                          );
+                                      },
+                                      onTile: (t) => put(t.x, t.y, rot),
+                                  }
+                                : undefined
+                        }
                         place={place}
                         bodies={allBodies}
                         furni={furni}

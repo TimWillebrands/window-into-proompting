@@ -18,6 +18,8 @@ const HAIR: Record<string, string> = {
     white: '#eeeeee',
     blue: '#3b6fd6',
     pink: '#e57fb0',
+    green: '#3f9b5a',
+    purple: '#7b4fc4',
 };
 const CLOTH: Record<string, string> = {
     red: '#d9534f',
@@ -33,6 +35,16 @@ const CLOTH: Record<string, string> = {
     white: '#f2f2f2',
     grey: '#8a8f99',
     brown: '#7a5233',
+    beige: '#d8c6a3',
+    olive: '#6b7a3a',
+    maroon: '#6e2233',
+};
+const EYES: Record<string, string> = {
+    dark: '#1d1d1d',
+    brown: '#5a3415',
+    blue: '#2f6fd1',
+    green: '#2f8f4e',
+    grey: '#6b7280',
 };
 
 export interface Look {
@@ -42,6 +54,15 @@ export interface Look {
     top: string;
     bottom: string;
     accessory: string;
+    /** tshirt, hoodie, shirt, sweater, jacket, dress, tank, suit. */
+    topStyle: string;
+    /** trousers, jeans, shorts, skirt. */
+    bottomStyle: string;
+    shoes: string;
+    facialHair: string;
+    build: string;
+    height: string;
+    eyes: string;
 }
 
 export const lookOf = (
@@ -54,6 +75,13 @@ export const lookOf = (
     top: CLOTH[a?.top ?? ''] ?? fallbackTop,
     bottom: CLOTH[a?.bottom ?? ''] ?? '#3b3f58',
     accessory: a?.accessory ?? 'none',
+    topStyle: a?.topStyle ?? 'tshirt',
+    bottomStyle: a?.bottomStyle ?? 'trousers',
+    shoes: CLOTH[a?.shoes ?? ''] ?? '#2b2b2b',
+    facialHair: a?.facialHair ?? 'none',
+    build: a?.build ?? 'average',
+    height: a?.height ?? 'average',
+    eyes: EYES[a?.eyes ?? ''] ?? EYES.dark,
 });
 
 /** Hair and accessory over a head of radius r at (x, y). */
