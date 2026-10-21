@@ -594,14 +594,17 @@ public sealed class ResponsePipeline(
         return result!;
     }
 
-    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
+    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
     private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario)
     {
         try
         {
             var partyId = await chatGroupGrain.GetPartyIdAsync();
-            return await grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id))
+            var presenceTask = grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id))
                 .GetPresenceAsync(withDay: string.IsNullOrWhiteSpace(scenario));
+            var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
+            var (presence, cue) = (await presenceTask, await cueTask);
+            return string.IsNullOrWhiteSpace(cue) ? presence : $"{presence}\n# The conversation\n{cue}\n";
         }
         catch (Exception ex)
         {
