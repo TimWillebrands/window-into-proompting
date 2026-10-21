@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: in progress, phase 3 done (go), phase 4 next (see § Progress)
+Status: in progress, phase 4 done, phase 5 (iso renderer) next (see § Progress)
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -173,6 +173,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - Not measured: stale metaphors (0 in every arm; eb's style rules already stop the monoculture in single replies, so Places can't claim that), multi-turn drift, and Initiative choices.
   - **Verdict: go.** The Situation measurably grounds replies on the model that voices them. Next is phase 4 (furni), then phase 5 (renderer). A Life-turn probe (does a Body change *what they choose to do*) is still worth adding.
 - **Verified live**: the API walk → arrival → Café talk Room creation works across a `dotnet watch` reload. Pieter's Life thought mentioned "I've been indoors since…". Browser check of the window blocked: Servo + the dev console-forwarding loop starved the page; data rendered, the Player id never resolved.
+
+- **Phase 4 done** (commit after 552cef1, ba6091d).
+  - Furni lives on each Place (still in `PlacesGrain`). Decay is computed from timestamps by pure `FurniRules`, so nothing ticks: plants dry over 24 h, coffee dirties the cups, and a public machine or lamp breaks every 3–8 h. Breakdowns are announced as Narrator Happenings.
+  - Only the single neediest care item per Place is offered. Using things (coffee, jukebox) is a 0-pull option. Acting puts the Body next to the furni and shows "watering the plant" etc. for 3 min. The Situation gets "Around you: …" with at most 2 clauses.
+  - The UI shows furni in spot cards with Water/Wash/Fix/Use buttons. Rules stay server-side (`FurniView` in the snapshot).
+  - **Not done:** Device habits (laptop pull bonus for long-form at home). Happenings are rule-based mishaps rather than narrator-chosen effects.
+- **Live:** with the world running, the whole cast walked to the Café on their own (restlessness pull).
 
 ## Review log
 
