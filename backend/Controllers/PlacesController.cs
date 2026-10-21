@@ -97,6 +97,26 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Set a look by hand (default: the Player's own). Unknown values keep the current choice.</summary>
+    [HttpPut("appearance")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Appearance>> SetAppearance(Guid partyId, [FromBody] AppearanceRequest request)
+    {
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        var picked = new Dictionary<string, string?>
+        {
+            ["skin"] = request.Skin, ["hair"] = request.Hair, ["hairStyle"] = request.HairStyle,
+            ["top"] = request.Top, ["bottom"] = request.Bottom, ["accessory"] = request.Accessory,
+        };
+        return await Places(partyId).SetAppearanceAsync(who.Value, picked) is { } look ? Ok(look) : NotFound();
+    }
+
+    /// <summary>The palette a look is chosen from.</summary>
+    [HttpGet("appearance/options")]
+    public ActionResult<AppearanceOptions> GetAppearanceOptions()
+        => Ok(new AppearanceOptions(AppearanceRules.Skins, AppearanceRules.Hairs, AppearanceRules.Styles, AppearanceRules.Colours, AppearanceRules.Accessories));
+
     /// <summary>Author: let Personas pick their look again (all, or one), each seeing the others'.</summary>
     [HttpPost("redress")]
     public async Task<ActionResult> Redress(Guid partyId, [FromQuery] Guid? participantId)
@@ -112,6 +132,8 @@ public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? Partici
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
+public sealed record AppearanceRequest(string? Skin, string? Hair, string? HairStyle, string? Top, string? Bottom, string? Accessory, Guid? ParticipantId);
+public sealed record AppearanceOptions(string[] Skins, string[] Hairs, string[] HairStyles, string[] Colours, string[] Accessories);
 public sealed record IdleRequest(bool Idle, Guid? ParticipantId);
 public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);

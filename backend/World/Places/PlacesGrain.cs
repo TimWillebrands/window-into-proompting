@@ -285,6 +285,15 @@ public sealed class PlacesGrain(
         await PublishAsync(body);
     }
 
+    public async Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
+        body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(participantId), picked);
+        await SaveAsync();
+        await PublishAsync(body);
+        return body.Appearance;
+    }
+
     public async Task RedressAsync(Guid? participantId)
     {
         foreach (var body in state.State.Bodies.Values.Where(b => !b.IsHuman && (participantId is null || b.ParticipantId == participantId)))
@@ -830,6 +839,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>A human's tab went idle (their Body dozes off) or came back.</summary>
     [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);
+
+    /// <summary>Choose a look by hand (a Player for themselves, or the author for anyone). Off-palette choices are ignored.</summary>
+    [Alias("SetAppearanceAsync")] Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked);
 
     /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
     [Alias("RedressAsync")] Task RedressAsync(Guid? participantId);

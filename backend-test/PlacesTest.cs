@@ -299,6 +299,20 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task ALookCanBePickedByHand_OnThePaletteOnly()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        await places.GetSnapshotAsync();
+
+        var look = await places.SetAppearanceAsync(denise, new Dictionary<string, string?> { ["hair"] = "Pink", ["top"] = "neon-plaid" });
+
+        Assert.Equal("pink", look!.Hair);
+        Assert.Contains(look.Top, AppearanceRules.Colours);
+        Assert.True(look.FromBio);
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
