@@ -78,6 +78,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 : $" {JoinNames(subjects)} {(subjects.Count == 1 ? "is" : "are")} right here in the room — say it to {(subjects.Count == 1 ? subjects[0] : "them")} directly, not about them.";
             guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.{addressCue}");
         }
+        var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
+        guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage

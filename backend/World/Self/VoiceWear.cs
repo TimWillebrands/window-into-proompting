@@ -128,5 +128,6 @@ public static partial class VoiceWear
         "yourself", "yourselves", "actually", "already", "enough", "getting", "goes", "hey", "isnt", "dont",
         "im", "ive", "youre", "lot", "lets", "else", "anyway", "pretty", "quite", "rather", "seems", "seem",
         "thank", "thanks", "word", "words", "whole", "years", "year", "week", "night", "day", "days",
+        "room", "rooms", "chat", "message", "messages",
     };
 }

@@ -102,3 +102,23 @@ public class LivedSelfTest
         Assert.DoesNotContain(VoiceWear.RenderFor(report, B), l => l.Contains("*action*"));
     }
 }
+
+public class UtteranceRhythmTest
+{
+    [Theory]
+    [InlineData(5, 0.1, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Short)]
+    [InlineData(5, 0.8, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Medium)]
+    [InlineData(5, 0.97, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Long)]
+    [InlineData(80, 0.5, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Medium)]
+    [InlineData(80, 0.8, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Long)]
+    public void Pick_TracksTheOtherPersonsLength(int lastWords, double roll, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length expected)
+        => Assert.Equal(expected, PartyTown.Services.ResponsePipeline.UtteranceRhythm.Pick(lastWords, roll));
+
+    [Fact]
+    public void Pick_MostlyShortAfterAShortLine()
+    {
+        var shortShare = Enumerable.Range(0, 100).Count(i =>
+            PartyTown.Services.ResponsePipeline.UtteranceRhythm.Pick(6, i / 100.0) == PartyTown.Services.ResponsePipeline.UtteranceRhythm.Length.Short);
+        Assert.InRange(shortShare, 60, 80);
+    }
+}

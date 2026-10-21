@@ -516,10 +516,9 @@ public class SpeakingSessionTest
     }
 
     [Fact]
-    public async Task GenerateResponseOnlyAsync_NoHandoffFields_OmitsGuidanceMessage()
+    public async Task GenerateResponseOnlyAsync_NoHandoffFields_GuidanceCarriesOnlyLengthCue()
     {
-        // Nothing to hand off → no trailing system message (don't prime the model with an
-        // empty guidance stanza).
+        // Nothing to hand off → the trailing system message is just the per-turn length cue (ADR 0021).
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -528,7 +527,8 @@ public class SpeakingSessionTest
             persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
 
         var job = getJob()!;
-        Assert.Single(job.Messages); // system identity prompt only
+        Assert.Equal(2, job.Messages.Count);
+        Assert.StartsWith("Length:", job.Messages[1].Content);
     }
 
     // ── Tier routing fallback ─────────────────────────────────────────────────
