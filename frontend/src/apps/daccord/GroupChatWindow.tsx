@@ -38,6 +38,7 @@ import type { Persona } from '../../api/model';
 import { DriverKind } from '../../api/model';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
+import { speakAsOverrides } from './room-cast';
 
 export interface ChatViewProps {
     chatGroupId: string;
@@ -281,9 +282,8 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         chatGroupId,
     ]);
 
-    // The user-driven Persona is both membership and a Driver override: it's in the
-    // Room's cast and it carries an override of kind=User so the Response pipeline
-    // short-circuits.
+    // The user-driven Persona is both membership and a Driver override (kind=User) so the
+    // Response pipeline short-circuits; other Personas' overrides are kept.
     const saveRoomCast = useCallback(
         (aiPersonaIds: string[], userPersonaId: string) => {
             const participantIds = userPersonaId
@@ -295,9 +295,11 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                 data: { participantIds },
             });
 
-            const overrides = userPersonaId
-                ? [{ personaId: userPersonaId, kind: DriverKind.User }]
-                : [];
+            const current =
+                chatGroupDriverOverridesQuery.data.status === 200
+                    ? (chatGroupDriverOverridesQuery.data.data ?? [])
+                    : [];
+            const overrides = speakAsOverrides(current, userPersonaId);
             saveDriverOverridesMutation.mutate({
                 id: apiPartyId,
                 chatGroupId,
@@ -307,6 +309,7 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         [
             apiPartyId,
             chatGroupId,
+            chatGroupDriverOverridesQuery.data,
             saveParticipantsMutation.mutate,
             saveDriverOverridesMutation.mutate,
         ],
