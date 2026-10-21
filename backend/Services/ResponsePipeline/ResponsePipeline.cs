@@ -618,6 +618,12 @@ public sealed class ResponsePipeline(
         }
     }
 
+    private async Task<bool> WindingDownAsync(IChatGroupGrain chatGroupGrain)
+    {
+        try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).IsWindingDownAsync(); }
+        catch { return false; }
+    }
+
     private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present)
     {
         try
@@ -673,6 +679,7 @@ public sealed class ResponsePipeline(
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
+        var windingDown = await WindingDownAsync(chatGroupGrain);
 
         return await decisionService.ShouldRespondAsync(
             self,
@@ -686,7 +693,8 @@ public sealed class ResponsePipeline(
             recollections: recollections,
             stances: stances,
             isDirect: isDirect,
-            presence: presence);
+            presence: presence,
+            windingDown: windingDown);
     }
 
     private static Task NotifyStreamAsync(

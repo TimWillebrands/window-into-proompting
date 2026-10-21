@@ -707,6 +707,27 @@ public class PersonaDecisionServiceTest
     }
 
     [Fact]
+    public async Task ShouldRespondAsync_WindingDown_BypassesAutoRespondAndCallsLlm()
+    {
+        // A fizzling conversation (ADR 0021): being named no longer forces a reply, the LLM may let it rest.
+        var self = MakeParticipant("Kai");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView> { AsView(self), UserPv(senderId, "User") };
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "kai, still here?" }
+        };
+        var (endpoint, jobs) = EndpointCapturingJobs("""{"gutReaction":"same as before","wouldSay":"","respond":false}""");
+        var service = MakeService(endpoint);
+
+        var result = await service.ShouldRespondAsync(
+            self, history, participants, 0, null, CancellationToken.None, windingDown: true);
+
+        Assert.Single(jobs);
+        Assert.False(result.Respond);
+    }
+
+    [Fact]
     public async Task ShouldRespondAsync_NoMention_UserPromptOmitsMentionCue()
     {
         // The mention cue is mention-score-gated. A neutral message must not get a fake

@@ -16,6 +16,13 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
     private int _lastMessageId = -1;
     private int _heavyStreak;
     private string? _cue;
+    private bool _windingDown;
+
+    public async Task<bool> IsWindingDownAsync()
+    {
+        await GetCueAsync();
+        return _windingDown;
+    }
 
     public async Task<string?> GetCueAsync()
     {
@@ -40,13 +47,16 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
             {
                 ["heavy"] = new NoulQuestion("The latest messages are emotionally heavy, confessional or intense, rather than light, playful or everyday."),
                 ["circling"] = new NoulQuestion("The latest messages keep circling the same topic, images or confession instead of moving on to anything new."),
+                ["fizzling"] = new NoulQuestion("The last few messages are mostly acknowledgments, agreements or repeats; nobody is adding anything new."),
             }, cts.Token);
             var heavy = answers.Noul("heavy", 0);
             var circling = answers.Noul("circling", 0);
+            var fizzling = answers.Noul("fizzling", 0);
             _heavyStreak = Thermostat.NextStreak(_heavyStreak, heavy);
-            _cue = Thermostat.Cue(_heavyStreak, circling);
+            _windingDown = fizzling >= Thermostat.FizzlingThreshold;
+            _cue = Thermostat.Cue(_heavyStreak, circling, fizzling);
             _lastMessageId = last;
-            logger.LogInformation("Thermostat {Room}: heavy={Heavy:F2} circling={Circling:F2} streak={Streak}", this.GetPrimaryKey(), heavy, circling, _heavyStreak);
+            logger.LogInformation("Thermostat {Room}: heavy={Heavy:F2} circling={Circling:F2} fizzling={Fizzling:F2} streak={Streak}", this.GetPrimaryKey(), heavy, circling, fizzling, _heavyStreak);
         }
         catch (Exception ex)
         {
@@ -61,11 +71,14 @@ public static class Thermostat
 {
     public const double HeavyThreshold = 0.6;
     public const int SustainedStreak = 2;
+    public const double FizzlingThreshold = 0.6;
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
 
-    public static string? Cue(int heavyStreak, double circling)
+    public static string? Cue(int heavyStreak, double circling, double fizzling = 0)
     {
+        if (fizzling >= FizzlingThreshold)
+            return "This conversation is winding down: mostly acknowledgments now. Real people let it end here. Say nothing, or bring something genuinely new; don't answer just to answer, even if your name came up.";
         if (heavyStreak < SustainedStreak) return null;
         return circling >= 0.5
             ? "This conversation has been heavy and going round in circles for a while. Real people lighten it at some point: a joke, a change of subject, something from their day, or they drift off. Unless something genuinely new just happened, don't go deeper."
@@ -77,4 +90,6 @@ public static class Thermostat
 public interface IConversationThermostatGrain : IGrainWithGuidKey
 {
     [Alias("GetCueAsync")] Task<string?> GetCueAsync();
+    /// <summary>True while the last read found the talk fizzling; the name-mention auto-reply is off then.</summary>
+    [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
 }

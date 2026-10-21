@@ -53,7 +53,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         IReadOnlyList<string>? recollections = null,
         IReadOnlyList<string>? stances = null,
         bool isDirect = false,
-        string? presence = null)
+        string? presence = null,
+        bool windingDown = false)
     {
         var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup, directlyAddressed: isDirect);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
@@ -71,7 +72,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // anything else that arrived during the in-flight generation. When repair is pending,
         // pay the LFM call so the prompt-level repair stanza (and the "(They said your name.)"
         // user-prompt cue below) both fire.
-        if (urge.Total >= 0.9 && repairHint is null)
+        // A fizzling conversation (ADR 0021) goes through the LLM even when named: "still here" ping-pong ends.
+        if (urge.Total >= 0.9 && repairHint is null && !windingDown)
         {
             logger.LogInformation("Persona {PersonaName} auto-responding (urge={Urge:F2}, mention={Mention:F2})", self.Name, urge.Total, urge.MentionScore);
             return new ShouldRespondResult

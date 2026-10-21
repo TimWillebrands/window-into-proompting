@@ -22,3 +22,14 @@ public class ThermostatTest
         Assert.Contains("intense", Thermostat.Cue(Thermostat.SustainedStreak, 0.1));
     }
 }
+
+public class WindingDownTest
+{
+    [Fact]
+    public void Fizzling_WinsOverHeavy_AndNeedsNoStreak()
+    {
+        Assert.Contains("winding down", Thermostat.Cue(0, 0, fizzling: 0.8));
+        Assert.Contains("winding down", Thermostat.Cue(Thermostat.SustainedStreak, 0.9, fizzling: 0.8));
+        Assert.Null(Thermostat.Cue(0, 0, fizzling: 0.3));
+    }
+}
