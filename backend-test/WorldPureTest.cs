@@ -132,3 +132,16 @@ public class StageDirectionTest
     public void StripStageDirections_DropsNarrationKeepsEmphasis(string raw, string expected)
         => Assert.Equal(expected, SpeechCleanup.StripStageDirections(raw));
 }
+
+public class VocativeTest
+{
+    [Theory]
+    [InlineData("Denise, eat the sandwich first.", "Denise", "Eat the sandwich first.")]
+    [InlineData("pieter, you pick. :-P", "Pieter Voss", "you pick. :-P")]
+    [InlineData("Pieter Voss: fair enough.", "Pieter Voss", "Fair enough.")]
+    [InlineData("Lena, notebook's welcome.", "Denise", "Lena, notebook's welcome.")]
+    [InlineData("Denise and I agree.", "Denise", "Denise and I agree.")]
+    [InlineData("Denise, ok", "Denise", "Denise, ok")]
+    public void DropObviousVocative_OnlyForTheLastSpeaker(string text, string last, string expected)
+        => Assert.Equal(expected, SpeechCleanup.DropObviousVocative(text, last));
+}

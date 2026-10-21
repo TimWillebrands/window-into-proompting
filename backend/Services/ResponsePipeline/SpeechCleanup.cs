@@ -24,6 +24,18 @@ public static partial class SpeechCleanup
     private static bool IsNarration(string inner)
         => inner.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 4 && char.IsLower(inner.TrimStart()[0]);
 
+    /// <summary>"Denise, eat first." answering Denise → "Eat first.": the name is obvious, and it would re-trigger her mention auto-reply (ADR 0021).</summary>
+    public static string DropObviousVocative(string text, string? lastSpeakerName)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(lastSpeakerName)) return text;
+        var first = lastSpeakerName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        var m = Regex.Match(text, $@"^\s*(?:{Regex.Escape(lastSpeakerName)}|{Regex.Escape(first)})\s*[,:—–-]\s*(?=\S)", RegexOptions.IgnoreCase);
+        if (!m.Success) return text;
+        var rest = text[m.Length..];
+        if (rest.Length < 3) return text;
+        return char.IsUpper(text.TrimStart()[0]) ? char.ToUpperInvariant(rest[0]) + rest[1..] : rest;
+    }
+
     public static string Clean(string? text, string? selfName)
     {
         if (string.IsNullOrEmpty(text)) return text ?? string.Empty;

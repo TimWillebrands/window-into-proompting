@@ -106,7 +106,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         return new SpeakingResult
         {
             Stop = false,
-            Message = SpeechCleanup.Clean(result.Content, persona.Name),
+            Message = SpeechCleanup.DropObviousVocative(
+                SpeechCleanup.Clean(result.Content, persona.Name),
+                lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId)),
             Reasoning = result.Reasoning,
             Metadata = result.Attribution
         };
