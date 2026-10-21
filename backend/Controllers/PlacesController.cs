@@ -97,25 +97,103 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Set a look by hand (default: the Player's own). Unknown values keep the current choice.</summary>
+    /// <summary>Set a look by hand (default: the Player's own). Unknown keys or values keep the current choice.</summary>
     [HttpPut("appearance")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Appearance>> SetAppearance(Guid partyId, [FromBody] AppearanceRequest request)
     {
-        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        var who = await Who(partyId, request.ParticipantId);
         if (who is null) return BadRequest("No participant and no Player yet.");
-        var picked = new Dictionary<string, string?>
-        {
-            ["skin"] = request.Skin, ["hair"] = request.Hair, ["hairStyle"] = request.HairStyle,
-            ["top"] = request.Top, ["bottom"] = request.Bottom, ["accessory"] = request.Accessory,
-        };
-        return await Places(partyId).SetAppearanceAsync(who.Value, picked) is { } look ? Ok(look) : NotFound();
+        return await Places(partyId).SetAppearanceAsync(who.Value, request.Picked) is { } look ? Ok(look) : NotFound();
     }
 
-    /// <summary>The palette a look is chosen from.</summary>
+    /// <summary>The palette a look is chosen from, field by field.</summary>
     [HttpGet("appearance/options")]
-    public ActionResult<AppearanceOptions> GetAppearanceOptions()
-        => Ok(new AppearanceOptions(AppearanceRules.Skins, AppearanceRules.Hairs, AppearanceRules.Styles, AppearanceRules.Colours, AppearanceRules.Accessories));
+    public ActionResult<AppearanceField[]> GetAppearanceOptions() => Ok(AppearanceRules.Fields);
+
+    /// <summary>Change a look from words ("dye my hair pink"); the LLM maps it onto the palette.</summary>
+    [HttpPost("restyle")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RestyleResult>> Restyle(Guid partyId, [FromBody] TextRequest request)
+    {
+        var who = await Who(partyId, request.ParticipantId);
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 300) return BadRequest("Say what to change, under 300 characters.");
+        return await Places(partyId).RestyleAsync(who.Value, request.Text) is { } r ? Ok(r) : Conflict("Couldn't restyle right now.");
+    }
+
+    /// <summary>Strike a pose at your spot (null pose ends it); pair poses take someone at the same spot.</summary>
+    [HttpPost("pose")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<FurniActionResponse>> Pose(Guid partyId, [FromBody] PoseRequest request)
+    {
+        var who = await Who(partyId, request.ParticipantId);
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        var done = await Places(partyId).SetPoseAsync(who.Value, request.Pose, request.With);
+        return done is null ? Conflict("That pose isn't possible here.") : Ok(new FurniActionResponse(done));
+    }
+
+    /// <summary>Add a thing to a Place; its 3D model is generated shortly after.</summary>
+    [HttpPost("things")]
+    public async Task<ActionResult<FurniView>> AddThing(Guid partyId, [FromBody] ThingRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 200) return BadRequest("Describe it in under 200 characters.");
+        return await Places(partyId).AddThingAsync(request.PlaceId, request.OwnerId, request.Text) is { } f ? Ok(f) : NotFound();
+    }
+
+    /// <summary>Move or turn a thing (owners; default: the Player). Null tile hands it back to the scene.</summary>
+    [HttpPost("things/arrange")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> Arrange(Guid partyId, [FromBody] ArrangeRequest request)
+    {
+        var who = await Who(partyId, request.ParticipantId);
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        return await Places(partyId).ArrangeAsync(who.Value, request.PlaceId, request.FurniId, request.X, request.Z, request.Rot)
+            ? NoContent() : Conflict("Not yours to move.");
+    }
+
+    [HttpPost("things/remove")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> RemoveThing(Guid partyId, [FromBody] ThingRefRequest request)
+    {
+        var who = await Who(partyId, request.ParticipantId);
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        return await Places(partyId).RemoveThingAsync(who.Value, request.PlaceId, request.FurniId) ? NoContent() : Conflict("Not yours to take down.");
+    }
+
+    /// <summary>Author: generate a thing's model again.</summary>
+    [HttpPost("things/remodel")]
+    public async Task<ActionResult> Remodel(Guid partyId, [FromBody] ThingRefRequest request)
+    {
+        await Places(partyId).RemodelAsync(request.PlaceId, request.FurniId);
+        return Accepted();
+    }
+
+    /// <summary>Wall and floor colours of a Place you own or made (hex, null = the scene's).</summary>
+    [HttpPost("style")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> SetStyle(Guid partyId, [FromBody] PlaceStyleRequest request)
+    {
+        var who = await Who(partyId, request.ParticipantId);
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        return await Places(partyId).SetPlaceStyleAsync(who.Value, request.PlaceId, request.Wall, request.Floor) ? NoContent() : Conflict("Not yours to restyle.");
+    }
+
+    /// <summary>Design a new public Place from a description (LLM, validated). 409 when it couldn't be made.</summary>
+    [HttpPost("create")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<Place>> CreatePlace(Guid partyId, [FromBody] CreatePlaceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 400) return BadRequest("Describe it in under 400 characters.");
+        return await Places(partyId).CreatePlaceAsync(request.MadeBy, request.Text, request.Outdoor) is { } p
+            ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
+    }
+
+    /// <summary>Author: remove a generated Place; anyone there goes home.</summary>
+    [HttpDelete("{placeId:guid}")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemovePlace(Guid partyId, Guid placeId)
+        => await Places(partyId).RemovePlaceAsync(placeId) ? NoContent() : NotFound();
 
     /// <summary>Author: let Personas pick their look again (all, or one), each seeing the others'.</summary>
     [HttpPost("redress")]
@@ -126,14 +204,23 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
     }
 
     private IPlacesGrain Places(Guid partyId) => grains.GetGrain<IPlacesGrain>(partyId);
+
+    private async Task<Guid?> Who(Guid partyId, Guid? participantId)
+        => participantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
 }
 
 public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? ParticipantId);
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
-public sealed record AppearanceRequest(string? Skin, string? Hair, string? HairStyle, string? Top, string? Bottom, string? Accessory, Guid? ParticipantId);
-public sealed record AppearanceOptions(string[] Skins, string[] Hairs, string[] HairStyles, string[] Colours, string[] Accessories);
+public sealed record AppearanceRequest(Dictionary<string, string?> Picked, Guid? ParticipantId);
+public sealed record TextRequest(string Text, Guid? ParticipantId);
+public sealed record PoseRequest(string? Pose, Guid? With, Guid? ParticipantId);
+public sealed record ThingRequest(Guid PlaceId, string Text, Guid? OwnerId);
+public sealed record ThingRefRequest(Guid PlaceId, string FurniId, Guid? ParticipantId);
+public sealed record ArrangeRequest(Guid PlaceId, string FurniId, int? X, int? Z, int Rot, Guid? ParticipantId);
+public sealed record PlaceStyleRequest(Guid PlaceId, string? Wall, string? Floor, Guid? ParticipantId);
+public sealed record CreatePlaceRequest(string Text, bool Outdoor, Guid? MadeBy);
 public sealed record IdleRequest(bool Idle, Guid? ParticipantId);
 public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);

@@ -44,5 +44,14 @@ export interface Body {
      */
     wokenUntil?: number | string | null;
     appearance?: null | Appearance;
+    /** @nullable */
+    pose?: string | null;
+    /** @nullable */
+    poseWith?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    poseUntil?: number | string | null;
     isWalking?: boolean;
 }

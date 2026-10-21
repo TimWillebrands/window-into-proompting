@@ -13,6 +13,7 @@ import {
     usePostWorldsPartyIdPlacesKnock,
     usePostWorldsPartyIdPlacesLetIn,
     usePostWorldsPartyIdPlacesMove,
+    usePostWorldsPartyIdPlacesRestyle,
     usePostWorldsPartyIdPlacesVoice,
     usePutWorldsPartyIdPlacesAppearance,
 } from '#api/party-zone';
@@ -603,54 +604,76 @@ function BodyProfile({
 
 /** Pick a look from the palette; each change saves at once. */
 function LookEditor({ body }: { body: Body }) {
-    const options =
+    const fields =
         useGetWorldsPartyIdPlacesAppearanceOptions(WORLD_ID).data?.data;
     const save = usePutWorldsPartyIdPlacesAppearance();
-    if (!options) return null;
-    const a = body.appearance ?? {};
-    const fields: Array<[keyof typeof a, string, string[]]> = [
-        ['skin', 'Skin', options.skins],
-        ['hair', 'Hair', options.hairs],
-        ['hairStyle', 'Style', options.hairStyles],
-        ['top', 'Top', options.colours],
-        ['bottom', 'Bottom', options.colours],
-        ['accessory', 'Extra', options.accessories],
-    ];
+    const restyle = usePostWorldsPartyIdPlacesRestyle();
+    const [wish, setWish] = useState('');
+    if (!fields) return null;
+    const a = (body.appearance ?? {}) as Record<string, unknown>;
     return (
-        <div
-            className="grid"
-            style={{ gridTemplateColumns: 'auto auto', gap: '2px 6px' }}
-        >
-            {fields.map(([key, label, values]) => (
-                <label key={key} className="contents">
-                    <span style={{ color: '#555' }}>{label}</span>
-                    <select
-                        value={String(a[key] ?? '')}
-                        disabled={save.isPending}
-                        onChange={(e) =>
-                            save.mutate({
-                                partyId: WORLD_ID,
-                                data: {
-                                    skin: null,
-                                    hair: null,
-                                    hairStyle: null,
-                                    top: null,
-                                    bottom: null,
-                                    accessory: null,
-                                    [key]: e.currentTarget.value,
-                                    participantId: body.participantId ?? null,
-                                },
-                            })
-                        }
-                    >
-                        {values.map((v) => (
-                            <option key={v} value={v}>
-                                {v}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            ))}
+        <div className="flex flex-col" style={{ gap: 4 }}>
+            <form
+                className="flex"
+                style={{ gap: 4 }}
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!wish.trim()) return;
+                    restyle.mutate(
+                        {
+                            partyId: WORLD_ID,
+                            data: {
+                                text: wish.trim(),
+                                participantId: body.participantId ?? null,
+                            },
+                        },
+                        { onSuccess: () => setWish('') },
+                    );
+                }}
+            >
+                <input
+                    value={wish}
+                    placeholder="Say it: dye my hair pink, get a leather jacket…"
+                    style={{ flex: 1 }}
+                    onChange={(e) => setWish(e.currentTarget.value)}
+                />
+                <button type="submit" disabled={restyle.isPending}>
+                    {restyle.isPending ? 'Changing…' : 'Change'}
+                </button>
+            </form>
+            <div
+                className="grid"
+                style={{ gridTemplateColumns: 'auto auto', gap: '2px 6px' }}
+            >
+                {fields.map((f) => (
+                    <label key={f.key} className="contents">
+                        <span style={{ color: '#555' }}>{f.label}</span>
+                        <select
+                            value={String(a[f.key ?? ''] ?? '')}
+                            disabled={save.isPending}
+                            onChange={(e) =>
+                                save.mutate({
+                                    partyId: WORLD_ID,
+                                    data: {
+                                        picked: {
+                                            [f.key ?? '']:
+                                                e.currentTarget.value,
+                                        },
+                                        participantId:
+                                            body.participantId ?? null,
+                                    },
+                                })
+                            }
+                        >
+                            {(f.options ?? []).map((v) => (
+                                <option key={v} value={v}>
+                                    {v}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                ))}
+            </div>
         </div>
     );
 }

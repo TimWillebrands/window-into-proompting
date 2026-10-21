@@ -1114,6 +1114,468 @@ export const PREFABS: Record<string, Prefab> = {
                 },
             ];
         },
+    }, // Bars, shops, parties, cosy corners
+    'bar-shelf': {
+        size: [2, 1],
+        parts: (v) => {
+            const r = rng(v.seed);
+            const bottles: Part[] = [];
+            for (const y of [1.0, 1.45])
+                for (let i = 0; i < 9; i++)
+                    bottles.push(
+                        cyl(
+                            0.04,
+                            0.22 + r() * 0.1,
+                            -0.8 + i * 0.2,
+                            y,
+                            -0.3,
+                            pick(r, [
+                                '#2d6a4f',
+                                '#9b2226',
+                                '#e9c46a',
+                                '#8ecae6',
+                                '#6d597a',
+                                '#f4a261',
+                            ]),
+                            { opacity: 0.85, flat: true },
+                        ),
+                    );
+            return [
+                box(1.95, 0.95, 0.5, 0, 0, -0.22, C.darkWood),
+                box(1.95, 1.6, 0.06, 0, 0.95, -0.45, '#3b2a20'),
+                box(1.95, 0.04, 0.24, 0, 0.98, -0.3, C.lightWood),
+                box(1.95, 0.04, 0.24, 0, 1.43, -0.3, C.lightWood),
+                box(1.6, 0.04, 0.02, 0, 2.0, -0.4, '#ffcf87', { glow: true }),
+                ...bottles,
+            ];
+        },
+    },
+    shelf: {
+        size: [2, 1],
+        parts: (v) => {
+            const r = rng(v.seed);
+            const goods: Part[] = [];
+            for (const y of [0.05, 0.5, 0.95, 1.4])
+                for (let i = 0; i < 6; i++) {
+                    const c = pick(r, [
+                        '#e63946',
+                        '#f1faee',
+                        '#a8dadc',
+                        '#457b9d',
+                        '#ffb703',
+                        '#8ac926',
+                        '#ff99c8',
+                        '#6a4c93',
+                    ]);
+                    goods.push(
+                        r() < 0.5
+                            ? box(
+                                  0.18,
+                                  0.22,
+                                  0.2,
+                                  -0.75 + i * 0.3,
+                                  y + 0.04,
+                                  -0.05,
+                                  c,
+                                  { flat: true },
+                              )
+                            : cyl(
+                                  0.08,
+                                  0.26,
+                                  -0.75 + i * 0.3,
+                                  y + 0.04,
+                                  -0.05,
+                                  c,
+                                  { flat: true },
+                              ),
+                    );
+                }
+            return [
+                box(1.95, 1.85, 0.05, 0, 0, -0.3, '#d9d4c7'),
+                ...[0.05, 0.5, 0.95, 1.4].map((y) =>
+                    box(1.95, 0.04, 0.5, 0, y, -0.06, '#c7c0b0'),
+                ),
+                box(0.05, 1.85, 0.5, -0.97, 0, -0.06, '#c7c0b0'),
+                box(0.05, 1.85, 0.5, 0.97, 0, -0.06, '#c7c0b0'),
+                ...goods,
+            ];
+        },
+    },
+    register: {
+        parts: [
+            box(0.9, 0.95, 0.6, 0, 0, 0, '#3d5a80'),
+            box(0.95, 0.05, 0.65, 0, 0.95, 0, '#e0e1dd'),
+            box(0.32, 0.18, 0.26, 0.15, 1.0, -0.05, C.dark),
+            box(0.26, 0.14, 0.02, 0.15, 1.2, -0.12, '#8ecae6', {
+                glow: true,
+                rx: -0.3,
+            }),
+            box(0.2, 0.02, 0.15, -0.25, 1.0, 0.05, '#f1faee', { flat: true }),
+        ],
+    },
+    'clothes-rack': {
+        size: [2, 1],
+        parts: (v) => {
+            const r = rng(v.seed);
+            return [
+                box(0.05, 1.5, 0.05, -0.85, 0, 0, C.chrome),
+                box(0.05, 1.5, 0.05, 0.85, 0, 0, C.chrome),
+                box(1.75, 0.04, 0.04, 0, 1.48, 0, C.chrome),
+                box(0.4, 0.05, 0.4, -0.85, 0, 0, C.chrome, { flat: true }),
+                box(0.4, 0.05, 0.4, 0.85, 0, 0, C.chrome, { flat: true }),
+                ...Array.from({ length: 7 }, (_, i) =>
+                    box(
+                        0.06,
+                        0.65 + r() * 0.2,
+                        0.42,
+                        -0.7 + i * 0.23,
+                        0.68,
+                        0,
+                        pick(r, [
+                            '#e63946',
+                            '#1d3557',
+                            '#f4a261',
+                            '#2a9d8f',
+                            '#e9c46a',
+                            '#ffffff',
+                            '#6d597a',
+                            '#111111',
+                        ]),
+                    ),
+                ),
+            ];
+        },
+    },
+    mirror: {
+        wall: true,
+        solid: false,
+        parts: [
+            box(0.5, 1.2, 0.04, 0, 0.6, 0, '#b08d57'),
+            box(0.42, 1.1, 0.02, 0, 0.65, 0.02, '#cfe8f5', { glow: true }),
+        ],
+    },
+    clock: {
+        wall: true,
+        solid: false,
+        parts: [
+            {
+                cyl: [0.2, 0.05],
+                at: [0, 1.8, 0],
+                c: '#f3efe6',
+                rx: Math.PI / 2,
+                sides: 20,
+            },
+            { ring: [0.2, 0.025], at: [0, 1.8, 0.03], c: C.darkWood },
+            box(0.02, 0.13, 0.01, 0, 1.8, 0.06, C.dark, { flat: true }),
+            box(0.1, 0.02, 0.01, 0.05, 1.8, 0.06, C.dark, { flat: true }),
+        ],
+    },
+    neon: {
+        wall: true,
+        solid: false,
+        parts: (v) => [
+            {
+                sign: [0.9, 0.3],
+                text: v.text ?? 'OPEN',
+                at: [0, 1.5, 0.01],
+                c: '#1b1b2f',
+                fg: pick(rng(v.seed), [
+                    '#ff4fd8',
+                    '#4ff0ff',
+                    '#ffe14f',
+                    '#7dff4f',
+                ]),
+            },
+        ],
+    },
+    speaker: {
+        parts: [
+            box(0.45, 1.1, 0.4, 0, 0, 0, '#1d1d1d'),
+            {
+                cyl: [0.14, 0.03],
+                at: [0, 0.75, 0.2],
+                c: '#444',
+                rx: Math.PI / 2,
+            },
+            {
+                cyl: [0.08, 0.03],
+                at: [0, 0.35, 0.2],
+                c: '#444',
+                rx: Math.PI / 2,
+            },
+            box(0.06, 0.06, 0.02, 0.15, 1.0, 0.2, '#4ff0ff', { glow: true }),
+        ],
+    },
+    'dj-booth': {
+        size: [2, 1],
+        parts: [
+            box(1.9, 0.95, 0.65, 0, 0, 0, '#22223b'),
+            box(1.9, 0.12, 0.02, 0, 0.6, 0.33, '#ff4fd8', {
+                glow: true,
+                tag: 'disco',
+            }),
+            box(1.95, 0.05, 0.7, 0, 0.95, 0, '#111'),
+            { cyl: [0.2, 0.03], at: [-0.5, 1.0, 0], c: '#333', sides: 16 },
+            { cyl: [0.2, 0.03], at: [0.5, 1.0, 0], c: '#333', sides: 16 },
+            box(0.4, 0.04, 0.3, 0, 1.0, 0, '#555'),
+        ],
+    },
+    'dance-floor': {
+        size: [3, 3],
+        solid: false,
+        parts: (v) => {
+            const r = rng(v.seed);
+            const tiles: Part[] = [];
+            for (let x = -1; x <= 1; x++)
+                for (let z = -1; z <= 1; z++)
+                    tiles.push(
+                        box(
+                            0.94,
+                            0.02,
+                            0.94,
+                            x,
+                            0.001,
+                            z,
+                            pick(r, [
+                                '#ff4fd8',
+                                '#4ff0ff',
+                                '#ffe14f',
+                                '#7dff4f',
+                                '#9d4edd',
+                            ]),
+                            {
+                                glow: true,
+                                flat: true,
+                                tag: (x + z) % 2 ? 'disco' : undefined,
+                            },
+                        ),
+                    );
+            return tiles;
+        },
+    },
+    'pool-table': {
+        size: [2, 1],
+        parts: [
+            ...legs(1.6, 0.6, 0.65, C.darkWood, 0.06),
+            box(1.95, 0.15, 0.95, 0, 0.65, 0, C.darkWood),
+            box(1.8, 0.03, 0.8, 0, 0.8, 0, '#1b7340', { flat: true }),
+            ...[
+                [-0.5, 0],
+                [0.3, 0.2],
+                [0.35, -0.15],
+                [0.45, 0.05],
+                [-0.2, -0.2],
+            ].map(([x, z], i) =>
+                ball(
+                    0.04,
+                    x,
+                    0.87,
+                    z,
+                    ['#ffffff', '#e63946', '#ffb703', '#1d3557', '#111111'][i],
+                    { detail: 1 },
+                ),
+            ),
+        ],
+    },
+    piano: {
+        size: [2, 1],
+        seats: [],
+        parts: [
+            box(1.7, 1.2, 0.5, 0, 0, -0.2, '#111'),
+            box(1.6, 0.06, 0.25, 0, 0.72, 0.15, '#f3efe6'),
+            ...Array.from({ length: 11 }, (_, i) =>
+                box(0.05, 0.04, 0.14, -0.65 + i * 0.13, 0.76, 0.1, '#111', {
+                    flat: true,
+                }),
+            ),
+            box(1.7, 0.3, 0.06, 0, 1.2, -0.42, '#111'),
+        ],
+    },
+    arcade: {
+        parts: (v) => [
+            box(
+                0.7,
+                1.7,
+                0.6,
+                0,
+                0,
+                -0.05,
+                pick(rng(v.seed), ['#3a0ca3', '#d00000', '#006466']),
+            ),
+            box(0.56, 0.42, 0.02, 0, 1.05, 0.26, '#4ff0ff', {
+                glow: true,
+                rx: -0.15,
+            }),
+            box(0.6, 0.06, 0.25, 0, 0.85, 0.3, '#222'),
+            ball(0.04, -0.12, 0.92, 0.32, '#ff4fd8', { glow: true }),
+            ball(0.03, 0.12, 0.92, 0.32, '#ffe14f', { glow: true }),
+            {
+                sign: [0.6, 0.16],
+                text: 'PLAY',
+                at: [0, 1.52, 0.255],
+                c: '#111',
+                fg: '#ffe14f',
+            },
+        ],
+    },
+    fireplace: {
+        size: [2, 1],
+        parts: [
+            box(1.6, 1.1, 0.5, 0, 0, -0.25, '#8d6e63'),
+            box(1.8, 0.1, 0.6, 0, 1.1, -0.22, '#5d4037'),
+            box(0.9, 0.6, 0.1, 0, 0.1, 0.0, '#1b1b1b'),
+            {
+                cone: [0.18, 0.4],
+                at: [-0.12, 0.12, 0.05],
+                c: '#ff8c1a',
+                glow: true,
+                sides: 5,
+                tag: 'flicker',
+            },
+            {
+                cone: [0.13, 0.32],
+                at: [0.15, 0.12, 0.05],
+                c: '#ffd166',
+                glow: true,
+                sides: 5,
+                tag: 'flicker',
+            },
+            box(0.6, 0.08, 0.15, 0, 0.1, 0.05, '#5d4037'),
+        ],
+        light: { at: [0, 0.4, 0.4], colour: '#ff9b4a', power: 2.5 },
+    },
+    beanbag: {
+        tint: { fabric: '#e76f51' },
+        seats: [{ at: [0, 0], h: 0.3, face: 0 }],
+        parts: (v) => [
+            ball(0.4, 0, 0.22, 0, v.tint.fabric ?? '#e76f51', { squash: 0.55 }),
+            ball(0.3, 0, 0.42, -0.2, v.tint.fabric ?? '#e76f51', {
+                squash: 0.7,
+            }),
+        ],
+    },
+    'flower-stall': {
+        size: [2, 1],
+        parts: (v) => {
+            const r = rng(v.seed);
+            return [
+                box(1.9, 0.7, 0.8, 0, 0, 0, '#6b4f36'),
+                ...Array.from({ length: 10 }, (_, i) =>
+                    ball(
+                        0.11,
+                        -0.8 + (i % 5) * 0.4,
+                        0.82 + Math.floor(i / 5) * 0.1,
+                        (Math.floor(i / 5) - 0.5) * 0.35,
+                        pick(r, [
+                            '#e63946',
+                            '#ffb703',
+                            '#ff99c8',
+                            '#ffffff',
+                            '#9d4edd',
+                            '#fb8500',
+                        ]),
+                    ),
+                ),
+                ...[-0.9, 0.9].map((x) =>
+                    cyl(0.03, 1.4, x, 0.7, -0.35, C.darkWood),
+                ),
+                { gable: [2.0, 0.3, 1.0], at: [0, 2.1, 0], c: '#2a9d8f' },
+            ];
+        },
+    },
+    fountain: {
+        size: [2, 2],
+        parts: [
+            cyl(0.95, 0.35, 0, 0, 0, '#a8a29e', { sides: 16 }),
+            cyl(0.82, 0.02, 0, 0.3, 0, '#5fa3b3', { sides: 16, glow: 'night' }),
+            cyl(0.15, 0.9, 0, 0, 0, '#a8a29e', { sides: 8 }),
+            cyl(0.4, 0.08, 0, 0.9, 0, '#a8a29e', { sides: 12 }),
+            ball(0.12, 0, 1.15, 0, '#bde0fe', { opacity: 0.7, tag: 'smoke' }),
+        ],
+    },
+    'vending-machine': {
+        parts: (v) => {
+            const r = rng(v.seed);
+            return [
+                box(
+                    0.75,
+                    1.8,
+                    0.65,
+                    0,
+                    0,
+                    -0.1,
+                    pick(r, ['#d62828', '#1d3557', '#2a9d8f']),
+                ),
+                box(0.5, 1.2, 0.02, -0.08, 0.45, 0.235, '#bde0fe', {
+                    glow: true,
+                }),
+                box(0.12, 0.5, 0.02, 0.27, 0.9, 0.235, '#222'),
+            ];
+        },
+    },
+    hammock: {
+        size: [2, 1],
+        seats: [{ at: [0, 0], h: 0.55, face: 0 }],
+        parts: [
+            cyl(0.05, 1.3, -0.9, 0, 0, C.darkWood),
+            cyl(0.05, 1.3, 0.9, 0, 0, C.darkWood),
+            box(1.5, 0.05, 0.55, 0, 0.5, 0, '#e9c46a', { rz: 0.0 }),
+            ...[-0.5, 0, 0.5].map((x) =>
+                box(
+                    0.4,
+                    0.04,
+                    0.55,
+                    x,
+                    0.47 - Math.abs(x) * 0.0,
+                    0,
+                    ['#e76f51', '#2a9d8f', '#e9c46a'][Math.round(x * 2 + 1)],
+                ),
+            ),
+        ],
+    },
+    'potted-palm': {
+        parts: (v) => {
+            const g = mix(
+                C.dryLeaf,
+                '#3f8f4a',
+                Math.min(1, (v.state?.condition ?? 1) * 1.4),
+            );
+            return [
+                cyl(0.2, 0.4, 0, 0, 0, '#d6ccc2', { sides: 8 }),
+                cyl(0.04, 0.9, 0, 0.4, 0, '#7f5539'),
+                ...[0, 1, 2, 3, 4].map(
+                    (i) =>
+                        ({
+                            cone: [0.08, 0.6],
+                            at: [
+                                Math.cos(i * 1.26) * 0.25,
+                                1.2,
+                                Math.sin(i * 1.26) * 0.25,
+                            ],
+                            c: g,
+                            rz: Math.cos(i * 1.26) * -1.8,
+                            rx: Math.sin(i * 1.26) * 1.8,
+                            sides: 4,
+                        }) as Part,
+                ),
+            ];
+        },
+    },
+    umbrella: {
+        parts: (v) => [
+            cyl(0.03, 1.9, 0, 0, 0, C.white),
+            {
+                cone: [0.95, 0.35],
+                at: [0, 1.8, 0],
+                c: pick(rng(v.seed), [
+                    '#e63946',
+                    '#2a9d8f',
+                    '#f4a261',
+                    '#264653',
+                ]),
+                sides: 8,
+            },
+        ],
     },
 };
 

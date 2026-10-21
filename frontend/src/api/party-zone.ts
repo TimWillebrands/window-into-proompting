@@ -25,10 +25,11 @@ import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { customFetch } from './custom-fetch';
 import type {
     AnnounceRequest,
-    AppearanceOptions,
+    AppearanceField,
     AppearanceRequest,
     AppendStanceRequest,
     AppendStanceResponse,
+    ArrangeRequest,
     BoardThread,
     ChatGroupInfo,
     ConsolidationRunResponse,
@@ -36,6 +37,7 @@ import type {
     CreateBoardReplyRequest,
     CreateChatGroupRequest,
     CreatePartyRequest,
+    CreatePlaceRequest,
     DecorateRequest,
     DefaultPersonaTemplate,
     DiaryEntry,
@@ -43,6 +45,7 @@ import type {
     DriverOverrideEntry,
     EnsurePlayerRequest,
     FurniActionRequest,
+    FurniView,
     Gathering,
     GetPartyIdChatGroupsChatGroupIdPapertrailParams,
     GetWorldsPartyIdActivitiesParams,
@@ -62,9 +65,11 @@ import type {
     PartyDetails,
     PartyInfo,
     Persona,
+    PlaceStyleRequest,
     PlacesSnapshot,
     PlanGatheringRequest,
     PlayerResponse,
+    PoseRequest,
     PostWorldsPartyIdPlacesRedressParams,
     ProblemDetails,
     ProceedRequest,
@@ -73,8 +78,12 @@ import type {
     RepromptRequest,
     RsvpRequest,
     SelfSummary,
+    ShopItem,
     SituationResponse,
     StanceRecord,
+    TextRequest,
+    ThingRefRequest,
+    ThingRequest,
     TickRequest,
     TickResponse,
     UpdateChatGroupDriverOverridesRequest,
@@ -85,6 +94,8 @@ import type {
     VoiceLine,
     VoiceRequest,
     VoiceWearReport,
+    WalletSummary,
+    WardrobeRequest,
     WorldActivity,
     WorldStatus,
 } from './model';
@@ -344,6 +355,1151 @@ export function useGetUpSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type getWorldsPartyIdWalletsResponse200TextPlain = {
+    data: WalletSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdWalletsResponse200ApplicationJson = {
+    data: WalletSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdWalletsResponse200TextJson = {
+    data: WalletSummary[];
+    status: 200;
+};
+
+export type getWorldsPartyIdWalletsResponseSuccess = (
+    | getWorldsPartyIdWalletsResponse200TextPlain
+    | getWorldsPartyIdWalletsResponse200ApplicationJson
+    | getWorldsPartyIdWalletsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdWalletsResponse =
+    getWorldsPartyIdWalletsResponseSuccess;
+
+export const getGetWorldsPartyIdWalletsUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/wallets`;
+};
+
+export const getWorldsPartyIdWallets = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdWalletsResponse> => {
+    return customFetch<getWorldsPartyIdWalletsResponse>(
+        getGetWorldsPartyIdWalletsUrl(partyId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdWalletsQueryKey = (partyId: string) => {
+    return [`/api/worlds/${partyId}/wallets`] as const;
+};
+
+export const getGetWorldsPartyIdWalletsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdWalletsQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+    > = ({ signal }) =>
+        getWorldsPartyIdWallets(partyId, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!partyId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdWalletsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+>;
+export type GetWorldsPartyIdWalletsQueryError = unknown;
+
+export function useGetWorldsPartyIdWallets<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWallets<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                    TError,
+                    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWallets<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdWallets<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdWalletsQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdWalletsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetWorldsPartyIdWalletsQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+    > = ({ signal }) =>
+        getWorldsPartyIdWallets(partyId, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdWalletsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdWallets>>
+>;
+export type GetWorldsPartyIdWalletsSuspenseQueryError = unknown;
+
+export function useGetWorldsPartyIdWalletsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdWalletsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getWorldsPartyIdWallets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdWalletsSuspenseQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getWorldsPartyIdWalletsParticipantIdShopResponse200TextPlain = {
+    data: ShopItem[];
+    status: 200;
+};
+
+export type getWorldsPartyIdWalletsParticipantIdShopResponse200ApplicationJson =
+    {
+        data: ShopItem[];
+        status: 200;
+    };
+
+export type getWorldsPartyIdWalletsParticipantIdShopResponse200TextJson = {
+    data: ShopItem[];
+    status: 200;
+};
+
+export type getWorldsPartyIdWalletsParticipantIdShopResponseSuccess = (
+    | getWorldsPartyIdWalletsParticipantIdShopResponse200TextPlain
+    | getWorldsPartyIdWalletsParticipantIdShopResponse200ApplicationJson
+    | getWorldsPartyIdWalletsParticipantIdShopResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdWalletsParticipantIdShopResponse =
+    getWorldsPartyIdWalletsParticipantIdShopResponseSuccess;
+
+export const getGetWorldsPartyIdWalletsParticipantIdShopUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/wallets/${participantId}/shop`;
+};
+
+export const getWorldsPartyIdWalletsParticipantIdShop = async (
+    partyId: string,
+    participantId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdWalletsParticipantIdShopResponse> => {
+    return customFetch<getWorldsPartyIdWalletsParticipantIdShopResponse>(
+        getGetWorldsPartyIdWalletsParticipantIdShopUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdWalletsParticipantIdShopQueryKey = (
+    partyId: string,
+    participantId: string,
+) => {
+    return [`/api/worlds/${partyId}/wallets/${participantId}/shop`] as const;
+};
+
+export const getGetWorldsPartyIdWalletsParticipantIdShopQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdWalletsParticipantIdShopQueryKey(
+            partyId,
+            participantId,
+        );
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>
+    > = ({ signal }) =>
+        getWorldsPartyIdWalletsParticipantIdShop(partyId, participantId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!(partyId && participantId),
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdWalletsParticipantIdShopQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>
+>;
+export type GetWorldsPartyIdWalletsParticipantIdShopQueryError = unknown;
+
+export function useGetWorldsPartyIdWalletsParticipantIdShop<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdWalletsParticipantIdShop
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdWalletsParticipantIdShop
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsParticipantIdShop<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdWalletsParticipantIdShop
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdWalletsParticipantIdShop
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsParticipantIdShop<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdWalletsParticipantIdShop<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetWorldsPartyIdWalletsParticipantIdShopQueryOptions(
+            partyId,
+            participantId,
+            options,
+        );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdWalletsParticipantIdShopSuspenseQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdWalletsParticipantIdShopQueryKey(
+            partyId,
+            participantId,
+        );
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>
+    > = ({ signal }) =>
+        getWorldsPartyIdWalletsParticipantIdShop(partyId, participantId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdWalletsParticipantIdShopSuspenseQueryResult =
+    NonNullable<
+        Awaited<ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>>
+    >;
+export type GetWorldsPartyIdWalletsParticipantIdShopSuspenseQueryError =
+    unknown;
+
+export function useGetWorldsPartyIdWalletsParticipantIdShopSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsParticipantIdShopSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdWalletsParticipantIdShopSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdWalletsParticipantIdShopSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdWalletsParticipantIdShop>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetWorldsPartyIdWalletsParticipantIdShopSuspenseQueryOptions(
+            partyId,
+            participantId,
+            options,
+        );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postWorldsPartyIdWalletsParticipantIdBuyResponse200TextPlain = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdBuyResponse200ApplicationJson =
+    {
+        data: WalletSummary;
+        status: 200;
+    };
+
+export type postWorldsPartyIdWalletsParticipantIdBuyResponse200TextJson = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdBuyResponseSuccess = (
+    | postWorldsPartyIdWalletsParticipantIdBuyResponse200TextPlain
+    | postWorldsPartyIdWalletsParticipantIdBuyResponse200ApplicationJson
+    | postWorldsPartyIdWalletsParticipantIdBuyResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdBuyResponse =
+    postWorldsPartyIdWalletsParticipantIdBuyResponseSuccess;
+
+export const getPostWorldsPartyIdWalletsParticipantIdBuyUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/wallets/${participantId}/buy`;
+};
+
+export const postWorldsPartyIdWalletsParticipantIdBuy = async (
+    partyId: string,
+    participantId: string,
+    wardrobeRequest: WardrobeRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdWalletsParticipantIdBuyResponse> => {
+    return customFetch<postWorldsPartyIdWalletsParticipantIdBuyResponse>(
+        getPostWorldsPartyIdWalletsParticipantIdBuyUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(wardrobeRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdWalletsParticipantIdBuyMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>>,
+        TError,
+        { partyId: string; participantId: string; data: WardrobeRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdWalletsParticipantIdBuy'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>>,
+        { partyId: string; participantId: string; data: WardrobeRequest }
+    > = (props) => {
+        const { partyId, participantId, data } = props ?? {};
+
+        return postWorldsPartyIdWalletsParticipantIdBuy(
+            partyId,
+            participantId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdWalletsParticipantIdBuyMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>>
+    >;
+export type PostWorldsPartyIdWalletsParticipantIdBuyMutationBody =
+    WardrobeRequest;
+export type PostWorldsPartyIdWalletsParticipantIdBuyMutationError = unknown;
+
+export const usePostWorldsPartyIdWalletsParticipantIdBuy = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>
+            >,
+            TError,
+            { partyId: string; participantId: string; data: WardrobeRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdBuy>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdWalletsParticipantIdBuyMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdWalletsParticipantIdWearResponse200TextPlain = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdWearResponse200ApplicationJson =
+    {
+        data: WalletSummary;
+        status: 200;
+    };
+
+export type postWorldsPartyIdWalletsParticipantIdWearResponse200TextJson = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdWearResponseSuccess = (
+    | postWorldsPartyIdWalletsParticipantIdWearResponse200TextPlain
+    | postWorldsPartyIdWalletsParticipantIdWearResponse200ApplicationJson
+    | postWorldsPartyIdWalletsParticipantIdWearResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdWearResponse =
+    postWorldsPartyIdWalletsParticipantIdWearResponseSuccess;
+
+export const getPostWorldsPartyIdWalletsParticipantIdWearUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/wallets/${participantId}/wear`;
+};
+
+export const postWorldsPartyIdWalletsParticipantIdWear = async (
+    partyId: string,
+    participantId: string,
+    wardrobeRequest: WardrobeRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdWalletsParticipantIdWearResponse> => {
+    return customFetch<postWorldsPartyIdWalletsParticipantIdWearResponse>(
+        getPostWorldsPartyIdWalletsParticipantIdWearUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(wardrobeRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdWalletsParticipantIdWearMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>>,
+        TError,
+        { partyId: string; participantId: string; data: WardrobeRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdWalletsParticipantIdWear'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>>,
+        { partyId: string; participantId: string; data: WardrobeRequest }
+    > = (props) => {
+        const { partyId, participantId, data } = props ?? {};
+
+        return postWorldsPartyIdWalletsParticipantIdWear(
+            partyId,
+            participantId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdWalletsParticipantIdWearMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>>
+    >;
+export type PostWorldsPartyIdWalletsParticipantIdWearMutationBody =
+    WardrobeRequest;
+export type PostWorldsPartyIdWalletsParticipantIdWearMutationError = unknown;
+
+export const usePostWorldsPartyIdWalletsParticipantIdWear = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>
+            >,
+            TError,
+            { partyId: string; participantId: string; data: WardrobeRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdWear>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdWalletsParticipantIdWearMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdWalletsParticipantIdGiftResponse200TextPlain = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdGiftResponse200ApplicationJson =
+    {
+        data: WalletSummary;
+        status: 200;
+    };
+
+export type postWorldsPartyIdWalletsParticipantIdGiftResponse200TextJson = {
+    data: WalletSummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdGiftResponseSuccess = (
+    | postWorldsPartyIdWalletsParticipantIdGiftResponse200TextPlain
+    | postWorldsPartyIdWalletsParticipantIdGiftResponse200ApplicationJson
+    | postWorldsPartyIdWalletsParticipantIdGiftResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdWalletsParticipantIdGiftResponse =
+    postWorldsPartyIdWalletsParticipantIdGiftResponseSuccess;
+
+export const getPostWorldsPartyIdWalletsParticipantIdGiftUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/wallets/${participantId}/gift`;
+};
+
+export const postWorldsPartyIdWalletsParticipantIdGift = async (
+    partyId: string,
+    participantId: string,
+    wardrobeRequest: WardrobeRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdWalletsParticipantIdGiftResponse> => {
+    return customFetch<postWorldsPartyIdWalletsParticipantIdGiftResponse>(
+        getPostWorldsPartyIdWalletsParticipantIdGiftUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(wardrobeRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdWalletsParticipantIdGiftMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>>,
+        TError,
+        { partyId: string; participantId: string; data: WardrobeRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdWalletsParticipantIdGift'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>>,
+        { partyId: string; participantId: string; data: WardrobeRequest }
+    > = (props) => {
+        const { partyId, participantId, data } = props ?? {};
+
+        return postWorldsPartyIdWalletsParticipantIdGift(
+            partyId,
+            participantId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdWalletsParticipantIdGiftMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>>
+    >;
+export type PostWorldsPartyIdWalletsParticipantIdGiftMutationBody =
+    WardrobeRequest;
+export type PostWorldsPartyIdWalletsParticipantIdGiftMutationError = unknown;
+
+export const usePostWorldsPartyIdWalletsParticipantIdGift = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>
+            >,
+            TError,
+            { partyId: string; participantId: string; data: WardrobeRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdWalletsParticipantIdGift>>,
+    TError,
+    { partyId: string; participantId: string; data: WardrobeRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdWalletsParticipantIdGiftMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type getLlmConfigProvidersResponse200TextPlain = {
     data: LlmProviderEntry[];
@@ -12292,18 +13448,18 @@ export const usePutWorldsPartyIdPlacesAppearance = <
 };
 
 export type getWorldsPartyIdPlacesAppearanceOptionsResponse200TextPlain = {
-    data: AppearanceOptions;
+    data: AppearanceField[];
     status: 200;
 };
 
 export type getWorldsPartyIdPlacesAppearanceOptionsResponse200ApplicationJson =
     {
-        data: AppearanceOptions;
+        data: AppearanceField[];
         status: 200;
     };
 
 export type getWorldsPartyIdPlacesAppearanceOptionsResponse200TextJson = {
-    data: AppearanceOptions;
+    data: AppearanceField[];
     status: 200;
 };
 
@@ -12667,6 +13823,1071 @@ export function useGetWorldsPartyIdPlacesAppearanceOptionsSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type postWorldsPartyIdPlacesRestyleResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesRestyleResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesRestyleResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesRestyleResponseError = (
+    | postWorldsPartyIdPlacesRestyleResponse409TextPlain
+    | postWorldsPartyIdPlacesRestyleResponse409ApplicationJson
+    | postWorldsPartyIdPlacesRestyleResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesRestyleResponse =
+    postWorldsPartyIdPlacesRestyleResponseError;
+
+export const getPostWorldsPartyIdPlacesRestyleUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/restyle`;
+};
+
+export const postWorldsPartyIdPlacesRestyle = async (
+    partyId: string,
+    textRequest: TextRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesRestyleResponse> => {
+    return customFetch<postWorldsPartyIdPlacesRestyleResponse>(
+        getPostWorldsPartyIdPlacesRestyleUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(textRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesRestyleMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>,
+        TError,
+        { partyId: string; data: TextRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>,
+    TError,
+    { partyId: string; data: TextRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesRestyle'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>,
+        { partyId: string; data: TextRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesRestyle(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesRestyleMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>
+>;
+export type PostWorldsPartyIdPlacesRestyleMutationBody = TextRequest;
+export type PostWorldsPartyIdPlacesRestyleMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesRestyle = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>,
+            TError,
+            { partyId: string; data: TextRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesRestyle>>,
+    TError,
+    { partyId: string; data: TextRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesRestyleMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesPoseResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesPoseResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesPoseResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesPoseResponseError = (
+    | postWorldsPartyIdPlacesPoseResponse409TextPlain
+    | postWorldsPartyIdPlacesPoseResponse409ApplicationJson
+    | postWorldsPartyIdPlacesPoseResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesPoseResponse =
+    postWorldsPartyIdPlacesPoseResponseError;
+
+export const getPostWorldsPartyIdPlacesPoseUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/pose`;
+};
+
+export const postWorldsPartyIdPlacesPose = async (
+    partyId: string,
+    poseRequest: PoseRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesPoseResponse> => {
+    return customFetch<postWorldsPartyIdPlacesPoseResponse>(
+        getPostWorldsPartyIdPlacesPoseUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(poseRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesPoseMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>,
+        TError,
+        { partyId: string; data: PoseRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>,
+    TError,
+    { partyId: string; data: PoseRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesPose'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>,
+        { partyId: string; data: PoseRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesPose(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesPoseMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>
+>;
+export type PostWorldsPartyIdPlacesPoseMutationBody = PoseRequest;
+export type PostWorldsPartyIdPlacesPoseMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesPose = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>,
+            TError,
+            { partyId: string; data: PoseRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPose>>,
+    TError,
+    { partyId: string; data: PoseRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesPoseMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesThingsResponse200TextPlain = {
+    data: FurniView;
+    status: 200;
+};
+
+export type postWorldsPartyIdPlacesThingsResponse200ApplicationJson = {
+    data: FurniView;
+    status: 200;
+};
+
+export type postWorldsPartyIdPlacesThingsResponse200TextJson = {
+    data: FurniView;
+    status: 200;
+};
+
+export type postWorldsPartyIdPlacesThingsResponseSuccess = (
+    | postWorldsPartyIdPlacesThingsResponse200TextPlain
+    | postWorldsPartyIdPlacesThingsResponse200ApplicationJson
+    | postWorldsPartyIdPlacesThingsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesThingsResponse =
+    postWorldsPartyIdPlacesThingsResponseSuccess;
+
+export const getPostWorldsPartyIdPlacesThingsUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/things`;
+};
+
+export const postWorldsPartyIdPlacesThings = async (
+    partyId: string,
+    thingRequest: ThingRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesThingsResponse> => {
+    return customFetch<postWorldsPartyIdPlacesThingsResponse>(
+        getPostWorldsPartyIdPlacesThingsUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(thingRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesThingsMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>,
+        TError,
+        { partyId: string; data: ThingRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>,
+    TError,
+    { partyId: string; data: ThingRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesThings'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>,
+        { partyId: string; data: ThingRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesThings(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesThingsMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>
+>;
+export type PostWorldsPartyIdPlacesThingsMutationBody = ThingRequest;
+export type PostWorldsPartyIdPlacesThingsMutationError = unknown;
+
+export const usePostWorldsPartyIdPlacesThings = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>,
+            TError,
+            { partyId: string; data: ThingRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThings>>,
+    TError,
+    { partyId: string; data: ThingRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesThingsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesThingsArrangeResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesThingsArrangeResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesThingsArrangeResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesThingsArrangeResponseError = (
+    | postWorldsPartyIdPlacesThingsArrangeResponse409TextPlain
+    | postWorldsPartyIdPlacesThingsArrangeResponse409ApplicationJson
+    | postWorldsPartyIdPlacesThingsArrangeResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesThingsArrangeResponse =
+    postWorldsPartyIdPlacesThingsArrangeResponseError;
+
+export const getPostWorldsPartyIdPlacesThingsArrangeUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/things/arrange`;
+};
+
+export const postWorldsPartyIdPlacesThingsArrange = async (
+    partyId: string,
+    arrangeRequest: ArrangeRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesThingsArrangeResponse> => {
+    return customFetch<postWorldsPartyIdPlacesThingsArrangeResponse>(
+        getPostWorldsPartyIdPlacesThingsArrangeUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(arrangeRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesThingsArrangeMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>,
+        TError,
+        { partyId: string; data: ArrangeRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>,
+    TError,
+    { partyId: string; data: ArrangeRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesThingsArrange'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>,
+        { partyId: string; data: ArrangeRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesThingsArrange(
+            partyId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesThingsArrangeMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>
+>;
+export type PostWorldsPartyIdPlacesThingsArrangeMutationBody = ArrangeRequest;
+export type PostWorldsPartyIdPlacesThingsArrangeMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesThingsArrange = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>,
+            TError,
+            { partyId: string; data: ArrangeRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsArrange>>,
+    TError,
+    { partyId: string; data: ArrangeRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesThingsArrangeMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesThingsRemoveResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesThingsRemoveResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesThingsRemoveResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesThingsRemoveResponseError = (
+    | postWorldsPartyIdPlacesThingsRemoveResponse409TextPlain
+    | postWorldsPartyIdPlacesThingsRemoveResponse409ApplicationJson
+    | postWorldsPartyIdPlacesThingsRemoveResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesThingsRemoveResponse =
+    postWorldsPartyIdPlacesThingsRemoveResponseError;
+
+export const getPostWorldsPartyIdPlacesThingsRemoveUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/things/remove`;
+};
+
+export const postWorldsPartyIdPlacesThingsRemove = async (
+    partyId: string,
+    thingRefRequest: ThingRefRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesThingsRemoveResponse> => {
+    return customFetch<postWorldsPartyIdPlacesThingsRemoveResponse>(
+        getPostWorldsPartyIdPlacesThingsRemoveUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(thingRefRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesThingsRemoveMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>,
+        TError,
+        { partyId: string; data: ThingRefRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>,
+    TError,
+    { partyId: string; data: ThingRefRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesThingsRemove'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>,
+        { partyId: string; data: ThingRefRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesThingsRemove(
+            partyId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesThingsRemoveMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>
+>;
+export type PostWorldsPartyIdPlacesThingsRemoveMutationBody = ThingRefRequest;
+export type PostWorldsPartyIdPlacesThingsRemoveMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesThingsRemove = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>,
+            TError,
+            { partyId: string; data: ThingRefRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemove>>,
+    TError,
+    { partyId: string; data: ThingRefRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesThingsRemoveMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesThingsRemodelResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type postWorldsPartyIdPlacesThingsRemodelResponseSuccess =
+    postWorldsPartyIdPlacesThingsRemodelResponse200 & {
+        headers: Headers;
+    };
+
+export type postWorldsPartyIdPlacesThingsRemodelResponse =
+    postWorldsPartyIdPlacesThingsRemodelResponseSuccess;
+
+export const getPostWorldsPartyIdPlacesThingsRemodelUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/things/remodel`;
+};
+
+export const postWorldsPartyIdPlacesThingsRemodel = async (
+    partyId: string,
+    thingRefRequest: ThingRefRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesThingsRemodelResponse> => {
+    return customFetch<postWorldsPartyIdPlacesThingsRemodelResponse>(
+        getPostWorldsPartyIdPlacesThingsRemodelUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(thingRefRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesThingsRemodelMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>,
+        TError,
+        { partyId: string; data: ThingRefRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>,
+    TError,
+    { partyId: string; data: ThingRefRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesThingsRemodel'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>,
+        { partyId: string; data: ThingRefRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesThingsRemodel(
+            partyId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesThingsRemodelMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>
+>;
+export type PostWorldsPartyIdPlacesThingsRemodelMutationBody = ThingRefRequest;
+export type PostWorldsPartyIdPlacesThingsRemodelMutationError = unknown;
+
+export const usePostWorldsPartyIdPlacesThingsRemodel = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>,
+            TError,
+            { partyId: string; data: ThingRefRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesThingsRemodel>>,
+    TError,
+    { partyId: string; data: ThingRefRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesThingsRemodelMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesStyleResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesStyleResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesStyleResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesStyleResponseError = (
+    | postWorldsPartyIdPlacesStyleResponse409TextPlain
+    | postWorldsPartyIdPlacesStyleResponse409ApplicationJson
+    | postWorldsPartyIdPlacesStyleResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesStyleResponse =
+    postWorldsPartyIdPlacesStyleResponseError;
+
+export const getPostWorldsPartyIdPlacesStyleUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/style`;
+};
+
+export const postWorldsPartyIdPlacesStyle = async (
+    partyId: string,
+    placeStyleRequest: PlaceStyleRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesStyleResponse> => {
+    return customFetch<postWorldsPartyIdPlacesStyleResponse>(
+        getPostWorldsPartyIdPlacesStyleUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(placeStyleRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesStyleMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>,
+        TError,
+        { partyId: string; data: PlaceStyleRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>,
+    TError,
+    { partyId: string; data: PlaceStyleRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesStyle'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>,
+        { partyId: string; data: PlaceStyleRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesStyle(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesStyleMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>
+>;
+export type PostWorldsPartyIdPlacesStyleMutationBody = PlaceStyleRequest;
+export type PostWorldsPartyIdPlacesStyleMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesStyle = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>,
+            TError,
+            { partyId: string; data: PlaceStyleRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesStyle>>,
+    TError,
+    { partyId: string; data: PlaceStyleRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesStyleMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesCreateResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesCreateResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesCreateResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesCreateResponseError = (
+    | postWorldsPartyIdPlacesCreateResponse409TextPlain
+    | postWorldsPartyIdPlacesCreateResponse409ApplicationJson
+    | postWorldsPartyIdPlacesCreateResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesCreateResponse =
+    postWorldsPartyIdPlacesCreateResponseError;
+
+export const getPostWorldsPartyIdPlacesCreateUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/create`;
+};
+
+export const postWorldsPartyIdPlacesCreate = async (
+    partyId: string,
+    createPlaceRequest: CreatePlaceRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesCreateResponse> => {
+    return customFetch<postWorldsPartyIdPlacesCreateResponse>(
+        getPostWorldsPartyIdPlacesCreateUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(createPlaceRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesCreateMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>,
+        TError,
+        { partyId: string; data: CreatePlaceRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>,
+    TError,
+    { partyId: string; data: CreatePlaceRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesCreate'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>,
+        { partyId: string; data: CreatePlaceRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesCreate(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesCreateMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>
+>;
+export type PostWorldsPartyIdPlacesCreateMutationBody = CreatePlaceRequest;
+export type PostWorldsPartyIdPlacesCreateMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesCreate = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>,
+            TError,
+            { partyId: string; data: CreatePlaceRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesCreate>>,
+    TError,
+    { partyId: string; data: CreatePlaceRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesCreateMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type deleteWorldsPartyIdPlacesPlaceIdResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteWorldsPartyIdPlacesPlaceIdResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type deleteWorldsPartyIdPlacesPlaceIdResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+export type deleteWorldsPartyIdPlacesPlaceIdResponseError = (
+    | deleteWorldsPartyIdPlacesPlaceIdResponse404TextPlain
+    | deleteWorldsPartyIdPlacesPlaceIdResponse404ApplicationJson
+    | deleteWorldsPartyIdPlacesPlaceIdResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type deleteWorldsPartyIdPlacesPlaceIdResponse =
+    deleteWorldsPartyIdPlacesPlaceIdResponseError;
+
+export const getDeleteWorldsPartyIdPlacesPlaceIdUrl = (
+    partyId: string,
+    placeId: string,
+) => {
+    return `/api/worlds/${partyId}/places/${placeId}`;
+};
+
+export const deleteWorldsPartyIdPlacesPlaceId = async (
+    partyId: string,
+    placeId: string,
+    options?: RequestInit,
+): Promise<deleteWorldsPartyIdPlacesPlaceIdResponse> => {
+    return customFetch<deleteWorldsPartyIdPlacesPlaceIdResponse>(
+        getDeleteWorldsPartyIdPlacesPlaceIdUrl(partyId, placeId),
+        {
+            ...options,
+            method: 'DELETE',
+        },
+    );
+};
+
+export const getDeleteWorldsPartyIdPlacesPlaceIdMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>,
+        TError,
+        { partyId: string; placeId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>,
+    TError,
+    { partyId: string; placeId: string },
+    TContext
+> => {
+    const mutationKey = ['deleteWorldsPartyIdPlacesPlaceId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>,
+        { partyId: string; placeId: string }
+    > = (props) => {
+        const { partyId, placeId } = props ?? {};
+
+        return deleteWorldsPartyIdPlacesPlaceId(
+            partyId,
+            placeId,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorldsPartyIdPlacesPlaceIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>
+>;
+
+export type DeleteWorldsPartyIdPlacesPlaceIdMutationError = ProblemDetails;
+
+export const useDeleteWorldsPartyIdPlacesPlaceId = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>,
+            TError,
+            { partyId: string; placeId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdPlacesPlaceId>>,
+    TError,
+    { partyId: string; placeId: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteWorldsPartyIdPlacesPlaceIdMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type postWorldsPartyIdPlacesRedressResponse200 = {
     data: void;

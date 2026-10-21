@@ -4,20 +4,10 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { AppearanceRequestPicked } from './appearanceRequestPicked';
 
 export interface AppearanceRequest {
-    /** @nullable */
-    skin: string | null;
-    /** @nullable */
-    hair: string | null;
-    /** @nullable */
-    hairStyle: string | null;
-    /** @nullable */
-    top: string | null;
-    /** @nullable */
-    bottom: string | null;
-    /** @nullable */
-    accessory: string | null;
+    picked: AppearanceRequestPicked;
     /** @nullable */
     participantId: string | null;
 }

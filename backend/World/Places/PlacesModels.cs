@@ -23,6 +23,13 @@ public sealed class Place
     [Id(10)] public string? Scene { get; set; }
     /// <summary>Preposition: "at the Café", "in the city centre".</summary>
     [Id(11)] public string At { get; set; } = "at";
+    /// <summary>A generated Place's scene (ADR 0023 format, JSON); wins over <see cref="Scene"/>.</summary>
+    [Id(12)] public string? CustomScene { get; set; }
+    /// <summary>Who had a public Place made (a shop, a bar); not an owner like a Home's.</summary>
+    [Id(13)] public Guid? MadeBy { get; set; }
+    /// <summary>Owner's choice of wall and floor colour (hex); null = the scene's.</summary>
+    [Id(14)] public string? WallColour { get; set; }
+    [Id(15)] public string? FloorColour { get; set; }
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
@@ -35,6 +42,8 @@ public sealed class Spot
     [Id(3)] public bool Seat { get; set; }
     /// <summary>Preposition for "sitting on the sofa" / "in the kitchen".</summary>
     [Id(4)] public string At { get; set; } = "at";
+    /// <summary>Poses this spot affords beyond standing or sitting (see <see cref="Poses"/>).</summary>
+    [Id(5)] public List<string> Poses { get; set; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Posture")]
@@ -71,6 +80,12 @@ public sealed class Body
     /// <summary>Woken in the night (a human's message); stays up until then.</summary>
     [Id(14)] public long? WokenUntil { get; set; }
     [Id(15)] public Appearance? Appearance { get; set; }
+    /// <summary>How the Body is holding itself at its spot (see <see cref="Poses"/>); null = plain standing or sitting.</summary>
+    [Id(16)] public string? Pose { get; set; }
+    /// <summary>The other Body in a pair pose (a hug, a slow dance).</summary>
+    [Id(17)] public Guid? PoseWith { get; set; }
+    /// <summary>When a momentary pose (hug, high five) ends.</summary>
+    [Id(18)] public long? PoseUntil { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }
@@ -99,6 +114,11 @@ public sealed class FurniView
     [Id(8)] public string? UseLabel { get; set; }
     [Id(9)] public bool On { get; set; }
     [Id(10)] public string? Style { get; set; }
+    /// <summary>Generated 3D model (parts JSON, see <see cref="ThingModel"/>); null = drawn from its kind.</summary>
+    [Id(11)] public string? Model { get; set; }
+    [Id(12)] public int? TileX { get; set; }
+    [Id(13)] public int? TileZ { get; set; }
+    [Id(14)] public int Rot { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.PlacesState")]
@@ -119,7 +139,7 @@ public static class PlaceKinds
 /// <summary>The Places a World starts with, and the Home template.</summary>
 public static class PlaceSeeds
 {
-    public static List<Place> Public() => new()
+    public static List<Place> Public() => new List<Place>
     {
         new Place
         {
@@ -158,9 +178,9 @@ public static class PlaceSeeds
                 new() { Id = "bikes", Name = "the bike racks", At = "by", Capacity = 2 },
             },
         },
-    };
+    }.Select(WithPoses).ToList();
 
-    public static Place Home(Guid ownerId, string ownerName) => new()
+    public static Place Home(Guid ownerId, string ownerName) => WithPoses(new Place
     {
         Id = Guid.NewGuid(),
         Name = $"{ownerName.Split(' ')[0]}'s place",
@@ -175,5 +195,11 @@ public static class PlaceSeeds
             new() { Id = "kitchen", Name = "the kitchen", At = "in", Capacity = 3 },
             new() { Id = "bed", Name = "the bed", At = "on", Capacity = 2, Seat = true },
         },
-    };
+    });
+
+    private static Place WithPoses(Place p)
+    {
+        Poses.Fill(p.Spots);
+        return p;
+    }
 }

@@ -12,4 +12,5 @@ export interface Spot {
     capacity?: number | string;
     seat?: boolean;
     at?: string;
+    poses?: string[];
 }

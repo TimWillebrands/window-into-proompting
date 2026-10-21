@@ -148,3 +148,41 @@ describe('scenes', () => {
         ).toThrow(/unknown map char/);
     });
 });
+
+describe('prefab catalogue', () => {
+    it('matches backend/World/Places/prefabs.json, which the place designer prompts with', async () => {
+        const { readFileSync } = await import('node:fs');
+        const { resolve } = await import('node:path');
+        const catalogue: {
+            name: string;
+            size: number[];
+            solid: boolean;
+            wall: boolean;
+            seats: number;
+        }[] = JSON.parse(
+            readFileSync(
+                resolve(
+                    __dirname,
+                    '../../../../../backend/World/Places/prefabs.json',
+                ),
+                'utf8',
+            ),
+        );
+        const mine = Object.entries(PREFABS).map(([name, p]) => ({
+            name,
+            size: p.size ?? [1, 1],
+            solid: p.solid !== false,
+            wall: !!p.wall,
+            seats: (p.seats ?? []).length,
+        }));
+        expect(
+            catalogue.map(({ name, size, solid, wall, seats }) => ({
+                name,
+                size,
+                solid,
+                wall,
+                seats,
+            })),
+        ).toEqual(mine);
+    });
+});

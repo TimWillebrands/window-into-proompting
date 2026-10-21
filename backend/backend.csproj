@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <None Update="Services\ResponsePipeline\Prompts\*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="World\Places\prefabs.json" LogicalName="PartyTown.World.Places.prefabs.json" />
   </ItemGroup>
 
   <Target Name="RenameOpenApiDocument" AfterTargets="GenerateOpenApiDocuments" Condition="Exists('$(MSBuildProjectDirectory)/backend.json')">

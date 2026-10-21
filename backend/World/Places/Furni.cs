@@ -20,6 +20,15 @@ public sealed class Furni
     [Id(9)] public string? PlayedBy { get; set; }
     /// <summary>Decor only: poster, painting, plant, rug, lamp, books, guitar, photo or thing.</summary>
     [Id(10)] public string? Style { get; set; }
+    /// <summary>Generated 3D model (parts JSON, see <see cref="ThingModel"/>).</summary>
+    [Id(11)] public string? Model { get; set; }
+    /// <summary>Where its owner put it; null = the scene decides.</summary>
+    [Id(12)] public int? TileX { get; set; }
+    [Id(13)] public int? TileZ { get; set; }
+    /// <summary>Quarter turns.</summary>
+    [Id(14)] public int Rot { get; set; }
+    /// <summary>Who it belongs to (put up, bought, made).</summary>
+    [Id(15)] public Guid? OwnerId { get; set; }
 }
 
 public static class FurniKinds

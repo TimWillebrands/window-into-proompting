@@ -22,4 +22,18 @@ export interface FurniView {
     on?: boolean;
     /** @nullable */
     style?: string | null;
+    /** @nullable */
+    model?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    tileX?: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    tileZ?: number | string | null;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    rot?: number | string;
 }

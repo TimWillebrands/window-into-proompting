@@ -13,4 +13,11 @@ export interface Appearance {
     bottom?: string;
     accessory?: string;
     fromBio?: boolean;
+    topStyle?: string;
+    bottomStyle?: string;
+    shoes?: string;
+    facialHair?: string;
+    build?: string;
+    height?: string;
+    eyes?: string;
 }

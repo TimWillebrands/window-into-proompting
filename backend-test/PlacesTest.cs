@@ -9,7 +9,7 @@ using PartyTown.World.Places;
 namespace BackendTest;
 
 /// <summary>Places phase 1: one Body per Participant, walking takes time, Place talk cast follows occupants.</summary>
-public class PlacesTest : IClassFixture<PlacesTest.Fixture>
+public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
 {
     private readonly Fixture _fx;
 
@@ -414,9 +414,26 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
                     services.AddSingleton(Moq.Mock.Of<PartyTown.Services.Memory.IStanceConsolidator>());
                     services.AddSingleton<PartyTown.Services.Memory.ConsolidationService>();
                     services.AddSingleton<PartyTown.World.WorldMemory>();
-                    services.AddSingleton(Moq.Mock.Of<PartyTown.World.IWorldLlm>());
+                    services.AddSingleton<PartyTown.World.IWorldLlm>(ScriptedLlm.Instance);
                 });
             }
+        }
+    }
+
+    /// <summary>World LLM a test scripts by system prompt; anything unscripted gets null (as the old mock did).</summary>
+    public sealed class ScriptedLlm : PartyTown.World.IWorldLlm
+    {
+        public static readonly ScriptedLlm Instance = new();
+        public Func<string, string, System.Text.Json.Nodes.JsonObject?> Json { get; set; } = (_, _) => null;
+        public List<string> Users { get; } = new();
+
+        public Task<string?> CompleteAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
+            => Task.FromResult<string?>(null);
+
+        public Task<System.Text.Json.Nodes.JsonObject?> CompleteJsonAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+        {
+            lock (Users) Users.Add(user);
+            return Task.FromResult(Json(system, user));
         }
     }
 

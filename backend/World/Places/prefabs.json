@@ -1,0 +1,750 @@
+[
+ {
+  "name": "sofa",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "two-seat sofa, faces +z"
+ },
+ {
+  "name": "armchair",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "armchair"
+ },
+ {
+  "name": "chair",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "wooden chair, faces +z"
+ },
+ {
+  "name": "stool",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "bar stool"
+ },
+ {
+  "name": "bench",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "park/wooden bench, two seats"
+ },
+ {
+  "name": "window-bench",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "cushioned bench under a window"
+ },
+ {
+  "name": "booth",
+  "size": [
+   2,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 3,
+  "about": "L-shaped diner booth with table, back-left corner"
+ },
+ {
+  "name": "table",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "small round caf\u00e9 table"
+ },
+ {
+  "name": "long-table",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "long dining table"
+ },
+ {
+  "name": "coffee-table",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "low coffee table"
+ },
+ {
+  "name": "desk",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "desk"
+ },
+ {
+  "name": "counter",
+  "size": [
+   3,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "bar/shop counter, customers stand at +z"
+ },
+ {
+  "name": "reception",
+  "size": [
+   3,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "reception desk"
+ },
+ {
+  "name": "kitchen",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "kitchen units with sink and stove"
+ },
+ {
+  "name": "fridge",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "fridge"
+ },
+ {
+  "name": "bed",
+  "size": [
+   1,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "single bed, headboard at -z"
+ },
+ {
+  "name": "plant",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "potted plant"
+ },
+ {
+  "name": "big-plant",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "big potted plant"
+ },
+ {
+  "name": "planter",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "flower box with geraniums"
+ },
+ {
+  "name": "cups",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "cups (furni)"
+ },
+ {
+  "name": "coffee",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "coffee machine (furni, put on a counter with y)"
+ },
+ {
+  "name": "espresso",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "espresso machine (furni, put on a counter with y)"
+ },
+ {
+  "name": "coffee-cart",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "street coffee cart"
+ },
+ {
+  "name": "jukebox",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "jukebox"
+ },
+ {
+  "name": "lamp",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "floor lamp"
+ },
+ {
+  "name": "desk-lamp",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "desk lamp (put on a desk with y)"
+ },
+ {
+  "name": "street-lamp",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "old street lamp"
+ },
+ {
+  "name": "laptop",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "laptop (put on a desk with y)"
+ },
+ {
+  "name": "poster",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "poster (wall)"
+ },
+ {
+  "name": "painting",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "painting (wall)"
+ },
+ {
+  "name": "photo",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "framed photo (wall)"
+ },
+ {
+  "name": "noticeboard",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "cork noticeboard (wall)"
+ },
+ {
+  "name": "chalkboard",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "menu chalkboard (wall)"
+ },
+ {
+  "name": "rug",
+  "size": [
+   2,
+   2
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "2x2 rug, walkable"
+ },
+ {
+  "name": "books",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "bookshelf"
+ },
+ {
+  "name": "guitar",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "guitar on a stand"
+ },
+ {
+  "name": "thing",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "a random knick-knack"
+ },
+ {
+  "name": "tv",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "TV on a cabinet"
+ },
+ {
+  "name": "elm",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "tree"
+ },
+ {
+  "name": "bollard",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "small street bollard"
+ },
+ {
+  "name": "bike",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "parked bike"
+ },
+ {
+  "name": "bike-rack",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "bike rack with bikes"
+ },
+ {
+  "name": "herring-cart",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "herring stall with awning"
+ },
+ {
+  "name": "terrace-table",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "outdoor table with parasol"
+ },
+ {
+  "name": "steps",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "stone steps down to water (place on a water tile)"
+ },
+ {
+  "name": "houseboat",
+  "size": [
+   4,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "houseboat (on water, 4 long)"
+ },
+ {
+  "name": "duck",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "a duck (on water)"
+ },
+ {
+  "name": "bar-shelf",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "wall of bottles behind a bar"
+ },
+ {
+  "name": "shelf",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "shop shelves with goods"
+ },
+ {
+  "name": "register",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "shop till"
+ },
+ {
+  "name": "clothes-rack",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "rack of clothes"
+ },
+ {
+  "name": "mirror",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "tall mirror (wall)"
+ },
+ {
+  "name": "clock",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "wall clock (wall)"
+ },
+ {
+  "name": "neon",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": true,
+  "seats": 0,
+  "about": "neon sign (wall, text)"
+ },
+ {
+  "name": "speaker",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "big speaker"
+ },
+ {
+  "name": "dj-booth",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "DJ booth with decks"
+ },
+ {
+  "name": "dance-floor",
+  "size": [
+   3,
+   3
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "3x3 lit dance floor, walkable"
+ },
+ {
+  "name": "pool-table",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "pool table"
+ },
+ {
+  "name": "piano",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "upright piano"
+ },
+ {
+  "name": "arcade",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "arcade cabinet"
+ },
+ {
+  "name": "fireplace",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "fireplace"
+ },
+ {
+  "name": "beanbag",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "beanbag seat"
+ },
+ {
+  "name": "flower-stall",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "flower stall"
+ },
+ {
+  "name": "fountain",
+  "size": [
+   2,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "2x2 fountain"
+ },
+ {
+  "name": "vending-machine",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "vending machine"
+ },
+ {
+  "name": "hammock",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "hammock between posts"
+ },
+ {
+  "name": "potted-palm",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "potted palm"
+ },
+ {
+  "name": "umbrella",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "beach umbrella"
+ }
+]

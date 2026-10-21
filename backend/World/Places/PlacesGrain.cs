@@ -12,7 +12,7 @@ namespace PartyTown.World.Places;
 /// The Places registry and body index of one Party (key = Party id). Single writer of "which Place
 /// is Body X in", so one-body-one-place has one owner. Plain persisted state, not event-sourced.
 /// </summary>
-public sealed class PlacesGrain(
+public sealed partial class PlacesGrain(
     [PersistentState(stateName: "places", storageName: "parties")]
     IPersistentState<PlacesState> state,
     TimeProvider time,
@@ -62,7 +62,7 @@ public sealed class PlacesGrain(
             await SaveAsync();
         }
         BackfillPrepositions();
-        if (AddNewPublicPlaces()) await SaveAsync();
+        if (AddNewPublicPlaces() | Poses.Fill(state.State.Places.SelectMany(p => p.Spots))) await SaveAsync();
         foreach (var place in state.State.Places) EnsureFurni(place);
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
@@ -159,11 +159,13 @@ public sealed class PlacesGrain(
         if (decor.Count >= Decor.MaxInHome) home.Furni.Remove(decor[0]);
         var label = Decor.Label(description);
         var spot = home.Spots[Random.Shared.Next(home.Spots.Count)];
-        home.Furni.Add(new Furni
+        var furni = new Furni
         {
             Id = $"decor-{now}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
-            Name = label, SpotId = spot.Id, TendedAt = now,
-        });
+            Name = label, SpotId = spot.Id, TendedAt = now, OwnerId = participantId,
+        };
+        home.Furni.Add(furni);
+        QueueModel(home, furni, description);
         body.Activity = "rearranging their place";
         body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
         await SaveAsync();
@@ -314,13 +316,13 @@ public sealed class PlacesGrain(
             // Others' looks so far: a small world reads better when people don't all pick the same hair.
             var others = state.State.Bodies.Values
                 .Where(b => b.ParticipantId != who.Id && b.Appearance is { FromBio: true })
-                .Select(b => $"{b.Name.Split(' ')[0]}: {b.Appearance!.Hair} {b.Appearance.HairStyle} hair, {b.Appearance.Top} top, {b.Appearance.Accessory}")
+                .Select(b => $"{b.Name.Split(' ')[0]}: {b.Appearance!.Hair} {b.Appearance.HairStyle} hair, {b.Appearance.Top} {b.Appearance.TopStyle}, {b.Appearance.Accessory}")
                 .ToList();
             var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}"
                 + (others.Count == 0 ? string.Empty : $"\n\nOthers here already look like this; be recognisably different:\n{string.Join("\n", others)}");
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General, AppearanceRules.Prompt,
                 user, CancellationToken.None, 0.9,
-                new[] { "skin", "hair", "hairStyle", "top", "bottom", "accessory" });
+                AppearanceRules.Fields.Select(f => f.Key).ToList());
             if (json is null || !state.State.Bodies.TryGetValue(who.Id, out var body)) return;
             var picked = json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString());
             body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(who.Id), picked);
@@ -459,6 +461,7 @@ public sealed class PlacesGrain(
 
         var leaving = body.IsWalking ? body.DestPlaceId : body.PlaceId;
         var now = Now();
+        EndPose(body);
         body.Asleep = false;
         body.DestPlaceId = placeId;
         body.DestSpotId = spot.Id;
@@ -579,6 +582,7 @@ public sealed class PlacesGrain(
         UseLabel = FurniRules.UseOf(f, now)?.Label,
         On = FurniRules.IsOn(f, now),
         Style = f.Style,
+        Model = f.Model, TileX = f.TileX, TileZ = f.TileZ, Rot = f.Rot,
     };
 
     private static long NextMishapDelay()
@@ -680,6 +684,7 @@ public sealed class PlacesGrain(
             b.Activity = null;
             b.ActivityUntil = null;
         }
+        foreach (var b in state.State.Bodies.Values.Where(b => b.PoseUntil <= now)) EndPose(b);
         var mishapDue = state.State.NextMishapAt;
         MaybeMishap(now);
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
@@ -695,6 +700,7 @@ public sealed class PlacesGrain(
             body.SpotId = body.DestSpotId ?? body.SpotId;
             var spot = Find(body.PlaceId)?.Spots.FirstOrDefault(s => s.Id == body.SpotId);
             body.Posture = spot?.Seat == true ? Posture.Sitting : Posture.Standing;
+            if (body.Pose is { } pending) body.Posture = Poses.PostureOf(pending, body.Posture);
             if (changedPlace) body.ArrivedAt = now;
             body.DestPlaceId = null;
             body.DestSpotId = null;
@@ -774,8 +780,8 @@ public sealed class PlacesGrain(
             sb.Append(" Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
-                ? $"{o.Name} (right next to you{Doing(o)})"
-                : $"{o.Name} ({PostureAt(place, o)}{Doing(o)})"))).Append('.');
+                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)})"
+                : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
         // Someone else's Home shows who they are.
@@ -796,10 +802,17 @@ public sealed class PlacesGrain(
     private static string SpotName(Place? place, string? spotId)
         => place?.Spots.FirstOrDefault(s => s.Id == spotId)?.Name ?? "somewhere";
 
-    private static string PostureAt(Place? place, Body body)
+    private string PostureAt(Place? place, Body body, Guid? viewer = null)
     {
         var spot = place?.Spots.FirstOrDefault(s => s.Id == body.SpotId);
         var name = spot?.Name ?? "somewhere";
+        if (body.Pose is { } pose && spot is not null && (body.PoseUntil is null || body.PoseUntil > Now()))
+        {
+            var with = body.PoseWith is { } w
+                ? w == viewer ? "you" : state.State.Bodies.GetValueOrDefault(w)?.Name.Split(' ')[0]
+                : null;
+            return Poses.Describe(pose, spot, with);
+        }
         return body.Posture switch
         {
             Posture.Lying => $"lying {spot?.At ?? "on"} {name}",
@@ -889,4 +902,26 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Someone used an online App; their Body shows the device for a few minutes.</summary>
     [Alias("NoteActivityAsync")] Task NoteActivityAsync(Guid participantId, string app);
+
+    /// <summary>A pose at the Body's spot (null ends it); pair poses take someone at the same spot. Returns what it reads as, or null when not afforded.</summary>
+    [Alias("SetPoseAsync")] Task<string?> SetPoseAsync(Guid participantId, string? pose, Guid? with);
+
+    /// <summary>Change a look from words ("dye my hair pink"), within the palette.</summary>
+    [Alias("RestyleAsync")] Task<RestyleResult?> RestyleAsync(Guid participantId, string intent);
+
+    /// <summary>A new thing in a Place, with a generated model arriving shortly after.</summary>
+    [Alias("AddThingAsync")] Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description);
+
+    [Alias("RemodelAsync")] Task RemodelAsync(Guid placeId, string furniId);
+
+    [Alias("ArrangeAsync")] Task<bool> ArrangeAsync(Guid participantId, Guid placeId, string furniId, int? x, int? z, int rot);
+
+    [Alias("RemoveThingAsync")] Task<bool> RemoveThingAsync(Guid participantId, Guid placeId, string furniId);
+
+    [Alias("SetPlaceStyleAsync")] Task<bool> SetPlaceStyleAsync(Guid participantId, Guid placeId, string? wall, string? floor);
+
+    /// <summary>A generated public Place from a description (validated scene); null when it couldn't be made.</summary>
+    [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor);
+
+    [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
 }

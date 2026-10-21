@@ -24,4 +24,12 @@ export interface Place {
     /** @nullable */
     scene?: string | null;
     at?: string;
+    /** @nullable */
+    customScene?: string | null;
+    /** @nullable */
+    madeBy?: string | null;
+    /** @nullable */
+    wallColour?: string | null;
+    /** @nullable */
+    floorColour?: string | null;
 }
