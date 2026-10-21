@@ -27,12 +27,8 @@ import {
     type GenerationPhase,
     type RaceEvaluation,
     type RealtimeChatMessage,
-    useActiveGenerationPhases,
-    useChatGroupGenerationState,
-    useChatGroupMessages,
     useDeclinedDecisions,
     useRaceEvaluations,
-    useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import type { Persona } from '../../api/model';
 import { DriverKind } from '../../api/model';
@@ -43,6 +39,7 @@ import {
     parseAppraisal,
     pendingInstructionFor,
 } from '../../lib/room-conversation';
+import { useRoomConversation } from '../../lib/use-room-conversation';
 import { speakAsOverrides } from './room-cast';
 
 export interface ChatViewProps {
@@ -91,13 +88,14 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     const [isNearBottom, setIsNearBottom] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    const activeGenerations = useChatGroupGenerationState(chatGroupId ?? '');
-    const generationPhases = useActiveGenerationPhases(chatGroupId ?? '');
+    const {
+        messages: realtimeMessages,
+        activeIds: activeGenerations,
+        phases: generationPhases,
+        phaseByPersona: personaPhases,
+    } = useRoomConversation(apiPartyId, chatGroupId ?? '');
     const declinedDecisions = useDeclinedDecisions(chatGroupId ?? '');
     const raceEvaluations = useRaceEvaluations(chatGroupId ?? '');
-    const realtimeMessages = useChatGroupMessages(chatGroupId ?? '');
-    const { connectPartyRealtime, disconnectPartyRealtime } =
-        useRealtimeStoreActions();
 
     const partyDetailsQuery = useGetPartyIdSuspense(apiPartyId);
     const chatGroupParticipantsQuery =
@@ -218,23 +216,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                 },
             },
         });
-
-    useEffect(() => {
-        if (!chatGroupId) {
-            return;
-        }
-
-        connectPartyRealtime(apiPartyId);
-
-        return () => {
-            disconnectPartyRealtime(apiPartyId);
-        };
-    }, [
-        apiPartyId,
-        chatGroupId,
-        connectPartyRealtime,
-        disconnectPartyRealtime,
-    ]);
 
     useEffect(() => {
         setMessages(realtimeMessages);
@@ -386,35 +367,10 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         partyPersonas.find((p) => p.id === selectedPersonaId)?.name ??
         selectedPersonaId;
 
-    const activePersonaIds = useMemo(() => {
-        const ids = new Set<string>();
-        for (const phase of generationPhases) {
-            if (
-                (phase.phase === 'deciding' ||
-                    phase.phase === 'typing' ||
-                    phase.phase === 'streaming') &&
-                phase.personaName
-            ) {
-                ids.add(phase.personaName);
-            }
-        }
-        return ids;
-    }, [generationPhases]);
-
-    const personaPhases = useMemo(() => {
-        const map = new Map<string, ActiveGenerationPhase>();
-        for (const phase of generationPhases) {
-            if (
-                (phase.phase === 'deciding' ||
-                    phase.phase === 'typing' ||
-                    phase.phase === 'streaming') &&
-                phase.personaName
-            ) {
-                map.set(phase.personaName, phase);
-            }
-        }
-        return map;
-    }, [generationPhases]);
+    const activePersonaIds = useMemo(
+        () => new Set(personaPhases.keys()),
+        [personaPhases],
+    );
 
     return (
         <div
@@ -2022,10 +1978,11 @@ function StreamingIndicator({
     );
 }
 
-function formatTime(iso: string | null | undefined): string {
-    if (!iso) return '';
+/** sendAt is unix ms; ISO strings still accepted. */
+function formatTime(at: number | string | null | undefined): string {
+    if (!at) return '';
     try {
-        const d = new Date(iso);
+        const d = new Date(at);
         return d.toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',

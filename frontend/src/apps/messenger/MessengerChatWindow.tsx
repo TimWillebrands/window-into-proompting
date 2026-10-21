@@ -5,16 +5,10 @@ import {
     useGetWorldsPartyIdSelves,
     usePostPartyIdPrompt,
 } from '#api/party-zone';
-import {
-    type RealtimeChatMessage,
-    useActiveGenerationPhases,
-    useChatGroupGenerationState,
-    useChatGroupMessages,
-    useRealtimeConnectionStatus,
-    useRealtimeStoreActions,
-} from '#lib/realtime-store';
+import type { RealtimeChatMessage } from '#lib/realtime-store';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
-import { isShownInMessenger } from '../../lib/room-conversation';
+import { isShownInMessenger, typingState } from '../../lib/room-conversation';
+import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, WORLD_ID } from '../../lib/world';
 import {
     BuddyIcon,
@@ -105,17 +99,12 @@ function Conversation({
     const myName = me?.name ?? 'You';
     const theirStatus: BuddyStatus = statusOf(them, theirSelf);
 
-    const { connectPartyRealtime, disconnectPartyRealtime } =
-        useRealtimeStoreActions();
-    useEffect(() => {
-        connectPartyRealtime(WORLD_ID);
-        return () => disconnectPartyRealtime(WORLD_ID);
-    }, [connectPartyRealtime, disconnectPartyRealtime]);
-    const connection = useRealtimeConnectionStatus(WORLD_ID);
-
-    const allMessages = useChatGroupMessages(chatGroupId);
-    const activeIds = useChatGroupGenerationState(chatGroupId);
-    const phases = useActiveGenerationPhases(chatGroupId);
+    const {
+        messages: allMessages,
+        activeIds,
+        phases,
+        connection,
+    } = useRoomConversation(WORLD_ID, chatGroupId);
     const messages = useMemo(
         () => allMessages.filter(isShownInMessenger),
         [allMessages],
@@ -125,10 +114,9 @@ function Conversation({
         () => [...new Set(messages.map((m) => m.senderId))],
         [messages],
     );
-    const isTyping = phases.some(
-        (p) => p.phase === 'typing' || p.phase === 'streaming',
-    );
-    const isReading = !isTyping && phases.some((p) => p.phase === 'deciding');
+    const otherSide = typingState(phases);
+    const isTyping = otherSide === 'typing';
+    const isReading = otherSide === 'reading';
 
     const isMine = (m: RealtimeChatMessage) =>
         !spectate &&

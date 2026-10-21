@@ -1,5 +1,5 @@
 // Room conversation rules shared by D'Accord and Messenger (a DM is a two-person Room).
-import type { RealtimeChatMessage } from './room-state';
+import type { ActiveGenerationPhase, RealtimeChatMessage } from './room-state';
 
 /** A persona turn's appraisal JSON, normalised (older messages used PascalCase keys). */
 export interface Appraisal {
@@ -66,3 +66,30 @@ export const isShownInRoom = (
 /** Messenger rule: only lines with text, plus persona-side errors. */
 export const isShownInMessenger = (m: RealtimeChatMessage): boolean =>
     !!m.content?.trim() || (!!m.error && m.senderType !== 'user');
+
+/** Who is visibly busy in the Room, by persona: deciding, typing or streaming (latest phase wins). */
+export const phaseByPersona = (
+    phases: readonly ActiveGenerationPhase[],
+): Map<string, ActiveGenerationPhase> => {
+    const map = new Map<string, ActiveGenerationPhase>();
+    for (const p of phases) {
+        if (
+            (p.phase === 'deciding' ||
+                p.phase === 'typing' ||
+                p.phase === 'streaming') &&
+            p.personaName
+        )
+            map.set(p.personaName, p);
+    }
+    return map;
+};
+
+/** Messenger's one-line status for the other side: typing beats reading. */
+export const typingState = (
+    phases: readonly ActiveGenerationPhase[],
+): 'typing' | 'reading' | 'idle' =>
+    phases.some((p) => p.phase === 'typing' || p.phase === 'streaming')
+        ? 'typing'
+        : phases.some((p) => p.phase === 'deciding')
+          ? 'reading'
+          : 'idle';

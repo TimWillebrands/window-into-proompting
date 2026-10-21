@@ -4,6 +4,8 @@ import {
     isShownInRoom,
     parseAppraisal,
     pendingInstructionFor,
+    phaseByPersona,
+    typingState,
 } from './room-conversation';
 import type { RealtimeChatMessage } from './room-state';
 
@@ -107,5 +109,30 @@ describe('isShownInMessenger', () => {
         expect(
             isShownInMessenger(msg(1, { error: 'x', senderType: 'user' })),
         ).toBe(false);
+    });
+});
+
+describe('phaseByPersona / typingState', () => {
+    const deciding = {
+        phase: 'deciding' as const,
+        personaName: 'vlad',
+        decisionText: '',
+    };
+    const typing = { phase: 'typing' as const, personaName: 'denise' };
+
+    it('maps busy personas, ignoring idle and waiting slots', () => {
+        const map = phaseByPersona([
+            deciding,
+            typing,
+            { phase: 'waiting' },
+            { phase: 'idle' },
+        ]);
+        expect([...map.keys()]).toEqual(['vlad', 'denise']);
+    });
+
+    it('typing beats reading beats idle', () => {
+        expect(typingState([deciding, typing])).toBe('typing');
+        expect(typingState([deciding])).toBe('reading');
+        expect(typingState([])).toBe('idle');
     });
 });
