@@ -36,7 +36,7 @@ public class EconomyTest
         Assert.Contains(Catalog.All, i => i.Key == "accessory:scarf" && i.Price == 30);
         Assert.Contains(Catalog.All, i => i.Key == "top:hoodie:navy" && i.Name == "a navy hoodie" && i.Picks["topStyle"] == "hoodie");
         Assert.Contains(Catalog.All, i => i.Key == "bottom:jeans:black" && i.Name == "black jeans");
-        Assert.Contains(Catalog.All, i => i.Name == "an afro haircut");
+        Assert.Contains(Catalog.All, i => i.Name == "an afro");
         Assert.DoesNotContain(Catalog.All, i => i.Picks.ContainsKey("skin") || i.Picks.ContainsValue("none"));
         Assert.Equal(Catalog.All.Count, Catalog.All.Select(i => i.Key).Distinct().Count());
     }

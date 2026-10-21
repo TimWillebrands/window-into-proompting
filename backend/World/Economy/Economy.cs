@@ -79,6 +79,13 @@ public static class Catalog
         ["earrings"] = "pair of earrings", ["flower"] = "flower for the hair", ["bow"] = "hair bow",
     };
 
+    private static readonly Dictionary<string, string> Cuts = new()
+    {
+        ["bald"] = "a clean shave of the head", ["braids"] = "getting your hair braided", ["buzz"] = "a buzz cut",
+        ["bun"] = "a cut long enough for a bun", ["ponytail"] = "a cut long enough for a ponytail", ["mohawk"] = "a mohawk",
+        ["afro"] = "an afro", ["long"] = "growing it long (extensions)",
+    };
+
     public static readonly IReadOnlyList<ShopItem> All = Build();
     private static readonly Dictionary<string, ShopItem> ByKey = All.ToDictionary(i => i.Key);
 
@@ -87,7 +94,7 @@ public static class Catalog
         var items = new List<ShopItem>();
         foreach (var v in AppearanceRules.Hairs) items.Add(new($"hair:{v}", "hair", $"{v} hair dye", 30, new() { ["hair"] = v }));
         foreach (var v in AppearanceRules.Styles)
-            items.Add(new($"hairStyle:{v}", "hairStyle", v == "bald" ? "a clean shave of the head" : $"{An(v)} {v} haircut", v == "bald" ? 10 : 25, new() { ["hairStyle"] = v }));
+            items.Add(new($"hairStyle:{v}", "hairStyle", Cuts.GetValueOrDefault(v, $"{An(v)} {v} haircut"), v == "bald" ? 10 : 25, new() { ["hairStyle"] = v }));
         foreach (var style in AppearanceRules.TopStyles)
             foreach (var c in AppearanceRules.Colours)
                 items.Add(new($"top:{style}:{c}", "top", $"{An(c)} {c} {Noun(style)}", TopPrices.GetValueOrDefault(style, 40), new() { ["topStyle"] = style, ["top"] = c }));
