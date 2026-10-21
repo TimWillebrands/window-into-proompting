@@ -19,6 +19,7 @@ public sealed partial class PersonaSelfGrain(
     ILogger<PersonaSelfGrain> logger)
     : Grain, IPersonaSelfGrain
 {
+    private const int AvailabilityVersion = 1;
     private static readonly TimeSpan DayRetry = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan DayBudget = TimeSpan.FromSeconds(40);
 
@@ -63,6 +64,12 @@ public sealed partial class PersonaSelfGrain(
     private async Task EnsureAvailabilityAsync(Guid partyId, Guid personaId)
     {
         var beats = state.State.Beats;
+        if (state.State.AvailabilityVersion < AvailabilityVersion)
+        {
+            foreach (var b in beats) b.Availability = null;
+            state.State.AvailabilityTried = null;
+            state.State.AvailabilityVersion = AvailabilityVersion;
+        }
         if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey || !judge.Enabled) return;
         state.State.AvailabilityTried = state.State.DayKey;
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
@@ -74,8 +81,9 @@ public sealed partial class PersonaSelfGrain(
                     $"During \"{b.Text}\", {self.Name} could casually glance at their phone or computer and chat with friends.")))
                 .ToDictionary(x => x.Key, x => x.Q);
             var answers = await judge.AskAsync($"{self.Name}: {self.Bio}\nTheir day:\n{string.Join("\n", beats.Select(b => b.Text))}", questions, cts.Token);
+            var rated = SelfMath.Rescale(beats.Select((_, i) => answers.Noul($"b{i}", 1)).ToList());
             for (var i = 0; i < beats.Count; i++)
-                beats[i].Availability = Math.Round(answers.Noul($"b{i}", 1), 2);
+                beats[i].Availability = Math.Round(rated[i], 2);
             await state.WriteStateAsync();
             logger.LogInformation("Availability for {Persona}: {Values}", self.Name, string.Join(" ", beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00}={b.Availability:F2}")));
         }
@@ -206,6 +214,16 @@ public static partial class SelfMath
         return current is null ? 0.1 : current.Availability ?? 1;
     }
 
+    /// <summary>Decision models compress p into a narrow band; rank within the day (0.2 busiest → 1 freest).</summary>
+    public static List<double> Rescale(IReadOnlyList<double> raw)
+    {
+        if (raw.Count == 0) return new List<double>();
+        var (min, max) = (raw.Min(), raw.Max());
+        return max - min < 0.05
+            ? raw.Select(_ => 1.0).ToList()
+            : raw.Select(p => 0.2 + 0.8 * (p - min) / (max - min)).ToList();
+    }
+
     /// <summary>Talking costs more for the less chatty.</summary>
     public static double Drain(double battery, double chattiness)
         => Math.Clamp(battery - (0.04 + 0.06 * (1 - Math.Clamp(chattiness, 0, 1))), 0, 1);
@@ -297,6 +315,7 @@ public sealed class SelfState
     [Id(8)] public List<string> Openers { get; set; } = new();
     [Id(9)] public bool OpenersTried { get; set; }
     [Id(10)] public string? AvailabilityTried { get; set; }
+    [Id(11)] public int AvailabilityVersion { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

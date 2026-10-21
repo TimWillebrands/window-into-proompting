@@ -218,3 +218,16 @@ public class AvailabilityTest
         Assert.DoesNotContain("tied up", free);
     }
 }
+
+public class RescaleTest
+{
+    [Fact]
+    public void Rescale_RanksWithinTheDay()
+    {
+        var r = SelfMath.Rescale(new[] { 0.23, 0.57, 0.40 });
+        Assert.Equal(0.2, r[0], 3);
+        Assert.Equal(1.0, r[1], 3);
+        Assert.InRange(r[2], 0.55, 0.65);
+        Assert.All(SelfMath.Rescale(new[] { 0.3, 0.32 }), p => Assert.Equal(1.0, p));
+    }
+}
