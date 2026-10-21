@@ -28,6 +28,9 @@ public sealed class PlacesGrain(
             state.State.Places = PlaceSeeds.Public();
             await state.WriteStateAsync(cancellationToken);
         }
+        BackfillPrepositions();
+        foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
+            b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
         if (state.State.Bodies.Values.Any(b => b.IsWalking)) WatchArrivals();
     }
 
@@ -92,6 +95,15 @@ public sealed class PlacesGrain(
         await PublishAsync(body);
     }
 
+    /// <summary>Spots stored before <see cref="Spot.At"/> existed get it from the seed templates.</summary>
+    private void BackfillPrepositions()
+    {
+        var template = PlaceSeeds.Public().Concat(new[] { PlaceSeeds.Home(Guid.Empty, "x") })
+            .SelectMany(p => p.Spots).GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().At);
+        foreach (var spot in state.State.Places.SelectMany(p => p.Spots))
+            if (spot.At == "at" && template.TryGetValue(spot.Id, out var at)) spot.At = at;
+    }
+
     /// <summary>One Body per Participant (Narrator excluded); a Home for each, created on demand.</summary>
     private async Task SyncCastAsync()
     {
@@ -123,6 +135,7 @@ public sealed class PlacesGrain(
                 ParticipantId = c.Id, Name = c.Name, PlaceId = home.Id, SpotId = sofa.Id,
                 Posture = sofa.Seat ? Posture.Sitting : Posture.Standing,
                 IsHuman = c.DefaultDriver == DriverKind.User,
+                ArrivedAt = Now(),
             };
             changed = true;
         }
@@ -142,10 +155,12 @@ public sealed class PlacesGrain(
         if (arrived.Count == 0) return;
         foreach (var body in arrived)
         {
+            var changedPlace = body.DestPlaceId != body.PlaceId;
             body.PlaceId = body.DestPlaceId!.Value;
             body.SpotId = body.DestSpotId ?? body.SpotId;
             var spot = Find(body.PlaceId)?.Spots.FirstOrDefault(s => s.Id == body.SpotId);
             body.Posture = spot?.Seat == true ? Posture.Sitting : Posture.Standing;
+            if (changedPlace) body.ArrivedAt = now;
             body.DestPlaceId = null;
             body.DestSpotId = null;
             body.DepartedAt = null;
@@ -215,7 +230,7 @@ public sealed class PlacesGrain(
                 : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 1 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
         }
         var place = Find(body.PlaceId);
-        var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(body.Posture)} {SpotName(place, body.SpotId)}");
+        var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {activity}");
         sb.Append('.');
         var others = Occupants(body.PlaceId).Where(b => b.ParticipantId != body.ParticipantId).ToList();
@@ -224,7 +239,7 @@ public sealed class PlacesGrain(
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
                 ? $"{o.Name} (right next to you)"
-                : $"{o.Name} ({PostureAt(o.Posture)} {SpotName(place, o.SpotId)})"))).Append('.');
+                : $"{o.Name} ({PostureAt(place, o)})"))).Append('.');
         return sb.ToString();
     }
 
@@ -233,12 +248,17 @@ public sealed class PlacesGrain(
     private static string SpotName(Place? place, string? spotId)
         => place?.Spots.FirstOrDefault(s => s.Id == spotId)?.Name ?? "somewhere";
 
-    private static string PostureAt(Posture posture) => posture switch
+    private static string PostureAt(Place? place, Body body)
     {
-        Posture.Sitting => "sitting at",
-        Posture.Walking => "walking to",
-        _ => "standing by",
-    };
+        var spot = place?.Spots.FirstOrDefault(s => s.Id == body.SpotId);
+        var name = spot?.Name ?? "somewhere";
+        return body.Posture switch
+        {
+            Posture.Sitting => $"sitting {spot?.At ?? "at"} {name}",
+            _ when spot?.At == "in" => $"in {name}",
+            _ => $"standing by {name}",
+        };
+    }
 
     internal static string WhereName(Place? place, Guid viewerId)
         => place is null ? "somewhere" : place.OwnerId == viewerId ? "your place" : place.Name;

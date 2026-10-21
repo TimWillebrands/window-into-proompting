@@ -7,6 +7,8 @@ namespace PartyTown.World.Places;
 /// <summary>Places: the physical layer. Where your Body is, who's around, walking, talking out loud.</summary>
 public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
 {
+    private static readonly TimeSpan Restless = TimeSpan.FromMinutes(45);
+
     public string Id => "places";
 
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
@@ -51,6 +53,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 affordances.Add(new Affordance(Id, $"Move over to {spot.Name}", 0, here.Id, $"spot:{spot.Id}"));
         }
 
+        var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
+        var restless = stayed > Restless;
+        if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.OwnerId == ctx.Self.Id ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         var elsewhere = new List<string>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
@@ -60,7 +65,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
             var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
-            affordances.Add(new Affordance(Id, label, there.Count > 0 ? 1 : 0, place.Id, "go"));
+            // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
+            var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0);
+            affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");
 

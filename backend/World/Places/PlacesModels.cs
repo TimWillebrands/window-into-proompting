@@ -24,6 +24,8 @@ public sealed class Spot
     [Id(1)] public string Name { get; set; } = string.Empty;
     [Id(2)] public int Capacity { get; set; } = 2;
     [Id(3)] public bool Seat { get; set; }
+    /// <summary>Preposition for "sitting on the sofa" / "in the kitchen".</summary>
+    [Id(4)] public string At { get; set; } = "at";
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Posture")]
@@ -51,6 +53,8 @@ public sealed class Body
     [Id(8)] public long? DepartedAt { get; set; }
     [Id(9)] public long? ArriveAt { get; set; }
     [Id(10)] public bool IsHuman { get; set; }
+    /// <summary>When the Body settled where it is; drives restlessness.</summary>
+    [Id(11)] public long ArrivedAt { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }
@@ -88,9 +92,9 @@ public static class PlaceSeeds
             Spots = new List<Spot>
             {
                 new() { Id = "entrance", Name = "the entrance", Capacity = 4 },
-                new() { Id = "sofas", Name = "the sofas", Capacity = 4, Seat = true },
+                new() { Id = "sofas", Name = "the sofas", At = "on", Capacity = 4, Seat = true },
                 new() { Id = "desk", Name = "the reception desk", Capacity = 3 },
-                new() { Id = "window", Name = "the window bench", Capacity = 2, Seat = true },
+                new() { Id = "window", Name = "the window bench", At = "on", Capacity = 2, Seat = true },
             },
         },
         new Place
@@ -116,10 +120,10 @@ public static class PlaceSeeds
         Description = "a small apartment",
         Spots = new List<Spot>
         {
-            new() { Id = "sofa", Name = "the sofa", Capacity = 3, Seat = true },
+            new() { Id = "sofa", Name = "the sofa", At = "on", Capacity = 3, Seat = true },
             new() { Id = "desk", Name = "the desk", Capacity = 1, Seat = true },
-            new() { Id = "kitchen", Name = "the kitchen", Capacity = 3 },
-            new() { Id = "bed", Name = "the bed", Capacity = 2, Seat = true },
+            new() { Id = "kitchen", Name = "the kitchen", At = "in", Capacity = 3 },
+            new() { Id = "bed", Name = "the bed", At = "on", Capacity = 2, Seat = true },
         },
     };
 }
