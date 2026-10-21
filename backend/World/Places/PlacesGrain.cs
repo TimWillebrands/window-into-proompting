@@ -11,6 +11,7 @@ namespace PartyTown.World.Places;
 public sealed class PlacesGrain(
     [PersistentState(stateName: "places", storageName: "parties")]
     IPersistentState<PlacesState> state,
+    TimeProvider time,
     ILogger<PlacesGrain> logger)
     : Grain, IPlacesGrain
 {
@@ -251,7 +252,7 @@ public sealed class PlacesGrain(
     private Task PublishAsync(Body body)
         => this.GetStreamProvider(Services.Streaming.PartyStreamIds.Provider).PublishWorldAsync(PartyId, "body", body);
 
-    private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private long Now() => time.GetUtcNow().ToUnixTimeMilliseconds();
 }
 
 [Alias("PartyTown.World.Places.IPlacesGrain")]
