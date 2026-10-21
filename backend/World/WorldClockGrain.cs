@@ -22,8 +22,6 @@ public sealed class WorldClockGrain(
 {
     private const int MaxActivities = 300;
     private static readonly TimeSpan LifeTimeout = TimeSpan.FromMinutes(3);
-    private static readonly TimeSpan Lull = TimeSpan.FromSeconds(90);
-    private const int MinNewMessagesForCapture = 3;
     private const double MemorableThreshold = 0.35;
     private const string AmbientShape = """{"happening": "<one or two sentences>"}""";
 
@@ -49,16 +47,16 @@ public sealed class WorldClockGrain(
     {
         if (!state.State.Running) return;
         var now = DateTimeOffset.UtcNow;
-        if (state.State.LastTickAt is { } last && now.ToUnixTimeMilliseconds() - last < state.State.TickSeconds * 1000L)
+        if (!ClockPolicy.TickDue(state.State.LastTickAt, state.State.TickSeconds, now))
             return;
         state.State.LastTickAt = now.ToUnixTimeMilliseconds();
 
         await CaptureLullsAsync(now);
         await StartDueGatheringsAsync(now);
-        if (!WithinBudget(now)) return;
-        if (AmbientDue(now))
+        if (!ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return;
+        (var ambientDue, state.State.LastAmbientAt) = ClockPolicy.Ambient(state.State.LastAmbientAt, state.State.AmbientMinutes, now);
+        if (ambientDue)
         {
-            state.State.LastAmbientAt = now.ToUnixTimeMilliseconds();
             state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
             _ = AmbientHappeningAsync();
         }
@@ -197,59 +195,38 @@ public sealed class WorldClockGrain(
             .ToList();
         if (candidates.Count == 0) return null;
 
-        // Chattiness × time since last act: everyone gets a turn, the restless more often.
-        var expectedGap = Math.Max(1, state.State.TickSeconds * cast.Count);
-        // Their offscreen day decides how free they are (ADR 0021): at work or asleep, they act less.
         var free = await Task.WhenAll(candidates.Select(c => AvailabilityAsync(c.Id)));
-        var weights = candidates.Select((c, i) =>
-        {
-            var since = state.State.LastActedAt.TryGetValue(c.Id, out var last)
-                ? (now.ToUnixTimeMilliseconds() - last) / 1000.0
-                : expectedGap * 3.0;
-            return (0.25 + c.Chattiness) * Math.Clamp(since / expectedGap, 0.1, 3) * (0.15 + 0.85 * free[i]);
-        }).ToList();
-
-        var roll = Random.Shared.NextDouble() * weights.Sum();
-        for (var i = 0; i < candidates.Count; i++)
-        {
-            roll -= weights[i];
-            if (roll <= 0) return candidates[i].Id;
-        }
-        return candidates[^1].Id;
+        var weighed = candidates.Select((c, i) => new LifeCandidate(
+            c.Id, c.Chattiness, state.State.LastActedAt.TryGetValue(c.Id, out var last) ? last : null, free[i])).ToList();
+        return ClockPolicy.Pick(weighed, ClockPolicy.LifeWeights(weighed, state.State.TickSeconds, cast.Count, now), Random.Shared.NextDouble());
     }
 
     /// <summary>Automatic Capture: a conversation that went quiet becomes one remembered moment.</summary>
     private async Task CaptureLullsAsync(DateTimeOffset now)
     {
-        var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
-        var threads = await party.GetChatGroups();
+        var threads = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups();
+        var moved = false;
         foreach (var thread in threads)
         {
             if (_capturing.Contains(thread.Id)) continue;
             var room = GrainFactory.GetGrain<IChatGroupGrain>(thread.Id);
-            var recent = await room.GetRecentMessagesAsync(14);
-            if (recent.Count == 0) continue;
-            var last = recent[^1];
-
-            if (!state.State.CaptureCursors.TryGetValue(thread.Id, out var cursor))
+            var cursor = state.State.CaptureCursors.TryGetValue(thread.Id, out var c) ? c : (int?)null;
+            switch (ClockPolicy.Lulled(await room.GetRecentMessagesAsync(14), cursor, now))
             {
-                // Pre-world history is not re-lived on first sight.
-                state.State.CaptureCursors[thread.Id] = last.MessageId;
-                continue;
+                case LullDecision.Seed seed:
+                    state.State.CaptureCursors[thread.Id] = seed.Cursor;
+                    moved = true;
+                    break;
+                case LullDecision.Capture capture:
+                    state.State.CaptureCursors[thread.Id] = capture.Cursor;
+                    moved = true;
+                    _capturing.Add(thread.Id);
+                    _ = CaptureAsync(thread, capture.Anchor, capture.Context, (await room.GetCastAsync()).Views());
+                    break;
             }
-
-            var fresh = recent.Where(m => m.MessageId > cursor).ToList();
-            if (fresh.Count < MinNewMessagesForCapture) continue;
-            if (now - DateTimeOffset.FromUnixTimeMilliseconds(last.SendAt ?? 0) < Lull) continue;
-
-            state.State.CaptureCursors[thread.Id] = last.MessageId;
-            var anchor = MostAnswered(fresh);
-            var present = (await room.GetCastAsync()).Views();
-            var context = recent.Where(m => m.MessageId <= anchor.MessageId || fresh.Contains(m)).ToList();
-            _capturing.Add(thread.Id);
-            _ = CaptureAsync(thread, anchor, context, present);
         }
-        await state.WriteStateAsync();
+        // Only cursor moves are worth a storage write; most ticks change nothing here.
+        if (moved) await state.WriteStateAsync();
     }
 
     private async Task CaptureAsync(ChatGroupInfo thread, ChatMessage anchor, List<ChatMessage> context, List<ParticipantView> present)
@@ -309,18 +286,6 @@ public sealed class WorldClockGrain(
         await state.WriteStateAsync();
     }
 
-    private bool AmbientDue(DateTimeOffset now)
-    {
-        if (state.State.AmbientMinutes <= 0) return false;
-        if (state.State.LastAmbientAt is null)
-        {
-            // First sight: start the interval now rather than firing immediately.
-            state.State.LastAmbientAt = now.ToUnixTimeMilliseconds();
-            return false;
-        }
-        return now.ToUnixTimeMilliseconds() - state.State.LastAmbientAt.Value >= state.State.AmbientMinutes * 60_000L;
-    }
-
     /// <summary>Novelty against echo chambers: the Narrator lets something small happen in the world.</summary>
     private async Task AmbientHappeningAsync()
     {
@@ -367,22 +332,8 @@ public sealed class WorldClockGrain(
         }
     }
 
-    /// <summary>The line others reacted to most is the moment; ties go to the latest.</summary>
-    private static ChatMessage MostAnswered(List<ChatMessage> span)
-        => span
-            .OrderByDescending(m => span.Count(x => x.TriggeredByMessageId == m.MessageId))
-            .ThenByDescending(m => m.MessageId)
-            .First();
-
     private bool IsBusy(Guid personaId, DateTimeOffset now)
         => _busy.TryGetValue(personaId, out var since) && now - since < LifeTimeout;
-
-    private bool WithinBudget(DateTimeOffset now)
-    {
-        var hourAgo = now.AddHours(-1).ToUnixTimeMilliseconds();
-        state.State.ActionTimes.RemoveAll(t => t < hourAgo);
-        return state.State.ActionTimes.Count < state.State.MaxActionsPerHour;
-    }
 
     private WorldStatus Status()
     {
