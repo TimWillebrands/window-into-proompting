@@ -45,6 +45,7 @@ export * from './importSessionOverview';
 export * from './importSessionOverviewCategories';
 export * from './importSettings';
 export * from './importSettingsUpdate';
+export * from './inviteResidentRequest';
 export * from './jobComplexity';
 export * from './jsonElement';
 export * from './lifeSummary';

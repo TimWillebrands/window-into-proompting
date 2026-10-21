@@ -7,13 +7,16 @@ import {
     useState,
 } from 'react';
 import {
+    getGetWorldsPartyIdLivesQueryKey,
     getGetWorldsPartyIdQueryKey,
     useGetLlmConfigUsage,
+    useGetPersona,
     useGetWorldsPartyIdActivities,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessenger,
     useGetWorldsPartyIdSuspense,
     usePostWorldsPartyIdHappenings,
+    usePostWorldsPartyIdResidents,
     usePostWorldsPartyIdTick,
     usePutWorldsPartyId,
 } from '#api/party-zone';
@@ -22,6 +25,8 @@ import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
 import { useOpenDirectChat, WORLD_ID } from '../../lib/world';
+
+const NARRATOR_ID = '0000aaaa-0000-0000-0000-00000000a17e';
 
 const APPS: Record<string, { icon: string; label: string }> = {
     rooms: { icon: '💬', label: 'Rooms' },
@@ -68,7 +73,8 @@ export default function WorldApp() {
     const statusQuery = useGetWorldsPartyIdSuspense(WORLD_ID);
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
     const status = statusQuery.data.data;
-    const lives = (livesQuery.data.data ?? []).filter((l) => !l.isPlayer);
+    const allLives = livesQuery.data.data ?? [];
+    const lives = allLives.filter((l) => l.driver !== 'User');
     const [filterId, setFilterId] = useState<string | null>(null);
     const now = useNow();
 
@@ -100,11 +106,12 @@ export default function WorldApp() {
                             {lives.length}
                         </span>
                     </div>
+                    <InviteBar residentIds={allLives.map((l) => l.personaId)} />
                     <div className="flex-1 overflow-y-auto py-1">
                         {lives.length === 0 ? (
                             <p style={{ color: '#666', padding: '8px 12px' }}>
-                                No AI personas in this world yet. Add some in
-                                the Persona Manager.
+                                No AI personas in this world yet. Invite one
+                                above.
                             </p>
                         ) : null}
                         {lives.map((life) => (
@@ -210,6 +217,61 @@ function SpendCell() {
 }
 
 /** Author-announced Happening: everyone perceives and remembers it. */
+/** Invite a library Persona to move into the World. */
+function InviteBar({ residentIds }: { residentIds: string[] }) {
+    const queryClient = useQueryClient();
+    const personas = useGetPersona();
+    const [pick, setPick] = useState('');
+    const invite = usePostWorldsPartyIdResidents({
+        mutation: {
+            onSuccess: () => {
+                setPick('');
+                queryClient.invalidateQueries({
+                    queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
+                });
+            },
+        },
+    });
+    const candidates = (personas.data?.data ?? []).filter(
+        (p) =>
+            !residentIds.includes(p.id ?? '') &&
+            p.id !== NARRATOR_ID &&
+            p.systemPrompt !== 'A human visiting this world.',
+    );
+    if (candidates.length === 0) return null;
+    return (
+        <form
+            className="flex items-center"
+            style={{ gap: 4, padding: '4px 8px' }}
+            onSubmit={(e) => {
+                e.preventDefault();
+                if (pick)
+                    invite.mutate({
+                        partyId: WORLD_ID,
+                        data: { personaId: pick },
+                    });
+            }}
+        >
+            <select
+                value={pick}
+                onChange={(e) => setPick(e.currentTarget.value)}
+                style={{ flex: 1, minWidth: 0 }}
+                aria-label="Persona to invite"
+            >
+                <option value="">Invite a persona…</option>
+                {candidates.map((p) => (
+                    <option key={p.id} value={p.id ?? ''}>
+                        {p.name}
+                    </option>
+                ))}
+            </select>
+            <button type="submit" disabled={!pick || invite.isPending}>
+                Invite
+            </button>
+        </form>
+    );
+}
+
 function HappeningBar() {
     const inputId = useId();
     const [text, setText] = useState('');
