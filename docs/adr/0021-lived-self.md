@@ -61,7 +61,13 @@ background.
 13. **Winding down.** The thermostat also asks *fizzling?* ("mostly acknowledgments"). While a chat is
     fizzling, it cues letting it end, and the name-mention auto-reply is off. That stops "still here" /
     "fine by me" ping-pong.
-14. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+14. **No name openers, no retelling.** Style asks for no vocative openers. Those were on 50–58% of lines
+    and also fed the mention auto-reply cascade. Drafts drop anything already said lately. Vocative and
+    self-repeat rates are measured per speaker and fed back as tics.
+15. **Persona generator.** New personas are written as a lived background: who you are, people in your life,
+    tastes, contradictions, how you talk and what's going on lately. Modes, trigger rules, example lines,
+    catchphrases and epithets are gone.
+16. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
