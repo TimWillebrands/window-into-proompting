@@ -70,3 +70,7 @@ shapes the landscape: which Affordances exist, what is foregrounded, who gets th
   snippets can say *where* something happened.
 - The Player (the human) is a Participant with Driver `User` — created on demand — so
   Personas can DM, reply to, and remember the human like anyone else.
+
+## Addendum: Calendar (Gatherings)
+
+A sixth mode adds time-shifted engagement. A Gathering is planned in a Room for a later time, and others RSVP. When it comes due, the clock adds the attendees to the Room and starts their Life turns with a nudge. Rooms foreground the started Gathering (priority 5), so attendees actually show up. This is the first Affordance that points into the future. Planning is anticipation, and showing up is a commitment made earlier and kept now.

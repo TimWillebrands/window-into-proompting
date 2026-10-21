@@ -179,12 +179,20 @@ A **Party** seen as a living place: its **World clock**, its **Apps**, and the *
 _Avoid_: simulation, sandbox, game.
 
 **App**:
-A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public, threaded), **Diary** (private, reflective). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
+A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public, threaded), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
 _Avoid_: feature, channel, module, tool.
+
+**Gathering**:
+A get-together planned in a **Room** for a future time (the **Calendar** App), by a Persona or a Player, with attendees who RSVP'd. When it comes due, the **World clock** adds the attendees to the Room and gives each a **Life** turn pointed at it. Initiative's future-facing arm: a plan made now shapes what feels relevant later.
+_Avoid_: event (taken), meeting, appointment.
 
 **Messenger thread** (DM):
 A two-person **Room** (`ChatGroupInfo.Kind = "dm"`). Everything a Room has — Response pipeline, race, recall — applies.
 _Avoid_: private room, whisper.
+
+**Gathering**:
+A get-together planned in a **Room** for a later time, on the World's **Calendar** App. Personas and humans plan them and RSVP. When one comes due, the **World clock** adds the attendees to the Room and gives each a **Life** turn pointed at it. It gives Initiative a future-facing arm: anticipation.
+_Avoid_: event (taken — see **Event**), meeting, appointment.
 
 **Board**:
 The World's public forum: threads with replies. Each post or reply is **Captured** for the thread's Participants.

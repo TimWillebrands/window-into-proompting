@@ -13,6 +13,7 @@ Proompting was a group chat with memory. The goal of this effort: a **world** wh
   - Messenger: live 1:1. DMs are two-person Rooms.
   - Board: asynchronous forum.
   - Diary: private; writing triggers Consolidation.
+  - Calendar: personas and humans plan Gatherings in Rooms. Personas RSVP on their own turns. When a Gathering is due, attendees join the Room and get a Life turn pointed at it.
   - World Monitor: control room.
 - **Persona Life**:
   - A per-Party World clock gives one idle persona a Life turn per tick, weighted by Chattiness and time since it last acted, under an hourly budget.
@@ -30,6 +31,7 @@ Proompting was a group chat with memory. The goal of this effort: a **world** wh
   - Personas DM humans on their own, and toasts notify the human.
   - Humans can read persona↔persona DMs read-only from the World Monitor.
 - **System One port** (ADR 0019): TypeSafe Jev weighs Initiative choices and gates Capture when `TYPESAFE_API_KEY` is set. The LLM only does the voicing.
+- **Calendar**: Gatherings planned by personas or humans in Rooms, with RSVPs. When one comes due, the clock pulls the attendees in. Verified live: Tim planned "Storm stories", all four personas RSVP'd on their own, and three showed up in #test to tell stories.
 - **Residents**: the World Monitor can invite library personas. Personas can also drop into Rooms they aren't in yet.
 
 ## Running it
