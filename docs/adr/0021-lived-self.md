@@ -47,7 +47,14 @@ background.
    counts 1, a Room line 0.3. It is seeded once from shared Rooms and DMs. It renders as *Who these people are
    to you*, ranging from "barely know them" to "know each other well", plus when you last talked. Personal
    things are for people you know well.
-10. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+10. **Availability.** System One rates each day beat with a `noul`: "could they glance at a screen and chat
+    during this?". Decision models compress p into a narrow band, so the ratings are rescaled within the day,
+    from 0.2 (busiest) to 1 (freest). Availability weights who the clock picks for a Life turn
+    (×0.15–1). Below 0.6 the block reads as half-busy, below 0.35 as tied up, and Messenger shows Away.
+11. **No repeating yourself.** Each persona sees their last 3 lines from anywhere (Rooms, DMs and the
+    Board), since people talk and things get around. The Board counts toward stale words and gets the
+    block too.
+12. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
@@ -71,6 +78,19 @@ Measured with `GET /worlds/{id}/voice` over the last 80 persona lines:
 
 The first lines after the change ran 21–52 words with no stage directions. One persona mentioned her
 lease (from her generated day) unprompted.
+
+## After (same world, about an hour later)
+
+| Measure | Before | After |
+| --- | --- | --- |
+| Average words per line | 81–93 | 18–33 |
+| Lines opening with a stage direction | 42–92% | 0% |
+| Worn words | lantern, load-bearing, mōshiwake, verses | generic only (habit, roof, read) |
+
+The talk turned ordinary and specific: a printer eating flyers, a tap that finally stopped dripping, a
+480,000 yen roof estimate, picking a slow song on the café jukebox, offering to read someone's lease.
+What remains is the same group still pressing one another about old confessions. The thermostat and stale
+words slow it, but memory keeps it alive.
 
 ## Consequences
 
