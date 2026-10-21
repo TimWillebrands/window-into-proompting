@@ -45,6 +45,8 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 
 **Costs:** worlds start paused. The default budget is 40 Life actions per hour. With `deepseek/deepseek-v4.1-flash` on OpenRouter, a running world costs a few cents per hour. The World Monitor shows spend.
 
+**Local models:** in Control Panel → LLM providers, enable an Ollama entry (e.g. `lfm2.5:latest`) and disable the OpenRouter one. World calls send a JSON schema, so small local models stay structured. The voice is flatter, but the world keeps running offline.
+
 **Optional System One:** set `TYPESAFE_API_KEY` to let TypeSafe's Jev weigh persona decisions as calibrated probabilities. The chat LLM then only writes the words. `SYSTEM_ONE_EMULATE=true` tries the same path with the LLM instead of Jev.
 
 ## Hacking on it
