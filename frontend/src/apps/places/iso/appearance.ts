@@ -174,3 +174,8 @@ export function drawScarf(
     ctx.fillStyle = '#e8a33c';
     ctx.fillRect(x - w / 2, y, w, h);
 }
+
+/** A palette name as its colour (cloth, hair, skin or eyes), for swatches outside the figure. */
+export const paletteHex = (name: string | undefined, fallback = '#9aa3b5') =>
+    (name && (CLOTH[name] ?? HAIR[name] ?? SKIN[name] ?? EYES[name])) ||
+    fallback;
