@@ -97,6 +97,14 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
 }
 
 /// <summary>Messenger: synchronous 1:1. DM threads are Rooms with a two-person cast (ADR 0018).</summary>
+/// <summary>Texting manners: one follow-up after a while, then wait.</summary>
+public static class MessengerManners
+{
+    public static readonly TimeSpan FollowUpAfter = TimeSpan.FromHours(3);
+
+    public static bool MayFollowUp(int unanswered, TimeSpan since) => unanswered == 1 && since >= FollowUpAfter;
+}
+
 public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
 {
     private static readonly TimeSpan FreshThread = TimeSpan.FromMinutes(30);
@@ -108,6 +116,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
         var recentlyTalked = new HashSet<Guid>();
+        var waitingOn = new HashSet<Guid>();
         var nearby = await CoPresentAsync(ctx);
 
         foreach (var dm in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(ctx.Self.Id) == true))
@@ -131,11 +140,18 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
                     nearby.Contains(otherId) ? 0 : ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
             else
-                sb.AppendLine($"  (you're waiting on {other})");
+            {
+                // Unanswered: people double-text at most once, and only after a while (ADR 0021).
+                waitingOn.Add(otherId);
+                var unanswered = recent.AsEnumerable().Reverse().TakeWhile(m => m.SenderId == ctx.Self.Id).Count();
+                sb.AppendLine($"  (you're waiting on {other}{(unanswered >= 2 ? "; you've already followed up, so leave it with them" : "")})");
+                if (MessengerManners.MayFollowUp(unanswered, ctx.Now - lastAt) && !nearby.Contains(otherId))
+                    affordances.Add(new Affordance(Id, $"Follow up with {other} (no answer to your message from {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})", 0, otherId, "open"));
+            }
         }
 
         var newContacts = ctx.Others
-            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id))
+            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);

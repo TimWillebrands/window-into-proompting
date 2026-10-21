@@ -165,3 +165,14 @@ public class ThirdPersonSelfTest
     public void Clean_FixesSelfPossessive(string raw, string self, string expected)
         => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
 }
+
+public class MessengerMannersTest
+{
+    [Theory]
+    [InlineData(1, 4, true)]
+    [InlineData(1, 1, false)]
+    [InlineData(2, 10, false)]
+    [InlineData(0, 10, false)]
+    public void MayFollowUp_OnceAfterAWhile(int unanswered, int hours, bool expected)
+        => Assert.Equal(expected, PartyTown.World.Apps.MessengerManners.MayFollowUp(unanswered, TimeSpan.FromHours(hours)));
+}
