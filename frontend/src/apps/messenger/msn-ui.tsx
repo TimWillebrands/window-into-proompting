@@ -1,16 +1,34 @@
 import { Fragment, type ReactNode } from 'react';
 import { create } from 'zustand';
 
-export type BuddyStatus = 'online' | 'busy' | 'offline';
+import type { LifeSummary } from '../../api/model/lifeSummary';
+import type { SelfSummary } from '../../api/model/selfSummary';
+
+export type BuddyStatus = 'online' | 'away' | 'busy' | 'offline';
+
+/** Busy while acting; Away when their social battery is nearly empty (ADR 0021). */
+export const statusOf = (
+    life: LifeSummary | undefined,
+    self?: SelfSummary,
+): BuddyStatus =>
+    !life
+        ? 'offline'
+        : life.busy
+          ? 'busy'
+          : self && Number(self.battery) < 0.25
+            ? 'away'
+            : 'online';
 
 const STATUS_COLORS: Record<BuddyStatus, [string, string]> = {
     online: ['#7ed957', '#2f8f1c'],
+    away: ['#ffd75e', '#c79a00'],
     busy: ['#ff7b6b', '#b8241a'],
     offline: ['#c9c9c9', '#7c7c7c'],
 };
 
 export const STATUS_LABEL: Record<BuddyStatus, string> = {
     online: 'Online',
+    away: 'Away',
     busy: 'Busy',
     offline: 'Offline',
 };

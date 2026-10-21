@@ -4,10 +4,12 @@ import {
     getGetWorldsPartyIdMessengerQueryKey,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessengerSuspense,
+    useGetWorldsPartyIdSelves,
     usePostWorldsPartyIdMessenger,
 } from '#api/party-zone';
 import type { DirectChatSummary } from '../../api/model/directChatSummary';
 import type { LifeSummary } from '../../api/model/lifeSummary';
+import type { SelfSummary } from '../../api/model/selfSummary';
 import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
 import {
     BuddyIcon,
@@ -20,12 +22,10 @@ import {
     playerAvatar,
     STATUS_LABEL,
     shortTime,
+    statusOf,
     toMillis,
     useMessengerSeen,
 } from './msn-ui';
-
-const statusOf = (life: LifeSummary | undefined): BuddyStatus =>
-    !life ? 'offline' : life.busy ? 'busy' : 'online';
 
 export default function MessengerApp() {
     const queryClient = useQueryClient();
@@ -39,6 +39,16 @@ export default function MessengerApp() {
     });
     const lives = livesQuery.data.data ?? [];
     const chats = chatsQuery.data.data ?? [];
+    const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
+        query: { refetchInterval: 60_000 },
+    });
+    const selfById = useMemo(
+        () =>
+            new Map(
+                (selvesQuery.data?.data ?? []).map((s) => [s.personaId, s]),
+            ),
+        [selvesQuery.data],
+    );
 
     const player = lives.find((l) => l.personaId === playerId);
     const contacts = useMemo(
@@ -174,7 +184,10 @@ export default function MessengerApp() {
                                 <ConversationRow
                                     key={c.chatGroupId}
                                     chat={c}
-                                    status={statusOf(lifeById.get(c.withId))}
+                                    status={statusOf(
+                                        lifeById.get(c.withId),
+                                        selfById.get(c.withId),
+                                    )}
                                     unread={
                                         !!c.lastSenderId &&
                                         c.lastSenderId !== playerId &&
@@ -207,6 +220,7 @@ export default function MessengerApp() {
                         <ContactRow
                             key={c.personaId}
                             life={c}
+                            self={selfById.get(c.personaId)}
                             pending={
                                 openDm.isPending &&
                                 openDm.variables?.data.withPersonaId ===
@@ -227,6 +241,7 @@ export default function MessengerApp() {
                         <ContactRow
                             key={c.personaId}
                             life={c}
+                            self={selfById.get(c.personaId)}
                             pending={
                                 openDm.isPending &&
                                 openDm.variables?.data.withPersonaId ===
@@ -275,15 +290,18 @@ const ROW_CLASS =
 
 function ContactRow({
     life,
+    self,
     pending,
     onOpen,
 }: {
     life: LifeSummary;
+    self?: SelfSummary;
     pending: boolean;
     onOpen: () => void;
 }) {
-    const status: BuddyStatus = life.busy ? 'busy' : 'online';
-    const note = life.lastActivity?.summary;
+    const status = statusOf(life, self);
+    // Their offscreen day is the personal message; World activity when there's no day yet.
+    const note = self?.doing ?? life.lastActivity?.summary;
     return (
         <button
             type="button"
@@ -295,7 +313,7 @@ function ContactRow({
             <BuddyIcon status={status} />
             <span className="min-w-0 flex-1 truncate">
                 <span style={{ color: '#000' }}>{life.name}</span>
-                {life.busy && (
+                {status !== 'online' && (
                     <span style={{ color: '#7c7c7c' }}>
                         {' '}
                         ({STATUS_LABEL[status]})

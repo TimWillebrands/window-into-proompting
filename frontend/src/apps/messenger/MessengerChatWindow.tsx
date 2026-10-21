@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessenger,
+    useGetWorldsPartyIdSelves,
     usePostPartyIdPrompt,
 } from '#api/party-zone';
 import {
@@ -22,6 +23,7 @@ import {
     personaAvatar,
     playerAvatar,
     STATUS_LABEL,
+    statusOf,
     useMessengerSeen,
 } from './msn-ui';
 
@@ -94,9 +96,16 @@ function Conversation({
         (c) => c.chatGroupId === chatGroupId,
     )?.withId;
     const them = lives.find((l) => l.personaId === withId);
+    const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
+        query: { refetchInterval: 60_000 },
+    });
+    const theirSelf = selvesQuery.data?.data.find(
+        (s) => s.personaId === withId,
+    );
+    const theirNote = theirSelf?.doing ?? them?.lastActivity?.summary;
     const me = lives.find((l) => l.isPlayer || l.personaId === playerId);
     const myName = me?.name ?? 'You';
-    const theirStatus: BuddyStatus = them?.busy ? 'busy' : 'online';
+    const theirStatus: BuddyStatus = statusOf(them, theirSelf);
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
@@ -217,13 +226,13 @@ function Conversation({
                 <span style={{ color: '#7c7c7c' }}>
                     ({STATUS_LABEL[theirStatus]})
                 </span>
-                {them?.lastActivity?.summary && (
+                {theirNote && (
                     <span
                         className="min-w-0 flex-1 truncate"
                         style={{ color: '#7c8aa3', fontStyle: 'italic' }}
-                        title={them.lastActivity.summary}
+                        title={theirNote}
                     >
-                        - {them.lastActivity.summary}
+                        - {theirNote}
                     </span>
                 )}
             </div>
