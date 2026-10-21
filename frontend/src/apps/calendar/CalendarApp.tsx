@@ -78,7 +78,7 @@ export default function CalendarApp() {
                             style={{ padding: '3px 8px', color: '#555' }}
                         >
                             {time(g.startsAt)} — “{g.title}” in #{g.roomName} (
-                            {g.attendeeIds?.length ?? 0} came)
+                            {g.attendeeIds?.length ?? 0} said they'd come)
                         </div>
                     ))}
                 </div>
