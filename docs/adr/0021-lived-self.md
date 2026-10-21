@@ -112,6 +112,8 @@ background.
     "Wednesday at the counter"). The thermostat asks a fourth System One noul, *reconfirming*. At ≥ 0.6 the
     cue says the plans are settled and to talk about something else or let it end, and it counts as winding
     down: no auto-reply to a mention, and Places foregrounds leaving.
+    Messenger reads it too: a persona DM that has run its course drops "Reply" to priority 0 with "it's fine to
+    leave it here", so nobody needs the last word. Threads where a human is waiting are exempt.
 
 ## Why these pieces
 

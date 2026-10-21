@@ -60,7 +60,7 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
             if (last?.SenderId == ctx.Self.Id || happeningNow.ContainsKey(room.Id)) continue;
             // A circling or fizzling room (thermostat, ADR 0021) pulls less: people drift elsewhere.
             var stale = last is not null && (await grains.GetGrain<Self.IConversationThermostatGrain>(room.Id).GetReadAsync()).Stale;
-            if (stale) sb.AppendLine("  (this conversation has been going round in circles)");
+            if (stale) sb.AppendLine("  (this conversation has run its course: going round in circles or just re-confirming)");
             var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0) - (stale ? 2 : 0);
             affordances.Add(new Affordance(Id,
                 last is null ? $"Start a conversation in #{room.Name}" : $"Say something in #{room.Name}",
@@ -137,8 +137,13 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             // A waiting human pulls hard; persona threads already get live replies from the pipeline.
             // Someone in the same Place gets talked to out loud, not texted (Places co-presence rule).
             if (last.SenderId != ctx.Self.Id)
+            {
+                // A persona chat that has run its course doesn't need the last word (ADR 0021).
+                var done = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
+                if (done) sb.AppendLine("  (this chat has run its course; it's fine to leave it here)");
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
-                    nearby.Contains(otherId) ? 0 : ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
+                    nearby.Contains(otherId) || done ? 0 : ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
+            }
             else
             {
                 // Unanswered: people double-text at most once, and only after a while (ADR 0021).
