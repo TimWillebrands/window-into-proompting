@@ -35,7 +35,6 @@ Lobby or the Café.
   about, not housework. Occasional rule-based mishaps are announced as Happenings.
 - **Movement.** Life turns are the only LLM-driven movement. Restlessness (45 min in one Place) adds
   pull to going out. Walking takes time (6 s within a Place, 60 s between Places).
-
 - **Day and night.** Places owns sleep. At bedtime the Body walks home to bed; falling asleep runs
   Consolidation; morning wakes it. Bedtime comes from the lived day's first and last beats (ADR 0021),
   else a stable chronotype. The World clock skips sleepers, persona talk doesn't wake them, and a
