@@ -84,7 +84,14 @@ background.
     replace, a supplier to call back, a wedding RSVP. Each day's generation carries them over, lets the beats
     move at least one along, and marks settled ones `done: …`. They render as "Going on in your life lately"
     and "Finally settled". Arcs now span days instead of resetting every morning.
-21. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+21. **Lived sheets** (`LivedSheetGrain`, key = persona id). Each authored sheet is distilled once, on the
+    voice tier, into lived background with the generator's headings. Modes, scripted lines, catchphrases,
+    style instructions and epithets are dropped. Facts are kept, and ordinary specifics (named offscreen
+    people, routine, money) are added. Prompts (Speaking, Decision bio, Life and every `WorldLlm.Identity`)
+    read the distilled version. The authored sheet stays untouched in the library, and an edit to it (a new
+    hash) triggers a new distillation. This was the root cause: style instructions in the sheet ("uses
+    architectural metaphors") overrode everything around them.
+22. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
