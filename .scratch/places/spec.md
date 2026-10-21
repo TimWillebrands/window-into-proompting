@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: phases 1–8 implemented and live-tuned (see § Progress); only the eavesdrop probe is open
+Status: phases 1–8 implemented and live-tuned, plus the 3D renderer and city centre (see § Progress); only the eavesdrop probe is open
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -228,6 +228,11 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
 - **Shouts carry next door** (72c6c6d): public Places are neighbours, and a shout reaches the next one as tone only ("Through the door from the Café, Denise is calling out…"), with a pull to go and see.
 - **Look editor:** `PUT places/appearance` plus palette options. "Change look" in the profile card works for your own look, or anyone's in All ears mode. It lives in Places rather than on the Welcome screen.
 - **Re-measured after the tuning** (41 activities since 13:14): Places is 12 of 33 non-rest actions (36%, down from about 49%). Diary, DMs and Rooms are back in the mix. Walks are now mostly between Places, and talk moved from the Café to the Lobby with fresh details ("the ginkgo's stubborn this year"). "The tin" still recurs; eb's stale recall (eb68efe) targets that.
+- **3D, prefabs and the city centre** (ADR 0023):
+  - The renderer moved to three.js (react-three-fiber).
+  - Scenes are ASCII maps plus props by prefab name.
+  - There's a new outdoor public Place, "the city centre", with two canals, bridges, quays, canal houses, a herring cart, bikes and a little park.
+  - Each Place has `Scene` and `At` ("in the city centre"). Existing worlds get the city centre on activation.
 - **Still open:** the eavesdrop Bench probe. It needs World DI (IWorldApp, WorldMemory, IWorldLlm, judge) in the Bench host to run a real Life turn; that's deferred pending a decision.
 
 ## Review log
@@ -272,6 +277,11 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
 - **Shouts carry next door** (72c6c6d): public Places are neighbours, and a shout reaches the next one as tone only ("Through the door from the Café, Denise is calling out…"), with a pull to go and see.
 - **Look editor:** `PUT places/appearance` plus palette options. "Change look" in the profile card works for your own look, or anyone's in All ears mode. It lives in Places rather than on the Welcome screen.
 - **Re-measured after the tuning** (41 activities since 13:14): Places is 12 of 33 non-rest actions (36%, down from about 49%). Diary, DMs and Rooms are back in the mix. Walks are now mostly between Places, and talk moved from the Café to the Lobby with fresh details ("the ginkgo's stubborn this year"). "The tin" still recurs; eb's stale recall (eb68efe) targets that.
+- **3D, prefabs and the city centre** (ADR 0023):
+  - The renderer moved to three.js (react-three-fiber).
+  - Scenes are ASCII maps plus props by prefab name.
+  - There's a new outdoor public Place, "the city centre", with two canals, bridges, quays, canal houses, a herring cart, bikes and a little park.
+  - Each Place has `Scene` and `At` ("in the city centre"). Existing worlds get the city centre on activation.
 - **Still open:** the eavesdrop Bench probe. It needs World DI (IWorldApp, WorldMemory, IWorldLlm, judge) in the Bench host to run a real Life turn; that's deferred pending a decision.
 
 ## Review log

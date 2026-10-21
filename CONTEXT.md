@@ -255,7 +255,7 @@ A Participant's physical presence in the World. Exactly one per Participant, alw
 _Avoid_: avatar (the sprite, not the thing), character, sprite, NPC.
 
 **Place**:
-A physical location in the World: a **Home**, the Lobby, the Café. Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
+A physical location in the World: a **Home**, the Lobby, the Café, the city centre (outdoors). Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
 _Avoid_: room (taken, see **Room**), location, map, level.
 
 **Spot**:
@@ -290,6 +290,14 @@ _Avoid_: avatar, sprite, skin (as a whole).
 **Overheard**:
 Talk in your Place that you were out of Earshot of: you get the tone and maybe your name, never the words.
 _Avoid_: eavesdrop log, muffled message.
+
+**Scene**:
+How a Place looks in 3D: an ASCII map plus **Prefabs** by name, pinning the Place's Spots and Furni to tiles. Presentation only; Places nobody drew get a generated one. See [ADR 0023](docs/adr/0023-places-scenes-and-prefabs.md).
+_Avoid_: level, map (the ASCII is one part of it), room layout.
+
+**Prefab**:
+A named, reusable 3D thing built from coloured primitives (a sofa, a canal house, a herring cart), with seats, tints and a variant seed; Furni state can restyle it.
+_Avoid_: model, asset, mesh.
 
 ### The Bench (development)
 
