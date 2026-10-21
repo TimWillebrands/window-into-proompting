@@ -387,43 +387,37 @@ public class PersonaController(
         return match.Success ? match.Groups[1].Value.Trim() : "Default Persona";
     }
 
-    private static string ExtractBioFromMarkdown(string content)
+    /// <summary>First sentences of the persona's self-description: "## Who you are" (lived format) or "## 1. Persona Definition" (legacy).</summary>
+    internal static string ExtractBioFromMarkdown(string content)
     {
-        // Try to get the Persona Definition section
-        var sectionMatch = Regex.Match(content,
-            @"##\s*1\.\s*Persona Definition\s*\n(.*?)(?=\n##\s*2\.)",
-            RegexOptions.Singleline);
+        var section = Regex.Match(content,
+            @"^##\s*(?:1\.\s*Persona Definition|Who you are)\s*\n(.*?)(?=\n##\s|\z)",
+            RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-        string text;
-        if (sectionMatch.Success)
-        {
-            text = sectionMatch.Groups[1].Value.Trim();
-            // Strip markdown italic markers
-            text = Regex.Replace(text, @"\*([^*]+)\*", "$1");
-        }
-        else
-        {
-            // Fall back to content after the H1 heading
-            var afterH1 = Regex.Match(content, @"^#[^\n]+\n+(.*?)(?=\n##|\z)", RegexOptions.Singleline);
-            text = afterH1.Success ? afterH1.Groups[1].Value.Trim() : content;
-        }
+        var text = section.Success
+            ? section.Groups[1].Value
+            : Regex.Match(content, @"^#[^\n]+\n+(.*?)(?=\n##|\z)", RegexOptions.Singleline) is { Success: true } afterH1
+                ? afterH1.Groups[1].Value
+                : content;
+        text = Regex.Replace(text, @"^#+[^\n]*\n?", "", RegexOptions.Multiline);
+        text = Regex.Replace(text, @"\*([^*]+)\*", "$1").Trim();
 
-        // Take up to 3 sentences
         var sentences = Regex.Matches(text, @"[^.!?]*[.!?]");
         if (sentences.Count > 0)
             return string.Join(" ", sentences.Cast<Match>().Take(3).Select(m => m.Value.Trim()));
-
-        // Fallback: first 300 chars
         return text.Length > 300 ? text[..300].TrimEnd() + "..." : text;
     }
 
-    private static (string Name, string SystemPrompt, string Bio) ParseGeneratedPersona(string raw)
+    /// <summary>Name from "# Full Name" (lived format) or "# System Prompt: Name (The Epithet)" (legacy).</summary>
+    internal static (string Name, string SystemPrompt, string Bio) ParseGeneratedPersona(string raw)
     {
         var systemPrompt = raw.Trim();
 
-        // Extract name from "# System Prompt: Name (The Epithet)"
-        var nameMatch = Regex.Match(raw, @"^#\s+System Prompt:\s*(.+?)\s*\(", RegexOptions.Multiline);
-        var name = nameMatch.Success ? nameMatch.Groups[1].Value.Trim() : "Generated Persona";
+        var heading = Regex.Match(raw, @"^#(?!#)\s*(.+?)\s*$", RegexOptions.Multiline);
+        var name = heading.Success
+            ? Regex.Replace(Regex.Replace(heading.Groups[1].Value, @"^System Prompt:\s*", "", RegexOptions.IgnoreCase), @"\s*\(.*\)\s*$", "").Trim()
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(name)) name = "Generated Persona";
 
         var bio = ExtractBioFromMarkdown(raw);
         if (string.IsNullOrWhiteSpace(bio))
