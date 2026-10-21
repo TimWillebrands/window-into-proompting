@@ -977,7 +977,11 @@ public sealed class MemoryRepository(
         }
     }
 
-    public async Task AdvanceConsolidationWatermarkAsync(
+    public Task MarkConsolidatedAsync(Guid partyId, Guid personaId, ConsolidationBatch batch, CancellationToken ct)
+        // The watermark is the last Recollection walked — not "now" — so in-flight captures survive.
+        => batch.Items.Count == 0 ? Task.CompletedTask : AdvanceWatermarkAsync(partyId, personaId, batch.Items[^1].Ts, ct);
+
+    private async Task AdvanceWatermarkAsync(
         Guid partyId,
         Guid personaId,
         DateTimeOffset watermark,

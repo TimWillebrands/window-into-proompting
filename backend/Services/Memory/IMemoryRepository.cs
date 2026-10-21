@@ -8,8 +8,8 @@ namespace PartyTown.Services.Memory;
 /// <see cref="RecallAsync"/> plus the <see cref="StrengthenRecollectionAsync"/> write.
 /// The Stance floor (ADR 0016) added <see cref="AppendStanceAsync"/> /
 /// <see cref="ListStancesAsync"/> / <see cref="RecallStancesAsync"/>; Consolidation v1
-/// added the watermark reads/writes (<see cref="GetUnconsolidatedRecollectionsAsync"/> /
-/// <see cref="AdvanceConsolidationWatermarkAsync"/>) and <see cref="RetractStanceAsync"/>.
+/// added the unconsolidated pile (<see cref="GetUnconsolidatedRecollectionsAsync"/> /
+/// <see cref="MarkConsolidatedAsync"/>) and <see cref="RetractStanceAsync"/>.
 /// </summary>
 /// <remarks>
 /// Per ADR 0006, the implementation runs Cypher against Apache AGE directly through
@@ -111,14 +111,14 @@ public interface IMemoryRepository
         CancellationToken ct);
 
     /// <summary>
-    /// Stamp the Participant's Consolidation watermark (<c>ts</c> property) — every
-    /// Recollection with <c>ts</c> at or before it counts as consumed. Called after a run
-    /// even when it proposed nothing: the experience was slept on either way.
+    /// The batch was slept on: every Recollection in it counts as consumed, even when the run
+    /// proposed nothing. Anything captured after the batch was read stays for the next run.
+    /// Monotonic — an older batch finishing late never re-queues newer work.
     /// </summary>
-    Task AdvanceConsolidationWatermarkAsync(
+    Task MarkConsolidatedAsync(
         Guid partyId,
         Guid personaId,
-        DateTimeOffset watermark,
+        ConsolidationBatch batch,
         CancellationToken ct);
 
     /// <summary>

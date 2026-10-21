@@ -86,10 +86,10 @@ public sealed class StubMemoryRepository : IMemoryRepository
         CancellationToken ct)
         => Task.FromResult(new ConsolidationBatch(null, Array.Empty<UnconsolidatedRecollection>()));
 
-    public Task AdvanceConsolidationWatermarkAsync(
+    public Task MarkConsolidatedAsync(
         Guid partyId,
         Guid personaId,
-        DateTimeOffset watermark,
+        ConsolidationBatch batch,
         CancellationToken ct)
         => Task.CompletedTask;
 
