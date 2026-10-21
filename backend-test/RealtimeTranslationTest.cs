@@ -54,15 +54,4 @@ public class RealtimeTranslationTest
         Assert.Equal("party.event", Assert.Single(RealtimeTranslation.Party(Party, new PartyStreamEvent { Type = "mystery" })).Type);
         Assert.Equal("party.event", Assert.Single(RealtimeTranslation.Party(Party, new PartyStreamEvent { Type = "messageEvent" })).Type);
     }
-
-    [Fact]
-    public void ImportFailed_DefaultsError_UnknownImportIsDropped()
-    {
-        var session = Guid.NewGuid();
-
-        var frame = Assert.Single(RealtimeTranslation.Import(session, new ImportStreamEvent { Type = ImportStreamEvent.RunFailed }));
-        Assert.Equal("import.run.failed", frame.Type);
-        Assert.Equal("unknown error", Assert.IsType<ImportRunFailedData>(frame.Data).Error);
-        Assert.Empty(RealtimeTranslation.Import(session, new ImportStreamEvent { Type = "nope" }));
-    }
 }

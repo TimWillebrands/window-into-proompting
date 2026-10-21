@@ -13,11 +13,9 @@ namespace PartyTown.Services.Realtime;
 public sealed class PartyRealtimeHub(
     IClusterClient clusterClient,
     IGrainFactory grainFactory,
-    PartyTown.Services.Import.IImportRunCoordinator importRuns,
     ILogger<PartyRealtimeHub> logger) : IPartyRealtimeHub
 {
     private readonly ConcurrentDictionary<Guid, StreamFanoutSession<PartyStreamEvent>> sessions = new();
-    private readonly ConcurrentDictionary<Guid, StreamFanoutSession<ImportStreamEvent>> importSessions = new();
 
     public Task HandleConnectionAsync(Guid partyId, WebSocket socket, CancellationToken cancellationToken)
     {
@@ -32,21 +30,6 @@ public sealed class PartyRealtimeHub(
                 logger));
             return session.HandleConnectionAsync(socket, cancellationToken);
         }
-    }
-
-    public Task HandleImportConnectionAsync(Guid sessionId, WebSocket socket, CancellationToken cancellationToken)
-    {
-        var session = importSessions.GetOrAdd(sessionId, id => new StreamFanoutSession<ImportStreamEvent>(
-            Streams().GetStream<ImportStreamEvent>(PartyStreamIds.ImportEventsNamespace, PartyStreamIds.ImportEventId(id)),
-            evt => RealtimeTranslation.Import(id, evt),
-            _ => Task.FromResult<IReadOnlyList<RealtimeFrame>>(new[]
-            {
-                new RealtimeFrame("import.run.snapshot", new ImportRunSnapshotData(id, importRuns.GetActiveRuns(id))),
-            }),
-            () => new RealtimeFrame("import.pong", new ImportPongData(id)),
-            () => importSessions.TryRemove(id, out _),
-            logger));
-        return session.HandleConnectionAsync(socket, cancellationToken);
     }
 
     private IStreamProvider Streams() => clusterClient.GetStreamProvider(PartyStreamIds.Provider);

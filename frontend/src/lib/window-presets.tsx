@@ -3,7 +3,6 @@ import CalendarApp from '../apps/calendar/CalendarApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
 import DiaryApp from '../apps/diary/DiaryApp';
-import ImportWorkshopApp from '../apps/import-workshop/ImportWorkshopApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
@@ -85,15 +84,6 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         initialPosition: { x: 360, y: 260 },
     },
     {
-        id: 'import',
-        title: 'Import Workshop',
-        icon: '🗂️',
-        component: ImportWorkshopApp,
-        initialPosition: { x: 300, y: 160 },
-        // Chunk strip + scenes + review panels need room.
-        initialSize: { width: 980, height: 640 },
-    },
-    {
         id: 'config-panel',
         title: 'Control Panel',
         icon: '⚙️',
@@ -167,12 +157,6 @@ export const DESKTOP_ICONS = [
         label: 'Chat Rooms',
         icon: '/img/842.ico',
         windowId: 'open-party',
-    },
-    {
-        id: 'import',
-        label: 'Import Chat',
-        icon: '/img/842.ico',
-        windowId: 'import',
     },
     {
         id: 'config-panel',

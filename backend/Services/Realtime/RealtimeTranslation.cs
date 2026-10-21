@@ -6,7 +6,7 @@ namespace PartyTown.Services.Realtime;
 /// <summary>One outgoing frame before sequencing: envelope type + payload.</summary>
 public readonly record struct RealtimeFrame(string Type, IPartyRealtimeData Data);
 
-/// <summary>Pure stream-event → wire-envelope translation; the hub only sequences and sends.</summary>
+/// <summary>Pure party stream-event → wire-envelope translation; the hub only sequences and sends.</summary>
 public static class RealtimeTranslation
 {
     public static IReadOnlyList<RealtimeFrame> Party(Guid partyId, PartyStreamEvent evt) => evt.Type switch
@@ -19,16 +19,6 @@ public static class RealtimeTranslation
             One("party.race.evaluation", new PartyRaceEvaluationData(partyId, evt.ChatGroupId, race)),
         "world" when evt.WorldKind is { } kind => One($"world.{kind}", new PartyWorldEventData(partyId, kind, Json(evt.WorldJson))),
         _ => One("party.event", new PartyUnknownEventData(partyId, evt.ChatGroupId, evt.Type, evt.Message, evt.MessageId)),
-    };
-
-    public static IReadOnlyList<RealtimeFrame> Import(Guid sessionId, ImportStreamEvent evt) => evt.Type switch
-    {
-        ImportStreamEvent.RunStarted => One("import.run.started", new ImportRunStartedData(sessionId, evt.SceneId)),
-        ImportStreamEvent.RunProgress => One("import.run.progress", new ImportRunProgressData(
-            sessionId, evt.SceneId, evt.CallsDone, evt.TotalCalls, evt.Stage, evt.Items)),
-        ImportStreamEvent.RunCompleted => One("import.run.completed", new ImportRunCompletedData(sessionId, evt.SceneId, evt.Result)),
-        ImportStreamEvent.RunFailed => One("import.run.failed", new ImportRunFailedData(sessionId, evt.SceneId, evt.Error ?? "unknown error")),
-        _ => Array.Empty<RealtimeFrame>(),
     };
 
     private static IReadOnlyList<RealtimeFrame> Delta(Guid partyId, Guid chatGroupId, int messageId, MessageStreamEvent delta)

@@ -255,36 +255,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return message;
     }
 
-    /// <summary>
-    /// Bulk-imports historical messages (e.g. from an external chat export). Unlike
-    /// <see cref="SendNewMessageAsync"/>, this method:
-    ///   • Honors the caller-supplied <c>SendAt</c> (no UtcNow stamp), so imported
-    ///     messages keep their assigned chronological order.
-    ///   • Honors the caller-supplied <c>SenderType</c> ("user" or "assistant").
-    ///   • Does NOT publish a party stream event — open D'Accord windows would otherwise
-    ///     spam-render 300+ messages mid-import. Clients reload the room normally on
-    ///     navigation after commit returns.
-    ///   • Does NOT fan out to PersonaGrains — historical messages shouldn't trigger
-    ///     live LLM replies.
-    /// All messages are appended under a single Orleans event so the round-trip cost is
-    /// O(1), not O(n).
-    /// </summary>
-    public async Task<int> ImportMessagesAsync(
-        List<ImportedMessage> messages,
-        CancellationToken ct = default)
-    {
-        if (messages.Count == 0) return 0;
-        // Pin ChatGroupId to this grain's key so a caller mistake (or attacker) cannot
-        // smuggle messages tagged for a different room into our event log.
-        var chatGroupId = this.GetPrimaryKey();
-        var normalized = messages
-            .Select(m => m with { ChatGroupId = chatGroupId })
-            .ToList();
-        RaiseEvent(new ChatGroupMessagesImportedEvent { Messages = normalized });
-        await ConfirmEvents();
-        return messages.Count;
-    }
-
     private async Task AppendMessageAsync(
         int messageId,
         string content,
@@ -661,10 +631,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string? appraisal = null,
         CancellationToken cancellationToken = default);
 
-    [Alias("ImportMessagesAsync")]
-    Task<int> ImportMessagesAsync(
-        List<ImportedMessage> messages,
-        CancellationToken cancellationToken = default);
 
     [Alias("RecordSkippedTurnAsync")]
     Task RecordSkippedTurnAsync(
@@ -1127,6 +1093,7 @@ public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupE
 /// <summary>One historical chat message being bulk-imported. Caller assigns sender,
 /// timestamp, and kind. <see cref="ChatMessage.MessageId"/> is assigned by the state
 /// projection at apply time, not by the caller.</summary>
+/// <summary>Journal-only: Rooms filled by the retired importer (ADR 0022) still replay.</summary>
 [GenerateSerializer, Alias(nameof(ImportedMessage))]
 public sealed record class ImportedMessage
 {
