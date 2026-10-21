@@ -30,6 +30,7 @@ public sealed class PersonaTiesGrain(
         await EnsureSeededAsync();
         var tie = state.State.Ties.TryGetValue(otherId, out var t) ? t : state.State.Ties[otherId] = new Tie();
         var now = DateTimeOffset.UtcNow;
+        if (!Ties.MayWarm(tie, closer, now)) return;
         tie.Warmth = Ties.ShiftWarmth(Ties.Warmth(tie, now), closer);
         tie.WarmthAt = now.ToUnixTimeMilliseconds();
         await state.WriteStateAsync();
@@ -40,6 +41,13 @@ public sealed class PersonaTiesGrain(
         await EnsureSeededAsync();
         var tie = state.State.Ties.GetValueOrDefault(otherId);
         return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow));
+    }
+
+    public async Task<Guid?> GetClosestAsync()
+    {
+        await EnsureSeededAsync();
+        var (_, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        return Ties.Closest(state.State.Ties.Where(t => t.Key != personaId && t.Key != Narrator.PersonaId), DateTimeOffset.UtcNow);
     }
 
     public async Task<string> RenderAsync(List<Guid> presentIds)
@@ -57,6 +65,13 @@ public sealed class PersonaTiesGrain(
     /// <summary>First use: reconstruct ties from who spoke in the same Rooms and DMs.</summary>
     private async Task EnsureSeededAsync()
     {
+        if (state.State.Seeded && state.State.WarmthVersion < Ties.WarmthVersion)
+        {
+            // Pre-saturation warmth pinned near 1 for everyone; halve it once.
+            foreach (var tie in state.State.Ties.Values) tie.Warmth /= 2;
+            state.State.WarmthVersion = Ties.WarmthVersion;
+            await state.WriteStateAsync();
+        }
         if (state.State.Seeded) return;
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var party = GrainFactory.GetGrain<IPartyGrain>(partyId);
@@ -66,6 +81,7 @@ public sealed class PersonaTiesGrain(
             Ties.Seed(state.State.Ties, personaId, room.Kind == "dm", messages);
         }
         state.State.Seeded = true;
+        state.State.WarmthVersion = Ties.WarmthVersion;
         await state.WriteStateAsync();
     }
 }
@@ -94,8 +110,25 @@ public static class Ties
     public static double Warmth(Tie tie, DateTimeOffset now)
         => tie.WarmthAt == 0 ? 0 : tie.Warmth * Math.Pow(0.5, Math.Max(0, (now.ToUnixTimeMilliseconds() - tie.WarmthAt) / 86_400_000.0) / WarmthHalfLifeDays);
 
-    /// <summary>One appraisal (p closer) moves warmth by up to ±0.3.</summary>
-    public static double ShiftWarmth(double warmth, double closer) => Math.Clamp(warmth + (closer - 0.5) * 0.6, -1, 1);
+    /// <summary>One appraisal (p closer) moves warmth by up to ±0.3 of the way to the limit, so it saturates instead of pinning at 1.</summary>
+    public static double ShiftWarmth(double warmth, double closer)
+    {
+        var step = (closer - 0.5) * 0.6;
+        return Math.Clamp(warmth + step * (step > 0 ? 1 - warmth : 1 + warmth), -1, 1);
+    }
+
+    public const int WarmthVersion = 1;
+
+    public static readonly TimeSpan WarmCooldown = TimeSpan.FromHours(3);
+
+    /// <summary>Getting closer counts once per few hours per pair (every chat reads as "closer"); friction always counts.</summary>
+    public static bool MayWarm(Tie tie, double closer, DateTimeOffset now)
+        => closer <= 0.5 || tie.WarmthAt == 0 || now.ToUnixTimeMilliseconds() - tie.WarmthAt >= WarmCooldown.TotalMilliseconds;
+
+    /// <summary>Who this person is closest to: how much they've talked, weighted by how warm it is.</summary>
+    public static Guid? Closest(IEnumerable<KeyValuePair<Guid, Tie>> ties, DateTimeOffset now)
+        => ties.Select(t => (t.Key, Score: t.Value.Exchanges * (1 + Warmth(t.Value, now))))
+            .Where(t => t.Score > 0).OrderByDescending(t => t.Score).Select(t => (Guid?)t.Key).FirstOrDefault();
 
     public static string? Lately(double warmth) => warmth switch
     {
@@ -131,6 +164,8 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
     [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds);
     /// <summary>How well this persona knows one other, and how warm it feels now.</summary>
     [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
+    /// <summary>The one person this persona is closest to, or null.</summary>
+    [Alias("GetClosestAsync")] Task<Guid?> GetClosestAsync();
     /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
     [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
 }
@@ -146,6 +181,7 @@ public sealed class TiesState
 {
     [Id(0)] public Dictionary<Guid, Tie> Ties { get; set; } = new();
     [Id(1)] public bool Seeded { get; set; }
+    [Id(2)] public int WarmthVersion { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.Tie")]

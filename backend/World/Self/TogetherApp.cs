@@ -35,10 +35,13 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
         }
         foreach (var other in company.Take(3))
         {
-            var mine = await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetTieAsync(other.ParticipantId);
-            var theirs = await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, other.ParticipantId)).GetTieAsync(ctx.Self.Id);
+            var myTies = grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id));
+            var theirTies = grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, other.ParticipantId));
+            var mine = await myTies.GetTieAsync(other.ParticipantId);
+            var theirs = await theirTies.GetTieAsync(ctx.Self.Id);
+            var mutual = await myTies.GetClosestAsync() == other.ParticipantId && await theirTies.GetClosestAsync() == ctx.Self.Id;
             var name = ctx.NameOf(other.ParticipantId);
-            foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId)))
+            foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId), mutual))
                 affordances.Add(new Affordance(Id, Touch.Label(p, name), 0, other.ParticipantId, p));
         }
         if (affordances.Count == 0) return null;
@@ -63,9 +66,9 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
 /// <summary>Pure: which pair poses a Tie allows, both ways.</summary>
 public static class Touch
 {
-    /// <summary>Pair poses that both people's Ties allow; intimate ones are never initiated toward a human.</summary>
-    public static List<string> Offered(IReadOnlyCollection<string> allowed, TieRead mine, TieRead theirs, bool otherIsHuman)
-        => allowed.Where(p => Allows(p, mine) && Allows(p, theirs) && !(otherIsHuman && Intimate(p))).ToList();
+    /// <summary>Pair poses both Ties allow; intimate ones only between mutual closest people, never initiated toward a human.</summary>
+    public static List<string> Offered(IReadOnlyCollection<string> allowed, TieRead mine, TieRead theirs, bool otherIsHuman, bool mutualClosest)
+        => allowed.Where(p => Allows(p, mine) && Allows(p, theirs) && !(Intimate(p) && (otherIsHuman || !mutualClosest))).ToList();
 
     public static bool Intimate(string pose) => pose is Poses.HoldHands or Poses.SlowDance;
 

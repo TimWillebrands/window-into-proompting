@@ -62,9 +62,35 @@ public class WarmthTest
     {
         Assert.Equal(0.3, Ties.ShiftWarmth(0, 1), 3);
         Assert.Equal(-0.3, Ties.ShiftWarmth(0, 0), 3);
+        Assert.Equal(0.93, Ties.ShiftWarmth(0.9, 1), 3);
+        Assert.Equal(-0.93, Ties.ShiftWarmth(-0.9, 0), 3);
+        Assert.Equal(0.33, Ties.ShiftWarmth(0.9, 0), 3);
         var now = DateTimeOffset.UtcNow;
         var tie = new Tie { Warmth = 0.8, WarmthAt = now.AddDays(-2).ToUnixTimeMilliseconds() };
         Assert.Equal(0.4, Ties.Warmth(tie, now), 3);
+    }
+
+    [Fact]
+    public void Warming_CountsOncePerFewHours_FrictionAlways()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var tie = new Tie { Warmth = 0.5, WarmthAt = now.AddHours(-1).ToUnixTimeMilliseconds() };
+        Assert.False(Ties.MayWarm(tie, 0.9, now));
+        Assert.True(Ties.MayWarm(tie, 0.2, now));
+        Assert.True(Ties.MayWarm(tie, 0.9, now.AddHours(3)));
+    }
+
+    [Fact]
+    public void Closest_WeighsTalkByWarmth()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var ties = new Dictionary<Guid, Tie>
+        {
+            [a] = new() { Exchanges = 40, Warmth = -0.6, WarmthAt = now.ToUnixTimeMilliseconds() },
+            [b] = new() { Exchanges = 20, Warmth = 0.5, WarmthAt = now.ToUnixTimeMilliseconds() },
+        };
+        Assert.Equal(b, Ties.Closest(ties, now));
     }
 
     [Fact]

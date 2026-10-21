@@ -121,7 +121,13 @@ background.
     - hold hands, slow dance: 10+ and things really warm (≥ 0.4).
 
     Intimate poses are never initiated toward a human. Solo poses stay in Places' own spot intent. Closeness
-    shows in the body only after it has been earned in talk.
+    shows in the body only after it has been earned in talk. Holding hands and slow-dancing also need the
+    two to be each other's *closest* tie (exchanges × (1 + warmth)), so intimacy is exclusive, not ambient.
+28. **Warmth saturates.** In practice every persona pair sat at warmth 0.95–1.0, because nearly every
+    chat reads as "closer". Three changes:
+    - a step now covers ±0.3 *of the remaining distance* to the limit;
+    - "closer" counts at most once per 3h per pair, while friction always counts;
+    - stored warmth was halved once (`WarmthVersion`).
 
 ## Why these pieces
 
