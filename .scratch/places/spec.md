@@ -211,6 +211,18 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - Place talk uses fa's `useRoomConversation` and shows "Denise is about to say something…".
   - **Not done:** a Catalogue/Hand UI (decor is free-text instead, which is closer to the spirit), Appearance editing in Persona Manager, Players picking their look on the Welcome screen, and a click-a-Body profile.
 
+- **Follow-ups after phase 8** (d1c304a and the commits after it):
+  - **Live check:** the running world uses Places on its own. Personas walk over to each other and talk out loud at the Café, grounded in their day ("Walking the block for the ankle…"). All residents had dressed from their bio, but 3 of 4 picked `bun` hair.
+  - **Dressing:** now one at a time, each seeing the others' looks ("be recognisably different"). Author `POST places/redress` re-dresses.
+  - **Humans doze:** after 5 min idle or a hidden tab (`usePlayerIdle`, mounted in the World bridge).
+  - **Click a Body** for a profile card: look, what they're doing, mood from the Self API.
+  - **Gatherings at Places:**
+    - Planned from Life ("Plan to meet people at the Café later") or the Calendar's 📍 option.
+    - When one is due, awake LLM attendees walk there and get a Life turn (`ClockPolicy.WalkToGathering`). Humans come on their own.
+    - `PlacesApp` gives +5 pull to head there and +2 to talk once there.
+  - **Bug fixed:** a detached task (dressing) and a request wrote grain state at the same time (e-tag mismatch). `PlacesGrain` now serialises its writes.
+- **Still open:** shouts through doors (Places have no adjacency yet), the eavesdrop Bench probe, Appearance editing and a Welcome-screen look picker.
+
 ## Review log
 
 - **Phase 6 done** (a691abd, plus the commits after it).
@@ -235,6 +247,18 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - **Droste:** "Open" on your Home laptop shows the desktop in a scaled iframe. Nested desktops open their laptop automatically, up to 3 deep, then "It's laptops all the way down."
   - Place talk uses fa's `useRoomConversation` and shows "Denise is about to say something…".
   - **Not done:** a Catalogue/Hand UI (decor is free-text instead, which is closer to the spirit), Appearance editing in Persona Manager, Players picking their look on the Welcome screen, and a click-a-Body profile.
+
+- **Follow-ups after phase 8** (d1c304a and the commits after it):
+  - **Live check:** the running world uses Places on its own. Personas walk over to each other and talk out loud at the Café, grounded in their day ("Walking the block for the ankle…"). All residents had dressed from their bio, but 3 of 4 picked `bun` hair.
+  - **Dressing:** now one at a time, each seeing the others' looks ("be recognisably different"). Author `POST places/redress` re-dresses.
+  - **Humans doze:** after 5 min idle or a hidden tab (`usePlayerIdle`, mounted in the World bridge).
+  - **Click a Body** for a profile card: look, what they're doing, mood from the Self API.
+  - **Gatherings at Places:**
+    - Planned from Life ("Plan to meet people at the Café later") or the Calendar's 📍 option.
+    - When one is due, awake LLM attendees walk there and get a Life turn (`ClockPolicy.WalkToGathering`). Humans come on their own.
+    - `PlacesApp` gives +5 pull to head there and +2 to talk once there.
+  - **Bug fixed:** a detached task (dressing) and a request wrote grain state at the same time (e-tag mismatch). `PlacesGrain` now serialises its writes.
+- **Still open:** shouts through doors (Places have no adjacency yet), the eavesdrop Bench probe, Appearance editing and a Welcome-screen look picker.
 
 ## Review log
 
