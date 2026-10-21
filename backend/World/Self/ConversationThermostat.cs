@@ -60,7 +60,7 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
             var circling = answers.Noul("circling", 0);
             var fizzling = answers.Noul("fizzling", 0);
             _heavyStreak = Thermostat.NextStreak(_heavyStreak, heavy);
-            _windingDown = fizzling >= Thermostat.FizzlingThreshold;
+            _windingDown = fizzling >= Thermostat.FizzlingThreshold || circling >= Thermostat.CirclingThreshold;
             _cue = Thermostat.Cue(_heavyStreak, circling, fizzling);
             _read = new ThermostatRead(heavy, circling, fizzling, _heavyStreak,
                 circling >= Thermostat.CirclingThreshold || fizzling >= Thermostat.FizzlingThreshold);
@@ -105,7 +105,7 @@ public interface IConversationThermostatGrain : IGrainWithGuidKey
     [Alias("GetCueAsync")] Task<string?> GetCueAsync();
     /// <summary>The last System One read; <see cref="ThermostatRead.Stale"/> = circling or fizzling (Places foregrounds leaving).</summary>
     [Alias("GetReadAsync")] Task<ThermostatRead> GetReadAsync();
-    /// <summary>True while the last read found the talk fizzling; the name-mention auto-reply is off then.</summary>
+    /// <summary>True while the last read found the talk fizzling or circling; the name-mention auto-reply is off then.</summary>
     [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
 }
 

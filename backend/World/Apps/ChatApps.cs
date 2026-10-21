@@ -58,7 +58,10 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
                 sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}: {WorldStream.Clip(m.Content, 140)}");
 
             if (last?.SenderId == ctx.Self.Id || happeningNow.ContainsKey(room.Id)) continue;
-            var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
+            // A circling or fizzling room (thermostat, ADR 0021) pulls less: people drift elsewhere.
+            var stale = last is not null && (await grains.GetGrain<Self.IConversationThermostatGrain>(room.Id).GetReadAsync()).Stale;
+            if (stale) sb.AppendLine("  (this conversation has been going round in circles)");
+            var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0) - (stale ? 2 : 0);
             affordances.Add(new Affordance(Id,
                 last is null ? $"Start a conversation in #{room.Name}" : $"Say something in #{room.Name}",
                 priority, room.Id, "say"));
