@@ -258,3 +258,14 @@ public class VocativeRepeatTest
         Assert.Contains(VoiceWear.RenderFor(report, A), l => l.Contains("open with someone's name"));
     }
 }
+
+public class BeatRangeTest
+{
+    [Fact]
+    public void ParseBeats_DropsARangesEndTime()
+    {
+        var beats = SelfMath.ParseBeats("10:00 12:30 Grind through a client's integration\n13:00–14:00 lunch");
+        Assert.Equal("Grind through a client's integration", beats[0].Text);
+        Assert.Equal("lunch", beats[1].Text);
+    }
+}

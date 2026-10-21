@@ -246,7 +246,8 @@ public static partial class SelfMath
             .Select(m => new DayBeat
             {
                 Minute = int.Parse(m.Groups[1].Value) * 60 + int.Parse(m.Groups[2].Value),
-                Text = m.Groups[3].Value.Trim(),
+                // "10:00 12:30 Grind…" / "10:00–12:30 Grind…": a range's end time isn't part of the beat.
+                Text = Regex.Replace(m.Groups[3].Value.Trim(), @"^\d{1,2}[:.h]\d{2}\s*[-—–:]?\s*", ""),
             })
             .OrderBy(b => b.Minute)
             .ToList();
