@@ -179,6 +179,25 @@ public sealed class PartyGrain(
         return chatGroup;
     }
 
+    public async Task<ChatGroupInfo> CreatePlaceRoomAsync(string name)
+    {
+        var chatGroup = new ChatGroupInfo
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Kind = ChatGroupKinds.Place,
+        };
+
+        RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
+        await ConfirmEvents();
+
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+
+        return chatGroup;
+    }
+
     public async Task RemoveChatGroup(Guid chatGroupId)
     {
         // Idempotent: removing an unknown/already-removed room is a no-op, so callers
@@ -290,6 +309,10 @@ public interface IPartyGrain : IGrainWithGuidKey
     /// <summary>Messenger thread between two Participants; idempotent per pair.</summary>
     [Alias("GetOrCreateDirectChatAsync")]
     Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b);
+
+    /// <summary>Place talk Room for one Place; its cast is synced by the Places grain.</summary>
+    [Alias("CreatePlaceRoomAsync")]
+    Task<ChatGroupInfo> CreatePlaceRoomAsync(string name);
 
     /// <summary>Remove a Room from this Party's registry (import rollback). The
     /// ChatGroupGrain's own journal is wiped separately by the caller.</summary>

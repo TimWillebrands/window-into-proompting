@@ -259,7 +259,12 @@ public sealed class WorldClockGrain(
             var result = await memory.CaptureAsync(PartyId, thread.Id, anchor.MessageId, context, present, CancellationToken.None);
             if (result is { EventCreated: true, RecollectionsCreated: > 0 })
             {
-                var where = thread.Kind == ChatGroupKinds.Direct ? $"the chat {thread.Name}" : $"#{thread.Name}";
+                var where = thread.Kind switch
+                {
+                    ChatGroupKinds.Direct => $"the chat {thread.Name}",
+                    ChatGroupKinds.Place => $"talk at {thread.Name}",
+                    _ => $"#{thread.Name}",
+                };
                 await RecordAsync(new WorldActivity
                 {
                     App = "memory", Action = "capture", PersonaName = "World", TargetId = thread.Id,
