@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: in progress, phase 7 mostly done, phase 8 (decorating, looks) next (see § Progress)
+Status: phases 1–8 implemented (gaps listed in § Progress); next is a live run and the open items
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -204,6 +204,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - **UI:** sleepers lie in bed with drifting z's; others' Homes show 🔒 with a Knock button; a "Let in" banner appears at your own door.
   - **Not done:** Gatherings at Places (Calendar is still Room-only), human idle-tab dozing, and cheaper nights beyond skipping sleepers.
 
+- **Phase 8 mostly done** (the Appearance/decor commits, bec8a91, ba46681).
+  - **Appearance:** every Body gets a stable default look from its id. Each LLM Persona then "dresses themselves" once from their bio: one General-tier call, limited to a fixed palette (skin, hair colour and style, top, bottom, accessory). The canvas draws hair styles, glasses, hats, beanies, headphones and scarves.
+  - **Decorating:** "put something new up" at home. The Life intent is what goes up ("a vintage Bowie poster over the sofa"), with the style read from the words. At most 2 a day and 8 per Home, the oldest going first. Visitors see "On display: …" in their Situation, so stances end up on the walls without an extra LLM call. Humans get a "Put up" box.
+  - **Droste:** "Open" on your Home laptop shows the desktop in a scaled iframe. Nested desktops open their laptop automatically, up to 3 deep, then "It's laptops all the way down."
+  - Place talk uses fa's `useRoomConversation` and shows "Denise is about to say something…".
+  - **Not done:** a Catalogue/Hand UI (decor is free-text instead, which is closer to the spirit), Appearance editing in Persona Manager, Players picking their look on the Welcome screen, and a click-a-Body profile.
+
 ## Review log
 
 - **Phase 6 done** (a691abd, plus the commits after it).
@@ -221,6 +228,13 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - **Homes:** knock when the owner is in and awake. The owner gets "X is knocking" (+3 pull to let them in) and can invite someone over; invitees see "they invited you" (+2 pull). Guests and knocks clear when the owner leaves.
   - **UI:** sleepers lie in bed with drifting z's; others' Homes show 🔒 with a Knock button; a "Let in" banner appears at your own door.
   - **Not done:** Gatherings at Places (Calendar is still Room-only), human idle-tab dozing, and cheaper nights beyond skipping sleepers.
+
+- **Phase 8 mostly done** (the Appearance/decor commits, bec8a91, ba46681).
+  - **Appearance:** every Body gets a stable default look from its id. Each LLM Persona then "dresses themselves" once from their bio: one General-tier call, limited to a fixed palette (skin, hair colour and style, top, bottom, accessory). The canvas draws hair styles, glasses, hats, beanies, headphones and scarves.
+  - **Decorating:** "put something new up" at home. The Life intent is what goes up ("a vintage Bowie poster over the sofa"), with the style read from the words. At most 2 a day and 8 per Home, the oldest going first. Visitors see "On display: …" in their Situation, so stances end up on the walls without an extra LLM call. Humans get a "Put up" box.
+  - **Droste:** "Open" on your Home laptop shows the desktop in a scaled iframe. Nested desktops open their laptop automatically, up to 3 deep, then "It's laptops all the way down."
+  - Place talk uses fa's `useRoomConversation` and shows "Denise is about to say something…".
+  - **Not done:** a Catalogue/Hand UI (decor is free-text instead, which is closer to the spirit), Appearance editing in Persona Manager, Players picking their look on the Welcome screen, and a click-a-Body profile.
 
 ## Review log
 
