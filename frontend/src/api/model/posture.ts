@@ -5,4 +5,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type Posture = number;
+export type Posture = (typeof Posture)[keyof typeof Posture];
+
+export const Posture = {
+    Standing: 'Standing',
+    Sitting: 'Sitting',
+    Walking: 'Walking',
+} as const;

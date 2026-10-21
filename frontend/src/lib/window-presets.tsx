@@ -8,6 +8,7 @@ import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
 import PersonasApp from '../apps/personas/PersonasApp';
+import PlacesApp from '../apps/places/PlacesApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
@@ -19,6 +20,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         icon: '🌍',
         component: WorldApp,
         initialPosition: { x: 420, y: 80 },
+        initialSize: { width: 820, height: 560 },
+    },
+    {
+        id: 'places',
+        title: 'Places',
+        icon: '🏘️',
+        component: PlacesApp,
+        initialPosition: { x: 200, y: 90 },
         initialSize: { width: 820, height: 560 },
     },
     {
@@ -116,6 +125,12 @@ export const DESKTOP_ICONS = [
         label: 'World Monitor',
         icon: '/img/842.ico',
         windowId: 'world',
+    },
+    {
+        id: 'places',
+        label: 'Places',
+        icon: '/img/842.ico',
+        windowId: 'places',
     },
     {
         id: 'messenger',

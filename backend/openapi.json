@@ -6752,7 +6752,11 @@
         }
       },
       "Posture": {
-        "type": "integer"
+        "enum": [
+          "Standing",
+          "Sitting",
+          "Walking"
+        ]
       },
       "ProblemDetails": {
         "type": "object",

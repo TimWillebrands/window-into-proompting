@@ -26,6 +26,8 @@ public sealed class Spot
     [Id(3)] public bool Seat { get; set; }
 }
 
+[GenerateSerializer, Alias("PartyTown.World.Places.Posture")]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<Posture>))]
 public enum Posture
 {
     Standing,
