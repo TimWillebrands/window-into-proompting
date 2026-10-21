@@ -6,6 +6,7 @@ import {
     useGetWorldsPartyIdPlacesSituationParticipantId,
     useGetWorldsPartyIdPlacesSuspense,
     usePostPartyIdPrompt,
+    usePostWorldsPartyIdPlacesFurni,
     usePostWorldsPartyIdPlacesMove,
 } from '#api/party-zone';
 import {
@@ -13,6 +14,7 @@ import {
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import type { Body } from '../../api/model/body';
+import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
@@ -20,6 +22,7 @@ import {
     avatarColour,
     bodiesIn,
     bodySpotId,
+    furniIcon,
     mayEnter,
     navigatorPlaces,
     placeLabel,
@@ -53,7 +56,8 @@ export default function PlacesApp() {
 
     useWorldEvents((envelope) => {
         if (!envelope.type.startsWith('world.')) return;
-        if ((envelope.data as WorldEventData).kind !== 'body') return;
+        const kind = (envelope.data as WorldEventData).kind;
+        if (kind !== 'body' && kind !== 'place') return;
         const prefix = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID)[0];
         queryClient.invalidateQueries({
             predicate: (q) =>
@@ -81,6 +85,9 @@ export default function PlacesApp() {
                 <PlaceView
                     place={selected}
                     bodies={bodiesIn(bodies, selected.id)}
+                    furni={(snapshot.furni ?? []).filter(
+                        (f) => f.placeId === selected.id,
+                    )}
                     me={me}
                     playerId={playerId}
                     now={now}
@@ -173,12 +180,14 @@ function Navigator({
 function PlaceView({
     place,
     bodies,
+    furni,
     me,
     playerId,
     now,
 }: {
     place: Place;
     bodies: Body[];
+    furni: FurniView[];
     me: Body | undefined;
     playerId: string | null;
     now: number;
@@ -252,27 +261,34 @@ function PlaceView({
                     const mineSpot = at.some(
                         (b) => b.participantId === playerId,
                     );
+                    const things = furni.filter((f) => f.spotId === s.id);
                     return (
-                        <button
+                        <div
                             key={s.id}
-                            type="button"
-                            disabled={
-                                !amHere || mineSpot || full || move.isPending
-                            }
-                            onClick={() => goTo(s.id)}
-                            className="text-left"
-                            style={{
-                                padding: 6,
-                                minHeight: 64,
-                                alignItems: 'flex-start',
-                            }}
-                            title={amHere ? `Move to ${s.name}` : undefined}
+                            style={{ ...panel, padding: 6, minHeight: 64 }}
                         >
-                            <div>
-                                <strong>{s.name}</strong>{' '}
+                            <div
+                                className="flex items-center"
+                                style={{ gap: 4 }}
+                            >
+                                <strong>{s.name}</strong>
                                 <span style={{ color: '#888' }}>
                                     {at.length}/{s.capacity}
                                 </span>
+                                {amHere && !mineSpot && !full ? (
+                                    <button
+                                        type="button"
+                                        style={{
+                                            marginLeft: 'auto',
+                                            minWidth: 0,
+                                            padding: '0 6px',
+                                        }}
+                                        disabled={move.isPending}
+                                        onClick={() => goTo(s.id)}
+                                    >
+                                        Move here
+                                    </button>
+                                ) : null}
                             </div>
                             <div
                                 className="flex flex-wrap"
@@ -287,7 +303,15 @@ function PlaceView({
                                     />
                                 ))}
                             </div>
-                        </button>
+                            {things.map((f) => (
+                                <FurniRow
+                                    key={f.furniId}
+                                    furni={f}
+                                    canAct={amHere}
+                                    playerId={playerId}
+                                />
+                            ))}
+                        </div>
                     );
                 })}
             </div>
@@ -295,6 +319,73 @@ function PlaceView({
                 <PlaceTalk roomId={place.talkRoomId} playerId={playerId} />
             ) : amHere ? (
                 <div style={{ color: '#666' }}>Nobody to talk to here yet.</div>
+            ) : null}
+        </div>
+    );
+}
+
+function FurniRow({
+    furni,
+    canAct,
+    playerId,
+}: {
+    furni: FurniView;
+    canAct: boolean;
+    playerId: string | null;
+}) {
+    const act = usePostWorldsPartyIdPlacesFurni();
+    const run = (care: boolean) =>
+        furni.placeId &&
+        furni.furniId &&
+        act.mutate({
+            partyId: WORLD_ID,
+            data: {
+                placeId: furni.placeId,
+                furniId: furni.furniId,
+                care,
+                text: null,
+                participantId: playerId,
+            },
+        });
+    return (
+        <div
+            className="flex items-center"
+            style={{ gap: 4, marginTop: 4, fontSize: 11 }}
+            title={furni.notable ?? undefined}
+        >
+            <span>{furniIcon(furni)}</span>
+            <span style={{ color: furni.notable ? '#a33' : '#555' }}>
+                {furni.notable ?? furni.name}
+            </span>
+            {canAct && furni.careLabel ? (
+                <button
+                    type="button"
+                    style={{
+                        marginLeft: 'auto',
+                        minWidth: 0,
+                        padding: '0 6px',
+                    }}
+                    disabled={act.isPending}
+                    onClick={() => run(true)}
+                >
+                    {furni.careLabel.split(' ')[0] === 'Try'
+                        ? 'Fix'
+                        : furni.careLabel.split(' ')[0]}
+                </button>
+            ) : canAct && furni.useLabel ? (
+                <button
+                    type="button"
+                    style={{
+                        marginLeft: 'auto',
+                        minWidth: 0,
+                        padding: '0 6px',
+                    }}
+                    disabled={act.isPending}
+                    onClick={() => run(false)}
+                    title={furni.useLabel}
+                >
+                    Use
+                </button>
             ) : null}
         </div>
     );

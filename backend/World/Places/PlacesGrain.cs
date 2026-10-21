@@ -82,6 +82,7 @@ public sealed class PlacesGrain(
             Places = state.State.Places.ToList(),
             Bodies = state.State.Bodies.Values.OrderBy(b => b.Name).ToList(),
             Now = Now(),
+            Furni = state.State.Places.SelectMany(p => p.Furni.Select(f => View(p, f, Now()))).ToList(),
         };
     }
 
@@ -205,6 +206,16 @@ public sealed class PlacesGrain(
         _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync(text);
         _ = PublishPlaceAsync(place);
     }
+
+    private static FurniView View(Place place, Furni f, long now) => new()
+    {
+        PlaceId = place.Id, FurniId = f.Id, Kind = f.Kind, Name = f.Name, SpotId = f.SpotId,
+        Condition = Math.Round(FurniRules.Condition(f, now), 2),
+        Notable = FurniRules.Notable(f, now),
+        CareLabel = FurniRules.CareFor(f, now)?.Label,
+        UseLabel = FurniRules.UseOf(f, now)?.Label,
+        On = FurniRules.IsOn(f, now),
+    };
 
     private static long NextMishapDelay()
         => (long)(MishapMin.TotalMilliseconds + Random.Shared.NextDouble() * (MishapMax - MishapMin).TotalMilliseconds);

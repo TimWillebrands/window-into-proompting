@@ -68,6 +68,23 @@ public sealed class PlacesSnapshot
     [Id(0)] public List<Place> Places { get; set; } = new();
     [Id(1)] public List<Body> Bodies { get; set; } = new();
     [Id(2)] public long Now { get; set; }
+    /// <summary>Furni as the rules read them now, so clients never re-implement decay.</summary>
+    [Id(3)] public List<FurniView> Furni { get; set; } = new();
+}
+
+[GenerateSerializer, Alias("PartyTown.World.Places.FurniView")]
+public sealed class FurniView
+{
+    [Id(0)] public Guid PlaceId { get; set; }
+    [Id(1)] public string FurniId { get; set; } = string.Empty;
+    [Id(2)] public string Kind { get; set; } = string.Empty;
+    [Id(3)] public string Name { get; set; } = string.Empty;
+    [Id(4)] public string SpotId { get; set; } = string.Empty;
+    [Id(5)] public double Condition { get; set; }
+    [Id(6)] public string? Notable { get; set; }
+    [Id(7)] public string? CareLabel { get; set; }
+    [Id(8)] public string? UseLabel { get; set; }
+    [Id(9)] public bool On { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.PlacesState")]

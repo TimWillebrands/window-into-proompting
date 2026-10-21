@@ -1,4 +1,5 @@
 import type { Body } from '../../api/model/body';
+import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
 
 export const toMs = (v: number | string | null | undefined) =>
@@ -62,3 +63,26 @@ export function avatarColour(id: string | undefined): string {
 
 export const postureIcon = (b: Body) =>
     b.destPlaceId ? '🚶' : b.posture === 'Sitting' ? '🪑' : '🧍';
+
+/** Icon per furni kind, worse-looking when it needs care. */
+export function furniIcon(f: FurniView): string {
+    const bad = Number(f.condition ?? 1) < 0.35;
+    switch (f.kind) {
+        case 'plant':
+            return bad ? '🥀' : '🪴';
+        case 'cups':
+            return '🍽️';
+        case 'coffee':
+            return bad ? '⚠️' : '☕';
+        case 'jukebox':
+            return f.on ? '🎶' : '📻';
+        case 'lamp':
+            return bad ? '⚡' : '💡';
+        case 'laptop':
+            return '💻';
+        case 'bed':
+            return '🛏️';
+        default:
+            return '📦';
+    }
+}

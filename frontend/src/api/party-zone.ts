@@ -41,6 +41,7 @@ import type {
     DraftItemEdit,
     DriverOverrideEntry,
     EnsurePlayerRequest,
+    FurniActionRequest,
     Gathering,
     GetPartyIdChatGroupsChatGroupIdPapertrailParams,
     GetWorldsPartyIdActivitiesParams,
@@ -15186,6 +15187,124 @@ export const usePostWorldsPartyIdPlacesMove = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlacesMoveMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesFurniResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesFurniResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesFurniResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesFurniResponseError = (
+    | postWorldsPartyIdPlacesFurniResponse409TextPlain
+    | postWorldsPartyIdPlacesFurniResponse409ApplicationJson
+    | postWorldsPartyIdPlacesFurniResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesFurniResponse =
+    postWorldsPartyIdPlacesFurniResponseError;
+
+export const getPostWorldsPartyIdPlacesFurniUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/furni`;
+};
+
+export const postWorldsPartyIdPlacesFurni = async (
+    partyId: string,
+    furniActionRequest: FurniActionRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesFurniResponse> => {
+    return customFetch<postWorldsPartyIdPlacesFurniResponse>(
+        getPostWorldsPartyIdPlacesFurniUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(furniActionRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesFurniMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>,
+        TError,
+        { partyId: string; data: FurniActionRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>,
+    TError,
+    { partyId: string; data: FurniActionRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesFurni'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>,
+        { partyId: string; data: FurniActionRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesFurni(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesFurniMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>
+>;
+export type PostWorldsPartyIdPlacesFurniMutationBody = FurniActionRequest;
+export type PostWorldsPartyIdPlacesFurniMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesFurni = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>,
+            TError,
+            { partyId: string; data: FurniActionRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesFurni>>,
+    TError,
+    { partyId: string; data: FurniActionRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesFurniMutationOptions(options),
         queryClient,
     );
 };

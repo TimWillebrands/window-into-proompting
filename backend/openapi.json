@@ -3932,6 +3932,66 @@
         }
       }
     },
+    "/worlds/{partyId}/places/furni": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/selves": {
       "get": {
         "tags": [
@@ -5792,6 +5852,148 @@
           }
         }
       },
+      "Furni": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "tendedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "broken": {
+            "type": "boolean"
+          },
+          "dirty": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "onUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "playing": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "playedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "FurniActionRequest": {
+        "required": [
+          "placeId",
+          "furniId",
+          "care",
+          "text",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "furniId": {
+            "type": "string"
+          },
+          "care": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "FurniView": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "furniId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "condition": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "notable": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "careLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "useLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
       "Gathering": {
         "type": "object",
         "properties": {
@@ -6846,6 +7048,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "furni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Furni"
+            }
           }
         }
       },
@@ -6871,6 +7079,12 @@
               "string"
             ],
             "format": "int64"
+          },
+          "furni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FurniView"
+            }
           }
         }
       },

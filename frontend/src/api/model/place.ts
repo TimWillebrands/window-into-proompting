@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { Furni } from './furni';
 import type { Spot } from './spot';
 
 export interface Place {
@@ -16,4 +17,5 @@ export interface Place {
     spots?: Spot[];
     /** @nullable */
     talkRoomId?: string | null;
+    furni?: Furni[];
 }
