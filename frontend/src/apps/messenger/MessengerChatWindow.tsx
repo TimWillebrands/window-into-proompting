@@ -14,6 +14,7 @@ import {
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
+import { isShownInMessenger } from '../../lib/room-conversation';
 import { usePlayerId, WORLD_ID } from '../../lib/world';
 import {
     BuddyIcon,
@@ -52,9 +53,6 @@ const EMOJI = [
     '☕',
     '🎉',
 ];
-
-const visible = (m: RealtimeChatMessage) =>
-    !!m.content?.trim() || (!!m.error && m.senderType !== 'user');
 
 export default function MessengerChatWindow({
     chatGroupId,
@@ -118,7 +116,10 @@ function Conversation({
     const allMessages = useChatGroupMessages(chatGroupId);
     const activeIds = useChatGroupGenerationState(chatGroupId);
     const phases = useActiveGenerationPhases(chatGroupId);
-    const messages = useMemo(() => allMessages.filter(visible), [allMessages]);
+    const messages = useMemo(
+        () => allMessages.filter(isShownInMessenger),
+        [allMessages],
+    );
     // Spectating: the two people in the thread, in order of first appearance.
     const spectators = useMemo(
         () => [...new Set(messages.map((m) => m.senderId))],

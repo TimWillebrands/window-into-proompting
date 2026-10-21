@@ -38,6 +38,11 @@ import type { Persona } from '../../api/model';
 import { DriverKind } from '../../api/model';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
+import {
+    isShownInRoom,
+    parseAppraisal,
+    pendingInstructionFor,
+} from '../../lib/room-conversation';
 import { speakAsOverrides } from './room-cast';
 
 export interface ChatViewProps {
@@ -355,35 +360,10 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     );
 
     // Detect appraisal stop directed at the user's persona that hasn't been responded to yet
-    const pendingInstruction = useMemo(() => {
-        if (!selectedPersonaId) return null;
-        let lastStopIdx = -1;
-        let lastInstruction: { instruction?: string; reason?: string } | null =
-            null;
-        for (let i = 0; i < uniqueMessages.length; i++) {
-            const msg = uniqueMessages[i];
-            if (!msg.appraisal) continue;
-            try {
-                const o = JSON.parse(msg.appraisal);
-                const personaId = o.personaId ?? o.PersonaId;
-                const stop = o.stop ?? o.Stop;
-                if (stop && personaId === selectedPersonaId) {
-                    lastStopIdx = i;
-                    lastInstruction = {
-                        instruction: o.instruction ?? o.Instruction,
-                        reason: o.reason ?? o.Reason,
-                    };
-                }
-            } catch {
-                /* ignore */
-            }
-        }
-        if (lastStopIdx === -1 || !lastInstruction) return null;
-        const respondedAfter = uniqueMessages
-            .slice(lastStopIdx + 1)
-            .some((m) => m.senderType === 'user');
-        return respondedAfter ? null : lastInstruction;
-    }, [uniqueMessages, selectedPersonaId]);
+    const pendingInstruction = useMemo(
+        () => pendingInstructionFor(uniqueMessages, selectedPersonaId),
+        [uniqueMessages, selectedPersonaId],
+    );
 
     const handleSaveParticipants = useCallback(() => {
         if (partyDetailsQuery.data.status !== 200) return;
@@ -494,36 +474,14 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                             </div>
                         ) : null}
                         {uniqueMessages.map((message) => {
-                            const generating = activeGenerationSet.has(
-                                message.messageId,
-                            );
-                            // Hide while generating with nothing to show yet
                             if (
-                                generating &&
-                                !message.content &&
-                                !message.error
+                                !isShownInRoom(
+                                    message,
+                                    activeGenerationSet.has(message.messageId),
+                                    selectedPersonaId,
+                                )
                             )
                                 return null;
-                            // Hide appraisal-only messages — they live in the sidebar Thought Log,
-                            // unless this appraisal is a "stop" directed at the user (shows "Your turn" card)
-                            if (
-                                !message.content &&
-                                !message.error &&
-                                message.appraisal
-                            ) {
-                                try {
-                                    const a = JSON.parse(message.appraisal);
-                                    const stop = a.stop ?? a.Stop;
-                                    const pid = a.personaId ?? a.PersonaId;
-                                    if (stop && pid === selectedPersonaId) {
-                                        // keep — "Your turn" card
-                                    } else {
-                                        return null;
-                                    }
-                                } catch {
-                                    return null;
-                                }
-                            }
                             return (
                                 <ChatBubble
                                     key={`${message.chatGroupId}:${message.messageId}`}
@@ -891,33 +849,29 @@ function ParticipantsSidebar({
         // Decisions persisted on messages: appraisal.stop discriminates go vs decline.
         // Race-cancelled messages get kind=emote (the appraisal carries raceCancelled=true).
         for (const msg of allMessages) {
-            if (!msg.appraisal) continue;
-            try {
-                const raw = JSON.parse(msg.appraisal);
-                const personaId = raw.personaId ?? raw.PersonaId ?? null;
-                const persona = personas.find((p) => p.id === personaId);
-                const isStop = !!(raw.stop ?? raw.Stop);
-                const isRaceCancelled = raw.raceCancelled === true;
-                const kind: LogEntry['kind'] = isRaceCancelled
-                    ? 'emote'
-                    : isStop
-                      ? 'decline'
-                      : 'go';
-                entries.push({
-                    key: `msg-${msg.messageId}`,
-                    personaId,
-                    personaName:
-                        persona?.name ?? personaId?.slice(0, 8) ?? 'Unknown',
-                    reason: raw.reason ?? raw.Reason ?? null,
-                    instruction: raw.instruction ?? raw.Instruction ?? null,
-                    kind,
-                    salience: null,
-                    cancelScore: null,
-                    sortKey: msg.messageId,
-                });
-            } catch {
-                /* ignore */
-            }
+            const raw = parseAppraisal(msg.appraisal);
+            if (!raw) continue;
+            const personaId = raw.personaId;
+            const persona = personas.find((p) => p.id === personaId);
+            const isStop = raw.stop;
+            const isRaceCancelled = raw.raceCancelled;
+            const kind: LogEntry['kind'] = isRaceCancelled
+                ? 'emote'
+                : isStop
+                  ? 'decline'
+                  : 'go';
+            entries.push({
+                key: `msg-${msg.messageId}`,
+                personaId,
+                personaName:
+                    persona?.name ?? personaId?.slice(0, 8) ?? 'Unknown',
+                reason: raw.reason,
+                instruction: raw.instruction,
+                kind,
+                salience: null,
+                cancelScore: null,
+                sortKey: msg.messageId,
+            });
         }
 
         // Pre-gate skips streamed via the declined event (ephemeral, in-memory).
@@ -1531,21 +1485,10 @@ function ChatBubble({
         message.metadata?.provider
     );
 
-    const appraisalData = useMemo(() => {
-        if (!message.appraisal) return null;
-        try {
-            const raw = JSON.parse(message.appraisal);
-            // Normalise PascalCase keys from older messages to camelCase
-            return {
-                personaId: raw.personaId ?? raw.PersonaId,
-                reason: raw.reason ?? raw.Reason,
-                instruction: raw.instruction ?? raw.Instruction,
-                stop: raw.stop ?? raw.Stop,
-            };
-        } catch {
-            return null;
-        }
-    }, [message.appraisal]);
+    const appraisalData = useMemo(
+        () => parseAppraisal(message.appraisal),
+        [message.appraisal],
+    );
 
     const isAppraisalStop = appraisalData?.stop === true;
     const isDirectedAtUser =
