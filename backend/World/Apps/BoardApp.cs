@@ -18,8 +18,11 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
     {
-        var threads = (await grains.GetGrain<IBoardGrain>(ctx.PartyId).GetThreadsAsync()).Take(6).ToList();
-        var affordances = new List<Affordance> { new(Id, "Write a new post on the Board", 1, null, "post") };
+        var all = await grains.GetGrain<IBoardGrain>(ctx.PartyId).GetThreadsAsync();
+        var threads = all.Take(6).ToList();
+        var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
+        var postedLately = all.Any(t => t.AuthorId == ctx.Self.Id && ctx.Now.ToUnixTimeMilliseconds() - t.CreatedAt < TimeSpan.FromHours(12).TotalMilliseconds);
+        var affordances = new List<Affordance> { PostAffordance(openers, postedLately) };
         if (threads.Count == 0)
             return new AppPerception(Id, "Board (public forum)", "The Board is empty — nobody has posted yet.", affordances);
 
@@ -46,7 +49,16 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     /// <summary>Threads you keep answering, and long ones, pull less: conversations wind down (ADR 0021).</summary>
     public static int ThreadFatigue(IReadOnlyList<Guid> replyAuthors, Guid self)
-        => (replyAuthors.TakeLast(6).Count(a => a == self) >= 2 ? 1 : 0) + (replyAuthors.Count >= 12 ? 1 : 0);
+        => (replyAuthors.TakeLast(6).Count(a => a == self) >= 2 ? 1 : 0) + (replyAuthors.Count >= 12 ? 1 : 0) + (replyAuthors.Count >= 20 ? 1 : 0);
+
+    /// <summary>A new thread seeded by something from your own day; it pulls harder when you haven't posted lately.</summary>
+    public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately)
+    {
+        var opener = openers.Count == 0 ? null : openers[Random.Shared.Next(openers.Count)];
+        return opener is null
+            ? new Affordance(Id, "Write a new post on the Board", 1, null, "post")
+            : new Affordance(Id, $"Start a new Board thread about something from your own day (like: {WorldStream.Clip(opener, 90)})", postedLately ? 1 : 2, null, "post");
+    }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {

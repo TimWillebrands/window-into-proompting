@@ -170,6 +170,7 @@ public class ThreadFatigueTest
         Assert.Equal(1, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
         longThread.AddRange(new[] { Me, Me });
         Assert.Equal(2, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
+        Assert.Equal(1, PartyTown.World.Apps.BoardApp.ThreadFatigue(Enumerable.Repeat(Other, 20).ToList(), Me) - 1);
     }
 }
 
