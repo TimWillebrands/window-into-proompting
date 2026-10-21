@@ -212,6 +212,10 @@ _Avoid_: planner, scheduler, motivation.
 An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces.
 _Avoid_: action, option, tool, command.
 
+**System One judge**:
+The fast, calibrated *weighing* half of a Relevance Realization call: state + typed questions → probabilities, no prose (TypeSafe Jev, or an LLM emulation). The *voicing* half stays with the LLM. Initiative samples from its distribution rather than taking the top pick. See [ADR 0019](docs/adr/0019-system-one-judge.md).
+_Avoid_: classifier, scorer, router.
+
 **Activity**:
 One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
 _Avoid_: event (taken — see **Event**), log entry.
