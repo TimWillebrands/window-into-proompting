@@ -78,6 +78,8 @@ public class SpeechCleanupTest
     [InlineData("**Denise:** oui", "oui")]
     [InlineData("Denise said hi to Pieter: fine", "Denise said hi to Pieter: fine")]
     [InlineData("plain line", "plain line")]
+    [InlineData("Okay. Going. #test:  The hour the grid died", "Okay. Going. The hour the grid died")]
+    [InlineData("we use #hashtags here", "we use #hashtags here")]
     public void Clean_StripsTemplateTokensAndSelfLabel(string raw, string expected)
         => Assert.Equal(expected, PartyTown.Services.ResponsePipeline.SpeechCleanup.Clean(raw, "Denise"));
 }

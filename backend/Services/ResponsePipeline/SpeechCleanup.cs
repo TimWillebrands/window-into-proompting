@@ -14,6 +14,8 @@ public static partial class SpeechCleanup
         var s = TemplateToken().Replace(text, " ").Trim();
         // "private" survives as a bare word when the template was <|channel|>private<|message|>.
         if (s.StartsWith("private ", StringComparison.Ordinal) && text.Contains("<|channel|>")) s = s[8..].TrimStart();
+        // A leaked room label: "#kitchen: hi" or a trailing "Going. #test:" header.
+        s = Regex.Replace(s, @"(^|\s)#[\w-]+:\s*", "$1").Trim();
         if (!string.IsNullOrWhiteSpace(selfName))
         {
             var prefix = new Regex($@"^\**{Regex.Escape(selfName)}\**\s*:\s*\**\s*", RegexOptions.IgnoreCase);
