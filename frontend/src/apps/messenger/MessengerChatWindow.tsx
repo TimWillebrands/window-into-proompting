@@ -110,6 +110,11 @@ function Conversation({
     const activeIds = useChatGroupGenerationState(chatGroupId);
     const phases = useActiveGenerationPhases(chatGroupId);
     const messages = useMemo(() => allMessages.filter(visible), [allMessages]);
+    // Spectating: the two people in the thread, in order of first appearance.
+    const spectators = useMemo(
+        () => [...new Set(messages.map((m) => m.senderId))],
+        [messages],
+    );
     const isTyping = phases.some(
         (p) => p.phase === 'typing' || p.phase === 'streaming',
     );
@@ -386,13 +391,20 @@ function Conversation({
                 <div className="flex flex-col justify-between">
                     <DisplayPicture
                         src={
-                            withId
-                                ? personaAvatar(withId, 72)
+                            (withId ?? spectators[0])
+                                ? personaAvatar(withId ?? spectators[0], 72)
                                 : playerAvatar(withName, 72)
                         }
                         size={72}
                     />
-                    <DisplayPicture src={playerAvatar(myName, 72)} size={72} />
+                    <DisplayPicture
+                        src={
+                            spectate && spectators[1]
+                                ? personaAvatar(spectators[1], 72)
+                                : playerAvatar(myName, 72)
+                        }
+                        size={72}
+                    />
                 </div>
             </div>
 

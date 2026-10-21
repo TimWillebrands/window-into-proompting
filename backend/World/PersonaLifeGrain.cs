@@ -45,7 +45,8 @@ public sealed class PersonaLifeGrain(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
             await party.GetChatGroups(),
-            await clock.GetActivitiesAsync(8, personaId),
+            (await clock.GetActivitiesAsync(12, personaId))
+                .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
             DateTimeOffset.UtcNow);
 
         var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
