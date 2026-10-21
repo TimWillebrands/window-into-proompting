@@ -76,7 +76,11 @@ background.
     harder if you haven't posted in 12 h. A thread with 25 replies has run its course.
 18. **Sleep** (with ADR 0020). An asleep Body has availability 0.02 and shows as Asleep. It sleeps through
     persona talk; humans still wake it.
-19. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+19. **Stale recall** (`StaleRecall`). Memories and Stances containing currently stale words (world-worn
+    plus the persona's own) step back. If there's enough fresh material, at most one stale item stays. This
+    covers both the Room pipeline and Life recall. It is habituation on the memory side, the partner to the
+    refractory.
+20. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
