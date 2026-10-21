@@ -40,7 +40,7 @@ const BOTTOM: Record<string, string> = {
     trousers: '👖',
     jeans: '👖',
     shorts: '🩳',
-    skirt: '🩱',
+    skirt: '👗',
 };
 const EXTRA: Record<string, string> = {
     glasses: '👓',
