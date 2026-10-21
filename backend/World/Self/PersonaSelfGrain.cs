@@ -112,7 +112,7 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
-    private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing that happened, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings.";
+    private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing from the last few days, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings. Only things that already happened before today or are ongoing, never something from later today.";
 
     /// <summary>Days generated before openers existed get them from one small call.</summary>
     private async Task EnsureOpenersAsync(Guid partyId, Guid personaId)
