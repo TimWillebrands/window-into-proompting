@@ -22,4 +22,6 @@ export interface WorldStatus {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     lastTickAt?: number | string | null;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    ambientMinutes?: number | string;
 }

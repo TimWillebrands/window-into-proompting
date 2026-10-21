@@ -6837,6 +6837,15 @@
               "string"
             ],
             "format": "int32"
+          },
+          "ambientMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -6942,6 +6951,14 @@
               "string"
             ],
             "format": "int64"
+          },
+          "ambientMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       }

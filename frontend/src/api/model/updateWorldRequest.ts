@@ -18,4 +18,9 @@ export interface UpdateWorldRequest {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     maxActionsPerHour: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    ambientMinutes?: number | string | null;
 }

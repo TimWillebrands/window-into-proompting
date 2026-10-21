@@ -334,6 +334,13 @@ function ClockBar({ status }: { status: WorldStatus }) {
         String(status.maxActionsPerHour),
     );
     const [tickNote, setTickNote] = useState<string | null>(null);
+    const [ambientDraft, setAmbientDraft] = useState(
+        String(status.ambientMinutes ?? 0),
+    );
+    useEffect(
+        () => setAmbientDraft(String(status.ambientMinutes ?? 0)),
+        [status.ambientMinutes],
+    );
 
     useEffect(
         () => setTickDraft(String(status.tickSeconds)),
@@ -369,6 +376,7 @@ function ClockBar({ status }: { status: WorldStatus }) {
         running?: boolean;
         tickSeconds?: number;
         maxActionsPerHour?: number;
+        ambientMinutes?: number;
     }) =>
         update.mutate({
             partyId: WORLD_ID,
@@ -376,17 +384,19 @@ function ClockBar({ status }: { status: WorldStatus }) {
                 running: data.running ?? null,
                 tickSeconds: data.tickSeconds ?? null,
                 maxActionsPerHour: data.maxActionsPerHour ?? null,
+                ambientMinutes: data.ambientMinutes ?? null,
             },
         });
 
     const commitNumber = (
         draft: string,
         current: number | string | undefined,
-        key: 'tickSeconds' | 'maxActionsPerHour',
+        key: 'tickSeconds' | 'maxActionsPerHour' | 'ambientMinutes',
         reset: (v: string) => void,
     ) => {
         const n = Math.round(Number(draft));
-        if (!Number.isFinite(n) || n < 1) return reset(String(current));
+        const min = key === 'ambientMinutes' ? 0 : 1;
+        if (!Number.isFinite(n) || n < min) return reset(String(current));
         if (n !== Number(current)) put({ [key]: n });
     };
 
@@ -416,6 +426,32 @@ function ClockBar({ status }: { status: WorldStatus }) {
                 >
                     {status.running ? '❚❚ Pause' : '▶ Run'}
                 </button>
+                <label
+                    className="flex items-center"
+                    style={{ gap: 4 }}
+                    title="The Narrator lets something small happen every N minutes (0 = off)"
+                >
+                    Happening every
+                    <input
+                        type="number"
+                        min={0}
+                        value={ambientDraft}
+                        style={{ width: 46 }}
+                        onChange={(e) => setAmbientDraft(e.currentTarget.value)}
+                        onBlur={() =>
+                            commitNumber(
+                                ambientDraft,
+                                status.ambientMinutes,
+                                'ambientMinutes',
+                                setAmbientDraft,
+                            )
+                        }
+                        onKeyDown={(e) =>
+                            e.key === 'Enter' && e.currentTarget.blur()
+                        }
+                    />
+                    min
+                </label>
                 <label className="flex items-center" style={{ gap: 4 }}>
                     Tick every
                     <input
