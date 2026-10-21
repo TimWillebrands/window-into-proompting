@@ -3,7 +3,14 @@ import { useChatGroupMessages } from '#lib/realtime-store';
 import type { Body } from '../../../api/model/body';
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
-import { avatarColour, furniIcon, toMs } from '../places-lib';
+import {
+    avatarColour,
+    canHear,
+    furniIcon,
+    scribble,
+    toMs,
+    volumeOf,
+} from '../places-lib';
 import {
     depth,
     type Pt,
@@ -32,6 +39,8 @@ interface Props {
     bodies: Body[];
     furni: FurniView[];
     playerId: string | null;
+    /** Author view: show the words of talk the Player is out of Earshot of. */
+    allEars?: boolean;
     /** Clicked near a spot; null when the click hit nothing walkable. */
     onSpotClick?: (spotId: string) => void;
 }
@@ -42,6 +51,7 @@ export default function PlaceCanvas({
     bodies,
     furni,
     playerId,
+    allEars = false,
     onSpotClick,
 }: Props) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,8 +64,8 @@ export default function PlaceCanvas({
     const walks = useRef(new Map<string, Walk>());
     const shown = useRef(new Map<string, Pt>());
     const hover = useRef<Pt | null>(null);
-    const latest = useRef({ bodies, furni, messages, playerId });
-    latest.current = { bodies, furni, messages, playerId };
+    const latest = useRef({ bodies, furni, messages, playerId, allEars });
+    latest.current = { bodies, furni, messages, playerId, allEars };
 
     // Bodies whose target slot changed start a client-side walk from where they're drawn now.
     useEffect(() => {
@@ -196,6 +206,7 @@ interface Live {
     furni: FurniView[];
     messages: ReturnType<typeof useChatGroupMessages>;
     playerId: string | null;
+    allEars?: boolean;
 }
 
 function render(
@@ -278,7 +289,7 @@ function render(
             i.draw();
         });
 
-    drawBubbles(ctx, live.messages, speakers, live.bodies, scale, now);
+    drawBubbles(ctx, live, speakers, scale, now);
     ctx.restore();
 }
 
@@ -499,13 +510,13 @@ function drawBody(
 
 function drawBubbles(
     ctx: CanvasRenderingContext2D,
-    messages: Live['messages'],
+    live: Live,
     speakers: Map<string, Pt>,
-    bodies: Body[],
     scale: number,
     now: number,
 ) {
-    const recent = messages
+    const { bodies } = live;
+    const recent = live.messages
         .filter(
             (m) => m.content?.trim() && m.sendAt && now - m.sendAt < BUBBLE_MS,
         )
@@ -521,14 +532,25 @@ function drawBubbles(
         const name = (
             bodies.find((b) => b.participantId === m.senderId)?.name ?? ''
         ).split(' ')[0];
-        const text = clip(`${name}: ${m.content ?? ''}`, 70);
-        ctx.font = `${Math.max(10, Math.round(11 * scale))}px Tahoma, sans-serif`;
+        // Out of Earshot: the bubble keeps its shape but not its words (spec § Sound).
+        const heard = canHear(m, live.playerId, live.allEars);
+        const volume = volumeOf(m);
+        const text = clip(
+            `${name}: ${heard ? (m.content ?? '') : scribble(m.content)}`,
+            70,
+        );
+        const size = Math.max(
+            10,
+            Math.round((volume === 'shout' ? 13 : 11) * scale),
+        );
+        ctx.font = `${volume === 'whisper' ? 'italic ' : volume === 'shout' ? 'bold ' : ''}${size}px Tahoma, sans-serif`;
         const tw = ctx.measureText(text).width;
         const x = p.x - tw / 2 - 6;
         const y = p.y - 78 * scale - level * 22 * scale - age * 30 * scale;
-        ctx.globalAlpha = Math.max(0.25, 1 - age * 0.8);
-        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = Math.max(0.25, 1 - age * 0.8) * (heard ? 1 : 0.55);
+        ctx.fillStyle = heard ? '#fff' : '#eee';
         ctx.strokeStyle = '#555';
+        ctx.setLineDash(volume === 'whisper' ? [3, 3] : []);
         ctx.beginPath();
         ctx.roundRect(x, y - 16 * scale, tw + 12, 18 * scale, 6);
         ctx.fill();
@@ -537,6 +559,7 @@ function drawBubbles(
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + 6, y - 7 * scale);
+        ctx.setLineDash([]);
         ctx.globalAlpha = 1;
     }
 }

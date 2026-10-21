@@ -8,6 +8,7 @@ import {
     usePostPartyIdPrompt,
     usePostWorldsPartyIdPlacesFurni,
     usePostWorldsPartyIdPlacesMove,
+    usePostWorldsPartyIdPlacesVoice,
 } from '#api/party-zone';
 import {
     useChatGroupMessages,
@@ -23,11 +24,14 @@ import {
     avatarColour,
     bodiesIn,
     bodySpotId,
+    canHear,
     furniIcon,
     mayEnter,
     navigatorPlaces,
     placeLabel,
     postureIcon,
+    scribble,
+    volumeOf,
     walkingText,
 } from './places-lib';
 
@@ -97,6 +101,24 @@ export default function PlacesApp() {
             ) : null}
         </div>
     );
+}
+
+const ALL_EARS_KEY = 'proompting.places.allEars';
+
+/** Author switch: hear every line in a Place regardless of Earshot. Remembered per browser. */
+function useAllEars(): [boolean, (on: boolean) => void] {
+    const [on, setOn] = useState(false);
+    useEffect(
+        () => setOn(window.localStorage.getItem(ALL_EARS_KEY) === '1'),
+        [],
+    );
+    return [
+        on,
+        (next) => {
+            window.localStorage.setItem(ALL_EARS_KEY, next ? '1' : '0');
+            setOn(next);
+        },
+    ];
 }
 
 function useNow() {
@@ -202,6 +224,7 @@ function PlaceView({
         playerId ?? '',
         { query: { enabled: !!playerId } },
     ).data?.data.situation;
+    const [allEars, setAllEars] = useAllEars();
     const amHere = !!me && me.placeId === place.id && !me.destPlaceId;
     const heading = !!me && me.destPlaceId === place.id;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
@@ -229,6 +252,17 @@ function PlaceView({
                     </h3>
                     <div style={{ color: '#666' }}>{place.description}</div>
                 </div>
+                <label
+                    style={{ color: '#666', whiteSpace: 'nowrap' }}
+                    title="Author view: hear Place talk beyond your Earshot"
+                >
+                    <input
+                        type="checkbox"
+                        checked={allEars}
+                        onChange={(e) => setAllEars(e.currentTarget.checked)}
+                    />{' '}
+                    All ears
+                </label>
                 {canGo ? (
                     <button
                         type="button"
@@ -259,6 +293,7 @@ function PlaceView({
                 bodies={allBodies}
                 furni={furni}
                 playerId={playerId}
+                allEars={allEars}
                 onSpotClick={
                     amHere || canGo ? (spotId) => goTo(spotId) : undefined
                 }
@@ -332,7 +367,17 @@ function PlaceView({
                 })}
             </div>
             {amHere && place.talkRoomId ? (
-                <PlaceTalk roomId={place.talkRoomId} playerId={playerId} />
+                <PlaceTalk
+                    roomId={place.talkRoomId}
+                    playerId={playerId}
+                    allEars={allEars}
+                    nearby={bodies.filter(
+                        (b) =>
+                            b.participantId !== playerId &&
+                            !b.destPlaceId &&
+                            b.spotId === me?.spotId,
+                    )}
+                />
             ) : amHere ? (
                 <div style={{ color: '#666' }}>Nobody to talk to here yet.</div>
             ) : null}
@@ -446,9 +491,13 @@ function BodyChip({
 function PlaceTalk({
     roomId,
     playerId,
+    nearby,
+    allEars,
 }: {
     roomId: string;
     playerId: string | null;
+    nearby: Body[];
+    allEars: boolean;
 }) {
     const lives = useGetWorldsPartyIdLivesSuspense(WORLD_ID).data.data ?? [];
     const messages = useChatGroupMessages(roomId);
@@ -457,7 +506,10 @@ function PlaceTalk({
         [messages],
     );
     const prompt = usePostPartyIdPrompt();
+    const voice = usePostWorldsPartyIdPlacesVoice();
     const [draft, setDraft] = useState('');
+    const [volume, setVolume] = useState<'talk' | 'whisper' | 'shout'>('talk');
+    const [to, setTo] = useState<string>('');
     const endRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (shown.length) endRef.current?.scrollIntoView({ block: 'end' });
@@ -472,6 +524,18 @@ function PlaceTalk({
         const text = draft.trim();
         if (!text || !playerId) return;
         setDraft('');
+        if (volume !== 'talk')
+            await voice.mutateAsync({
+                partyId: WORLD_ID,
+                data: {
+                    volume,
+                    to:
+                        volume === 'whisper'
+                            ? to || nearby[0]?.participantId || null
+                            : null,
+                    participantId: playerId,
+                },
+            });
         await prompt.mutateAsync({
             id: WORLD_ID,
             data: { chatGroupId: roomId, prompt: text, senderId: playerId },
@@ -480,8 +544,8 @@ function PlaceTalk({
 
     return (
         <fieldset
-            className="flex min-h-0 flex-1 flex-col"
-            style={{ margin: 0 }}
+            className="flex flex-col"
+            style={{ margin: 0, minHeight: 180 }}
         >
             <legend>Said out loud here</legend>
             <div
@@ -491,14 +555,35 @@ function PlaceTalk({
                 {shown.length === 0 ? (
                     <div style={{ color: '#888' }}>Quiet.</div>
                 ) : null}
-                {shown.map((m) => (
-                    <div key={m.messageId} style={{ marginBottom: 3 }}>
-                        <strong style={{ color: avatarColour(m.senderId) }}>
-                            {nameOf(m.senderId)}:
-                        </strong>{' '}
-                        {m.content}
-                    </div>
-                ))}
+                {shown.map((m) => {
+                    const heard = canHear(m, playerId, allEars);
+                    const v = volumeOf(m);
+                    return (
+                        <div
+                            key={m.messageId}
+                            style={{
+                                marginBottom: 3,
+                                color: heard ? undefined : '#999',
+                                fontStyle:
+                                    heard && v !== 'whisper'
+                                        ? undefined
+                                        : 'italic',
+                                fontWeight: v === 'shout' ? 'bold' : undefined,
+                            }}
+                        >
+                            <strong style={{ color: avatarColour(m.senderId) }}>
+                                {nameOf(m.senderId)}
+                                {v === 'whisper'
+                                    ? ' (whispers)'
+                                    : v === 'shout'
+                                      ? ' (calls out)'
+                                      : ''}
+                                :
+                            </strong>{' '}
+                            {heard ? m.content : scribble(m.content)}
+                        </div>
+                    );
+                })}
                 <div ref={endRef} />
             </div>
             <form
@@ -509,6 +594,35 @@ function PlaceTalk({
                     void say();
                 }}
             >
+                <select
+                    value={volume}
+                    onChange={(e) =>
+                        setVolume(e.currentTarget.value as typeof volume)
+                    }
+                    disabled={!playerId}
+                    title="Talk reaches your spot, a shout the whole Place, a whisper one person next to you"
+                >
+                    <option value="talk">Talk</option>
+                    <option value="whisper" disabled={nearby.length === 0}>
+                        Whisper
+                    </option>
+                    <option value="shout">Shout</option>
+                </select>
+                {volume === 'whisper' && nearby.length > 0 ? (
+                    <select
+                        value={to}
+                        onChange={(e) => setTo(e.currentTarget.value)}
+                    >
+                        {nearby.map((b) => (
+                            <option
+                                key={b.participantId}
+                                value={b.participantId}
+                            >
+                                to {b.name}
+                            </option>
+                        ))}
+                    </select>
+                ) : null}
                 <input
                     className="flex-1"
                     value={draft}

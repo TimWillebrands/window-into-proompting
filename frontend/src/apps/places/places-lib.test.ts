@@ -3,9 +3,11 @@ import type { Body } from '../../api/model/body';
 import type { Place } from '../../api/model/place';
 import {
     bodiesIn,
+    canHear,
     mayEnter,
     navigatorPlaces,
     placeLabel,
+    scribble,
     walkingText,
 } from './places-lib';
 
@@ -55,5 +57,14 @@ describe('places-lib', () => {
         expect(walkingText(b, 0)).toBe('arriving in 10s');
         expect(walkingText(b, 20_000)).toBe('arriving…');
         expect(walkingText({ placeId: 'c' }, 0)).toBeNull();
+    });
+
+    it('hides the words of talk you were out of Earshot of', () => {
+        expect(canHear({ heardBy: null }, 'me')).toBe(true);
+        expect(canHear({ heardBy: ['you'] }, 'me')).toBe(false);
+        expect(canHear({ heardBy: ['you'] }, 'me', true)).toBe(true);
+        expect(scribble('honestly Pieter has been impossible')).toBe(
+            '~~~~ ~~~ ~~ ~~~~ ~~~~~',
+        );
     });
 });

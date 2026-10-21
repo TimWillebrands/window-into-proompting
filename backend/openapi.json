@@ -3992,6 +3992,107 @@
         }
       }
     },
+    "/worlds/{partyId}/places/voice": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/overheard/{participantId}": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/selves": {
       "get": {
         "tags": [
@@ -6836,6 +6937,59 @@
           }
         }
       },
+      "Overheard": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "speakerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "speakerName": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "volume": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string"
+          },
+          "listeners": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "nameHeardBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "withNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "PartyDetails": {
         "required": [
           "party",
@@ -7962,6 +8116,33 @@
           },
           "speakerId": {
             "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "VoiceRequest": {
+        "required": [
+          "volume",
+          "to",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "volume": {
+            "type": "string"
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           }
         }

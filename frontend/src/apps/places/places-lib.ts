@@ -86,3 +86,29 @@ export function furniIcon(f: FurniView): string {
             return '📦';
     }
 }
+
+/** Place talk carries its Earshot; null heardBy means everyone heard (Rooms, DMs, old lines). */
+export type Heard = { heardBy?: string[] | null; volume?: string | null };
+
+export const volumeOf = (m: object) => (m as Heard).volume ?? 'talk';
+
+/** Whether the viewer heard a line; the author's all-ears switch hears everything. */
+export const canHear = (
+    m: object,
+    viewerId: string | null,
+    allEars = false,
+) => {
+    const heard = (m as Heard).heardBy;
+    return allEars || !heard || (!!viewerId && heard.includes(viewerId));
+};
+
+/** The shape of talk you can't make out: same rhythm, no words. */
+export const scribble = (text: string | null | undefined) =>
+    (text ?? '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 10)
+        .map((w) =>
+            '~'.repeat(Math.min(5, Math.max(2, Math.ceil(w.length / 2)))),
+        )
+        .join(' ');
