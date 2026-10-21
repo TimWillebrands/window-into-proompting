@@ -54,6 +54,17 @@ if (!openApiBuild)
 
     // World (ADR 0018): Apps are modes of engagement; Life picks among their Affordances.
     builder.Services.AddSingleton<PartyTown.World.WorldLlm>();
+    // System One (ADR 0019): Jev when a TypeSafe key is configured, else the LLM emulation.
+    builder.Services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(sp =>
+    {
+        var key = builder.Configuration["TYPESAFE_API_KEY"];
+        return string.IsNullOrWhiteSpace(key)
+            ? ActivatorUtilities.CreateInstance<PartyTown.Services.SystemOne.LlmJudge>(sp)
+            : new PartyTown.Services.SystemOne.JevJudge(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(), key,
+                builder.Configuration["TYPESAFE_MODEL"] ?? PartyTown.Services.SystemOne.JevJudge.DefaultModel,
+                sp.GetRequiredService<ILogger<PartyTown.Services.SystemOne.JevJudge>>());
+    });
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.RoomsApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.MessengerApp>();

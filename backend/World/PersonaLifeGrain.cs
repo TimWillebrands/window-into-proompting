@@ -3,6 +3,7 @@ using System.Text;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.SystemOne;
 using PartyTown.World.Apps;
 
 namespace PartyTown.World;
@@ -16,10 +17,13 @@ public sealed class PersonaLifeGrain(
     IEnumerable<IWorldApp> apps,
     WorldLlm llm,
     WorldMemory memory,
+    ISystemOneJudge judge,
     ILogger<PersonaLifeGrain> logger)
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
+    private const double ChoiceTemperature = 0.8;
+    private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
     private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -93,11 +97,39 @@ Output ONLY JSON: {ChoiceShape}
             sb.AppendLine($"{i + 1}. {options[i].Label}");
         sb.AppendLine("0. Do nothing for now");
 
-        var json = await llm.CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8);
-        var thought = json?["thought"]?.ToString();
-        var intent = json?["intent"]?.ToString() ?? string.Empty;
-        var choiceRaw = json?["choice"]?.ToString() ?? "0";
-        var choice = int.TryParse(new string(choiceRaw.Where(char.IsDigit).ToArray()), out var n) ? n : 0;
+        string? thought;
+        string intent;
+        int choice;
+        if (judge.Enabled)
+        {
+            // System One weighs the Affordances; sampling keeps exploration alive (opponent processing,
+            // not argmax). System Two only voices the one that won.
+            var state = $"{WorldLlm.Identity(self)}\n\n{sb}";
+            var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
+                i => i.ToString(CultureInfo.InvariantCulture),
+                i => (string?)(i == 0 ? "Do nothing for now" : options[i - 1].Label));
+            var answers = await judge.AskAsync(state, new Dictionary<string, SystemOneQuestion>
+            {
+                ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
+            }, ct);
+            choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
+            if (choice < 1 || choice > options.Count)
+                return Activity(personaId, self.Name, "life", "rest", "is taking it easy");
+
+            var voiced = await llm.CompleteJsonAsync(JobComplexity.General,
+                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next: {options[choice - 1].Label}. Say what's on your mind and what exactly you'll do.\nOutput ONLY JSON: {IntentShape}",
+                sb.ToString(), ct, 0.8);
+            thought = voiced?["thought"]?.ToString();
+            intent = voiced?["intent"]?.ToString() ?? string.Empty;
+        }
+        else
+        {
+            var json = await llm.CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8);
+            thought = json?["thought"]?.ToString();
+            intent = json?["intent"]?.ToString() ?? string.Empty;
+            var choiceRaw = json?["choice"]?.ToString() ?? "0";
+            choice = int.TryParse(new string(choiceRaw.Where(char.IsDigit).ToArray()), out var n) ? n : 0;
+        }
 
         if (choice < 1 || choice > options.Count)
             return Activity(personaId, self.Name, "life", "rest", "is taking it easy", thought);

@@ -1,5 +1,6 @@
 using PartyTown.Grains;
 using PartyTown.Model;
+using PartyTown.Services.SystemOne;
 using PartyTown.Services.Streaming;
 
 namespace PartyTown.World;
@@ -13,6 +14,7 @@ public sealed class WorldClockGrain(
     [PersistentState(stateName: "worldclock", storageName: "parties")]
     IPersistentState<WorldClockState> state,
     WorldMemory memory,
+    ISystemOneJudge judge,
     ILogger<WorldClockGrain> logger)
     : Grain, IWorldClockGrain
 {
@@ -20,6 +22,7 @@ public sealed class WorldClockGrain(
     private static readonly TimeSpan LifeTimeout = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan Lull = TimeSpan.FromSeconds(90);
     private const int MinNewMessagesForCapture = 3;
+    private const double MemorableThreshold = 0.35;
 
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
     private readonly HashSet<Guid> _capturing = new();
@@ -239,6 +242,8 @@ public sealed class WorldClockGrain(
     {
         try
         {
+            if (judge.Enabled && !await IsMemorableAsync(context, present))
+                return;
             var result = await memory.CaptureAsync(PartyId, thread.Id, anchor.MessageId, context, present, CancellationToken.None);
             if (result is { EventCreated: true })
             {
@@ -253,6 +258,28 @@ public sealed class WorldClockGrain(
         finally
         {
             _capturing.Remove(thread.Id);
+        }
+    }
+
+    /// <summary>Capture as relevance realization: System One judges whether the span is worth a memory at all.</summary>
+    private async Task<bool> IsMemorableAsync(List<ChatMessage> context, List<ParticipantView> present)
+    {
+        var names = present.ToDictionary(p => p.Id, p => p.Name);
+        var transcript = string.Join("\n", context.Select(m => $"{names.GetValueOrDefault(m.SenderId, "someone")}: {m.Content}"));
+        try
+        {
+            var answers = await judge.AskAsync(transcript, new Dictionary<string, SystemOneQuestion>
+            {
+                ["memorable"] = new NoulQuestion("Something happened in this conversation that the people in it would still remember a week from now."),
+            }, CancellationToken.None);
+            var p = answers.Noul("memorable", 1);
+            logger.LogInformation("Capture gate p(memorable)={P:F2}", p);
+            return p >= MemorableThreshold;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "System One capture gate failed; capturing anyway");
+            return true;
         }
     }
 
