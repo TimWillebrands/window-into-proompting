@@ -538,7 +538,8 @@ function drawBody(
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    const name = isMe ? 'You' : (b.name ?? '').split(' ')[0];
+    const first = (b.name ?? '').split(' ')[0];
+    const name = isMe ? `${first} (you)` : first;
     ctx.strokeText(name, p.x, headY - 10 * scale);
     ctx.fillStyle = '#222';
     ctx.fillText(name, p.x, headY - 10 * scale);

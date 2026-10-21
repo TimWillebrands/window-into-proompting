@@ -521,7 +521,10 @@ function BodyProfile({
         >
             <span style={{ fontSize: 22 }}>{postureIcon(body)}</span>
             <div className="min-w-0 flex-1">
-                <strong>{isMe ? 'You' : body.name}</strong>
+                <strong>
+                    {body.name}
+                    {isMe ? ' (you)' : ''}
+                </strong>
                 {body.isHuman ? (
                     <span style={{ color: '#888' }}> (human)</span>
                 ) : null}
@@ -827,7 +830,8 @@ function BodyChip({
                 undefined
             }
         >
-            {postureIcon(body)} {isMe ? 'You' : body.name}
+            {postureIcon(body)} {body.name}
+            {isMe ? ' (you)' : ''}
             {body.activity ? ' 📱' : ''}
             {walking ? ` (${walking})` : ''}
         </span>
@@ -865,10 +869,10 @@ function PlaceTalk({
         if (shown.length) endRef.current?.scrollIntoView({ block: 'end' });
     }, [shown.length]);
 
-    const nameOf = (id: string | undefined) =>
-        id === playerId
-            ? 'You'
-            : (lives.find((l) => l.personaId === id)?.name ?? 'Someone');
+    const nameOf = (id: string | undefined) => {
+        const name = lives.find((l) => l.personaId === id)?.name ?? 'Someone';
+        return id === playerId ? `${name} (you)` : name;
+    };
 
     const say = async () => {
         const text = draft.trim();
