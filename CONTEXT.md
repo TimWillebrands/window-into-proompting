@@ -215,7 +215,7 @@ The fifth, stimulus-free instance of **Relevance Realization**: "nothing is aski
 _Avoid_: planner, scheduler, motivation.
 
 **Lived self**:
-What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), and the words that have **gone stale** in the world or in their own mouth. The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
 _Avoid_: persona state, stats, needs.
 
 **Affordance**:

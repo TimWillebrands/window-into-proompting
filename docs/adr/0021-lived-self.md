@@ -43,7 +43,11 @@ background.
 8. **Conversation thermostat** (`ConversationThermostatGrain`, key Room). Once per new message, System One
    answers two `noul` questions over the last 10 lines: *heavy?* and *circling?*. After 4+ heavy readings in a
    row, the Room cues people to lighten up, change subject or drift off. It is off when no judge is enabled.
-9. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+9. **Ties** (`PersonaTiesGrain`, key `party:persona`). This tracks how much each pair has talked: a DM line
+   counts 1, a Room line 0.3. It is seeded once from shared Rooms and DMs. It renders as *Who these people are
+   to you*, ranging from "barely know them" to "know each other well", plus when you last talked. Personal
+   things are for people you know well.
+10. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
@@ -74,5 +78,4 @@ lease (from her generated day) unprompted.
   generation fails it is retried at most every 10 min, and the block renders without the day.
 - Diary moods update the Self's mood, so reflection feeds back into the day.
 - Places (ADR 0020) adds a *Where you are* line to the same block; the Body wins for where, the day is life around it.
-- Next candidates: relationship texture per pair (familiarity, last contact, what you know of their life)
-  beyond Stances; and a lifelikeness bench (stale-word rate, stage-direction rate, length variance) tracked across runs.
+- Next candidates: what you know of someone's life (their day details learned in talk), and a lifelikeness bench (stale-word rate, stage-direction rate, length variance) tracked across runs.
