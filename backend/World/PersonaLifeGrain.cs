@@ -73,6 +73,8 @@ public sealed class PersonaLifeGrain(
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
         var presence = await PresenceAsync(partyId, personaId);
+        var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
+            .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList());
 
         var system = $"""
 {WorldLlm.Identity(self)}
@@ -98,6 +100,7 @@ Output ONLY JSON: {ChoiceShape}
         sb.AppendLine();
         sb.AppendLine("# On your mind");
         sb.AppendLine(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(6).Select(m => $"- {m.Snippet}")));
+        if (!string.IsNullOrWhiteSpace(ties)) sb.AppendLine($"\n{ties.Trim()}");
         if (stances.Count > 0)
         {
             sb.AppendLine("\n# Where you stand");

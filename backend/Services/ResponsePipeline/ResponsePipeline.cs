@@ -537,7 +537,7 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -590,21 +590,24 @@ public sealed class ResponsePipeline(
             }
         }
 
-        _ = NoteSpokeAsync(chatGroupGrain, self);
+        _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants);
         return result!;
     }
 
     /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
-    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario)
+    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present)
     {
         try
         {
             var partyId = await chatGroupGrain.GetPartyIdAsync();
-            var presenceTask = grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id))
+            var key = WorldKeys.Life(partyId, self.Id);
+            var presenceTask = grainFactory.GetGrain<IPersonaSelfGrain>(key)
                 .GetPresenceAsync(withDay: string.IsNullOrWhiteSpace(scenario));
+            var tiesTask = grainFactory.GetGrain<IPersonaTiesGrain>(key).RenderAsync(present.Select(p => p.Id).ToList());
             var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
-            var (presence, cue) = (await presenceTask, await cueTask);
-            return string.IsNullOrWhiteSpace(cue) ? presence : $"{presence}\n# The conversation\n{cue}\n";
+            var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
+            var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
+            return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }
         catch (Exception ex)
         {
@@ -613,12 +616,15 @@ public sealed class ResponsePipeline(
         }
     }
 
-    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self)
+    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present)
     {
         try
         {
             var partyId = await chatGroupGrain.GetPartyIdAsync();
-            await grainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id)).NoteSpokeAsync(self.Chattiness);
+            var key = WorldKeys.Life(partyId, self.Id);
+            await grainFactory.GetGrain<IPersonaSelfGrain>(key).NoteSpokeAsync(self.Chattiness);
+            var others = present.Where(p => p.Id != self.Id && p.Driver != DriverKind.System).Select(p => p.Id).ToList();
+            await grainFactory.GetGrain<IPersonaTiesGrain>(key).NoteExchangeAsync(others, direct: others.Count == 1);
         }
         catch (Exception ex)
         {
@@ -664,7 +670,7 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
 
         return await decisionService.ShouldRespondAsync(
             self,
