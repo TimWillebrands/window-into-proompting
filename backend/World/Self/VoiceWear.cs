@@ -21,6 +21,12 @@ public sealed record VoiceWearReport
     /// <summary>Per speaker: average line length in words.</summary>
     [Id(3)] public Dictionary<Guid, double> AverageWords { get; init; } = new();
 
+    /// <summary>Per speaker: share of lines opening with someone's name ("Denise, …").</summary>
+    [Id(4)] public Dictionary<Guid, double> VocativeRate { get; init; } = new();
+
+    /// <summary>Per speaker: share of lines that mostly restate one of their previous 5.</summary>
+    [Id(5)] public Dictionary<Guid, double> RepeatRate { get; init; } = new();
+
     public static readonly VoiceWearReport Empty = new();
 }
 
@@ -36,6 +42,21 @@ public static partial class VoiceWear
     private const int OwnMinCount = 3;
     private const int OwnWindow = 12;
     private const int MaxWords = 10;
+    private const double RepeatOverlap = 0.5;
+
+    private static bool OpensWithName(string text, HashSet<string> firstNames)
+    {
+        var m = Regex.Match(text.TrimStart(), @"^([\p{L}'-]+)\s*[,:]");
+        return m.Success && firstNames.Contains(m.Groups[1].Value.ToLowerInvariant());
+    }
+
+    /// <summary>Share of the shorter line's content words found in the other.</summary>
+    private static double Overlap(IReadOnlyList<string> a, IReadOnlyList<string> b)
+    {
+        var (sa, sb) = (a.ToHashSet(), b.ToHashSet());
+        var smaller = Math.Min(sa.Count, sb.Count);
+        return smaller < 3 ? 0 : sa.Intersect(sb).Count() / (double)smaller;
+    }
 
     [GeneratedRegex(@"[\p{L}][\p{L}'\-]*[\p{L}]")]
     private static partial Regex Word();
@@ -69,6 +90,11 @@ public static partial class VoiceWear
         var own = new Dictionary<Guid, List<string>>();
         var stage = new Dictionary<Guid, double>();
         var avg = new Dictionary<Guid, double>();
+        var vocative = new Dictionary<Guid, double>();
+        var repeat = new Dictionary<Guid, double>();
+        var firstNames = (names ?? Array.Empty<string>())
+            .Select(n => n.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant())
+            .Where(n => !string.IsNullOrEmpty(n)).ToHashSet();
         foreach (var speaker in tokenized.GroupBy(u => u.SpeakerId))
         {
             var lines = speaker.TakeLast(OwnWindow).ToList();
@@ -82,9 +108,16 @@ public static partial class VoiceWear
                 .ToList();
             stage[speaker.Key] = lines.Count(u => LeadingAction().IsMatch(u.Text)) / (double)lines.Count;
             avg[speaker.Key] = lines.Average(u => u.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length);
+            vocative[speaker.Key] = lines.Count(u => OpensWithName(u.Text, firstNames!)) / (double)lines.Count;
+            repeat[speaker.Key] = lines.Count == 1 ? 0 : lines.Select((u, i) => lines.Skip(Math.Max(0, i - 5)).Take(Math.Min(i, 5))
+                    .Any(prev => Overlap(prev.Tokens, u.Tokens) >= RepeatOverlap)).Count(r => r) / (double)lines.Count;
         }
 
-        return new VoiceWearReport { WornWords = worn, OwnWords = own, StageDirectionRate = stage, AverageWords = avg };
+        return new VoiceWearReport
+        {
+            WornWords = worn, OwnWords = own, StageDirectionRate = stage, AverageWords = avg,
+            VocativeRate = vocative, RepeatRate = repeat,
+        };
     }
 
     /// <summary>Prompt lines for one speaker; empty when nothing is worn.</summary>
@@ -99,6 +132,10 @@ public static partial class VoiceWear
             lines.Add($"You personally keep coming back to: {string.Join(", ", own)}. Give those a rest.");
         if (report.StageDirectionRate.TryGetValue(speakerId, out var rate) && rate >= 0.5)
             lines.Add("Most of your recent messages open with an *action*. You're typing, not on stage — skip it.");
+        if (report.VocativeRate.TryGetValue(speakerId, out var voc) && voc >= 0.5)
+            lines.Add("Most of your lines open with someone's name. In a small chat nobody does that; just say it.");
+        if (report.RepeatRate.TryGetValue(speakerId, out var rep) && rep >= 0.3)
+            lines.Add("You've been saying the same things over and over. Say something new or say nothing.");
         if (report.AverageWords.TryGetValue(speakerId, out var words) && words >= 60)
             lines.Add($"Your messages have been long (about {Math.Round(words)} words). People skim; keep it short.");
         return lines;

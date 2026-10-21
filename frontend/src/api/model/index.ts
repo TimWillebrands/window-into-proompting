@@ -107,6 +107,8 @@ export * from './voiceLine';
 export * from './voiceWearReport';
 export * from './voiceWearReportAverageWords';
 export * from './voiceWearReportOwnWords';
+export * from './voiceWearReportRepeatRate';
 export * from './voiceWearReportStageDirectionRate';
+export * from './voiceWearReportVocativeRate';
 export * from './worldActivity';
 export * from './worldStatus';

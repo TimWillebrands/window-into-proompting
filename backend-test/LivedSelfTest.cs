@@ -231,3 +231,30 @@ public class RescaleTest
         Assert.All(SelfMath.Rescale(new[] { 0.3, 0.32 }), p => Assert.Equal(1.0, p));
     }
 }
+
+public class VocativeRepeatTest
+{
+    private static readonly Guid A = Guid.NewGuid();
+    private static readonly Guid B = Guid.NewGuid();
+
+    [Fact]
+    public void Analyze_MeasuresNameOpenersAndRepeats()
+    {
+        var lines = new List<Utterance>
+        {
+            new(A, "Denise, wednesday I'll stand next to you with the roof estimate."),
+            new(A, "Denise, going to stretch my back first."),
+            new(A, "wednesday I'll stand right next to you, roof estimate in my bag."),
+            new(A, "soba is getting cold."),
+            new(B, "Eiko: fine by me."),
+            new(B, "sandwich time"),
+        };
+        var report = VoiceWear.Analyze(lines, new[] { "Denise Moreau", "Eiko Tanaka" });
+
+        Assert.Equal(0.5, report.VocativeRate[A], 3);
+        Assert.Equal(0.25, report.RepeatRate[A], 3);
+        Assert.Equal(0.5, report.VocativeRate[B], 3);
+        Assert.Equal(0, report.RepeatRate[B], 3);
+        Assert.Contains(VoiceWear.RenderFor(report, A), l => l.Contains("open with someone's name"));
+    }
+}
