@@ -187,6 +187,42 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
         return Ok(await grains.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(from, request.WithPersonaId));
     }
 
+    // ─── Calendar ─────────────────────────────────────────────────────────────
+
+    [HttpGet("gatherings")]
+    public async Task<ActionResult<List<Gathering>>> GetGatherings(Guid partyId)
+        => Ok(await grains.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync());
+
+    /// <summary>A human plans a Gathering in a Room; personas see it in their Calendar perception.</summary>
+    [HttpPost("gatherings")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<Gathering>> PlanGathering(Guid partyId, [FromBody] PlanGatheringRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || request.StartsAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            return BadRequest("Title and a future start time are required.");
+        var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups())
+            .FirstOrDefault(g => g.Id == request.RoomId && g.Kind == ChatGroupKinds.Room);
+        if (room is null) return BadRequest("Unknown room.");
+        var (hostId, hostName) = await AuthorAsync(partyId, request.HostId);
+        var g = await grains.GetGrain<ICalendarGrain>(partyId)
+            .PlanAsync(hostId, hostName, request.Title.Trim(), room.Id, room.Name, request.StartsAt);
+        await Clock(partyId).RecordAsync(new WorldActivity
+        {
+            PersonaId = hostId, PersonaName = hostName, App = "calendar", Action = "plan", TargetId = room.Id,
+            Summary = $"planned \"{g.Title}\" in #{room.Name}",
+        });
+        return Ok(g);
+    }
+
+    [HttpPost("gatherings/{gatheringId:guid}/rsvp")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Gathering>> Rsvp(Guid partyId, Guid gatheringId, [FromBody] RsvpRequest request)
+    {
+        var (id, _) = await AuthorAsync(partyId, request.PersonaId);
+        return await grains.GetGrain<ICalendarGrain>(partyId).RsvpAsync(gatheringId, id, request.Going) is { } g
+            ? Ok(g) : NotFound();
+    }
+
     // ─── Diary ────────────────────────────────────────────────────────────────
 
     [HttpGet("diary/{personaId:guid}")]
@@ -210,6 +246,8 @@ public sealed record TickResponse(bool Started);
 public sealed record EnsurePlayerRequest(string? Name);
 public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
+public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId);
+public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
 public sealed record PlayerResponse(Guid PlayerId);
 public sealed record CreateBoardPostRequest(string Title, string Body, Guid? AuthorId);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);

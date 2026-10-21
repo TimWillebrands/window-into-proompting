@@ -41,6 +41,38 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task LifeTurn_ChoosingPlan_SchedulesGatheringHostedByPersona()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
+        ScriptedLlm.ChooseOptionContaining = "Plan a get-together";
+
+        var activity = await _fx.GrainFactory
+            .GetGrain<IPersonaLifeGrain>(WorldKeys.Life(partyId, denise)).LiveAsync(null);
+
+        Assert.Equal("plan", activity.Action);
+        var g = Assert.Single(await _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync());
+        Assert.Equal(denise, g.HostId);
+        Assert.Contains(denise, g.AttendeeIds);
+        Assert.True(g.StartsAt > DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeMilliseconds());
+    }
+
+    [Fact]
+    public async Task DueGathering_StartsOnceAndOnlyWhenDue()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
+        var calendar = _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId);
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        await calendar.PlanAsync(denise, "Denise", "Soon", Guid.NewGuid(), "x", now + 60_000);
+        var past = await calendar.PlanAsync(denise, "Denise", "Now", Guid.NewGuid(), "x", now - 1);
+
+        var started = await calendar.StartDueAsync(now);
+        var again = await calendar.StartDueAsync(now);
+
+        Assert.Equal(past.Id, Assert.Single(started).Id);
+        Assert.Empty(again);
+    }
+
+    [Fact]
     public async Task LifeTurn_ChoosingZero_Rests()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();
@@ -110,7 +142,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
 
         public Task DisposeAsync() => Cluster.DisposeAsync().AsTask();
 
-        public async Task<(Guid PartyId, Guid Denise)> CreateWorldAsync()
+        public async Task<(Guid PartyId, Guid Denise)> CreateWorldAsync(bool withRoom = false)
         {
             var partyId = Guid.NewGuid();
             var denise = Guid.NewGuid();
@@ -119,7 +151,16 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
             var participants = new List<PartyParticipant> { new() { Id = denise, Name = "Denise", Driver = DriverKind.LLM } };
             await GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty)
                 .AddParty(new PartyInfo { Id = partyId, Name = "world", Participants = participants });
+            if (withRoom)
+            {
+                var pieter = Guid.NewGuid();
+                await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty)
+                    .AddPersona(new Persona(pieter, "Pieter", "You are Pieter.", "An architect."));
+                participants.Add(new PartyParticipant { Id = pieter, Name = "Pieter", Driver = DriverKind.LLM });
+            }
             await GrainFactory.GetGrain<IPartyGrain>(partyId).SetParticipants(participants);
+            if (withRoom)
+                await GrainFactory.GetGrain<IPartyGrain>(partyId).CreateChatGroup("kitchen");
             return (partyId, denise);
         }
 
@@ -139,6 +180,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     services.AddSingleton<IWorldApp, MessengerApp>();
                     services.AddSingleton<IWorldApp, BoardApp>();
                     services.AddSingleton<IWorldApp, DiaryApp>();
+                    services.AddSingleton<IWorldApp, CalendarApp>();
                 });
             }
         }

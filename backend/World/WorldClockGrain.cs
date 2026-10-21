@@ -53,6 +53,7 @@ public sealed class WorldClockGrain(
         state.State.LastTickAt = now.ToUnixTimeMilliseconds();
 
         await CaptureLullsAsync(now);
+        await StartDueGatheringsAsync(now);
         if (!WithinBudget(now)) return;
         if (AmbientDue(now))
         {
@@ -270,6 +271,32 @@ public sealed class WorldClockGrain(
         {
             _capturing.Remove(thread.Id);
         }
+    }
+
+    /// <summary>A planned Gathering came due: attendees join its Room and get a Life turn pointed at it.</summary>
+    private async Task StartDueGatheringsAsync(DateTimeOffset now)
+    {
+        var due = await GrainFactory.GetGrain<ICalendarGrain>(PartyId).StartDueAsync(now.ToUnixTimeMilliseconds());
+        if (due.Count == 0) return;
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+        foreach (var g in due)
+        {
+            var attendees = g.AttendeeIds.Where(id => cast.Any(c => c.Id == id)).ToList();
+            var room = GrainFactory.GetGrain<IChatGroupGrain>(g.RoomId);
+            var members = (await room.GetParticipantIdsAsync()).ToHashSet();
+            members.UnionWith(attendees);
+            await room.SetParticipantIdsAsync(members);
+
+            await RecordAsync(new WorldActivity
+            {
+                PersonaId = g.HostId, PersonaName = g.HostName, App = "calendar", Action = "start", TargetId = g.RoomId,
+                Summary = $"\"{g.Title}\" is starting in #{g.RoomName} ({attendees.Count} going)",
+            });
+
+            foreach (var id in attendees.Where(id => cast.First(c => c.Id == id).DefaultDriver == DriverKind.LLM && !IsBusy(id, now)))
+                StartLife(id, $"It's time for \"{g.Title}\" in #{g.RoomName} — you said you'd be there.");
+        }
+        await state.WriteStateAsync();
     }
 
     private bool AmbientDue(DateTimeOffset now)

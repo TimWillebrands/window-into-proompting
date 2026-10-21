@@ -30,10 +30,21 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         }
         if (mine.Count == 0 && elsewhere.Count == 0) return null;
 
+        // Gatherings this Persona said they'd attend that are happening now.
+        var nowMs = ctx.Now.ToUnixTimeMilliseconds();
+        var happeningNow = (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
+            .Where(g => g.Status == GatheringStatus.Started && nowMs - g.StartsAt < 45 * 60_000 && g.AttendeeIds.Contains(ctx.Self.Id))
+            .ToDictionary(g => g.RoomId, g => g);
+
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
-        foreach (var (room, recent) in mine.OrderByDescending(r => LastAt(r.Room, r.Recent)).Take(4))
+        foreach (var (room, recent) in mine.OrderByDescending(r => happeningNow.ContainsKey(r.Room.Id)).ThenByDescending(r => LastAt(r.Room, r.Recent)).Take(4))
         {
+            if (happeningNow.TryGetValue(room.Id, out var gathering))
+            {
+                sb.AppendLine($"#{room.Name}: \"{gathering.Title}\" is happening there right now — you said you'd come.");
+                affordances.Add(new Affordance(Id, $"Show up for \"{gathering.Title}\" in #{room.Name}", 5, room.Id, "say"));
+            }
             var last = recent.LastOrDefault();
             var scenario = string.IsNullOrWhiteSpace(room.Scenario) ? "" : $" — {WorldStream.Clip(room.Scenario, 100)}";
             sb.AppendLine(last is null
@@ -42,7 +53,7 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
             foreach (var m in recent)
                 sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}: {WorldStream.Clip(m.Content, 140)}");
 
-            if (last?.SenderId == ctx.Self.Id) continue;
+            if (last?.SenderId == ctx.Self.Id || happeningNow.ContainsKey(room.Id)) continue;
             var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
             affordances.Add(new Affordance(Id,
                 last is null ? $"Start a conversation in #{room.Name}" : $"Say something in #{room.Name}",
