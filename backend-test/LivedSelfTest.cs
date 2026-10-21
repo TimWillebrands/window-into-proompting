@@ -155,3 +155,20 @@ public class OpenersTest
         Assert.Contains("Things you might bring up if there's a lull (or not at all): oat milk prices", text);
     }
 }
+
+public class ThreadFatigueTest
+{
+    private static readonly Guid Me = Guid.NewGuid();
+    private static readonly Guid Other = Guid.NewGuid();
+
+    [Fact]
+    public void Fatigue_FromOwnRecentReplies_AndLength()
+    {
+        Assert.Equal(0, PartyTown.World.Apps.BoardApp.ThreadFatigue(new[] { Other, Me, Other }, Me));
+        Assert.Equal(1, PartyTown.World.Apps.BoardApp.ThreadFatigue(new[] { Me, Other, Me, Other }, Me));
+        var longThread = Enumerable.Repeat(Other, 12).ToList();
+        Assert.Equal(1, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
+        longThread.AddRange(new[] { Me, Me });
+        Assert.Equal(2, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
+    }
+}
