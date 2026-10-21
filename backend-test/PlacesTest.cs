@@ -33,6 +33,23 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task TheCityCentre_IsAnOutdoorPlace_AndEveryPlaceHasAScene()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+
+        var centre = snapshot.Places.Single(p => p.Name == "the city centre");
+        Assert.Equal("centre", centre.Scene);
+        Assert.All(snapshot.Places, p => Assert.False(string.IsNullOrEmpty(p.Scene)));
+        Assert.Contains(snapshot.Furni, f => f.PlaceId == centre.Id && f.Kind == FurniKinds.Lamp);
+
+        await places.MoveAsync(denise, centre.Id, "bridge");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.StartsWith("You're in the city centre, standing on the bridge.", await places.GetSituationAsync(denise));
+    }
+
+    [Fact]
     public async Task WalkingTakesTime_ThenTheBodyArrives()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();

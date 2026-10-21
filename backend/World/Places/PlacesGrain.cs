@@ -62,6 +62,7 @@ public sealed class PlacesGrain(
             await SaveAsync();
         }
         BackfillPrepositions();
+        if (AddNewPublicPlaces()) await SaveAsync();
         foreach (var place in state.State.Places) EnsureFurni(place);
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
@@ -563,8 +564,8 @@ public sealed class PlacesGrain(
         var (place, furni) = candidates[Random.Shared.Next(candidates.Count)];
         furni.Broken = true;
         var text = furni.Kind == FurniKinds.Lamp
-            ? $"{Capital(furni.Name)} at {place.Name} has started flickering."
-            : $"{Capital(furni.Name)} at {place.Name} broke down with a sad hiss.";
+            ? $"{Capital(furni.Name)} {place.At} {place.Name} has started flickering."
+            : $"{Capital(furni.Name)} {place.At} {place.Name} broke down with a sad hiss.";
         _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync(text);
         _ = PublishPlaceAsync(place);
     }
@@ -597,6 +598,18 @@ public sealed class PlacesGrain(
             .SelectMany(p => p.Spots).GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().At);
         foreach (var spot in state.State.Places.SelectMany(p => p.Spots))
             if (spot.At == "at" && template.TryGetValue(spot.Id, out var at)) spot.At = at;
+    }
+
+    /// <summary>Worlds seeded before a public Place existed get it; older Places get their scene by name or kind.</summary>
+    private bool AddNewPublicPlaces()
+    {
+        var seeds = PlaceSeeds.Public();
+        var added = seeds.Where(s => state.State.Places.All(p => p.Name != s.Name)).ToList();
+        state.State.Places.AddRange(added);
+        var unscened = state.State.Places.Where(p => p.Scene is null).ToList();
+        foreach (var place in unscened)
+            place.Scene = place.Kind == PlaceKinds.Home ? "home" : seeds.FirstOrDefault(s => s.Name == place.Name)?.Scene;
+        return added.Count > 0 || unscened.Count > 0;
     }
 
     /// <summary>One Body per Participant (Narrator excluded); a Home for each, created on demand.</summary>
@@ -748,7 +761,7 @@ public sealed class PlacesGrain(
             var dest = Find(body.DestPlaceId!.Value);
             var mins = Math.Max(0, (body.ArriveAt!.Value - Now()) / 60_000.0);
             return body.DestPlaceId == body.PlaceId
-                ? $"You're walking over to {SpotName(dest, body.DestSpotId)} at {WhereName(dest, body.ParticipantId)}."
+                ? $"You're walking over to {SpotName(dest, body.DestSpotId)} {(dest?.OwnerId == body.ParticipantId ? "at" : dest?.At ?? "at")} {WhereName(dest, body.ParticipantId)}."
                 : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
         }
         var place = Find(body.PlaceId);
@@ -792,6 +805,7 @@ public sealed class PlacesGrain(
             Posture.Lying => $"lying {spot?.At ?? "on"} {name}",
             Posture.Sitting => $"sitting {spot?.At ?? "at"} {name}",
             _ when spot?.At == "in" => $"in {name}",
+            _ when spot is { At: "on", Seat: false } => $"standing on {name}",
             _ => $"standing by {name}",
         };
     }
@@ -800,7 +814,7 @@ public sealed class PlacesGrain(
         => place is null ? "somewhere" : place.OwnerId == viewerId ? "your place" : place.Name;
 
     internal static string AtName(Place? place, Guid viewerId)
-        => place is null ? "somewhere" : place.OwnerId == viewerId ? "at home" : $"at {place.Name}";
+        => place is null ? "somewhere" : place.OwnerId == viewerId ? "at home" : $"{place.At} {place.Name}";
 
     private static string TalkName(Place place)
         => place.Name.StartsWith("the ", StringComparison.Ordinal) ? place.Name[4..] : place.Name;

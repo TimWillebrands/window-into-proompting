@@ -19,6 +19,10 @@ public sealed class Place
     [Id(8)] public List<Guid> Guests { get; set; } = new();
     /// <summary>Home only: who's knocking, and since when.</summary>
     [Id(9)] public Dictionary<Guid, long> Knocks { get; set; } = new();
+    /// <summary>Which client scene draws it (ADR 0023): lobby, cafe, centre, home; unknown ones get a generated room.</summary>
+    [Id(10)] public string? Scene { get; set; }
+    /// <summary>Preposition: "at the Café", "in the city centre".</summary>
+    [Id(11)] public string At { get; set; } = "at";
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
@@ -119,7 +123,7 @@ public static class PlaceSeeds
     {
         new Place
         {
-            Id = Guid.NewGuid(), Name = "the Lobby", Kind = PlaceKinds.Public,
+            Id = Guid.NewGuid(), Name = "the Lobby", Kind = PlaceKinds.Public, Scene = "lobby",
             Description = "a big carpeted hall with a reception desk, worn sofas and a noticeboard",
             Spots = new List<Spot>
             {
@@ -131,7 +135,7 @@ public static class PlaceSeeds
         },
         new Place
         {
-            Id = Guid.NewGuid(), Name = "the Café", Kind = PlaceKinds.Public,
+            Id = Guid.NewGuid(), Name = "the Café", Kind = PlaceKinds.Public, Scene = "cafe",
             Description = "a small café that smells of coffee, with a counter, a few tables and a jukebox",
             Spots = new List<Spot>
             {
@@ -141,6 +145,19 @@ public static class PlaceSeeds
                 new() { Id = "jukebox", Name = "the jukebox", Capacity = 2 },
             },
         },
+        new Place
+        {
+            Id = Guid.NewGuid(), Name = "the city centre", Kind = PlaceKinds.Public, Scene = "centre", At = "in",
+            Description = "the old centre outside: two canals lined with crooked gabled houses, cobbled streets, a humped bridge and bikes chained to every railing",
+            Spots = new List<Spot>
+            {
+                new() { Id = "bridge", Name = "the bridge", At = "on", Capacity = 4 },
+                new() { Id = "bench", Name = "the bench by the canal", At = "on", Capacity = 3, Seat = true },
+                new() { Id = "steps", Name = "the steps down to the water", At = "on", Capacity = 3, Seat = true },
+                new() { Id = "cart", Name = "the herring cart", Capacity = 3 },
+                new() { Id = "bikes", Name = "the bike racks", At = "by", Capacity = 2 },
+            },
+        },
     };
 
     public static Place Home(Guid ownerId, string ownerName) => new()
@@ -148,6 +165,7 @@ public static class PlaceSeeds
         Id = Guid.NewGuid(),
         Name = $"{ownerName.Split(' ')[0]}'s place",
         Kind = PlaceKinds.Home,
+        Scene = "home",
         OwnerId = ownerId,
         Description = "a small apartment",
         Spots = new List<Spot>

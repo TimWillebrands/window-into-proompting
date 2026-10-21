@@ -47,7 +47,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             if (publicPlaces.Count > 0)
             {
                 var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];
-                affordances.Add(new Affordance(Id, $"Plan to meet people at {place.Name} later", 0, place.Id, "plan-place"));
+                affordances.Add(new Affordance(Id, $"Plan to meet people {place.At} {place.Name} later", 0, place.Id, "plan-place"));
             }
         }
 
@@ -67,7 +67,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             meetAt = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
         var room = ctx.Threads.FirstOrDefault(t => t.Id == target);
         if (room is null && meetAt is null) return null;
-        var whereText = meetAt is null ? $"in the chat room #{room!.Name}" : $"in person at {meetAt.Name}";
+        var whereText = meetAt is null ? $"in the chat room #{room!.Name}" : $"in person {meetAt.At} {meetAt.Name}";
         var json = await llm.CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together {whereText}. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and 240).\nOutput ONLY JSON: {PlanShape}",
             $"What you have in mind: {intent}", ct, 0.9, ["title", "minutesFromNow"]);
@@ -86,7 +86,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         Guid partyId, Guid hostId, string hostName, string title, Places.Place place, long startsAt, DateTimeOffset now)
     {
         var planned = await grains.GetGrain<ICalendarGrain>(partyId).PlanAsync(hostId, hostName, title, Guid.Empty, place.Name, startsAt, place.Id);
-        return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" at {place.Name} for {When(startsAt, now)}", null));
+        return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" {place.At} {place.Name} for {When(startsAt, now)}", null));
     }
 
     /// <summary>Commit a Gathering — Persona-titled or Player-typed alike.</summary>

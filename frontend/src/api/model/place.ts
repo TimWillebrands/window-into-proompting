@@ -21,4 +21,7 @@ export interface Place {
     furni?: Furni[];
     guests?: string[];
     knocks?: PlaceKnocks;
+    /** @nullable */
+    scene?: string | null;
+    at?: string;
 }

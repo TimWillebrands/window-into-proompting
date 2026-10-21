@@ -5883,6 +5883,15 @@
               ],
               "format": "int64"
             }
+          },
+          "scene": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": "string"
           }
         }
       },

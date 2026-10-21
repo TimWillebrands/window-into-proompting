@@ -217,6 +217,12 @@ public static class FurniRules
                 F("plant", FurniKinds.Plant, "the big plant by the window bench", "window"),
                 F("lamp", FurniKinds.Lamp, "the lamp at reception", "desk"),
             },
+            "the city centre" => new List<Furni>
+            {
+                F("lamp", FurniKinds.Lamp, "the old street lamp on the bridge", "bridge"),
+                F("planters", FurniKinds.Plant, "the geraniums by the bench", "bench"),
+                F("coffee", FurniKinds.Coffee, "the coffee cart", "cart"),
+            },
             _ => new List<Furni>(),
         };
     }
