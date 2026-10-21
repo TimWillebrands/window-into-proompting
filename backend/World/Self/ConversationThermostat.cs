@@ -17,11 +17,18 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
     private int _heavyStreak;
     private string? _cue;
     private bool _windingDown;
+    private ThermostatRead _read = ThermostatRead.None;
 
     public async Task<bool> IsWindingDownAsync()
     {
         await GetCueAsync();
         return _windingDown;
+    }
+
+    public async Task<ThermostatRead> GetReadAsync()
+    {
+        await GetCueAsync();
+        return _read;
     }
 
     public async Task<string?> GetCueAsync()
@@ -55,6 +62,8 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
             _heavyStreak = Thermostat.NextStreak(_heavyStreak, heavy);
             _windingDown = fizzling >= Thermostat.FizzlingThreshold;
             _cue = Thermostat.Cue(_heavyStreak, circling, fizzling);
+            _read = new ThermostatRead(heavy, circling, fizzling, _heavyStreak,
+                circling >= Thermostat.CirclingThreshold || fizzling >= Thermostat.FizzlingThreshold);
             _lastMessageId = last;
             logger.LogInformation("Thermostat {Room}: heavy={Heavy:F2} circling={Circling:F2} fizzling={Fizzling:F2} streak={Streak}", this.GetPrimaryKey(), heavy, circling, fizzling, _heavyStreak);
         }
@@ -94,6 +103,19 @@ public static class Thermostat
 public interface IConversationThermostatGrain : IGrainWithGuidKey
 {
     [Alias("GetCueAsync")] Task<string?> GetCueAsync();
+    /// <summary>The last System One read; <see cref="ThermostatRead.Stale"/> = circling or fizzling (Places foregrounds leaving).</summary>
+    [Alias("GetReadAsync")] Task<ThermostatRead> GetReadAsync();
     /// <summary>True while the last read found the talk fizzling; the name-mention auto-reply is off then.</summary>
     [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
+}
+
+[GenerateSerializer, Alias("PartyTown.World.Self.ThermostatRead")]
+public sealed record ThermostatRead(
+    [property: Id(0)] double Heavy,
+    [property: Id(1)] double Circling,
+    [property: Id(2)] double Fizzling,
+    [property: Id(3)] int HeavyStreak,
+    [property: Id(4)] bool Stale)
+{
+    public static readonly ThermostatRead None = new(0, 0, 0, 0, false);
 }
