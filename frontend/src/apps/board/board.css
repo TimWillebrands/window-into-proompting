@@ -1,0 +1,317 @@
+/* Partyboard: phpBB 2 "subSilver" skin, scoped to .pb */
+
+.pb {
+    background: #e5e5e5;
+    color: #000;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 11px;
+}
+
+.pb a,
+.pb .pb-link {
+    color: #006699;
+    text-decoration: none;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+}
+
+.pb a:hover,
+.pb .pb-link:hover {
+    color: #dd6900;
+    text-decoration: underline;
+}
+
+.pb-header {
+    background: linear-gradient(180deg, #ffffff 0%, #e5e5e5 100%);
+    border-bottom: 1px solid #a9b8c2;
+}
+
+.pb-logo {
+    font-family: "Trebuchet MS", Verdana, sans-serif;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: -0.5px;
+    color: #006699;
+    text-shadow: 1px 1px 0 #fff;
+}
+
+.pb-logo span {
+    color: #dd6900;
+}
+
+.pb-maintitle {
+    font-family: "Trebuchet MS", Verdana, sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1.2;
+    color: #000;
+    overflow-wrap: anywhere;
+}
+
+.pb-nav {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.pb-small {
+    font-size: 10px;
+}
+
+.pb-muted {
+    color: #555;
+}
+
+.pb-forumline {
+    background: #fff;
+    border: 2px solid #006699;
+    border-collapse: separate;
+    border-spacing: 1px;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.pb-forumline th {
+    background: linear-gradient(180deg, #2b7bb0 0%, #006699 55%, #00557f 100%);
+    color: #ffa34f;
+    font-size: 11px;
+    font-weight: bold;
+    height: 24px;
+    padding: 0 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pb-forumline td {
+    padding: 5px 6px;
+    vertical-align: middle;
+}
+
+.pb-row1 {
+    background: #efefef;
+}
+
+.pb-row2 {
+    background: #dee3e7;
+}
+
+.pb-row3 {
+    background: #d1d7dc;
+}
+
+.pb-cat {
+    background: linear-gradient(180deg, #e8edf1 0%, #c7d0d7 100%);
+    font-weight: bold;
+    color: #004c75;
+    height: 22px;
+}
+
+.pb-topictitle {
+    font-weight: bold;
+    font-size: 11px;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.pb-name {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.pb-player-name {
+    color: #aa0000;
+}
+
+.pb-postbody {
+    font-size: 12px;
+    line-height: 18px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.pb-postdetails {
+    font-size: 10px;
+    color: #333;
+}
+
+.pb-hr {
+    border: 0;
+    border-top: 1px solid #a9b8c2;
+    margin: 4px 0 6px;
+}
+
+.pb-avatar {
+    border: 1px solid #a9b8c2;
+    background: #fff;
+    image-rendering: auto;
+}
+
+.pb-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 0 4px;
+    border-radius: 2px;
+    line-height: 14px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.pb-badge-new {
+    background: #dd6900;
+    color: #fff;
+}
+
+.pb-badge-you {
+    background: #fff4e0;
+    color: #a34a00;
+    border: 1px solid #f0b070;
+}
+
+/* phpBB image-button look */
+.pb .pb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: Verdana, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: #004c75;
+    background: linear-gradient(180deg, #ffffff 0%, #e1e8ee 60%, #c7d0d7 100%);
+    border: 1px solid #006699;
+    border-radius: 3px;
+    padding: 3px 9px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pb .pb-btn:hover:not(:disabled) {
+    color: #dd6900;
+    border-color: #dd6900;
+}
+
+.pb .pb-btn:disabled {
+    color: #8899a6;
+    border-color: #a9b8c2;
+    cursor: default;
+}
+
+.pb .pb-btn-primary {
+    background: linear-gradient(180deg, #ffe7c2 0%, #ffc56e 60%, #f0a030 100%);
+    border-color: #b86000;
+    color: #5a2a00;
+}
+
+.pb textarea,
+.pb input[type="text"] {
+    font-family: Verdana, Arial, sans-serif;
+    font-size: 12px;
+    background: #fff;
+    color: #333;
+    border: 1px solid #006699;
+    padding: 3px 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pb textarea:focus,
+.pb input[type="text"]:focus {
+    outline: 1px solid #dd6900;
+    border-color: #dd6900;
+}
+
+.pb-info {
+    background: #fff;
+    border: 2px solid #006699;
+    padding: 16px;
+    text-align: center;
+}
+
+/* Topic view: table-like grid so it can stack when narrow */
+.pb-posts {
+    background: #fff;
+    border: 2px solid #006699;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 1px;
+    padding: 1px;
+}
+
+.pb-posts > .pb-th {
+    background: linear-gradient(180deg, #2b7bb0 0%, #006699 55%, #00557f 100%);
+    color: #ffa34f;
+    font-weight: bold;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pb-author-cell {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pb-author-cell .pb-avatar {
+    width: 72px;
+    height: 72px;
+    margin: 2px 0;
+}
+
+.pb-message-cell {
+    padding: 6px 8px;
+    min-width: 0;
+}
+
+.pb-posts > .pb-spacer {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: #d1d7dc;
+}
+
+.pb-col-last-inline {
+    display: none;
+}
+
+/* Narrow windows (classes set by BoardApp's ResizeObserver) */
+.pb-narrow .pb-col-author,
+.pb-narrow .pb-col-replies,
+.pb-tiny .pb-col-last {
+    display: none;
+}
+
+.pb-narrow .pb-col-last-inline {
+    display: inline;
+}
+
+.pb-tiny .pb-posts {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.pb-tiny .pb-posts > .pb-th-author {
+    display: none;
+}
+
+.pb-tiny .pb-author-cell {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+}
+
+.pb-tiny .pb-author-cell .pb-avatar {
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    order: -1;
+}

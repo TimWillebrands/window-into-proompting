@@ -16,6 +16,4 @@ public interface IPartyRealtimeHub
     /// <summary>
     /// Handles a new websocket connection for an import session: scene-run progress and
     /// pre-fold draft item previews (ADR 0017 — no bespoke import sockets).
-    /// </summary>
-    Task HandleImportConnectionAsync(Guid sessionId, WebSocket socket, CancellationToken cancellationToken);
 }

@@ -25,8 +25,19 @@ namespace PartyTown.Services.ResponsePipeline;
 /// return salience=0 so the in-flight generation continues. Conservative default —
 /// preserves current behavior rather than introducing a new failure surface.
 /// </summary>
-public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logger)
+public sealed class PersonaSalienceService(
+    ILlmRouterGrain router,
+    ILogger logger,
+    PartyTown.Services.SystemOne.ISystemOneJudge? judge = null)
 {
+    private static readonly IReadOnlyDictionary<string, string?> Kinds = new Dictionary<string, string?>
+    {
+        ["redirect"] = "the new message changes the topic so the reply in progress would seem odd",
+        ["contradict"] = "the new message contradicts what the reply in progress assumes",
+        ["tangent"] = "on-topic, but the reply in progress still works",
+        ["irrelevant"] = "unrelated to the reply in progress",
+    };
+
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
@@ -48,6 +59,42 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
         span?.SetTag("persona.id", self.Id);
         span?.SetTag("persona.name", self.Name);
         span?.SetTag("new_message.sender", newMessageSenderName);
+
+        // Interruption is pure weighing: System One answers it in one calibrated pass when available.
+        if (judge is { Enabled: true })
+        {
+            try
+            {
+                var state = UserPrompt(self.Name, inFlightGutReaction, inFlightWouldSay, inFlightGeneratedSoFar,
+                    newMessage.Content ?? string.Empty, newMessageSenderName);
+                var answers = await judge.AskAsync(state, new Dictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>
+                {
+                    ["interrupt"] = new PartyTown.Services.SystemOne.NoulQuestion(
+                        $"If {self.Name} finishes and sends the in-flight message unchanged, it will look out of touch, wrong or rude given the new message."),
+                    ["kind"] = new PartyTown.Services.SystemOne.ChoiceQuestion(
+                        "How does the new message relate to the in-flight message?", Kinds),
+                }, ct);
+                if (answers.Nouls.ContainsKey("interrupt"))
+                {
+                    var kind = answers.Choices.TryGetValue("kind", out var dist) && dist.Count > 0
+                        ? dist.MaxBy(kv => kv.Value).Key
+                        : "tangent";
+                    var scored = new SalienceScore(Math.Clamp(answers.Noul("interrupt", 0), 0, 1), kind);
+                    span?.SetTag("salience.source", "system-one");
+                    span?.SetTag("salience.value", scored.Value);
+                    span?.SetTag("salience.kind", scored.Kind);
+                    return scored;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Persona {PersonaName} System One salience failed — falling back to LLM", self.Name);
+            }
+        }
 
         var messages = new List<LlmChatMessage>
         {
@@ -92,53 +139,21 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
             ResponseFormat = responseFormat.ToJsonString()
         };
 
-        ILlmEndpointGrain? generation = null;
+        // Race path stays on the cheap tier; any failure lets the in-flight draft ride —
+        // an unavailable cheap model must never cancel a generation.
+        string content;
         try
         {
-            generation = await router.RouteAsync(job.JobComplexity, ct);
+            content = (await new LlmCall(router, logger).StreamAsync(job, LlmTiers.ThoughtsOnly, ct, span: span)).Content;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // No CharacterThoughts-capable provider configured, or router itself failed.
-            // Race code will treat this as "let it ride" — we MUST NOT cancel an in-flight
-            // generation just because the cheap model is unavailable.
-            logger.LogWarning(ex, "Persona {PersonaName} salience routing failed — defaulting to 0", self.Name);
-            span?.SetTag("salience.fallback", "routing");
+            logger.LogWarning(ex, "Persona {PersonaName} salience call failed — defaulting to 0", self.Name);
+            span?.SetTag("salience.fallback", ex is InvalidOperationException ? "routing" : "generation");
             return SalienceScore.LetItRide;
         }
 
-        try
-        {
-            var attribution = await generation.GetAttributionAsync();
-            span?.SetTag("llm.provider", attribution?.Provider);
-            span?.SetTag("llm.model", attribution?.ModelName);
-        }
-        catch
-        {
-            // Best-effort instrumentation.
-        }
-
-        var text = new StringBuilder();
-        try
-        {
-            await foreach (var chunk in generation.GenerateAsync(job, ct))
-            {
-                if (chunk.Type == LlmGenerationEvent.ContentChunk)
-                    text.Append(chunk.Data);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Persona {PersonaName} salience generation failed — defaulting to 0", self.Name);
-            span?.SetTag("salience.fallback", "generation");
-            return SalienceScore.LetItRide;
-        }
-
-        var raw = text.ToString().Trim();
+        var raw = content.Trim();
         var parsed = TryParse(raw);
         if (parsed is null)
         {
@@ -176,7 +191,7 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
 
         try
         {
-            var repaired = JsonRepair.RepairJson(cleaned, JsonRepair.InputType.LLM);
+            var repaired = PartyTown.Services.Memory.SafeJsonRepair.Repair(cleaned);
             return Attempt(repaired);
         }
         catch

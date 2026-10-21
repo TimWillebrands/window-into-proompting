@@ -67,6 +67,32 @@ public sealed class PartyGrain(
         await ConfirmEvents();
     }
 
+    public async Task<List<PartyParticipant>> AddParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var known = State.Participants.Select(p => p.Id).ToHashSet();
+        var added = participants.Where(p => p.Id != Guid.Empty && known.Add(p.Id)).ToList();
+        if (added.Count > 0)
+            await SetParticipants(State.Participants.Concat(added).ToList());
+        return added;
+    }
+
+    public async Task UpsertParticipantsAsync(List<PartyParticipant> participants)
+    {
+        var byId = State.Participants.ToDictionary(p => p.Id);
+        foreach (var p in participants.Where(p => p.Id != Guid.Empty))
+            byId[p.Id] = p;
+        await SetParticipants(byId.Values.ToList());
+    }
+
+    public async Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId)
+    {
+        // Narrator is enforced on every write; removing it would just re-add it.
+        var leaving = State.Participants.FirstOrDefault(p => p.Id == personaId && p.Id != Narrator.PersonaId);
+        if (leaving is not null)
+            await SetParticipants(State.Participants.Where(p => p.Id != personaId).ToList());
+        return leaving;
+    }
+
     private static bool ParticipantsEqual(List<PartyParticipant> a, List<PartyParticipant> b)
     {
         if (a.Count != b.Count) return false;
@@ -151,6 +177,53 @@ public sealed class PartyGrain(
         return chatGroup;
     }
 
+    public async Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b)
+    {
+        var existing = State.ChatGroups.FirstOrDefault(g =>
+            g.Kind == ChatGroupKinds.Direct && g.MemberIds is { Count: 2 } m && m.Contains(a) && m.Contains(b));
+        if (existing is not null)
+            return existing;
+
+        var names = State.Participants.Where(p => p.Id == a || p.Id == b).Select(p => p.Name).ToList();
+        var chatGroup = new ChatGroupInfo
+        {
+            Id = Guid.NewGuid(),
+            Name = string.Join(" & ", names),
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Kind = ChatGroupKinds.Direct,
+            MemberIds = new List<Guid> { a, b },
+        };
+
+        RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
+        await ConfirmEvents();
+
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id)
+            .SetParticipantIdsAsync(new HashSet<Guid> { a, b });
+
+        return chatGroup;
+    }
+
+    public async Task<ChatGroupInfo> CreatePlaceRoomAsync(string name)
+    {
+        var chatGroup = new ChatGroupInfo
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Kind = ChatGroupKinds.Place,
+        };
+
+        RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
+        await ConfirmEvents();
+
+        var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
+        await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+
+        return chatGroup;
+    }
+
     public async Task RemoveChatGroup(Guid chatGroupId)
     {
         // Idempotent: removing an unknown/already-removed room is a no-op, so callers
@@ -212,17 +285,18 @@ public sealed class PartyGrain(
     }
 
     /// <summary>
-    /// Pure filter for who's eligible to have an in-flight generation cancelled. Only LLM-
-    /// driven Participants ever run generation; User and System never do (User is human-typed,
-    /// System never auto-speaks — ADR 0012). Extracted so the guard is unit-testable.
+    /// Pure filter for who may have an in-flight pipeline to cancel. System never runs one
+    /// (ADR 0012); a User default can, when a Room override makes it LLM-Effective.
     /// </summary>
     public static IEnumerable<PartyParticipant> SelectCancelTargets(IEnumerable<PartyParticipant> participants)
-        => participants.Where(p => p.Driver == DriverKind.LLM);
+        => participants.Where(p => p.Driver != DriverKind.System);
 
     public async Task<IReadOnlyList<CastMember>> GetCastAsync()
     {
-        var personaRoot = GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty);
-        var library = await personaRoot.GetAll();
+        // Every non-System link needs the join: Room overrides can make a User default speak.
+        var library = await Task.WhenAll(State.Participants
+            .Where(p => p.Driver != DriverKind.System)
+            .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).GetPersona()));
         var byId = library.ToDictionary(p => p.Id, p => p);
 
         return State.Participants
@@ -247,8 +321,21 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("SetParty")]
     Task SetParty(PartyInfo party);
 
+    /// <summary>Wholesale replace — seeding and the cast editor only; prefer the intent commands.</summary>
     [Alias("SetParticipants")]
     Task SetParticipants(List<PartyParticipant> participants);
+
+    /// <summary>Add Participants not yet in the cast; returns the ones actually added.</summary>
+    [Alias("AddParticipantsAsync")]
+    Task<List<PartyParticipant>> AddParticipantsAsync(List<PartyParticipant> participants);
+
+    /// <summary>Add or overwrite Participants by id (import re-runs).</summary>
+    [Alias("UpsertParticipantsAsync")]
+    Task UpsertParticipantsAsync(List<PartyParticipant> participants);
+
+    /// <summary>Remove one Participant; returns it, or null when absent (or the Narrator).</summary>
+    [Alias("RemoveParticipantAsync")]
+    Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId);
 
     [AlwaysInterleave]
     [Alias("GetChatGroups")]
@@ -256,6 +343,14 @@ public interface IPartyGrain : IGrainWithGuidKey
 
     [Alias("CreateChatGroup")]
     Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
+
+    /// <summary>Messenger thread between two Participants; idempotent per pair.</summary>
+    [Alias("GetOrCreateDirectChatAsync")]
+    Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b);
+
+    /// <summary>Place talk Room for one Place; its cast is synced by the Places grain.</summary>
+    [Alias("CreatePlaceRoomAsync")]
+    Task<ChatGroupInfo> CreatePlaceRoomAsync(string name);
 
     /// <summary>Remove a Room from this Party's registry (import rollback). The
     /// ChatGroupGrain's own journal is wiped separately by the caller.</summary>

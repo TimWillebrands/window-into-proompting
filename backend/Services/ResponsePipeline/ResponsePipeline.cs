@@ -7,6 +7,8 @@ using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Streaming;
+using PartyTown.World;
+using PartyTown.World.Self;
 
 namespace PartyTown.Services.ResponsePipeline;
 
@@ -23,9 +25,11 @@ public sealed class ResponsePipeline(
     IGrainFactory grainFactory,
     IMemoryRepository memoryRepository,
     ILoggerFactory loggerFactory,
-    ILogger<ResponsePipeline> logger)
+    ILogger<ResponsePipeline> logger,
+    World.Self.FollowThrough? followThrough = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+    private const int MaxDirectAiRounds = 6;
 
     public async Task HandleAsync(
         Persona persona,
@@ -43,36 +47,19 @@ public sealed class ResponsePipeline(
         // Self-as-User short-circuits here — the User-Effective rule lives in exactly one
         // place rather than at every fan-out site (per ADR 0011).
         var partyId = await chatGroupGrain.GetPartyIdAsync();
-        var partyGrain = grainFactory.GetGrain<IPartyGrain>(partyId);
-        var castTask = partyGrain.GetCastAsync();
-        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
-        await Task.WhenAll(castTask, overridesTask);
-        var cast = castTask.Result;
-        var overrides = overridesTask.Result;
+        var roomCast = await chatGroupGrain.GetCastAsync();
 
-        var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
-        if (selfCast is null)
-        {
-            logger.LogDebug(
-                "Persona {PersonaName} not in cast for party {PartyId}; skipping notify",
-                persona.Name, partyId);
-            return;
-        }
-
-        var selfEffective = selfCast.EffectiveIn(overrides);
-        // Only LLM-Effective Participants run the response pipeline. User-Effective is
-        // human-typed; System-Effective (Narrator) is authored content that never
-        // auto-speaks (ADR 0012). Both short-circuit here so the rule lives in one place.
-        if (selfEffective != DriverKind.LLM)
+        // Only present, LLM-Effective Participants run the response pipeline. User-Effective
+        // is human-typed; System-Effective (Narrator) never auto-speaks (ADR 0012).
+        if (roomCast.Speaker(persona.Id) is not { } self)
         {
             logger.LogDebug(
                 "Persona {PersonaName} is {Driver}-Effective in chat group {ChatGroupId}; skipping pipeline",
-                persona.Name, selfEffective, chatGroupId);
+                persona.Name, roomCast.EffectiveOf(persona.Id)?.ToString() ?? "absent", chatGroupId);
             return;
         }
 
-        var self = selfCast.ToSelfView(selfEffective);
-        var participantViews = cast.Select(c => c.ToView(c.EffectiveIn(overrides))).ToList();
+        var participantViews = roomCast.Views();
 
         // One root span per persona per triggering message. The fan-out at ChatGroupGrain
         // does NOT wrap these in a parent span on purpose — each persona reaction is an
@@ -90,10 +77,11 @@ public sealed class ResponsePipeline(
 
         // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
         // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
-        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
+        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue, listener: persona.Id);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
-        var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds);
+        var isDirect = roomCast.IsDirect;
+        var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds, directlyAddressed: isDirect);
         var preRecentSelf = UrgeMath.CountRecentSelfMessages(preHistory, persona.Id);
         turnSpan?.SetTag("urge.total", preUrge.Total);
         turnSpan?.SetTag("urge.mention", preUrge.MentionScore);
@@ -103,7 +91,9 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("rounds.total_assistant", preRounds);
         turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
 
-        if (UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
+        // Two Personas DMing can't ping-pong forever: a long all-AI streak in a DM ends it.
+        var dmExhausted = isDirect && preRounds >= MaxDirectAiRounds;
+        if (dmExhausted || UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
             turnSpan?.SetTag("decision", "skip-obvious");
             var skipReason = $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
@@ -123,8 +113,7 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        var messageId = await chatGroupGrain.GetNextMessageIdAsync(
-            persona.Id, "assistant", triggeringMessage.MessageId);
+        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId);
         turnSpan?.SetTag("result.message_id", messageId);
 
         // Race-trigger state: register before any awaits so a concurrent NotifyMessageAsync
@@ -140,7 +129,7 @@ public sealed class ResponsePipeline(
             // Single history snapshot, shared by decision + generation.
             // Taking the snapshot at `messageId` includes any messages other personas
             // committed between our slot reservation and our read.
-            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
             var scenario = await chatGroupGrain.GetScenarioAsync();
 
             // Info-isolation is a property of ParticipantView (identity + Driver only),
@@ -164,24 +153,12 @@ public sealed class ResponsePipeline(
             // continue with an empty list so a memory outage never blocks the persona from
             // responding.
             var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
-            IReadOnlyList<RecalledMemory> recollections;
-            try
-            {
-                recollections = await memoryRepository.RecallAsync(
-                    persona.Id, partyId, presentPersonaIds,
-                    triggeringMessage.Content ?? string.Empty, limit: 10, linkedCt);
-            }
-            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Recall failed for persona {PersonaName} in party {PartyId}; proceeding without recollections",
-                    persona.Name, partyId);
-                recollections = Array.Empty<RecalledMemory>();
-            }
+            var beat = await memoryRepository.RecallBeatAsync(
+                new BeatAnchors(persona.Id, partyId, presentPersonaIds, triggeringMessage.Content ?? string.Empty,
+                    await PlaceOfAsync(roomCast, partyId, chatGroupId)),
+                memoryLimit: 10, stanceLimit: 5, logger, linkedCt);
+            beat = await FreshenAsync(beat, partyId, persona.Id);
+            var recollections = beat.Memories;
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
             // Observability (ADR 0015): the candidate set — with per-candidate arm
@@ -196,37 +173,14 @@ public sealed class ResponsePipeline(
                         $"#{i + 1} {r.EdgeId:N}={r.Salience:F3} ({ArmTag(r.Arm)})")));
             }
 
-            // ADR 0016 stance floor: anchor-scoped, latest-wins Stance lines for the ambient
-            // "# Where you stand" block. Anchors are the beat's live cast (present persona ids,
-            // self included) + Concepts named in the triggering message. Pure DB read — zero
-            // LLM calls on the beat path. Non-fatal like recall: a memory outage never mutes
-            // the persona.
-            IReadOnlyList<string> stanceLines;
-            var ambivalenceCount = 0;
-            try
-            {
-                var stances = await memoryRepository.RecallStancesAsync(
-                    partyId, persona.Id, presentPersonaIds,
-                    triggeringMessage.Content ?? string.Empty, limit: 5, linkedCt);
-                stanceLines = stances.Select(StanceBlock.FormatLine).ToList();
-                ambivalenceCount = stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
-            }
-            catch (OperationCanceledException) when (linkedCt.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Stance recall failed for persona {PersonaName} in party {PartyId}; proceeding without stances",
-                    persona.Name, partyId);
-                stanceLines = Array.Empty<string>();
-            }
+            // ADR 0016 stance floor for the ambient "# Where you stand" block — zero LLM calls on the beat path.
+            IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
+            var ambivalenceCount = beat.Stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
             turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
                 repairHint, stanceLines);
 
@@ -294,7 +248,7 @@ public sealed class ResponsePipeline(
                     stop = true,
                     recall = recallLog
                 }, WebOptions);
-                await chatGroupGrain.MarkGenerationStoppedAsync(messageId, declinedAppraisal, triggeringMessage.MessageId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(declinedAppraisal));
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                     MessageStreamEvent.PersonaDeclinedResponse,
                     JsonSerializer.Serialize(new { personaId = persona.Id, reason = decision.Reason }, WebOptions),
@@ -339,14 +293,9 @@ public sealed class ResponsePipeline(
                 recall = recallLog
             }, WebOptions);
 
-            await chatGroupGrain.AppendMessageAsync(
-                messageId,
-                result.Message ?? string.Empty,
-                result.Reasoning,
-                appraisalJson,
-                result.Metadata,
-                triggeringMessage.MessageId,
-                linkedCt);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
+                result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
+            followThrough?.Consider(partyId, chatGroupId, persona.Id);
 
             if (result.Metadata is not null)
             {
@@ -367,6 +316,20 @@ public sealed class ResponsePipeline(
                 logger.LogInformation(
                     "Persona {PersonaName} race-cancelled (msg {MessageId}, drafted {Chars} chars)",
                     persona.Name, messageId, snap.GeneratedText.Length);
+
+                // Cut off while still deciding: nobody saw them start, so no canned "*starts to speak*" line (ADR 0021).
+                if (string.IsNullOrWhiteSpace(snap.GeneratedText))
+                {
+                    await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(JsonSerializer.Serialize(new
+                    {
+                        personaId = persona.Id,
+                        instruction = (string?)null,
+                        reason = string.IsNullOrWhiteSpace(snap.GutReaction) ? "Race-cancelled before deciding." : snap.GutReaction,
+                        stop = false,
+                        raceCancelled = true
+                    }, WebOptions)));
+                    return;
+                }
 
                 string emote;
                 try
@@ -402,14 +365,13 @@ public sealed class ResponsePipeline(
                     raceCancelled = true
                 }, WebOptions);
 
-                await chatGroupGrain.MarkGenerationCancelledAsEmoteAsync(
-                    messageId, emote, emoteAppraisal, triggeringMessage.MessageId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Interrupted(emote, emoteAppraisal));
             }
             else
             {
                 turnSpan?.SetTag("decision", "cancelled");
                 logger.LogDebug("Persona {PersonaName} generation cancelled (external)", persona.Name);
-                await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed("cancelled"));
             }
         }
         catch (Exception ex)
@@ -418,7 +380,94 @@ public sealed class ResponsePipeline(
             turnSpan?.SetTag("decision", "error");
             logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
             // FIXME: If at some point we go public, don't send exceptions over the wire
-            await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.ToString());
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed(ex.ToString()));
+        }
+        finally
+        {
+            store.Remove(chatGroupId, messageId);
+        }
+    }
+
+    /// <summary>
+    /// Initiative path (ADR 0018): the Persona opens their mouth unprompted — Life chose this
+    /// Room/DM and an intent. Skips the Decision phase (the choice was already made), runs the
+    /// Speaking phase with the intent as draft, and appends; the normal fan-out lets others react.
+    /// </summary>
+    /// <returns>The spoken line, or null when the Persona isn't LLM-Effective here or got cut off.</returns>
+    public async Task<string?> InitiateAsync(
+        Persona persona,
+        Guid chatGroupId,
+        IChatGroupGrain chatGroupGrain,
+        InFlightStore store,
+        string intent,
+        string? feeling,
+        CancellationToken ct)
+    {
+        var partyId = await chatGroupGrain.GetPartyIdAsync();
+        var roomCast = await chatGroupGrain.GetCastAsync();
+        if (roomCast.Speaker(persona.Id) is not { } self)
+            return null;
+
+        var participantViews = roomCast.Views();
+
+        using var turnSpan = Tracing.Persona.StartActivity("persona.initiate", ActivityKind.Internal);
+        turnSpan?.SetTag("persona.id", persona.Id);
+        turnSpan?.SetTag("persona.name", persona.Name);
+        turnSpan?.SetTag("chat_group.id", chatGroupId);
+
+        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id);
+        var newCts = new CancellationTokenSource();
+        var inFlight = store.Register(chatGroupId, messageId, newCts);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
+        var linkedCt = linkedCts.Token;
+
+        var appraisalJson = JsonSerializer.Serialize(new
+        {
+            personaId = persona.Id,
+            instruction = intent,
+            reason = feeling,
+            stop = false,
+            initiative = true
+        }, WebOptions);
+
+        try
+        {
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
+            var scenario = await chatGroupGrain.GetScenarioAsync();
+            var presentIds = participantViews.Select(p => p.Id).ToList();
+
+            var beat = await memoryRepository.RecallBeatAsync(
+                new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
+                memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
+            beat = await FreshenAsync(beat, partyId, persona.Id);
+            // Not a story told in the last few hours; carrying it counts as telling it (refractory, ADR 0021).
+            var carried = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant
+                && (r.LastRecalled is not { } at || (DateTimeOffset.UtcNow - at).TotalHours >= SalienceMath.RefractoryHours));
+            var memory = carried?.Snippet;
+            if (carried is { EdgeId: var edge } && edge != Guid.Empty) _ = StrengthenPickedMemoryAsync(edge, persona.Name);
+            IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
+
+            inFlight.MarkGenerationStarted(feeling, intent);
+            var result = await RunSpeakingPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
+                intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt);
+
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
+                result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
+            followThrough?.Consider(partyId, chatGroupId, persona.Id);
+            return result.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation("Persona {PersonaName} initiative in {ChatGroupId} was cut off", persona.Name, chatGroupId);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisalJson));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Persona {PersonaName} initiative failed", persona.Name);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed(ex.Message));
+            throw;
         }
         finally
         {
@@ -467,6 +516,10 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
+        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
+            self = self with { Bio = null, SystemPrompt = lived };
+        var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -498,7 +551,9 @@ public sealed class ResponsePipeline(
                     scenario,
                     memoryToReference,
                     stances,
-                    gutReaction);
+                    gutReaction,
+                    presence,
+                    avoidWords);
                 break;
             }
             catch (OperationCanceledException)
@@ -518,7 +573,105 @@ public sealed class ResponsePipeline(
             }
         }
 
+        _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants, history);
         return result!;
+    }
+
+    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
+    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            var key = WorldKeys.Life(partyId, self.Id);
+            var presenceTask = grainFactory.GetGrain<IPersonaSelfGrain>(key)
+                .GetPresenceAsync(withDay: string.IsNullOrWhiteSpace(scenario));
+            var tiesTask = grainFactory.GetGrain<IPersonaTiesGrain>(key).RenderAsync(present.Select(p => p.Id).ToList());
+            var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
+            var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
+            // Money and fresh gifts (ADR 0024) only in the World, where there's a wallet to speak of.
+            if (string.IsNullOrWhiteSpace(scenario))
+                presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
+            var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
+            return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Presence failed for {PersonaName}; speaking without it", self.Name);
+            return null;
+        }
+    }
+
+    /// <summary>A sleeping Body (ADR 0020) only wakes for a human; persona talk doesn't reach them.</summary>
+    private async Task<bool> SleepsThroughAsync(
+        IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ChatMessage> history, IReadOnlyList<ParticipantView> participants)
+    {
+        try
+        {
+            var trigger = history.LastOrDefault(m => m.SenderId != self.Id && !string.IsNullOrWhiteSpace(m.Content));
+            if (trigger is null || participants.Any(p => p.Id == trigger.SenderId && p.Driver == DriverKind.User)) return false;
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            return await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).IsAsleepAsync(self.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Sleep check failed for {PersonaName}", self.Name);
+            return false;
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> StaleWordsAsync(IChatGroupGrain chatGroupGrain, Guid personaId)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            return await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Stale words lookup failed");
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>One story per slot plus stale-word habituation on recall (ADR 0021); non-fatal.</summary>
+    private async Task<RecallBeat> FreshenAsync(RecallBeat beat, Guid partyId, Guid personaId)
+    {
+        try
+        {
+            var names = (await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();
+            return StaleRecall.Apply(RecallVariety.Apply(beat, names), await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Stale recall filter failed");
+            return beat;
+        }
+    }
+
+    private async Task<bool> WindingDownAsync(IChatGroupGrain chatGroupGrain)
+    {
+        try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).IsWindingDownAsync(); }
+        catch { return false; }
+    }
+
+    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            var key = WorldKeys.Life(partyId, self.Id);
+            await grainFactory.GetGrain<IPersonaSelfGrain>(key).NoteSpokeAsync(self.Chattiness);
+            // An exchange needs both sides: only people who spoke lately in this conversation count.
+            var spoke = history.TakeLast(10).Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(m => m.SenderId).ToHashSet();
+            var others = present.Where(p => p.Id != self.Id && p.Driver != DriverKind.System && spoke.Contains(p.Id)).Select(p => p.Id).ToList();
+            if (others.Count > 0)
+                await grainFactory.GetGrain<IPersonaTiesGrain>(key).NoteExchangeAsync(others, direct: present.Count == 2);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Social battery update failed for {PersonaName}", self.Name);
+        }
     }
 
     /// <summary>
@@ -546,6 +699,7 @@ public sealed class ResponsePipeline(
         SelfView self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<ParticipantView> participants,
+        bool isDirect,
         string? scenario,
         IReadOnlyList<string> recollections,
         CancellationToken ct,
@@ -558,6 +712,12 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
+        if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
+            return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
+        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
+            self = self with { Bio = livedBio };
+        var windingDown = await WindingDownAsync(chatGroupGrain);
 
         return await decisionService.ShouldRespondAsync(
             self,
@@ -569,7 +729,10 @@ public sealed class ResponsePipeline(
             scenario: scenario,
             repairHint: repairHint,
             recollections: recollections,
-            stances: stances);
+            stances: stances,
+            isDirect: isDirect,
+            presence: presence,
+            windingDown: windingDown);
     }
 
     private static Task NotifyStreamAsync(
@@ -586,4 +749,20 @@ public sealed class ResponsePipeline(
             Data = data,
             Done = done
         });
+
+    /// <summary>A Place talk Room anchors recall on its Place; other Rooms don't.</summary>
+    /// <summary>The talk Room's Place as a recall anchor; non-fatal like recall itself.</summary>
+    private async Task<Guid?> PlaceOfAsync(RoomCast roomCast, Guid partyId, Guid chatGroupId)
+    {
+        if (roomCast.Kind != ChatGroupKinds.Place) return null;
+        try
+        {
+            return await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetPlaceOfTalkRoomAsync(chatGroupId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Place lookup failed for chat group {ChatGroupId}; recalling without it", chatGroupId);
+            return null;
+        }
+    }
 }

@@ -12,4 +12,7 @@ export interface ChatGroupInfo {
     createdAt?: number | string;
     /** @nullable */
     scenario?: string | null;
+    kind?: string;
+    /** @nullable */
+    memberIds?: string[] | null;
 }

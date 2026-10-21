@@ -7,6 +7,34 @@ namespace PartyTown.Grains.Generation;
 
 public static class LlmEndpointGrainUtils
 {
+    /// <summary>Failures that won't fix themselves on retry: bad key, no credit, unknown model, host down.</summary>
+    public static bool IsHardFailure(Exception ex)
+        => ex is System.ClientModel.ClientResultException { Status: 401 or 402 or 403 or 404 } or HttpRequestException;
+
+    /// <summary>Pass a stream through, telling the router when it dies of a hard failure.</summary>
+    public static async IAsyncEnumerable<LlmGenerationEvent> ReportingHardFailures(
+        IAsyncEnumerable<LlmGenerationEvent> inner,
+        Func<Exception, Task> report,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await using var e = inner.GetAsyncEnumerator(cancellationToken);
+        while (true)
+        {
+            bool has;
+            try
+            {
+                has = await e.MoveNextAsync();
+            }
+            catch (Exception ex) when (IsHardFailure(ex))
+            {
+                await report(ex);
+                throw;
+            }
+            if (!has) yield break;
+            yield return e.Current;
+        }
+    }
+
     public static async IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         ILogger logger,
         LlmGenerationJob parameters,
@@ -22,11 +50,14 @@ public static class LlmEndpointGrainUtils
 
         try
         {
+          for (var attempt = 0; attempt < 2 && chunkCount == 0; attempt++)
+          {
+            if (attempt > 0) logger.LogWarning("LLM stream produced no content; retrying once");
             await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
             {
                 foreach (var part in update.ContentUpdate ?? [])
                 {
-                    if (!string.IsNullOrWhiteSpace(part.Text))
+                    if (!string.IsNullOrEmpty(part.Text))
                     {
                         chunkCount++;
                         yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
@@ -46,6 +77,7 @@ public static class LlmEndpointGrainUtils
                     yield break;
                 }
             }
+          }
         }
         finally
         {
@@ -69,11 +101,17 @@ public static class LlmEndpointGrainUtils
 
         try
         {
-            var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
-            var text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
+            var text = string.Empty;
+            // Cheap models occasionally return an empty completion; one retry recovers nearly all of them.
+            for (var attempt = 0; attempt < 2 && string.IsNullOrWhiteSpace(text); attempt++)
+            {
+                if (attempt > 0) logger.LogWarning("LLM one-shot returned empty content; retrying once");
+                var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+                text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
 
-            if (completion.Value.FinishReason != ChatFinishReason.Stop)
-                logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
+                if (completion.Value.FinishReason != ChatFinishReason.Stop)
+                    logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
+            }
 
             return text;
         }

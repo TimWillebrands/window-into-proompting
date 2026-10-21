@@ -26,6 +26,14 @@ var backend = builder
     .WithEndpoint(name: "orleans-silo", port: 11111, targetPort: 11111, scheme: "tcp", isProxied: false)
     .WithEndpoint(name: "orleans-gateway", port: 30000, targetPort: 30000, scheme: "tcp", isProxied: false);
 
+// Optional dev knobs passed through from the shell (System One / model overrides, ADR 0019).
+foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "SYSTEM_ONE_EMULATE", "OPENROUTER_MODEL",
+             "SYSTEM_ONE_LOCAL_URL", "SYSTEM_ONE_LOCAL_MODEL", "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL" })
+{
+    if (Environment.GetEnvironmentVariable(name) is { Length: > 0 } value)
+        backend.WithEnvironment(name, value);
+}
+
 var frontend = builder
     .AddViteApp("frontend", "../../frontend")
     .WithPnpm()

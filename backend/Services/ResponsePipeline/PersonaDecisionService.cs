@@ -51,9 +51,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         string? scenario = null,
         RepairHint? repairHint = null,
         IReadOnlyList<string>? recollections = null,
-        IReadOnlyList<string>? stances = null)
+        IReadOnlyList<string>? stances = null,
+        bool isDirect = false,
+        string? presence = null,
+        bool windingDown = false)
     {
-        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup);
+        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup, directlyAddressed: isDirect);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
         var participantIds = new HashSet<Guid>(participants.Select(p => p.Id));
         var recentMessages = history
@@ -69,7 +72,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         // anything else that arrived during the in-flight generation. When repair is pending,
         // pay the LFM call so the prompt-level repair stanza (and the "(They said your name.)"
         // user-prompt cue below) both fire.
-        if (urge.Total >= 0.9 && repairHint is null)
+        // A fizzling conversation (ADR 0021) goes through the LLM even when named: "still here" ping-pong ends.
+        if (urge.Total >= 0.9 && repairHint is null && !windingDown)
         {
             logger.LogInformation("Persona {PersonaName} auto-responding (urge={Urge:F2}, mention={Mention:F2})", self.Name, urge.Total, urge.MentionScore);
             return new ShouldRespondResult
@@ -82,12 +86,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances, presence) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
 
-        var text = new StringBuilder();
 
         // Schema field order drives generation order. gutReaction first → the model engages
         // in-character before judging airtime. memoryToReference next — having just felt the
@@ -135,78 +138,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         thinkSpan?.SetTag("persona.name", self.Name);
         thinkSpan?.SetTag("urge.total", urge.Total);
 
-        var generation = await router.RouteAsync(job.JobComplexity, cancellationToken);
+        var call = await new LlmCall(router, logger).StreamAsync(job, LlmTiers.General, cancellationToken,
+            onEvent is null ? null : chunk => onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false),
+            thinkSpan);
 
-        try
-        {
-            var attribution = await generation.GetAttributionAsync();
-            thinkSpan?.SetTag("llm.provider", attribution?.Provider);
-            thinkSpan?.SetTag("llm.model", attribution?.ModelName);
-        }
-        catch
-        {
-            // Attribution is best-effort instrumentation; don't fail the decision over it.
-        }
-
-        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
-        {
-            if (chunk.Type == "message")
-            {
-                text.Append(chunk.Data);
-            }
-
-            if (onEvent is not null)
-            {
-                await onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false);
-            }
-        }
-
-        var raw = text.ToString().Trim();
+        var raw = call.Content.Trim();
         logger.LogInformation("Persona {PersonaName} response urge: total={Total:F2} mention={Mention:F2} question={Question:F2} silence={Silence:F2} coldOpen={ColdOpen:F2} chaos={Chaos:F2}",
             self.Name, urge.Total, urge.MentionScore, urge.QuestionScore, urge.SilenceStreakScore, urge.ColdOpenScore, urge.ChaosScore);
 
-        ShouldRespondResult? parsed = null;
-
-        try
-        {
-            parsed = JsonSerializer.Deserialize<ShouldRespondResult>(raw, WebOptions);
-            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
-                self.Name, urge.Total, parsed?.Respond, raw.Length);
-            if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("Persona {PersonaName} decision raw: {Raw}", self.Name, raw);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug("Persona {PersonaName} decision parse failed (will try cleanup): {Error}", self.Name, ex.Message);
-        }
-
+        var parsed = LlmJsonParsing.TryDeserialize<ShouldRespondResult>(raw, WebOptions);
         if (parsed is null)
-        {
-            // Cleanup pipeline for LLM-produced JSON:
-            //   1. Strip markdown code fences (```json … ```) that some models wrap output in.
-            //   2. Escape raw control chars (newline, tab, etc.) found *inside* string values —
-            //      JsonRepairSharp does not handle these, but the symptom appears often enough
-            //      in multi-line `gutReaction` fields that we fix it before handing off.
-            var cleaned = LlmJsonParsing.ExtractJsonPayload(raw);
-
-            try
-            {
-                parsed = JsonSerializer.Deserialize<ShouldRespondResult>(cleaned, WebOptions);
-            }
-            catch
-            {
-                try
-                {
-                    var repaired = JsonRepair.RepairJson(cleaned, JsonRepair.InputType.LLM);
-                    parsed = JsonSerializer.Deserialize<ShouldRespondResult>(repaired, WebOptions);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError("Persona {PersonaName} decision JSON repair failed: {Error}. Raw: {Raw}",
-                        self.Name, ex.Message, raw);
-                }
-            }
-        }
+            logger.LogError("Persona {PersonaName} decision JSON unparseable after repair. Raw: {Raw}", self.Name, raw);
+        else
+            logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
+                self.Name, urge.Total, parsed.Respond, raw.Length);
 
         // Fail closed: don't respond if we can't parse the decision. Embed a truncated
         // raw payload in Reason so the thought-log papertrail preserves it past log
@@ -261,7 +206,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         string? scenario,
         RepairHint? repairHint,
         IReadOnlyList<string>? recollections,
-        IReadOnlyList<string>? stances)
+        IReadOnlyList<string>? stances,
+        string? presence = null)
     {
         // The trailing grounding line counters small-model scene drift: gut reactions were
         // observed inventing a different time/place than the setting states ("another
@@ -307,13 +253,15 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     _ => $"- {p.Name} (persona)",
 }))}}
 {{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
+{{(string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n")}}
 # What you're doing
 You're hanging out in a casual group chat. Someone just spoke. Read it
 the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
 
 First: what's your honest gut reaction? A quick thought, feeling, eye-roll,
 laugh, disagreement, "huh, interesting" — whatever actually surfaces.
-Always write this. Be specific, in your voice — not a meta-summary.
+Always write this. Be specific, in your voice — not a meta-summary. Plain words,
+the way you'd think them; most reactions are small and ordinary.
 
 Second: would you actually say something out loud right now? Speak when
 your reaction is worth airtime — when you have a take, a feeling, a quip,
@@ -342,7 +290,8 @@ is worse than letting the room breathe. Use judgement.
   (empty string) if you'd let it pass. This becomes your message verbatim
   if you speak — write it as the chat message itself, not as a description
   of what you'd say. Do NOT wrap the text in extra quotes; it is a chat
-  message, not a quotation.
+  message, not a quotation. Don't open it with someone's name, and don't
+  repeat anything you already said (see "What you said lately").
 - respond: true iff wouldSay is non-empty.
 """;
     }

@@ -30,6 +30,7 @@ export const mockChatMessages: RealtimeChatMessage[] = [
         senderType: 'user',
         senderId: 'user-1',
         sendAt: Date.parse('2026-04-22T09:00:00Z'),
+        metadata: null,
         generationEvents: [],
     },
     {
@@ -43,6 +44,7 @@ export const mockChatMessages: RealtimeChatMessage[] = [
         senderType: 'assistant',
         senderId: 'persona-1',
         sendAt: Date.parse('2026-04-22T09:00:30Z'),
+        metadata: null,
         generationEvents: [],
     },
 ];

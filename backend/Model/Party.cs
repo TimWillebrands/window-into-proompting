@@ -72,6 +72,22 @@ public sealed record class ChatGroupInfo
 
     [Id(3)]
     public string? Scenario { get; set; }
+
+    /// <summary>Which App owns this thread: <c>room</c> (D'Accord), <c>dm</c> (Messenger) or <c>place</c> (Places).</summary>
+    [Id(4)]
+    public string Kind { get; set; } = ChatGroupKinds.Room;
+
+    /// <summary>Fixed membership for <c>dm</c> threads; null for rooms.</summary>
+    [Id(5)]
+    public List<Guid>? MemberIds { get; set; }
+}
+
+public static class ChatGroupKinds
+{
+    public const string Room = "room";
+    public const string Direct = "dm";
+    /// <summary>Place talk: speech between Bodies in one Place; cast follows the occupants.</summary>
+    public const string Place = "place";
 }
 
 public sealed record class CreateChatGroupRequest

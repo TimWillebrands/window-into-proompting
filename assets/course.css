@@ -1,0 +1,110 @@
+/* Shared stylesheet for the Vervaeke × Proompting course. Tufte-inspired. */
+:root {
+    --ink: #1a1a18;
+    --paper: #fffff8;
+    --accent: #8b2635;
+    --muted: #6b6b60;
+    --rule: #d8d8cc;
+    --code-bg: #f4f4ea;
+}
+
+html { font-size: 17px; }
+body {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+}
+
+header.lesson-header { margin-bottom: 2.5rem; }
+header.lesson-header .kicker {
+    font-family: 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+h1 { font-size: 2rem; font-weight: 400; font-style: italic; margin: 0.3rem 0 0.5rem; }
+h2 { font-size: 1.3rem; font-weight: 400; font-style: italic; margin-top: 2.5rem; border-bottom: 1px solid var(--rule); padding-bottom: 0.25rem; }
+h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1.8rem; }
+.subtitle { color: var(--muted); font-style: italic; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+code, pre {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 0.82em;
+    background: var(--code-bg);
+    border-radius: 3px;
+}
+code { padding: 0.1em 0.3em; }
+pre { padding: 0.9rem 1rem; overflow-x: auto; line-height: 1.45; }
+pre code { background: none; padding: 0; }
+
+blockquote {
+    margin: 1.2rem 0 1.2rem 0;
+    padding-left: 1rem;
+    border-left: 3px solid var(--rule);
+    color: var(--muted);
+    font-style: italic;
+}
+
+table { border-collapse: collapse; margin: 1.2rem 0; width: 100%; font-size: 0.92rem; }
+th { font-family: 'Gill Sans', 'Trebuchet MS', sans-serif; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; color: var(--muted); }
+th, td { padding: 0.45rem 0.7rem 0.45rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+
+.aside {
+    font-size: 0.85rem;
+    color: var(--muted);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 0.6rem 0;
+    margin: 1.4rem 0;
+}
+
+.win {
+    background: var(--code-bg);
+    border-left: 3px solid var(--accent);
+    padding: 0.8rem 1rem;
+    margin: 1.4rem 0;
+    font-size: 0.95rem;
+}
+
+footer.lesson-footer {
+    margin-top: 3.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+/* Quiz widget (quiz.js) */
+.quiz { margin: 1.6rem 0; }
+.quiz .q {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.2rem;
+}
+.quiz .q p.prompt { margin-top: 0; font-weight: 600; }
+.quiz button.opt {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.92rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.5rem 0.8rem;
+    margin: 0.4rem 0;
+    cursor: pointer;
+}
+.quiz button.opt:hover:not(:disabled) { border-color: var(--accent); }
+.quiz button.opt.correct { border-color: #2e6b30; background: #eef5ee; }
+.quiz button.opt.wrong { border-color: var(--accent); background: #f9eeee; opacity: 0.85; }
+.quiz .expl { display: none; font-size: 0.88rem; color: var(--muted); margin-top: 0.6rem; }
+.quiz .q.answered .expl { display: block; }

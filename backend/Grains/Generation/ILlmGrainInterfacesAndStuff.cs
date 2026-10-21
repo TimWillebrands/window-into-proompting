@@ -27,6 +27,21 @@ public interface ILlmEndpointGrain : IGrainWithGuidKey
     /// alongside the resulting <see cref="ChatMessage"/> as its papertrail metadata.</summary>
     [Alias("GetAttributionAsync")]
     Task<ChatMessageMetadata> GetAttributionAsync();
+
+    /// <summary>Provider config was edited or removed (null): use it from the next call on.</summary>
+    [Alias("ApplyConfigAsync")]
+    Task ApplyConfigAsync(LlmProviderEntry? entry);
+}
+
+/// <summary>Provider type → endpoint grain; the one place the type strings map to grain interfaces.</summary>
+public static class LlmEndpoints
+{
+    public static ILlmEndpointGrain Resolve(IGrainFactory grains, string type, Guid id) => type switch
+    {
+        "ollama" => grains.GetGrain<IOllamaEndpointGrain>(id),
+        "openrouter" => grains.GetGrain<IOpenRouterEndpointGrain>(id),
+        _ => throw new InvalidOperationException($"Unsupported provider type: {type}"),
+    };
 }
 
 [Alias("PartyTown.Grains.Generation.IOllamaEndpointGrain")]
@@ -48,6 +63,10 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
 
     [Alias("InvalidateCacheAsync")]
     Task InvalidateCacheAsync();
+
+    /// <summary>An endpoint hit a hard failure (auth, quota, missing model); route around it for a while.</summary>
+    [Alias("ReportFailureAsync")]
+    Task ReportFailureAsync(Guid providerId, string reason);
 }
 
 [GenerateSerializer]

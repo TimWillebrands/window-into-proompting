@@ -1,6 +1,7 @@
 # Import as a scene workshop over a stateless map engine
 
-> Status: accepted. Supersedes [ADR 0013](0013-import-as-iterative-scene-workshop.md) —
+> Status: superseded by [ADR 0022](0022-arrival-replaces-import.md) — the importer is replaced by Arrival.
+> Previously: supersedes [ADR 0013](0013-import-as-iterative-scene-workshop.md) —
 > its interaction skeleton (scene-by-scene, human-gated, draft-first) survives; its
 > extraction engine (identify → classify) and context mechanism (AGE read-back per scene)
 > are replaced. Evidence: the import-spearhead bench probes, phases 1–3

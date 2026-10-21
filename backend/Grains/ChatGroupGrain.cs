@@ -18,6 +18,8 @@ namespace PartyTown.Grains;
 public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     : JournaledGrain<ChatGroupState, ChatGroupEvent>, IChatGroupGrain
 {
+    private string? _kind;
+
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         await base.OnActivateAsync(cancellationToken);
@@ -78,9 +80,58 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
-    public async Task<int> GetNextMessageIdAsync(
-        Guid? senderId = null,
-        string senderType = "assistant",
+    public Task<List<ChatMessage>> GetRecentMessagesAsync(int count)
+        => Task.FromResult(State.Messages
+            .Where(m => !string.IsNullOrWhiteSpace(m.Content) && m.Error is null)
+            .OrderBy(m => m.MessageId)
+            .TakeLast(count)
+            .ToList());
+
+    public Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null)
+        => ReserveSlotAsync(personaId, "assistant", triggeredByMessageId);
+
+    public async Task EndTurnAsync(int turnId, TurnOutcome outcome)
+    {
+        var slot = State.Messages.FirstOrDefault(m => m.MessageId == turnId);
+        if (slot is null || !IsOpen(slot))
+        {
+            // Deleted mid-generation (Reprompt truncation) or already closed — first outcome wins.
+            logger.LogDebug("Turn {TurnId} in chat group {ChatGroupId} not open; dropping {Outcome}",
+                turnId, this.GetPrimaryKey(), outcome.GetType().Name);
+            return;
+        }
+
+        var trigger = slot.TriggeredByMessageId;
+        switch (outcome)
+        {
+            case TurnOutcome.Spoke s:
+                await AppendMessageAsync(turnId, s.Content, s.Reasoning, s.Appraisal, s.Metadata, trigger);
+                break;
+            case TurnOutcome.Declined d:
+                await MarkGenerationStoppedAsync(turnId, d.Appraisal, trigger);
+                break;
+            case TurnOutcome.Interrupted i:
+                await MarkGenerationCancelledAsEmoteAsync(turnId, i.Emote, i.Appraisal, trigger);
+                break;
+            case TurnOutcome.Failed f:
+                await MarkGenerationFailedAsync(turnId, f.Error);
+                break;
+        }
+    }
+
+    public Task ContinueAsync()
+    {
+        var last = State.Messages.OrderBy(m => m.MessageId).LastOrDefault();
+        return last is null ? Task.CompletedTask : NotifyAllParticipantsAsync(last);
+    }
+
+    /// <summary>A reserved slot no outcome has touched yet.</summary>
+    private static bool IsOpen(ChatMessage slot)
+        => string.IsNullOrEmpty(slot.Content) && slot.Error is null && slot.Appraisal is null;
+
+    private async Task<int> ReserveSlotAsync(
+        Guid? senderId,
+        string senderType,
         int? triggeredByMessageId = null)
     {
 
@@ -103,6 +154,17 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await ConfirmEvents();
     }
 
+    public async Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds)
+    {
+        // Room ⊆ Party: ids outside the Party cast never enter the Room.
+        var party = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetParty();
+        var cast = party.Participants.Select(p => p.Id).ToHashSet();
+        var next = new HashSet<Guid>(State.ParticipantIds);
+        next.UnionWith(personaIds.Where(cast.Contains));
+        await SetParticipantIdsAsync(next);
+        return State.ParticipantIds;
+    }
+
     // Orleans serializes the return value across the grain boundary, so an in-grain
     // defensive copy would be wasted work.
     public Task<IReadOnlySet<Guid>> GetParticipantIdsAsync()
@@ -110,6 +172,17 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync()
         => Task.FromResult<IReadOnlyDictionary<Guid, DriverKind>>(State.DriverOverrides);
+
+    public async Task<RoomCast> GetCastAsync()
+    {
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetCastAsync();
+        return RoomCast.Create(cast, State.ParticipantIds, State.DriverOverrides, await KindAsync());
+    }
+
+    /// <summary>Kind never changes after creation; read once per activation.</summary>
+    private async Task<string> KindAsync()
+        => _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
+            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
 
     public async Task SetDriverOverrideAsync(Guid personaId, DriverKind kind)
     {
@@ -146,10 +219,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     {
 
         var chatGroupId = this.GetPrimaryKey();
-        var messageId = await GetNextMessageIdAsync(senderId, "user");
+        var messageId = await ReserveSlotAsync(senderId, "user");
+        var earshot = await EarshotOfAsync(senderId);
 
         var message = new ChatMessage
         {
+            HeardBy = earshot?.HeardBy,
+            Volume = earshot?.Volume,
             ChatGroupId = chatGroupId,
             MessageId = messageId,
             Content = content,
@@ -179,48 +255,19 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return message;
     }
 
-    /// <summary>
-    /// Bulk-imports historical messages (e.g. from an external chat export). Unlike
-    /// <see cref="SendNewMessageAsync"/>, this method:
-    ///   • Honors the caller-supplied <c>SendAt</c> (no UtcNow stamp), so imported
-    ///     messages keep their assigned chronological order.
-    ///   • Honors the caller-supplied <c>SenderType</c> ("user" or "assistant").
-    ///   • Does NOT publish a party stream event — open D'Accord windows would otherwise
-    ///     spam-render 300+ messages mid-import. Clients reload the room normally on
-    ///     navigation after commit returns.
-    ///   • Does NOT fan out to PersonaGrains — historical messages shouldn't trigger
-    ///     live LLM replies.
-    /// All messages are appended under a single Orleans event so the round-trip cost is
-    /// O(1), not O(n).
-    /// </summary>
-    public async Task<int> ImportMessagesAsync(
-        List<ImportedMessage> messages,
-        CancellationToken ct = default)
-    {
-        if (messages.Count == 0) return 0;
-        // Pin ChatGroupId to this grain's key so a caller mistake (or attacker) cannot
-        // smuggle messages tagged for a different room into our event log.
-        var chatGroupId = this.GetPrimaryKey();
-        var normalized = messages
-            .Select(m => m with { ChatGroupId = chatGroupId })
-            .ToList();
-        RaiseEvent(new ChatGroupMessagesImportedEvent { Messages = normalized });
-        await ConfirmEvents();
-        return messages.Count;
-    }
-
-    public async Task AppendMessageAsync(
+    private async Task AppendMessageAsync(
         int messageId,
         string content,
         string? reasoning,
         string? appraisal,
         ChatMessageMetadata? metadata,
-        int? triggeredByMessageId = null,
-        CancellationToken ct = default)
+        int? triggeredByMessageId)
     {
 
         var chatGroupId = this.GetPrimaryKey();
         var sendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var senderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty;
+        var earshot = await EarshotOfAsync(senderId);
 
         RaiseEvent(new ChatGroupGenerationCompletedEvent
         {
@@ -228,17 +275,19 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Content = content,
             Reasoning = reasoning,
             Appraisal = appraisal,
-            SenderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty,
+            SenderId = senderId,
+            HeardBy = earshot?.HeardBy,
+            Volume = earshot?.Volume,
             SendAt = sendAt,
             Metadata = metadata,
             TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
-        _ = NotifyAllParticipantsAsync(State.Messages.FirstOrDefault(m => m.MessageId == messageId)!, ct);
 
         var updatedMessage = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
         if (updatedMessage is not null)
         {
+            _ = NotifyAllParticipantsAsync(updatedMessage);
             await PublishPartyEvent(new PartyStreamEvent
             {
                 Type = "message",
@@ -248,7 +297,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null)
+    private async Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -274,7 +323,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationFailedAsync(int messageId, string error)
+    private async Task MarkGenerationFailedAsync(int messageId, string error)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -297,17 +346,14 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     /// <summary>
-    /// Race-cancelled generation: instead of leaving an empty slot with a red "cancelled"
-    /// error, ship a short in-character abandonment line ("emote") into the existing slot
-    /// so the chat reads as a beat of character behaviour rather than an error. The message
-    /// is marked <c>Kind="emote"</c> so the frontend can render it distinctly. Other personas
-    /// see it in history and may react.
+    /// Race-cancelled draft becomes an in-character emote (<c>Kind="emote"</c>) in its slot.
+    /// Not fanned out — others see it in history on their next beat.
     /// </summary>
-    public async Task MarkGenerationCancelledAsEmoteAsync(
+    private async Task MarkGenerationCancelledAsEmoteAsync(
         int messageId,
         string emoteContent,
         string? appraisal,
-        int? triggeredByMessageId = null)
+        int? triggeredByMessageId)
     {
         var chatGroupId = this.GetPrimaryKey();
 
@@ -369,10 +415,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
     }
 
-    public Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId)
+    public Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null)
     {
         var before = State.Messages
             .Where(m => m.MessageId < messageId)
+            .Where(m => listener is not { } who || m.HeardBy is not { } heard || heard.Contains(who))
             .OrderBy(m => m.MessageId)
             .ToArray();
 
@@ -469,11 +516,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     /// PersonaGrain so the single rule for "User-driven personas don't run Decide/Speak"
     /// has one home, not many. Fire-and-forget because PersonaGrain re-enters this grain.
     /// </summary>
-    public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
+    private Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
         var targets = State.ParticipantIds
             .Where(id => id != triggeringMessage.SenderId)
+            .Where(id => triggeringMessage.HeardBy is not { } heard || heard.Contains(id))
             .ToList();
 
         logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
@@ -486,6 +534,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>Place talk only: who hears this sender right now (spec .scratch/places § Sound). Null elsewhere.</summary>
+    private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
+    {
+        if (await KindAsync() != ChatGroupKinds.Place) return null;
+        return await GrainFactory.GetGrain<World.Places.IPlacesGrain>(State.PartyId).EarshotAsync(this.GetPrimaryKey(), senderId);
     }
 
     private Task PublishPartyEvent(PartyStreamEvent evt)
@@ -502,6 +557,10 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 [Alias("backend.IChatGroupGrain")]
 public interface IChatGroupGrain : IGrainWithGuidKey
 {
+    /// <summary>Last <paramref name="count"/> completed messages (no reserved slots, no failures).</summary>
+    [Alias("GetRecentMessagesAsync")]
+    Task<List<ChatMessage>> GetRecentMessagesAsync(int count);
+
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
 
@@ -514,11 +573,18 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
-    [Alias("GetNextMessageIdAsync")]
-    Task<int> GetNextMessageIdAsync(
-        Guid? senderId = null,
-        string senderType = "assistant",
-        int? triggeredByMessageId = null);
+    /// <summary>Reserve a Persona's turn slot; end it with exactly one <see cref="EndTurnAsync"/>.</summary>
+    [Alias("BeginTurnAsync")]
+    Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null);
+
+    /// <summary>Close a turn. Idempotent: a missing (deleted) or already-closed slot is a no-op.
+    /// Only <see cref="TurnOutcome.Spoke"/> fans out.</summary>
+    [Alias("EndTurnAsync")]
+    Task EndTurnAsync(int turnId, TurnOutcome outcome);
+
+    /// <summary>Re-offer the latest message to the cast (Proceed / after Reprompt truncation).</summary>
+    [Alias("ContinueAsync")]
+    Task ContinueAsync();
 
     /// <summary>Replace the Room's membership wholesale (ids only).</summary>
     [Alias("SetParticipantIdsAsync")]
@@ -529,10 +595,19 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetParticipantIdsAsync")]
     Task<IReadOnlySet<Guid>> GetParticipantIdsAsync();
 
+    /// <summary>Add Personas to the Room; ids not in the Party cast are dropped. Returns membership.</summary>
+    [Alias("JoinAsync")]
+    Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds);
+
     /// <summary>The sparse per-Persona Driver override map for this Room. A missing
     /// entry means the Participant's Default Driver applies.</summary>
     [Alias("GetDriverOverridesAsync")]
     Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync();
+
+    /// <summary>Present Participants with Effective Drivers and library data — the one
+    /// place consumers learn who is here and who drives them.</summary>
+    [Alias("GetCastAsync")]
+    Task<RoomCast> GetCastAsync();
 
     /// <summary>Set the Driver override for one Persona in this Room.</summary>
     [Alias("SetDriverOverrideAsync")]
@@ -556,23 +631,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string? appraisal = null,
         CancellationToken cancellationToken = default);
 
-    [Alias("AppendMessageAsync")]
-    Task AppendMessageAsync(
-        int messageId,
-        string content,
-        string? reasoning = null,
-        string? appraisal = null,
-        ChatMessageMetadata? metadata = null,
-        int? triggeredByMessageId = null,
-        CancellationToken cancellationToken = default);
-
-    [Alias("ImportMessagesAsync")]
-    Task<int> ImportMessagesAsync(
-        List<ImportedMessage> messages,
-        CancellationToken cancellationToken = default);
-
-    [Alias("MarkGenerationStoppedAsync")]
-    Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null);
 
     [Alias("RecordSkippedTurnAsync")]
     Task RecordSkippedTurnAsync(
@@ -597,16 +655,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetRaceEvaluationsAsync")]
     Task<IReadOnlyList<RaceEvaluation>> GetRaceEvaluationsAsync();
 
-    [Alias("MarkGenerationFailedAsync")]
-    Task MarkGenerationFailedAsync(int messageId, string error);
-
-    [Alias("MarkGenerationCancelledAsEmoteAsync")]
-    Task MarkGenerationCancelledAsEmoteAsync(
-        int messageId,
-        string emoteContent,
-        string? appraisal,
-        int? triggeredByMessageId = null);
-
     [Alias("DeleteMessageAsync")]
     Task DeleteMessageAsync(int messageId);
 
@@ -616,14 +664,12 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("NotifyStreamChunkAsync")]
     Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt);
 
+    /// <summary>History before a message; with a <paramref name="listener"/>, only Place talk they heard (Earshot).</summary>
     [Alias("GetMessagesUntilAsync")]
-    Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId);
+    Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null);
 
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
-
-    [Alias("NotifyAllParticipantsAsync")]
-    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken cancellationToken = default);
 }
 
 // ── State ──
@@ -743,6 +789,8 @@ public sealed record class ChatGroupState
         // only overwrite if the event carries one (legacy events leave it null).
         if (@event.TriggeredByMessageId.HasValue)
             target.TriggeredByMessageId = @event.TriggeredByMessageId;
+        target.HeardBy = @event.HeardBy;
+        target.Volume = @event.Volume;
     }
 
     public void Apply(ChatGroupGenerationStoppedEvent @event)
@@ -950,6 +998,9 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(5)] public long SendAt { get; set; }
     [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
     [Id(7)] public int? TriggeredByMessageId { get; set; }
+    /// <summary>Place talk Earshot; null = everyone (Rooms, DMs, legacy events).</summary>
+    [Id(8)] public List<Guid>? HeardBy { get; set; }
+    [Id(9)] public string? Volume { get; set; }
 }
 
 /// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>
@@ -1042,6 +1093,7 @@ public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupE
 /// <summary>One historical chat message being bulk-imported. Caller assigns sender,
 /// timestamp, and kind. <see cref="ChatMessage.MessageId"/> is assigned by the state
 /// projection at apply time, not by the caller.</summary>
+/// <summary>Journal-only: Rooms filled by the retired importer (ADR 0022) still replay.</summary>
 [GenerateSerializer, Alias(nameof(ImportedMessage))]
 public sealed record class ImportedMessage
 {

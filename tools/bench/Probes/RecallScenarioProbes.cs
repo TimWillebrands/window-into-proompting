@@ -328,7 +328,7 @@ public static class RecallScenarioProbes
     {
         try
         {
-            var result = await bench.Memory.CaptureMomentAsync(party, room, messageId, Present, recentContext, ct);
+            var result = await bench.Memory.CaptureAsync(Moment.FromMessages(party, MomentSources.Rooms, room, recentContext, messageId, Present), ct);
             bench.Observe(label, new
             {
                 marked = recentContext.FirstOrDefault(m => m.MessageId == messageId)?.Content,

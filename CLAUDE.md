@@ -6,6 +6,8 @@ Guidance for Claude Code working in this repo.
 
 Proompting (aka Partytown): Windows XP-themed AI chat where multiple AI personas converse in party groups. C#/.NET backend with Microsoft Orleans (actor model), React 19 frontend styled with xp.css, PostgreSQL + Apache AGE for Orleans persistence and the persona memory graph.
 
+The World (ADR 0018) lives in `backend/World/`. It contains the World clock, Persona Life (Initiative) and the `IWorldApp` modes (Rooms, Messenger, Board, Diary). Messenger DMs are two-person Rooms. Frontend apps are in `frontend/src/apps/{world,messenger,board,diary}`; the realtime/World plumbing is in `frontend/src/lib/world.tsx`.
+
 Domain terminology and architecture overview: `CONTEXT.md`. Design decisions: `docs/adr/`.
 
 ## Running the app
@@ -36,6 +38,8 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 ## Gotchas
 
 - **Orleans serialization:** never use C# collection expressions (`[]`, `[.. x]`) for grain interface args/returns or serialized state — it compiles fine but throws `CodecNotFoundException` at runtime. Use `Array.Empty<T>()` or `.ToList()`.
+- **Grain storage JSON includes defaults** (configured in `Program.cs`). Don't remove that: `DriverKind.User == 0` and `IsEnabled=false` were silently dropped and resurrected by property initializers.
+- Vite listens on `[::1]:8080` only. Browser tools that resolve `localhost` to IPv4 may get stale or cached pages; use `http://[::1]:8080`.
 - Realtime is a custom raw-WebSocket hub (`PartyRealtimeHub`), not SignalR.
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
 

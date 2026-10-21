@@ -1,6 +1,6 @@
 # Import as iterative scene workshop, not linear pipeline
 
-> Status: superseded by [ADR 0017](0017-import-scene-workshop-over-stateless-map.md).
+> Status: superseded by [ADR 0017](0017-import-scene-workshop-over-stateless-map.md), itself superseded by [ADR 0022](0022-arrival-replaces-import.md).
 > The scene-by-scene, human-gated workshop skeleton survives there; the extraction
 > engine (identify → classify) and the AGE read-back context mechanism do not.
 

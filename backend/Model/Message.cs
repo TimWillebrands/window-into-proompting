@@ -57,6 +57,14 @@ public record class ChatMessage
     /// Null = normal message. Frontend uses this to pick distinct rendering.</summary>
     [Id(11)]
     public string? Kind { get; set; }
+
+    /// <summary>Place talk Earshot (spec .scratch/places): who heard this line. Null = everyone in the Room.</summary>
+    [Id(12)]
+    public List<Guid>? HeardBy { get; set; }
+
+    /// <summary>Place talk volume: whisper, talk or shout. Null outside Places.</summary>
+    [Id(13)]
+    public string? Volume { get; set; }
 }
 
 /// <summary>Provenance metadata for an assistant message — which backend produced it.

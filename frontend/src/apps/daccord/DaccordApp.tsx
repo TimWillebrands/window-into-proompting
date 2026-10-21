@@ -80,8 +80,9 @@ export default function DaccordApp() {
     const chatGroups = useMemo(() => {
         const raw = chatGroupsQuery.data?.data;
         if (!Array.isArray(raw)) return [];
+        // DMs are Rooms too (kind "dm") but belong to Messenger.
         const mapped = raw.flatMap((g) =>
-            g.id && g.name
+            g.id && g.name && g.kind !== 'dm' && g.kind !== 'place'
                 ? [
                       {
                           id: g.id,

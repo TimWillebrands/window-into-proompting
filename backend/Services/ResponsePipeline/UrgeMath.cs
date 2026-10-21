@@ -19,7 +19,8 @@ public static class UrgeMath
     public static ResponseUrge CalculateResponseUrge(
         SelfView self,
         IReadOnlyList<ChatMessage> history,
-        int totalAiRoundsInGroup)
+        int totalAiRoundsInGroup,
+        bool directlyAddressed = false)
     {
         double mentionScore = 0;
         double questionScore = 0;
@@ -42,6 +43,10 @@ public static class UrgeMath
             if (mentionRegex.IsMatch(content))
                 mentionScore = 1.0;
         }
+
+        // 1:1 thread: every line is addressed to you.
+        if (directlyAddressed)
+            mentionScore = 1.0;
 
         // Question detection: does the latest message end with a question mark?
         if (content.TrimEnd().EndsWith('?'))

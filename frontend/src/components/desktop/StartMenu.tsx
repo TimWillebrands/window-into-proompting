@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
+import { usePlayerSession } from '../../lib/world';
 
 interface StartMenuProps {
     onLaunch: (windowId: string) => void;
@@ -8,6 +9,8 @@ interface StartMenuProps {
 
 export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
     const rootRef = useRef<HTMLDivElement | null>(null);
+    const playerName = usePlayerSession((s) => s.name);
+    const signOut = usePlayerSession((s) => s.signOut);
 
     useEffect(() => {
         const handlePointer = (event: PointerEvent) => {
@@ -57,7 +60,17 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
                 >
                     👤
                 </span>
-                <h1>Partytown User</h1>
+                <h1>{playerName ?? 'Partytown User'}</h1>
+                <button
+                    type="button"
+                    className="ml-auto mr-2 text-xs"
+                    onClick={() => {
+                        onClose();
+                        signOut();
+                    }}
+                >
+                    Log Off
+                </button>
             </header>
 
             <main className="xp-startmenu-body">

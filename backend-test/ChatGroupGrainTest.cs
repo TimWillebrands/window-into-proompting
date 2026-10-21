@@ -65,7 +65,7 @@ public class ChatGroupGrainTest
 
     /// <summary>
     /// Reserves a message slot on the state, returning the assigned MessageId.
-    /// Mirrors what GetNextMessageIdAsync does: raises ChatGroupMessageSlotReservedEvent
+    /// Mirrors what BeginTurnAsync does: raises ChatGroupMessageSlotReservedEvent
     /// then reads State.NextMessageId.
     /// </summary>
     private int ReserveSlot(ChatGroupState state, Guid? senderId = null, string senderType = "assistant")

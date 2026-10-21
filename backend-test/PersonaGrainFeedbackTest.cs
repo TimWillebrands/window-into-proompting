@@ -38,7 +38,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         // Arrange: drive PersonaGrain through to the speaking phase with a hanging endpoint.
         // While speaking hangs, call CancelGenerationAsync via the grain interface — the
         // grain must route through InFlightStore.CancelAllAsync to trip the speaking CTS,
-        // surfacing as MarkGenerationFailedAsync("cancelled") through the pipeline's external-
+        // surfacing as a Failed("cancelled") outcome through the pipeline's external-
         // cancel branch.
         var decisionJson = """{"gutReaction":"on it","memoryToReference":null,"wouldSay":"writing...","respond":true}""";
 
@@ -80,9 +80,9 @@ public class PersonaGrainFeedbackTest : TestKitBase
 
         var msgIdSeq = 0;
         var chatGroup = Silo.AddProbe<IChatGroupGrain>(_chatGroupId);
-        chatGroup.Setup(g => g.GetNextMessageIdAsync(It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int?>()))
+        chatGroup.Setup(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()))
             .ReturnsAsync(() => ++msgIdSeq);
-        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
         var partyId = Guid.NewGuid();
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
@@ -97,12 +97,19 @@ public class PersonaGrainFeedbackTest : TestKitBase
                 new PartyParticipant { Id = _personaId, Name = PersonaName, Driver = DriverKind.LLM },
                 new Persona { Id = _personaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
         });
+        chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(() => RoomCast.Create(
+            partyGrain.Object.GetCastAsync().Result,
+            new HashSet<Guid> { _personaId },
+            new Dictionary<Guid, DriverKind>(),
+            ChatGroupKinds.Room));
         // Two prior assistant rounds → no cold-open bump. Stays under the obvious-skip
         // threshold too (no recent self-messages).
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(2);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
             .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()))
+        var outcomes = new List<TurnOutcome>();
+        chatGroup.Setup(g => g.EndTurnAsync(It.IsAny<int>(), It.IsAny<TurnOutcome>()))
+            .Callback<int, TurnOutcome>((_, o) => outcomes.Add(o))
             .Returns(Task.CompletedTask);
 
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
@@ -111,7 +118,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         var memoryRepo = new Mock<IMemoryRepository>();
         memoryRepo.Setup(m => m.RecallAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<Guid?>()))
             .ReturnsAsync(Array.Empty<RecalledMemory>());
         memoryRepo.Setup(m => m.RecallStancesAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
@@ -144,16 +151,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .WaitAsync(TimeSpan.FromSeconds(15));
         await cancelTask.WaitAsync(TimeSpan.FromSeconds(15));
 
-        // Assert: pipeline's external-cancel branch ran — no terminal write, no emote,
-        // MarkGenerationFailedAsync called with "cancelled".
-        chatGroup.Verify(g => g.MarkGenerationFailedAsync(
-            It.IsAny<int>(), It.Is<string>(s => s == "cancelled")), Times.Once);
-        chatGroup.Verify(g => g.AppendMessageAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-            It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
-        chatGroup.Verify(g => g.MarkGenerationCancelledAsEmoteAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Never);
+        // Assert: pipeline's external-cancel branch ran — exactly one Failed("cancelled") outcome.
+        Assert.Equal("cancelled", Assert.IsType<TurnOutcome.Failed>(Assert.Single(outcomes)).Error);
     }
 
     private static async IAsyncEnumerable<LlmGenerationEvent> SingleChunk(

@@ -29,7 +29,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? scenario = null,
         string? memoryToReference = null,
         IReadOnlyList<string>? stances = null,
-        string? gutReaction = null)
+        string? gutReaction = null,
+        string? presence = null,
+        IReadOnlyList<string>? avoidWords = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -41,7 +43,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances),
+                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances, presence),
                 Name = persona.Id.ToString()
             }
         };
@@ -65,7 +67,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (!string.IsNullOrWhiteSpace(gutReaction))
             guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
-            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite.");
+            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite. If the draft repeats something you already said lately, drop that part.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
         {
             // Small-model crutch (candidate to gate off for stronger models): repeat the
@@ -77,6 +79,11 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 : $" {JoinNames(subjects)} {(subjects.Count == 1 ? "is" : "are")} right here in the room — say it to {(subjects.Count == 1 ? subjects[0] : "them")} directly, not about them.";
             guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.{addressCue}");
         }
+        var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
+        // Stale words (ADR 0021) restated at the recency slot: the history full of them outweighs the system block.
+        if (avoidWords is { Count: > 0 })
+            guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
+        guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
@@ -87,63 +94,27 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             });
         }
 
-        var builder = new StringBuilder();
-        var reasoning = new StringBuilder();
-
         using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);
         generateSpan?.SetTag("persona.id", persona.Id);
         generateSpan?.SetTag("persona.name", persona.Name);
 
-        // The spoken utterance is what the user reads — route it to the CharacterVoice tier
-        // (a smarter model) while the high-frequency Decision phase stays on the fast General
-        // tier. Falls back to General when no CharacterVoice-capable provider is configured
-        // (mirrors MemoryExtractor.RouteExtractionAsync) so speaking degrades in quality,
-        // never in function — without this a General-only setup silently mutes every persona.
-        var complexity = JobComplexity.CharacterVoice;
-        ILlmEndpointGrain generation;
-        try
-        {
-            generation = await router.RouteAsync(complexity, cancellationToken);
-        }
-        catch (InvalidOperationException)
-        {
-            complexity = JobComplexity.General;
-            generation = await router.RouteAsync(complexity, cancellationToken);
-            generateSpan?.SetTag("llm.tier_fallback", true);
-        }
+        // The spoken utterance is what the user reads: CharacterVoice tier, degrading to General
+        // so a General-only setup never mutes every persona.
+        var result = await new LlmCall(router).StreamAsync(
+            new LlmGenerationJob { Messages = messages }, LlmTiers.Voice, cancellationToken,
+            chunk => onEvent(chunk.Type, chunk.Data, false), generateSpan);
 
-        var job = new LlmGenerationJob
-        {
-            Messages = messages,
-            JobComplexity = complexity
-        };
-        var metadata = await generation.GetAttributionAsync();
-        generateSpan?.SetTag("llm.provider", metadata?.Provider);
-        generateSpan?.SetTag("llm.model", metadata?.ModelName);
-
-        await foreach (var chunk in generation.GenerateAsync(job, cancellationToken))
-        {
-            if (chunk.Type == LlmGenerationEvent.ContentChunk)
-            {
-                builder.Append(chunk.Data);
-            }
-            else if (chunk.Type == LlmGenerationEvent.ReasoningChunk)
-            {
-                reasoning.Append(chunk.Data);
-            }
-
-            await onEvent(chunk.Type, chunk.Data, false);
-        }
-
-        generateSpan?.SetTag("output.length", builder.Length);
+        generateSpan?.SetTag("output.length", result.Content.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
         return new SpeakingResult
         {
             Stop = false,
-            Message = builder.ToString(),
-            Reasoning = reasoning.ToString(),
-            Metadata = metadata
+            Message = SpeechCleanup.DropObviousVocative(
+                SpeechCleanup.Clean(result.Content, persona.Name),
+                lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId)),
+            Reasoning = result.Reasoning,
+            Metadata = result.Attribution
         };
     }
 
@@ -184,7 +155,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
     };
 
-    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
@@ -238,29 +209,21 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // and what's live, rendered in both phases (no Decision→Speaking handoff field). Lands
         // right after the roster, before the generic style rules. Omitted when nothing anchors.
         var stanceSection = StanceBlock.Render(stances);
+        var presenceSection = string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n";
 
         // Persona identity block claims the primacy position; chat-style rules land after,
         // so the model sees who it is before it sees generic etiquette.
         return $"""
 # You are: {self.Name} (ID: {self.Id})
+{LivedSelf.SheetFraming}
 {personaPrompt}
 {scenarioSection}
 # Other participants
 {othersSection}
 {stanceSection}
+{presenceSection}
 # Style
-You are in a (group) chat with other people. Stay completely in character as
-your persona — never acknowledge that you are an AI or playing a role.
-
-Talk like a real person in a casual group chat: short, reactive, and natural.
-Actually respond to what others just said — agree, disagree, interrupt, joke,
-get annoyed, ask follow-up questions. Don't monologue or lecture.
-
-Keep your messages short — a few sentences at most, like a real chat message.
-Only go longer if you're genuinely explaining something or telling a story.
-
-You can use *italics* sparingly for brief actions or reactions (e.g. *sighs*,
-*leans back*), but don't narrate elaborate scenes or stage directions.
+{LivedSelf.ChatStyle}
 {memorySection}
 """;
     }

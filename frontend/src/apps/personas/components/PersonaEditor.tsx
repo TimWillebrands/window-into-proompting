@@ -2,11 +2,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
     getGetPersonaQueryKey,
+    getGetWorldsPartyIdLivesQueryKey,
     useDeletePersonaId,
     usePutPersonaId,
 } from '#api/party-zone';
 import { personaWsStream } from '#lib/persona-ws-stream';
 import type { Persona } from '../../../api/model';
+import { ROOT_PARTY_ID } from '../../../lib/chat-api';
 
 type PersonaGenerationDeltaData = { data: string };
 type PersonaGenerationCompletedData = {
@@ -33,6 +35,12 @@ export default function PersonaEditor({
         persona.systemPrompt ?? '',
     );
     const [bio, setBio] = useState(persona.bio ?? '');
+    const [chattiness, setChattiness] = useState(
+        Number(persona.chattiness ?? 0.5),
+    );
+    const [impulsivity, setImpulsivity] = useState(
+        Number(persona.impulsivity ?? 0.5),
+    );
     const [isGeneratingBio, setIsGeneratingBio] = useState(false);
     const [bioGenError, setBioGenError] = useState('');
     const abortRef = useRef<AbortController | null>(null);
@@ -42,9 +50,16 @@ export default function PersonaEditor({
     const saveMutation = usePutPersonaId({
         mutation: {
             onSuccess: async () => {
-                await queryClient.invalidateQueries({
-                    queryKey: getGetPersonaQueryKey(),
-                });
+                await Promise.all([
+                    queryClient.invalidateQueries({
+                        queryKey: getGetPersonaQueryKey(),
+                    }),
+                    // Lives show chattiness.
+                    queryClient.invalidateQueries({
+                        queryKey:
+                            getGetWorldsPartyIdLivesQueryKey(ROOT_PARTY_ID),
+                    }),
+                ]);
             },
         },
     });
@@ -99,6 +114,8 @@ export default function PersonaEditor({
     return (
         <form
             className="space-y-3"
+            // Off-step legacy dial values must not block saving.
+            noValidate
             onSubmit={(event) => {
                 event.preventDefault();
                 if (!persona.id || isGeneratingBio) return;
@@ -109,6 +126,8 @@ export default function PersonaEditor({
                         name,
                         systemPrompt,
                         bio: bio || null,
+                        chattiness: Math.round(chattiness * 100) / 100,
+                        impulsivity: Math.round(impulsivity * 100) / 100,
                     },
                 });
             }}
@@ -207,6 +226,26 @@ export default function PersonaEditor({
 
             <fieldset className="border border-[#9db2c8] p-2 m-0">
                 <legend className="text-xp-legend font-semibold text-[11px] px-1">
+                    Personality Dials
+                </legend>
+                <div className="space-y-2 p-1">
+                    <DialSlider
+                        label="Chattiness"
+                        help="How much they want to talk / act."
+                        value={chattiness}
+                        onChange={setChattiness}
+                    />
+                    <DialSlider
+                        label="Impulsivity"
+                        help="How hard they commit once they start speaking."
+                        value={impulsivity}
+                        onChange={setImpulsivity}
+                    />
+                </div>
+            </fieldset>
+
+            <fieldset className="border border-[#9db2c8] p-2 m-0">
+                <legend className="text-xp-legend font-semibold text-[11px] px-1">
                     System Prompt
                 </legend>
                 <div className="p-1">
@@ -260,5 +299,54 @@ export default function PersonaEditor({
                 </button>
             </div>
         </form>
+    );
+}
+
+function DialSlider({
+    label,
+    help,
+    value,
+    onChange,
+}: {
+    label: string;
+    help: string;
+    value: number;
+    onChange: (value: number) => void;
+}) {
+    const id = useId();
+    return (
+        <div>
+            <div className="flex items-center justify-between">
+                <label htmlFor={id} style={{ fontWeight: 600, color: '#000' }}>
+                    {label}
+                </label>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {value.toFixed(2)}
+                </span>
+            </div>
+            <div className="flex items-center" style={{ gap: 6 }}>
+                <span style={{ color: '#666', fontSize: 10 }}>Low</span>
+                <input
+                    id={id}
+                    type="range"
+                    // Integer percent steps: float steps trip step-mismatch validation.
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={Math.round(value * 100)}
+                    onChange={(event) =>
+                        onChange(Number(event.currentTarget.value) / 100)
+                    }
+                    className="flex-1"
+                    style={{
+                        border: 'none',
+                        background: 'transparent',
+                        padding: 0,
+                    }}
+                />
+                <span style={{ color: '#666', fontSize: 10 }}>High</span>
+            </div>
+            <p style={{ color: '#666', margin: '1px 0 0' }}>{help}</p>
+        </div>
     );
 }

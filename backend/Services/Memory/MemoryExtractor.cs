@@ -407,26 +407,9 @@ The marked moment:
         return new RecollectionDraft(Truncate(snippet, MaxSnippetChars), weight);
     }
 
-    /// <summary>
-    /// Memory extraction runs in rest, off the beat path — route it to the cheap tier
-    /// (ADR 0015). Falls back to General when no CharacterThoughts-capable provider is
-    /// configured so capture degrades in cost, never in function. Returns the complexity
-    /// actually routed so the job's tag matches the endpoint that will serve it.
-    /// </summary>
-    private async Task<(ILlmEndpointGrain Endpoint, JobComplexity Complexity)> RouteExtractionAsync(
-        CancellationToken cancellationToken)
-    {
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        try
-        {
-            return (await router.RouteAsync(JobComplexity.CharacterThoughts, cancellationToken), JobComplexity.CharacterThoughts);
-        }
-        catch (InvalidOperationException)
-        {
-            logger.LogDebug("No cheap-tier provider for memory extraction; falling back to General");
-            return (await router.RouteAsync(JobComplexity.General, cancellationToken), JobComplexity.General);
-        }
-    }
+    /// <summary>Memory extraction runs in rest, off the beat path: cheap tier, degrading to General (ADR 0015).</summary>
+    private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteExtractionAsync(CancellationToken cancellationToken)
+        => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger).RouteAsync(LlmTiers.Thoughts, cancellationToken);
 
     internal static string NormaliseConceptName(string raw)
     {

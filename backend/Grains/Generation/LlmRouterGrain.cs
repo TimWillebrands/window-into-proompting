@@ -7,7 +7,17 @@ namespace PartyTown.Grains.Generation;
 [Reentrant]
 public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlmRouterGrain
 {
-    private IReadOnlyList<ILlmEndpointGrain>? _cachedProviders;
+    private IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>? _cachedProviders;
+
+    private readonly Dictionary<Guid, DateTimeOffset> _benchedUntil = new();
+    private static readonly TimeSpan BenchFor = TimeSpan.FromMinutes(10);
+
+    public Task ReportFailureAsync(Guid providerId, string reason)
+    {
+        _benchedUntil[providerId] = DateTimeOffset.UtcNow + BenchFor;
+        logger.LogWarning("Provider {ProviderId} benched for {Minutes} min: {Reason}", providerId, BenchFor.TotalMinutes, reason);
+        return Task.CompletedTask;
+    }
 
     public Task InvalidateCacheAsync()
     {
@@ -20,6 +30,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
     {
         var providers = await GetProvidersAsync(cancellationToken);
         var tasks = providers
+            .Select(p => p.Grain)
             .Select(async grain =>
             {
                 try { return await grain.GetModelsAsync(cancellationToken); }
@@ -47,32 +58,21 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         var providers = await GetProvidersAsync(cancellationToken);
         routeSpan?.SetTag("candidates.total", providers.Count);
 
-        var modelProviderTasks = providers.Select(async grain =>
+        // Tier support is a property of the provider entry, not of its model list — no
+        // per-route network listing.
+        var modelProviderTasks = providers.Select(async p =>
         {
-            try
+            var supports = p.Entry.SupportedComplexities.HasFlag(jobComplexity);
+            return new
             {
-                var models = await grain.GetModelsAsync(cancellationToken);
-                return new
-                {
-                    Grain = grain,
-                    Pressure = await grain.PressureAsync(),
-                    CompatibleModels = models.Where(m => m.Supports(jobComplexity)).ToList(),
-                    Failed = false,
-                    Error = (string?)null
-                };
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException and not TaskCanceledException)
-            {
-                logger.LogWarning(ex, "Provider {GrainId} failed during routing, skipping", grain.GetPrimaryKey());
-                return new
-                {
-                    Grain = grain,
-                    Pressure = int.MaxValue,
-                    CompatibleModels = new List<LlmModel>(),
-                    Failed = true,
-                    Error = (string?)ex.Message
-                };
-            }
+                Grain = p.Grain,
+                Priority = p.Entry.Priority,
+                Benched = _benchedUntil.TryGetValue(p.Entry.Id, out var until) && until > DateTimeOffset.UtcNow,
+                Pressure = await p.Grain.PressureAsync(),
+                CompatibleModels = supports ? new List<string> { p.Entry.ModelName } : new List<string>(),
+                Failed = false,
+                Error = (string?)null
+            };
         });
 
         var finishedTasks = await Task.WhenAll(modelProviderTasks);
@@ -94,9 +94,12 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             }));
         }
 
+        // Healthy before benched (a benched provider is still better than none), then priority, then load.
         var compatibleProvider = finishedTasks
             .Where(provider => !provider.Failed && provider.CompatibleModels.Any())
-            .OrderBy(provider => provider.Pressure)
+            .OrderBy(provider => provider.Benched)
+            .ThenBy(provider => provider.Priority)
+            .ThenBy(provider => provider.Pressure)
             .FirstOrDefault();
 
         if (compatibleProvider is null)
@@ -113,7 +116,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         return compatibleProvider.Grain;
     }
 
-    private async Task<IReadOnlyList<ILlmEndpointGrain>> GetProvidersAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>> GetProvidersAsync(CancellationToken cancellationToken)
     {
         if (_cachedProviders is not null)
             return _cachedProviders;
@@ -123,12 +126,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
 
         _cachedProviders = entries
             .Where(e => e.IsEnabled)
-            .Select(e => e.Type switch
-            {
-                "ollama" => GrainFactory.GetGrain<IOllamaEndpointGrain>(e.Id) as ILlmEndpointGrain,
-                "openrouter" => GrainFactory.GetGrain<IOpenRouterEndpointGrain>(e.Id),
-                _ => throw new InvalidOperationException($"Unsupported provider type: {e.Type}")
-            }).ToList();
+            .Select(e => (e, LlmEndpoints.Resolve(GrainFactory, e.Type, e.Id))).ToList();
 
         logger.LogDebug("Refreshed provider cache with {Count} providers", _cachedProviders.Count);
         return _cachedProviders;

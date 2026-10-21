@@ -28,7 +28,13 @@ public sealed class OpenRouterProviderConfig : ILlmProviderConfig
     public string ApiKey { get; init; } = string.Empty;
     public string BaseUrl { get; init; } = "https://openrouter.ai/api/v1";
 
-    public string TEMP_ModelName { get; init; } = "nvidia/nemotron-3-super-120b-a12b:free";
+    /// <summary>Cheap, fast, structured-output capable; the default for env-seeded worlds.</summary>
+    public const string DefaultModel = "deepseek/deepseek-v4.1-flash";
+
+    /// <summary>Speaking-phase voice: noticeably better character adherence for ~$0.0002 a line.</summary>
+    public const string DefaultVoiceModel = "anthropic/claude-haiku-5.5";
+
+    public string TEMP_ModelName { get; init; } = DefaultModel;
 
     /// <summary>Which <see cref="JobComplexity"/> tiers this provider serves (bound from
     /// config; <c>[Flags]</c>, so a comma-separated value sets several). Lets the router send,

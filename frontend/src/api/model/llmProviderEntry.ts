@@ -21,4 +21,6 @@ export interface LlmProviderEntry {
      */
     generationTimeout?: string | null;
     isEnabled?: boolean;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    priority?: number | string;
 }

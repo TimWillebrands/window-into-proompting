@@ -139,7 +139,7 @@ public class PersonaController(
             logger.LogInformation("Updating persona: {PersonaId}", personaId);
         }
 
-        await root.AddPersona(personaId, persona.Name, persona.SystemPrompt, persona.Bio);
+        await root.AddPersona(persona with { Id = personaId });
 
         var personaGrain = grains.GetGrain<IPersonaGrain>(personaId);
         var updated = await personaGrain.GetPersona();
@@ -258,23 +258,32 @@ public class PersonaController(
             ? typeProp.GetString()
             : null;
 
-        var router = grains.GetGrain<ILlmRouterGrain>(0);
-        var models = await router.GetModelsAsync(ct);
-        if (models.Count == 0)
+        var llm = new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger);
+        // Streams one routed call, forwarding each content chunk as a delta frame.
+        async Task<string?> StreamToSocketAsync(string system, string user, double temperature)
         {
-            await SendWsEnvelopeAsync(socket, "persona.generation.error",
-                new PersonaGenerationErrorData("No LLM models available."), ct);
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, ct);
-            return;
+            try
+            {
+                var result = await llm.StreamAsync(new LlmGenerationJob
+                {
+                    Messages = new List<LlmChatMessage>
+                    {
+                        new() { Role = "system", Content = system },
+                        new() { Role = "user", Content = user },
+                    },
+                    ModelParameters = new LlmModelParameters { Temperature = temperature },
+                }, LlmTiers.General, ct, evt => evt.Type == LlmGenerationEvent.ContentChunk
+                    ? SendWsEnvelopeAsync(socket, "persona.generation.delta", new PersonaGenerationDeltaData(evt.Data), ct)
+                    : Task.CompletedTask);
+                return result.Content;
+            }
+            catch (InvalidOperationException)
+            {
+                await SendWsEnvelopeAsync(socket, "persona.generation.error",
+                    new PersonaGenerationErrorData("No LLM models available."), ct);
+                return null;
+            }
         }
-
-        var model = models[0];
-        ILlmEndpointGrain endpoint = model.ProviderType switch
-        {
-            "openrouter" => grains.GetGrain<IOpenRouterEndpointGrain>(model.EndpointProviderGrainId),
-            "ollama" => grains.GetGrain<IOllamaEndpointGrain>(model.EndpointProviderGrainId),
-            _ => throw new InvalidOperationException($"Unknown provider type: {model.ProviderType}")
-        };
 
         try
         {
@@ -287,27 +296,10 @@ public class PersonaController(
                         await SendWsEnvelopeAsync(socket, "persona.generation.error", new PersonaGenerationErrorData("Missing required field: systemPrompt"), ct);
                         break;
                     }
-                    var systemPrompt = spProp.GetString() ?? string.Empty;
-                    var accumulated = new StringBuilder();
-
-                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
-                    {
-                        Messages = new List<LlmChatMessage>
-                        {
-                            new() { Role = "system", Content = BioGenerationSystemPrompt },
-                            new() { Role = "user", Content = systemPrompt }
-                        },
-                        ModelParameters = new LlmModelParameters { Temperature = 0.7 }
-                    }, ct))
-                    {
-                        if (evt.Type != "message") continue;
-                        accumulated.Append(evt.Data);
-                        await SendWsEnvelopeAsync(socket, "persona.generation.delta",
-                            new PersonaGenerationDeltaData(evt.Data), ct);
-                    }
-
+                    var bio = await StreamToSocketAsync(BioGenerationSystemPrompt, spProp.GetString() ?? string.Empty, 0.7);
+                    if (bio is null) break;
                     await SendWsEnvelopeAsync(socket, "persona.generation.completed",
-                        new PersonaGenerationCompletedData(null, null, accumulated.ToString().Trim()), ct);
+                        new PersonaGenerationCompletedData(null, null, bio.Trim()), ct);
                     break;
                 }
 
@@ -322,8 +314,11 @@ public class PersonaController(
                     var generatorPrompt = await cache.GetOrCreateAsync("persona-generator-prompt", async entry =>
                     {
                         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
-                        var path = Path.Combine(env.ContentRootPath,
-                            "Services", "Generation", "Prompts", "PersonaGenerator.md");
+                        // Source tree in dev (live edits), build output when published.
+                        var relative = Path.Combine("Services", "ResponsePipeline", "Prompts", "PersonaGenerator.md");
+                        var path = new[] { env.ContentRootPath, AppContext.BaseDirectory }
+                            .Select(root => Path.Combine(root, relative))
+                            .FirstOrDefault(System.IO.File.Exists) ?? Path.Combine(AppContext.BaseDirectory, relative);
                         if (!System.IO.File.Exists(path))
                         {
                             logger.LogError("PersonaGenerator.md not found at {Path}", path);
@@ -338,25 +333,9 @@ public class PersonaController(
                         break;
                     }
 
-                    var accumulated = new StringBuilder();
-
-                    await foreach (var evt in endpoint.GenerateAsync(new LlmGenerationJob
-                    {
-                        Messages = new List<LlmChatMessage>
-                        {
-                            new() { Role = "system", Content = generatorPrompt },
-                            new() { Role = "user", Content = prompt }
-                        },
-                        ModelParameters = new LlmModelParameters { Temperature = 0.85 }
-                    }, ct))
-                    {
-                        if (evt.Type != "message") continue;
-                        accumulated.Append(evt.Data);
-                        await SendWsEnvelopeAsync(socket, "persona.generation.delta",
-                            new PersonaGenerationDeltaData(evt.Data), ct);
-                    }
-
-                    var (name, systemPrompt, bio) = ParseGeneratedPersona(accumulated.ToString());
+                    var generated = await StreamToSocketAsync(generatorPrompt, prompt, 0.85);
+                    if (generated is null) break;
+                    var (name, systemPrompt, bio) = ParseGeneratedPersona(generated);
                     await SendWsEnvelopeAsync(socket, "persona.generation.completed",
                         new PersonaGenerationCompletedData(name, systemPrompt, bio), ct);
                     break;
@@ -408,43 +387,37 @@ public class PersonaController(
         return match.Success ? match.Groups[1].Value.Trim() : "Default Persona";
     }
 
-    private static string ExtractBioFromMarkdown(string content)
+    /// <summary>First sentences of the persona's self-description: "## Who you are" (lived format) or "## 1. Persona Definition" (legacy).</summary>
+    internal static string ExtractBioFromMarkdown(string content)
     {
-        // Try to get the Persona Definition section
-        var sectionMatch = Regex.Match(content,
-            @"##\s*1\.\s*Persona Definition\s*\n(.*?)(?=\n##\s*2\.)",
-            RegexOptions.Singleline);
+        var section = Regex.Match(content,
+            @"^##\s*(?:1\.\s*Persona Definition|Who you are)\s*\n(.*?)(?=\n##\s|\z)",
+            RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-        string text;
-        if (sectionMatch.Success)
-        {
-            text = sectionMatch.Groups[1].Value.Trim();
-            // Strip markdown italic markers
-            text = Regex.Replace(text, @"\*([^*]+)\*", "$1");
-        }
-        else
-        {
-            // Fall back to content after the H1 heading
-            var afterH1 = Regex.Match(content, @"^#[^\n]+\n+(.*?)(?=\n##|\z)", RegexOptions.Singleline);
-            text = afterH1.Success ? afterH1.Groups[1].Value.Trim() : content;
-        }
+        var text = section.Success
+            ? section.Groups[1].Value
+            : Regex.Match(content, @"^#[^\n]+\n+(.*?)(?=\n##|\z)", RegexOptions.Singleline) is { Success: true } afterH1
+                ? afterH1.Groups[1].Value
+                : content;
+        text = Regex.Replace(text, @"^#+[^\n]*\n?", "", RegexOptions.Multiline);
+        text = Regex.Replace(text, @"\*([^*]+)\*", "$1").Trim();
 
-        // Take up to 3 sentences
         var sentences = Regex.Matches(text, @"[^.!?]*[.!?]");
         if (sentences.Count > 0)
             return string.Join(" ", sentences.Cast<Match>().Take(3).Select(m => m.Value.Trim()));
-
-        // Fallback: first 300 chars
         return text.Length > 300 ? text[..300].TrimEnd() + "..." : text;
     }
 
-    private static (string Name, string SystemPrompt, string Bio) ParseGeneratedPersona(string raw)
+    /// <summary>Name from "# Full Name" (lived format) or "# System Prompt: Name (The Epithet)" (legacy).</summary>
+    internal static (string Name, string SystemPrompt, string Bio) ParseGeneratedPersona(string raw)
     {
         var systemPrompt = raw.Trim();
 
-        // Extract name from "# System Prompt: Name (The Epithet)"
-        var nameMatch = Regex.Match(raw, @"^#\s+System Prompt:\s*(.+?)\s*\(", RegexOptions.Multiline);
-        var name = nameMatch.Success ? nameMatch.Groups[1].Value.Trim() : "Generated Persona";
+        var heading = Regex.Match(raw, @"^#(?!#)\s*(.+?)\s*$", RegexOptions.Multiline);
+        var name = heading.Success
+            ? Regex.Replace(Regex.Replace(heading.Groups[1].Value, @"^System Prompt:\s*", "", RegexOptions.IgnoreCase), @"\s*\(.*\)\s*$", "").Trim()
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(name)) name = "Generated Persona";
 
         var bio = ExtractBioFromMarkdown(raw);
         if (string.IsNullOrWhiteSpace(bio))

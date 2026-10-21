@@ -4,9 +4,8 @@ namespace PartyTown.Services.Memory;
 
 /// <summary>
 /// Consolidation v1 orchestrator (ADR 0016): per-Participant, one LLM call, auto-append.
-/// Walks the Recollections past the watermark, asks <see cref="IStanceConsolidator"/> what
-/// crystallised, appends the proposals as STANCE edges attributed to a run id, and advances
-/// the watermark to the last Recollection walked. Runs in rest — triggered by the curator
+/// Reads the unconsolidated pile, asks <see cref="IStanceConsolidator"/> what crystallised,
+/// appends the proposals as STANCE edges attributed to a run id, and marks the pile consumed. Runs in rest — triggered by the curator
 /// button or the gauge — never on the response path.
 /// </summary>
 /// <remarks>
@@ -31,10 +30,19 @@ public sealed class ConsolidationService(
     // the in-flight run is already consuming the same batch.
     private readonly ConcurrentDictionary<(Guid PartyId, Guid PersonaId), byte> inFlight = new();
 
-    public async Task<ConsolidationRunResult> RunAsync(
+    public Task<ConsolidationRunResult> RunAsync(
         Guid partyId,
         ConsolidationSubject subject,
         IReadOnlyList<ConsolidationRosterEntry> roster,
+        CancellationToken ct)
+        => RunAsync(partyId, subject, roster, null, ct);
+
+    /// <summary>Sleep on <paramref name="prefetched"/> when the gauge already read it, else read the pile now.</summary>
+    private async Task<ConsolidationRunResult> RunAsync(
+        Guid partyId,
+        ConsolidationSubject subject,
+        IReadOnlyList<ConsolidationRosterEntry> roster,
+        ConsolidationBatch? prefetched,
         CancellationToken ct)
     {
         var runId = Guid.NewGuid();
@@ -46,7 +54,7 @@ public sealed class ConsolidationService(
 
         try
         {
-            var batch = await repository.GetUnconsolidatedRecollectionsAsync(partyId, subject.PersonaId, ct);
+            var batch = prefetched ?? await repository.GetUnconsolidatedRecollectionsAsync(partyId, subject.PersonaId, ct);
             if (batch.Items.Count == 0)
             {
                 // Idempotency over consumed Recollections: nothing past the watermark means
@@ -75,11 +83,9 @@ public sealed class ConsolidationService(
                 appended++;
             }
 
-            // Advance to the last Recollection walked — not "now" — so anything captured
-            // while the run was in flight stays unconsolidated for the next run. Advancing
-            // on zero proposals is deliberate: the batch was slept on either way.
+            // Zero proposals still consumes the batch: it was slept on either way.
+            await repository.MarkConsolidatedAsync(partyId, subject.PersonaId, batch, ct);
             var watermark = batch.Items[^1].Ts;
-            await repository.AdvanceConsolidationWatermarkAsync(partyId, subject.PersonaId, watermark, ct);
 
             logger.LogInformation(
                 "Consolidation run {RunId} for persona {PersonaId} in party {PartyId}: walked {Walked} recollections, appended {Appended} stances, watermark → {Watermark:o}",
@@ -120,7 +126,7 @@ public sealed class ConsolidationService(
                 subject.PersonaId, partyId, pressure, GaugeThreshold);
             try
             {
-                results.Add(await RunAsync(partyId, subject, roster, ct));
+                results.Add(await RunAsync(partyId, subject, roster, batch, ct));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

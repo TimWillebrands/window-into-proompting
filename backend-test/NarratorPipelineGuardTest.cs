@@ -25,17 +25,15 @@ public class NarratorPipelineGuardTest
         new() { Id = Guid.NewGuid(), Name = name, Driver = DriverKind.System };
 
     [Fact]
-    public void CancelTargets_OnlyLLMs()
+    public void CancelTargets_SkipSystem_KeepUserDefaults()
     {
-        // CancelAllGenerations must skip System and User — Narrator has no in-flight generation
-        // to cancel (it never speaks), and the User isn't a grain we'd cancel.
+        // Narrator never has an in-flight pipeline; a User default may, via a Room LLM override.
         var alice = Llm("Alice");
         var narrator = System("Narrator");
         var human = Human("You");
 
-        var targets = PartyGrain.SelectCancelTargets(new[] { alice, narrator, human }).ToList();
+        var targets = PartyGrain.SelectCancelTargets(new[] { alice, narrator, human }).Select(p => p.Id).ToList();
 
-        Assert.Single(targets);
-        Assert.Equal(alice.Id, targets[0].Id);
+        Assert.Equal(new[] { alice.Id, human.Id }, targets);
     }
 }

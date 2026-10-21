@@ -46,18 +46,21 @@ public sealed class LlmProviderConfigGrain(
         state.State.Providers[idx] = entry;
         await state.WriteStateAsync();
         await InvalidateRouter();
+        // Push, don't ask: the endpoint must not call back into this grain (non-reentrant).
+        await LlmEndpoints.Resolve(GrainFactory, entry.Type, entry.Id).ApplyConfigAsync(entry);
         logger.LogInformation("Updated LLM provider {ProviderId}", entry.Id);
         return entry;
     }
 
     public async Task RemoveProviderAsync(Guid providerId)
     {
-        var removed = state.State.Providers.RemoveAll(p => p.Id == providerId);
-        if (removed == 0)
-            throw new InvalidOperationException($"Provider {providerId} not found");
+        var removed = state.State.Providers.FirstOrDefault(p => p.Id == providerId)
+            ?? throw new InvalidOperationException($"Provider {providerId} not found");
+        state.State.Providers.Remove(removed);
 
         await state.WriteStateAsync();
         await InvalidateRouter();
+        await LlmEndpoints.Resolve(GrainFactory, removed.Type, providerId).ApplyConfigAsync(null);
         logger.LogInformation("Removed LLM provider {ProviderId}", providerId);
     }
 
@@ -140,4 +143,6 @@ public sealed record class LlmProviderEntry
     [Id(5)] public JobComplexity SupportedComplexities { get; init; } = JobComplexity.General;
     [Id(6)] public TimeSpan? GenerationTimeout { get; init; }
     [Id(7)] public bool IsEnabled { get; init; } = true;
+    /// <summary>Lower routes first; equal priorities balance by load. Give a local fallback a higher number.</summary>
+    [Id(8)] public int Priority { get; init; }
 }

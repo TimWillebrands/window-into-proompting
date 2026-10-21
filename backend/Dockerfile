@@ -1,7 +1,8 @@
 FROM mcr.microsoft.com/dotnet/nightly/sdk:11.0-preview AS build
 WORKDIR /src
-COPY . .
-RUN dotnet publish backend.csproj -c Release -o /app/publish
+COPY backend/ backend/
+COPY aspire/Proompting.ServiceDefaults/ aspire/Proompting.ServiceDefaults/
+RUN dotnet publish backend/backend.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/nightly/aspnet:11.0-preview
 WORKDIR /app

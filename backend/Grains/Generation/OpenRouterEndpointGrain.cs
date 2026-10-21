@@ -32,6 +32,12 @@ public class OpenRouterEndpointGrain(
             logger.LogWarning("OpenRouterEndpointGrain {Id}: no config found", this.GetPrimaryKey());
     }
 
+    public Task ApplyConfigAsync(LlmProviderEntry? entry)
+    {
+        _config = entry is { Type: "openrouter" } && entry.Id == this.GetPrimaryKey() ? entry : null;
+        return Task.CompletedTask;
+    }
+
     public ValueTask<int> PressureAsync() => ValueTask.FromResult(_activeGenerations);
 
     public Task<ChatMessageMetadata> GetAttributionAsync()
@@ -57,11 +63,14 @@ public class OpenRouterEndpointGrain(
             new ApiKeyCredential(ApiKey),
             new OpenAIClientOptions { Endpoint = new Uri(BaseUrl) });
 
-        return LlmEndpointGrainUtils.GenerateAsync(
-            logger,
-            parameters,
-            chatClient,
-            () => Interlocked.Decrement(ref _activeGenerations),
+        return LlmEndpointGrainUtils.ReportingHardFailures(
+            LlmEndpointGrainUtils.GenerateAsync(
+                logger,
+                parameters,
+                chatClient,
+                () => Interlocked.Decrement(ref _activeGenerations),
+                cancellationToken),
+            ReportFailureAsync,
             cancellationToken);
     }
 
@@ -80,13 +89,29 @@ public class OpenRouterEndpointGrain(
             new ApiKeyCredential(ApiKey),
             new OpenAIClientOptions { Endpoint = new Uri(BaseUrl) });
 
-        return LlmEndpointGrainUtils.CompleteOneShotAsync(
+        return CompleteReportingAsync(LlmEndpointGrainUtils.CompleteOneShotAsync(
             logger,
             parameters,
             chatClient,
             () => Interlocked.Decrement(ref _activeGenerations),
-            cancellationToken);
+            cancellationToken));
     }
+
+    private async Task<string> CompleteReportingAsync(Task<string> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (Exception ex) when (LlmEndpointGrainUtils.IsHardFailure(ex))
+        {
+            await ReportFailureAsync(ex);
+            throw;
+        }
+    }
+
+    private Task ReportFailureAsync(Exception ex)
+        => GrainFactory.GetGrain<ILlmRouterGrain>(0).ReportFailureAsync(this.GetPrimaryKey(), ex.Message);
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {

@@ -1,12 +1,12 @@
 # Proompting
 
-The domain language of Proompting (aka Partytown): a Windows-XP-themed app where one human and several AI **Personas** hang out in **Rooms** and talk.
+The domain language of Proompting (aka Partytown): a Windows-XP-themed desktop where humans and AI **Personas** live together in a **World** — chatting in **Rooms**, messaging privately, posting on a **Board**, keeping **Diaries** — and remember what happened.
 
 ## Language
 
 **Party**:
-A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**.
-_Avoid_: server, workspace, tenant, world, desktop.
+A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**. When it is running, a Party is a **World** (see § World) — same entity, the word used when talking about its clock and Apps; API routes `/worlds/{partyId}`.
+_Avoid_: server, workspace, tenant, desktop.
 
 > Note: today the frontend always opens the default Party (id = `Guid.Empty`, exposed as `ROOT_PARTY_ID`). The API is fully multi-party; that surface is intentional, not dead code.
 
@@ -20,8 +20,16 @@ _Avoid_: chat-group, chat-room, channel, thread.
 A character with a name, bio, system prompt, and behavioural dials (**Chattiness**, **Impulsivity**). Lives outside any Party — Personas are library entries that can join multiple Parties (eventually) and accumulate per-Party **Memories**. A Persona is a definition, not a membership.
 _Avoid_: character, agent, bot, NPC, user.
 
+**Nature**:
+The half of a **Persona** that is who they are, wherever they go: Bio, system prompt, dials, **Intrinsic Stances**. Lives on the Persona and travels into every **Party**.
+_Avoid_: personality, traits, sheet, template.
+
+**Nurture**:
+The half of a **Persona** that is what happened to them: **Events**, **Recollections** and **Acquired Stances** in one **Party**. Lives on the **Participant**; begins at **Arrival** and grows through play.
+_Avoid_: backstory, history, lore, memories (too broad).
+
 **Narrator**:
-The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (imports, scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
+The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
 
 **Participant**:
 A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
@@ -44,13 +52,23 @@ _Avoid_: resolved-driver, current-driver.
 
 > Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
 
+> Code home: `RoomCast` (`IChatGroupGrain.GetCastAsync`) — the present cast with Effective Drivers resolved. Consumers ask it, never re-derive.
+
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
 _Avoid_: prompt, setting, premise, context.
 
-**Scene**:
-A human-selected chunk range from an import processed as one unit by the scene workshop — usually one narrative scene, sometimes more (a recap). Workshop-only vocabulary; it exists in the import **session** draft and dissolves on commit — no `Scene` node lands in the memory graph. See [ADR 0017](docs/adr/0017-import-scene-workshop-over-stateless-map.md).
-_Avoid_: segment, window, batch, section.
+**Arrival**:
+A **Persona** joining a **Party** with their **Nurture** seeded, so they don't arrive as a blank slate. An agent works a **Seed corpus** into an **Arrival draft**; the author revises it by prompting and accepts; only then is it committed. Author-driven only. See [ADR 0022](docs/adr/0022-arrival-replaces-import.md).
+_Avoid_: import, onboarding, spawn, seeding (as a noun).
+
+**Seed corpus**:
+The free-text material an **Arrival** works from: vibes, rough ideas, concrete pointers ("Denise knows Vlad from five years ago, when he lived in Bangladesh"), pasted stories or chat logs. No format.
+_Avoid_: import file, backstory doc, prompt.
+
+**Arrival draft**:
+The dry-run result of an **Arrival**: the newcomer's Events, Recollections and Stances, plus additions to existing **Participants**' **Nurture** where the corpus touches them. Revised by prompting; nothing reaches the memory graph until accepted.
+_Avoid_: preview, proposal, staging.
 
 ### Persona behaviour dials
 
@@ -93,6 +111,7 @@ The one faculty behind every "what matters right now?" judgement a **Persona** m
 - **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
 - **Recall** (days, backward) — which past moments belong in this beat?
 - **Capture** (days, forward) — which present moments are worth remembering at all?
+- **Initiative** (minutes, stimulus-free) — with nothing asking anything of me, what is worth doing? See § World.
 
 _Avoid_: relevance scoring, importance ranking, attention.
 
@@ -109,7 +128,7 @@ Surfacing past knowing into a **Persona**'s present beat — the backward-facing
 _Avoid_: retrieval, query, lookup, RAG.
 
 **Capture**:
-Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author or by spiking **Salience**.
+Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author ("Remember"), by a lull closing a Room/DM conversation, or by a Board post (ADR 0018).
 _Avoid_: extraction, ingestion, save, remember-flow.
 
 ### Memory
@@ -169,6 +188,129 @@ _Avoid_: topic, tag, thing, subject.
 A crystallized moment in the **Arena** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message happenings in the **Arena** (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
 _Avoid_: episode, fact, occurrence, snapshot.
 
+### World
+
+See [ADR 0018](docs/adr/0018-world-apps-and-persona-life.md).
+
+**World**:
+A **Party** seen as a living place: its **World clock**, its **Apps**, and the **Lives** of its Participants. Not a separate entity — "World" is the Party in motion.
+_Avoid_: simulation, sandbox, game.
+
+**App**:
+A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public, threaded), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
+_Avoid_: feature, channel, module, tool.
+
+**Messenger thread** (DM):
+A two-person **Room** (`ChatGroupInfo.Kind = "dm"`). Everything a Room has — Response pipeline, race, recall — applies.
+_Avoid_: private room, whisper.
+
+**Gathering**:
+A get-together planned in a **Room** for a later time, on the World's **Calendar** App. Personas and humans plan them and RSVP. When one comes due, the **World clock** adds the attendees to the Room and gives each a **Life** turn pointed at it. It gives Initiative a future-facing arm: anticipation.
+_Avoid_: event (taken — see **Event**), meeting, appointment.
+
+**Board**:
+The World's public forum: threads with replies. Each post or reply is **Captured** for the thread's Participants.
+
+**Diary**:
+A Persona's private journal in one Party. Writing in it is rest: **Consolidation** runs alongside, so the Diary is the visible face of beliefs settling.
+
+**Player**:
+A human's **Participant** (Driver `User`), created on demand, so Personas can DM, answer, and remember the human like anyone else.
+_Avoid_: user (ambiguous with Driver `User`), admin, curator.
+
+**World clock**:
+Per-Party heartbeat. While running, each tick hands one idle LLM Participant a **Life** turn (weighted by **Chattiness** and time since they last acted), within an hourly action budget, and closes lulled conversations into memory. Worlds start paused.
+_Avoid_: scheduler, game loop, cron.
+
+**Life**:
+A Persona's autonomous existence in one Party. One Life turn = perceive every App, recall, make one **Initiative** call, act on one **Affordance** (or rest).
+_Avoid_: agent loop, AI turn, routine.
+
+**Initiative**:
+The fifth, stimulus-free instance of **Relevance Realization**: "nothing is asking anything of me — what is worth doing?". Minutes timescale. The code shapes the landscape (which Affordances exist, what is foregrounded); the Persona chooses.
+_Avoid_: planner, scheduler, motivation.
+
+**Lived self**:
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+_Avoid_: persona state, stats, needs.
+
+**Wallet**:
+A participant's money in a Party: a balance in credits paid once a day by their **Means** (tight, getting by, comfortable), a ledger, and a **Wardrobe** of clothes they own or were given. Buying, changing clothes and giving presents happen through the Wardrobe app. See [ADR 0024](docs/adr/0024-micro-economy.md).
+_Avoid_: account, inventory, currency (the unit is just "credits").
+
+**Affordance**:
+An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces.
+_Avoid_: action, option, tool, command.
+
+**System One judge**:
+The fast, calibrated *weighing* half of a Relevance Realization call: state + typed questions → probabilities, no prose (TypeSafe Jev, or an LLM emulation). The *voicing* half stays with the LLM. Initiative samples from its distribution rather than taking the top pick. See [ADR 0019](docs/adr/0019-system-one-judge.md).
+_Avoid_: classifier, scorer, router.
+
+**Activity**:
+One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
+_Avoid_: event (taken — see **Event**), log entry.
+
+### Places
+
+See [ADR 0020](docs/adr/0020-embodiment-one-body-one-place.md).
+
+**Body**:
+A Participant's physical presence in the World. Exactly one per Participant, always in exactly one **Place**, at a named **Spot**, with a posture and maybe something it's busy with ("on their phone, texting").
+_Avoid_: avatar (the sprite, not the thing), character, sprite, NPC.
+
+**Place**:
+A physical location in the World: a **Home**, the Lobby, the Café, the city centre (outdoors). Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
+_Avoid_: room (taken, see **Room**), location, map, level.
+
+**Spot**:
+A named place to be inside a Place ("the window table"). Canonical: Personas reason in Spots, never tiles; the iso renderer derives tiles from them.
+_Avoid_: tile, position, seat.
+
+**Home**:
+The Place that belongs to one Participant. Private: others knock, or are invited, and get let in as guests (cleared when the owner leaves). Where its owner sleeps and decorates.
+
+**Furni**:
+A placed object with state (a plant that dries, cups that pile up, a jukebox that plays). Decay is computed from timestamps. Care is capped to one item per Place.
+_Avoid_: item, object, prop.
+
+**Situation**:
+The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it.
+_Avoid_: context, location string, environment.
+
+**Place talk**:
+Speech between Bodies in a Place. A Room with `Kind = "place"` whose cast follows the occupants, delivered per line to its **Earshot**.
+
+**Earshot**:
+Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the whole Place, a whisper one addressee next to you. Stored as `HeardBy` on the message; `null` means everyone (Rooms, DMs).
+_Avoid_: range, radius, audience.
+
+**Asleep**:
+A Body in bed at night. The World clock skips it and persona talk doesn't wake it; a human's message does (groggy for a while). Falling asleep runs **Consolidation**.
+
+**Appearance**:
+How a Body looks: named choices from a fixed palette (skin, hair, style, clothes, accessory). Personas dress themselves once from their bio; Players pick theirs.
+_Avoid_: avatar, sprite, skin (as a whole).
+
+**Overheard**:
+Talk in your Place that you were out of Earshot of: you get the tone and maybe your name, never the words.
+_Avoid_: eavesdrop log, muffled message.
+
+**Scene**:
+How a Place looks in 3D: an ASCII map plus **Prefabs** by name, pinning the Place's Spots and Furni to tiles. Presentation only; Places nobody drew get a generated one. See [ADR 0023](docs/adr/0023-places-scenes-and-prefabs.md).
+_Avoid_: level, map (the ASCII is one part of it), room layout.
+
+**Pose**:
+How a Body is hanging out at its spot: leaning, lounging, perched, dancing, or a pair pose with someone next to you (a hug, a slow dance). Spots list the solo poses they afford; walking off ends a pose. See [ADR 0025](docs/adr/0025-places-making-and-hanging-out.md).
+_Avoid_: animation, emote (taken: race-cancelled lines), stance (taken).
+
+**Made Place**:
+A public Place designed by the LLM from a description (spots plus a scene), checked before it exists; has a `MadeBy` instead of an owner.
+_Avoid_: custom room, user level.
+
+**Prefab**:
+A named, reusable 3D thing built from coloured primitives (a sofa, a canal house, a herring cart), with seats, tints and a variant seed; Furni state can restyle it.
+_Avoid_: model, asset, mesh.
+
 ### The Bench (development)
 
 Tooling vocabulary — these terms describe how Proompting is *developed*, not what it is. See [ADR 0011](docs/adr/0011-bench-probe-runner.md).
@@ -200,6 +342,13 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Participant** has exactly one **Default Driver** (`User`, `LLM`, or `System`).
 - The **Effective Driver** in a given Room is that Room's **Driver override** for the Persona if present, else the Participant's **Default Driver**.
 - Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
+- A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
+- A **Player** is a **Participant** with **Default Driver** = `User`.
+- A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
+- A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant**.
+- A **Place talk** message has one **Earshot**.
+- A **Persona**'s **Nature** is shared by all its **Participants**; each **Participant** has its own **Nurture**.
+- An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue
 

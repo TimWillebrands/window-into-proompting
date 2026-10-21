@@ -22,8 +22,7 @@ public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
     IMemoryCache cache,
-    IMemoryRepository memoryRepository,
-    ConsolidationService consolidationService,
+    PartyTown.World.WorldMemory worldMemory,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -239,8 +238,7 @@ public sealed class PartyController(
                     Driver = DriverKind.LLM,
                 })
                 .ToList();
-            var nextCast = party.Participants.Concat(promoted).ToList();
-            await partyGrain.SetParticipants(nextCast);
+            await partyGrain.AddParticipantsAsync(promoted);
         }
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
@@ -365,16 +363,7 @@ public sealed class PartyController(
         }
 
 
-        // Create a synthetic trigger message to fan out to personas
-        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
-        var messages = await chatGroupGrain.GetMessagesAsync();
-        var lastMessage = messages.LastOrDefault();
-
-        if (lastMessage is not null)
-        {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
-        }
-
+        await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId).ContinueAsync();
         return Accepted();
     }
 
@@ -479,15 +468,7 @@ public sealed class PartyController(
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
         await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
-
-        // Fan out to personas after truncation
-        var messages = await chatGroupGrain.GetMessagesAsync();
-        var lastMessage = messages.LastOrDefault();
-        if (lastMessage is not null)
-        {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
-        }
-
+        await chatGroupGrain.ContinueAsync();
         return Accepted();
     }
 
@@ -659,39 +640,18 @@ public sealed class PartyController(
             return NotFound();
         }
 
-        var presentParticipants = await BuildRoomViewsAsync(id, chatGroupGrain);
+        var roomCast = await chatGroupGrain.GetCastAsync();
+        var contextWindow = messages.Where(m => m.MessageId <= messageId).ToList();
 
-        var contextWindow = messages
-            .Where(m => m.MessageId <= messageId)
-            .OrderBy(m => m.MessageId)
-            .ToList();
-
-        var result = await memoryRepository.CaptureMomentAsync(
-            partyId: id,
-            roomId: chatGroupId,
-            messageId: messageId,
-            presentParticipants: presentParticipants,
-            recentContext: contextWindow,
-            ct: cancellationToken);
+        var result = await worldMemory.CaptureAsync(
+            Moment.FromMessages(id, MomentSources.OfKind(roomCast.Kind), chatGroupId, contextWindow, messageId, roomCast.Views()),
+            cancellationToken);
+        if (result is null)
+            return Problem("Capture failed", statusCode: StatusCodes.Status500InternalServerError);
 
         logger.LogInformation(
             "Remember: message {MessageId} in room {RoomId} → event={EventCreated} recollections={RecollectionCount} concepts={ConceptCount}",
             messageId, chatGroupId, result.EventCreated, result.RecollectionsCreated, result.ConceptsTouched);
-
-        // Consolidation gauge (ADR 0016): each capture grows somebody's unconsolidated pile;
-        // whoever crossed the threshold gets slept in the background. Fire-and-forget — the
-        // remember response never waits on consolidation.
-        if (result.RecollectionPersonaIds.Count > 0)
-        {
-            var cast = await grains.GetGrain<IPartyGrain>(id).GetCastAsync();
-            var grew = result.RecollectionPersonaIds.ToHashSet();
-            var subjects = cast
-                .Where(c => grew.Contains(c.Id) && c.DefaultDriver == DriverKind.LLM)
-                .Select(c => new ConsolidationSubject(c.Id, c.Name, c.Bio))
-                .ToList();
-            consolidationService.TriggerGaugedRuns(id, subjects,
-                cast.Select(c => new ConsolidationRosterEntry(c.Id, c.Name)).ToList());
-        }
 
         return Accepted(new RememberResponse(
             EventCreated: result.EventCreated,
@@ -735,7 +695,7 @@ public sealed class PartyController(
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
         var messages = await chatGroupGrain.GetMessagesAsync();
         var skipped = await chatGroupGrain.GetSkippedTurnsAsync();
-        var participants = await BuildRoomViewsAsync(id, chatGroupGrain);
+        var participants = await BuildRoomViewsAsync(chatGroupGrain);
 
         var doc = PapertrailRenderer.Build(messages, skipped, participants, sinceMessageId);
 
@@ -757,26 +717,8 @@ public sealed class PartyController(
         }
     }
 
-    /// <summary>
-    /// Build the Room's <see cref="ParticipantView"/> list — Personas currently in the
-    /// Room with their Effective Driver. Filters the canonical cast by Room membership
-    /// and projects through the override map via <see cref="CastMember.EffectiveIn"/>.
-    /// </summary>
-    private async Task<List<ParticipantView>> BuildRoomViewsAsync(Guid partyId, IChatGroupGrain chatGroupGrain)
-    {
-        var partyGrain = grains.GetGrain<IPartyGrain>(partyId);
-        var castTask = partyGrain.GetCastAsync();
-        var idsTask = chatGroupGrain.GetParticipantIdsAsync();
-        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
-        await Task.WhenAll(castTask, idsTask, overridesTask);
-        var cast = castTask.Result;
-        var ids = idsTask.Result;
-        var overrides = overridesTask.Result;
-        return cast
-            .Where(c => ids.Contains(c.Id))
-            .Select(c => c.ToView(c.EffectiveIn(overrides)))
-            .ToList();
-    }
+    private static async Task<List<ParticipantView>> BuildRoomViewsAsync(IChatGroupGrain chatGroupGrain)
+        => (await chatGroupGrain.GetCastAsync()).Views();
 
     private async Task<List<PartyParticipant>> BuildDefaultParticipants(Guid? userId, string? userName)
     {

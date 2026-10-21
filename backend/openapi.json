@@ -17,1044 +17,14 @@
         }
       }
     },
-    "/import": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "fileName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}": {
+    "/worlds/{partyId}/wallets": {
       "get": {
         "tags": [
-          "ImportSession"
+          "Economy"
         ],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportSessionOverview"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/import/{id}/ws": {
-      "get": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/import/{id}/chunks/{index}": {
-      "get": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "index",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportChunk"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportChunk"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportChunk"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/scenes": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/scenes/{sceneId}": {
-      "put": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneDefinition"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportScene"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/import/{id}/scenes/{sceneId}/run": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneRunResult"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneRunResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneRunResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/registry": {
-      "get": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportRegistryView"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportRegistryView"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportRegistryView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/registry/cast/{name}": {
-      "put": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryCastEdit"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryCastEdit"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryCastEdit"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/registry/cast/{name}/decision": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CastMatchDecision"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CastMatchDecision"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CastMatchDecision"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegistryCastEntry"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/registry/concepts/{name}": {
-      "put": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryConceptEdit"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryConceptEdit"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegistryConceptEdit"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportConcept"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportConcept"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportConcept"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/scenes/{sceneId}/finalize": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneFinalizeResult"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneFinalizeResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneFinalizeResult"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/cards/{name}": {
-      "put": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PersonaCardEdit"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PersonaCardEdit"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PersonaCardEdit"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/PersonaCardDraft"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PersonaCardDraft"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PersonaCardDraft"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/scenes/{sceneId}/commit": {
-      "post": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneCommitRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneCommitRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/SceneCommitRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneCommitResult"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneCommitResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneCommitResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/commit": {
-      "delete": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportCommitTarget"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportCommitTarget"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportCommitTarget"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/corrections": {
-      "get": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
+            "name": "partyId",
             "in": "path",
             "required": true,
             "schema": {
@@ -1071,7 +41,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ImportCorrection"
+                    "$ref": "#/components/schemas/WalletSummary"
                   }
                 }
               },
@@ -1079,7 +49,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ImportCorrection"
+                    "$ref": "#/components/schemas/WalletSummary"
                   }
                 }
               },
@@ -1087,7 +57,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ImportCorrection"
+                    "$ref": "#/components/schemas/WalletSummary"
                   }
                 }
               }
@@ -1096,94 +66,14 @@
         }
       }
     },
-    "/import/{id}/draft": {
+    "/worlds/{partyId}/wallets/{participantId}/shop": {
       "get": {
         "tags": [
-          "ImportSession"
+          "Economy"
         ],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportDraftView"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportDraftView"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportDraftView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/ledger": {
-      "get": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportLedger"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportLedger"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportLedger"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/import/{id}/draft/{itemId}": {
-      "patch": {
-        "tags": [
-          "ImportSession"
-        ],
-        "parameters": [
-          {
-            "name": "id",
+            "name": "partyId",
             "in": "path",
             "required": true,
             "schema": {
@@ -1192,7 +82,65 @@
             }
           },
           {
-            "name": "itemId",
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopItem"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopItem"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShopItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/wallets/{participantId}/buy": {
+      "post": {
+        "tags": [
+          "Economy"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
             "in": "path",
             "required": true,
             "schema": {
@@ -1205,17 +153,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DraftItemEdit"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/DraftItemEdit"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/DraftItemEdit"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             }
           },
@@ -1227,17 +175,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportDraftItem"
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportDraftItem"
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportDraftItem"
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               }
             }
@@ -1245,14 +193,23 @@
         }
       }
     },
-    "/import/{id}/settings": {
-      "put": {
+    "/worlds/{partyId}/wallets/{participantId}/wear": {
+      "post": {
         "tags": [
-          "ImportSession"
+          "Economy"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
             "in": "path",
             "required": true,
             "schema": {
@@ -1265,17 +222,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportSettingsUpdate"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportSettingsUpdate"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportSettingsUpdate"
+                "$ref": "#/components/schemas/WardrobeRequest"
               }
             }
           },
@@ -1287,17 +244,86 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportSettings"
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportSettings"
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportSettings"
+                  "$ref": "#/components/schemas/WalletSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/wallets/{participantId}/gift": {
+      "post": {
+        "tags": [
+          "Economy"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardrobeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardrobeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardrobeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletSummary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletSummary"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletSummary"
                 }
               }
             }
@@ -1383,6 +409,44 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LlmProviderEntry"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LlmConfig/usage": {
+      "get": {
+        "tags": [
+          "LlmConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderUsage"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderUsage"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderUsage"
+                  }
                 }
               }
             }
@@ -3744,10 +2808,2543 @@
           }
         }
       }
+    },
+    "/worlds/{partyId}/places": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesSnapshot"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesSnapshot"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/situation/{participantId}": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SituationResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SituationResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SituationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/move": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBodyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBodyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveBodyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/furni": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FurniActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/voice": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/overheard/{participantId}": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Overheard"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/knock": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnockRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnockRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnockRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/let-in": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetInRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetInRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/decorate": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecorateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/idle": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdleRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdleRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/appearance": {
+      "put": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/appearance/options": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppearanceField"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppearanceField"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppearanceField"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/restyle": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/pose": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/things": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/FurniView"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FurniView"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FurniView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/things/arrange": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArrangeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArrangeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArrangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/things/remove": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/things/remodel": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingRefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/style": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceStyleRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceStyleRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceStyleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/create": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlaceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlaceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/{placeId}": {
+      "delete": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "placeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/redress": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/selves": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SelfSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/voice/lines": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceLine"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/voice": {
+      "get": {
+        "tags": [
+          "Self"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceWearReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorldRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorldRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/tick": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/activities": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "personaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorldActivity"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorldActivity"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorldActivity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/lives": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LifeSummary"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LifeSummary"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LifeSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/happenings": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldActivity"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldActivity"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/residents": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteResidentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteResidentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteResidentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/residents/{personaId}": {
+      "delete": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/player": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsurePlayerRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsurePlayerRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsurePlayerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/players/{playerId}": {
+      "delete": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "playerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/board": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoardThread"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoardThread"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoardThread"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardPostRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardPostRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/board/{threadId}": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/board/{threadId}/replies": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardReplyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardReplyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardReplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardThread"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/messenger": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectChatSummary"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectChatSummary"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectChatSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDirectChatRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDirectChatRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDirectChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatGroupInfo"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatGroupInfo"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatGroupInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/gatherings": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Gathering"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Gathering"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Gathering"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanGatheringRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanGatheringRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanGatheringRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/gatherings/{gatheringId}/rsvp": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "gatheringId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RsvpRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RsvpRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RsvpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/diary/{personaId}": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiaryEntry"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiaryEntry"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiaryEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AnnounceRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "Appearance": {
+        "type": "object",
+        "properties": {
+          "skin": {
+            "type": "string"
+          },
+          "hair": {
+            "type": "string"
+          },
+          "hairStyle": {
+            "type": "string"
+          },
+          "top": {
+            "type": "string"
+          },
+          "bottom": {
+            "type": "string"
+          },
+          "accessory": {
+            "type": "string"
+          },
+          "fromBio": {
+            "type": "boolean"
+          },
+          "topStyle": {
+            "type": "string"
+          },
+          "bottomStyle": {
+            "type": "string"
+          },
+          "shoes": {
+            "type": "string"
+          },
+          "facialHair": {
+            "type": "string"
+          },
+          "build": {
+            "type": "string"
+          },
+          "height": {
+            "type": "string"
+          },
+          "eyes": {
+            "type": "string"
+          }
+        }
+      },
+      "AppearanceField": {
+        "required": [
+          "key",
+          "label",
+          "options"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AppearanceRequest": {
+        "required": [
+          "picked",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "picked": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "AppendStanceRequest": {
         "required": [
           "valence",
@@ -3802,18 +5399,253 @@
           }
         }
       },
-      "CastMatchDecision": {
+      "ArrangeRequest": {
+        "required": [
+          "placeId",
+          "furniId",
+          "x",
+          "z",
+          "rot",
+          "participantId"
+        ],
         "type": "object",
         "properties": {
-          "decision": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "furniId": {
             "type": "string"
           },
-          "personaId": {
+          "x": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "z": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rot": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "participantId": {
             "type": [
               "null",
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "BoardReply": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "BoardThread": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "lastActivityAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardReply"
+            }
+          }
+        }
+      },
+      "Body": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "posture": {
+            "$ref": "#/components/schemas/Posture"
+          },
+          "activity": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "destPlaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "destSpotId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "arriveAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "isHuman": {
+            "type": "boolean"
+          },
+          "arrivedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "activityUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "asleep": {
+            "type": "boolean"
+          },
+          "wokenUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Appearance"
+              }
+            ]
+          },
+          "pose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "poseWith": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "poseUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "isWalking": {
+            "type": "boolean"
           }
         }
       },
@@ -3840,68 +5672,19 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "ChunkRouting": {
-        "type": "object",
-        "properties": {
-          "chunkIndex": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
           },
-          "category": {
+          "kind": {
             "type": "string"
           },
-          "disposition": {
-            "type": "string"
-          },
-          "reason": {
+          "memberIds": {
             "type": [
               "null",
-              "string"
-            ]
-          },
-          "sceneId": {
-            "type": [
-              "null",
-              "string"
+              "array"
             ],
-            "format": "uuid"
-          }
-        }
-      },
-      "ChunkSummary": {
-        "type": "object",
-        "properties": {
-          "index": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "role": {
-            "type": "string"
-          },
-          "category": {
-            "type": "string"
-          },
-          "chars": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "head": {
-            "type": "string"
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -3952,6 +5735,48 @@
           }
         }
       },
+      "CreateBoardPostRequest": {
+        "required": [
+          "title",
+          "body",
+          "authorId"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "authorId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateBoardReplyRequest": {
+        "required": [
+          "body",
+          "authorId"
+        ],
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "authorId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "CreateChatGroupRequest": {
         "type": "object",
         "properties": {
@@ -3988,21 +5813,45 @@
           }
         }
       },
-      "DedupDrop": {
+      "CreatePlaceRequest": {
+        "required": [
+          "text",
+          "outdoor",
+          "madeBy"
+        ],
         "type": "object",
         "properties": {
-          "keptItemId": {
-            "type": "string",
+          "text": {
+            "type": "string"
+          },
+          "outdoor": {
+            "type": "boolean"
+          },
+          "madeBy": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
-          },
-          "keptSummary": {
+          }
+        }
+      },
+      "DecorateRequest": {
+        "required": [
+          "text",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
             "type": "string"
           },
-          "droppedSummary": {
-            "type": "string"
-          },
-          "droppedSourceId": {
-            "type": "string"
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -4025,46 +5874,74 @@
           }
         }
       },
-      "DegradedRecord": {
+      "DiaryEntry": {
         "type": "object",
         "properties": {
-          "sourceId": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
             "type": "string"
           },
-          "reason": {
-            "type": "string"
-          },
-          "detail": {
+          "mood": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "createdAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
-      "DraftItemEdit": {
+      "DirectChatSummary": {
+        "required": [
+          "chatGroupId",
+          "withId",
+          "withName",
+          "lastMessage",
+          "lastSenderId",
+          "lastAt"
+        ],
         "type": "object",
         "properties": {
-          "routing": {
+          "chatGroupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "withId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "withName": {
+            "type": "string"
+          },
+          "lastMessage": {
             "type": [
               "null",
               "string"
             ]
           },
-          "summary": {
+          "lastSenderId": {
             "type": [
               "null",
-              "string"
-            ]
-          },
-          "weight": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
               "string"
             ],
-            "format": "double"
+            "format": "uuid"
+          },
+          "lastAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -4087,10 +5964,47 @@
           }
         }
       },
-      "ImportChunk": {
+      "EnsurePlayerRequest": {
+        "required": [
+          "name"
+        ],
         "type": "object",
         "properties": {
-          "index": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "Furni": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "tendedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "broken": {
+            "type": "boolean"
+          },
+          "dirty": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -4098,23 +6012,213 @@
             ],
             "format": "int32"
           },
-          "role": {
-            "type": "string"
+          "onUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           },
-          "category": {
-            "type": "string"
+          "playing": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
-          "text": {
-            "type": "string"
+          "playedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "style": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tileX": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tileZ": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rot": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ownerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
-      "ImportCommitTarget": {
+      "FurniActionRequest": {
+        "required": [
+          "placeId",
+          "furniId",
+          "care",
+          "text",
+          "participantId"
+        ],
         "type": "object",
         "properties": {
-          "partyId": {
+          "placeId": {
             "type": "string",
             "format": "uuid"
+          },
+          "furniId": {
+            "type": "string"
+          },
+          "care": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "FurniView": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "furniId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "condition": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "notable": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "careLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "useLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "style": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tileX": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tileZ": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rot": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "Gathering": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hostId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hostName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           },
           "roomId": {
             "type": "string",
@@ -4123,459 +6227,228 @@
           "roomName": {
             "type": "string"
           },
-          "userParticipantId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "ImportConcept": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "aliases": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "mentions": {
+          "startsAt": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
-            "format": "int32"
+            "format": "int64"
           },
-          "confirmed": {
-            "type": "boolean"
-          }
-        }
-      },
-      "ImportCorrection": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+          "attendeeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
-          "sessionId": {
-            "type": "string",
-            "format": "uuid"
+          "status": {
+            "$ref": "#/components/schemas/GatheringStatus"
           },
-          "sceneId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "partyId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "roomId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemId": {
+          "placeId": {
             "type": [
               "null",
               "string"
             ],
             "format": "uuid"
           },
-          "kind": {
-            "type": "string"
-          },
-          "chunkRefs": {
-            "type": "array",
-            "items": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          "suggested": {
+          "where": {
             "type": [
               "null",
               "string"
             ]
-          },
-          "final": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "note": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "committedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
-      "ImportDraftItem": {
+      "GatheringStatus": {
+        "enum": [
+          "Planned",
+          "Started"
+        ]
+      },
+      "GiftSummary": {
+        "required": [
+          "fromId",
+          "fromName",
+          "item",
+          "at"
+        ],
         "type": "object",
         "properties": {
-          "id": {
+          "fromId": {
             "type": "string",
             "format": "uuid"
           },
-          "sceneId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "type": {
+          "fromName": {
             "type": "string"
           },
-          "persona": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "summary": {
+          "item": {
             "type": "string"
-          },
-          "weight": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "participants": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "concepts": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sourceChunks": {
-            "type": "array",
-            "items": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "routing": {
-            "type": "string"
-          },
-          "routingReason": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "routingOverridden": {
-            "type": "boolean"
           },
           "at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "suggestedSummary": {
-            "type": "string"
-          },
-          "suggestedWeight": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "suggestedRouting": {
-            "type": "string"
-          }
-        }
-      },
-      "ImportDraftView": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportDraftItem"
-            }
-          },
-          "concepts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportConcept"
-            }
-          },
-          "cards": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PersonaCardDraft"
-            }
-          }
-        }
-      },
-      "ImportLedger": {
-        "type": "object",
-        "properties": {
-          "totalChunks": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
               "string"
             ],
-            "format": "int32"
-          },
-          "byDisposition": {
-            "type": "object",
-            "additionalProperties": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          "reconciles": {
+            "format": "int64"
+          }
+        }
+      },
+      "IdleRequest": {
+        "required": [
+          "idle",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "idle": {
             "type": "boolean"
           },
-          "chunks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChunkRouting"
-            }
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
-      "ImportRegistryView": {
+      "InviteResidentRequest": {
+        "required": [
+          "personaId"
+        ],
         "type": "object",
         "properties": {
-          "cast": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RegistryCastEntry"
-            }
-          },
-          "concepts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportConcept"
-            }
-          }
-        }
-      },
-      "ImportScene": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "personaId": {
             "type": "string",
             "format": "uuid"
-          },
-          "fromChunk": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "toChunk": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "note": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "includeDossier": {
-            "type": "boolean"
-          },
-          "runCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "lastRunAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "committed": {
-            "type": "boolean"
-          },
-          "committedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "messagesWritten": {
-            "type": "boolean"
-          }
-        }
-      },
-      "ImportSessionOverview": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "fileName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "chunkCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "categories": {
-            "type": "object",
-            "additionalProperties": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          "chunks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChunkSummary"
-            }
-          },
-          "settings": {
-            "$ref": "#/components/schemas/ImportSettings"
-          },
-          "scenes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportScene"
-            }
-          },
-          "draftItemCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "commitTarget": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ImportCommitTarget"
-              }
-            ]
-          }
-        }
-      },
-      "ImportSettings": {
-        "type": "object",
-        "properties": {
-          "weightFloor": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "anchor": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "spacingMinutes": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          }
-        }
-      },
-      "ImportSettingsUpdate": {
-        "type": "object",
-        "properties": {
-          "weightFloor": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "anchor": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "spacingMinutes": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
           }
         }
       },
       "JobComplexity": {
         "type": "integer"
       },
-      "JsonElement": { },
+      "KnockRequest": {
+        "required": [
+          "homeId",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "homeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "LedgerEntry": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "balance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "LetInRequest": {
+        "required": [
+          "visitorId",
+          "ownerId"
+        ],
+        "type": "object",
+        "properties": {
+          "visitorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "LifeSummary": {
+        "required": [
+          "personaId",
+          "name",
+          "driver",
+          "chattiness",
+          "busy",
+          "isPlayer",
+          "lastActivity"
+        ],
+        "type": "object",
+        "properties": {
+          "personaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "driver": {
+            "$ref": "#/components/schemas/DriverKind"
+          },
+          "chattiness": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "busy": {
+            "type": "boolean"
+          },
+          "isPlayer": {
+            "type": "boolean"
+          },
+          "lastActivity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorldActivity"
+              }
+            ]
+          }
+        }
+      },
       "LlmModel": {
         "required": [
           "name",
@@ -4661,6 +6534,14 @@
           },
           "isEnabled": {
             "type": "boolean"
+          },
+          "priority": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -4764,6 +6645,116 @@
           }
         }
       },
+      "MoveBodyRequest": {
+        "required": [
+          "placeId",
+          "spotId",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "spotId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "OpenDirectChatRequest": {
+        "required": [
+          "withPersonaId",
+          "fromPersonaId"
+        ],
+        "type": "object",
+        "properties": {
+          "withPersonaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "Overheard": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "speakerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "speakerName": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "volume": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string"
+          },
+          "listeners": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "nameHeardBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "withNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "placeName": {
+            "type": "string"
+          },
+          "nextDoor": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "PartyDetails": {
         "required": [
           "party",
@@ -4852,83 +6843,6 @@
           }
         }
       },
-      "PersonaCardDraft": {
-        "type": "object",
-        "properties": {
-          "persona": {
-            "type": "string"
-          },
-          "systemPrompt": {
-            "type": "string"
-          },
-          "bio": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "humanEdited": {
-            "type": "boolean"
-          },
-          "proposedSystemPrompt": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "proposedBio": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "traitFingerprint": {
-            "type": "string"
-          },
-          "finalizedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "committedSystemPrompt": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "committedBio": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "PersonaCardEdit": {
-        "type": "object",
-        "properties": {
-          "systemPrompt": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "bio": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "acceptProposal": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          }
-        }
-      },
       "PersonaMetadata": {
         "type": "object",
         "properties": {
@@ -4940,6 +6854,257 @@
             "type": "string"
           }
         }
+      },
+      "Place": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "spots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Spot"
+            }
+          },
+          "talkRoomId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "furni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Furni"
+            }
+          },
+          "guests": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "knocks": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          "scene": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": "string"
+          },
+          "customScene": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "madeBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "wallColour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "floorColour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlacesSnapshot": {
+        "type": "object",
+        "properties": {
+          "places": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            }
+          },
+          "bodies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Body"
+            }
+          },
+          "now": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "furni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FurniView"
+            }
+          }
+        }
+      },
+      "PlaceStyleRequest": {
+        "required": [
+          "placeId",
+          "wall",
+          "floor",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "wall": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "floor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PlanGatheringRequest": {
+        "required": [
+          "title",
+          "roomId",
+          "startsAt",
+          "hostId"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "hostId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "placeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PlayerResponse": {
+        "required": [
+          "playerId"
+        ],
+        "type": "object",
+        "properties": {
+          "playerId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PoseRequest": {
+        "required": [
+          "pose",
+          "with",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "pose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "with": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "Posture": {
+        "enum": [
+          "Standing",
+          "Sitting",
+          "Walking",
+          "Lying"
+        ]
       },
       "ProblemDetails": {
         "type": "object",
@@ -5014,92 +7179,51 @@
           }
         }
       },
-      "RegistryCastEdit": {
+      "ProviderUsage": {
+        "required": [
+          "providerId",
+          "modelName",
+          "usageUsd",
+          "limitUsd",
+          "remainingUsd"
+        ],
         "type": "object",
         "properties": {
-          "aliases": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "routing": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "confirmed": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          }
-        }
-      },
-      "RegistryCastEntry": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "aliases": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "routing": {
-            "type": "string"
-          },
-          "confirmed": {
-            "type": "boolean"
-          },
-          "matchState": {
-            "type": "string"
-          },
-          "proposedPersonaId": {
-            "type": [
-              "null",
-              "string"
-            ],
+          "providerId": {
+            "type": "string",
             "format": "uuid"
           },
-          "proposedPersonaName": {
+          "modelName": {
             "type": [
               "null",
               "string"
             ]
           },
-          "matchedPersonaId": {
+          "usageUsd": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
-              "null",
+              "number",
               "string"
             ],
-            "format": "uuid"
-          }
-        }
-      },
-      "RegistryConceptEdit": {
-        "type": "object",
-        "properties": {
-          "aliases": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
+            "format": "double"
           },
-          "confirmed": {
+          "limitUsd": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "boolean"
-            ]
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remainingUsd": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -5125,102 +7249,91 @@
           }
         }
       },
-      "SceneCommitRequest": {
+      "RsvpRequest": {
+        "required": [
+          "personaId"
+        ],
         "type": "object",
         "properties": {
-          "partyId": {
+          "personaId": {
             "type": [
               "null",
               "string"
             ],
             "format": "uuid"
           },
-          "roomName": {
+          "going": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "SelfSummary": {
+        "required": [
+          "personaId",
+          "name",
+          "mood",
+          "energy",
+          "preoccupation",
+          "battery",
+          "availability",
+          "doing",
+          "day",
+          "threads"
+        ],
+        "type": "object",
+        "properties": {
+          "personaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mood": {
             "type": [
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "SceneCommitResult": {
-        "type": "object",
-        "properties": {
-          "sceneId": {
-            "type": "string",
-            "format": "uuid"
           },
-          "partyId": {
-            "type": "string",
-            "format": "uuid"
+          "energy": {
+            "type": "string"
           },
-          "roomId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "committedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "messagesWritten": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "preoccupation": {
             "type": [
-              "integer",
+              "null",
+              "string"
+            ]
+          },
+          "battery": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
               "string"
             ],
-            "format": "int32"
+            "format": "double"
           },
-          "eventsWritten": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "availability": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
-              "integer",
+              "number",
               "string"
             ],
-            "format": "int32"
+            "format": "double"
           },
-          "recollectionsWritten": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "doing": {
             "type": [
-              "integer",
+              "null",
               "string"
-            ],
-            "format": "int32"
+            ]
           },
-          "conceptLinks": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "personasMinted": {
+          "day": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "correctionsRecorded": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "unmatchedParticipants": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "personasUpdated": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "personaUpdatesSkipped": {
+          "threads": {
             "type": "array",
             "items": {
               "type": "string"
@@ -5228,10 +7341,26 @@
           }
         }
       },
-      "SceneDefinition": {
+      "ShopItem": {
+        "required": [
+          "key",
+          "slot",
+          "name",
+          "price",
+          "picks"
+        ],
         "type": "object",
         "properties": {
-          "fromChunk": {
+          "key": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -5239,107 +7368,55 @@
             ],
             "format": "int32"
           },
-          "toChunk": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "note": {
+          "picks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SituationResponse": {
+        "required": [
+          "situation"
+        ],
+        "type": "object",
+        "properties": {
+          "situation": {
             "type": [
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "Spot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
           },
-          "includeDossier": {
+          "name": {
+            "type": "string"
+          },
+          "capacity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seat": {
             "type": "boolean"
-          }
-        }
-      },
-      "SceneFinalizeResult": {
-        "type": "object",
-        "properties": {
-          "cards": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PersonaCardDraft"
-            }
           },
-          "skipped": {
+          "at": {
+            "type": "string"
+          },
+          "poses": {
             "type": "array",
             "items": {
               "type": "string"
-            }
-          },
-          "llmCalls": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          }
-        }
-      },
-      "SceneRunResult": {
-        "type": "object",
-        "properties": {
-          "sceneId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "ranAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "llmCalls": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "unparseableCalls": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "replacedItems": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImportDraftItem"
-            }
-          },
-          "chunkRoutings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChunkRouting"
-            }
-          },
-          "deduped": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DedupDrop"
-            }
-          },
-          "degraded": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DegradedRecord"
             }
           }
         }
@@ -5440,6 +7517,106 @@
           "Self"
         ]
       },
+      "TextRequest": {
+        "required": [
+          "text",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ThingRefRequest": {
+        "required": [
+          "placeId",
+          "furniId",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "furniId": {
+            "type": "string"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ThingRequest": {
+        "required": [
+          "placeId",
+          "text",
+          "ownerId"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "TickRequest": {
+        "required": [
+          "personaId",
+          "nudge"
+        ],
+        "type": "object",
+        "properties": {
+          "personaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "nudge": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TickResponse": {
+        "required": [
+          "started"
+        ],
+        "type": "object",
+        "properties": {
+          "started": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateChatGroupDriverOverridesRequest": {
         "type": "object",
         "properties": {
@@ -5485,6 +7662,387 @@
             }
           }
         }
+      },
+      "UpdateWorldRequest": {
+        "required": [
+          "running",
+          "tickSeconds",
+          "maxActionsPerHour"
+        ],
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "tickSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxActionsPerHour": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ambientMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "VoiceLine": {
+        "required": [
+          "ts",
+          "room",
+          "speaker",
+          "text",
+          "speakerId"
+        ],
+        "type": "object",
+        "properties": {
+          "ts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "room": {
+            "type": "string"
+          },
+          "speaker": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "speakerId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "VoiceRequest": {
+        "required": [
+          "volume",
+          "to",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "volume": {
+            "type": "string"
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "VoiceWearReport": {
+        "type": "object",
+        "properties": {
+          "wornWords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownWords": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "stageDirectionRate": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          "averageWords": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          "vocativeRate": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          "repeatRate": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          "signatureMark": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WalletSummary": {
+        "required": [
+          "participantId",
+          "name",
+          "balance",
+          "means",
+          "dailyPay",
+          "paidToday",
+          "wardrobe",
+          "ledger",
+          "newGifts",
+          "wearing"
+        ],
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "balance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "means": {
+            "type": "string"
+          },
+          "dailyPay": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "paidToday": {
+            "type": "boolean"
+          },
+          "wardrobe": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopItem"
+            }
+          },
+          "ledger": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntry"
+            }
+          },
+          "newGifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiftSummary"
+            }
+          },
+          "wearing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WardrobeRequest": {
+        "required": [
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "toId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "WorldActivity": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "personaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personaName": {
+            "type": "string"
+          },
+          "app": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "thought": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "targetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "withPersonaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "WorldStatus": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "tickSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxActionsPerHour": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actionsLastHour": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "playerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "busyPersonaIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "lastTickAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "ambientMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
       }
     }
   },
@@ -5493,7 +8051,7 @@
       "name": "backend"
     },
     {
-      "name": "ImportSession"
+      "name": "Economy"
     },
     {
       "name": "LlmConfig"
@@ -5506,6 +8064,15 @@
     },
     {
       "name": "Persona"
+    },
+    {
+      "name": "Places"
+    },
+    {
+      "name": "Self"
+    },
+    {
+      "name": "World"
     }
   ]
 }

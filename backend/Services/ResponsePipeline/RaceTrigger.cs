@@ -19,7 +19,10 @@ namespace PartyTown.Services.ResponsePipeline;
 /// Stateless: the per-persona in-flight tracking lives in <see cref="InFlightStore"/>,
 /// passed in per call. One singleton serves every persona.
 /// </summary>
-public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory loggerFactory)
+public sealed class RaceTrigger(
+    IGrainFactory grainFactory,
+    ILoggerFactory loggerFactory,
+    PartyTown.Services.SystemOne.ISystemOneJudge? judge = null)
 {
     // PNR is the absolute generated-token count past which an in-flight generation
     // cannot be cancelled (only repaired on the next turn). Cancel threshold is the
@@ -78,10 +81,9 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
                 _logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight DECISION (msg {Mid}) on new {NewMid}",
                     persona.Name, inFlightMessageId, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
+                gen.CancelForRace(
                     triggeringMessage.Content ?? string.Empty,
                     await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
                 await RecordOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "cancel-decision", null, null);
                 continue;
@@ -109,11 +111,13 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
             {
                 var salienceService = new PersonaSalienceService(
                     grainFactory.GetGrain<ILlmRouterGrain>(0),
-                    loggerFactory.CreateLogger<PersonaSalienceService>());
-                var selfView = new SelfView(
-                    persona.Id, persona.Name, DriverKind.LLM,
-                    persona.Bio, persona.SystemPrompt,
-                    persona.Chattiness, persona.Impulsivity);
+                    loggerFactory.CreateLogger<PersonaSalienceService>(),
+                    judge);
+                var selfView = (await chatGroupGrain.GetCastAsync()).Speaker(persona.Id)
+                    ?? new SelfView(
+                        persona.Id, persona.Name, DriverKind.LLM,
+                        persona.Bio, persona.SystemPrompt,
+                        persona.Chattiness, persona.Impulsivity);
                 salience = await salienceService.ScoreAsync(
                     selfView,
                     snap.GutReaction,
@@ -145,10 +149,9 @@ public sealed class RaceTrigger(IGrainFactory grainFactory, ILoggerFactory logge
                 _logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight GENERATION (msg {Mid}, tokens {Tok}, salience {Sal:F2}, cancelScore {Cs:F2}) on new {NewMid}",
                     persona.Name, inFlightMessageId, snap.GeneratedTokens, salience.Value, cancelScore, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
+                gen.CancelForRace(
                     triggeringMessage.Content ?? string.Empty,
                     await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
                 await RecordOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "cancel-generation", salience.Value, cancelScore);
             }

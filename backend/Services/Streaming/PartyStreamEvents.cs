@@ -30,6 +30,15 @@ public sealed record class PartyStreamEvent
     /// the thought-log can render race activity live.</summary>
     [Id(5)]
     public PartyTown.Grains.RaceEvaluation? RaceEvaluation { get; init; }
+
+    /// <summary>Carried for <c>Type == "world"</c>: which World surface changed
+    /// (<c>activity</c>, <c>clock</c>, <c>board</c>, <c>diary</c>, <c>dm</c>).</summary>
+    [Id(6)]
+    public string? WorldKind { get; init; }
+
+    /// <summary>Carried for <c>Type == "world"</c>: camelCase JSON payload for the client.</summary>
+    [Id(7)]
+    public string? WorldJson { get; init; }
 }
 
 /// <summary>

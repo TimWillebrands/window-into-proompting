@@ -119,6 +119,14 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                             ...prev.windows,
                             [runtimeId]: {
                                 ...prev.windows[runtimeId],
+                                ...(options?.props
+                                    ? {
+                                          props: {
+                                              ...prev.windows[runtimeId].props,
+                                              ...options.props,
+                                          },
+                                      }
+                                    : {}),
                                 zIndex: nextZ,
                                 minimized: false,
                             },

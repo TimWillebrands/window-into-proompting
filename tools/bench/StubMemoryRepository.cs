@@ -11,13 +11,7 @@ namespace PartyTown.Bench;
 /// </summary>
 public sealed class StubMemoryRepository : IMemoryRepository
 {
-    public Task<MemoryCaptureResult> CaptureMomentAsync(
-        Guid partyId,
-        Guid roomId,
-        int messageId,
-        IReadOnlyList<ParticipantView> presentParticipants,
-        IReadOnlyList<ChatMessage> recentContext,
-        CancellationToken ct)
+    public Task<MemoryCaptureResult> CaptureAsync(Moment moment, CancellationToken ct)
         => Task.FromResult(new MemoryCaptureResult(false, 0, 0));
 
     public Task<IReadOnlyList<RecalledMemory>> RecallAsync(
@@ -26,7 +20,8 @@ public sealed class StubMemoryRepository : IMemoryRepository
         IReadOnlyList<Guid> presentPersonaIds,
         string anchorText,
         int limit,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? placeId = null)
         => Task.FromResult<IReadOnlyList<RecalledMemory>>(Array.Empty<RecalledMemory>());
 
     public Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
@@ -91,10 +86,10 @@ public sealed class StubMemoryRepository : IMemoryRepository
         CancellationToken ct)
         => Task.FromResult(new ConsolidationBatch(null, Array.Empty<UnconsolidatedRecollection>()));
 
-    public Task AdvanceConsolidationWatermarkAsync(
+    public Task MarkConsolidatedAsync(
         Guid partyId,
         Guid personaId,
-        DateTimeOffset watermark,
+        ConsolidationBatch batch,
         CancellationToken ct)
         => Task.CompletedTask;
 

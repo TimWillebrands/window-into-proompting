@@ -189,7 +189,7 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
     }
 
     [Fact]
-    public async Task AdvanceWatermark_NeverRegresses()
+    public async Task MarkConsolidated_NeverRegresses()
     {
         RequireDevStack();
 
@@ -200,10 +200,13 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         var later = DateTimeOffset.UtcNow;
         var earlier = later.AddMinutes(-5);
 
-        await repo.AdvanceConsolidationWatermarkAsync(partyId, personaId, later, CancellationToken.None);
+        static ConsolidationBatch Through(DateTimeOffset ts)
+            => new(null, new[] { new UnconsolidatedRecollection(Guid.NewGuid(), "x", ts, 0.5) });
+
+        await repo.MarkConsolidatedAsync(partyId, personaId, Through(later), CancellationToken.None);
         // A slower run finishing out of order must not move the watermark backward and
         // re-queue Recollections the faster run already walked.
-        await repo.AdvanceConsolidationWatermarkAsync(partyId, personaId, earlier, CancellationToken.None);
+        await repo.MarkConsolidatedAsync(partyId, personaId, Through(earlier), CancellationToken.None);
 
         var batch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, personaId, CancellationToken.None);
         Assert.Equal(later, batch.Watermark);
@@ -319,11 +322,7 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
             new EventExtraction($"Moment for {snippet}.", new List<ConceptTag>(), new List<Guid>()),
             new Dictionary<string, RecollectionDraft> { [participant.Name] = new(snippet, weight) });
         var capturingRepo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        var result = await capturingRepo.CaptureMomentAsync(
-            partyId, roomId, messageId,
-            presentParticipants: new[] { participant },
-            recentContext: new[] { source },
-            ct: CancellationToken.None);
+        var result = await capturingRepo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { participant }), CancellationToken.None);
         Assert.True(result.EventCreated);
         Assert.Equal(new[] { participant.Id }, result.RecollectionPersonaIds);
     }
