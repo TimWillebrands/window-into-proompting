@@ -101,6 +101,8 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
     public static string Identity(CastMember self)
     {
         var parts = new List<string> { $"You are {self.Name}.", Services.ResponsePipeline.LivedSelf.SheetFraming };
+        // The distilled sheet (ADR 0021) replaces sheet and bio once it exists; the authored ones stay in the library.
+        if (Self.LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived) return string.Join("\n", parts.Append(lived));
         if (!string.IsNullOrWhiteSpace(self.SystemPrompt)) parts.Add(self.SystemPrompt!.Trim());
         if (!string.IsNullOrWhiteSpace(self.Bio)) parts.Add($"About you: {self.Bio!.Trim()}");
         return string.Join("\n", parts);

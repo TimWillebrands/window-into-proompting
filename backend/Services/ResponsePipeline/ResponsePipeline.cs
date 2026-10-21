@@ -495,6 +495,8 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
+        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
+            self = self with { Bio = null, SystemPrompt = lived };
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
 
@@ -679,6 +681,8 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
+        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
+            self = self with { Bio = livedBio };
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);

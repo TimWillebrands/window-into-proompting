@@ -375,3 +375,18 @@ public class LifeThreadsTest
         Assert.Contains("Finally settled: bike light fixed", text);
     }
 }
+
+public class LivedSheetsTest
+{
+    [Fact]
+    public void Lived_OnlyForTheExactSourceItWasMadeFrom()
+    {
+        var id = Guid.NewGuid();
+        Assert.Null(LivedSheets.Lived(id, "original sheet"));
+        LivedSheets.Remember(id, LivedSheets.Hash("original sheet"), "## Who you are\nYou are Lena. You run a small practice. You like soup.");
+        Assert.StartsWith("## Who you are", LivedSheets.Lived(id, "original sheet"));
+        Assert.Null(LivedSheets.Lived(id, "edited sheet"));
+        Assert.Equal("edited sheet", LivedSheets.For(id, "edited sheet"));
+        Assert.Equal("You are Lena. You run a small practice. You like soup.", LivedSheets.Bio(LivedSheets.Lived(id, "original sheet")!));
+    }
+}

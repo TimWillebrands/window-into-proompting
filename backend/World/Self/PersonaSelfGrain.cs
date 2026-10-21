@@ -27,6 +27,7 @@ public sealed partial class PersonaSelfGrain(
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var now = DateTimeOffset.Now;
+        await EnsureLivedSheetAsync(partyId, personaId);
         if (withDay) await EnsureDayAsync(partyId, personaId, now);
         if (withDay) await EnsureAvailabilityAsync(partyId, personaId);
         var wear = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync();
@@ -34,6 +35,18 @@ public sealed partial class PersonaSelfGrain(
         var own = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetOwnLinesAsync(personaId, 3);
         return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation)
             + VoiceWear.RenderOwnRecent(own, now);
+    }
+
+    private bool _sheetRequested;
+
+    /// <summary>Kick off (or reload into the cache) the distilled sheet once per activation; never awaited.</summary>
+    private async Task EnsureLivedSheetAsync(Guid partyId, Guid personaId)
+    {
+        if (_sheetRequested) return;
+        _sheetRequested = true;
+        var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        if (self is null || string.IsNullOrWhiteSpace(self.SystemPrompt)) return;
+        _ = GrainFactory.GetGrain<ILivedSheetGrain>(personaId).EnsureAsync(self.Name, self.SystemPrompt);
     }
 
     public async Task NoteSpokeAsync(double chattiness)
