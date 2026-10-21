@@ -221,7 +221,7 @@ public sealed class WorldClockGrain(
                     state.State.CaptureCursors[thread.Id] = capture.Cursor;
                     moved = true;
                     _capturing.Add(thread.Id);
-                    _ = CaptureAsync(thread, capture.Anchor, capture.Context, (await room.GetCastAsync()).Views());
+                    _ = CaptureAsync(thread, capture.Anchor, capture.Context, ClockPolicy.Witnesses(capture.Context, (await room.GetCastAsync()).Views()));
                     break;
             }
         }

@@ -82,7 +82,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         var chatGroup = Silo.AddProbe<IChatGroupGrain>(_chatGroupId);
         chatGroup.Setup(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()))
             .ReturnsAsync(() => ++msgIdSeq);
-        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
         var partyId = Guid.NewGuid();
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);

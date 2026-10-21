@@ -1,8 +1,10 @@
 using System.Text;
+using Orleans.Concurrency;
 using Orleans.Streams;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.Streaming;
+using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Places;
 
@@ -14,6 +16,7 @@ public sealed class PlacesGrain(
     [PersistentState(stateName: "places", storageName: "parties")]
     IPersistentState<PlacesState> state,
     TimeProvider time,
+    ISystemOneJudge judge,
     ILogger<PlacesGrain> logger)
     : Grain, IPlacesGrain
 {
@@ -25,6 +28,10 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan MishapMax = TimeSpan.FromHours(8);
     private IGrainTimer? _arrivals;
     private readonly Dictionary<Guid, string> _roomKinds = new();
+    private readonly Dictionary<Guid, Voice> _voices = new();
+    private readonly List<Overheard> _overheard = new();
+    private static readonly TimeSpan VoiceHolds = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan OverheardFades = TimeSpan.FromMinutes(10);
 
     private Guid PartyId => this.GetPrimaryKey();
 
@@ -64,6 +71,11 @@ public sealed class PlacesGrain(
             foreach (var g in await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups()) _roomKinds[g.Id] = g.Kind;
             if (!_roomKinds.TryGetValue(e.ChatGroupId, out kind)) return;
         }
+        if (kind == ChatGroupKinds.Place)
+        {
+            NoteOverheard(e.ChatGroupId, m);
+            return;
+        }
         var app = kind switch
         {
             ChatGroupKinds.Direct => "messenger",
@@ -72,6 +84,77 @@ public sealed class PlacesGrain(
         };
         if (app is not null) await NoteActivityAsync(m.SenderId, app);
     }
+
+    public Task SetVoiceAsync(Guid participantId, string volume, Guid? to)
+    {
+        _voices[participantId] = new Voice(volume, to, Now() + (long)VoiceHolds.TotalMilliseconds);
+        return Task.CompletedTask;
+    }
+
+    public Task<EarshotResult?> EarshotAsync(Guid talkRoomId, Guid speakerId)
+    {
+        var place = state.State.Places.FirstOrDefault(p => p.TalkRoomId == talkRoomId);
+        if (place is null || !state.State.Bodies.TryGetValue(speakerId, out var speaker) || speaker.IsWalking)
+            return Task.FromResult<EarshotResult?>(null);
+        var voice = _voices.Remove(speakerId, out var v) && v.Until > Now() ? v : new Voice(Volumes.Talk, null, 0);
+        var occupants = Occupants(place.Id).ToList();
+        return Task.FromResult<EarshotResult?>(new EarshotResult(voice.Volume, Earshot.Hearers(occupants, speaker, voice.Volume, voice.To)));
+    }
+
+    public Task<List<Overheard>> GetOverheardAsync(Guid participantId)
+    {
+        var now = Now();
+        _overheard.RemoveAll(o => now - o.At > OverheardFades.TotalMilliseconds);
+        var place = state.State.Bodies.TryGetValue(participantId, out var b) && !b.IsWalking ? b.PlaceId : Guid.Empty;
+        return Task.FromResult(_overheard.Where(o => o.PlaceId == place && o.Listeners.Contains(participantId)).ToList());
+    }
+
+    /// <summary>Those in the Place but out of Earshot notice the talk; System One reads tone and their name, never the words.</summary>
+    private void NoteOverheard(Guid talkRoomId, ChatMessage m)
+    {
+        if (m.HeardBy is not { } heard) return;
+        var place = state.State.Places.FirstOrDefault(p => p.TalkRoomId == talkRoomId);
+        if (place is null || !state.State.Bodies.TryGetValue(m.SenderId, out var speaker)) return;
+        var listeners = Occupants(place.Id).Where(b => !heard.Contains(b.ParticipantId)).ToList();
+        if (listeners.Count == 0) return;
+        var record = new Overheard
+        {
+            PlaceId = place.Id, SpeakerId = m.SenderId, SpeakerName = speaker.Name.Split(' ')[0], SpotId = speaker.SpotId,
+            Volume = m.Volume ?? Volumes.Talk, At = Now(),
+            Listeners = listeners.Select(l => l.ParticipantId).ToList(),
+            WithNames = heard.Where(id => id != m.SenderId && state.State.Bodies.ContainsKey(id))
+                .Select(id => state.State.Bodies[id].Name.Split(' ')[0]).ToList(),
+            NameHeardBy = listeners.Where(l => Mentions(m.Content, l.Name)).Select(l => l.ParticipantId).ToList(),
+        };
+        _overheard.Add(record);
+        if (_overheard.Count > 40) _overheard.RemoveAt(0);
+        if (judge.Enabled) _ = ReadToneAsync(record, m.Content ?? string.Empty, listeners);
+    }
+
+    private async Task ReadToneAsync(Overheard record, string content, List<Body> listeners)
+    {
+        try
+        {
+            var questions = new Dictionary<string, SystemOneQuestion>
+            {
+                ["tone"] = new ChoiceQuestion("How does this line sound to someone across the room who can't make out the words?",
+                    Overhearing.Tones.ToDictionary(t => t, t => (string?)null)),
+            };
+            for (var i = 0; i < listeners.Count; i++)
+                questions[$"name{i}"] = new NoulQuestion($"The speaker says or refers to {listeners[i].Name.Split(' ')[0]} by name.");
+            var answers = await judge.AskAsync($"{record.SpeakerName} says: \"{WorldStream.Clip(content, 400)}\"", questions, CancellationToken.None);
+            record.Tone = answers.SampleChoice("tone", 0.5) ?? record.Tone;
+            record.NameHeardBy = listeners.Where((l, i) => answers.Noul($"name{i}", record.NameHeardBy.Contains(l.ParticipantId) ? 1 : 0) > 0.6)
+                .Select(l => l.ParticipantId).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Tone read failed; keeping the plain fallback");
+        }
+    }
+
+    private static bool Mentions(string? content, string name)
+        => !string.IsNullOrEmpty(content) && content.Contains(name.Split(' ')[0], StringComparison.OrdinalIgnoreCase);
 
     public async Task<PlacesSnapshot> GetSnapshotAsync()
     {
@@ -450,6 +533,15 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
+
+    /// <summary>The Participant's next utterance goes at this volume (to one addressee for a whisper). Holds 2 min.</summary>
+    [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);
+
+    /// <summary>Who hears an utterance in a Place talk Room right now; null when not a Place or no settled Body. Read-only.</summary>
+    [AlwaysInterleave, Alias("EarshotAsync")] Task<EarshotResult?> EarshotAsync(Guid talkRoomId, Guid speakerId);
+
+    /// <summary>Talk this Participant noticed but couldn't make out, in the Place they're in.</summary>
+    [Alias("GetOverheardAsync")] Task<List<Overheard>> GetOverheardAsync(Guid participantId);
 
     /// <summary>Someone used an online App; their Body shows the device for a few minutes.</summary>
     [Alias("NoteActivityAsync")] Task NoteActivityAsync(Guid participantId, string app);

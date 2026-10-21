@@ -18,6 +18,8 @@ namespace PartyTown.Grains;
 public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     : JournaledGrain<ChatGroupState, ChatGroupEvent>, IChatGroupGrain
 {
+    private string? _kind;
+
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         await base.OnActivateAsync(cancellationToken);
@@ -217,9 +219,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         var chatGroupId = this.GetPrimaryKey();
         var messageId = await ReserveSlotAsync(senderId, "user");
+        var earshot = await EarshotOfAsync(senderId);
 
         var message = new ChatMessage
         {
+            HeardBy = earshot?.HeardBy,
+            Volume = earshot?.Volume,
             ChatGroupId = chatGroupId,
             MessageId = messageId,
             Content = content,
@@ -290,6 +295,8 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         var chatGroupId = this.GetPrimaryKey();
         var sendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var senderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty;
+        var earshot = await EarshotOfAsync(senderId);
 
         RaiseEvent(new ChatGroupGenerationCompletedEvent
         {
@@ -297,7 +304,9 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Content = content,
             Reasoning = reasoning,
             Appraisal = appraisal,
-            SenderId = State.Messages.FirstOrDefault(m => m.MessageId == messageId)?.SenderId ?? Guid.Empty,
+            SenderId = senderId,
+            HeardBy = earshot?.HeardBy,
+            Volume = earshot?.Volume,
             SendAt = sendAt,
             Metadata = metadata,
             TriggeredByMessageId = triggeredByMessageId
@@ -435,10 +444,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
     }
 
-    public Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId)
+    public Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null)
     {
         var before = State.Messages
             .Where(m => m.MessageId < messageId)
+            .Where(m => listener is not { } who || m.HeardBy is not { } heard || heard.Contains(who))
             .OrderBy(m => m.MessageId)
             .ToArray();
 
@@ -540,6 +550,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var chatGroupId = this.GetPrimaryKey();
         var targets = State.ParticipantIds
             .Where(id => id != triggeringMessage.SenderId)
+            .Where(id => triggeringMessage.HeardBy is not { } heard || heard.Contains(id))
             .ToList();
 
         logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
@@ -552,6 +563,15 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>Place talk only: who hears this sender right now (spec .scratch/places § Sound). Null elsewhere.</summary>
+    private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
+    {
+        _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
+            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
+        if (_kind != ChatGroupKinds.Place) return null;
+        return await GrainFactory.GetGrain<World.Places.IPlacesGrain>(State.PartyId).EarshotAsync(this.GetPrimaryKey(), senderId);
     }
 
     private Task PublishPartyEvent(PartyStreamEvent evt)
@@ -679,8 +699,9 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("NotifyStreamChunkAsync")]
     Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt);
 
+    /// <summary>History before a message; with a <paramref name="listener"/>, only Place talk they heard (Earshot).</summary>
     [Alias("GetMessagesUntilAsync")]
-    Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId);
+    Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null);
 
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
@@ -803,6 +824,8 @@ public sealed record class ChatGroupState
         // only overwrite if the event carries one (legacy events leave it null).
         if (@event.TriggeredByMessageId.HasValue)
             target.TriggeredByMessageId = @event.TriggeredByMessageId;
+        target.HeardBy = @event.HeardBy;
+        target.Volume = @event.Volume;
     }
 
     public void Apply(ChatGroupGenerationStoppedEvent @event)
@@ -1010,6 +1033,9 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(5)] public long SendAt { get; set; }
     [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
     [Id(7)] public int? TriggeredByMessageId { get; set; }
+    /// <summary>Place talk Earshot; null = everyone (Rooms, DMs, legacy events).</summary>
+    [Id(8)] public List<Guid>? HeardBy { get; set; }
+    [Id(9)] public string? Volume { get; set; }
 }
 
 /// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>

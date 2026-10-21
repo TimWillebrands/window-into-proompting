@@ -69,7 +69,7 @@ public class ResponsePipelineTest
             .ReturnsAsync((IReadOnlyDictionary<Guid, DriverKind>)new Dictionary<Guid, DriverKind>());
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
         chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
-        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage>());
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(0);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
@@ -221,7 +221,7 @@ public class ResponsePipelineTest
             new() { MessageId = 11, SenderId = PersonaId,     SenderType = "assistant", Content = "yo" },
             new() { MessageId = 12, SenderId = PersonaId,     SenderType = "assistant", Content = "and another thing" },
         };
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(int.MaxValue))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(int.MaxValue, It.IsAny<Guid?>()))
             .ReturnsAsync(assistantHistory);
         fx.ChatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(5);
 
@@ -266,7 +266,7 @@ public class ResponsePipelineTest
 
         // Assert: not even the read-only history fetch happens — defense-in-depth means
         // "do nothing observable", not "do nothing harmful".
-        fx.ChatGroup.Verify(g => g.GetMessagesUntilAsync(It.IsAny<int>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()), Times.Never);
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
             It.IsAny<double>(), It.IsAny<string>()), Times.Never);
@@ -289,7 +289,7 @@ public class ResponsePipelineTest
 
         var otherSenderId = Guid.NewGuid();
         var triggering = Msg(otherSenderId, "anyone up for chess");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         var declinedEvents = new List<MessageStreamEvent>();
@@ -334,7 +334,7 @@ public class ResponsePipelineTest
 
         var otherSenderId = Guid.NewGuid();
         var triggering = Msg(otherSenderId, "anyone up for chess");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Act
@@ -395,7 +395,7 @@ public class ResponsePipelineTest
 
         var otherSenderId = Guid.NewGuid();
         var triggering = Msg(otherSenderId, "kick things off");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         var streamEvents = new List<MessageStreamEvent>();
@@ -464,7 +464,7 @@ public class ResponsePipelineTest
             });
 
         var triggering = Msg(Guid.NewGuid(), "kick things off");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Act: start the pipeline; once speaking has begun, simulate the race trigger
@@ -522,7 +522,7 @@ public class ResponsePipelineTest
             .ReturnsAsync(() => Interlocked.Increment(ref routeCall) == 1 ? decisionEp.Object : speakingEp.Object);
 
         var triggering = Msg(Guid.NewGuid(), "kick things off");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Act: cancel 100ms into the hanging speaking phase.
@@ -558,7 +558,7 @@ public class ResponsePipelineTest
 
         var otherSenderId = Guid.NewGuid();
         var triggering = Msg(otherSenderId, "anyone home?");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Sanity-check the hint is there before HandleAsync — using ConsumeRepairHint
@@ -622,7 +622,7 @@ public class ResponsePipelineTest
             });
 
         var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Act
@@ -678,7 +678,7 @@ public class ResponsePipelineTest
             });
 
         var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
-        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
         // Act

@@ -76,7 +76,7 @@ public sealed class ResponsePipeline(
 
         // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
         // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
-        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
+        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue, listener: persona.Id);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
         var isDirect = roomCast.IsDirect;
@@ -128,7 +128,7 @@ public sealed class ResponsePipeline(
             // Single history snapshot, shared by decision + generation.
             // Taking the snapshot at `messageId` includes any messages other personas
             // committed between our slot reservation and our read.
-            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
             var scenario = await chatGroupGrain.GetScenarioAsync();
 
             // Info-isolation is a property of ParticipantView (identity + Driver only),
@@ -452,7 +452,7 @@ public sealed class ResponsePipeline(
 
         try
         {
-            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId);
+            var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
             var scenario = await chatGroupGrain.GetScenarioAsync();
             var presentIds = participantViews.Select(p => p.Id).ToList();
 

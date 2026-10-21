@@ -135,6 +135,54 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
         Assert.Null(await places.ActOnFurniAsync(denise, pietersHome.Id, "coffee", care: false, intent: null));
     }
 
+    [Fact]
+    public async Task PlaceTalk_OnlyYourSpotHears_TheRestOverhear()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
+        await places.MoveAsync(denise, cafe.Id, "counter");
+        await places.MoveAsync(pieter, cafe.Id, "booth");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Id == cafe.Id);
+        var talk = _fx.GrainFactory.GetGrain<IChatGroupGrain>(cafe.TalkRoomId!.Value);
+
+        var aside = await talk.SendNewMessageAsync(denise, "honestly Pieter has been impossible today", null, null);
+
+        Assert.Equal(new[] { denise }, aside.HeardBy);
+        Assert.Equal(Volumes.Talk, aside.Volume);
+        Assert.DoesNotContain(await talk.GetMessagesUntilAsync(int.MaxValue, pieter), m => m.MessageId == aside.MessageId);
+        Assert.Contains(await talk.GetMessagesUntilAsync(int.MaxValue, denise), m => m.MessageId == aside.MessageId);
+        List<Overheard> overheard = new();
+        for (var i = 0; i < 50 && overheard.Count == 0; i++)
+        {
+            await Task.Delay(100);
+            overheard = await places.GetOverheardAsync(pieter);
+        }
+        var o = Assert.Single(overheard);
+        Assert.Contains(pieter, o.NameHeardBy);
+
+        await places.SetVoiceAsync(denise, Volumes.Shout, null);
+        var shout = await talk.SendNewMessageAsync(denise, "anyone want a coffee?", null, null);
+        Assert.Contains(pieter, shout.HeardBy!);
+    }
+
+    [Fact]
+    public async Task RoomsAndDms_StayHeardByEveryone()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var room = await party.CreateChatGroup("kitchen");
+        var dm = await party.GetOrCreateDirectChatAsync(denise, pieter);
+
+        var inRoom = await _fx.GrainFactory.GetGrain<IChatGroupGrain>(room.Id).SendNewMessageAsync(denise, "hi all", null, null);
+        var inDm = await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).SendNewMessageAsync(denise, "hi you", null, null);
+
+        Assert.Null(inRoom.HeardBy);
+        Assert.Null(inDm.HeardBy);
+        Assert.Single(await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).GetMessagesUntilAsync(int.MaxValue, pieter));
+    }
+
     public sealed class Fixture : IAsyncLifetime
     {
         public TestCluster Cluster { get; private set; } = null!;
@@ -177,7 +225,11 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
             public void Configure(ISiloBuilder siloBuilder)
             {
                 siloBuilder.ConfigureDefaults();
-                siloBuilder.ConfigureServices(services => services.AddSingleton<TimeProvider>(ManualTime.Instance));
+                siloBuilder.ConfigureServices(services =>
+                {
+                    services.AddSingleton<TimeProvider>(ManualTime.Instance);
+                    services.AddSingleton(Moq.Mock.Of<PartyTown.Services.SystemOne.ISystemOneJudge>(j => j.Enabled == false));
+                });
             }
         }
     }

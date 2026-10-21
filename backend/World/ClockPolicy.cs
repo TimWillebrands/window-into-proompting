@@ -84,6 +84,14 @@ public static class ClockPolicy
         return new LullDecision.Capture(last.MessageId, anchor, context);
     }
 
+    /// <summary>Who witnessed a span: everyone present, or for Place talk only those who heard at least one line (Earshot).</summary>
+    public static List<ParticipantView> Witnesses(IReadOnlyList<ChatMessage> span, IReadOnlyList<ParticipantView> present)
+    {
+        if (span.All(m => m.HeardBy is null)) return present.ToList();
+        var heard = span.SelectMany(m => m.HeardBy ?? present.Select(p => p.Id).ToList()).ToHashSet();
+        return present.Where(p => heard.Contains(p.Id)).ToList();
+    }
+
     /// <summary>The line others reacted to most is the moment; ties go to the latest.</summary>
     public static ChatMessage MostAnswered(IReadOnlyList<ChatMessage> span)
         => span
