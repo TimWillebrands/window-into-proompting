@@ -1,6 +1,6 @@
 # Places: every Participant gets a Body
 
-Status: in progress, phase 4 done, phase 5 (iso renderer) next (see § Progress)
+Status: in progress, phase 5 done, phase 6 (Earshot) next (see § Progress)
 
 **Places** is a Habbo-Hotel-inspired isometric App for the World. It is not a minigame next to the other Apps. It is the **physical layer under all of them**: every Persona and every Player has exactly one **Body**, standing in exactly one **Place**, at all times. When Denise DMs you, her Body is somewhere, for example on the sofa at home with her phone out. The XP desktop is what the Bodies do on their devices. Places is where the Bodies are.
 
@@ -180,6 +180,15 @@ Later, not planned: an economy (Habbo credits: earn by caring for shared Places,
   - The UI shows furni in spot cards with Water/Wash/Fix/Use buttons. Rules stay server-side (`FurniView` in the snapshot).
   - **Not done:** Device habits (laptop pull bonus for long-form at home). Happenings are rule-based mishaps rather than narrator-chosen effects.
 - **Live:** with the world running, the whole cast walked to the Café on their own (restlessness pull).
+- **Phase 5 done** (e4b4e81). Canvas 2D iso view on top of the spot cards in the Places window.
+  - Tiles are derived on the client from the spot list (`iso/layout.ts`, auto layout; no hand-authored maps yet).
+  - Bodies walk along A* paths at about 4 tiles/s. Between-Place walks show at the door (first and last 30% of the trip).
+  - Place talk messages show as speech bubbles for 14 s. Device and activity icons show over heads. Furni are drawn as emoji with a ❗ when they need care.
+  - Clicking near a spot walks the Player there; this also works for another Place you may enter.
+  - Verified visually in a standalone bundle with mock data; not yet in the live app because of the Servo WebSocket console loop.
+  - **Not done:** Storybook stories (the Storybook MCP isn't available in this session), sprite art/Appearance (phase 8), click-a-Body profile.
+
+## Review log
 
 ## Review log
 
