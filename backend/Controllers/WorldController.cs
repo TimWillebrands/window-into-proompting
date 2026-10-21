@@ -60,6 +60,45 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
         return Ok(await Clock(partyId).AnnounceAsync(request.Text.Trim()));
     }
 
+    /// <summary>Invite a library Persona to live in this World (LLM-driven Participant).</summary>
+    [HttpPost("residents")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<LifeSummary>> Invite(Guid partyId, [FromBody] InviteResidentRequest request)
+    {
+        var persona = await grains.GetGrain<IPersonaGrain>(request.PersonaId).GetPersona();
+        if (string.IsNullOrEmpty(persona.Name) || request.PersonaId == Narrator.PersonaId) return NotFound();
+        var party = grains.GetGrain<IPartyGrain>(partyId);
+        var info = await party.GetParty();
+        if (info.Participants.All(p => p.Id != request.PersonaId))
+        {
+            var participants = info.Participants.ToList();
+            participants.Add(new PartyParticipant { Id = request.PersonaId, Name = persona.Name, Driver = DriverKind.LLM });
+            await party.SetParticipants(participants);
+            await Clock(partyId).RecordAsync(new WorldActivity
+            {
+                PersonaId = request.PersonaId, PersonaName = persona.Name, App = "world", Action = "arrive",
+                Summary = "moved into the world",
+            });
+        }
+        return Ok(new LifeSummary(persona.Id, persona.Name, DriverKind.LLM, persona.Chattiness, false, false, null));
+    }
+
+    /// <summary>A Persona moves out: their Participant (and Party-scoped memories' owner) leaves the cast.</summary>
+    [HttpDelete("residents/{personaId:guid}")]
+    public async Task<ActionResult> Evict(Guid partyId, Guid personaId)
+    {
+        var party = grains.GetGrain<IPartyGrain>(partyId);
+        var info = await party.GetParty();
+        var leaving = info.Participants.FirstOrDefault(p => p.Id == personaId && p.Driver == DriverKind.LLM);
+        if (leaving is null) return NotFound();
+        await party.SetParticipants(info.Participants.Where(p => p.Id != personaId).ToList());
+        await Clock(partyId).RecordAsync(new WorldActivity
+        {
+            PersonaId = personaId, PersonaName = leaving.Name, App = "world", Action = "leave", Summary = "moved out of the world",
+        });
+        return NoContent();
+    }
+
     [HttpPost("player")]
     public async Task<ActionResult<PlayerResponse>> EnsurePlayer(Guid partyId, [FromBody] EnsurePlayerRequest request)
         => Ok(new PlayerResponse(await Clock(partyId).EnsurePlayerAsync(request.Name)));
@@ -170,6 +209,7 @@ public sealed record TickRequest(Guid? PersonaId, string? Nudge);
 public sealed record TickResponse(bool Started);
 public sealed record EnsurePlayerRequest(string? Name);
 public sealed record AnnounceRequest(string Text);
+public sealed record InviteResidentRequest(Guid PersonaId);
 public sealed record PlayerResponse(Guid PlayerId);
 public sealed record CreateBoardPostRequest(string Title, string Body, Guid? AuthorId);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);

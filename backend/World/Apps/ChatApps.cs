@@ -11,26 +11,28 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
 
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
     {
-        var rooms = new List<(ChatGroupInfo Room, List<ChatMessage> Recent)>();
+        var mine = new List<(ChatGroupInfo Room, List<ChatMessage> Recent)>();
+        var elsewhere = new List<(ChatGroupInfo Room, List<ChatMessage> Recent, List<Guid> Members)>();
         foreach (var room in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Room))
         {
             var grain = grains.GetGrain<IChatGroupGrain>(room.Id);
             var members = await grain.GetParticipantIdsAsync();
-            if (!members.Contains(ctx.Self.Id) || !members.Any(id => id != ctx.Self.Id && id != Narrator.PersonaId)) continue;
+            var others = members.Where(id => id != ctx.Self.Id && id != Narrator.PersonaId).ToList();
+            if (others.Count == 0) continue;
+            if (!members.Contains(ctx.Self.Id))
+            {
+                elsewhere.Add((room, await grain.GetRecentMessagesAsync(2), others));
+                continue;
+            }
             // A Room where someone else drives this Persona isn't theirs to speak in.
             if ((await grain.GetDriverOverridesAsync()).TryGetValue(ctx.Self.Id, out var driver) && driver != DriverKind.LLM) continue;
-            rooms.Add((room, await grain.GetRecentMessagesAsync(3)));
+            mine.Add((room, await grain.GetRecentMessagesAsync(3)));
         }
-        if (rooms.Count == 0) return null;
-
-        var ordered = rooms
-            .OrderByDescending(r => r.Recent.LastOrDefault()?.SendAt ?? r.Room.CreatedAt)
-            .Take(4)
-            .ToList();
+        if (mine.Count == 0 && elsewhere.Count == 0) return null;
 
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
-        foreach (var (room, recent) in ordered)
+        foreach (var (room, recent) in mine.OrderByDescending(r => LastAt(r.Room, r.Recent)).Take(4))
         {
             var last = recent.LastOrDefault();
             var scenario = string.IsNullOrWhiteSpace(room.Scenario) ? "" : $" — {WorldStream.Clip(room.Scenario, 100)}";
@@ -47,16 +49,35 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
                 priority, room.Id, "say"));
         }
 
+        // Places you're not in yet: the arena extends past your current rooms.
+        foreach (var (room, recent, others) in elsewhere.OrderByDescending(r => LastAt(r.Room, r.Recent)).Take(2))
+        {
+            var who = string.Join(", ", others.Take(3).Select(ctx.NameOf));
+            var last = recent.LastOrDefault();
+            sb.AppendLine($"#{room.Name} (you're not in it): {who} hang out there{(last is null ? "" : $", last active {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}")}");
+            var lively = last is not null && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(last.SendAt ?? 0) < TimeSpan.FromMinutes(30);
+            affordances.Add(new Affordance(Id, $"Drop into #{room.Name} and join {who}", lively ? 1 : 0, room.Id, "join"));
+        }
+
         return new AppPerception(Id, "Chat rooms (D'Accord)", sb.ToString().TrimEnd(), affordances);
     }
+
+    private static long LastAt(ChatGroupInfo room, List<ChatMessage> recent) => recent.LastOrDefault()?.SendAt ?? room.CreatedAt;
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {
         if (affordance.TargetId is not { } roomId) return null;
+        if (affordance.Verb == "join")
+        {
+            var room = grains.GetGrain<IChatGroupGrain>(roomId);
+            var members = (await room.GetParticipantIdsAsync()).ToHashSet();
+            members.Add(ctx.Self.Id);
+            await room.SetParticipantIdsAsync(members);
+        }
         var line = await grains.GetGrain<IPersonaGrain>(ctx.Self.Id).InitiateAsync(roomId, intent, thought);
         if (string.IsNullOrWhiteSpace(line)) return null;
         var name = ctx.Threads.FirstOrDefault(t => t.Id == roomId)?.Name ?? "a room";
-        return new ActOutcome("say", $"in #{name}: \"{WorldStream.Clip(line, 160)}\"", roomId);
+        return new ActOutcome(affordance.Verb == "join" ? "join" : "say", $"in #{name}: \"{WorldStream.Clip(line, 160)}\"", roomId);
     }
 }
 
