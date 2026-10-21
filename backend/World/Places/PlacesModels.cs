@@ -36,6 +36,7 @@ public enum Posture
     Standing,
     Sitting,
     Walking,
+    Lying,
 }
 
 /// <summary>A Participant's physical presence: exactly one, always in exactly one Place.</summary>
@@ -58,6 +59,9 @@ public sealed class Body
     [Id(11)] public long ArrivedAt { get; set; }
     /// <summary>When <see cref="Activity"/> wears off.</summary>
     [Id(12)] public long? ActivityUntil { get; set; }
+    [Id(13)] public bool Asleep { get; set; }
+    /// <summary>Woken in the night (a human's message); stays up until then.</summary>
+    [Id(14)] public long? WokenUntil { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

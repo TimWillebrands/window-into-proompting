@@ -168,6 +168,37 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task AtNight_PersonasWalkHomeToBed_FallAsleep_AndWakeInTheMorning()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
+        await places.MoveAsync(denise, cafe.Id, null);
+        var (bed, wake) = Sleep.Window(denise);
+
+        _fx.Time.Advance(UntilLocal(bed + 5));
+        await places.GetAsleepAsync();
+        Assert.Contains("on your way to your place", await places.GetSituationAsync(denise));
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        Assert.Contains(denise, await places.GetAsleepAsync());
+        Assert.Equal("You're asleep in bed at home.", await places.GetSituationAsync(denise));
+
+        _fx.Time.Advance(UntilLocal(wake + 5));
+        Assert.DoesNotContain(denise, await places.GetAsleepAsync());
+        Assert.Contains("just got up", await places.GetSituationAsync(denise));
+    }
+
+    /// <summary>How far to push the clock to reach a local minute-of-day next.</summary>
+    private TimeSpan UntilLocal(int minuteOfDay)
+    {
+        var local = _fx.Time.GetLocalNow();
+        var nowMinute = local.Hour * 60 + local.Minute;
+        var delta = ((minuteOfDay % 1440) - nowMinute + 1440) % 1440;
+        return TimeSpan.FromMinutes(delta == 0 ? 1440 : delta);
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
@@ -229,6 +260,9 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
                 {
                     services.AddSingleton<TimeProvider>(ManualTime.Instance);
                     services.AddSingleton(Moq.Mock.Of<PartyTown.Services.SystemOne.ISystemOneJudge>(j => j.Enabled == false));
+                    services.AddSingleton(Moq.Mock.Of<PartyTown.Services.Memory.IStanceConsolidator>());
+                    services.AddSingleton<PartyTown.Services.Memory.ConsolidationService>();
+                    services.AddSingleton<PartyTown.World.WorldMemory>();
                 });
             }
         }

@@ -190,8 +190,9 @@ public sealed class WorldClockGrain(
     private async Task<Guid?> PickPersonaAsync(DateTimeOffset now)
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+        var asleep = (await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetAsleepAsync()).ToHashSet();
         var candidates = cast
-            .Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId && !IsBusy(c.Id, now))
+            .Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId && !IsBusy(c.Id, now) && !asleep.Contains(c.Id))
             .ToList();
         if (candidates.Count == 0) return null;
 

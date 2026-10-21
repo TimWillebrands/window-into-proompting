@@ -17,6 +17,7 @@ public sealed class PlacesGrain(
     IPersistentState<PlacesState> state,
     TimeProvider time,
     ISystemOneJudge judge,
+    WorldMemory memory,
     ILogger<PlacesGrain> logger)
     : Grain, IPlacesGrain
 {
@@ -27,7 +28,12 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan MishapMin = TimeSpan.FromHours(3);
     private static readonly TimeSpan MishapMax = TimeSpan.FromHours(8);
     private IGrainTimer? _arrivals;
-    private readonly Dictionary<Guid, string> _roomKinds = new();
+    private readonly Dictionary<Guid, ChatGroupInfo> _rooms = new();
+    private readonly Dictionary<Guid, (int Bed, int Wake, long At)> _sleepWindows = new();
+    private long _lastSleepCheck;
+    private static readonly TimeSpan SleepCheckEvery = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan WindowFresh = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan GroggyFor = TimeSpan.FromMinutes(30);
     private readonly Dictionary<Guid, Voice> _voices = new();
     private readonly List<Overheard> _overheard = new();
     private static readonly TimeSpan VoiceHolds = TimeSpan.FromMinutes(2);
@@ -66,11 +72,15 @@ public sealed class PlacesGrain(
     {
         if (e.Type != "message" || e.Message is not { } m || string.IsNullOrWhiteSpace(m.Content)) return;
         if (!state.State.Bodies.ContainsKey(m.SenderId)) return;
-        if (!_roomKinds.TryGetValue(e.ChatGroupId, out var kind))
+        if (!_rooms.TryGetValue(e.ChatGroupId, out var room))
         {
-            foreach (var g in await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups()) _roomKinds[g.Id] = g.Kind;
-            if (!_roomKinds.TryGetValue(e.ChatGroupId, out kind)) return;
+            foreach (var g in await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups()) _rooms[g.Id] = g;
+            if (!_rooms.TryGetValue(e.ChatGroupId, out room)) return;
         }
+        var kind = room.Kind;
+        if (kind == ChatGroupKinds.Direct && state.State.Bodies[m.SenderId].IsHuman)
+            foreach (var other in room.MemberIds?.Where(id => id != m.SenderId) ?? Enumerable.Empty<Guid>())
+                await WakeGroggyAsync(other);
         if (kind == ChatGroupKinds.Place)
         {
             NoteOverheard(e.ChatGroupId, m);
@@ -83,6 +93,108 @@ public sealed class PlacesGrain(
             _ => null,
         };
         if (app is not null) await NoteActivityAsync(m.SenderId, app);
+    }
+
+    public async Task<List<Guid>> GetAsleepAsync()
+    {
+        await SettleAsync();
+        await SleepCycleAsync();
+        return state.State.Bodies.Values.Where(b => b.Asleep).Select(b => b.ParticipantId).ToList();
+    }
+
+    public Task<bool> IsAsleepAsync(Guid participantId)
+        => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var b) && b.Asleep);
+
+    /// <summary>Night walks Personas home to bed and asleep (Consolidation runs then); morning wakes them. Humans sleep on their own.</summary>
+    private async Task SleepCycleAsync()
+    {
+        var now = Now();
+        if (now - _lastSleepCheck < SleepCheckEvery.TotalMilliseconds) return;
+        _lastSleepCheck = now;
+        var local = time.GetLocalNow();
+        var minute = local.Hour * 60 + local.Minute;
+        foreach (var body in state.State.Bodies.Values.Where(b => !b.IsHuman).ToList())
+        {
+            var (bed, wake) = WindowFor(body.ParticipantId, now);
+            var night = Sleep.IsNight(minute, bed, wake);
+            if (body.Asleep)
+            {
+                if (!night) await WakeAsync(body, "just got up", TimeSpan.FromMinutes(20));
+                continue;
+            }
+            if (!night || body.WokenUntil > now) continue;
+            var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == body.ParticipantId);
+            if (home is null) continue;
+            if (!body.IsWalking && body.PlaceId == home.Id && body.SpotId == "bed")
+            {
+                body.Asleep = true;
+                body.Posture = Posture.Lying;
+                body.Activity = "asleep";
+                body.ActivityUntil = null;
+                await state.WriteStateAsync();
+                await PublishAsync(body);
+                _ = RestAsync(body.ParticipantId);
+            }
+            else if (body.DestPlaceId != home.Id || body.DestSpotId != "bed")
+            {
+                await MoveAsync(body.ParticipantId, home.Id, "bed");
+            }
+        }
+    }
+
+    private (int Bed, int Wake) WindowFor(Guid id, long now)
+    {
+        if (_sleepWindows.TryGetValue(id, out var w) && now - w.At < WindowFresh.TotalMilliseconds) return (w.Bed, w.Wake);
+        // Detached: the Self grain may need an LLM call for today's day, and it calls back into us for the Situation.
+        _ = RefreshWindowAsync(id);
+        return _sleepWindows.TryGetValue(id, out var stale) ? (stale.Bed, stale.Wake) : Sleep.Window(id);
+    }
+
+    private async Task RefreshWindowAsync(Guid id)
+    {
+        try
+        {
+            var day = await GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, id)).GetDayWindowAsync();
+            var (bed, wake) = Sleep.Window(id, day.FirstBeatMinute, day.LastBeatMinute);
+            _sleepWindows[id] = (bed, wake, Now());
+        }
+        catch (Exception ex)
+        {
+            _sleepWindows[id] = (Sleep.Window(id).Bed, Sleep.Window(id).Wake, Now());
+            logger.LogDebug(ex, "Day window unavailable for {Persona}; using chronotype", id);
+        }
+    }
+
+    private async Task WakeAsync(Body body, string how, TimeSpan showFor)
+    {
+        body.Asleep = false;
+        body.Posture = Posture.Sitting;
+        body.Activity = how;
+        body.ActivityUntil = Now() + (long)showFor.TotalMilliseconds;
+        await state.WriteStateAsync();
+        await PublishAsync(body);
+    }
+
+    /// <summary>A human's message wakes a sleeper; they stay up a while, groggy.</summary>
+    private async Task WakeGroggyAsync(Guid participantId)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || !body.Asleep) return;
+        body.WokenUntil = Now() + (long)GroggyFor.TotalMilliseconds;
+        await WakeAsync(body, "woken by a message, groggy", GroggyFor);
+    }
+
+    private async Task RestAsync(Guid personaId)
+    {
+        try
+        {
+            var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+            if (cast.FirstOrDefault(c => c.Id == personaId) is { } self)
+                await memory.RestAsync(PartyId, self, cast, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Sleep consolidation failed for {Persona}", personaId);
+        }
     }
 
     public Task SetVoiceAsync(Guid participantId, string volume, Guid? to)
@@ -160,6 +272,7 @@ public sealed class PlacesGrain(
     {
         await SyncCastAsync();
         await SettleAsync();
+        await SleepCycleAsync();
         return new PlacesSnapshot
         {
             Places = state.State.Places.ToList(),
@@ -189,6 +302,7 @@ public sealed class PlacesGrain(
 
         var leaving = body.IsWalking ? body.DestPlaceId : body.PlaceId;
         var now = Now();
+        body.Asleep = false;
         body.DestPlaceId = placeId;
         body.DestSpotId = spot.Id;
         body.DepartedAt = now;
@@ -457,6 +571,7 @@ public sealed class PlacesGrain(
                 : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
         }
         var place = Find(body.PlaceId);
+        if (body.Asleep) return $"You're asleep in bed {AtName(place, body.ParticipantId)}.";
         var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
@@ -487,6 +602,7 @@ public sealed class PlacesGrain(
         var name = spot?.Name ?? "somewhere";
         return body.Posture switch
         {
+            Posture.Lying => $"lying {spot?.At ?? "on"} {name}",
             Posture.Sitting => $"sitting {spot?.At ?? "at"} {name}",
             _ when spot?.At == "in" => $"in {name}",
             _ => $"standing by {name}",
@@ -533,6 +649,12 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
+
+    /// <summary>Who's asleep right now (runs the night/morning cycle first). The World clock skips them.</summary>
+    [Alias("GetAsleepAsync")] Task<List<Guid>> GetAsleepAsync();
+
+    /// <summary>Read-only; safe to call from grains Places itself calls (Self).</summary>
+    [AlwaysInterleave, Alias("IsAsleepAsync")] Task<bool> IsAsleepAsync(Guid participantId);
 
     /// <summary>The Participant's next utterance goes at this volume (to one addressee for a whisper). Holds 2 min.</summary>
     [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);
