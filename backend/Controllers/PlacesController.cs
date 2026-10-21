@@ -56,6 +56,25 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
     public async Task<ActionResult<List<Overheard>>> GetOverheard(Guid partyId, Guid participantId)
         => Ok(await Places(partyId).GetOverheardAsync(participantId));
 
+    /// <summary>Knock on someone's Home (default: as the Player). 409 when they're out or asleep.</summary>
+    [HttpPost("knock")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> Knock(Guid partyId, [FromBody] KnockRequest request)
+    {
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        return await Places(partyId).KnockAsync(who.Value, request.HomeId) ? NoContent() : Conflict("Nobody's home (or they're asleep).");
+    }
+
+    /// <summary>Let a knocker in, or invite someone over (default host: the Player).</summary>
+    [HttpPost("let-in")]
+    public async Task<ActionResult> LetIn(Guid partyId, [FromBody] LetInRequest request)
+    {
+        var who = request.OwnerId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        return await Places(partyId).LetInAsync(who.Value, request.VisitorId) ? NoContent() : Conflict("No home to let them into.");
+    }
+
     private IPlacesGrain Places(Guid partyId) => grains.GetGrain<IPlacesGrain>(partyId);
 }
 
@@ -63,4 +82,6 @@ public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? Partici
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);
+public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);
+public sealed record LetInRequest(Guid VisitorId, Guid? OwnerId);
 public sealed record VoiceRequest(string Volume, Guid? To, Guid? ParticipantId);

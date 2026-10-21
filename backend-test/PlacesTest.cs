@@ -116,12 +116,12 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
         var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
         Assert.Contains(home.Furni, f => f.Kind == FurniKinds.Plant);
 
-        _fx.Time.Advance(TimeSpan.FromHours(20));
+        _fx.Time.Advance(TimeSpan.FromHours(9));
 
-        Assert.Contains("Around you: the plant on the windowsill is wilting", await places.GetSituationAsync(denise));
+        Assert.Contains("Around you: the plant on the windowsill looks a bit dry", await places.GetSituationAsync(denise));
         var done = await places.ActOnFurniAsync(denise, home.Id, "plant", care: true, intent: null);
         Assert.Equal("waters the plant on the windowsill at Denise's place", done);
-        Assert.DoesNotContain("wilting", await places.GetSituationAsync(denise));
+        Assert.DoesNotContain("dry", await places.GetSituationAsync(denise));
         Assert.Contains("watering the plant", await places.GetSituationAsync(denise));
     }
 
@@ -199,6 +199,31 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task KnockingWhenTheyreHome_AndBeingLetIn()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+        var pietersHome = snapshot.Places.Single(p => p.OwnerId == pieter);
+
+        Assert.Null(await places.MoveAsync(denise, pietersHome.Id, null));
+        Assert.True(await places.KnockAsync(denise, pietersHome.Id));
+        Assert.Equal(new[] { denise }, await places.GetKnocksAsync(pieter));
+
+        Assert.True(await places.LetInAsync(pieter, denise));
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        Assert.Contains("at Pieter's place", await places.GetSituationAsync(denise));
+        Assert.Empty(await places.GetKnocksAsync(pieter));
+
+        // When the owner leaves, the door closes behind them.
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+        await places.MoveAsync(pieter, cafe.Id, null);
+        await places.MoveAsync(denise, cafe.Id, null);
+        Assert.Null(await places.MoveAsync(denise, pietersHome.Id, null));
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
@@ -234,6 +259,11 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
 
         public async Task<(Guid PartyId, Guid Denise, Guid Pieter)> CreateWorldAsync()
         {
+            // Every world starts at local noon, so earlier tests' nights don't send everyone to bed.
+            var local = Time.GetLocalNow();
+            var toNoon = (12 * 60 - (local.Hour * 60 + local.Minute) + 1440) % 1440;
+            Time.Advance(TimeSpan.FromMinutes(toNoon == 0 ? 1440 : toNoon));
+
             var partyId = Guid.NewGuid();
             var denise = Guid.NewGuid();
             var pieter = Guid.NewGuid();

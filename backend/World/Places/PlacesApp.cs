@@ -93,7 +93,22 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
             var mine = place.OwnerId == ctx.Self.Id;
-            if (place.Kind == PlaceKinds.Home && !mine) continue;
+            if (place.Kind == PlaceKinds.Home && !mine)
+            {
+                // Someone else's Home: go if invited, else knock when they're in and awake.
+                var owner = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == place.OwnerId);
+                var ownerName = owner?.Name.Split(' ')[0] ?? "someone";
+                if (place.Guests.Contains(ctx.Self.Id))
+                {
+                    sb.AppendLine($"{ownerName} invited you over to their place.");
+                    affordances.Add(new Affordance(Id, $"Go over to {ownerName}'s place (they invited you)", 2, place.Id, "go"));
+                }
+                else if (owner is { IsWalking: false, Asleep: false } && owner.PlaceId == place.Id && !self.IsWalking)
+                {
+                    affordances.Add(new Affordance(Id, $"Knock on {ownerName}'s door (they're home)", 0, place.Id, "knock"));
+                }
+                continue;
+            }
             var there = snapshot.Bodies.Where(b => (b.DestPlaceId ?? b.PlaceId) == place.Id).Select(b => b.Name).ToList();
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
@@ -103,6 +118,22 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");
+
+        // At home: who's at the door, and who you could have over.
+        if (!self.IsWalking && here?.OwnerId == ctx.Self.Id)
+        {
+            foreach (var visitor in await places.GetKnocksAsync(ctx.Self.Id))
+            {
+                sb.AppendLine($"{ctx.NameOf(visitor)} is knocking at your door.");
+                affordances.Add(new Affordance(Id, $"Let {ctx.NameOf(visitor)} in", 3, visitor, "letin"));
+            }
+            var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId)).ToList();
+            if (away.Count > 0)
+            {
+                var friend = away[Random.Shared.Next(away.Count)];
+                affordances.Add(new Affordance(Id, $"Invite {friend.Name} over to your place", 0, friend.ParticipantId, "invite"));
+            }
+        }
 
         return new AppPerception(Id, "Places (where your body is)", sb.ToString().TrimEnd(), affordances);
     }
@@ -134,6 +165,16 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                     ? $"whispers to {ctx.NameOf(target)}: \"{WorldStream.Clip(line, 160)}\""
                     : $"calls out across the room: \"{WorldStream.Clip(line, 160)}\"", room);
             }
+            case "knock":
+            {
+                if (!await places.KnockAsync(ctx.Self.Id, target)) return null;
+                var owner = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target)?.OwnerId;
+                return new ActOutcome("knock", $"knocks on {ctx.NameOf(owner ?? Guid.Empty)}'s door", null);
+            }
+            case "letin" or "invite":
+                return await places.LetInAsync(ctx.Self.Id, target)
+                    ? new ActOutcome(affordance.Verb!, affordance.Verb == "letin" ? $"lets {ctx.NameOf(target)} in" : $"invites {ctx.NameOf(target)} over", null)
+                    : null;
             case "join":
                 return await places.JoinAsync(ctx.Self.Id, target) is null
                     ? null

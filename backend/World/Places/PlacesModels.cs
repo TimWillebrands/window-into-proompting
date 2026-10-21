@@ -15,6 +15,10 @@ public sealed class Place
     /// <summary>Place talk Room, created on first entry.</summary>
     [Id(6)] public Guid? TalkRoomId { get; set; }
     [Id(7)] public List<Furni> Furni { get; set; } = new();
+    /// <summary>Home only: who's been let in or invited; cleared when the owner leaves.</summary>
+    [Id(8)] public List<Guid> Guests { get; set; } = new();
+    /// <summary>Home only: who's knocking, and since when.</summary>
+    [Id(9)] public Dictionary<Guid, long> Knocks { get; set; } = new();
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>

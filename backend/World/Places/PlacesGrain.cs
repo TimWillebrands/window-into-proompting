@@ -95,6 +95,41 @@ public sealed class PlacesGrain(
         if (app is not null) await NoteActivityAsync(m.SenderId, app);
     }
 
+    private static readonly TimeSpan KnockWaits = TimeSpan.FromMinutes(10);
+
+    public async Task<bool> KnockAsync(Guid visitorId, Guid homeId)
+    {
+        await SettleAsync();
+        var home = Find(homeId);
+        if (home is not { Kind: PlaceKinds.Home } || home.OwnerId is not { } owner || owner == visitorId) return false;
+        if (!state.State.Bodies.TryGetValue(owner, out var host) || host.IsWalking || host.PlaceId != homeId || host.Asleep) return false;
+        home.Knocks[visitorId] = Now();
+        await state.WriteStateAsync();
+        await PublishPlaceAsync(home);
+        return true;
+    }
+
+    public async Task<bool> LetInAsync(Guid ownerId, Guid visitorId)
+    {
+        var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId);
+        if (home is null) return false;
+        var knocked = home.Knocks.Remove(visitorId);
+        if (!home.Guests.Contains(visitorId)) home.Guests.Add(visitorId);
+        await state.WriteStateAsync();
+        // Someone at the door walks straight in; an invitation waits for them to come over.
+        if (knocked) await MoveAsync(visitorId, home.Id, home.Spots.FirstOrDefault()?.Id);
+        await PublishPlaceAsync(home);
+        return true;
+    }
+
+    public Task<List<Guid>> GetKnocksAsync(Guid ownerId)
+    {
+        var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId);
+        var now = Now();
+        return Task.FromResult(home?.Knocks.Where(k => now - k.Value < KnockWaits.TotalMilliseconds).Select(k => k.Key).ToList()
+            ?? new List<Guid>());
+    }
+
     public async Task<List<Guid>> GetAsleepAsync()
     {
         await SettleAsync();
@@ -310,7 +345,16 @@ public sealed class PlacesGrain(
         body.Posture = Posture.Walking;
         await state.WriteStateAsync();
 
-        if (leaving is { } left && left != placeId) await SyncTalkRoomAsync(left);
+        if (leaving is { } left && left != placeId)
+        {
+            if (Find(left) is { Kind: PlaceKinds.Home } oldHome && oldHome.OwnerId == participantId)
+            {
+                oldHome.Guests.Clear();
+                oldHome.Knocks.Clear();
+                await state.WriteStateAsync();
+            }
+            await SyncTalkRoomAsync(left);
+        }
         WatchArrivals();
         await PublishAsync(body);
         return body;
@@ -549,7 +593,7 @@ public sealed class PlacesGrain(
         => state.State.Bodies.Values.Where(b => b.PlaceId == placeId && (b.DestPlaceId is null || b.DestPlaceId == placeId));
 
     private static bool MayEnter(Place place, Guid participantId)
-        => place.Kind != PlaceKinds.Home || place.OwnerId == participantId;
+        => place.Kind != PlaceKinds.Home || place.OwnerId == participantId || place.Guests.Contains(participantId);
 
     private Spot? PickSpot(Place place, string? spotId, Guid participantId)
     {
@@ -649,6 +693,15 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
+
+    /// <summary>Knock on someone's Home; only when they're in and awake.</summary>
+    [Alias("KnockAsync")] Task<bool> KnockAsync(Guid visitorId, Guid homeId);
+
+    /// <summary>The owner lets a knocker in (they walk in) or invites someone over (they may come).</summary>
+    [Alias("LetInAsync")] Task<bool> LetInAsync(Guid ownerId, Guid visitorId);
+
+    /// <summary>Who's knocking at this owner's door (last 10 min).</summary>
+    [Alias("GetKnocksAsync")] Task<List<Guid>> GetKnocksAsync(Guid ownerId);
 
     /// <summary>Who's asleep right now (runs the night/morning cycle first). The World clock skips them.</summary>
     [Alias("GetAsleepAsync")] Task<List<Guid>> GetAsleepAsync();
