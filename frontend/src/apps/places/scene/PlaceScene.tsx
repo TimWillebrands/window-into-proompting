@@ -79,6 +79,7 @@ export default function PlaceScene(props: Props) {
                 position: 'relative',
                 width: '100%',
                 height,
+                flexShrink: 0,
                 borderRadius: 2,
                 overflow: 'hidden',
                 background: sky.background,
