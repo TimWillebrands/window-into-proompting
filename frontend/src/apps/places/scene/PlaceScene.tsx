@@ -58,12 +58,15 @@ interface Props {
 
 const PIXEL_KEY = 'places.pixel';
 
+const MIN_HEIGHT = 300;
+
 /** The 3D view of one Place (ADR 0023): scene from its map and prefabs, Bodies walking about, talk in bubbles. */
 export default function PlaceScene(props: Props) {
     const { place, furni } = props;
     const scene = useMemo(() => sceneFor(place), [place]);
     const wrap = useRef<HTMLDivElement>(null);
     const [width, setWidth] = useState(640);
+    const [height, setHeight] = useState(MIN_HEIGHT);
     const [pixel, setPixel] = useState(
         () => localStorage.getItem(PIXEL_KEY) !== 'off',
     );
@@ -74,12 +77,15 @@ export default function PlaceScene(props: Props) {
     useEffect(() => {
         const el = wrap.current;
         if (!el) return;
-        const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+        const measure = () => {
+            setWidth(el.clientWidth);
+            setHeight(Math.max(MIN_HEIGHT, el.clientHeight));
+        };
+        const ro = new ResizeObserver(measure);
         ro.observe(el);
-        setWidth(el.clientWidth);
+        measure();
         return () => ro.disconnect();
     }, []);
-    const height = Math.round(Math.min(560, Math.max(300, width * 0.62)));
     const here = furni.filter((f) => f.placeId === place.id);
     const overlay = useMemo<Overlay>(
         () => ({ anchors: new Map(), labels: new Map() }),
@@ -93,8 +99,9 @@ export default function PlaceScene(props: Props) {
                 className="pl-view"
                 style={{
                     width: '100%',
-                    height,
-                    flexShrink: 0,
+                    // Fill whatever height the window has left; scroll only below the minimum.
+                    flex: `1 0 ${MIN_HEIGHT}px`,
+                    minHeight: MIN_HEIGHT,
                     background: sky.background,
                 }}
             >
