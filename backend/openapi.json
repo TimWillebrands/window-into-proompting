@@ -7404,6 +7404,7 @@
           "energy",
           "preoccupation",
           "battery",
+          "availability",
           "doing",
           "day"
         ],
@@ -7432,6 +7433,14 @@
             ]
           },
           "battery": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "availability": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "number",

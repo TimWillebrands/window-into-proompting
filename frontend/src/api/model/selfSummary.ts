@@ -15,6 +15,8 @@ export interface SelfSummary {
     preoccupation: string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
     battery: number | string;
+    /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
+    availability: number | string;
     /** @nullable */
     doing: string | null;
     day: string[];

@@ -183,6 +183,12 @@ public sealed class WorldClockGrain(
         await RecordAsync(activity);
     }
 
+    private async Task<double> AvailabilityAsync(Guid personaId)
+    {
+        try { return await GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, personaId)).GetAvailabilityAsync(); }
+        catch { return 1; }
+    }
+
     private async Task<Guid?> PickPersonaAsync(DateTimeOffset now)
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
@@ -193,12 +199,14 @@ public sealed class WorldClockGrain(
 
         // Chattiness × time since last act: everyone gets a turn, the restless more often.
         var expectedGap = Math.Max(1, state.State.TickSeconds * cast.Count);
-        var weights = candidates.Select(c =>
+        // Their offscreen day decides how free they are (ADR 0021): at work or asleep, they act less.
+        var free = await Task.WhenAll(candidates.Select(c => AvailabilityAsync(c.Id)));
+        var weights = candidates.Select((c, i) =>
         {
             var since = state.State.LastActedAt.TryGetValue(c.Id, out var last)
                 ? (now.ToUnixTimeMilliseconds() - last) / 1000.0
                 : expectedGap * 3.0;
-            return (0.25 + c.Chattiness) * Math.Clamp(since / expectedGap, 0.1, 3);
+            return (0.25 + c.Chattiness) * Math.Clamp(since / expectedGap, 0.1, 3) * (0.15 + 0.85 * free[i]);
         }).ToList();
 
         var roll = Random.Shared.NextDouble() * weights.Sum();

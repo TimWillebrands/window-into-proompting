@@ -188,3 +188,33 @@ public class OwnRecentTest
         Assert.Equal(string.Empty, VoiceWear.RenderOwnRecent(Array.Empty<VoiceLine>(), now));
     }
 }
+
+public class AvailabilityTest
+{
+    private static SelfState Day() => new()
+    {
+        Beats = new()
+        {
+            new DayBeat { Minute = 7 * 60, Text = "coffee", Availability = 0.9 },
+            new DayBeat { Minute = 9 * 60, Text = "client meeting", Availability = 0.2 },
+            new DayBeat { Minute = 12 * 60, Text = "lunch", Availability = null },
+        },
+    };
+
+    [Theory]
+    [InlineData(6, 0.1)]
+    [InlineData(8, 0.9)]
+    [InlineData(10, 0.2)]
+    [InlineData(13, 1.0)]
+    public void Availability_FollowsTheCurrentBeat_AsleepBeforeTheDay(int hour, double expected)
+        => Assert.Equal(expected, SelfMath.Availability(Day(), new DateTimeOffset(2026, 10, 21, hour, 0, 0, TimeSpan.Zero)));
+
+    [Fact]
+    public void Presence_SaysWhenTiedUp()
+    {
+        var text = SelfRender.Presence(Day(), 1, new DateTimeOffset(2026, 10, 21, 10, 0, 0, TimeSpan.Zero), Array.Empty<string>());
+        Assert.Contains("You're tied up with that", text);
+        var free = SelfRender.Presence(Day(), 1, new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero), Array.Empty<string>());
+        Assert.DoesNotContain("tied up", free);
+    }
+}

@@ -23,6 +23,7 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
         return Ok(personas.Zip(states, (c, s) => new SelfSummary(
                 c.Id, c.Name, s.Mood, s.Energy, s.Preoccupation,
                 Math.Round(SelfMath.Battery(s, now), 2),
+                SelfMath.Availability(s, now),
                 s.Beats.LastOrDefault(b => b.Minute <= minute)?.Text,
                 s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList()))
             .ToList());
@@ -44,5 +45,6 @@ public sealed record SelfSummary(
     string Energy,
     string? Preoccupation,
     double Battery,
+    double Availability,
     string? Doing,
     List<string> Day);

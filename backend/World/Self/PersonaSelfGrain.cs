@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
+using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
@@ -14,6 +15,7 @@ public sealed partial class PersonaSelfGrain(
     [PersistentState(stateName: "self", storageName: "parties")]
     IPersistentState<SelfState> state,
     IWorldLlm llm,
+    ISystemOneJudge judge,
     ILogger<PersonaSelfGrain> logger)
     : Grain, IPersonaSelfGrain
 {
@@ -25,6 +27,7 @@ public sealed partial class PersonaSelfGrain(
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var now = DateTimeOffset.Now;
         if (withDay) await EnsureDayAsync(partyId, personaId, now);
+        if (withDay) await EnsureAvailabilityAsync(partyId, personaId);
         var wear = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync();
         var situation = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSituationAsync(personaId);
         var own = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetOwnLinesAsync(personaId, 3);
@@ -48,6 +51,39 @@ public sealed partial class PersonaSelfGrain(
     }
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
+
+    public async Task<double> GetAvailabilityAsync()
+    {
+        var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        await EnsureAvailabilityAsync(partyId, personaId);
+        return SelfMath.Availability(state.State, DateTimeOffset.Now);
+    }
+
+    /// <summary>System One rates each beat: could they glance at a screen and chat during it? Once per day.</summary>
+    private async Task EnsureAvailabilityAsync(Guid partyId, Guid personaId)
+    {
+        var beats = state.State.Beats;
+        if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey || !judge.Enabled) return;
+        state.State.AvailabilityTried = state.State.DayKey;
+        var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        if (self is null) return;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var questions = beats.Select((b, i) => (Key: $"b{i}", Q: (SystemOneQuestion)new NoulQuestion(
+                    $"During \"{b.Text}\", {self.Name} could casually glance at their phone or computer and chat with friends.")))
+                .ToDictionary(x => x.Key, x => x.Q);
+            var answers = await judge.AskAsync($"{self.Name}: {self.Bio}\nTheir day:\n{string.Join("\n", beats.Select(b => b.Text))}", questions, cts.Token);
+            for (var i = 0; i < beats.Count; i++)
+                beats[i].Availability = Math.Round(answers.Noul($"b{i}", 1), 2);
+            await state.WriteStateAsync();
+            logger.LogInformation("Availability for {Persona}: {Values}", self.Name, string.Join(" ", beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00}={b.Availability:F2}")));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Availability rating failed for {Persona}", self.Name);
+        }
+    }
 
     private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing that happened, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings.";
 
@@ -161,6 +197,15 @@ public static partial class SelfMath
             .Take(4)
             .ToList();
 
+    /// <summary>How free they are now: the current beat's rating; before the day starts they're asleep.</summary>
+    public static double Availability(SelfState s, DateTimeOffset now)
+    {
+        if (s.Beats.Count == 0) return 1;
+        var minute = now.Hour * 60 + now.Minute;
+        var current = s.Beats.LastOrDefault(b => b.Minute <= minute);
+        return current is null ? 0.1 : current.Availability ?? 1;
+    }
+
     /// <summary>Talking costs more for the less chatty.</summary>
     public static double Drain(double battery, double chattiness)
         => Math.Clamp(battery - (0.04 + 0.06 * (1 - Math.Clamp(chattiness, 0, 1))), 0, 1);
@@ -195,6 +240,10 @@ public static class SelfRender
             var next = day.Beats.FirstOrDefault(b => b.Minute > minute);
             lines.Insert(0, $"It's {now.ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
             lines.Add(current is null ? "You're not really up yet." : $"Off-screen right now: {current.Text}");
+            if (current?.Availability is { } free && free < 0.6)
+                lines.Add(free < 0.35
+                    ? "You're tied up with that. You'd only glance at the chat now and then, and keep it to a line."
+                    : "You're half-busy. Replies come in between other things.");
             if (earlier.Count > 0) lines.Add($"Earlier today: {string.Join("; ", earlier.Select(Beat))}");
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
@@ -231,6 +280,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("NoteSpokeAsync")] Task NoteSpokeAsync(double chattiness);
     [Alias("SetMoodAsync")] Task SetMoodAsync(string mood);
     [Alias("GetStateAsync")] Task<SelfState> GetStateAsync();
+    [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.SelfState")]
@@ -246,6 +296,7 @@ public sealed class SelfState
     [Id(7)] public long DayAttemptAt { get; set; }
     [Id(8)] public List<string> Openers { get; set; } = new();
     [Id(9)] public bool OpenersTried { get; set; }
+    [Id(10)] public string? AvailabilityTried { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]
@@ -253,4 +304,6 @@ public sealed class DayBeat
 {
     [Id(0)] public int Minute { get; set; }
     [Id(1)] public string Text { get; set; } = string.Empty;
+    /// <summary>System One p(they could chat during this); null until rated.</summary>
+    [Id(2)] public double? Availability { get; set; }
 }

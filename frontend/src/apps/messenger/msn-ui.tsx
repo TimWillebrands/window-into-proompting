@@ -6,7 +6,7 @@ import type { SelfSummary } from '../../api/model/selfSummary';
 
 export type BuddyStatus = 'online' | 'away' | 'busy' | 'offline';
 
-/** Busy while acting; Away when their social battery is nearly empty (ADR 0021). */
+/** Busy while acting; Away when tied up offscreen or their social battery is nearly empty (ADR 0021). */
 export const statusOf = (
     life: LifeSummary | undefined,
     self?: SelfSummary,
@@ -15,7 +15,8 @@ export const statusOf = (
         ? 'offline'
         : life.busy
           ? 'busy'
-          : self && Number(self.battery) < 0.25
+          : self &&
+              (Number(self.battery) < 0.25 || Number(self.availability) < 0.35)
             ? 'away'
             : 'online';
 
