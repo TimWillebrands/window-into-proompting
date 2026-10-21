@@ -23,3 +23,26 @@ public class FollowThroughTest
         Assert.False(Coming.AlreadyThere(new Body { PlaceId = place, SpotId = "cart" }, them));
     }
 }
+
+/// <summary>People settle where they've just arrived (ADR 0021).</summary>
+public class SettlingTest
+{
+    private static PartyTown.World.Apps.Affordance Go(int priority = 1, string verb = "go") => new("places", "Head somewhere", priority, null, verb);
+
+    [Fact]
+    public void JustArrived_LeavingAgainPullsLess()
+    {
+        Assert.Equal(2, PartyTown.World.Settling.Penalty(Go(), TimeSpan.FromMinutes(3)));
+        Assert.Equal(1, PartyTown.World.Settling.Penalty(Go(0, "spot:bridge"), TimeSpan.FromMinutes(3)));
+        Assert.Equal(1, PartyTown.World.Settling.Penalty(Go(0, "join"), TimeSpan.FromMinutes(3)));
+    }
+
+    [Fact]
+    public void StrongReasonsAndTime_LiftIt()
+    {
+        Assert.Equal(0, PartyTown.World.Settling.Penalty(Go(5), TimeSpan.FromMinutes(1)));
+        Assert.Equal(0, PartyTown.World.Settling.Penalty(Go(), TimeSpan.FromMinutes(12)));
+        Assert.Equal(0, PartyTown.World.Settling.Penalty(Go(), null));
+        Assert.Equal(0, PartyTown.World.Settling.Penalty(Go(1, "say"), TimeSpan.FromMinutes(1)));
+    }
+}

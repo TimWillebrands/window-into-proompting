@@ -138,6 +138,10 @@ background.
     - **On arrival:** they get a Life turn nudged to say hi in person.
 
     It runs only if both still have Bodies, the speaker is awake and they're not already together.
+30. **Settling.** Personas pinballed between Places, e.g. city centre → Café → city centre → booth in five
+    minutes. For 10 minutes after a walk, Life's pull drops by 2 for heading to another Place and by 1 for
+    moving within one (`join`, `spot:`). Strong pulls (≥ 3: a gathering you said you'd come to, your name
+    heard) are exempt. You arrive, you stay a while.
 
 ## Why these pieces
 

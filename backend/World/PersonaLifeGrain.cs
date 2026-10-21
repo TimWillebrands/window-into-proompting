@@ -74,7 +74,9 @@ public sealed class PersonaLifeGrain(
 
         // Habituation: an App you just used pulls less (explore ⇄ exploit); urgent items still surface.
         var recentApps = ctx.RecentOwn.Take(3).Select(a => a.App).ToList();
-        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId);
+        var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
+        var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -223,3 +225,23 @@ public interface IPersonaLifeGrain : IGrainWithStringKey
     [Alias("LiveAsync")]
     Task<WorldActivity> LiveAsync(string? nudge);
 }
+
+/// <summary>People settle where they've just arrived (ADR 0021): walking on again soon needs a real reason.</summary>
+public static class Settling
+{
+    public static readonly TimeSpan Window = TimeSpan.FromMinutes(10);
+
+    /// <summary>Pull taken off a movement option this soon after a walk; strong pulls (a promise, your name) are exempt.</summary>
+    public static int Penalty(Affordance a, TimeSpan? sinceWalk)
+    {
+        if (a.AppId != "places" || sinceWalk is not { } since || since >= Window || a.Priority >= 3) return 0;
+        return a.Verb switch
+        {
+            "go" => 2,
+            "join" => 1,
+            { } v when v.StartsWith("spot:", StringComparison.Ordinal) => 1,
+            _ => 0,
+        };
+    }
+}
+
