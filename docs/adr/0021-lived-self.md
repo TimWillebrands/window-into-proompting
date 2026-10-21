@@ -108,6 +108,10 @@ background.
     The initiative path used to carry its top memory without marking it as recalled, so the 4h refractory
     never applied and the same memory came back on every initiative. It now skips memories recalled in the
     last 4h and marks the one it carries as recalled.
+26. **Settled plans.** Goodbyes turned into loops of re-confirming the same plans ("Sunday at the ginkgo",
+    "Wednesday at the counter"). The thermostat asks a fourth System One noul, *reconfirming*. At ≥ 0.6 the
+    cue says the plans are settled and to talk about something else or let it end, and it counts as winding
+    down: no auto-reply to a mention, and Places foregrounds leaving.
 
 ## Why these pieces
 

@@ -43,3 +43,21 @@ public class CirclingTest
         Assert.Null(Thermostat.Cue(0, 0.6));
     }
 }
+
+public class ReconfirmingTest
+{
+    [Fact]
+    public void Reconfirming_SettledPlansCuesMovingOn()
+    {
+        Assert.Contains("already settled", Thermostat.Cue(0, 0, reconfirming: 0.7));
+        Assert.Contains("winding down", Thermostat.Cue(0, 0, fizzling: 0.8, reconfirming: 0.7));
+        Assert.Null(Thermostat.Cue(0, 0, reconfirming: 0.4));
+    }
+
+    [Fact]
+    public void Reconfirming_WindsTheConversationDown()
+    {
+        Assert.True(Thermostat.WindingDown(0, 0, 0.7));
+        Assert.False(Thermostat.WindingDown(0.5, 0.3, 0.4));
+    }
+}
