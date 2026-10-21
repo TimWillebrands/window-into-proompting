@@ -26,6 +26,9 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
     {
         var providers = (await ConfigGrain.GetProvidersAsync())
             .Where(p => p.Type == "openrouter" && p.IsEnabled && !string.IsNullOrWhiteSpace(p.ApiKey))
+            // Usage is per key; providers sharing a key would double count.
+            .GroupBy(p => p.ApiKey)
+            .Select(g => g.First() with { ModelName = string.Join(" + ", g.Select(p => p.ModelName)) })
             .ToList();
         var http = httpClientFactory.CreateClient();
         var result = new List<ProviderUsage>();
