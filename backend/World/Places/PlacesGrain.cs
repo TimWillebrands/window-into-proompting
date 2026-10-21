@@ -20,6 +20,9 @@ public sealed class PlacesGrain(
     private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
+    private static readonly TimeSpan BusyWithFurni = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan MishapMin = TimeSpan.FromHours(3);
+    private static readonly TimeSpan MishapMax = TimeSpan.FromHours(8);
     private IGrainTimer? _arrivals;
     private readonly Dictionary<Guid, string> _roomKinds = new();
 
@@ -33,6 +36,7 @@ public sealed class PlacesGrain(
             await state.WriteStateAsync(cancellationToken);
         }
         BackfillPrepositions();
+        foreach (var place in state.State.Places) EnsureFurni(place);
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
         if (state.State.Bodies.Values.Any(b => b.IsWalking)) WatchArrivals();
@@ -151,6 +155,67 @@ public sealed class PlacesGrain(
         _ => null,
     };
 
+    public async Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent)
+    {
+        await SettleAsync();
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking || body.PlaceId != placeId) return null;
+        var place = Find(placeId);
+        var furni = place?.Furni.FirstOrDefault(f => f.Id == furniId);
+        if (place is null || furni is null) return null;
+        var now = Now();
+        string? done;
+        if (care)
+            done = FurniRules.CareFor(furni, now) is null ? null : FurniRules.Tend(furni, now);
+        else
+            done = FurniRules.Use(furni, place.Furni.FirstOrDefault(f => f.Kind == FurniKinds.Cups), now, body.Name.Split(' ')[0], intent);
+        if (done is null) return null;
+
+        // Doing something with it means being next to it.
+        if (body.SpotId != furni.SpotId && PickSpot(place, furni.SpotId, participantId)?.Id == furni.SpotId)
+        {
+            body.SpotId = furni.SpotId;
+            body.Posture = place.Spots.FirstOrDefault(s => s.Id == furni.SpotId)?.Seat == true ? Posture.Sitting : Posture.Standing;
+        }
+        body.Activity = FurniRules.BusyWith(furni, care);
+        body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
+        await state.WriteStateAsync();
+        await PublishAsync(body);
+        await PublishPlaceAsync(place);
+        return $"{done} {AtName(place, Guid.Empty)}";
+    }
+
+    /// <summary>Rule-based mishaps: now and then a machine somewhere public breaks, announced as a Happening.</summary>
+    private void MaybeMishap(long now)
+    {
+        if (state.State.NextMishapAt == 0)
+        {
+            state.State.NextMishapAt = now + NextMishapDelay();
+            return;
+        }
+        if (now < state.State.NextMishapAt) return;
+        state.State.NextMishapAt = now + NextMishapDelay();
+        var candidates = state.State.Places.Where(p => p.Kind == PlaceKinds.Public)
+            .SelectMany(p => p.Furni.Where(FurniRules.Breakable).Select(f => (Place: p, Furni: f))).ToList();
+        if (candidates.Count == 0) return;
+        var (place, furni) = candidates[Random.Shared.Next(candidates.Count)];
+        furni.Broken = true;
+        var text = furni.Kind == FurniKinds.Lamp
+            ? $"{Capital(furni.Name)} at {place.Name} has started flickering."
+            : $"{Capital(furni.Name)} at {place.Name} broke down with a sad hiss.";
+        _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync(text);
+        _ = PublishPlaceAsync(place);
+    }
+
+    private static long NextMishapDelay()
+        => (long)(MishapMin.TotalMilliseconds + Random.Shared.NextDouble() * (MishapMax - MishapMin).TotalMilliseconds);
+
+    private static string Capital(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private void EnsureFurni(Place place)
+    {
+        if (place.Furni.Count == 0) place.Furni = FurniRules.SeedFor(place, Now());
+    }
+
     /// <summary>Spots stored before <see cref="Spot.At"/> existed get it from the seed templates.</summary>
     private void BackfillPrepositions()
     {
@@ -172,6 +237,7 @@ public sealed class PlacesGrain(
             if (home is null)
             {
                 home = PlaceSeeds.Home(c.Id, c.Name);
+                EnsureFurni(home);
                 state.State.Places.Add(home);
                 changed = true;
             }
@@ -212,8 +278,14 @@ public sealed class PlacesGrain(
             b.Activity = null;
             b.ActivityUntil = null;
         }
+        var mishapDue = state.State.NextMishapAt;
+        MaybeMishap(now);
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
-        if (arrived.Count == 0) return;
+        if (arrived.Count == 0)
+        {
+            if (mishapDue != state.State.NextMishapAt) await state.WriteStateAsync();
+            return;
+        }
         foreach (var body in arrived)
         {
             var changedPlace = body.DestPlaceId != body.PlaceId;
@@ -301,6 +373,8 @@ public sealed class PlacesGrain(
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
                 ? $"{o.Name} (right next to you{Doing(o)})"
                 : $"{o.Name} ({PostureAt(place, o)}{Doing(o)})"))).Append('.');
+        var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
+        if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
         return sb.ToString();
     }
 
@@ -334,6 +408,9 @@ public sealed class PlacesGrain(
     private static string TalkName(Place place)
         => place.Name.StartsWith("the ", StringComparison.Ordinal) ? place.Name[4..] : place.Name;
 
+    private Task PublishPlaceAsync(Place place)
+        => this.GetStreamProvider(PartyStreamIds.Provider).PublishWorldAsync(PartyId, "place", place);
+
     private Task PublishAsync(Body body)
         => this.GetStreamProvider(Services.Streaming.PartyStreamIds.Provider).PublishWorldAsync(PartyId, "body", body);
 
@@ -359,6 +436,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Which Place a Place talk Room belongs to; null for any other Room.</summary>
     [Alias("GetPlaceOfTalkRoomAsync")] Task<Guid?> GetPlaceOfTalkRoomAsync(Guid talkRoomId);
+
+    /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
+    [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
 
     /// <summary>Someone used an online App; their Body shows the device for a few minutes.</summary>
     [Alias("NoteActivityAsync")] Task NoteActivityAsync(Guid participantId, string app);

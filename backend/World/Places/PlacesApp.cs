@@ -51,6 +51,19 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}", 1, o.ParticipantId, "join"));
             if (here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
                 affordances.Add(new Affordance(Id, $"Move over to {spot.Name}", 0, here.Id, $"spot:{spot.Id}"));
+
+            // Care is capped: only the one thing here that needs it most is offered (spec: decay feeds talk, not housework).
+            var nowMs = ctx.Now.ToUnixTimeMilliseconds();
+            if (here?.Furni.Select(f => (Furni: f, Care: FurniRules.CareFor(f, nowMs)))
+                    .Where(x => x.Care is not null)
+                    .OrderBy(x => FurniRules.Condition(x.Furni, nowMs))
+                    .FirstOrDefault() is { Care: { } care } worst)
+                affordances.Add(new Affordance(Id, care.Label, care.Priority, here.Id, $"care:{worst.Furni.Id}"));
+            if (here?.Furni.Select(f => (Furni: f, Use: FurniRules.UseOf(f, nowMs)))
+                    .Where(x => x.Use is not null)
+                    .OrderBy(_ => Random.Shared.Next())
+                    .FirstOrDefault() is { Use: { } use } pick)
+                affordances.Add(new Affordance(Id, use.Label, use.Priority, here.Id, $"use:{pick.Furni.Id}"));
         }
 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
@@ -97,6 +110,12 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 if (body is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
                 return new ActOutcome("walk", place?.OwnerId == ctx.Self.Id ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
+            }
+            case { } verb when verb.StartsWith("care:", StringComparison.Ordinal) || verb.StartsWith("use:", StringComparison.Ordinal):
+            {
+                var care = verb.StartsWith("care:", StringComparison.Ordinal);
+                var done = await places.ActOnFurniAsync(ctx.Self.Id, target, verb[(verb.IndexOf(':') + 1)..], care, intent);
+                return done is null ? null : new ActOutcome(care ? "tend" : "use", done, null);
             }
             case { } verb when verb.StartsWith("spot:", StringComparison.Ordinal):
             {

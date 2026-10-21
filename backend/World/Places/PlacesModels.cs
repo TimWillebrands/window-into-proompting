@@ -14,6 +14,7 @@ public sealed class Place
     [Id(5)] public List<Spot> Spots { get; set; } = new();
     /// <summary>Place talk Room, created on first entry.</summary>
     [Id(6)] public Guid? TalkRoomId { get; set; }
+    [Id(7)] public List<Furni> Furni { get; set; } = new();
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
@@ -74,6 +75,8 @@ public sealed class PlacesState
 {
     [Id(0)] public List<Place> Places { get; set; } = new();
     [Id(1)] public Dictionary<Guid, Body> Bodies { get; set; } = new();
+    /// <summary>When the next rule-based mishap (a machine breaking) may happen; 0 = not scheduled.</summary>
+    [Id(2)] public long NextMishapAt { get; set; }
 }
 
 public static class PlaceKinds

@@ -108,6 +108,33 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
         Assert.Contains("on your phone, texting", await places.GetSituationAsync(denise));
     }
 
+    [Fact]
+    public async Task ADryPlantShowsInTheSituation_AndWateringFixesIt()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
+        Assert.Contains(home.Furni, f => f.Kind == FurniKinds.Plant);
+
+        _fx.Time.Advance(TimeSpan.FromHours(20));
+
+        Assert.Contains("Around you: the plant on the windowsill is wilting", await places.GetSituationAsync(denise));
+        var done = await places.ActOnFurniAsync(denise, home.Id, "plant", care: true, intent: null);
+        Assert.Equal("waters the plant on the windowsill at Denise's place", done);
+        Assert.DoesNotContain("wilting", await places.GetSituationAsync(denise));
+        Assert.Contains("watering the plant", await places.GetSituationAsync(denise));
+    }
+
+    [Fact]
+    public async Task Furni_OnlyWhereYourBodyIs()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var pietersHome = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == pieter);
+
+        Assert.Null(await places.ActOnFurniAsync(denise, pietersHome.Id, "coffee", care: false, intent: null));
+    }
+
     public sealed class Fixture : IAsyncLifetime
     {
         public TestCluster Cluster { get; private set; } = null!;
