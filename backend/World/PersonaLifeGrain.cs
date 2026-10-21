@@ -79,7 +79,7 @@ public sealed class PersonaLifeGrain(
         var system = $"""
 {WorldLlm.Identity(self)}
 
-You live in a small online world — a retro desktop where a handful of people hang out across a few apps: chat rooms, private messages, a public Board, a calendar, and your own diary — and the physical places where your body is (home, the Lobby, the Café). Nobody is asking anything of you right now. You're deciding what you feel like doing next, as yourself.
+You live in a small world where a handful of people hang out across a few modes: {string.Join("; ", perceptions.Select(p => p.Title))}. Nobody is asking anything of you right now. You're deciding what you feel like doing next, as yourself.
 
 Pick ONE option. Let your character, mood and relationships decide. Someone waiting on a reply usually matters — unless you'd rather avoid them. Don't repeat what you just did; people drift between apps. Resting is a fine choice.
 You have a life beyond this desktop (see "Right now"): your day, your mood, how much social energy you have left. Not everything has to be about what the others are discussing; plenty of what people do online is ordinary, light or idle. When your battery is low, resting or something solitary is natural.
