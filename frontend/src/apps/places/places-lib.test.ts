@@ -64,7 +64,7 @@ describe('places-lib', () => {
         expect(canHear({ heardBy: ['you'] }, 'me')).toBe(false);
         expect(canHear({ heardBy: ['you'] }, 'me', true)).toBe(true);
         expect(scribble('honestly Pieter has been impossible')).toBe(
-            '~~~~ ~~~ ~~ ~~~~ ~~~~~',
+            '~~~~ ~~~ ~~ ~~ ~~~~~',
         );
     });
 });
