@@ -25,6 +25,8 @@ import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { customFetch } from './custom-fetch';
 import type {
     AnnounceRequest,
+    AppearanceOptions,
+    AppearanceRequest,
     AppendStanceRequest,
     AppendStanceResponse,
     BoardThread,
@@ -16327,6 +16329,501 @@ export const usePostWorldsPartyIdPlacesIdle = <
         queryClient,
     );
 };
+
+export type putWorldsPartyIdPlacesAppearanceResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putWorldsPartyIdPlacesAppearanceResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putWorldsPartyIdPlacesAppearanceResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+export type putWorldsPartyIdPlacesAppearanceResponseError = (
+    | putWorldsPartyIdPlacesAppearanceResponse404TextPlain
+    | putWorldsPartyIdPlacesAppearanceResponse404ApplicationJson
+    | putWorldsPartyIdPlacesAppearanceResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type putWorldsPartyIdPlacesAppearanceResponse =
+    putWorldsPartyIdPlacesAppearanceResponseError;
+
+export const getPutWorldsPartyIdPlacesAppearanceUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/appearance`;
+};
+
+export const putWorldsPartyIdPlacesAppearance = async (
+    partyId: string,
+    appearanceRequest: AppearanceRequest,
+    options?: RequestInit,
+): Promise<putWorldsPartyIdPlacesAppearanceResponse> => {
+    return customFetch<putWorldsPartyIdPlacesAppearanceResponse>(
+        getPutWorldsPartyIdPlacesAppearanceUrl(partyId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(appearanceRequest),
+        },
+    );
+};
+
+export const getPutWorldsPartyIdPlacesAppearanceMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>,
+        TError,
+        { partyId: string; data: AppearanceRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>,
+    TError,
+    { partyId: string; data: AppearanceRequest },
+    TContext
+> => {
+    const mutationKey = ['putWorldsPartyIdPlacesAppearance'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>,
+        { partyId: string; data: AppearanceRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return putWorldsPartyIdPlacesAppearance(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutWorldsPartyIdPlacesAppearanceMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>
+>;
+export type PutWorldsPartyIdPlacesAppearanceMutationBody = AppearanceRequest;
+export type PutWorldsPartyIdPlacesAppearanceMutationError = ProblemDetails;
+
+export const usePutWorldsPartyIdPlacesAppearance = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>,
+            TError,
+            { partyId: string; data: AppearanceRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesAppearance>>,
+    TError,
+    { partyId: string; data: AppearanceRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutWorldsPartyIdPlacesAppearanceMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getWorldsPartyIdPlacesAppearanceOptionsResponse200TextPlain = {
+    data: AppearanceOptions;
+    status: 200;
+};
+
+export type getWorldsPartyIdPlacesAppearanceOptionsResponse200ApplicationJson =
+    {
+        data: AppearanceOptions;
+        status: 200;
+    };
+
+export type getWorldsPartyIdPlacesAppearanceOptionsResponse200TextJson = {
+    data: AppearanceOptions;
+    status: 200;
+};
+
+export type getWorldsPartyIdPlacesAppearanceOptionsResponseSuccess = (
+    | getWorldsPartyIdPlacesAppearanceOptionsResponse200TextPlain
+    | getWorldsPartyIdPlacesAppearanceOptionsResponse200ApplicationJson
+    | getWorldsPartyIdPlacesAppearanceOptionsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdPlacesAppearanceOptionsResponse =
+    getWorldsPartyIdPlacesAppearanceOptionsResponseSuccess;
+
+export const getGetWorldsPartyIdPlacesAppearanceOptionsUrl = (
+    partyId: string,
+) => {
+    return `/api/worlds/${partyId}/places/appearance/options`;
+};
+
+export const getWorldsPartyIdPlacesAppearanceOptions = async (
+    partyId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdPlacesAppearanceOptionsResponse> => {
+    return customFetch<getWorldsPartyIdPlacesAppearanceOptionsResponse>(
+        getGetWorldsPartyIdPlacesAppearanceOptionsUrl(partyId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdPlacesAppearanceOptionsQueryKey = (
+    partyId: string,
+) => {
+    return [`/api/worlds/${partyId}/places/appearance/options`] as const;
+};
+
+export const getGetWorldsPartyIdPlacesAppearanceOptionsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdPlacesAppearanceOptionsQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>
+    > = ({ signal }) =>
+        getWorldsPartyIdPlacesAppearanceOptions(partyId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!partyId,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdPlacesAppearanceOptionsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>
+>;
+export type GetWorldsPartyIdPlacesAppearanceOptionsQueryError = unknown;
+
+export function useGetWorldsPartyIdPlacesAppearanceOptions<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdPlacesAppearanceOptions
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdPlacesAppearanceOptions
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdPlacesAppearanceOptions<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdPlacesAppearanceOptions
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdPlacesAppearanceOptions
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdPlacesAppearanceOptions<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdPlacesAppearanceOptions<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetWorldsPartyIdPlacesAppearanceOptionsQueryOptions(
+        partyId,
+        options,
+    );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdPlacesAppearanceOptionsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdPlacesAppearanceOptionsQueryKey(partyId);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>
+    > = ({ signal }) =>
+        getWorldsPartyIdPlacesAppearanceOptions(partyId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdPlacesAppearanceOptionsSuspenseQueryResult =
+    NonNullable<
+        Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>
+    >;
+export type GetWorldsPartyIdPlacesAppearanceOptionsSuspenseQueryError = unknown;
+
+export function useGetWorldsPartyIdPlacesAppearanceOptionsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdPlacesAppearanceOptionsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdPlacesAppearanceOptionsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdPlacesAppearanceOptionsSuspense<
+    TData = Awaited<ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>>,
+    TError = unknown,
+>(
+    partyId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdPlacesAppearanceOptions>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetWorldsPartyIdPlacesAppearanceOptionsSuspenseQueryOptions(
+            partyId,
+            options,
+        );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export type postWorldsPartyIdPlacesRedressResponse200 = {
     data: void;

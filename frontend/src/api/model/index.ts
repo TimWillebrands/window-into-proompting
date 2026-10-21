@@ -7,6 +7,8 @@
 
 export * from './announceRequest';
 export * from './appearance';
+export * from './appearanceOptions';
+export * from './appearanceRequest';
 export * from './appendStanceRequest';
 export * from './appendStanceResponse';
 export * from './boardReply';

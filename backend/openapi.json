@@ -4299,6 +4299,106 @@
         }
       }
     },
+    "/worlds/{partyId}/places/appearance": {
+      "put": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/places/appearance/options": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceOptions"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceOptions"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/places/redress": {
       "post": {
         "tags": [
@@ -5581,6 +5681,105 @@
           },
           "fromBio": {
             "type": "boolean"
+          }
+        }
+      },
+      "AppearanceOptions": {
+        "required": [
+          "skins",
+          "hairs",
+          "hairStyles",
+          "colours",
+          "accessories"
+        ],
+        "type": "object",
+        "properties": {
+          "skins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hairs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hairStyles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "colours": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accessories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AppearanceRequest": {
+        "required": [
+          "skin",
+          "hair",
+          "hairStyle",
+          "top",
+          "bottom",
+          "accessory",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "skin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hair": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hairStyle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "top": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bottom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "accessory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7374,6 +7573,16 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "placeName": {
+            "type": "string"
+          },
+          "nextDoor": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         }

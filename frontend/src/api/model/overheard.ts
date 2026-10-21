@@ -17,4 +17,6 @@ export interface Overheard {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     at?: number | string;
     withNames?: string[];
+    placeName?: string;
+    nextDoor?: string[];
 }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     getGetWorldsPartyIdPlacesQueryKey,
     useGetWorldsPartyIdLivesSuspense,
+    useGetWorldsPartyIdPlacesAppearanceOptions,
     useGetWorldsPartyIdPlacesSituationParticipantId,
     useGetWorldsPartyIdPlacesSuspense,
     useGetWorldsPartyIdSelves,
@@ -13,6 +14,7 @@ import {
     usePostWorldsPartyIdPlacesLetIn,
     usePostWorldsPartyIdPlacesMove,
     usePostWorldsPartyIdPlacesVoice,
+    usePutWorldsPartyIdPlacesAppearance,
 } from '#api/party-zone';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
 import type { Body } from '../../api/model/body';
@@ -370,6 +372,7 @@ function PlaceView({
             {profiled ? (
                 <BodyProfile
                     body={profiled}
+                    canEdit={profiled.participantId === playerId || allEars}
                     isMe={profiled.participantId === playerId}
                     onClose={() => setProfileId(null)}
                 />
@@ -481,12 +484,16 @@ function PlaceView({
 function BodyProfile({
     body,
     isMe,
+    canEdit,
     onClose,
 }: {
     body: Body;
     isMe: boolean;
+    /** Your own look, or anyone's in the author's All ears mode. */
+    canEdit: boolean;
     onClose: () => void;
 }) {
+    const [editing, setEditing] = useState(false);
     const selves = useGetWorldsPartyIdSelves(WORLD_ID).data?.data ?? [];
     const self = selves.find((s) => s.personaId === body.participantId);
     const a = body.appearance;
@@ -534,13 +541,79 @@ function BodyProfile({
                     </div>
                 ) : null}
             </div>
-            <button
-                type="button"
-                style={{ minWidth: 0, padding: '0 6px' }}
-                onClick={onClose}
-            >
-                ✕
-            </button>
+            <div className="flex flex-col" style={{ gap: 4 }}>
+                <button
+                    type="button"
+                    style={{ minWidth: 0, padding: '0 6px' }}
+                    onClick={onClose}
+                >
+                    ✕
+                </button>
+                {canEdit ? (
+                    <button
+                        type="button"
+                        style={{ minWidth: 0, padding: '0 6px' }}
+                        onClick={() => setEditing((e) => !e)}
+                    >
+                        {editing ? 'Done' : 'Change look'}
+                    </button>
+                ) : null}
+            </div>
+            {editing ? <LookEditor body={body} /> : null}
+        </div>
+    );
+}
+
+/** Pick a look from the palette; each change saves at once. */
+function LookEditor({ body }: { body: Body }) {
+    const options =
+        useGetWorldsPartyIdPlacesAppearanceOptions(WORLD_ID).data?.data;
+    const save = usePutWorldsPartyIdPlacesAppearance();
+    if (!options) return null;
+    const a = body.appearance ?? {};
+    const fields: Array<[keyof typeof a, string, string[]]> = [
+        ['skin', 'Skin', options.skins],
+        ['hair', 'Hair', options.hairs],
+        ['hairStyle', 'Style', options.hairStyles],
+        ['top', 'Top', options.colours],
+        ['bottom', 'Bottom', options.colours],
+        ['accessory', 'Extra', options.accessories],
+    ];
+    return (
+        <div
+            className="grid"
+            style={{ gridTemplateColumns: 'auto auto', gap: '2px 6px' }}
+        >
+            {fields.map(([key, label, values]) => (
+                <label key={key} className="contents">
+                    <span style={{ color: '#555' }}>{label}</span>
+                    <select
+                        value={String(a[key] ?? '')}
+                        disabled={save.isPending}
+                        onChange={(e) =>
+                            save.mutate({
+                                partyId: WORLD_ID,
+                                data: {
+                                    skin: null,
+                                    hair: null,
+                                    hairStyle: null,
+                                    top: null,
+                                    bottom: null,
+                                    accessory: null,
+                                    [key]: e.currentTarget.value,
+                                    participantId: body.participantId ?? null,
+                                },
+                            })
+                        }
+                    >
+                        {values.map((v) => (
+                            <option key={v} value={v}>
+                                {v}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            ))}
         </div>
     );
 }
