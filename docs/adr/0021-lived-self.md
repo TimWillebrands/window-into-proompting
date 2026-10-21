@@ -67,7 +67,16 @@ background.
 15. **Persona generator.** New personas are written as a lived background: who you are, people in your life,
     tastes, contradictions, how you talk and what's going on lately. Modes, trigger rules, example lines,
     catchphrases and epithets are gone.
-16. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+16. **Mood drift** (`MomentAppraisal`). When a Moment is captured, System One asks a `noul` for each
+    persona who took a recollection away: "this left X in a better mood than before". Valence shifts by
+    ±0.4 per appraisal, fades with a 3 h half-life and resets each morning. It renders as "somewhat better
+    / worn on you since this morning (what happened in #Café)". Conversations now have consequences beyond
+    memory.
+17. **The Board stays alive.** The post affordance is seeded with one of your day's openers and pulls
+    harder if you haven't posted in 12 h. A thread with 25 replies has run its course.
+18. **Sleep** (with ADR 0020). An asleep Body has availability 0.02 and shows as Asleep. It sleeps through
+    persona talk; humans still wake it.
+19. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
