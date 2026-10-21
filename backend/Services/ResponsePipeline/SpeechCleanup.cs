@@ -16,7 +16,7 @@ public static partial class SpeechCleanup
     {
         var stripped = Action().Replace(text, m => IsNarration(m.Groups[1].Value) ? " " : m.Value);
         stripped = Regex.Replace(stripped, @"[ \t]{2,}", " ");
-        stripped = Regex.Replace(stripped, @"^\s*[—–-]\s*", "");
+        stripped = Regex.Replace(stripped, @"^\s*[—–]\s+", "");
         return string.IsNullOrWhiteSpace(stripped) ? text : stripped.Trim();
     }
 
@@ -29,10 +29,11 @@ public static partial class SpeechCleanup
     {
         if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(lastSpeakerName)) return text;
         var first = lastSpeakerName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
-        var m = Regex.Match(text, $@"^\s*(?:{Regex.Escape(lastSpeakerName)}|{Regex.Escape(first)})\s*[,:—–-]\s*(?=\S)", RegexOptions.IgnoreCase);
+        var m = Regex.Match(text, $@"^\s*(?:{Regex.Escape(lastSpeakerName)}|{Regex.Escape(first)})(?:\s*[,:]\s*|\s+[—–-]\s+)(?=\S)", RegexOptions.IgnoreCase);
         if (!m.Success) return text;
         var rest = text[m.Length..];
-        if (rest.Length < 3) return text;
+        // "Ann, Ben and I went" is a list, not an address.
+        if (rest.Length < 3 || Regex.IsMatch(rest, @"^[A-Z][\w'-]*\s+and\b")) return text;
         return char.IsUpper(text.TrimStart()[0]) ? char.ToUpperInvariant(rest[0]) + rest[1..] : rest;
     }
 
@@ -43,7 +44,7 @@ public static partial class SpeechCleanup
         // "private" survives as a bare word when the template was <|channel|>private<|message|>.
         if (s.StartsWith("private ", StringComparison.Ordinal) && text.Contains("<|channel|>")) s = s[8..].TrimStart();
         // A leaked room label: "#kitchen: hi" or a trailing "Going. #test:" header.
-        s = Regex.Replace(s, @"(^|\s)#[\w-]+:\s*", "$1").Trim();
+        s = Regex.Replace(s, @"(^|\s)#[A-Za-z][\w-]*:\s*", "$1").Trim();
         if (!string.IsNullOrWhiteSpace(selfName))
         {
             var prefix = new Regex($@"^\**{Regex.Escape(selfName)}\**\s*:\s*\**\s*", RegexOptions.IgnoreCase);
@@ -54,8 +55,9 @@ public static partial class SpeechCleanup
             if (self.Success && s.Length - self.Length >= 3)
                 s = char.ToUpperInvariant(s[self.Length]) + s[(self.Length + 1)..];
             // "Lena's head is still pounding" from Lena: talking about yourself in third person is a model slip.
-            s = Regex.Replace(s, $@"(^|[.!?]\s+)(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})['’]s\b", "$1My", RegexOptions.IgnoreCase);
-            s = Regex.Replace(s, $@"\b(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})['’]s\b", "my", RegexOptions.IgnoreCase);
+            var possessive = $@"(?<!\b(?:the|this|that|a|an|last|next|every|my|your|our)\s)\b(?:{Regex.Escape(selfName)}|{Regex.Escape(first)})['’]s\b(?!\s+(?:here|there|not|going|gonna|been|got|fine|right|ok|okay|back|done|just|still)\b)";
+            s = Regex.Replace(s, $@"(^|[.!?]\s+){possessive}", "$1My");
+            s = Regex.Replace(s, possessive, "my");
         }
         return StripStageDirections(s.Trim());
     }

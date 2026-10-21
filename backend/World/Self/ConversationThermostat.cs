@@ -69,6 +69,8 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
         }
         catch (Exception ex)
         {
+            // Don't retry the same message on every call: a slow judge would queue every persona behind 8 s.
+            _lastMessageId = last;
             logger.LogDebug(ex, "Thermostat read failed for {Room}", this.GetPrimaryKey());
         }
         return _cue;

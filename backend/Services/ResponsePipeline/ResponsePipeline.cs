@@ -495,9 +495,9 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
@@ -552,7 +552,7 @@ public sealed class ResponsePipeline(
             }
         }
 
-        _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants);
+        _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants, history);
         return result!;
     }
 
@@ -627,15 +627,18 @@ public sealed class ResponsePipeline(
         catch { return false; }
     }
 
-    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present)
+    private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
     {
         try
         {
             var partyId = await chatGroupGrain.GetPartyIdAsync();
             var key = WorldKeys.Life(partyId, self.Id);
             await grainFactory.GetGrain<IPersonaSelfGrain>(key).NoteSpokeAsync(self.Chattiness);
-            var others = present.Where(p => p.Id != self.Id && p.Driver != DriverKind.System).Select(p => p.Id).ToList();
-            await grainFactory.GetGrain<IPersonaTiesGrain>(key).NoteExchangeAsync(others, direct: others.Count == 1);
+            // An exchange needs both sides: only people who spoke lately in this conversation count.
+            var spoke = history.TakeLast(10).Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(m => m.SenderId).ToHashSet();
+            var others = present.Where(p => p.Id != self.Id && p.Driver != DriverKind.System && spoke.Contains(p.Id)).Select(p => p.Id).ToList();
+            if (others.Count > 0)
+                await grainFactory.GetGrain<IPersonaTiesGrain>(key).NoteExchangeAsync(others, direct: present.Count == 2);
         }
         catch (Exception ex)
         {
@@ -681,11 +684,11 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
-        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
-            self = self with { Bio = livedBio };
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
+        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
+            self = self with { Bio = livedBio };
         var windingDown = await WindingDownAsync(chatGroupGrain);
 
         return await decisionService.ShouldRespondAsync(

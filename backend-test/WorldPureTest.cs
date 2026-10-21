@@ -160,7 +160,7 @@ public class ThirdPersonSelfTest
 {
     [Theory]
     [InlineData("You're not the excuse. Lena's head is still pounding.", "Lena Brandt", "You're not the excuse. My head is still pounding.")]
-    [InlineData("go easy, lena's neck is done", "Lena Brandt", "go easy, my neck is done")]
+    [InlineData("go easy, Lena's neck is done", "Lena Brandt", "go easy, my neck is done")]
     [InlineData("Pieter's tin is still there.", "Lena Brandt", "Pieter's tin is still there.")]
     public void Clean_FixesSelfPossessive(string raw, string self, string expected)
         => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
@@ -175,4 +175,50 @@ public class MessengerMannersTest
     [InlineData(0, 10, false)]
     public void MayFollowUp_OnceAfterAWhile(int unanswered, int hours, bool expected)
         => Assert.Equal(expected, PartyTown.World.Apps.MessengerManners.MayFollowUp(unanswered, TimeSpan.FromHours(hours)));
+}
+
+public class ReviewFixesTest
+{
+    [Theory]
+    [InlineData("Ann-Marie called.", "Ann", "Ann-Marie called.")]
+    [InlineData("Ann, Ben and I went.", "Ann", "Ann, Ben and I went.")]
+    [InlineData("Ann - grab the tea.", "Ann", "Grab the tea.")]
+    public void Vocative_LeavesNamesAndListsAlone(string text, string last, string expected)
+        => Assert.Equal(expected, SpeechCleanup.DropObviousVocative(text, last));
+
+    [Theory]
+    [InlineData("this summer's plans are loose", "Summer", "this summer's plans are loose")]
+    [InlineData("Lena's here!", "Lena Brandt", "Lena's here!")]
+    [InlineData("-5 out there.", "Lena Brandt", "-5 out there.")]
+    [InlineData("#1: coffee first", "Lena Brandt", "#1: coffee first")]
+    public void Clean_LeavesOrdinaryTextAlone(string raw, string self, string expected)
+        => Assert.Equal(expected, SpeechCleanup.Clean(raw, self));
+
+    [Fact]
+    public void ParseBeats_ReadsAmPm()
+    {
+        var beats = PartyTown.World.Self.SelfMath.ParseBeats("7:30am wake\n1:30 PM lunch\n12:15 am can't sleep");
+        Assert.Equal(new[] { 15, 450, 810 }, beats.Select(b => b.Minute));
+        Assert.Equal("wake", beats[1].Text);
+    }
+
+    [Fact]
+    public void Unseen_OnlyNewLines()
+    {
+        var a = Guid.NewGuid();
+        var lines = new[] { new PartyTown.Services.Memory.MomentLine(a, "one", 1), new(a, "two", 2), new(a, "three", 3) };
+        Assert.Equal(3, PartyTown.World.Self.Appraisal.Unseen(lines, null).Count);
+        var seen = PartyTown.World.Self.Appraisal.Key(lines[1]);
+        Assert.Equal(new[] { "three" }, PartyTown.World.Self.Appraisal.Unseen(lines, seen).Select(l => l.Text));
+    }
+
+    [Fact]
+    public void VoiceWear_IgnoresUrlsAndNamePossessives()
+    {
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        var lines = Enumerable.Range(0, 6).Select(i => new PartyTown.World.Self.Utterance(i % 2 == 0 ? a : b, "vlad's link https://x.io")).ToList();
+        var report = PartyTown.World.Self.VoiceWear.Analyze(lines, new[] { "Vlad" });
+        Assert.DoesNotContain("vlad's", report.WornWords);
+        Assert.False(report.SignatureMark.ContainsKey(a));
+    }
 }

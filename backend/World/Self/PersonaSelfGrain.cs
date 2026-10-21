@@ -43,8 +43,8 @@ public sealed partial class PersonaSelfGrain(
     private async Task EnsureLivedSheetAsync(Guid partyId, Guid personaId)
     {
         if (_sheetRequested) return;
-        _sheetRequested = true;
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        _sheetRequested = true;
         if (self is null || string.IsNullOrWhiteSpace(self.SystemPrompt)) return;
         _ = GrainFactory.GetGrain<ILivedSheetGrain>(personaId).EnsureAsync(self.Name, self.SystemPrompt);
     }
@@ -228,10 +228,10 @@ public sealed partial class PersonaSelfGrain(
             state.State.Preoccupation = json?["preoccupation"]?.ToString()?.Trim();
             state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
             var (open, done) = SelfMath.ParseThreads(json?["threads"]?.ToString());
-            if (open.Count > 0 || done.Count > 0)
+            state.State.Resolved = done;
+            if (open.Count > 0)
             {
                 state.State.Threads = open;
-                state.State.Resolved = done;
                 state.State.ThreadsKey = key;
             }
             // A night's sleep recharges and resets the mood drift.
@@ -255,8 +255,11 @@ public static partial class SelfMath
     private const double RechargePerHour = 0.25;
     public const double Asleep = 0.02;
 
-    [GeneratedRegex(@"^\s*[-*•]?\s*(\d{1,2})[:.h](\d{2})\s*[-—–:]?\s*(.+)$")]
+    [GeneratedRegex(@"^\s*[-*•]?\s*(\d{1,2})[:.h](\d{2})\s*([AaPp]\.?[Mm]\.?)?\s*[-—–:]?\s*(.+)$")]
     private static partial Regex BeatLine();
+
+    private static int Hour24(int hour, string meridiem)
+        => meridiem.Length == 0 ? hour : char.ToLowerInvariant(meridiem[0]) == 'p' ? hour % 12 + 12 : hour % 12;
 
     public static double Battery(SelfState s, DateTimeOffset now)
     {
@@ -328,9 +331,9 @@ public static partial class SelfMath
             .Where(m => m.Success && int.Parse(m.Groups[1].Value) < 24 && int.Parse(m.Groups[2].Value) < 60)
             .Select(m => new DayBeat
             {
-                Minute = int.Parse(m.Groups[1].Value) * 60 + int.Parse(m.Groups[2].Value),
+                Minute = Hour24(int.Parse(m.Groups[1].Value), m.Groups[3].Value) * 60 + int.Parse(m.Groups[2].Value),
                 // "10:00 12:30 Grind…" / "10:00–12:30 Grind…": a range's end time isn't part of the beat.
-                Text = Regex.Replace(m.Groups[3].Value.Trim(), @"^\d{1,2}[:.h]\d{2}\s*[-—–:]?\s*", ""),
+                Text = Regex.Replace(m.Groups[4].Value.Trim(), @"^\d{1,2}[:.h]\d{2}\s*[-—–:]?\s*", ""),
             })
             .OrderBy(b => b.Minute)
             .ToList();

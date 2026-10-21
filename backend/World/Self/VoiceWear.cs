@@ -64,7 +64,7 @@ public static partial class VoiceWear
     [GeneratedRegex(@"[\p{L}][\p{L}'\-]*[\p{L}]")]
     private static partial Regex Word();
 
-    [GeneratedRegex(@"\p{So}|\p{Cs}{2}|[:;]-?[)(PDp/]|\^_\^;*|[xX]D\b")]
+    [GeneratedRegex(@"[\p{So}-[°©®™]]|\p{Cs}{2}|(?<=^|\s)[:;]-?[)(PDp/](?=\s|$)|\^_\^;*|\b[xX]D\b")]
     private static partial Regex Mark();
 
     [GeneratedRegex(@"^\s*\*[^*\n]{2,}\*")]
@@ -75,6 +75,7 @@ public static partial class VoiceWear
         if (recent.Count == 0) return VoiceWearReport.Empty;
         var nameWords = (names ?? Array.Empty<string>())
             .SelectMany(n => Word().Matches(n.ToLowerInvariant()).Select(m => m.Value))
+            .SelectMany(w => new[] { w, $"{w}'s", $"{w}’s" })
             .ToHashSet();
 
         bool Counts(string w) => w.Length >= MinWordLength && !Stopwords.Contains(w) && !nameWords.Contains(w);
