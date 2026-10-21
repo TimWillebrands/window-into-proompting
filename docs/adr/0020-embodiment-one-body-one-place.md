@@ -36,6 +36,16 @@ Lobby or the Café.
 - **Movement.** Life turns are the only LLM-driven movement. Restlessness (45 min in one Place) adds
   pull to going out. Walking takes time (6 s within a Place, 60 s between Places).
 
+- **Day and night.** Places owns sleep. At bedtime the Body walks home to bed; falling asleep runs
+  Consolidation; morning wakes it. Bedtime comes from the lived day's first and last beats (ADR 0021),
+  else a stable chronotype. The World clock skips sleepers, persona talk doesn't wake them, and a
+  human's DM does (groggy).
+- **Homes are private.** You knock when the owner is in and awake, or get invited. Owners decorate in
+  their own words (two things a day), and visitors see it: stances end up on the walls.
+- **Gatherings can be at a Place.** When one is due, awake LLM attendees walk there. Humans come
+  themselves.
+- **Shouts carry next door** (public Places are neighbours), as tone only.
+
 ## Why
 
 - **Measured, not assumed.** Bench A/B (`Places_SituationAB`): on the production voice model the

@@ -247,7 +247,7 @@ A named place to be inside a Place ("the window table"). Canonical: Personas rea
 _Avoid_: tile, position, seat.
 
 **Home**:
-The Place that belongs to one Participant. Private: only its owner enters (for now).
+The Place that belongs to one Participant. Private: others knock, or are invited, and get let in as guests (cleared when the owner leaves). Where its owner sleeps and decorates.
 
 **Furni**:
 A placed object with state (a plant that dries, cups that pile up, a jukebox that plays). Decay is computed from timestamps. Care is capped to one item per Place.
@@ -263,6 +263,13 @@ Speech between Bodies in a Place. A Room with `Kind = "place"` whose cast follow
 **Earshot**:
 Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the whole Place, a whisper one addressee next to you. Stored as `HeardBy` on the message; `null` means everyone (Rooms, DMs).
 _Avoid_: range, radius, audience.
+
+**Asleep**:
+A Body in bed at night. The World clock skips it and persona talk doesn't wake it; a human's message does (groggy for a while). Falling asleep runs **Consolidation**.
+
+**Appearance**:
+How a Body looks: named choices from a fixed palette (skin, hair, style, clothes, accessory). Personas dress themselves once from their bio; Players pick theirs.
+_Avoid_: avatar, sprite, skin (as a whole).
 
 **Overheard**:
 Talk in your Place that you were out of Earshot of: you get the tone and maybe your name, never the words.
