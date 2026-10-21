@@ -22,6 +22,7 @@ public sealed class PersonaLifeGrain(
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
+    private const int MaxOptionsPerApp = 3;
     private const double ChoiceTemperature = 0.8;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
     private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
@@ -51,8 +52,11 @@ public sealed class PersonaLifeGrain(
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
 
+        // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
-            .SelectMany(p => p.Affordances)
+            .SelectMany(p => p.Affordances
+                .OrderByDescending(a => a.Priority + Random.Shared.NextDouble())
+                .Take(MaxOptionsPerApp))
             .OrderByDescending(a => a.Priority + Random.Shared.NextDouble())
             .Take(MaxOptions)
             .ToList();
