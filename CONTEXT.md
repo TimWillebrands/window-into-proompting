@@ -230,6 +230,44 @@ _Avoid_: classifier, scorer, router.
 One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
 _Avoid_: event (taken — see **Event**), log entry.
 
+### Places
+
+See [ADR 0020](docs/adr/0020-embodiment-one-body-one-place.md).
+
+**Body**:
+A Participant's physical presence in the World. Exactly one per Participant, always in exactly one **Place**, at a named **Spot**, with a posture and maybe something it's busy with ("on their phone, texting").
+_Avoid_: avatar (the sprite, not the thing), character, sprite, NPC.
+
+**Place**:
+A physical location in the World: a **Home**, the Lobby, the Café. Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
+_Avoid_: room (taken, see **Room**), location, map, level.
+
+**Spot**:
+A named place to be inside a Place ("the window table"). Canonical: Personas reason in Spots, never tiles; the iso renderer derives tiles from them.
+_Avoid_: tile, position, seat.
+
+**Home**:
+The Place that belongs to one Participant. Private: only its owner enters (for now).
+
+**Furni**:
+A placed object with state (a plant that dries, cups that pile up, a jukebox that plays). Decay is computed from timestamps. Care is capped to one item per Place.
+_Avoid_: item, object, prop.
+
+**Situation**:
+The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it.
+_Avoid_: context, location string, environment.
+
+**Place talk**:
+Speech between Bodies in a Place. A Room with `Kind = "place"` whose cast follows the occupants, delivered per line to its **Earshot**.
+
+**Earshot**:
+Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the whole Place, a whisper one addressee next to you. Stored as `HeardBy` on the message; `null` means everyone (Rooms, DMs).
+_Avoid_: range, radius, audience.
+
+**Overheard**:
+Talk in your Place that you were out of Earshot of: you get the tone and maybe your name, never the words.
+_Avoid_: eavesdrop log, muffled message.
+
 ### The Bench (development)
 
 Tooling vocabulary — these terms describe how Proompting is *developed*, not what it is. See [ADR 0011](docs/adr/0011-bench-probe-runner.md).
@@ -263,6 +301,9 @@ _Avoid_: dev-mode, test-mode, live-session.
 - Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
 - A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
 - A **Player** is a **Participant** with **Default Driver** = `User`.
+- A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
+- A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant**.
+- A **Place talk** message has one **Earshot**.
 
 ## Example dialogue
 
