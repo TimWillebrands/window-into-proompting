@@ -547,7 +547,7 @@ public sealed class SceneMapService(IGrainFactory grains, ILogger<SceneMapServic
 
     private static string? TryRepair(string s)
     {
-        try { return JsonRepair.RepairJson(s, JsonRepair.InputType.LLM); }
+        try { return PartyTown.Services.Memory.SafeJsonRepair.Repair(s); }
         catch { return null; }
     }
 

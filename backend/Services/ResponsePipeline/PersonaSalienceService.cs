@@ -176,7 +176,7 @@ public sealed class PersonaSalienceService(ILlmRouterGrain router, ILogger logge
 
         try
         {
-            var repaired = JsonRepair.RepairJson(cleaned, JsonRepair.InputType.LLM);
+            var repaired = PartyTown.Services.Memory.SafeJsonRepair.Repair(cleaned);
             return Attempt(repaired);
         }
         catch

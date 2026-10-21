@@ -179,7 +179,7 @@ public sealed class ImportPersonaFinalizeService(
 
     private static string? TryRepair(string s)
     {
-        try { return JsonRepair.RepairJson(s, JsonRepair.InputType.LLM); }
+        try { return PartyTown.Services.Memory.SafeJsonRepair.Repair(s); }
         catch { return null; }
     }
 

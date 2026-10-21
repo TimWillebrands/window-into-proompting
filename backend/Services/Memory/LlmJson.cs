@@ -40,7 +40,7 @@ internal static class LlmJson
         {
             try
             {
-                return JsonRepair.RepairJson(candidate);
+                return PartyTown.Services.Memory.SafeJsonRepair.Repair(candidate);
             }
             catch
             {
