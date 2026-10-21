@@ -14,6 +14,7 @@ import {
     useGetWorldsPartyIdActivities,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessenger,
+    useGetWorldsPartyIdSelves,
     useGetWorldsPartyIdSuspense,
     usePostWorldsPartyIdHappenings,
     usePostWorldsPartyIdResidents,
@@ -22,6 +23,7 @@ import {
 } from '#api/party-zone';
 import { useDesktopContext } from '#lib/desktop-context';
 import type { LifeSummary } from '../../api/model/lifeSummary';
+import type { SelfSummary } from '../../api/model/selfSummary';
 import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
 import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
@@ -78,6 +80,12 @@ export default function WorldApp() {
     const lives = allLives.filter((l) => l.driver !== 'User');
     const [filterId, setFilterId] = useState<string | null>(null);
     const now = useNow();
+    const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
+        query: { refetchInterval: 60_000 },
+    });
+    const selfById = new Map(
+        (selvesQuery.data?.data ?? []).map((s) => [s.personaId, s]),
+    );
 
     // Lives refresh on activity events too; status only on clock.
     const busyCount = lives.filter((l) => l.busy).length;
@@ -119,6 +127,7 @@ export default function WorldApp() {
                             <LifeRow
                                 key={life.personaId}
                                 life={life}
+                                self={selfById.get(life.personaId)}
                                 busy={life.busy}
                                 selected={filterId === life.personaId}
                                 onSelect={() =>
@@ -558,14 +567,53 @@ function ClockBar({ status }: { status: WorldStatus }) {
     );
 }
 
+/** The persona's lived self (ADR 0021): mood, what they're doing offscreen, what's going on in their life. */
+function SelfLines({ self }: { self: SelfSummary }) {
+    const asleep = self.doing === 'Asleep';
+    const battery = Number(self.battery ?? 1);
+    return (
+        <div style={{ fontSize: 10, color: '#444' }}>
+            <div
+                style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                }}
+                title={self.doing ?? undefined}
+            >
+                {asleep ? '💤 asleep' : `🏠 ${self.doing ?? 'up and about'}`}
+            </div>
+            <div style={{ color: '#666' }}>
+                {self.mood ? `mood: ${self.mood}` : null}
+                {self.energy ? ` · energy ${self.energy}` : null}
+                {battery < 0.5 ? ' · talked out' : null}
+            </div>
+            {self.threads && self.threads.length > 0 ? (
+                <details>
+                    <summary style={{ cursor: 'pointer', color: '#003399' }}>
+                        Going on in their life ({self.threads.length})
+                    </summary>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                        {self.threads.map((t) => (
+                            <li key={t}>{t}</li>
+                        ))}
+                    </ul>
+                </details>
+            ) : null}
+        </div>
+    );
+}
+
 function LifeRow({
     life,
+    self,
     busy,
     selected,
     onSelect,
     now,
 }: {
     life: LifeSummary;
+    self?: SelfSummary;
     busy: boolean;
     selected: boolean;
     onSelect: () => void;
@@ -712,6 +760,7 @@ function LifeRow({
                     Diary
                 </button>
             </div>
+            {self ? <SelfLines self={self} /> : null}
             {last ? (
                 <div
                     style={{
