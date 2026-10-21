@@ -148,7 +148,7 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var system = $"""
 {WorldLlm.Identity(ctx.Self)}
 
-You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened today (the ordinary parts too), how you feel about the people around you, what you want. Your own voice, plain words, first person, 80-180 words.
+You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened today (the ordinary parts too), how you feel about the people around you, what you want. Your own voice, everyday words, first person, 80-180 words.
 Output ONLY JSON: {EntryShape}
 """;
         var user = $"""

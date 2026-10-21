@@ -94,7 +94,7 @@ public static partial class VoiceWear
         var own = report.OwnWords.TryGetValue(speakerId, out var o) ? o : new List<string>();
         var shared = report.WornWords.Except(own).ToList();
         if (shared.Count > 0)
-            lines.Add($"Everyone around here keeps reaching for the same words lately: {string.Join(", ", shared)}. They've gone stale — don't use them; say it your own way, or plainly.");
+            lines.Add($"Everyone around here keeps reaching for the same words lately: {string.Join(", ", shared)}. They've gone stale, so leave them out (and don't remark on leaving them out).");
         if (own.Count > 0)
             lines.Add($"You personally keep coming back to: {string.Join(", ", own)}. Give those a rest.");
         if (report.StageDirectionRate.TryGetValue(speakerId, out var rate) && rate >= 0.5)
