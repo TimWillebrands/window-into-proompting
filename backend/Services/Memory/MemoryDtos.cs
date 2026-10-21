@@ -1,3 +1,5 @@
+using PartyTown.Model;
+
 namespace PartyTown.Services.Memory;
 
 /// <summary>
@@ -67,7 +69,7 @@ public sealed record RecalledMemory(
     RecallArm Arm = RecallArm.Recent);
 
 /// <summary>
-/// Outcome of a single <see cref="IMemoryRepository.CaptureMomentAsync"/> call.
+/// Outcome of a single <see cref="IMemoryRepository.CaptureAsync"/> call.
 /// <see cref="RecollectionPersonaIds"/> names the Participants whose unconsolidated pile
 /// just grew — the set the capture path's Consolidation gauge check is scoped to.
 /// </summary>
@@ -113,3 +115,55 @@ public sealed record MemoryGraphLink(
     string Kind,
     string? Snippet = null,
     string? Ts = null);
+
+/// <summary>
+/// A closed moment an App hands to Capture (ADR 0018): lines oldest → newest, one marked.
+/// Lines need not be Room messages — Board posts and happenings are lines too.
+/// </summary>
+/// <param name="Source">App that closed it: <see cref="MomentSources"/>.</param>
+/// <param name="ThreadId">The Event's <c>room_id</c>: Room, DM, Place talk, Board thread or happening.</param>
+/// <param name="MarkIndex">Index into <paramref name="Lines"/> of the line being remembered.</param>
+/// <param name="PlaceId">Place the moment happened in, when it happened in one.</param>
+public sealed record Moment(
+    Guid PartyId,
+    string Source,
+    Guid ThreadId,
+    IReadOnlyList<MomentLine> Lines,
+    int MarkIndex,
+    IReadOnlyList<ParticipantView> Present,
+    Guid? PlaceId = null)
+{
+    /// <summary>A Room/DM/Place conversation, marked at <paramref name="markMessageId"/>.</summary>
+    public static Moment FromMessages(
+        Guid partyId, string source, Guid threadId, IReadOnlyList<ChatMessage> messages, int markMessageId,
+        IReadOnlyList<ParticipantView> present, Guid? placeId = null)
+    {
+        var ordered = messages.OrderBy(m => m.MessageId).ToList();
+        var mark = ordered.FindIndex(m => m.MessageId == markMessageId);
+        if (mark < 0)
+            throw new KeyNotFoundException($"Message {markMessageId} not in the moment's lines (thread {threadId}).");
+        return new Moment(partyId, source, threadId,
+            ordered.Select(m => new MomentLine(m.SenderId, m.Content ?? string.Empty, m.SendAt, m.MessageId)).ToList(),
+            mark, present, placeId);
+    }
+}
+
+/// <summary>One thing said or shown in a <see cref="Moment"/>. MessageId only for Room lines.</summary>
+public sealed record MomentLine(Guid SenderId, string Text, long? At = null, int? MessageId = null);
+
+/// <summary>App ids written as the Event's <c>source</c> property (ADR 0018).</summary>
+public static class MomentSources
+{
+    public const string Rooms = "rooms";
+    public const string Messenger = "messenger";
+    public const string Places = "places";
+    public const string Board = "board";
+    public const string World = "world";
+
+    public static string OfKind(string? chatGroupKind) => chatGroupKind switch
+    {
+        ChatGroupKinds.Direct => Messenger,
+        ChatGroupKinds.Place => Places,
+        _ => Rooms,
+    };
+}

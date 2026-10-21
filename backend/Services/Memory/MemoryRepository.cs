@@ -18,17 +18,20 @@ public sealed class MemoryRepository(
     IMemoryExtractor extractor,
     ILogger<MemoryRepository> logger) : IMemoryRepository
 {
-    public async Task<MemoryCaptureResult> CaptureMomentAsync(
-        Guid partyId,
-        Guid roomId,
-        int messageId,
-        IReadOnlyList<ParticipantView> presentParticipants,
-        IReadOnlyList<ChatMessage> recentContext,
-        CancellationToken ct)
+    public async Task<MemoryCaptureResult> CaptureAsync(Moment moment, CancellationToken ct)
     {
-        var sourceMessage = recentContext.FirstOrDefault(m => m.MessageId == messageId)
-            ?? throw new KeyNotFoundException(
-                $"Source message {messageId} not present in recentContext (party {partyId}, room {roomId}).");
+        if (moment.MarkIndex < 0 || moment.MarkIndex >= moment.Lines.Count)
+            throw new ArgumentOutOfRangeException(nameof(moment), $"Mark {moment.MarkIndex} outside {moment.Lines.Count} lines.");
+
+        var (partyId, roomId, presentParticipants) = (moment.PartyId, moment.ThreadId, moment.Present);
+        // Extractors read chat-shaped lines; non-Room lines get their index as a local id.
+        var recentContext = moment.Lines.Select((l, i) => new ChatMessage
+        {
+            MessageId = l.MessageId ?? i, ChatGroupId = roomId, SenderId = l.SenderId,
+            SenderType = "assistant", Content = l.Text, SendAt = l.At,
+        }).ToList();
+        var sourceMessage = recentContext[moment.MarkIndex];
+        var messageId = sourceMessage.MessageId;
 
         var nameById = presentParticipants.ToDictionary(p => p.Id, p => p.Name);
         string ResolveName(Guid senderId) => nameById.TryGetValue(senderId, out var n) ? n : "Unknown";
@@ -86,7 +89,7 @@ public sealed class MemoryRepository(
         // LOAD 'age' is fired automatically by AgeOperatorInterceptor when this connection
         // opens. search_path lives at the database level (05-age-setup.sql), so qualified
         // agtype casts resolve without a per-session SET.
-        await CreateEventAsync(db, partyId, roomId, sourceMessage.MessageId, eventId, extraction.Description, nowIso, ct);
+        await CreateEventAsync(db, moment, sourceMessage.MessageId, eventId, extraction.Description, nowIso, ct);
 
         foreach (var concept in extraction.Concepts)
         {
@@ -452,22 +455,24 @@ public sealed class MemoryRepository(
 
     private static Task CreateEventAsync(
         AppDbContext db,
-        Guid partyId, Guid roomId, int messageId,
+        Moment moment, int messageId,
         Guid eventId, string description, string nowIso,
         CancellationToken ct)
     {
         // The Event carries its anchor (room_id / party_id / anchor_message_id) as plain
         // properties — no Room/Message vertices, no ANCHORED_TO edge. party_id is the scope
-        // key the viz and any per-Party walk anchor on.
+        // key the viz and any per-Party walk anchor on; source names the App (ADR 0018).
+        var place = moment.PlaceId is { } placeId ? $",\n                place_id: '{placeId}'" : string.Empty;
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               CREATE (e:Event {
                 event_id: '{{eventId}}',
                 description: {{CypherStr(description)}},
                 created_at: '{{nowIso}}',
-                party_id: '{{partyId}}',
-                room_id: '{{roomId}}',
-                anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}
+                party_id: '{{moment.PartyId}}',
+                room_id: '{{moment.ThreadId}}',
+                source: {{CypherStr(moment.Source)}},
+                anchor_message_id: {{messageId.ToString(CultureInfo.InvariantCulture)}}{{place}}
               })
               RETURN e.event_id
             $cy$) AS (event_id ag_catalog.agtype)

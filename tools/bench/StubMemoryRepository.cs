@@ -11,13 +11,7 @@ namespace PartyTown.Bench;
 /// </summary>
 public sealed class StubMemoryRepository : IMemoryRepository
 {
-    public Task<MemoryCaptureResult> CaptureMomentAsync(
-        Guid partyId,
-        Guid roomId,
-        int messageId,
-        IReadOnlyList<ParticipantView> presentParticipants,
-        IReadOnlyList<ChatMessage> recentContext,
-        CancellationToken ct)
+    public Task<MemoryCaptureResult> CaptureAsync(Moment moment, CancellationToken ct)
         => Task.FromResult(new MemoryCaptureResult(false, 0, 0));
 
     public Task<IReadOnlyList<RecalledMemory>> RecallAsync(

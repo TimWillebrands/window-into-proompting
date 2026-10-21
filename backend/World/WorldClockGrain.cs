@@ -1,3 +1,4 @@
+using PartyTown.Services.Memory;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.SystemOne;
@@ -110,15 +111,10 @@ public sealed class WorldClockGrain(
         // Everyone in the World lived through it: one Event, a Recollection each.
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
         var present = cast.Select(c => new ParticipantView(c.Id, c.Name, c.DefaultDriver)).ToList();
-        var context = new List<ChatMessage>
-        {
-            new()
-            {
-                MessageId = 0, ChatGroupId = PartyId, SenderId = Narrator.PersonaId, SenderType = "assistant",
-                Content = $"[Happening in the world] {happening.Summary}", SendAt = happening.Ts,
-            },
-        };
-        _ = memory.CaptureAsync(PartyId, happening.Id, 0, context, present, CancellationToken.None);
+        var line = new MomentLine(Narrator.PersonaId, $"[Happening in the world] {happening.Summary}", happening.Ts);
+        _ = memory.CaptureAsync(
+            new Moment(PartyId, MomentSources.World, happening.Id, new List<MomentLine> { line }, 0, present),
+            CancellationToken.None);
         return happening;
     }
 
@@ -240,9 +236,7 @@ public sealed class WorldClockGrain(
 
             state.State.CaptureCursors[thread.Id] = last.MessageId;
             var anchor = MostAnswered(fresh);
-            var memberIds = await room.GetParticipantIdsAsync();
-            var cast = await party.GetCastAsync();
-            var present = cast.Where(c => memberIds.Contains(c.Id)).Select(c => new ParticipantView(c.Id, c.Name, c.DefaultDriver)).ToList();
+            var present = (await room.GetCastAsync()).Views();
             var context = recent.Where(m => m.MessageId <= anchor.MessageId || fresh.Contains(m)).ToList();
             _capturing.Add(thread.Id);
             _ = CaptureAsync(thread, anchor, context, present);
@@ -256,7 +250,9 @@ public sealed class WorldClockGrain(
         {
             if (judge.Enabled && !await IsMemorableAsync(context, present))
                 return;
-            var result = await memory.CaptureAsync(PartyId, thread.Id, anchor.MessageId, context, present, CancellationToken.None);
+            var result = await memory.CaptureAsync(
+                Moment.FromMessages(PartyId, MomentSources.OfKind(thread.Kind), thread.Id, context, anchor.MessageId, present),
+                CancellationToken.None);
             if (result is { EventCreated: true, RecollectionsCreated: > 0 })
             {
                 var where = thread.Kind switch

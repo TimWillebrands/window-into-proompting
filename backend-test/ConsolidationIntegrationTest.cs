@@ -319,11 +319,7 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
             new EventExtraction($"Moment for {snippet}.", new List<ConceptTag>(), new List<Guid>()),
             new Dictionary<string, RecollectionDraft> { [participant.Name] = new(snippet, weight) });
         var capturingRepo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        var result = await capturingRepo.CaptureMomentAsync(
-            partyId, roomId, messageId,
-            presentParticipants: new[] { participant },
-            recentContext: new[] { source },
-            ct: CancellationToken.None);
+        var result = await capturingRepo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { participant }), CancellationToken.None);
         Assert.True(result.EventCreated);
         Assert.Equal(new[] { participant.Id }, result.RecollectionPersonaIds);
     }

@@ -124,20 +124,16 @@ public sealed class WorldMemory(
     IGrainFactory grains,
     ILogger<WorldMemory> logger)
 {
-    public async Task<MemoryCaptureResult?> CaptureAsync(
-        Guid partyId,
-        Guid threadId,
-        int anchorMessageId,
-        IReadOnlyList<ChatMessage> context,
-        IReadOnlyList<ParticipantView> present,
-        CancellationToken ct)
+    /// <summary>The one Capture entry: capture, then gauge whoever's pile grew. Null on failure.</summary>
+    public async Task<MemoryCaptureResult?> CaptureAsync(Moment moment, CancellationToken ct)
     {
+        var (partyId, threadId) = (moment.PartyId, moment.ThreadId);
         try
         {
-            var result = await repository.CaptureMomentAsync(partyId, threadId, anchorMessageId, present, context, ct);
+            var result = await repository.CaptureAsync(moment, ct);
             logger.LogInformation(
-                "World capture in {ThreadId}@{MessageId}: event={Event} recollections={Count}",
-                threadId, anchorMessageId, result.EventCreated, result.RecollectionsCreated);
+                "{Source} capture in {ThreadId}@{Mark}: event={Event} recollections={Count}",
+                moment.Source, threadId, moment.MarkIndex, result.EventCreated, result.RecollectionsCreated);
 
             if (result.RecollectionPersonaIds.Count > 0)
             {
@@ -152,7 +148,7 @@ public sealed class WorldMemory(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "World capture failed in {ThreadId}@{MessageId}", threadId, anchorMessageId);
+            logger.LogWarning(ex, "{Source} capture failed in {ThreadId}", moment.Source, threadId);
             return null;
         }
     }

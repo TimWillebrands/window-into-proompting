@@ -1,3 +1,4 @@
+using PartyTown.Services.Memory;
 using Microsoft.AspNetCore.Mvc;
 using PartyTown.Grains;
 using PartyTown.Model;
@@ -142,13 +143,11 @@ public sealed class WorldController(IGrainFactory grains, WorldMemory memory) : 
 
         // The thread's Personas will remember what the human said to them.
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
-        var context = BoardApp.BoardMessages(thread);
-        var present = context.Select(m => m.SenderId).Distinct()
+        _ = memory.CaptureAsync(BoardApp.MomentOf(partyId, thread, ids => ids
             .Select(id => cast.FirstOrDefault(c => c.Id == id) is { } c
                 ? new ParticipantView(c.Id, c.Name, c.DefaultDriver)
                 : new ParticipantView(id, "someone", DriverKind.User))
-            .ToList();
-        _ = memory.CaptureAsync(partyId, thread.Id, context[^1].MessageId, context, present, CancellationToken.None);
+            .ToList()), CancellationToken.None);
         return Ok(thread);
     }
 

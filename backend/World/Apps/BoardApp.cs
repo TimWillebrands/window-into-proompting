@@ -1,3 +1,4 @@
+using PartyTown.Services.Memory;
 using System.Text;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -104,33 +105,17 @@ Output: {ReplyShape}
     /// <summary>The post just written becomes an Event recollected by everyone in the thread.</summary>
     private void CaptureDetached(LifeContext ctx, BoardThread thread)
     {
-        var context = BoardMessages(thread);
-        var present = context.Select(m => m.SenderId).Distinct().Select(ctx.ViewOf).ToList();
-        var anchor = context[^1].MessageId;
-        _ = Task.Run(async () =>
-        {
-            try { await memory.CaptureAsync(ctx.PartyId, thread.Id, anchor, context, present, CancellationToken.None); }
-            catch (Exception ex) { logger.LogWarning(ex, "Board capture failed for thread {ThreadId}", thread.Id); }
-        });
+        var moment = MomentOf(ctx.PartyId, thread, ids => ids.Select(ctx.ViewOf).ToList());
+        _ = Task.Run(() => memory.CaptureAsync(moment, CancellationToken.None));
     }
 
-    /// <summary>Board thread as a message list so the Room capture extractor can read it.</summary>
-    public static List<ChatMessage> BoardMessages(BoardThread thread)
+    /// <summary>A Board thread as a Moment marked at its latest post; <paramref name="viewsOf"/> resolves its authors.</summary>
+    public static Moment MomentOf(Guid partyId, BoardThread thread, Func<IEnumerable<Guid>, List<ParticipantView>> viewsOf)
     {
-        var list = new List<ChatMessage>
-        {
-            new()
-            {
-                MessageId = 0, ChatGroupId = thread.Id, SenderId = thread.AuthorId, SenderType = "assistant",
-                Content = $"[Board post \"{thread.Title}\"] {thread.Body}", SendAt = thread.CreatedAt,
-            }
-        };
-        list.AddRange(thread.Replies.Select((r, i) => new ChatMessage
-        {
-            MessageId = i + 1, ChatGroupId = thread.Id, SenderId = r.AuthorId, SenderType = "assistant",
-            Content = $"[Board reply] {r.Body}", SendAt = r.CreatedAt,
-        }));
-        return list;
+        var lines = new List<MomentLine> { new(thread.AuthorId, $"[Board post \"{thread.Title}\"] {thread.Body}", thread.CreatedAt) };
+        lines.AddRange(thread.Replies.Select(r => new MomentLine(r.AuthorId, $"[Board reply] {r.Body}", r.CreatedAt)));
+        return new Moment(partyId, MomentSources.Board, thread.Id, lines, lines.Count - 1,
+            viewsOf(lines.Select(l => l.SenderId).Distinct()));
     }
 }
 

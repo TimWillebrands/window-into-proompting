@@ -1,3 +1,4 @@
+using PartyTown.Services.Memory;
 using PartyTown.Model;
 using PartyTown.Services.ResponsePipeline;
 using PartyTown.World;
@@ -35,7 +36,7 @@ public class WorldPureTest
     }
 
     [Fact]
-    public void BoardMessages_OpIsZeroAndRepliesFollowInOrder()
+    public void BoardMoment_OpFirst_RepliesInOrder_MarkedAtLatest()
     {
         var op = Guid.NewGuid();
         var replier = Guid.NewGuid();
@@ -49,12 +50,36 @@ public class WorldPureTest
             },
         };
 
-        var messages = BoardApp.BoardMessages(thread);
+        var moment = BoardApp.MomentOf(Guid.NewGuid(), thread,
+            ids => ids.Select(id => new ParticipantView(id, "p", DriverKind.LLM)).ToList());
 
-        Assert.Equal(new[] { 0, 1, 2 }, messages.Select(m => m.MessageId));
-        Assert.Equal(new[] { op, replier, op }, messages.Select(m => m.SenderId));
-        Assert.Contains("Lisp?", messages[0].Content);
-        Assert.All(messages, m => Assert.Equal(thread.Id, m.ChatGroupId));
+        Assert.Equal(new[] { op, replier, op }, moment.Lines.Select(l => l.SenderId));
+        Assert.Contains("Lisp?", moment.Lines[0].Text);
+        Assert.Equal(2, moment.MarkIndex);
+        Assert.Equal(MomentSources.Board, moment.Source);
+        Assert.Equal(thread.Id, moment.ThreadId);
+        Assert.Equal(new[] { op, replier }, moment.Present.Select(p => p.Id));
+    }
+
+    [Fact]
+    public void FromMessages_MarksByMessageId_SourceFollowsKind()
+    {
+        var a = Guid.NewGuid();
+        var msgs = new List<ChatMessage>
+        {
+            new() { MessageId = 7, SenderId = a, Content = "later" },
+            new() { MessageId = 3, SenderId = a, Content = "first" },
+        };
+
+        var moment = Moment.FromMessages(Guid.NewGuid(), MomentSources.OfKind(ChatGroupKinds.Direct), Guid.NewGuid(), msgs, 7,
+            Array.Empty<ParticipantView>());
+
+        Assert.Equal(new[] { "first", "later" }, moment.Lines.Select(l => l.Text));
+        Assert.Equal(1, moment.MarkIndex);
+        Assert.Equal(MomentSources.Messenger, moment.Source);
+        Assert.Equal(MomentSources.Places, MomentSources.OfKind(ChatGroupKinds.Place));
+        Assert.Throws<KeyNotFoundException>(() => Moment.FromMessages(Guid.NewGuid(), "rooms", Guid.NewGuid(), msgs, 99,
+            Array.Empty<ParticipantView>()));
     }
 
     [Fact]

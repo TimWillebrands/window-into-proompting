@@ -8,7 +8,7 @@ using PartyTown.Services.Memory;
 namespace BackendTest;
 
 /// <summary>
-/// Integration test exercising <see cref="MemoryRepository.CaptureMomentAsync"/> end-to-end
+/// Integration test exercising <see cref="MemoryRepository.CaptureAsync"/> end-to-end
 /// against a live Postgres+AGE instance — the developer stack run by the Aspire AppHost.
 /// LLM is stubbed by <see cref="FakeMemoryExtractor"/> so the test is deterministic; only
 /// the persistence half is under test in slice 1.
@@ -62,11 +62,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
 
-        var result = await repo.CaptureMomentAsync(
-            partyId, roomId, messageId,
-            presentParticipants: new[] { personaVlad, personaHana, userBob },
-            recentContext: recentContext,
-            ct: CancellationToken.None);
+        var result = await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, recentContext, messageId, new[] { personaVlad, personaHana, userBob }), CancellationToken.None);
 
         Assert.True(result.EventCreated);
         Assert.Equal(2, result.RecollectionsCreated);
@@ -82,7 +78,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var anchoredCount = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
-              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
+              MATCH (e:Event {party_id: '{{partyId}}', room_id: '{{roomId}}', anchor_message_id: {{messageId}}, source: 'rooms'})
               RETURN count(e)
             $cy$) AS (n int);
             """);
@@ -293,10 +289,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             });
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        await repo.CaptureMomentAsync(partyId, roomId, messageId,
-            presentParticipants: new[] { vlad, hana, userBob },
-            recentContext: new[] { source },
-            ct: CancellationToken.None);
+        await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { vlad, hana, userBob }), CancellationToken.None);
 
         return (partyId, roomId, messageId, vlad, hana, userBob, conceptName, conceptDisplay, snippetHana, snippetVlad);
     }
@@ -375,11 +368,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
 
-        var capture = await repo.CaptureMomentAsync(
-            partyId, roomId, messageId,
-            presentParticipants: new[] { personaHana, personaVlad },
-            recentContext: new[] { sourceMessage },
-            ct: CancellationToken.None);
+        var capture = await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { sourceMessage }, messageId, new[] { personaHana, personaVlad }), CancellationToken.None);
 
         Assert.True(capture.EventCreated);
         Assert.Equal(2, capture.RecollectionsCreated);
@@ -938,11 +927,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 [participant.Name] = new(snippet, weight),
             });
         var repo = new MemoryRepository(fixture.Factory, fake, NullLogger<MemoryRepository>.Instance);
-        var result = await repo.CaptureMomentAsync(
-            partyId, roomId, messageId,
-            presentParticipants: new[] { participant },
-            recentContext: new[] { source },
-            ct: CancellationToken.None);
+        var result = await repo.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { source }, messageId, new[] { participant }), CancellationToken.None);
         Assert.True(result.EventCreated);
         Assert.Equal(1, result.RecollectionsCreated);
     }
@@ -982,8 +967,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             {
                 ["Denise"] = new("You heard me announce I'm quitting", 0.8),
             }), NullLogger<MemoryRepository>.Instance);
-        var result1 = await repo1.CaptureMomentAsync(
-            partyId, roomId, messageId1, cast, new[] { msg1 }, CancellationToken.None);
+        var result1 = await repo1.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { msg1 }, messageId1, cast), CancellationToken.None);
         Assert.Equal(1, result1.RecollectionsCreated);
 
         // Capture 2, same arc: Denise's draft corrupts again → near-dup substitute skipped, but Vlad's clean draft still writes.
@@ -1006,8 +990,8 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
                 ["Denise"] = new("You watched me invite him to the Blue Mug", 0.6),
                 ["Vlad"] = new("Denise invited you to coffee at the Blue Mug on Thursday", 0.5),
             }), NullLogger<MemoryRepository>.Instance);
-        var result2 = await repo2.CaptureMomentAsync(
-            partyId, roomId, messageId2, cast, new[] { msg1, msg2 }, CancellationToken.None);
+        var result2 = await repo2.CaptureAsync(
+            Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { msg1, msg2 }, messageId2, cast), CancellationToken.None);
 
         Assert.True(result2.EventCreated);
         Assert.Equal(1, result2.RecollectionsCreated);
