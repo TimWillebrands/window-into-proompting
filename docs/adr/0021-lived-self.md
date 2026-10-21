@@ -39,6 +39,14 @@ background.
 6. **Stage-direction cleanup.** `SpeechCleanup` drops narrated actions: 4+ words inside asterisks, starting
    lowercase. A short `*sigh*` stays, and so does capitalised emphasis.
 
+7. **Utterance rhythm.** Each Speaking turn samples a length cue (short, medium or long). The odds track the
+   length of the last line from someone else: after a one-liner, 70% of cues are short.
+8. **Conversation thermostat** (`ConversationThermostatGrain`, key Room). Once per new message, System One
+   answers two `noul` questions over the last 10 lines: *heavy?* and *circling?*. After 4+ heavy readings in a
+   row, the Room cues people to lighten up, change subject or drift off. It is off when no judge is enabled.
+9. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+   status turns Away when their social battery is nearly empty.
+
 ## Why these pieces
 
 - The day gives people something to say that isn't each other's confessions. It also gives them reasons
@@ -47,6 +55,19 @@ background.
   happened, not only on Chattiness.
 - Stale-word detection is cheap and deterministic. It attacks the observed failure (register convergence)
   directly, without asking an LLM to judge style.
+
+## Baseline (before)
+
+Measured with `GET /worlds/{id}/voice` over the last 80 persona lines:
+
+| Measure | Value |
+| --- | --- |
+| Average words per line | 81–93 |
+| Lines opening with a stage direction | 42–92% |
+| Worn words, top 4 | lantern, mōshiwake, verses, load-bearing |
+
+The first lines after the change ran 21–52 words with no stage directions. One persona mentioned her
+lease (from her generated day) unprompted.
 
 ## Consequences
 
