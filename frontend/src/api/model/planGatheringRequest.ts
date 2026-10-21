@@ -12,4 +12,6 @@ export interface PlanGatheringRequest {
     startsAt: number | string;
     /** @nullable */
     hostId: string | null;
+    /** @nullable */
+    placeId?: string | null;
 }

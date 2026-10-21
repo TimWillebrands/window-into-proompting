@@ -238,9 +238,12 @@ export function WorldRealtimeBridge() {
                 ) {
                     pushToast({
                         title: `“${g.title}” is starting`,
-                        body: `In #${g.roomName} — you said you'd be there.`,
+                        body: g.placeId
+                            ? `At ${g.roomName}. You said you'd be there.`
+                            : `In #${g.roomName} — you said you'd be there.`,
                         icon: '📅',
-                        onOpen: () => openWindow('open-party'),
+                        onOpen: () =>
+                            openWindow(g.placeId ? 'places' : 'open-party'),
                     });
                 }
                 break;

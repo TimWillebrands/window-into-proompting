@@ -5,6 +5,7 @@ import {
     useGetPartyIdChatGroups,
     useGetWorldsPartyIdGatherings,
     useGetWorldsPartyIdLivesSuspense,
+    useGetWorldsPartyIdPlaces,
     usePostWorldsPartyIdGatherings,
     usePostWorldsPartyIdGatheringsGatheringIdRsvp,
 } from '#api/party-zone';
@@ -19,6 +20,10 @@ const time = (ts: number | string | undefined) =>
               hour: '2-digit',
               minute: '2-digit',
           });
+
+/** "#kitchen" for Room gatherings, "at the Café" for Place ones. */
+const whereOf = (g: Gathering) =>
+    g.placeId ? `at ${g.roomName}` : `in #${g.roomName}`;
 
 const panel = {
     background: '#fff',
@@ -77,7 +82,7 @@ export default function CalendarApp() {
                             key={g.id}
                             style={{ padding: '3px 8px', color: '#555' }}
                         >
-                            {time(g.startsAt)} — “{g.title}” in #{g.roomName} (
+                            {time(g.startsAt)} — “{g.title}” {whereOf(g)} (
                             {g.attendeeIds?.length ?? 0} said they'd come)
                         </div>
                     ))}
@@ -129,7 +134,7 @@ function Row({
             <div className="min-w-0 flex-1">
                 <div style={{ fontWeight: 700 }}>“{g.title}”</div>
                 <div style={{ color: '#555' }}>
-                    #{g.roomName} · hosted by {g.hostName} ·{' '}
+                    {whereOf(g)} · hosted by {g.hostName} ·{' '}
                     {(g.attendeeIds ?? []).map(nameOf).join(', ')}
                 </div>
             </div>
@@ -154,8 +159,11 @@ function PlanForm({ playerId }: { playerId: string | null }) {
     const queryClient = useQueryClient();
     const ids = useId();
     const rooms = (useGetPartyIdChatGroups(WORLD_ID).data?.data ?? []).filter(
-        (r) => r.kind !== 'dm',
+        (r) => r.kind !== 'dm' && r.kind !== 'place',
     );
+    const places = (
+        useGetWorldsPartyIdPlaces(WORLD_ID).data?.data.places ?? []
+    ).filter((p) => p.kind === 'public');
     const [title, setTitle] = useState('');
     const [roomId, setRoomId] = useState('');
     const [minutes, setMinutes] = useState('30');
@@ -177,11 +185,17 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!title.trim() || !room) return;
+                const placeId = room.startsWith('place:')
+                    ? room.slice(6)
+                    : null;
                 plan.mutate({
                     partyId: WORLD_ID,
                     data: {
                         title: title.trim(),
-                        roomId: room,
+                        roomId: placeId
+                            ? '00000000-0000-0000-0000-000000000000'
+                            : room,
+                        placeId,
                         startsAt:
                             Date.now() +
                             Math.max(1, Number(minutes) || 30) * 60000,
@@ -208,6 +222,11 @@ function PlanForm({ playerId }: { playerId: string | null }) {
                 {rooms.map((r) => (
                     <option key={r.id} value={r.id ?? ''}>
                         #{r.name}
+                    </option>
+                ))}
+                {places.map((p) => (
+                    <option key={p.id} value={`place:${p.id}`}>
+                        📍 {p.name}
                     </option>
                 ))}
             </select>

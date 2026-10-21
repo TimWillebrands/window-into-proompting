@@ -17,4 +17,8 @@ export interface Gathering {
     startsAt?: number | string;
     attendeeIds?: string[];
     status?: GatheringStatus;
+    /** @nullable */
+    placeId?: string | null;
+    /** @nullable */
+    where?: string | null;
 }

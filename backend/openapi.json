@@ -6452,6 +6452,19 @@
           },
           "status": {
             "$ref": "#/components/schemas/GatheringStatus"
+          },
+          "placeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "where": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7660,6 +7673,13 @@
             "format": "int64"
           },
           "hostId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "placeId": {
             "type": [
               "null",
               "string"
