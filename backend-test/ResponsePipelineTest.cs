@@ -16,11 +16,11 @@ namespace BackendTest;
 ///
 ///   • Pre-gate obvious-skip → RecordSkippedTurnAsync, no slot, no LLM
 ///   • Self-fan-out → early return, no side effects
-///   • Decision returns Respond=false → MarkGenerationStopped + PersonaDeclined event
-///   • Decision + Speaking happy path → AppendMessageAsync with expected appraisal
+///   • Decision returns Respond=false → Declined outcome + PersonaDeclined event
+///   • Decision + Speaking happy path → Spoke outcome with expected appraisal
 ///   • Speaking retry on transient failure → ResetGeneratedText + GenerationRetry event
-///   • Race-cancel during Speaking → emote via MarkGenerationCancelledAsEmoteAsync
-///   • External cancel (race-cancelled NOT set) → MarkGenerationFailedAsync("cancelled")
+///   • Race-cancel during Speaking → Interrupted outcome (emote)
+///   • External cancel (race-cancelled NOT set) → Failed("cancelled")
 ///   • Repair hint consumed once on decision pass, cleared regardless of decision
 ///
 /// Strategy: pure unit tests. Real <see cref="InFlightStore"/>; Mock chat group, grain
@@ -54,7 +54,8 @@ public class ResponsePipelineTest
         Mock<IGrainFactory> GrainFactory,
         Mock<ILlmRouterGrain> Router,
         Mock<IPersonaRootGrain> PersonaRoot,
-        Mock<IMemoryRepository> MemoryRepo);
+        Mock<IMemoryRepository> MemoryRepo,
+        List<TurnOutcome> Outcomes);
 
     private static Fixture BuildFixture()
     {
@@ -77,20 +78,11 @@ public class ResponsePipelineTest
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
                 It.IsAny<double>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.GetNextMessageIdAsync(It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int?>()))
+        chatGroup.Setup(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()))
             .ReturnsAsync(42);
-        chatGroup.Setup(g => g.AppendMessageAsync(
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-                It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationStoppedAsync(
-                It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()))
-            .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.MarkGenerationCancelledAsEmoteAsync(
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>()))
+        var outcomes = new List<TurnOutcome>();
+        chatGroup.Setup(g => g.EndTurnAsync(It.IsAny<int>(), It.IsAny<TurnOutcome>()))
+            .Callback<int, TurnOutcome>((_, o) => outcomes.Add(o))
             .Returns(Task.CompletedTask);
 
         var router = new Mock<ILlmRouterGrain>();
@@ -136,7 +128,7 @@ public class ResponsePipelineTest
             NullLoggerFactory.Instance,
             NullLogger<ResponsePipeline>.Instance);
 
-        return new Fixture(pipeline, store, chatGroup, factory, router, personaRoot, memoryRepo);
+        return new Fixture(pipeline, store, chatGroup, factory, router, personaRoot, memoryRepo, outcomes);
     }
 
     /// <summary>Router whose endpoint streams a single chunk of canned JSON/text.</summary>
@@ -247,8 +239,7 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             PersonaId, PersonaName, triggering.MessageId,
             It.IsAny<double>(), It.IsAny<string>()), Times.Once);
-        fx.ChatGroup.Verify(g => g.GetNextMessageIdAsync(
-            It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
             It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -279,8 +270,7 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
             It.IsAny<double>(), It.IsAny<string>()), Times.Never);
-        fx.ChatGroup.Verify(g => g.GetNextMessageIdAsync(
-            It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
             It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -302,17 +292,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        string? capturedAppraisal = null;
-        int? stoppedTriggeredBy = null;
-        fx.ChatGroup.Setup(g => g.MarkGenerationStoppedAsync(
-                It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()))
-            .Callback<int, string?, int?>((_, appraisal, triggeredBy) =>
-            {
-                capturedAppraisal = appraisal;
-                stoppedTriggeredBy = triggeredBy;
-            })
-            .Returns(Task.CompletedTask);
-
         var declinedEvents = new List<MessageStreamEvent>();
         fx.ChatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
             .Callback<int, MessageStreamEvent>((_, evt) => declinedEvents.Add(evt))
@@ -329,14 +308,8 @@ public class ResponsePipelineTest
 
         // Assert: declined → no message body written, papertrail carries the appraisal
         // JSON in the shape PartyController.TryParseAppraisal expects.
-        fx.ChatGroup.Verify(g => g.MarkGenerationStoppedAsync(
-            It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Once);
-        fx.ChatGroup.Verify(g => g.AppendMessageAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-            It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
-
-        Assert.Equal(triggering.MessageId, stoppedTriggeredBy);
+        var capturedAppraisal = Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes)).Appraisal;
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
         Assert.NotNull(capturedAppraisal);
         Assert.Contains("\"reason\"", capturedAppraisal);
         Assert.Contains("\"stop\":true", capturedAppraisal);
@@ -352,7 +325,7 @@ public class ResponsePipelineTest
     public async Task HandleAsync_HappyPath_AppendsMessageWithAppraisal()
     {
         // Arrange: decision LLM says respond=true with a clear instruction; speaking
-        // LLM streams the literal reply. AppendMessageAsync should be called with the
+        // LLM streams the literal reply. the Spoke outcome should carry the
         // speaking content + the appraisal JSON shape (personaId/instruction/reason/stop).
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"I have thoughts","memoryToReference":null,"wouldSay":"Bring it.","respond":true}""";
@@ -364,22 +337,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        string? capturedContent = null;
-        string? capturedAppraisal = null;
-        int? capturedTriggeredBy = null;
-        fx.ChatGroup.Setup(g => g.AppendMessageAsync(
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-                It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .Callback<int, string, string?, string?, ChatMessageMetadata?, int?, CancellationToken>(
-                (_, content, _, appraisal, _, triggeredBy, _) =>
-                {
-                    capturedContent = content;
-                    capturedAppraisal = appraisal;
-                    capturedTriggeredBy = triggeredBy;
-                })
-            .Returns(Task.CompletedTask);
-
         // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
@@ -390,17 +347,10 @@ public class ResponsePipelineTest
             ct: CancellationToken.None);
 
         // Assert: terminal write happened with expected appraisal shape and the speaking text.
-        fx.ChatGroup.Verify(g => g.AppendMessageAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-            It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
-        fx.ChatGroup.Verify(g => g.MarkGenerationStoppedAsync(
-            It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Never);
-        fx.ChatGroup.Verify(g => g.MarkGenerationFailedAsync(
-            It.IsAny<int>(), It.IsAny<string>()), Times.Never);
-
-        Assert.Equal(speakingText, capturedContent);
-        Assert.Equal(triggering.MessageId, capturedTriggeredBy);
+        var spoke = Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes));
+        var capturedAppraisal = spoke.Appraisal;
+        Assert.Equal(speakingText, spoke.Content);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
         Assert.NotNull(capturedAppraisal);
         Assert.Contains("\"reason\":\"I have thoughts\"", capturedAppraisal);
         Assert.Contains("\"instruction\":\"Bring it.\"", capturedAppraisal);
@@ -414,7 +364,7 @@ public class ResponsePipelineTest
     {
         // Arrange: decision succeeds; speaking endpoint streams "partial" then throws on
         // first attempt and emits "recovered content" cleanly on second. The retry must
-        // restream from a fresh buffer (AppendMessageAsync content is exactly "recovered
+        // restream from a fresh buffer (Spoke content is exactly "recovered
         // content", not "partialrecovered content") and fire a GenerationRetry event.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"sure","memoryToReference":null,"wouldSay":"on it.","respond":true}""";
@@ -448,15 +398,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        string? capturedContent = null;
-        fx.ChatGroup.Setup(g => g.AppendMessageAsync(
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-                It.IsAny<int?>(), It.IsAny<CancellationToken>()))
-            .Callback<int, string, string?, string?, ChatMessageMetadata?, int?, CancellationToken>(
-                (_, content, _, _, _, _, _) => capturedContent = content)
-            .Returns(Task.CompletedTask);
-
         var streamEvents = new List<MessageStreamEvent>();
         fx.ChatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
             .Callback<int, MessageStreamEvent>((_, evt) => streamEvents.Add(evt))
@@ -473,11 +414,9 @@ public class ResponsePipelineTest
             ct: cts.Token);
 
         // Assert: retry happened, final content is from the fresh stream (not concatenated).
-        Assert.Equal("recovered content", capturedContent);
+        Assert.Equal("recovered content", Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes)).Content);
         Assert.Contains(streamEvents, e => e.Event == MessageStreamEvent.GenerationRetry);
         Assert.Equal(2, speakingCall);
-        fx.ChatGroup.Verify(g => g.MarkGenerationFailedAsync(
-            It.IsAny<int>(), It.IsAny<string>()), Times.Never);
     }
 
     // ── 6. Race-cancel during Speaking → emote ────────────────────────────────
@@ -489,7 +428,7 @@ public class ResponsePipelineTest
         // pipeline is mid-stream, an external task (simulating RaceTrigger.EvaluateAsync
         // firing from a sibling NotifyMessageAsync) marks the in-flight as race-cancelled
         // and trips the CTS. The pipeline's OperationCanceledException catch must route
-        // to the emote path: PersonaEmoteService is invoked, MarkGenerationCancelledAsEmoteAsync
+        // to the emote path: PersonaEmoteService is invoked, the Interrupted outcome
         // is called, and the emote appraisal carries raceCancelled=true.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"jumping in","memoryToReference":null,"wouldSay":"hold on, I","respond":true}""";
@@ -528,17 +467,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        string? capturedEmote = null;
-        string? capturedAppraisal = null;
-        fx.ChatGroup.Setup(g => g.MarkGenerationCancelledAsEmoteAsync(
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>()))
-            .Callback<int, string, string?, int?>((_, emote, appraisal, _) =>
-            {
-                capturedEmote = emote;
-                capturedAppraisal = appraisal;
-            })
-            .Returns(Task.CompletedTask);
-
         // Act: start the pipeline; once speaking has begun, simulate the race trigger
         // tripping inFlight + CTS from outside.
         var pipelineTask = fx.Pipeline.HandleAsync(
@@ -553,23 +481,14 @@ public class ResponsePipelineTest
         var inFlightSnapshot = fx.Store.SnapshotForChatGroup(chatGroupId);
         Assert.Single(inFlightSnapshot);
         var (_, inFlightGen) = inFlightSnapshot[0];
-        inFlightGen.MarkRaceCancelled("forget it — totally different topic", "Mira");
-        inFlightGen.Cts.Cancel();
+        inFlightGen.CancelForRace("forget it — totally different topic", "Mira");
 
         await pipelineTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
-        fx.ChatGroup.Verify(g => g.MarkGenerationCancelledAsEmoteAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>()),
-            Times.Once);
-        fx.ChatGroup.Verify(g => g.AppendMessageAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-            It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
-        fx.ChatGroup.Verify(g => g.MarkGenerationFailedAsync(
-            It.IsAny<int>(), It.IsAny<string>()), Times.Never);
-
-        Assert.Equal(emoteText, capturedEmote);
+        var interrupted = Assert.IsType<TurnOutcome.Interrupted>(Assert.Single(fx.Outcomes));
+        var capturedAppraisal = interrupted.Appraisal;
+        Assert.Equal(emoteText, interrupted.Emote);
         Assert.NotNull(capturedAppraisal);
         Assert.Contains("\"raceCancelled\":true", capturedAppraisal);
     }
@@ -581,7 +500,7 @@ public class ResponsePipelineTest
     {
         // Arrange: decision succeeds; speaking hangs; the *caller's* CTS is tripped
         // (simulating PartyGrain.CancelGenerationAsync via PersonaGrain.CancelGenerationAsync).
-        // RaceCancelled flag is NOT set → catch routes to MarkGenerationFailedAsync("cancelled"),
+        // RaceCancelled flag is NOT set → catch routes to Failed("cancelled"),
         // not the emote path.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"about to","memoryToReference":null,"wouldSay":"writing...","respond":true}""";
@@ -606,11 +525,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        string? capturedError = null;
-        fx.ChatGroup.Setup(g => g.MarkGenerationFailedAsync(It.IsAny<int>(), It.IsAny<string>()))
-            .Callback<int, string>((_, error) => capturedError = error)
-            .Returns(Task.CompletedTask);
-
         // Act: cancel 100ms into the hanging speaking phase.
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
@@ -623,13 +537,7 @@ public class ResponsePipelineTest
             ct: cts.Token);
 
         // Assert: failure surfaced as "cancelled", emote path not taken.
-        Assert.Equal("cancelled", capturedError);
-        fx.ChatGroup.Verify(g => g.MarkGenerationCancelledAsEmoteAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Never);
-        fx.ChatGroup.Verify(g => g.AppendMessageAsync(
-            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string?>(),
-            It.IsAny<string?>(), It.IsAny<ChatMessageMetadata?>(),
-            It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Equal("cancelled", Assert.IsType<TurnOutcome.Failed>(Assert.Single(fx.Outcomes)).Error);
     }
 
     // ── 8. Repair hint consumed once on decision pass ─────────────────────────
@@ -668,8 +576,7 @@ public class ResponsePipelineTest
             CancellationToken.None);
 
         // Assert: pipeline ran decline path, AND the hint has been consumed (store no longer holds it).
-        fx.ChatGroup.Verify(g => g.MarkGenerationStoppedAsync(
-            It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<int?>()), Times.Once);
+        Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes));
         Assert.Null(fx.Store.ConsumeRepairHint(chatGroupId));
     }
 

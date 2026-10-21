@@ -61,10 +61,9 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
         }
     }
 
-    /// <summary>Mark this generation as race-cancelled before triggering the CTS, so the
-    /// catch can route to the emote path. Captures the interrupting message context for
-    /// the emote-generation prompt.</summary>
-    public void MarkRaceCancelled(string interruptingMessage, string interruptingSenderName)
+    /// <summary>Stop-signal race lost: record the interrupter, then cancel — in that order, so
+    /// the pipeline's catch routes to the emote path.</summary>
+    public void CancelForRace(string interruptingMessage, string interruptingSenderName)
     {
         lock (_lock)
         {
@@ -72,6 +71,7 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
             _interruptingMessage = interruptingMessage ?? string.Empty;
             _interruptingSenderName = interruptingSenderName ?? string.Empty;
         }
+        try { Cts.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     public InFlightSnapshot Snapshot()

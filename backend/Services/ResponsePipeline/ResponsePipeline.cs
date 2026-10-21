@@ -112,8 +112,7 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        var messageId = await chatGroupGrain.GetNextMessageIdAsync(
-            persona.Id, "assistant", triggeringMessage.MessageId);
+        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId);
         turnSpan?.SetTag("result.message_id", messageId);
 
         // Race-trigger state: register before any awaits so a concurrent NotifyMessageAsync
@@ -283,7 +282,7 @@ public sealed class ResponsePipeline(
                     stop = true,
                     recall = recallLog
                 }, WebOptions);
-                await chatGroupGrain.MarkGenerationStoppedAsync(messageId, declinedAppraisal, triggeringMessage.MessageId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(declinedAppraisal));
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                     MessageStreamEvent.PersonaDeclinedResponse,
                     JsonSerializer.Serialize(new { personaId = persona.Id, reason = decision.Reason }, WebOptions),
@@ -328,14 +327,8 @@ public sealed class ResponsePipeline(
                 recall = recallLog
             }, WebOptions);
 
-            await chatGroupGrain.AppendMessageAsync(
-                messageId,
-                result.Message ?? string.Empty,
-                result.Reasoning,
-                appraisalJson,
-                result.Metadata,
-                triggeringMessage.MessageId,
-                linkedCt);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
+                result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
 
             if (result.Metadata is not null)
             {
@@ -391,14 +384,13 @@ public sealed class ResponsePipeline(
                     raceCancelled = true
                 }, WebOptions);
 
-                await chatGroupGrain.MarkGenerationCancelledAsEmoteAsync(
-                    messageId, emote, emoteAppraisal, triggeringMessage.MessageId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Interrupted(emote, emoteAppraisal));
             }
             else
             {
                 turnSpan?.SetTag("decision", "cancelled");
                 logger.LogDebug("Persona {PersonaName} generation cancelled (external)", persona.Name);
-                await chatGroupGrain.MarkGenerationFailedAsync(messageId, "cancelled");
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed("cancelled"));
             }
         }
         catch (Exception ex)
@@ -407,7 +399,7 @@ public sealed class ResponsePipeline(
             turnSpan?.SetTag("decision", "error");
             logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
             // FIXME: If at some point we go public, don't send exceptions over the wire
-            await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.ToString());
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed(ex.ToString()));
         }
         finally
         {
@@ -442,7 +434,7 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("persona.name", persona.Name);
         turnSpan?.SetTag("chat_group.id", chatGroupId);
 
-        var messageId = await chatGroupGrain.GetNextMessageIdAsync(persona.Id, "assistant", null);
+        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id);
         var newCts = new CancellationTokenSource();
         var inFlight = store.Register(chatGroupId, messageId, newCts);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
@@ -482,20 +474,20 @@ public sealed class ResponsePipeline(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt);
 
-            await chatGroupGrain.AppendMessageAsync(
-                messageId, result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata, null, linkedCt);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
+                result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
             return result.Message;
         }
         catch (OperationCanceledException)
         {
             logger.LogInformation("Persona {PersonaName} initiative in {ChatGroupId} was cut off", persona.Name, chatGroupId);
-            await chatGroupGrain.MarkGenerationStoppedAsync(messageId, appraisalJson);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisalJson));
             return null;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Persona {PersonaName} initiative failed", persona.Name);
-            await chatGroupGrain.MarkGenerationFailedAsync(messageId, ex.Message);
+            await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed(ex.Message));
             throw;
         }
         finally

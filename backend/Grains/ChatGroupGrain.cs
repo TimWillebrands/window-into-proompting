@@ -85,9 +85,51 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             .TakeLast(count)
             .ToList());
 
-    public async Task<int> GetNextMessageIdAsync(
-        Guid? senderId = null,
-        string senderType = "assistant",
+    public Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null)
+        => ReserveSlotAsync(personaId, "assistant", triggeredByMessageId);
+
+    public async Task EndTurnAsync(int turnId, TurnOutcome outcome)
+    {
+        var slot = State.Messages.FirstOrDefault(m => m.MessageId == turnId);
+        if (slot is null || !IsOpen(slot))
+        {
+            // Deleted mid-generation (Reprompt truncation) or already closed — first outcome wins.
+            logger.LogDebug("Turn {TurnId} in chat group {ChatGroupId} not open; dropping {Outcome}",
+                turnId, this.GetPrimaryKey(), outcome.GetType().Name);
+            return;
+        }
+
+        var trigger = slot.TriggeredByMessageId;
+        switch (outcome)
+        {
+            case TurnOutcome.Spoke s:
+                await AppendMessageAsync(turnId, s.Content, s.Reasoning, s.Appraisal, s.Metadata, trigger);
+                break;
+            case TurnOutcome.Declined d:
+                await MarkGenerationStoppedAsync(turnId, d.Appraisal, trigger);
+                break;
+            case TurnOutcome.Interrupted i:
+                await MarkGenerationCancelledAsEmoteAsync(turnId, i.Emote, i.Appraisal, trigger);
+                break;
+            case TurnOutcome.Failed f:
+                await MarkGenerationFailedAsync(turnId, f.Error);
+                break;
+        }
+    }
+
+    public Task ContinueAsync()
+    {
+        var last = State.Messages.OrderBy(m => m.MessageId).LastOrDefault();
+        return last is null ? Task.CompletedTask : NotifyAllParticipantsAsync(last);
+    }
+
+    /// <summary>A reserved slot no outcome has touched yet.</summary>
+    private static bool IsOpen(ChatMessage slot)
+        => string.IsNullOrEmpty(slot.Content) && slot.Error is null && slot.Appraisal is null;
+
+    private async Task<int> ReserveSlotAsync(
+        Guid? senderId,
+        string senderType,
         int? triggeredByMessageId = null)
     {
 
@@ -174,7 +216,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     {
 
         var chatGroupId = this.GetPrimaryKey();
-        var messageId = await GetNextMessageIdAsync(senderId, "user");
+        var messageId = await ReserveSlotAsync(senderId, "user");
 
         var message = new ChatMessage
         {
@@ -237,14 +279,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return messages.Count;
     }
 
-    public async Task AppendMessageAsync(
+    private async Task AppendMessageAsync(
         int messageId,
         string content,
         string? reasoning,
         string? appraisal,
         ChatMessageMetadata? metadata,
-        int? triggeredByMessageId = null,
-        CancellationToken ct = default)
+        int? triggeredByMessageId)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -262,11 +303,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
-        _ = NotifyAllParticipantsAsync(State.Messages.FirstOrDefault(m => m.MessageId == messageId)!, ct);
 
         var updatedMessage = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
         if (updatedMessage is not null)
         {
+            _ = NotifyAllParticipantsAsync(updatedMessage);
             await PublishPartyEvent(new PartyStreamEvent
             {
                 Type = "message",
@@ -276,7 +317,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null)
+    private async Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -302,7 +343,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    public async Task MarkGenerationFailedAsync(int messageId, string error)
+    private async Task MarkGenerationFailedAsync(int messageId, string error)
     {
 
         var chatGroupId = this.GetPrimaryKey();
@@ -325,17 +366,14 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     /// <summary>
-    /// Race-cancelled generation: instead of leaving an empty slot with a red "cancelled"
-    /// error, ship a short in-character abandonment line ("emote") into the existing slot
-    /// so the chat reads as a beat of character behaviour rather than an error. The message
-    /// is marked <c>Kind="emote"</c> so the frontend can render it distinctly. Other personas
-    /// see it in history and may react.
+    /// Race-cancelled draft becomes an in-character emote (<c>Kind="emote"</c>) in its slot.
+    /// Not fanned out — others see it in history on their next beat.
     /// </summary>
-    public async Task MarkGenerationCancelledAsEmoteAsync(
+    private async Task MarkGenerationCancelledAsEmoteAsync(
         int messageId,
         string emoteContent,
         string? appraisal,
-        int? triggeredByMessageId = null)
+        int? triggeredByMessageId)
     {
         var chatGroupId = this.GetPrimaryKey();
 
@@ -497,7 +535,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     /// PersonaGrain so the single rule for "User-driven personas don't run Decide/Speak"
     /// has one home, not many. Fire-and-forget because PersonaGrain re-enters this grain.
     /// </summary>
-    public Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
+    private Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
         var targets = State.ParticipantIds
@@ -546,11 +584,18 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
-    [Alias("GetNextMessageIdAsync")]
-    Task<int> GetNextMessageIdAsync(
-        Guid? senderId = null,
-        string senderType = "assistant",
-        int? triggeredByMessageId = null);
+    /// <summary>Reserve a Persona's turn slot; end it with exactly one <see cref="EndTurnAsync"/>.</summary>
+    [Alias("BeginTurnAsync")]
+    Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null);
+
+    /// <summary>Close a turn. Idempotent: a missing (deleted) or already-closed slot is a no-op.
+    /// Only <see cref="TurnOutcome.Spoke"/> fans out.</summary>
+    [Alias("EndTurnAsync")]
+    Task EndTurnAsync(int turnId, TurnOutcome outcome);
+
+    /// <summary>Re-offer the latest message to the cast (Proceed / after Reprompt truncation).</summary>
+    [Alias("ContinueAsync")]
+    Task ContinueAsync();
 
     /// <summary>Replace the Room's membership wholesale (ids only).</summary>
     [Alias("SetParticipantIdsAsync")]
@@ -597,23 +642,10 @@ public interface IChatGroupGrain : IGrainWithGuidKey
         string? appraisal = null,
         CancellationToken cancellationToken = default);
 
-    [Alias("AppendMessageAsync")]
-    Task AppendMessageAsync(
-        int messageId,
-        string content,
-        string? reasoning = null,
-        string? appraisal = null,
-        ChatMessageMetadata? metadata = null,
-        int? triggeredByMessageId = null,
-        CancellationToken cancellationToken = default);
-
     [Alias("ImportMessagesAsync")]
     Task<int> ImportMessagesAsync(
         List<ImportedMessage> messages,
         CancellationToken cancellationToken = default);
-
-    [Alias("MarkGenerationStoppedAsync")]
-    Task MarkGenerationStoppedAsync(int messageId, string? appraisal, int? triggeredByMessageId = null);
 
     [Alias("RecordSkippedTurnAsync")]
     Task RecordSkippedTurnAsync(
@@ -638,16 +670,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetRaceEvaluationsAsync")]
     Task<IReadOnlyList<RaceEvaluation>> GetRaceEvaluationsAsync();
 
-    [Alias("MarkGenerationFailedAsync")]
-    Task MarkGenerationFailedAsync(int messageId, string error);
-
-    [Alias("MarkGenerationCancelledAsEmoteAsync")]
-    Task MarkGenerationCancelledAsEmoteAsync(
-        int messageId,
-        string emoteContent,
-        string? appraisal,
-        int? triggeredByMessageId = null);
-
     [Alias("DeleteMessageAsync")]
     Task DeleteMessageAsync(int messageId);
 
@@ -662,9 +684,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
 
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
-
-    [Alias("NotifyAllParticipantsAsync")]
-    Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken cancellationToken = default);
 }
 
 // ── State ──

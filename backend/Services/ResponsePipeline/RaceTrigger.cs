@@ -81,10 +81,9 @@ public sealed class RaceTrigger(
                 _logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight DECISION (msg {Mid}) on new {NewMid}",
                     persona.Name, inFlightMessageId, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
+                gen.CancelForRace(
                     triggeringMessage.Content ?? string.Empty,
                     await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
                 await RecordOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "cancel-decision", null, null);
                 continue;
@@ -150,10 +149,9 @@ public sealed class RaceTrigger(
                 _logger.LogInformation(
                     "Race: persona {Name} cancelling in-flight GENERATION (msg {Mid}, tokens {Tok}, salience {Sal:F2}, cancelScore {Cs:F2}) on new {NewMid}",
                     persona.Name, inFlightMessageId, snap.GeneratedTokens, salience.Value, cancelScore, triggeringMessage.MessageId);
-                gen.MarkRaceCancelled(
+                gen.CancelForRace(
                     triggeringMessage.Content ?? string.Empty,
                     await ResolveSenderNameAsync());
-                try { gen.Cts.Cancel(); } catch (ObjectDisposedException) { }
                 await RecordOutcomeAsync(chatGroupGrain, persona,
                     triggeringMessage.MessageId, "cancel-generation", salience.Value, cancelScore);
             }

@@ -364,16 +364,7 @@ public sealed class PartyController(
         }
 
 
-        // Create a synthetic trigger message to fan out to personas
-        var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
-        var messages = await chatGroupGrain.GetMessagesAsync();
-        var lastMessage = messages.LastOrDefault();
-
-        if (lastMessage is not null)
-        {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
-        }
-
+        await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId).ContinueAsync();
         return Accepted();
     }
 
@@ -478,15 +469,7 @@ public sealed class PartyController(
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
         await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
-
-        // Fan out to personas after truncation
-        var messages = await chatGroupGrain.GetMessagesAsync();
-        var lastMessage = messages.LastOrDefault();
-        if (lastMessage is not null)
-        {
-            await chatGroupGrain.NotifyAllParticipantsAsync(lastMessage, HttpContext.RequestAborted);
-        }
-
+        await chatGroupGrain.ContinueAsync();
         return Accepted();
     }
 

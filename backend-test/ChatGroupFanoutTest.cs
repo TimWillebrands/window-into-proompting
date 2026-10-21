@@ -82,7 +82,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
     [Fact]
     public async Task AppendMessage_FromAssistant_ReFansOutToAllParticipants()
     {
-        // Desired: when a persona completes (AppendMessageAsync path), ChatGroupGrain
+        // Desired: when a persona's turn ends Spoke, ChatGroupGrain
         // re-fans out so the OTHER personas can evaluate the new assistant message.
         // This is the feedback loop; every append should produce another round of fanout.
         var (_, chatGroupId, participants) = await _fx.CreatePartyWithChatGroupAsync("Alice", "Bob");
@@ -94,13 +94,34 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
 
         // Simulate Alice responding: reserve a slot, then append.
         var alice = participants[0];
-        var slotId = await chatGroup.GetNextMessageIdAsync(alice.Id, "assistant");
-        await chatGroup.AppendMessageAsync(slotId, "Alice says hi", null, null);
+        var slotId = await chatGroup.BeginTurnAsync(alice.Id);
+        await chatGroup.EndTurnAsync(slotId, new TurnOutcome.Spoke("Alice says hi", null, null, null));
         await WaitForFanoutAsync(initialCount + 1);
 
         var total = FanoutInterceptor.Calls.Count;
         Assert.True(total > initialCount,
-            $"Expected re-fanout after AppendMessageAsync, got {total - initialCount} new calls (initial={initialCount}, total={total})");
+            $"Expected re-fanout after a Spoke turn, got {total - initialCount} new calls (initial={initialCount}, total={total})");
+    }
+
+    [Fact]
+    public async Task EndTurn_FirstOutcomeWins_DeletedSlotIsNoOp()
+    {
+        var (_, chatGroupId, participants) = await _fx.CreatePartyWithChatGroupAsync("Alice", "Bob");
+        var chatGroup = _fx.GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
+        var alice = participants[0];
+
+        var first = await chatGroup.BeginTurnAsync(alice.Id);
+        await chatGroup.EndTurnAsync(first, new TurnOutcome.Declined("{}"));
+        await chatGroup.EndTurnAsync(first, new TurnOutcome.Spoke("too late", null, null, null));
+
+        var gone = await chatGroup.BeginTurnAsync(alice.Id);
+        await chatGroup.DeleteMessagesAfterAsync(first);
+        await chatGroup.EndTurnAsync(gone, new TurnOutcome.Spoke("into the void", null, null, null));
+
+        var messages = await chatGroup.GetMessagesAsync();
+        var closed = Assert.Single(messages, m => m.MessageId == first);
+        Assert.True(string.IsNullOrEmpty(closed.Content));
+        Assert.DoesNotContain(messages, m => m.MessageId == gone);
     }
 
     [Fact]
