@@ -586,6 +586,9 @@ public sealed class ResponsePipeline(
             var tiesTask = grainFactory.GetGrain<IPersonaTiesGrain>(key).RenderAsync(present.Select(p => p.Id).ToList());
             var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
             var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
+            // Money and fresh gifts (ADR 0024) only in the World, where there's a wallet to speak of.
+            if (string.IsNullOrWhiteSpace(scenario))
+                presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
             var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
             return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }

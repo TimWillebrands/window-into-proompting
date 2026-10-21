@@ -79,6 +79,8 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.DiaryApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.CalendarApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Places.PlacesApp>();
+    builder.Services.AddSingleton<PartyTown.World.Economy.WardrobeApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp>(sp => sp.GetRequiredService<PartyTown.World.Economy.WardrobeApp>());
     builder.Services.TryAddSingleton(TimeProvider.System);
 
     // LLM one-shot calls (memory extraction, stance consolidation) routinely run
