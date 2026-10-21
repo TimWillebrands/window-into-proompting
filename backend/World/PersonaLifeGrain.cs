@@ -131,13 +131,13 @@ Output ONLY JSON: {ChoiceShape}
 
             var voiced = await llm.CompleteJsonAsync(JobComplexity.General,
                 $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next: {options[choice - 1].Label}. Say what's on your mind and what exactly you'll do.\nOutput ONLY JSON: {IntentShape}",
-                sb.ToString(), ct, 0.8);
+                sb.ToString(), ct, 0.8, ["thought", "intent"]);
             thought = voiced?["thought"]?.ToString();
             intent = voiced?["intent"]?.ToString() ?? string.Empty;
         }
         else
         {
-            var json = await llm.CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8);
+            var json = await llm.CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8, ["thought", "choice", "intent"]);
             thought = json?["thought"]?.ToString();
             intent = json?["intent"]?.ToString() ?? string.Empty;
             var choiceRaw = json?["choice"]?.ToString() ?? "0";

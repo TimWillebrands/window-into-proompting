@@ -297,7 +297,7 @@ public sealed class WorldClockGrain(
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
                 $"You are the narrator of a small online world shared by a handful of people. Let ONE small, concrete thing happen in their surroundings — weather, a local event, a glitch, news, a delivery, a neighbourhood rumour. Everyday scale, no catastrophes, nothing about any person's inner life. It should give people something new to react to, unrelated to what they're already discussing. One or two sentences, present tense.\nOutput ONLY JSON: {AmbientShape}",
                 $"It is {local:dddd HH:mm}.\n\nRecent happenings (don't repeat):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
-                CancellationToken.None, 1.0);
+                CancellationToken.None, 1.0, ["happening"]);
             var text = json?["happening"]?.ToString();
             if (!string.IsNullOrWhiteSpace(text))
                 await AnnounceAsync(text);

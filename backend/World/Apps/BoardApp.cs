@@ -61,7 +61,7 @@ Recent post titles (don't duplicate them):
 
 Output: {PostShape}
 """;
-            var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9);
+            var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["title", "body"]);
             var title = json?["title"]?.GetValue<string>();
             var body = json?["body"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(body)) return null;
@@ -81,7 +81,7 @@ What you want to say: {intent}
 
 Output: {ReplyShape}
 """;
-        var replyJson = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, replyUser, ct, 0.9);
+        var replyJson = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, replyUser, ct, 0.9, ["body"]);
         var replyBody = replyJson?["body"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(replyBody)) return null;
 
@@ -177,7 +177,7 @@ Moments on your mind:
 Where you stand:
 {(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
 """;
-        var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9);
+        var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["mood", "entry"]);
         var body = json?["entry"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(body)) return null;
         var mood = json?["mood"]?.GetValue<string>();

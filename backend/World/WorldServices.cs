@@ -11,14 +11,19 @@ public interface IWorldLlm
 {
     Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null);
 
-    Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null);
+    /// <param name="fields">String fields the object must have; sent as a JSON schema so small/local models are constrained.</param>
+    Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null);
 }
 
 /// <summary>One-shot LLM calls for World Apps: tier routing with General fallback + JSON repair.</summary>
 public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : IWorldLlm
 {
-    public async Task<string?> CompleteAsync(
+    public Task<string?> CompleteAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
+        => CompleteCoreAsync(preferred, system, user, ct, temperature, null);
+
+    private async Task<string?> CompleteCoreAsync(
+        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, string? responseFormat)
     {
         var router = grains.GetGrain<ILlmRouterGrain>(0);
         ILlmEndpointGrain endpoint;
@@ -42,14 +47,15 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
             },
             JobComplexity = complexity,
             ModelParameters = temperature is null ? null : new LlmModelParameters { Temperature = temperature },
+            ResponseFormat = responseFormat,
         };
         return await endpoint.CompleteOneShotAsync(job, ct);
     }
 
     public async Task<JsonObject?> CompleteJsonAsync(
-        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
+        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
     {
-        var raw = await CompleteAsync(preferred, system, user, ct, temperature);
+        var raw = await CompleteCoreAsync(preferred, system, user, ct, temperature, fields is null ? null : SchemaFor(fields));
         var json = LlmJson.TryRepairObject(raw ?? string.Empty);
         if (json is null)
         {
@@ -65,6 +71,29 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
             logger.LogWarning(ex, "World LLM JSON parse failed: {Preview}", LlmJson.LogPreview(raw));
             return null;
         }
+    }
+
+    /// <summary>OpenAI-style json_schema response format: an object of required string fields.</summary>
+    public static string SchemaFor(IReadOnlyList<string> fields)
+    {
+        var props = new JsonObject();
+        foreach (var f in fields) props[f] = new JsonObject { ["type"] = "string" };
+        return new JsonObject
+        {
+            ["type"] = "json_schema",
+            ["json_schema"] = new JsonObject
+            {
+                ["name"] = "world",
+                ["strict"] = true,
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = props,
+                    ["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()),
+                    ["additionalProperties"] = false,
+                },
+            },
+        }.ToJsonString();
     }
 
     /// <summary>Models sometimes repeat a key; JsonObject throws on that, so rebuild it last-wins.</summary>

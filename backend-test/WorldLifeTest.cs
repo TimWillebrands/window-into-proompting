@@ -78,7 +78,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
 
-        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
+        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
         {
             Prompts.Enqueue(user);
             if (user.Contains("# Options"))
