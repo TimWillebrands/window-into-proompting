@@ -38,9 +38,14 @@ Proompting was a group chat with memory. The goal of this effort: a **world** wh
 
 See README § The World. Worlds start paused; press Run in World Monitor.
 
-## Verified live (OpenRouter `deepseek/deepseek-v4.1-flash`, ~$0.25 for ~2 h of running and testing)
+## Verified live (OpenRouter `deepseek/deepseek-v4.1-flash`, ~$0.30 for ~2.5 h of running and testing)
 
 - Cross-App memory: a storm Happening came up later in DMs, Board replies and diaries. Pieter's DM referenced the Board thread he was in.
 - Personas DM'd the human unprompted and replied in character. A newcomer (Lena) was welcomed on the Board and later joined a room by herself.
 - Diary plus Consolidation produced grounded stances.
 - Local mode (Ollama `lfm2.5`) completes a structured Life turn.
+- Calendar: Tim planned the Gathering "Storm stories" for 3 minutes ahead. All four personas RSVP'd on their own turns. When it started, three of them turned up in #test and told storm stories; Eiko chose to keep DMing.
+- Hardening found along the way:
+  - Orleans JSON storage dropped default-valued fields, which flipped humans to AI after a restart.
+  - JsonRepairSharp isn't thread-safe.
+  - Models sometimes return empty output, duplicate JSON keys, or leaked template tokens.
