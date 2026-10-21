@@ -18,6 +18,7 @@ import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
+import PlaceCanvas from './iso/PlaceCanvas';
 import {
     avatarColour,
     bodiesIn,
@@ -85,6 +86,7 @@ export default function PlacesApp() {
                 <PlaceView
                     place={selected}
                     bodies={bodiesIn(bodies, selected.id)}
+                    allBodies={bodies}
                     furni={(snapshot.furni ?? []).filter(
                         (f) => f.placeId === selected.id,
                     )}
@@ -180,6 +182,7 @@ function Navigator({
 function PlaceView({
     place,
     bodies,
+    allBodies,
     furni,
     me,
     playerId,
@@ -187,6 +190,7 @@ function PlaceView({
 }: {
     place: Place;
     bodies: Body[];
+    allBodies: Body[];
     furni: FurniView[];
     me: Body | undefined;
     playerId: string | null;
@@ -214,7 +218,10 @@ function PlaceView({
         });
 
     return (
-        <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 6 }}>
+        <div
+            className="flex min-w-0 flex-1 flex-col overflow-y-auto"
+            style={{ gap: 6 }}
+        >
             <div className="flex items-center" style={{ gap: 8 }}>
                 <div className="min-w-0 flex-1">
                     <h3 style={{ margin: 0, fontSize: 14 }}>
@@ -247,6 +254,15 @@ function PlaceView({
                     Sign in on the Welcome screen to have a body here.
                 </div>
             ) : null}
+            <PlaceCanvas
+                place={place}
+                bodies={allBodies}
+                furni={furni}
+                playerId={playerId}
+                onSpotClick={
+                    amHere || canGo ? (spotId) => goTo(spotId) : undefined
+                }
+            />
             <div
                 className="grid"
                 style={{
