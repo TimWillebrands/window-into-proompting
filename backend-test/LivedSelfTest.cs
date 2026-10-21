@@ -43,12 +43,27 @@ public class LivedSelfTest
         var now = new DateTimeOffset(2026, 10, 21, 14, 10, 0, TimeSpan.Zero);
         var text = SelfRender.Presence(day, 0.2, now, Array.Empty<string>());
 
-        Assert.Contains("Where your day is at: lunch", text);
+        Assert.Contains("Off-screen right now: lunch", text);
+        Assert.DoesNotContain("Where you are", text);
         Assert.Contains("Earlier today: 07:00 burned the toast; 09:00 standup", text);
         Assert.Contains("Coming up: 18:00 groceries", text);
         Assert.Contains("heater", text);
         Assert.Contains("nearly empty", text);
         Assert.DoesNotContain("Gone stale", text);
+    }
+
+    [Fact]
+    public void Presence_SituationComesFirstAndWinsOverTheDay()
+    {
+        var day = new SelfState { Beats = SelfMath.ParseBeats("09:00 at the office") };
+        var now = new DateTimeOffset(2026, 10, 21, 10, 0, 0, TimeSpan.Zero);
+
+        var text = SelfRender.Presence(day, 1, now, Array.Empty<string>(), "You're at the Café, sitting at the window table.");
+
+        var lines = text.Split('\n');
+        Assert.Equal("Where you are: You're at the Café, sitting at the window table.", lines[2]);
+        Assert.Contains("Off-screen right now: at the office", text);
+        Assert.Contains("the day is what's going on in your life around it", text);
     }
 
     [Fact]

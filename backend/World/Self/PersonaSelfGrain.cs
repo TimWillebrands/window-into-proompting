@@ -26,7 +26,8 @@ public sealed partial class PersonaSelfGrain(
         var now = DateTimeOffset.Now;
         if (withDay) await EnsureDayAsync(partyId, personaId, now);
         var wear = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync();
-        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId));
+        var situation = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSituationAsync(personaId);
+        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation);
     }
 
     public async Task NoteSpokeAsync(double chattiness)
@@ -140,9 +141,10 @@ public static partial class SelfMath
 /// <summary>Renders the <c># Right now</c> block.</summary>
 public static class SelfRender
 {
-    public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear)
+    public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear, string? situation = null)
     {
         var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(situation)) lines.Add($"Where you are: {situation}");
         if (day is { Beats.Count: > 0 })
         {
             var minute = now.Hour * 60 + now.Minute;
@@ -150,8 +152,8 @@ public static class SelfRender
             var current = past.LastOrDefault();
             var earlier = past.SkipLast(1).TakeLast(3).ToList();
             var next = day.Beats.FirstOrDefault(b => b.Minute > minute);
-            lines.Add($"It's {now.ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
-            lines.Add(current is null ? "You're not really up yet." : $"Where your day is at: {current.Text}");
+            lines.Insert(0, $"It's {now.ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
+            lines.Add(current is null ? "You're not really up yet." : $"Off-screen right now: {current.Text}");
             if (earlier.Count > 0) lines.Add($"Earlier today: {string.Join("; ", earlier.Select(Beat))}");
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
@@ -168,7 +170,8 @@ public static class SelfRender
         var block = lines.Count == 0
             ? string.Empty
             : $"# Right now\n{string.Join("\n", lines)}\n" + (day is { Beats.Count: > 0 }
-                ? "This is your life outside the chat. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it.\n"
+                ? "This is your life outside the chat. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it."
+                  + (string.IsNullOrWhiteSpace(situation) ? "\n" : " Where you are is the 'Where you are' line; the day is what's going on in your life around it.\n")
                 : string.Empty);
         if (wear.Count > 0)
             block += $"\n# Gone stale\n{string.Join("\n", wear.Select(w => $"- {w}"))}\n";

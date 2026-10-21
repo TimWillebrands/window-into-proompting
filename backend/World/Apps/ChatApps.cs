@@ -105,6 +105,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
         var recentlyTalked = new HashSet<Guid>();
+        var nearby = await CoPresentAsync(ctx);
 
         foreach (var dm in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(ctx.Self.Id) == true))
         {
@@ -122,15 +123,16 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : other)}: {WorldStream.Clip(m.Content, 140)}");
 
             // A waiting human pulls hard; persona threads already get live replies from the pipeline.
+            // Someone in the same Place gets talked to out loud, not texted (Places co-presence rule).
             if (last.SenderId != ctx.Self.Id)
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
-                    ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
+                    nearby.Contains(otherId) ? 0 : ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
             else
                 sb.AppendLine($"  (you're waiting on {other})");
         }
 
         var newContacts = ctx.Others
-            .Where(c => !recentlyTalked.Contains(c.Id))
+            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);
@@ -139,6 +141,15 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
 
         if (sb.Length == 0) sb.Append("No private conversations going on.");
         return new AppPerception(Id, "Messenger (private 1:1 chats)", sb.ToString().TrimEnd(), affordances);
+    }
+
+    private async Task<HashSet<Guid>> CoPresentAsync(LifeContext ctx)
+    {
+        var bodies = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Bodies;
+        var self = bodies.FirstOrDefault(b => b.ParticipantId == ctx.Self.Id);
+        if (self is null || self.IsWalking) return new HashSet<Guid>();
+        return bodies.Where(b => b.ParticipantId != ctx.Self.Id && !b.IsWalking && b.PlaceId == self.PlaceId)
+            .Select(b => b.ParticipantId).ToHashSet();
     }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)

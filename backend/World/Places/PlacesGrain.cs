@@ -17,6 +17,7 @@ public sealed class PlacesGrain(
 {
     private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
     private IGrainTimer? _arrivals;
 
     private Guid PartyId => this.GetPrimaryKey();
@@ -87,13 +88,28 @@ public sealed class PlacesGrain(
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
     }
 
-    public async Task SetActivityAsync(Guid participantId, string? activity)
+    public async Task NoteActivityAsync(Guid participantId, string app)
     {
-        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.Activity == activity) return;
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
+        var atHome = Find(body.PlaceId)?.OwnerId == participantId && !body.IsWalking;
+        var activity = DeviceUse(app, atHome);
+        if (activity is null) return;
         body.Activity = activity;
+        body.ActivityUntil = Now() + (long)ActivityWearsOff.TotalMilliseconds;
         await state.WriteStateAsync();
         await PublishAsync(body);
     }
+
+    /// <summary>Online Apps are used on a device, and that shows on the Body. Phone unless at home.</summary>
+    internal static string? DeviceUse(string app, bool atHome) => app switch
+    {
+        "messenger" => "on their phone, texting",
+        "rooms" => "on their phone, in a group chat",
+        "board" => atHome ? "at their laptop, on the Board" : "on their phone, scrolling the Board",
+        "calendar" => "on their phone, checking the calendar",
+        "diary" => "writing in their diary",
+        _ => null,
+    };
 
     /// <summary>Spots stored before <see cref="Spot.At"/> existed get it from the seed templates.</summary>
     private void BackfillPrepositions()
@@ -151,6 +167,11 @@ public sealed class PlacesGrain(
     private async Task SettleAsync()
     {
         var now = Now();
+        foreach (var b in state.State.Bodies.Values.Where(b => b.ActivityUntil <= now))
+        {
+            b.Activity = null;
+            b.ActivityUntil = null;
+        }
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
         if (arrived.Count == 0) return;
         foreach (var body in arrived)
@@ -227,21 +248,25 @@ public sealed class PlacesGrain(
             var mins = Math.Max(0, (body.ArriveAt!.Value - Now()) / 60_000.0);
             return body.DestPlaceId == body.PlaceId
                 ? $"You're walking over to {SpotName(dest, body.DestSpotId)} at {WhereName(dest, body.ParticipantId)}."
-                : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 1 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
+                : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
         }
         var place = Find(body.PlaceId);
         var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(place, body)}");
-        if (body.Activity is { Length: > 0 } activity) sb.Append($", {activity}");
+        if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
         var others = Occupants(body.PlaceId).Where(b => b.ParticipantId != body.ParticipantId).ToList();
         if (others.Count == 0)
             sb.Append(" Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
-                ? $"{o.Name} (right next to you)"
-                : $"{o.Name} ({PostureAt(place, o)})"))).Append('.');
+                ? $"{o.Name} (right next to you{Doing(o)})"
+                : $"{o.Name} ({PostureAt(place, o)}{Doing(o)})"))).Append('.');
         return sb.ToString();
     }
+
+    private static string Yours(string activity) => activity.Replace("their", "your");
+
+    private static string Doing(Body b) => b.Activity is { Length: > 0 } a ? $", {a}" : string.Empty;
 
     private Place? Find(Guid placeId) => state.State.Places.FirstOrDefault(p => p.Id == placeId);
 
@@ -289,5 +314,6 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Walk over to another Body's spot.</summary>
     [Alias("JoinAsync")] Task<Body?> JoinAsync(Guid participantId, Guid otherId);
 
-    [Alias("SetActivityAsync")] Task SetActivityAsync(Guid participantId, string? activity);
+    /// <summary>Someone used an online App; their Body shows the device for a few minutes.</summary>
+    [Alias("NoteActivityAsync")] Task NoteActivityAsync(Guid participantId, string app);
 }

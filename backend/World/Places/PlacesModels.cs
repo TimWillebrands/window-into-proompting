@@ -46,7 +46,7 @@ public sealed class Body
     [Id(2)] public Guid PlaceId { get; set; }
     [Id(3)] public string SpotId { get; set; } = string.Empty;
     [Id(4)] public Posture Posture { get; set; } = Posture.Standing;
-    /// <summary>What the Body is busy with, e.g. "on their phone"; null when idle.</summary>
+    /// <summary>What the Body is busy with, third person ("on their phone, texting"); null when idle.</summary>
     [Id(5)] public string? Activity { get; set; }
     [Id(6)] public Guid? DestPlaceId { get; set; }
     [Id(7)] public string? DestSpotId { get; set; }
@@ -55,6 +55,8 @@ public sealed class Body
     [Id(10)] public bool IsHuman { get; set; }
     /// <summary>When the Body settled where it is; drives restlessness.</summary>
     [Id(11)] public long ArrivedAt { get; set; }
+    /// <summary>When <see cref="Activity"/> wears off.</summary>
+    [Id(12)] public long? ActivityUntil { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

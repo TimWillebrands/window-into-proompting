@@ -94,6 +94,8 @@ public sealed class WorldClockGrain(
             state.State.Activities.RemoveRange(0, state.State.Activities.Count - MaxActivities);
         await state.WriteStateAsync();
         await PublishAsync("activity", activity);
+        if (activity.PersonaId != Guid.Empty)
+            await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).NoteActivityAsync(activity.PersonaId, activity.App);
     }
 
     public async Task<WorldActivity> AnnounceAsync(string text)
