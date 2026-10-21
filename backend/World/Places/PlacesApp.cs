@@ -45,7 +45,8 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             if (nearby.Count > 0 && last?.SenderId != ctx.Self.Id)
             {
                 var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
-                var priority = 2 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0);
+                // Talk out loud pulls like any other mode; being named is what makes it urgent.
+                var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 3 : 0);
                 affordances.Add(new Affordance(Id, $"Say something to {who}, right here", priority, talkRoomId, "say"));
                 var confidant = nearby[Random.Shared.Next(nearby.Count)];
                 affordances.Add(new Affordance(Id, $"Whisper something to {confidant.Name} only", 0, confidant.ParticipantId, "whisper"));
@@ -67,10 +68,14 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
 
         if (!self.IsWalking)
         {
-            foreach (var o in others.Where(o => o.SpotId != self.SpotId).OrderBy(_ => Random.Shared.Next()).Take(2))
-                affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}", 1, o.ParticipantId, "join"));
-            if (here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
-                affordances.Add(new Affordance(Id, $"Move over to {spot.Name}", 0, here.Id, $"spot:{spot.Id}"));
+            // No musical chairs: right after a walk, stay put; otherwise one person to go over to, at most.
+            if (!JustWalked(ctx))
+            {
+                if (others.Where(o => o.SpotId != self.SpotId && !o.IsWalking).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } o)
+                    affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}", nearby.Count == 0 ? 1 : 0, o.ParticipantId, "join"));
+                if (nearby.Count == 0 && here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
+                    affordances.Add(new Affordance(Id, $"Move over to {spot.Name}", 0, here.Id, $"spot:{spot.Id}"));
+            }
 
             // Care is capped: only the one thing here that needs it most is offered (spec: decay feeds talk, not housework).
             var nowMs = ctx.Now.ToUnixTimeMilliseconds();
@@ -229,6 +234,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 return null;
         }
     }
+
+    /// <summary>Walked within the last two own actions (or the last 15 min).</summary>
+    internal static bool JustWalked(LifeContext ctx)
+        => ctx.RecentOwn.Take(2).Any(a => a.App == "places" && a.Action == "walk"
+            && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromMinutes(15));
 
     private static string SpotName(Place? place, string spotId)
         => place?.Spots.FirstOrDefault(s => s.Id == spotId)?.Name ?? "somewhere";
