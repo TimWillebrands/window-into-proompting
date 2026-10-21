@@ -15,7 +15,10 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         foreach (var room in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Room))
         {
             var grain = grains.GetGrain<IChatGroupGrain>(room.Id);
-            if (!(await grain.GetParticipantIdsAsync()).Contains(ctx.Self.Id)) continue;
+            var members = await grain.GetParticipantIdsAsync();
+            if (!members.Contains(ctx.Self.Id) || !members.Any(id => id != ctx.Self.Id && id != Narrator.PersonaId)) continue;
+            // A Room where someone else drives this Persona isn't theirs to speak in.
+            if ((await grain.GetDriverOverridesAsync()).TryGetValue(ctx.Self.Id, out var driver) && driver != DriverKind.LLM) continue;
             rooms.Add((room, await grain.GetRecentMessagesAsync(3)));
         }
         if (rooms.Count == 0) return null;
