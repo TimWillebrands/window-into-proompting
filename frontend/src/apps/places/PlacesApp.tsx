@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
     getGetWorldsPartyIdPlacesQueryKey,
     useGetWorldsPartyIdLivesSuspense,
@@ -24,6 +24,18 @@ import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
 import PlaceCanvas from './iso/PlaceCanvas';
+
+const PlaceScene = lazy(() => import('./scene/PlaceScene'));
+
+/** three.js needs WebGL2; without it the 2D canvas draws the Place. */
+const webgl2 = (() => {
+    try {
+        return !!document.createElement('canvas').getContext('webgl2');
+    } catch {
+        return false;
+    }
+})();
+
 import {
     avatarColour,
     bodiesIn,
@@ -95,6 +107,7 @@ export default function PlacesApp() {
                     place={selected}
                     bodies={bodiesIn(bodies, selected.id)}
                     allBodies={bodies}
+                    places={places}
                     furni={(snapshot.furni ?? []).filter(
                         (f) => f.placeId === selected.id,
                     )}
@@ -215,6 +228,7 @@ function PlaceView({
     place,
     bodies,
     allBodies,
+    places,
     furni,
     me,
     playerId,
@@ -223,6 +237,7 @@ function PlaceView({
     place: Place;
     bodies: Body[];
     allBodies: Body[];
+    places: Place[];
     furni: FurniView[];
     me: Body | undefined;
     playerId: string | null;
@@ -377,17 +392,36 @@ function PlaceView({
                     onClose={() => setProfileId(null)}
                 />
             ) : null}
-            <PlaceCanvas
-                place={place}
-                bodies={allBodies}
-                furni={furni}
-                playerId={playerId}
-                allEars={allEars}
-                onBodyClick={setProfileId}
-                onSpotClick={
-                    amHere || canGo ? (spotId) => goTo(spotId) : undefined
-                }
-            />
+            {webgl2 ? (
+                <Suspense fallback={<div style={{ height: 300 }} />}>
+                    <PlaceScene
+                        places={places}
+                        place={place}
+                        bodies={allBodies}
+                        furni={furni}
+                        playerId={playerId}
+                        allEars={allEars}
+                        onBodyClick={setProfileId}
+                        onSpotClick={
+                            amHere || canGo
+                                ? (spotId) => goTo(spotId)
+                                : undefined
+                        }
+                    />
+                </Suspense>
+            ) : (
+                <PlaceCanvas
+                    place={place}
+                    bodies={allBodies}
+                    furni={furni}
+                    playerId={playerId}
+                    allEars={allEars}
+                    onBodyClick={setProfileId}
+                    onSpotClick={
+                        amHere || canGo ? (spotId) => goTo(spotId) : undefined
+                    }
+                />
+            )}
             <div
                 className="grid"
                 style={{
