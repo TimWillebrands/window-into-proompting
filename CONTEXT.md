@@ -20,8 +20,16 @@ _Avoid_: chat-group, chat-room, channel, thread.
 A character with a name, bio, system prompt, and behavioural dials (**Chattiness**, **Impulsivity**). Lives outside any Party — Personas are library entries that can join multiple Parties (eventually) and accumulate per-Party **Memories**. A Persona is a definition, not a membership.
 _Avoid_: character, agent, bot, NPC, user.
 
+**Nature**:
+The half of a **Persona** that is who they are, wherever they go: Bio, system prompt, dials, **Intrinsic Stances**. Lives on the Persona and travels into every **Party**.
+_Avoid_: personality, traits, sheet, template.
+
+**Nurture**:
+The half of a **Persona** that is what happened to them: **Events**, **Recollections** and **Acquired Stances** in one **Party**. Lives on the **Participant**; begins at **Arrival** and grows through play.
+_Avoid_: backstory, history, lore, memories (too broad).
+
 **Narrator**:
-The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (imports, scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
+The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
 
 **Participant**:
 A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
@@ -50,9 +58,17 @@ _Avoid_: resolved-driver, current-driver.
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
 _Avoid_: prompt, setting, premise, context.
 
-**Scene**:
-A human-selected chunk range from an import processed as one unit by the scene workshop — usually one narrative scene, sometimes more (a recap). Workshop-only vocabulary; it exists in the import **session** draft and dissolves on commit — no `Scene` node lands in the memory graph. See [ADR 0017](docs/adr/0017-import-scene-workshop-over-stateless-map.md).
-_Avoid_: segment, window, batch, section.
+**Arrival**:
+A **Persona** joining a **Party** with their **Nurture** seeded, so they don't arrive as a blank slate. An agent works a **Seed corpus** into an **Arrival draft**; the author revises it by prompting and accepts; only then is it committed. Author-driven only. See [ADR 0022](docs/adr/0022-arrival-replaces-import.md).
+_Avoid_: import, onboarding, spawn, seeding (as a noun).
+
+**Seed corpus**:
+The free-text material an **Arrival** works from: vibes, rough ideas, concrete pointers ("Denise knows Vlad from five years ago, when he lived in Bangladesh"), pasted stories or chat logs. No format.
+_Avoid_: import file, backstory doc, prompt.
+
+**Arrival draft**:
+The dry-run result of an **Arrival**: the newcomer's Events, Recollections and Stances, plus additions to existing **Participants**' **Nurture** where the corpus touches them. Revised by prompting; nothing reaches the memory graph until accepted.
+_Avoid_: preview, proposal, staging.
 
 ### Persona behaviour dials
 
@@ -311,6 +327,8 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
 - A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant**.
 - A **Place talk** message has one **Earshot**.
+- A **Persona**'s **Nature** is shared by all its **Participants**; each **Participant** has its own **Nurture**.
+- An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue
 
