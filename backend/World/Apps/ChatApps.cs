@@ -109,9 +109,10 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             foreach (var m in recent)
                 sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : other)}: {WorldStream.Clip(m.Content, 140)}");
 
+            // A waiting human pulls hard; persona threads already get live replies from the pipeline.
             if (last.SenderId != ctx.Self.Id)
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
-                    4, dm.Id, "reply"));
+                    ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
             else
                 sb.AppendLine($"  (you're waiting on {other})");
         }
