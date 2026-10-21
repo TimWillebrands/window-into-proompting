@@ -20,4 +20,5 @@ export interface SelfSummary {
     /** @nullable */
     doing: string | null;
     day: string[];
+    threads: string[];
 }

@@ -8397,7 +8397,8 @@
           "battery",
           "availability",
           "doing",
-          "day"
+          "day",
+          "threads"
         ],
         "type": "object",
         "properties": {
@@ -8446,6 +8447,12 @@
             ]
           },
           "day": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "threads": {
             "type": "array",
             "items": {
               "type": "string"

@@ -27,7 +27,8 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
                 Math.Round(SelfMath.Battery(x.s, now), 2),
                 x.sleeping ? SelfMath.Asleep : SelfMath.Availability(x.s, now),
                 x.sleeping ? "Asleep" : x.s.Beats.LastOrDefault(b => b.Minute <= minute)?.Text,
-                x.s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList()))
+                x.s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList(),
+                x.s.Threads))
             .ToList());
     }
 
@@ -49,4 +50,5 @@ public sealed record SelfSummary(
     double Battery,
     double Availability,
     string? Doing,
-    List<string> Day);
+    List<string> Day,
+    List<string> Threads);

@@ -114,6 +114,30 @@ public sealed partial class PersonaSelfGrain(
 
     private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing from the last few days, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings. Only things that already happened before today or are ongoing, never something from later today.";
 
+    private const string ThreadsSpec = "2-4 lines, one per line: what's ongoing in their life across days (a project, a worry, a plan, an errand they keep putting off, something they look forward to). Life-sized and concrete, not themes. Carry over the ongoing ones you're given unless today settles them; write a settled one as \"done: …\".";
+
+    /// <summary>Life threads for a day generated before threads existed: one small call.</summary>
+    private async Task EnsureThreadsAsync(Guid partyId, Guid personaId, string key)
+    {
+        state.State.ThreadsKey = key;
+        var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        if (self is null) return;
+        using var cts = new CancellationTokenSource(DayBudget);
+        try
+        {
+            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+                $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"threads\": {ThreadsSpec}",
+                $"Their day:\n{string.Join("\n", state.State.Beats.Select(b => b.Text))}\nOn their mind: {state.State.Preoccupation}",
+                cts.Token, 0.8, ["threads"]);
+            (state.State.Threads, _) = SelfMath.ParseThreads(json?["threads"]?.ToString());
+            await state.WriteStateAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Life threads failed for {Persona}", self.Name);
+        }
+    }
+
     /// <summary>Days generated before openers existed get them from one small call.</summary>
     private async Task EnsureOpenersAsync(Guid partyId, Guid personaId)
     {
@@ -142,6 +166,7 @@ public sealed partial class PersonaSelfGrain(
         if (state.State.DayKey == key)
         {
             if (state.State.Openers.Count == 0 && !state.State.OpenersTried) await EnsureOpenersAsync(partyId, personaId);
+            if (state.State.Threads.Count == 0 && state.State.ThreadsKey != key) await EnsureThreadsAsync(partyId, personaId, key);
             return;
         }
         if (now.ToUnixTimeMilliseconds() - state.State.DayAttemptAt < DayRetry.TotalMilliseconds) return;
@@ -172,9 +197,11 @@ public sealed partial class PersonaSelfGrain(
                 - preoccupation: one plain sentence, a practical thing from their own life nagging at them today
                 - beats: 7-10 lines "HH:MM what happens", chronological from waking to bed, one per line
                 - openers: {OpenersSpec}
+                - threads: {ThreadsSpec}
+                Let today's beats move at least one ongoing thread a little.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.\nYesterday: {yesterday}",
-                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers"]);
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}",
+                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
             {
@@ -187,6 +214,13 @@ public sealed partial class PersonaSelfGrain(
             state.State.Energy = json?["energy"]?.ToString()?.Trim().ToLowerInvariant() ?? "medium";
             state.State.Preoccupation = json?["preoccupation"]?.ToString()?.Trim();
             state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
+            var (open, done) = SelfMath.ParseThreads(json?["threads"]?.ToString());
+            if (open.Count > 0 || done.Count > 0)
+            {
+                state.State.Threads = open;
+                state.State.Resolved = done;
+                state.State.ThreadsKey = key;
+            }
             // A night's sleep recharges and resets the mood drift.
             state.State.Battery = 1;
             state.State.Valence = 0;
@@ -216,6 +250,18 @@ public static partial class SelfMath
         if (s.BatteryAt == 0) return 1;
         var hours = Math.Max(0, (now.ToUnixTimeMilliseconds() - s.BatteryAt) / 3_600_000.0);
         return Math.Clamp(s.Battery + hours * RechargePerHour, 0, 1);
+    }
+
+    /// <summary>Life threads: open lines, plus "done: …" lines settled today.</summary>
+    public static (List<string> Open, List<string> Done) ParseThreads(string? raw)
+    {
+        var lines = (raw ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => Regex.Replace(l.Trim().TrimStart('-', '*', '•', ' ').Trim(), @"^\d+[.)]\s*", ""))
+            .Where(l => l.Length > 3).ToList();
+        var done = lines.Where(l => l.StartsWith("done:", StringComparison.OrdinalIgnoreCase))
+            .Select(l => l[5..].Trim()).Where(l => l.Length > 3).Take(3).ToList();
+        var open = lines.Where(l => !l.StartsWith("done:", StringComparison.OrdinalIgnoreCase)).Take(4).ToList();
+        return (open, done);
     }
 
     public static List<string> ParseList(string? raw)
@@ -302,6 +348,8 @@ public static class SelfRender
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
             if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this chat): {day.Preoccupation}");
+            if (day.Threads.Count > 0) lines.Add($"Going on in your life lately: {string.Join("; ", day.Threads)}");
+            if (day.Resolved.Count > 0) lines.Add($"Finally settled: {string.Join("; ", day.Resolved)}");
             if (day.Openers.Count > 0) lines.Add($"Things you might bring up if there's a lull (or not at all): {string.Join("; ", day.Openers)}");
         }
         lines.Add(battery switch
@@ -375,6 +423,11 @@ public sealed class SelfState
     [Id(12)] public double Valence { get; set; }
     [Id(13)] public long ValenceAt { get; set; }
     [Id(14)] public string? ValenceSource { get; set; }
+    /// <summary>Ongoing life threads, carried day to day (ADR 0021).</summary>
+    [Id(15)] public List<string> Threads { get; set; } = new();
+    /// <summary>Threads today's day settled.</summary>
+    [Id(16)] public List<string> Resolved { get; set; } = new();
+    [Id(17)] public string? ThreadsKey { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

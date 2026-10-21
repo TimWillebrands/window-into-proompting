@@ -350,3 +350,28 @@ public class SignatureMarkTest
         Assert.Contains(VoiceWear.RenderFor(report, a), l => l.Contains("🌿"));
     }
 }
+
+public class LifeThreadsTest
+{
+    [Fact]
+    public void ParseThreads_SplitsOpenFromDone()
+    {
+        var (open, done) = SelfMath.ParseThreads("- lease renewal due Friday\n2. done: bought the tap cartridge\n* sister's wedding in November\nok");
+        Assert.Equal(new[] { "lease renewal due Friday", "sister's wedding in November" }, open);
+        Assert.Equal(new[] { "bought the tap cartridge" }, done);
+    }
+
+    [Fact]
+    public void Presence_ShowsThreadsAndWhatGotSettled()
+    {
+        var day = new SelfState
+        {
+            Beats = SelfMath.ParseBeats("08:00 coffee"),
+            Threads = new() { "lease renewal due Friday" },
+            Resolved = new() { "bike light fixed" },
+        };
+        var text = SelfRender.Presence(day, 1, new DateTimeOffset(2026, 10, 21, 9, 0, 0, TimeSpan.Zero), Array.Empty<string>());
+        Assert.Contains("Going on in your life lately: lease renewal due Friday", text);
+        Assert.Contains("Finally settled: bike light fixed", text);
+    }
+}
