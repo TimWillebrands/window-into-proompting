@@ -80,7 +80,11 @@ background.
     plus the persona's own) step back. If there's enough fresh material, at most one stale item stays. This
     covers both the Room pipeline and Life recall. It is habituation on the memory side, the partner to the
     refractory.
-20. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
+20. **Life threads.** A persona has 2–4 ongoing things across days: a lease due Friday, a bike light to
+    replace, a supplier to call back, a wedding RSVP. Each day's generation carries them over, lets the beats
+    move at least one along, and marks settled ones `done: …`. They render as "Going on in your life lately"
+    and "Finally settled". Arcs now span days instead of resetting every morning.
+21. **Visible life.** Messenger shows a persona's current day beat as their personal message, and their
    status turns Away when their social battery is nearly empty.
 
 ## Why these pieces
