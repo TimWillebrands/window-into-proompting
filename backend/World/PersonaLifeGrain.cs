@@ -23,6 +23,7 @@ public sealed class PersonaLifeGrain(
 {
     private const int MaxOptions = 10;
     private const int MaxOptionsPerApp = 3;
+    private static readonly TimeSpan TurnBudget = TimeSpan.FromSeconds(150);
     private const double ChoiceTemperature = 0.8;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
     private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
@@ -30,7 +31,9 @@ public sealed class PersonaLifeGrain(
     public async Task<WorldActivity> LiveAsync(string? nudge)
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
-        var ct = CancellationToken.None;
+        // Under the 3 min grain response timeout, so a stalled model call ends as a fizzle, not a timeout.
+        using var turnCts = new CancellationTokenSource(TurnBudget);
+        var ct = turnCts.Token;
         var party = GrainFactory.GetGrain<IPartyGrain>(partyId);
         var cast = await party.GetCastAsync();
         var self = cast.FirstOrDefault(c => c.Id == personaId && c.DefaultDriver == DriverKind.LLM);
