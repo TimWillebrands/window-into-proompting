@@ -44,6 +44,8 @@ _Avoid_: resolved-driver, current-driver.
 
 > Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
 
+> Code home: `RoomCast` (`IChatGroupGrain.GetCastAsync`) — the present cast with Effective Drivers resolved. Consumers ask it, never re-derive.
+
 **Scenario**:
 Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
 _Avoid_: prompt, setting, premise, context.

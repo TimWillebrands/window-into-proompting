@@ -46,37 +46,19 @@ public sealed class ResponsePipeline(
         // Self-as-User short-circuits here — the User-Effective rule lives in exactly one
         // place rather than at every fan-out site (per ADR 0011).
         var partyId = await chatGroupGrain.GetPartyIdAsync();
-        var partyGrain = grainFactory.GetGrain<IPartyGrain>(partyId);
-        var castTask = partyGrain.GetCastAsync();
-        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
-        await Task.WhenAll(castTask, overridesTask);
-        var cast = castTask.Result;
-        var overrides = overridesTask.Result;
+        var roomCast = await chatGroupGrain.GetCastAsync();
 
-        var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
-        if (selfCast is null)
-        {
-            logger.LogDebug(
-                "Persona {PersonaName} not in cast for party {PartyId}; skipping notify",
-                persona.Name, partyId);
-            return;
-        }
-
-        var selfEffective = selfCast.EffectiveIn(overrides);
-        // Only LLM-Effective Participants run the response pipeline. User-Effective is
-        // human-typed; System-Effective (Narrator) is authored content that never
-        // auto-speaks (ADR 0012). Both short-circuit here so the rule lives in one place.
-        if (selfEffective != DriverKind.LLM)
+        // Only present, LLM-Effective Participants run the response pipeline. User-Effective
+        // is human-typed; System-Effective (Narrator) never auto-speaks (ADR 0012).
+        if (roomCast.Speaker(persona.Id) is not { } self)
         {
             logger.LogDebug(
                 "Persona {PersonaName} is {Driver}-Effective in chat group {ChatGroupId}; skipping pipeline",
-                persona.Name, selfEffective, chatGroupId);
+                persona.Name, roomCast.EffectiveOf(persona.Id)?.ToString() ?? "absent", chatGroupId);
             return;
         }
 
-        var self = selfCast.ToSelfView(selfEffective);
-        var memberIds = await chatGroupGrain.GetParticipantIdsAsync();
-        var participantViews = PresentViews(cast, memberIds, overrides);
+        var participantViews = roomCast.Views();
 
         // One root span per persona per triggering message. The fan-out at ChatGroupGrain
         // does NOT wrap these in a parent span on purpose — each persona reaction is an
@@ -97,7 +79,7 @@ public sealed class ResponsePipeline(
         var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
-        var isDirect = participantViews.Count == 2;
+        var isDirect = roomCast.IsDirect;
         var preUrge = UrgeMath.CalculateResponseUrge(self, preHistory, preRounds, directlyAddressed: isDirect);
         var preRecentSelf = UrgeMath.CountRecentSelfMessages(preHistory, persona.Id);
         turnSpan?.SetTag("urge.total", preUrge.Total);
@@ -233,7 +215,7 @@ public sealed class ResponsePipeline(
             turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, scenario,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
                 repairHint, stanceLines);
 
@@ -449,16 +431,11 @@ public sealed class ResponsePipeline(
         CancellationToken ct)
     {
         var partyId = await chatGroupGrain.GetPartyIdAsync();
-        var cast = await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
-        var overrides = await chatGroupGrain.GetDriverOverridesAsync();
-        var memberIds = await chatGroupGrain.GetParticipantIdsAsync();
-
-        var selfCast = cast.FirstOrDefault(c => c.Id == persona.Id);
-        if (selfCast is null || memberIds?.Contains(persona.Id) != true || selfCast.EffectiveIn(overrides) != DriverKind.LLM)
+        var roomCast = await chatGroupGrain.GetCastAsync();
+        if (roomCast.Speaker(persona.Id) is not { } self)
             return null;
 
-        var self = selfCast.ToSelfView(DriverKind.LLM);
-        var participantViews = PresentViews(cast, memberIds, overrides);
+        var participantViews = roomCast.Views();
 
         using var turnSpan = Tracing.Persona.StartActivity("persona.initiate", ActivityKind.Internal);
         turnSpan?.SetTag("persona.id", persona.Id);
@@ -526,14 +503,6 @@ public sealed class ResponsePipeline(
             store.Remove(chatGroupId, messageId);
         }
     }
-
-    /// <summary>Who is actually in this Room/DM — the Room's membership, not the whole Party.</summary>
-    private static List<ParticipantView> PresentViews(
-        IReadOnlyList<CastMember> cast, IReadOnlySet<Guid> memberIds, IReadOnlyDictionary<Guid, DriverKind> overrides)
-        => cast
-            .Where(c => memberIds is null || memberIds.Count == 0 || memberIds.Contains(c.Id))
-            .Select(c => c.ToView(c.EffectiveIn(overrides)))
-            .ToList();
 
     // Arm attribution as logged/papertrailed (ADR 0015 two-arm union observability).
     private static string ArmTag(RecallArm arm)
@@ -687,6 +656,7 @@ public sealed class ResponsePipeline(
         SelfView self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<ParticipantView> participants,
+        bool isDirect,
         string? scenario,
         IReadOnlyList<string> recollections,
         CancellationToken ct,
@@ -712,7 +682,7 @@ public sealed class ResponsePipeline(
             repairHint: repairHint,
             recollections: recollections,
             stances: stances,
-            isDirect: participants.Count == 2,
+            isDirect: isDirect,
             presence: presence);
     }
 

@@ -4,9 +4,8 @@ namespace PartyTown.Model;
 
 /// <summary>
 /// Internal materialised join of a Participant link with its Persona library entry,
-/// built per Response-pipeline run by PartyGrain and projected into views before
-/// reaching consumers. Carries the Default Driver only; the Effective Driver is
-/// resolved at the call site (PersonaGrain) against the Room's override map.
+/// built by PartyGrain and projected into views before reaching consumers. Carries the
+/// Default Driver only; the Effective Driver is resolved by <see cref="RoomCast"/>.
 /// </summary>
 [GenerateSerializer, Alias(nameof(CastMember))]
 public sealed record class CastMember
@@ -20,16 +19,14 @@ public sealed record class CastMember
     [Id(6)] public double Impulsivity { get; init; } = 0.5;
 
     /// <summary>
-    /// Pure factory. No I/O. User-driven links and library-miss LLM links yield a
-    /// sparse CastMember (identity + default driver only); LLM links with a library
-    /// hit carry the full join. Name always comes from the link, not the library
-    /// entry — the Participant owns the per-Party display name.
+    /// Pure factory. No I/O. System links and library misses are sparse; any other link
+    /// carries the full join, since a Room override can make a User default LLM-Effective.
+    /// Name always comes from the link — the Participant owns the per-Party display name.
     /// </summary>
     public static CastMember Create(PartyParticipant link, Persona? persona)
     {
-        // Non-LLM drivers (User, System) yield a sparse CastMember (identity + default driver only):
-        // the User Participant is human-typed, the System Participant (Narrator) never auto-speaks.
-        if (link.Driver != DriverKind.LLM)
+        // System (Narrator) never auto-speaks in any Room (ADR 0012), so it never needs the join.
+        if (link.Driver == DriverKind.System || persona is null)
             return new CastMember
             {
                 Id = link.Id,
@@ -37,19 +34,11 @@ public sealed record class CastMember
                 DefaultDriver = link.Driver
             };
 
-        if (persona is null)
-            return new CastMember
-            {
-                Id = link.Id,
-                Name = link.Name,
-                DefaultDriver = DriverKind.LLM
-            };
-
         return new CastMember
         {
             Id = link.Id,
             Name = link.Name,
-            DefaultDriver = DriverKind.LLM,
+            DefaultDriver = link.Driver,
             Bio = persona.Bio,
             SystemPrompt = persona.SystemPrompt,
             Chattiness = persona.Chattiness,

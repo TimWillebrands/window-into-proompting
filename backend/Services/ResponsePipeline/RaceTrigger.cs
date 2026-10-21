@@ -114,10 +114,11 @@ public sealed class RaceTrigger(
                     grainFactory.GetGrain<ILlmRouterGrain>(0),
                     loggerFactory.CreateLogger<PersonaSalienceService>(),
                     judge);
-                var selfView = new SelfView(
-                    persona.Id, persona.Name, DriverKind.LLM,
-                    persona.Bio, persona.SystemPrompt,
-                    persona.Chattiness, persona.Impulsivity);
+                var selfView = (await chatGroupGrain.GetCastAsync()).Speaker(persona.Id)
+                    ?? new SelfView(
+                        persona.Id, persona.Name, DriverKind.LLM,
+                        persona.Bio, persona.SystemPrompt,
+                        persona.Chattiness, persona.Impulsivity);
                 salience = await salienceService.ScoreAsync(
                     selfView,
                     snap.GutReaction,

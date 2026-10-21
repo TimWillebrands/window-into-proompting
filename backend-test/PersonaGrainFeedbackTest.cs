@@ -97,6 +97,11 @@ public class PersonaGrainFeedbackTest : TestKitBase
                 new PartyParticipant { Id = _personaId, Name = PersonaName, Driver = DriverKind.LLM },
                 new Persona { Id = _personaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
         });
+        chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(() => RoomCast.Create(
+            partyGrain.Object.GetCastAsync().Result,
+            new HashSet<Guid> { _personaId },
+            new Dictionary<Guid, DriverKind>(),
+            ChatGroupKinds.Room));
         // Two prior assistant rounds → no cold-open bump. Stays under the obvious-skip
         // threshold too (no recent self-messages).
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(2);

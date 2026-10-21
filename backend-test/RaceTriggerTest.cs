@@ -67,6 +67,7 @@ public class RaceTriggerTest
     {
         var mock = new Mock<IChatGroupGrain>();
         mock.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(PartyId);
+        mock.Setup(g => g.GetCastAsync()).ReturnsAsync(new RoomCast());
         mock.Setup(g => g.RecordRaceEvaluationAsync(
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
                 It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()))

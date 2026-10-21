@@ -659,7 +659,7 @@ public sealed class PartyController(
             return NotFound();
         }
 
-        var presentParticipants = await BuildRoomViewsAsync(id, chatGroupGrain);
+        var presentParticipants = await BuildRoomViewsAsync(chatGroupGrain);
 
         var contextWindow = messages
             .Where(m => m.MessageId <= messageId)
@@ -735,7 +735,7 @@ public sealed class PartyController(
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(chatGroupId);
         var messages = await chatGroupGrain.GetMessagesAsync();
         var skipped = await chatGroupGrain.GetSkippedTurnsAsync();
-        var participants = await BuildRoomViewsAsync(id, chatGroupGrain);
+        var participants = await BuildRoomViewsAsync(chatGroupGrain);
 
         var doc = PapertrailRenderer.Build(messages, skipped, participants, sinceMessageId);
 
@@ -757,26 +757,8 @@ public sealed class PartyController(
         }
     }
 
-    /// <summary>
-    /// Build the Room's <see cref="ParticipantView"/> list — Personas currently in the
-    /// Room with their Effective Driver. Filters the canonical cast by Room membership
-    /// and projects through the override map via <see cref="CastMember.EffectiveIn"/>.
-    /// </summary>
-    private async Task<List<ParticipantView>> BuildRoomViewsAsync(Guid partyId, IChatGroupGrain chatGroupGrain)
-    {
-        var partyGrain = grains.GetGrain<IPartyGrain>(partyId);
-        var castTask = partyGrain.GetCastAsync();
-        var idsTask = chatGroupGrain.GetParticipantIdsAsync();
-        var overridesTask = chatGroupGrain.GetDriverOverridesAsync();
-        await Task.WhenAll(castTask, idsTask, overridesTask);
-        var cast = castTask.Result;
-        var ids = idsTask.Result;
-        var overrides = overridesTask.Result;
-        return cast
-            .Where(c => ids.Contains(c.Id))
-            .Select(c => c.ToView(c.EffectiveIn(overrides)))
-            .ToList();
-    }
+    private static async Task<List<ParticipantView>> BuildRoomViewsAsync(IChatGroupGrain chatGroupGrain)
+        => (await chatGroupGrain.GetCastAsync()).Views();
 
     private async Task<List<PartyParticipant>> BuildDefaultParticipants(Guid? userId, string? userName)
     {

@@ -118,6 +118,16 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync()
         => Task.FromResult<IReadOnlyDictionary<Guid, DriverKind>>(State.DriverOverrides);
 
+    public async Task<RoomCast> GetCastAsync()
+    {
+        var party = GrainFactory.GetGrain<IPartyGrain>(State.PartyId);
+        var castTask = party.GetCastAsync();
+        var roomsTask = party.GetChatGroups();
+        await Task.WhenAll(castTask, roomsTask);
+        var kind = roomsTask.Result.FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind;
+        return RoomCast.Create(castTask.Result, State.ParticipantIds, State.DriverOverrides, kind);
+    }
+
     public async Task SetDriverOverrideAsync(Guid personaId, DriverKind kind)
     {
         if (State.DriverOverrides.TryGetValue(personaId, out var existing) && existing == kind) return;
@@ -544,6 +554,11 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     /// entry means the Participant's Default Driver applies.</summary>
     [Alias("GetDriverOverridesAsync")]
     Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync();
+
+    /// <summary>Present Participants with Effective Drivers and library data — the one
+    /// place consumers learn who is here and who drives them.</summary>
+    [Alias("GetCastAsync")]
+    Task<RoomCast> GetCastAsync();
 
     /// <summary>Set the Driver override for one Persona in this Room.</summary>
     [Alias("SetDriverOverrideAsync")]

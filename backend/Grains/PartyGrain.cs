@@ -259,18 +259,17 @@ public sealed class PartyGrain(
     }
 
     /// <summary>
-    /// Pure filter for who's eligible to have an in-flight generation cancelled. Only LLM-
-    /// driven Participants ever run generation; User and System never do (User is human-typed,
-    /// System never auto-speaks — ADR 0012). Extracted so the guard is unit-testable.
+    /// Pure filter for who may have an in-flight pipeline to cancel. System never runs one
+    /// (ADR 0012); a User default can, when a Room override makes it LLM-Effective.
     /// </summary>
     public static IEnumerable<PartyParticipant> SelectCancelTargets(IEnumerable<PartyParticipant> participants)
-        => participants.Where(p => p.Driver == DriverKind.LLM);
+        => participants.Where(p => p.Driver != DriverKind.System);
 
     public async Task<IReadOnlyList<CastMember>> GetCastAsync()
     {
-        // Only LLM links need the library join — fetch those personas, not the whole library.
+        // Every non-System link needs the join: Room overrides can make a User default speak.
         var library = await Task.WhenAll(State.Participants
-            .Where(p => p.Driver == DriverKind.LLM)
+            .Where(p => p.Driver != DriverKind.System)
             .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).GetPersona()));
         var byId = library.ToDictionary(p => p.Id, p => p);
 

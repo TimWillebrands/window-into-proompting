@@ -109,6 +109,12 @@ public class ResponsePipelineTest
                 new Persona { Id = PersonaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null })
         });
 
+        chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(() => RoomCast.Create(
+            partyGrain.Object.GetCastAsync().Result,
+            new HashSet<Guid> { PersonaId },
+            new Dictionary<Guid, DriverKind>(),
+            ChatGroupKinds.Room));
+
         var factory = new Mock<IGrainFactory>();
         factory.Setup(f => f.GetGrain<ILlmRouterGrain>(0L, null)).Returns(router.Object);
         factory.Setup(f => f.GetGrain<IPersonaRootGrain>(Guid.Empty, null)).Returns(personaRoot.Object);

@@ -13,26 +13,33 @@ public class CastMemberTest
         new(id, libraryName, $"You are {libraryName}.", bio, chattiness: 0.7, impulsivity: 0.4);
 
     [Fact]
-    public void Create_UserLink_ReturnsSparseUserDriven_RegardlessOfLibrary()
+    public void Create_UserLinkWithLibraryHit_CarriesJoin_ForLlmOverrides()
     {
-        // A User-driven link is sparse — bio and system prompt are intentionally null even
-        // when a library entry exists, because the human types the messages.
+        // A Room override can make a User default LLM-Effective; it must speak as itself.
         var id = Guid.NewGuid();
-        var link = new PartyParticipant { Id = id, Name = "Tim", Driver = DriverKind.User };
-        var libraryHit = LibraryPersona(id, "Tim-the-Persona");
+        var link = new PartyParticipant { Id = id, Name = "Vlad", Driver = DriverKind.User };
 
-        var sparseNoLib = CastMember.Create(link, persona: null);
-        var sparseWithLib = CastMember.Create(link, libraryHit);
+        var c = CastMember.Create(link, LibraryPersona(id, "Vlad-lib", bio: "broody"));
 
-        foreach (var c in new[] { sparseNoLib, sparseWithLib })
+        Assert.Equal(DriverKind.User, c.DefaultDriver);
+        Assert.Equal("Vlad", c.Name);
+        Assert.Equal("broody", c.Bio);
+        Assert.Equal("You are Vlad-lib.", c.SystemPrompt);
+        Assert.Equal(0.7, c.Chattiness);
+    }
+
+    [Fact]
+    public void Create_SystemLinkOrLibraryMiss_IsSparse()
+    {
+        var id = Guid.NewGuid();
+        var system = new PartyParticipant { Id = id, Name = "Narrator", Driver = DriverKind.System };
+        var user = new PartyParticipant { Id = id, Name = "Tim", Driver = DriverKind.User };
+
+        foreach (var c in new[] { CastMember.Create(system, LibraryPersona(id, "N")), CastMember.Create(user, persona: null) })
         {
-            Assert.Equal(id, c.Id);
-            Assert.Equal("Tim", c.Name);
-            Assert.Equal(DriverKind.User, c.DefaultDriver);
             Assert.Null(c.Bio);
             Assert.Null(c.SystemPrompt);
             Assert.Equal(0.5, c.Chattiness);
-            Assert.Equal(0.5, c.Impulsivity);
         }
     }
 
