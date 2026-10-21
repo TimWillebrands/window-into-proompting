@@ -38,7 +38,6 @@ background.
    plain words over metaphor, you may be brief/bored/distracted, match length, no stage directions.
 6. **Stage-direction cleanup.** `SpeechCleanup` drops narrated actions: 4+ words inside asterisks, starting
    lowercase. A short `*sigh*` stays, and so does capitalised emphasis.
-
 7. **Utterance rhythm.** Each Speaking turn samples a length cue (short, medium or long). The odds track the
    length of the last line from someone else: after a one-liner, 70% of cues are short.
 8. **Conversation thermostat** (`ConversationThermostatGrain`, key Room). Once per new message, System One
@@ -74,6 +73,6 @@ lease (from her generated day) unprompted.
 - Each persona costs one extra General-tier call per day, on the first prompt that needs the day. If
   generation fails it is retried at most every 10 min, and the block renders without the day.
 - Diary moods update the Self's mood, so reflection feeds back into the day.
-- Next candidates: relationship texture per pair (familiarity, last contact) beyond Stances; an intensity
-  thermostat for conversations that stay confessional too long; and a lifelikeness bench (stale-word
-  rate, stage-direction rate, length variance) tracked across runs.
+- Places (ADR 0020) adds a *Where you are* line to the same block; the Body wins for where, the day is life around it.
+- Next candidates: relationship texture per pair (familiarity, last contact, what you know of their life)
+  beyond Stances; and a lifelikeness bench (stale-word rate, stage-direction rate, length variance) tracked across runs.
