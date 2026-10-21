@@ -191,4 +191,21 @@ app.UseWebSockets();
 
 app.MapControllers();
 
+// Dev runs one silo: a predecessor killed without a goodbye still reads Active and gets traffic until probed dead.
+if (!openApiBuild && app.Environment.IsDevelopment())
+{
+    try
+    {
+        await using var db = new Npgsql.NpgsqlConnection(app.Configuration.GetConnectionString("Default"));
+        await db.OpenAsync();
+        await using var cmd = new Npgsql.NpgsqlCommand("UPDATE orleansmembershiptable SET status = 6 WHERE status = 3", db);
+        var stale = await cmd.ExecuteNonQueryAsync();
+        if (stale > 0) app.Logger.LogInformation("Marked {Count} stale silo(s) dead before starting", stale);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogDebug(ex, "Stale silo cleanup skipped");
+    }
+}
+
 app.Run();
