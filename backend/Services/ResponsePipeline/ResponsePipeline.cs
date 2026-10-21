@@ -618,6 +618,24 @@ public sealed class ResponsePipeline(
         }
     }
 
+    /// <summary>A sleeping Body (ADR 0020) only wakes for a human; persona talk doesn't reach them.</summary>
+    private async Task<bool> SleepsThroughAsync(
+        IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ChatMessage> history, IReadOnlyList<ParticipantView> participants)
+    {
+        try
+        {
+            var trigger = history.LastOrDefault(m => m.SenderId != self.Id && !string.IsNullOrWhiteSpace(m.Content));
+            if (trigger is null || participants.Any(p => p.Id == trigger.SenderId && p.Driver == DriverKind.User)) return false;
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            return await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).IsAsleepAsync(self.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Sleep check failed for {PersonaName}", self.Name);
+            return false;
+        }
+    }
+
     private async Task<bool> WindingDownAsync(IChatGroupGrain chatGroupGrain)
     {
         try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).IsWindingDownAsync(); }
@@ -678,6 +696,8 @@ public sealed class ResponsePipeline(
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
         var totalAiRounds = CountTrailingAssistantMessages(history);
+        if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
+            return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
         var windingDown = await WindingDownAsync(chatGroupGrain);
 

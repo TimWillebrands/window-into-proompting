@@ -64,6 +64,7 @@ public sealed partial class PersonaSelfGrain(
     public async Task<double> GetAvailabilityAsync()
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        if (await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).IsAsleepAsync(personaId)) return SelfMath.Asleep;
         await EnsureAvailabilityAsync(partyId, personaId);
         return SelfMath.Availability(state.State, DateTimeOffset.Now);
     }
@@ -193,6 +194,7 @@ public sealed partial class PersonaSelfGrain(
 public static partial class SelfMath
 {
     private const double RechargePerHour = 0.25;
+    public const double Asleep = 0.02;
 
     [GeneratedRegex(@"^\s*[-*•]?\s*(\d{1,2})[:.h](\d{2})\s*[-—–:]?\s*(.+)$")]
     private static partial Regex BeatLine();

@@ -20,12 +20,14 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
         var personas = cast.Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId).ToList();
         var states = await Task.WhenAll(personas.Select(c =>
             grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, c.Id)).GetStateAsync()));
-        return Ok(personas.Zip(states, (c, s) => new SelfSummary(
-                c.Id, c.Name, s.Mood, s.Energy, s.Preoccupation,
-                Math.Round(SelfMath.Battery(s, now), 2),
-                SelfMath.Availability(s, now),
-                s.Beats.LastOrDefault(b => b.Minute <= minute)?.Text,
-                s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList()))
+        var places = grains.GetGrain<World.Places.IPlacesGrain>(partyId);
+        var asleep = await Task.WhenAll(personas.Select(c => places.IsAsleepAsync(c.Id)));
+        return Ok(personas.Select((c, i) => (c, s: states[i], sleeping: asleep[i])).Select(x => new SelfSummary(
+                x.c.Id, x.c.Name, x.s.Mood, x.s.Energy, x.s.Preoccupation,
+                Math.Round(SelfMath.Battery(x.s, now), 2),
+                x.sleeping ? SelfMath.Asleep : SelfMath.Availability(x.s, now),
+                x.sleeping ? "Asleep" : x.s.Beats.LastOrDefault(b => b.Minute <= minute)?.Text,
+                x.s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList()))
             .ToList());
     }
 
