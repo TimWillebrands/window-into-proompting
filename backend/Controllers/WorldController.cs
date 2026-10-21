@@ -105,6 +105,24 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<PlayerResponse>> EnsurePlayer(Guid partyId, [FromBody] EnsurePlayerRequest request)
         => Ok(new PlayerResponse(await Clock(partyId).EnsurePlayerAsync(request.Name)));
 
+    /// <summary>Remove a human Player and their DM threads. Personas keep their memories; the default Player moves on.</summary>
+    [HttpDelete("players/{playerId:guid}")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemovePlayer(Guid partyId, Guid playerId)
+    {
+        var party = grains.GetGrain<IPartyGrain>(partyId);
+        var info = await party.GetParty();
+        if (info.Participants.All(p => p.Id != playerId || p.Driver != DriverKind.User)) return NotFound();
+        foreach (var dm in (await party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(playerId) == true))
+            await party.RemoveChatGroup(dm.Id);
+        if (await party.RemoveParticipantAsync(playerId) is not { } leaving) return NotFound();
+        await Clock(partyId).RecordAsync(new WorldActivity
+        {
+            PersonaId = playerId, PersonaName = leaving.Name, App = "world", Action = "leave", Summary = "left the world",
+        });
+        return NoContent();
+    }
+
     // ─── Board ────────────────────────────────────────────────────────────────
 
     [HttpGet("board")]

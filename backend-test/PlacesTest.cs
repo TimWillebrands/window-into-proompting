@@ -313,6 +313,21 @@ public class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task ALeavingParticipant_TakesTheirBodyAndEmptyHome()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        await places.GetSnapshotAsync();
+
+        await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).RemoveParticipantAsync(pieter);
+        var snapshot = await places.GetSnapshotAsync();
+
+        Assert.DoesNotContain(snapshot.Bodies, b => b.ParticipantId == pieter);
+        Assert.DoesNotContain(snapshot.Places, p => p.OwnerId == pieter);
+        Assert.Contains(snapshot.Places, p => p.OwnerId == denise);
+    }
+
+    [Fact]
     public async Task RoomsAndDms_StayHeardByEveryone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

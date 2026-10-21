@@ -649,6 +649,9 @@ public sealed class PlacesGrain(
         if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
+        // A Home goes with its owner once nobody's in it.
+        state.State.Places.RemoveAll(p => p.Kind == PlaceKinds.Home && p.OwnerId is { } owner
+            && present.All(c => c.Id != owner) && !Occupants(p.Id).Any());
         if (!changed && gone.Count == 0) return;
         await SaveAsync();
         foreach (var placeId in state.State.Places.Where(p => p.TalkRoomId is not null).Select(p => p.Id).ToList())
