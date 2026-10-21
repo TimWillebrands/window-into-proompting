@@ -76,6 +76,11 @@ if (!openApiBuild)
     // the in-flight response as expired. Give the grain<->client RPC generous headroom.
     var llmResponseTimeout = TimeSpan.FromMinutes(3);
 
+    // Grain storage JSON must keep default values: enums/bools whose zero differs from the
+    // property initializer (DriverKind.User, IsEnabled=false) otherwise reload as the initializer.
+    builder.Services.Configure<Orleans.Serialization.OrleansJsonSerializerOptions>(o =>
+        o.JsonSerializerSettings.DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Include);
+
     builder.Host.UseOrleans(siloBuilder =>
     {
         siloBuilder.Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);

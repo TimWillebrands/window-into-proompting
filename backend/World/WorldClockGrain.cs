@@ -163,9 +163,11 @@ public sealed class WorldClockGrain(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Life turn failed for persona {PersonaId}", personaId);
+            var info = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetParty();
             activity = new WorldActivity
             {
                 PersonaId = personaId, App = "life", Action = "error", Summary = WorldStream.Clip(ex.Message, 160),
+                PersonaName = info.Participants.FirstOrDefault(p => p.Id == personaId)?.Name ?? string.Empty,
             };
         }
         finally
