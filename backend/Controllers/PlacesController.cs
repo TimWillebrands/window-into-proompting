@@ -29,6 +29,17 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
         return body is null ? Conflict("Can't go there (private, full, or unknown).") : Ok(body);
     }
 
+    /// <summary>Walk over to someone (default: as the Player); someone away at a Locale gets it opened for the visit.</summary>
+    [HttpPost("join")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<Body>> Join(Guid partyId, [FromBody] JoinBodyRequest request)
+    {
+        var who = request.ParticipantId ?? (await grains.GetGrain<IWorldClockGrain>(partyId).GetStatusAsync()).PlayerId;
+        if (who is null) return BadRequest("No participant and no Player yet.");
+        var body = await Places(partyId).JoinAsync(who.Value, request.OtherId);
+        return body is null ? Conflict("Can't get to them right now.") : Ok(body);
+    }
+
     /// <summary>Use or care for a furni where the Body (default: the Player) is.</summary>
     [HttpPost("furni")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -210,6 +221,8 @@ public sealed class PlacesController(IGrainFactory grains) : ControllerBase
 }
 
 public sealed record MoveBodyRequest(Guid PlaceId, string? SpotId, Guid? ParticipantId);
+
+public sealed record JoinBodyRequest(Guid OtherId, Guid? ParticipantId);
 public sealed record SituationResponse(string? Situation);
 public sealed record FurniActionRequest(Guid PlaceId, string FurniId, bool Care, string? Text, Guid? ParticipantId);
 public sealed record FurniActionResponse(string Done);

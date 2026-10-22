@@ -68,6 +68,14 @@ public static class Districts
         return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
     }
 
+    /// <summary>"zuid" and "amsterdam-zuid" are one District: every word of the shorter slug is in the longer.</summary>
+    public static bool Same(string a, string b)
+    {
+        if (a == b) return true;
+        var (short_, long_) = a.Length <= b.Length ? (a, b) : (b, a);
+        return short_.Length >= 4 && short_.Split('-').All(long_.Split('-').Contains);
+    }
+
     /// <summary>Two drawn Places in different Districts are a tram ride apart; unplaced Locales are never.</summary>
     public static bool Apart(Place a, Place b)
         => a.DistrictId is { } x && b.DistrictId is { } y && x != y;
@@ -187,6 +195,8 @@ public sealed class PlacesState
     [Id(4)] public List<District> Districts { get; set; } = new();
     /// <summary>Thing descriptions the catalogue had nothing for (newest last): what to curate next.</summary>
     [Id(5)] public List<string> CatalogueMisses { get; set; } = new();
+    /// <summary>Local day of the last Opening that wasn't the author's: one a world-day (ADR 0027).</summary>
+    [Id(6)] public string? LastOpenedDay { get; set; }
 }
 
 public static class PlaceKinds
@@ -243,6 +253,8 @@ public static class PlaceSeeds
         },
     }.Select(WithPoses).ToList();
 
+    public const string HomePurpose = "where they live";
+
     public static Place Home(Guid ownerId, string ownerName) => WithPoses(new Place
     {
         Id = Guid.NewGuid(),
@@ -252,7 +264,7 @@ public static class PlaceSeeds
         DistrictId = Districts.Centre,
         OwnerId = ownerId,
         Description = "a small apartment",
-        Purpose = "where they live",
+        Purpose = HomePurpose,
         Spots = new List<Spot>
         {
             new() { Id = "sofa", Name = "the sofa", At = "on", Capacity = 3, Seat = true },

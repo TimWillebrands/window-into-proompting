@@ -47,6 +47,7 @@ export * from './growthRow';
 export * from './idleRequest';
 export * from './inviteResidentRequest';
 export * from './jobComplexity';
+export * from './joinBodyRequest';
 export * from './knockRequest';
 export * from './ledgerEntry';
 export * from './letInRequest';

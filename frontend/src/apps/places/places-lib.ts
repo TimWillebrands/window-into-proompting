@@ -43,8 +43,11 @@ export function walkingText(b: Body, now: number): string | null {
 /** Offscreen Locales (ADR 0027) are never drawn or entered. */
 export const isLocale = (p: Place) => p.kind === 'locale';
 
-/** "Denise — at work, the office in Zuid" per Body away at a Locale. */
-export function awayLines(bodies: Body[], places: Place[]): string[] {
+/** "Denise — at work, the office in Zuid" per Body away at a Locale, with who it is (to visit them). */
+export function awayLines(
+    bodies: Body[],
+    places: Place[],
+): { participantId: string; text: string }[] {
     const locales = new Map(
         places.filter(isLocale).map((l) => [l.id, l] as const),
     );
@@ -52,20 +55,22 @@ export function awayLines(bodies: Body[], places: Place[]): string[] {
         const at = locales.get(bodyPlaceId(b) ?? '');
         if (!at) return [];
         const where = at.name?.endsWith("'s work") ? '' : `, ${at.name}`;
-        return [`${b.name} — ${b.awayAs ?? 'away'}${where}`];
+        return [
+            {
+                participantId: b.participantId ?? '',
+                text: `${b.name} — ${b.awayAs ?? 'away'}${where}`,
+            },
+        ];
     });
 }
 
-/** Footfall needed to open a Locale (backend FootfallMath.OpenAt). */
-export const OPEN_AT = 3;
-
-/** One Growing row: how close a Locale is to opening, and who's pulling. */
-export function growingSummary(row: GrowthRow) {
+/** One Growing row: how close a Locale is to opening (at `openAt` footfall), and who's pulling. */
+export function growingSummary(row: GrowthRow, openAt: number) {
     const footfall = Number(row.footfall);
     const ready = !row.missing;
     return {
         name: row.district ? `${row.name} (${row.district})` : row.name,
-        share: Math.min(1, footfall / OPEN_AT),
+        share: Math.min(1, footfall / openAt),
         ready,
         note: ready
             ? 'would open'

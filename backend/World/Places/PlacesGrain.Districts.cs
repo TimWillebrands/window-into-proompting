@@ -9,7 +9,7 @@ public sealed partial class PlacesGrain
     {
         var slug = Districts.Slug(name);
         if (slug.Length == 0) return Districts.Centre;
-        if (state.State.Districts.FirstOrDefault(d => d.Id == slug) is { } known) return known.Id;
+        if (state.State.Districts.FirstOrDefault(d => Districts.Same(d.Id, slug)) is { } known) return known.Id;
         var trimmed = WorldStream.Clip(name.Trim(), 40);
         state.State.Districts.Add(new District { Id = slug, Name = trimmed });
         await SaveAsync();
@@ -24,6 +24,8 @@ public sealed partial class PlacesGrain
         await PublishPlaceAsync(place);
         return true;
     }
+
+    public Task<List<string>> GetDistrictNamesAsync() => Task.FromResult(state.State.Districts.Select(d => d.Name).ToList());
 
     private string DistrictName(string? id)
         => state.State.Districts.FirstOrDefault(d => d.Id == id)?.Name ?? "another part of town";

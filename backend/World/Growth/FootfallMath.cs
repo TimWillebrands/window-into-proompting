@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace PartyTown.World.Growth;
 
 /// <summary>One bit of pressure on a Locale (ADR 0027): an anchor, a Day stretch spent there, or a mention in talk.</summary>
@@ -66,13 +68,14 @@ public static class FootfallMath
         var days = live.Select(s => s.Day).Distinct().Count();
         var missing = people < MinPeople ? $"needs {MinPeople - people} more person{(MinPeople - people == 1 ? "" : "s")}"
             : days < MinDays ? $"needs {MinDays - days} more day{(MinDays - days == 1 ? "" : "s")}"
-            : footfall < OpenAt ? $"needs {Math.Round(OpenAt - footfall, 1)} more footfall"
+            : footfall < OpenAt ? $"needs {Math.Round(OpenAt - footfall, 1).ToString(CultureInfo.InvariantCulture)} more footfall"
             : null;
         return new FootfallReading(localeId, footfall, people, days, missing,
             perPerson.OrderByDescending(kv => kv.Value).Select(kv => kv.Key).ToList());
     }
 
-    /// <summary>One signal per (Locale, person, source, day): saying it twice in a day isn't twice the pull.</summary>
+    /// <summary>One presence (anchor or Day) and one mention per (Locale, person, day): working there and the Day saying so is one pull.</summary>
     public static bool Duplicate(IEnumerable<FootfallSignal> ledger, FootfallSignal s)
-        => ledger.Any(x => x.LocaleId == s.LocaleId && x.ParticipantId == s.ParticipantId && x.Source == s.Source && x.Day == s.Day);
+        => ledger.Any(x => x.LocaleId == s.LocaleId && x.ParticipantId == s.ParticipantId && x.Day == s.Day
+            && (x.Source == FootfallSources.Talk) == (s.Source == FootfallSources.Talk));
 }

@@ -9,6 +9,8 @@ import type { OpenedRow } from './openedRow';
 
 export interface GrowthReport {
     auto: boolean;
+    /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
+    openAt: number | string;
     rows: GrowthRow[];
     opened: OpenedRow[];
 }

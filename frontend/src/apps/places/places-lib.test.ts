@@ -114,10 +114,9 @@ describe('places-lib', () => {
             { name: 'Ana', placeId: 'w', awayAs: 'at work' },
             { name: 'Bo', placeId: 'c' },
         ];
-        expect(awayLines(bodies, [cafe, office, hers])).toEqual([
-            'Denise — at work, the office in Zuid',
-            'Ana — at work',
-        ]);
+        expect(
+            awayLines(bodies, [cafe, office, hers]).map((l) => l.text),
+        ).toEqual(['Denise — at work, the office in Zuid', 'Ana — at work']);
     });
 
     it('sums up a Locale on its way to opening', () => {
@@ -132,14 +131,14 @@ describe('places-lib', () => {
             contributors: ['Ana'],
             wouldOpenOn: null,
         };
-        expect(growingSummary(row)).toEqual({
+        expect(growingSummary(row, 3)).toEqual({
             name: 'the climbing gym (Zuid)',
             share: 0.5,
             ready: false,
             note: '1p · 3d · needs 1 more person',
             who: 'Ana',
         });
-        expect(growingSummary({ ...row, missing: null }).note).toBe(
+        expect(growingSummary({ ...row, missing: null }, 3).note).toBe(
             'would open',
         );
     });

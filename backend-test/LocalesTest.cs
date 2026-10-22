@@ -125,6 +125,8 @@ public partial class PlacesTest
 
         var zuid = await places.DistrictAsync("Amsterdam Zuid");
         Assert.Equal(zuid, await places.DistrictAsync("amsterdam zuid"));
+        Assert.Equal(zuid, await places.DistrictAsync("Zuid"));
+        Assert.Contains("Amsterdam Zuid", await places.GetDistrictNamesAsync());
         Assert.True(await places.SetDistrictAsync(cafe.Id, zuid));
         await places.MoveAsync(denise, cafe.Id, "booth");
         _fx.Time.Advance(TimeSpan.FromMinutes(2));

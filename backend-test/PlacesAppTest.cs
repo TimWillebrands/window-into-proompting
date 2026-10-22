@@ -62,5 +62,8 @@ public class PlacesAppTest
         Assert.False(Overhearing.NextDoor(lobby, bar));
         Assert.Equal("amsterdam-zuid", Districts.Slug("Amsterdam Zuid"));
         Assert.Equal("pijp", Districts.Slug("the Pijp!"));
+        Assert.True(Districts.Same("zuid", "amsterdam-zuid"));
+        Assert.False(Districts.Same("zuid", "noord"));
+        Assert.False(Districts.Same("oost", "amsterdam-zuid"));
     }
 }

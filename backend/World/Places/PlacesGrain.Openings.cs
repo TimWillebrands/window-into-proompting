@@ -13,7 +13,10 @@ public sealed partial class PlacesGrain
     public async Task<Place?> OpenAsync(Guid localeId, string? archetype, string reason)
     {
         await SettleAsync();
-        if (Find(localeId) is not { Kind: PlaceKinds.Locale } place || place.Name == Elsewhere) return null;
+        if (Find(localeId) is not { Kind: PlaceKinds.Locale } place || place.Name == Somewhere) return null;
+        // One a world-day, whatever asked (footfall, a visit); only the author may open more.
+        var budgeted = reason != "author";
+        if (budgeted && state.State.LastOpenedDay == DayKey(0)) return null;
         if (state.State.Places.Count(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public) >= MaxOpened) return null;
         var kit = Kits.Of(archetype ?? Kits.FromName(place.Name) ?? await ClassifyAsync(place.Name));
         place.Kind = PlaceKinds.Public;
@@ -25,8 +28,9 @@ public sealed partial class PlacesGrain
         place.Scene = "sketch";
         place.DistrictId ??= Districts.Centre;
         place.OpenedAt = Now();
-        if (kit.Archetype == "office" && place.Name.EndsWith("'s work", StringComparison.Ordinal))
-            place.Name = place.Name.Replace("'s work", "'s office", StringComparison.Ordinal);
+        if (budgeted) state.State.LastOpenedDay = DayKey(0);
+        if (kit.Archetype == "office" && place.Name.EndsWith(WorkSuffix, StringComparison.Ordinal))
+            place.Name = place.Name.Replace(WorkSuffix, "'s office", StringComparison.Ordinal);
         EnsureFurni(place);
         foreach (var body in Occupants(place.Id).ToList()) Arrive(body, place);
         await SaveAsync();
@@ -126,11 +130,11 @@ public sealed partial class PlacesGrain
         body.CameFrom = null;
     }
 
-    /// <summary>A visit to someone at a Locale they're a regular at opens it (a concrete plan needs a place).</summary>
-    private async Task<bool> OpenForVisitAsync(Place locale)
+    /// <summary>A visit opens a Locale (a concrete plan needs a place): the Player's always, a Persona's only where someone's a regular.</summary>
+    private async Task<bool> OpenForVisitAsync(Place locale, bool byPlayer)
     {
         var regulars = state.State.Visits.Count(kv => kv.Value.Select(SplitVisit).Count(v => v.Place == locale.Id) >= RegularDays);
-        return regulars > 0 && await OpenAsync(locale.Id, null, "visit") is not null;
+        return (byPlayer || regulars > 0) && await OpenAsync(locale.Id, null, byPlayer ? "player" : "visit") is not null;
     }
 
     /// <summary>System One picks the kit when the name doesn't say; a plain room otherwise.</summary>

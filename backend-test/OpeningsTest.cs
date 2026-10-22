@@ -71,12 +71,12 @@ public partial class PlacesTest
         var pub = await places.LocaleAsync("the old pub", denise);
         await growth.SetAutoAsync(true);
 
-        foreach (var day in new[] { 0, 1 })
+        foreach (var day in new[] { 0, 1, 2 })
         {
             if (day > 0) _fx.Time.Advance(TimeSpan.FromDays(1));
             foreach (var who in new[] { denise, pieter })
             foreach (var locale in new[] { bar, pub })
-            foreach (var source in new[] { FootfallSources.Day, FootfallSources.Anchor })
+            foreach (var source in new[] { FootfallSources.Day, FootfallSources.Anchor, FootfallSources.Talk })
                 await growth.NoteAsync(locale, who, source);
         }
 
@@ -141,7 +141,7 @@ public partial class PlacesTest
         await places.OpenAsync(office, null, "author");
         var streets = Assert.Single((await places.GetSnapshotAsync()).Places, p => p.Scene == "district");
         Assert.Equal(("Amsterdam Zuid", "amsterdam-zuid", "in"), (streets.Name, streets.DistrictId, streets.At));
-        Assert.Contains("kit:gym", streets.CustomScene);
-        Assert.Contains("kit:office", streets.CustomScene);
+        Assert.Contains(gym.ToString(), streets.CustomScene);
+        Assert.Contains(office.ToString(), streets.CustomScene);
     }
 }

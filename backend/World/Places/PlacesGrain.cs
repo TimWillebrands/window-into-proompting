@@ -512,7 +512,8 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(otherId, out var other)) return null;
-        if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale } locale && !await OpenForVisitAsync(locale)) return null;
+        var human = state.State.Bodies.TryGetValue(participantId, out var visitor) && visitor.IsHuman;
+        if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale } locale && !await OpenForVisitAsync(locale, human)) return null;
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
     }
 
@@ -986,6 +987,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Resolve-or-create a District by name ("Zuid"); returns its slug id.</summary>
     [Alias("DistrictAsync")] Task<string> DistrictAsync(string name);
+
+    /// <summary>Every District's name, for prompts that should reuse them. Read-only.</summary>
+    [AlwaysInterleave, Alias("GetDistrictNamesAsync")] Task<List<string>> GetDistrictNamesAsync();
 
     /// <summary>Put a Place or Locale in a District; false when either is unknown.</summary>
     [Alias("SetDistrictAsync")] Task<bool> SetDistrictAsync(Guid placeId, string districtId);

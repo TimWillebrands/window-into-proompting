@@ -35,7 +35,7 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
             .Where(p => p.OpenedAt >= since && p.Kind == PlaceKinds.Public)
             .Select(p => new OpenedRow(p.Id, p.Name, District(p), p.Archetype, p.OpenedAt!.Value))
             .ToList();
-        return Ok(new GrowthReport(await growth.GetAutoAsync(), rows, opened));
+        return Ok(new GrowthReport(await growth.GetAutoAsync(), FootfallMath.OpenAt, rows, opened));
     }
 
     /// <summary>Thing descriptions the catalogue had no model for, newest first: what to curate next.</summary>
@@ -75,6 +75,6 @@ public sealed record GrowthRow(
 /// <summary>A Locale opened in the last week, which the author can still close.</summary>
 public sealed record OpenedRow(Guid PlaceId, string Name, string? District, string? Archetype, long OpenedAt);
 
-public sealed record GrowthReport(bool Auto, List<GrowthRow> Rows, List<OpenedRow> Opened);
+public sealed record GrowthReport(bool Auto, double OpenAt, List<GrowthRow> Rows, List<OpenedRow> Opened);
 
 public sealed record GrowthAutoRequest(bool On);

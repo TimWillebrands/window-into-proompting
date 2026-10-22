@@ -18,8 +18,11 @@ public sealed partial class PersonaSelfGrain
     {
         try
         {
-            var known = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKnownPlacesAsync(personaId);
-            return known.Count == 0 ? string.Empty : $"\nPlaces you go: {string.Join("; ", known)}";
+            var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
+            var known = await places.GetKnownPlacesAsync(personaId);
+            var districts = await places.GetDistrictNamesAsync();
+            return (known.Count == 0 ? string.Empty : $"\nPlaces you go: {string.Join("; ", known)}")
+                + $"\nParts of town (reuse these names for the district): {string.Join(", ", districts)}";
         }
         catch (Exception ex)
         {

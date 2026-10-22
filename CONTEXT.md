@@ -335,6 +335,14 @@ _Avoid_: elsewhere (that's the Life prompt's list of other Places), offscreen pl
 A part of the city that holds **Places**; the old centre is the first. Walking within one is a minute; between Districts it's a tram ride.
 _Avoid_: zone, area, region, neighbourhood (fine in prose).
 
+**Whereabout**:
+A stretch of a Persona's **Day** spent away from home ("09:00–17:30 at the office in Zuid"), written with the Day and resolved to a **Locale**. One kind of **Footfall**.
+_Avoid_: location, schedule entry.
+
+**Errand**:
+A **Whereabout** long enough (2 h+) that the **Body** actually goes away for it, once, and comes back after. Shifts are the **Occupation**'s, not errands.
+_Avoid_: trip, outing.
+
 **Anchor**:
 A **Participant**'s standing tie to a **Locale** or **Place**: lives, works, studies, regular. Read from the **Occupation**, the lived sheet and visit days; never stored twice.
 _Avoid_: home base, affiliation.

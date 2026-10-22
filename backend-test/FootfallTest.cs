@@ -29,18 +29,27 @@ public class FootfallTest
     }
 
     [Fact]
-    public void TwoPeople_OverTwoDays_WithEnoughPull_Open()
+    public void TwoPeople_ThereAndTalkingAboutIt_ForThreeDays_Open()
     {
         var (ana, bo) = (Guid.NewGuid(), Guid.NewGuid());
-        var oneDay = new[] { S(ana, "day", 0), S(ana, "anchor", 0), S(bo, "day", 0), S(bo, "anchor", 0) };
-        Assert.Equal("needs 1 more day", FootfallMath.Read(oneDay, Now)[0].Missing);
+        List<FootfallSignal> Days(int n) => Enumerable.Range(0, n)
+            .SelectMany(d => new[] { S(ana, "day", d), S(ana, "talk", d), S(bo, "day", d), S(bo, "talk", d) }).ToList();
 
-        var twoDays = oneDay.Concat(new[] { S(ana, "day", 1), S(ana, "anchor", 1), S(bo, "day", 1), S(bo, "anchor", 1) }).ToList();
-        var reading = FootfallMath.Read(twoDays, Now)[0];
+        Assert.Equal("needs 1 more day", FootfallMath.Read(Days(1), Now)[0].Missing);
+        Assert.Equal("needs 0.5 more footfall", FootfallMath.Read(Days(2), Now)[0].Missing);
+        var reading = FootfallMath.Read(Days(3), Now)[0];
 
         Assert.Null(reading.Missing);
-        Assert.True(reading.Footfall >= FootfallMath.OpenAt);
         Assert.Equal(2, reading.People);
+    }
+
+    [Fact]
+    public void WorkingThere_AndTheDaySayingSo_IsOnePresence()
+    {
+        var ana = Guid.NewGuid();
+        var ledger = new List<FootfallSignal> { S(ana, "anchor", 0) };
+        Assert.True(FootfallMath.Duplicate(ledger, S(ana, "day", 0)));
+        Assert.False(FootfallMath.Duplicate(ledger, S(ana, "talk", 0)));
     }
 
     [Fact]
@@ -59,6 +68,7 @@ public class FootfallTest
         Assert.True(FootfallMath.Duplicate(ledger, S(ana, "talk", 0)));
         Assert.False(FootfallMath.Duplicate(ledger, S(ana, "day", 0)));
         Assert.False(FootfallMath.Duplicate(ledger, S(ana, "talk", 1)));
+        Assert.False(FootfallMath.Duplicate(ledger, S(Guid.NewGuid(), "talk", 0)));
     }
 
     [Theory]

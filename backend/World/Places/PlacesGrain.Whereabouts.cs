@@ -29,10 +29,10 @@ public sealed partial class PlacesGrain
                 case ErrandMove.Return:
                     await ReturnAsync(body.ParticipantId);
                     break;
-                case ErrandMove.Go when Find(stretch!.LocaleId!.Value) is { } where:
+                // Drawn Places are Life's to walk to; the Day only sends Bodies offscreen.
+                case ErrandMove.Go when Find(stretch!.LocaleId!.Value) is { Kind: PlaceKinds.Locale } where:
                     body.AwayStretch = $"{today}:{stretch.Start}";
-                    if (where.Kind == PlaceKinds.Locale) await SendAwayAsync(body, where, ErrandAs(where.Name), byDay: true);
-                    else await MoveAsync(body.ParticipantId, where.Id, null);
+                    await SendAwayAsync(body, where, ErrandAs(where.Name), byDay: true);
                     break;
             }
         }

@@ -2,10 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>
-/// A District's own streets (ADR 0027), built not designed: towers and signed fronts for its venues along the back,
-/// a street, a square and the tram stop you arrive at. Validated by <see cref="PlaceDesign.Check"/> like any made scene.
-/// </summary>
+/// <summary>A District's own streets (ADR 0027), built not designed; checked by <see cref="PlaceDesign.Check"/> like any made scene.</summary>
 public static class DistrictScene
 {
     public const int MinVenues = 2;
@@ -95,9 +92,8 @@ public static class DistrictScene
         };
     }
 
-    /// <summary>The client keys entrances by the scene a Body comes from: a kit's, a made Place's, or a seeded one's.</summary>
-    public static string EntranceKey(Place venue)
-        => venue.Archetype is { } a ? $"kit:{a}" : venue.CustomScene is not null ? $"custom:{venue.Id}" : venue.Scene ?? "*";
+    /// <summary>The client finds a door by the id of the Place a Body comes from (scene names are shared by every kit venue).</summary>
+    public static string EntranceKey(Place venue) => venue.Id.ToString();
 
     /// <summary>"the climbing gym" → GYM; long last words fall back to the archetype.</summary>
     public static string Sign(Place venue)

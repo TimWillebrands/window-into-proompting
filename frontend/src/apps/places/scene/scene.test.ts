@@ -102,6 +102,10 @@ describe('scenes', () => {
             expect(grounds).toContain(g);
         expect(entrance(s, 'cafe')).toEqual({ x: 19, y: 1 });
         expect(entrance(s, 'somewhere-else')).toEqual({ x: 16, y: 19 });
+        expect(entrance(s, 'somewhere-else', 'no-such-place')).toEqual({
+            x: 16,
+            y: 19,
+        });
     });
 
     it('sitters take seats, standers stand', () => {
@@ -331,4 +335,26 @@ describe('kit scenes (ADR 0027)', () => {
                 expect(PREFABS[p.p], p.p).toBeDefined();
         },
     );
+});
+
+describe('entrances by Place id (ADR 0027)', () => {
+    it('a door keyed by the id of the Place a Body comes from wins over its scene name', () => {
+        const street: Place = {
+            id: 'zuid',
+            name: 'Zuid',
+            kind: 'public',
+            scene: 'district',
+            customScene: JSON.stringify({
+                outdoor: true,
+                map: '-----\n-----\n-----\n-----\n-----',
+                spots: { square: { at: [2, 2] } },
+                entrances: { 'venue-a': [1, 0], sketch: [3, 0], '*': [2, 4] },
+            }),
+            spots: [{ id: 'square', name: 'the square' }],
+        };
+        const s = sceneFor(street);
+        expect(entrance(s, 'sketch', 'venue-a')).toEqual({ x: 1, y: 0 });
+        expect(entrance(s, 'sketch', 'venue-b')).toEqual({ x: 3, y: 0 });
+        expect(entrance(s, null, null)).toEqual({ x: 2, y: 4 });
+    });
 });

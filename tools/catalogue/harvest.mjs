@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-// Catalogue pipeline (ADR 0027, issue 06): curate CC0 models from Poly Pizza up front, so runtime only picks names.
-//   POLY_PIZZA_KEY=… node tools/catalogue/harvest.mjs search   → shortlist.json + shortlist.html to review
-//   POLY_PIZZA_KEY=… node tools/catalogue/harvest.mjs fetch    → downloads picks.json, generates the prefab entries
+// Catalogue pipeline (ADR 0027): POLY_PIZZA_KEY=… node tools/catalogue/harvest.mjs search (shortlist to review) | fetch (picks.json → prefabs).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

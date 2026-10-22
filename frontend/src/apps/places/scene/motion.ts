@@ -84,12 +84,12 @@ export function poseOf(
         const p = end > start ? (now - start) / (end - start) : 1;
         if (leaving && p < DOORWAY) {
             const from = shown.get(id) ?? entrance(scene);
-            const door = entrance(scene, sceneOf(b.destPlaceId));
+            const door = entrance(scene, sceneOf(b.destPlaceId), b.destPlaceId);
             const path = pathIn(scene, round(from), door);
             return along(path, p / DOORWAY);
         }
         if (arriving && p > 1 - DOORWAY) {
-            const door = entrance(scene, sceneOf(b.placeId));
+            const door = entrance(scene, sceneOf(b.placeId), b.placeId);
             const slot = slots.get(id);
             const path = pathIn(scene, door, round(slot?.tile ?? door));
             return { ...along(path, (p - (1 - DOORWAY)) / DOORWAY), slot };

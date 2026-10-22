@@ -30,13 +30,15 @@ public class DistrictSceneTest
     public void EachVenue_GetsASignedFront_AndADoorKeyedByItsScene()
     {
         var gym = Venue("the climbing gym", "gym");
-        var scene = DistrictScene.Build("zuid", new[] { gym, Venue("Denise's office", "office") });
+        var office = Venue("Denise's office", "office");
+        var other = Venue("the other office", "office");
+        var scene = DistrictScene.Build("zuid", new[] { gym, office, other });
 
         Assert.Equal("GYM", DistrictScene.Sign(gym));
         var entrances = (JsonObject)scene["entrances"]!;
-        Assert.True(entrances.ContainsKey("kit:gym"));
-        Assert.True(entrances.ContainsKey("kit:office"));
-        Assert.True(entrances.ContainsKey("*"));
-        Assert.Equal(scene.ToJsonString(), DistrictScene.Build("zuid", new[] { gym, Venue("Denise's office", "office") }).ToJsonString());
+        Assert.Equal(4, entrances.Count);
+        Assert.True(entrances.ContainsKey(office.Id.ToString()));
+        Assert.True(entrances.ContainsKey(other.Id.ToString()));
+        Assert.Equal(scene.ToJsonString(), DistrictScene.Build("zuid", new[] { gym, office, other }).ToJsonString());
     }
 }

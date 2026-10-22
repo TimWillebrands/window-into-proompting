@@ -10,6 +10,7 @@ import {
     usePostPartyIdPrompt,
     usePostWorldsPartyIdPlacesDecorate,
     usePostWorldsPartyIdPlacesFurni,
+    usePostWorldsPartyIdPlacesJoin,
     usePostWorldsPartyIdPlacesKnock,
     usePostWorldsPartyIdPlacesLetIn,
     usePostWorldsPartyIdPlacesMove,
@@ -175,7 +176,7 @@ function Navigator({
     onAllEars,
 }: {
     places: Place[];
-    away: string[];
+    away: { participantId: string; text: string }[];
     bodies: Body[];
     me: Body | undefined;
     playerId: string | null;
@@ -184,6 +185,7 @@ function Navigator({
     allEars: boolean;
     onAllEars: (on: boolean) => void;
 }) {
+    const visit = usePostWorldsPartyIdPlacesJoin();
     const sections: [string, Place[]][] = [
         [
             'Out and about',
@@ -279,8 +281,26 @@ function Navigator({
                         <small>{away.length} offscreen</small>
                     </div>
                     {away.map((line) => (
-                        <div key={line} className="pl-away">
-                            {line}
+                        <div key={line.participantId} className="pl-away">
+                            {line.text}{' '}
+                            {playerId ? (
+                                <button
+                                    type="button"
+                                    className="pl-grow-act"
+                                    disabled={visit.isPending}
+                                    onClick={() =>
+                                        visit.mutate({
+                                            partyId: WORLD_ID,
+                                            data: {
+                                                otherId: line.participantId,
+                                                participantId: null,
+                                            },
+                                        })
+                                    }
+                                >
+                                    Visit
+                                </button>
+                            ) : null}
                         </div>
                     ))}
                 </section>

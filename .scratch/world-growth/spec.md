@@ -29,3 +29,23 @@ Districts, and a curated CC0 GLB catalogue.
 ## Slices
 
 See `issues/`. Order: 01 (done) → 02 → 03 → 04 (dry run) → 05 → 06/07 (catalogue, kits) → 08 → 09.
+
+## After review (2026-10-22)
+
+Fixed:
+- Visit openings now share the one-a-day budget, so one Persona's "on my way" can't open a place on demand twice a day.
+- Anchor and Day stretch count as one presence per person per day, so a workplace isn't double counted.
+- Day errands only send Bodies offscreen, never to drawn Places.
+- District doors are keyed by Place id. They had never matched: the client looked them up by scene name.
+- "Zuid" and "Amsterdam Zuid" resolve to one District, and the Day prompt lists the District names.
+- The Player can Visit someone away, which opens the Locale.
+- Footfall messages are culture-invariant.
+
+Still open:
+- Lives-in anchors from the lived sheet.
+- Talk signals from Capture concept tags (today it's a whole-name match, so talk footfall will be low).
+- Slotted kit scenes (every office looks the same).
+- Gathering at a Locale.
+- Tram-stop exit in the centre scene.
+- Counting repeat catalogue misses.
+- The Bench probe.

@@ -3195,6 +3195,66 @@
         }
       }
     },
+    "/worlds/{partyId}/places/join": {
+      "post": {
+        "tags": [
+          "Places"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinBodyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinBodyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinBodyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/places/furni": {
       "post": {
         "tags": [
@@ -6591,6 +6651,7 @@
       "GrowthReport": {
         "required": [
           "auto",
+          "openAt",
           "rows",
           "opened"
         ],
@@ -6598,6 +6659,14 @@
         "properties": {
           "auto": {
             "type": "boolean"
+          },
+          "openAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
           },
           "rows": {
             "type": "array",
@@ -6717,6 +6786,26 @@
       },
       "JobComplexity": {
         "type": "integer"
+      },
+      "JoinBodyRequest": {
+        "required": [
+          "otherId",
+          "participantId"
+        ],
+        "type": "object",
+        "properties": {
+          "otherId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
       },
       "KnockRequest": {
         "required": [

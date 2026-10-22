@@ -44,12 +44,18 @@ straight to its kit scene. The generated room is only for archetypes without one
 
    - **Each Participant contributes at most 1.5.** That is what stops one Persona from changing the world.
    - **Opening needs three gates:** footfall ≥ 3, from ≥ 2 Participants, across ≥ 2 days.
-   - **Demand opens at once**, but only to Sketched: a Gathering planned there, a FollowThrough to there, or
-     the Player asking to visit. A concrete plan needs a place.
+   - **Demand opens without the gates.** A concrete plan needs a place:
+     - the Player visiting someone there (always);
+     - a Persona walking over to someone there (FollowThrough included), but only if someone is a regular there
+       (2+ visit days).
+     A Gathering at a Locale is not built yet.
    - **District scene:** two or more opened venues in it, or anchors from three or more Participants.
-   - **Budget:** at most one Opening per world-day, queued by footfall.
-   - **Dormant:** no visits for 7 days and footfall < 1. The Place stays, out of Life's lists, and any new
-     signal wakes it. Nothing is deleted.
+   - **Budget:** at most one Opening per world-day, kept by Places for every reason except the author's. That covers
+     footfall and visits; the Player's own visit counts too.
+   - **The author** can open any Locale from the Growing panel, or close (veto) any Opening.
+   - **Dormant:** an opened Place with no visits and no mention in talk for 7 days. The Place stays, out of Life's
+     lists, and a visit or a mention wakes it. Nothing is deleted.
+   - **One presence a day:** an anchor and a Day stretch for the same person, Locale and day count once.
 5. **Cheap generation.** Generation is choosing, not authoring.
    - **Signals ride existing calls.** `whereabouts` is added to the Day call and anchors to the lived-sheet
      distillation. No new calls.

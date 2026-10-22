@@ -49,7 +49,7 @@ export default function GrowingPane() {
                 </span>
             </label>
             {report.rows.slice(0, 8).map((row) => {
-                const s = growingSummary(row);
+                const s = growingSummary(row, Number(report.openAt));
                 return (
                     <div key={row.localeId} className="pl-grow" title={s.who}>
                         <span className="pl-grow-name">{s.name}</span>

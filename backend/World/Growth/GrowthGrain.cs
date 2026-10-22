@@ -2,10 +2,7 @@ using System.Globalization;
 
 namespace PartyTown.World.Growth;
 
-/// <summary>
-/// World growth ledger of one Party (key = Party id, ADR 0027): footfall signals on Locales and what they add up to.
-/// Opens at most one Locale a day when the author has switched automatic openings on; otherwise a dry run that only logs.
-/// </summary>
+/// <summary>Footfall ledger of one Party (key = Party id, ADR 0027); opens Locales past the gates when Auto is on, else only logs.</summary>
 public sealed class GrowthGrain(
     [PersistentState(stateName: "growth", storageName: "parties")]
     IPersistentState<GrowthState> state,
@@ -50,11 +47,11 @@ public sealed class GrowthGrain(
             state.State.WouldOpen[r.LocaleId] = today;
             logger.LogInformation("World growth: {Locale} passed the gates: footfall {Footfall}, {People} people, {Days} days",
                 r.LocaleId, r.Footfall, r.People, r.Days);
-            if (!state.State.Auto || state.State.LastOpenedDay == today) continue;
+            if (!state.State.Auto) continue;
+            // Places keeps the one-a-day budget for every kind of Opening.
             try
             {
-                if (await GrainFactory.GetGrain<Places.IPlacesGrain>(this.GetPrimaryKey()).OpenAsync(r.LocaleId, null, "footfall") is not null)
-                    state.State.LastOpenedDay = today;
+                await GrainFactory.GetGrain<Places.IPlacesGrain>(this.GetPrimaryKey()).OpenAsync(r.LocaleId, null, "footfall");
             }
             catch (Exception ex)
             {
@@ -94,5 +91,4 @@ public sealed class GrowthState
     [Id(1)] public Dictionary<Guid, string> WouldOpen { get; set; } = new();
     /// <summary>Open automatically; off until the thresholds are tuned on a live world.</summary>
     [Id(2)] public bool Auto { get; set; }
-    [Id(3)] public string? LastOpenedDay { get; set; }
 }

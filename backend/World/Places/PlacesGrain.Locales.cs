@@ -6,7 +6,9 @@ namespace PartyTown.World.Places;
 public sealed partial class PlacesGrain
 {
     public const int MaxLocales = 80;
-    private const string Elsewhere = "elsewhere";
+    /// <summary>The fallback Locale once the cap is reached; never named in prompts.</summary>
+    private const string Somewhere = "somewhere";
+    private const string WorkSuffix = "'s work";
     private static readonly TimeSpan VisitsKept = TimeSpan.FromDays(7);
     private static readonly HashSet<string> GenericWork = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -19,7 +21,7 @@ public sealed partial class PlacesGrain
         var wanted = LocaleName(name, forParticipant);
         if (FindByName(wanted) is { } known) return known.Id;
         if (state.State.Places.Count(p => p.Kind == PlaceKinds.Locale) >= MaxLocales)
-            wanted = Elsewhere;
+            wanted = Somewhere;
         if (FindByName(wanted) is { } fallback) return fallback.Id;
         var locale = PlaceSeeds.Locale(wanted);
         state.State.Places.Add(locale);
@@ -74,8 +76,9 @@ public sealed partial class PlacesGrain
         var mine = (state.State.Visits.GetValueOrDefault(participantId) ?? new List<string>()).Select(v => SplitVisit(v).Place).ToHashSet();
         var visitors = state.State.Visits.SelectMany(kv => kv.Value.Select(v => (Who: kv.Key, SplitVisit(v).Place)))
             .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Who).Distinct().Count());
-        var locales = state.State.Places.Where(p => p.Kind == PlaceKinds.Locale && p.Name != Elsewhere).ToList();
-        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && p.DistrictId == district).Take(5)
+        var locales = state.State.Places.Where(p => p.Kind == PlaceKinds.Locale && !Unnamed(p.Name)).ToList();
+        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && p.DistrictId == district && !p.Dormant)
+            .OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(5)
             .Concat(locales.Where(p => mine.Contains(p.Id)).Take(3))
             .Concat(locales.OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(3))
             .DistinctBy(p => p.Id)
@@ -142,13 +145,16 @@ public sealed partial class PlacesGrain
     private string DayKey(int offsetDays)
         => time.GetLocalNow().AddDays(offsetDays).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+    /// <summary>"Ana's work" or the fallback: Locales with no name of their own.</summary>
+    internal static bool Unnamed(string name) => name == Somewhere || name.EndsWith(WorkSuffix, StringComparison.Ordinal);
+
     /// <summary>"work" for someone becomes "Ana's work"; anything else is kept as said.</summary>
     private string LocaleName(string name, Guid? forParticipant)
     {
         var trimmed = WorldStream.Clip((name ?? string.Empty).Trim().TrimEnd('.'), 60);
-        if (trimmed.Length == 0) return Elsewhere;
+        if (trimmed.Length == 0) return Somewhere;
         if (GenericWork.Contains(trimmed) && forParticipant is { } who && state.State.Bodies.TryGetValue(who, out var body))
-            return $"{body.Name.Split(' ')[0]}'s work";
+            return $"{body.Name.Split(' ')[0]}{WorkSuffix}";
         return trimmed;
     }
 
@@ -164,8 +170,7 @@ public sealed partial class PlacesGrain
     private string AwaySituation(Body body, Place place)
     {
         var why = body.AwayAs ?? "away";
-        var generic = place.Name.EndsWith("'s work", StringComparison.Ordinal) || place.Name == Elsewhere;
-        var where = generic ? string.Empty : $" {place.At} {place.Name}";
+        var where = Unnamed(place.Name) ? string.Empty : $" {place.At} {place.Name}";
         var doing = body.Activity is { Length: > 0 } a ? $", {Yours(a)}" : string.Empty;
         return $"You're {why}{where}{doing}. That's offscreen: nobody in the World sees you there, but your phone works.";
     }
@@ -184,7 +189,7 @@ public sealed partial class PlacesGrain
 
     internal static bool Mentioned(string content, string localeName)
     {
-        if (localeName == Elsewhere || localeName.EndsWith("'s work", StringComparison.Ordinal)) return false;
+        if (Unnamed(localeName)) return false;
         var key = localeName.StartsWith("the ", StringComparison.OrdinalIgnoreCase) ? localeName[4..] : localeName;
         if (key.Length < 5) return false;
         var at = content.IndexOf(key, StringComparison.OrdinalIgnoreCase);
@@ -200,7 +205,7 @@ public sealed partial class PlacesGrain
         var changed = false;
         foreach (var place in state.State.Places.Where(p => p.Purpose is null))
         {
-            if (place.Kind == PlaceKinds.Home) place.Purpose = PlaceSeeds.Home(Guid.Empty, "x").Purpose;
+            if (place.Kind == PlaceKinds.Home) place.Purpose = PlaceSeeds.HomePurpose;
             else if (seeds.TryGetValue(place.Name, out var seed))
             {
                 place.Purpose = seed.Purpose;

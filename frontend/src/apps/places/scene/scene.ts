@@ -302,10 +302,17 @@ export function facing(s: Scene, x: number, z: number): 'z' | 'x' | null {
     return null;
 }
 
-/** The tile Bodies use coming from (or going to) another scene. */
-export function entrance(s: Scene, otherScene?: string | null): Pt {
+/** The tile Bodies use coming from (or going to) another Place: by its id, else its scene, else `*`. */
+export function entrance(
+    s: Scene,
+    otherScene?: string | null,
+    otherPlaceId?: string | null,
+): Pt {
     const e = s.def.entrances ?? {};
-    const at = (otherScene && e[otherScene]) || e['*'];
+    const at =
+        (otherPlaceId && e[otherPlaceId]) ||
+        (otherScene && e[otherScene]) ||
+        e['*'];
     if (at) return { x: at[0], y: at[1] };
     for (let z = 0; z < s.h; z++)
         for (let x = 0; x < s.w; x++)

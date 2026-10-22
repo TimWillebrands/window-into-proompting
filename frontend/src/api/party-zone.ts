@@ -55,6 +55,7 @@ import type {
     GrowthReport,
     IdleRequest,
     InviteResidentRequest,
+    JoinBodyRequest,
     KnockRequest,
     LetInRequest,
     LifeSummary,
@@ -13276,6 +13277,124 @@ export const usePostWorldsPartyIdPlacesMove = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlacesMoveMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesJoinResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesJoinResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesJoinResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesJoinResponseError = (
+    | postWorldsPartyIdPlacesJoinResponse409TextPlain
+    | postWorldsPartyIdPlacesJoinResponse409ApplicationJson
+    | postWorldsPartyIdPlacesJoinResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesJoinResponse =
+    postWorldsPartyIdPlacesJoinResponseError;
+
+export const getPostWorldsPartyIdPlacesJoinUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/places/join`;
+};
+
+export const postWorldsPartyIdPlacesJoin = async (
+    partyId: string,
+    joinBodyRequest: JoinBodyRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesJoinResponse> => {
+    return customFetch<postWorldsPartyIdPlacesJoinResponse>(
+        getPostWorldsPartyIdPlacesJoinUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(joinBodyRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesJoinMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>,
+        TError,
+        { partyId: string; data: JoinBodyRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>,
+    TError,
+    { partyId: string; data: JoinBodyRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesJoin'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>,
+        { partyId: string; data: JoinBodyRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesJoin(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesJoinMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>
+>;
+export type PostWorldsPartyIdPlacesJoinMutationBody = JoinBodyRequest;
+export type PostWorldsPartyIdPlacesJoinMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesJoin = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>,
+            TError,
+            { partyId: string; data: JoinBodyRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesJoin>>,
+    TError,
+    { partyId: string; data: JoinBodyRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesJoinMutationOptions(options),
         queryClient,
     );
 };
