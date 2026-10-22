@@ -187,13 +187,18 @@ function Navigator({
     const sections: [string, Place[]][] = [
         [
             'Out and about',
-            places.filter((p) => p.kind !== 'home' && !p.customScene),
+            places.filter(
+                (p) => p.kind !== 'home' && !p.customScene && !p.dormant,
+            ),
         ],
         [
             'Made by the World',
-            places.filter((p) => p.kind !== 'home' && !!p.customScene),
+            places.filter(
+                (p) => p.kind !== 'home' && !!p.customScene && !p.dormant,
+            ),
         ],
         ['Homes', places.filter((p) => p.kind === 'home')],
+        ['Quiet lately', places.filter((p) => p.kind !== 'home' && p.dormant)],
     ];
     return (
         <nav className="pl-nav" aria-label="Places">

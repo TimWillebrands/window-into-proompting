@@ -176,6 +176,10 @@ public sealed partial class PlacesGrain
         foreach (var locale in state.State.Places.Where(p => p.Kind == PlaceKinds.Locale))
             if (Mentioned(content, locale.Name))
                 _ = GrainFactory.GetGrain<Growth.IGrowthGrain>(PartyId).NoteAsync(locale.Id, speakerId, Growth.FootfallSources.Talk);
+        // Talking about an opened Place keeps it awake (dormancy).
+        foreach (var opened in state.State.Places.Where(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public))
+            if (Mentioned(content, opened.Name))
+                opened.MentionedAt = Now();
     }
 
     internal static bool Mentioned(string content, string localeName)

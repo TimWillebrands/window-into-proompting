@@ -138,7 +138,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var further = new List<(Place Place, List<string> There)>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
-            if (place.Kind == PlaceKinds.Locale) continue;
+            if (place.Kind == PlaceKinds.Locale || place.Dormant) continue;
             var mine = place.OwnerId == ctx.Self.Id;
             if (place.Kind == PlaceKinds.Home && !mine)
             {

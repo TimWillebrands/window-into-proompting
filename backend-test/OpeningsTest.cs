@@ -104,4 +104,26 @@ public partial class PlacesTest
         Assert.Equal("k-potted-plant", prefab);
         Assert.Contains("a poster of Lisbon at night", await places.GetCatalogueMissesAsync());
     }
+
+    [Fact]
+    public async Task AnOpenedPlace_NobodyGoesTo_GoesQuiet_AndTalkWakesIt()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var gym = await places.LocaleAsync("the climbing gym", denise);
+        await places.OpenAsync(gym, null, "author");
+
+        _fx.Time.Advance(TimeSpan.FromDays(8));
+        Assert.True((await places.GetSnapshotAsync()).Places.Single(p => p.Id == gym).Dormant);
+
+        var dm = await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(denise, pieter);
+        await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).SendNewMessageAsync(denise, "miss the climbing gym honestly", null, null);
+        var dormant = true;
+        for (var i = 0; i < 50 && dormant; i++)
+        {
+            await Task.Delay(50);
+            dormant = (await places.GetSnapshotAsync()).Places.Single(p => p.Id == gym).Dormant;
+        }
+        Assert.False(dormant);
+    }
 }

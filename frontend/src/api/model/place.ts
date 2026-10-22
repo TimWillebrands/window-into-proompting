@@ -43,4 +43,10 @@ export interface Place {
     openedAt?: number | string | null;
     /** @nullable */
     archetype?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    mentionedAt?: number | string | null;
+    dormant?: boolean;
 }

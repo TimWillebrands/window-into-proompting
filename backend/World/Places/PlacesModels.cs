@@ -38,6 +38,10 @@ public sealed class Place
     [Id(18)] public long? OpenedAt { get; set; }
     /// <summary>The kit it opened from: office, bar, park…</summary>
     [Id(19)] public string? Archetype { get; set; }
+    /// <summary>Last time someone named it in talk; keeps a quiet Place awake.</summary>
+    [Id(20)] public long? MentionedAt { get; set; }
+    /// <summary>Opened, then nobody went or talked about it for a week (ADR 0027): kept, but not offered. Set on each snapshot.</summary>
+    [Id(21)] public bool Dormant { get; set; }
 }
 
 /// <summary>A part of the city that holds Places (ADR 0027): "the centre", "Zuid".</summary>

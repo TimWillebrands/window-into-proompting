@@ -63,6 +63,23 @@ public sealed partial class PlacesGrain
         return true;
     }
 
+    public static readonly TimeSpan GoesQuiet = TimeSpan.FromDays(7);
+
+    /// <summary>Opened a week ago or more, and nobody's been there or named it in a week. Never deleted; any visit or mention wakes it.</summary>
+    internal static bool IsDormant(Place place, long now, IEnumerable<(Guid Place, string Day)> visits, string since)
+        => place is { OpenedAt: { } opened, Kind: PlaceKinds.Public }
+            && now - opened >= GoesQuiet.TotalMilliseconds
+            && (place.MentionedAt is not { } named || now - named >= GoesQuiet.TotalMilliseconds)
+            && !visits.Any(v => v.Place == place.Id && string.CompareOrdinal(v.Day, since) >= 0);
+
+    private void RefreshDormancy()
+    {
+        var now = Now();
+        var since = DayKey(-(int)GoesQuiet.TotalDays + 1);
+        var visits = state.State.Visits.Values.SelectMany(v => v.Select(SplitVisit)).ToList();
+        foreach (var place in state.State.Places) place.Dormant = IsDormant(place, now, visits, since);
+    }
+
     /// <summary>Someone who was away here is now simply here: at work behind the counter, otherwise wherever there's room.</summary>
     private void Arrive(Body body, Place place)
     {

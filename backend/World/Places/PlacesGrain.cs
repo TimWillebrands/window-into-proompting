@@ -435,6 +435,7 @@ public sealed partial class PlacesGrain(
         await SettleAsync();
         await SleepCycleAsync();
         await WhereaboutsCycleAsync();
+        RefreshDormancy();
         return new PlacesSnapshot
         {
             Places = state.State.Places.ToList(),
