@@ -22,7 +22,11 @@ export default function DesktopIcon({
             }}
             onClick={() => onActivate()}
         >
-            <img src={icon} alt={label} className="h-12 w-12 drop-shadow-md" />
+            <img
+                src={icon}
+                alt={label}
+                className="h-12 w-12 drop-shadow-md [image-rendering:pixelated]"
+            />
             <span className="mt-1 text-sm text-center bg-blue-600/70 rounded px-1">
                 {label}
             </span>
