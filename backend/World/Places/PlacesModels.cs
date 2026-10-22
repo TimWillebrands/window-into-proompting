@@ -125,6 +125,10 @@ public sealed class Body
     [Id(19)] public string? AwayAs { get; set; }
     /// <summary>The Place it left to go away, to return to.</summary>
     [Id(20)] public Guid? CameFrom { get; set; }
+    /// <summary>Sent away by its Day's whereabouts (not a shift); only then does the Day bring it back.</summary>
+    [Id(21)] public bool AwayByDay { get; set; }
+    /// <summary>"yyyy-MM-dd:startMinute" of the last stretch it went away for, so it goes once per stretch.</summary>
+    [Id(22)] public string? AwayStretch { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

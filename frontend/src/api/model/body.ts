@@ -57,5 +57,8 @@ export interface Body {
     awayAs?: string | null;
     /** @nullable */
     cameFrom?: string | null;
+    awayByDay?: boolean;
+    /** @nullable */
+    awayStretch?: string | null;
     isWalking?: boolean;
 }

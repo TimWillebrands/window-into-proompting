@@ -38,16 +38,50 @@ public sealed partial class PlacesGrain
             var there = await MoveAsync(participantId, place.Id, place.Spots.FirstOrDefault(s => s.Staff)?.Id);
             return there is null || activity is null ? there : await SetActivityAsync(participantId, activity, null);
         }
+        return await SendAwayAsync(body, place, activity, byDay: false);
+    }
+
+    private async Task<Body?> SendAwayAsync(Body body, Place locale, string? activity, bool byDay)
+    {
         var from = body.DestPlaceId ?? body.PlaceId;
         if (Find(from) is { Kind: not PlaceKinds.Locale }) body.CameFrom = from;
-        var moved = await WalkAsync(body, place, place.Spots[0].Id);
+        var moved = await WalkAsync(body, locale, locale.Spots[0].Id);
         if (moved is null) return null;
         moved.AwayAs = string.IsNullOrWhiteSpace(activity) ? "away" : WorldStream.Clip(activity.Trim(), 40);
+        moved.AwayByDay = byDay;
         moved.Activity = null;
         moved.ActivityUntil = null;
         await SaveAsync();
         await PublishAsync(moved);
         return moved;
+    }
+
+    public async Task<Guid> LocaleInAsync(string name, Guid? forParticipant, string? district)
+    {
+        var id = await LocaleAsync(name, forParticipant);
+        if (!string.IsNullOrWhiteSpace(district) && Find(id) is { Kind: PlaceKinds.Locale, DistrictId: null } locale)
+        {
+            locale.DistrictId = await DistrictAsync(district);
+            await SaveAsync();
+        }
+        return id;
+    }
+
+    public Task<List<string>> GetKnownPlacesAsync(Guid participantId)
+    {
+        var body = state.State.Bodies.GetValueOrDefault(participantId);
+        var district = Find(body?.PlaceId ?? Guid.Empty)?.DistrictId ?? Districts.Centre;
+        var mine = (state.State.Visits.GetValueOrDefault(participantId) ?? new List<string>()).Select(v => SplitVisit(v).Place).ToHashSet();
+        var visitors = state.State.Visits.SelectMany(kv => kv.Value.Select(v => (Who: kv.Key, SplitVisit(v).Place)))
+            .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Who).Distinct().Count());
+        var locales = state.State.Places.Where(p => p.Kind == PlaceKinds.Locale && p.Name != Elsewhere).ToList();
+        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && p.DistrictId == district).Take(5)
+            .Concat(locales.Where(p => mine.Contains(p.Id)).Take(3))
+            .Concat(locales.OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(3))
+            .DistinctBy(p => p.Id)
+            .Select(p => p.DistrictId is { } d && d != district ? $"{p.Name} ({DistrictName(d)})" : p.Name)
+            .ToList();
+        return Task.FromResult(known);
     }
 
     public async Task<Body?> ReturnAsync(Guid participantId)

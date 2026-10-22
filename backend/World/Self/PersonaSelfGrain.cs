@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Orleans.Concurrency;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
@@ -219,10 +220,11 @@ public sealed partial class PersonaSelfGrain(
                 - beats: 7-10 lines "HH:MM what happens", chronological from waking to bed, one per line
                 - openers: {OpenersSpec}
                 - threads: {ThreadsSpec}
+                - whereabouts: {WhereaboutsSpec}
                 Let today's beats move at least one ongoing thread a little.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}",
-                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads"]);
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}",
+                cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
             {
@@ -235,6 +237,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.Energy = json?["energy"]?.ToString()?.Trim().ToLowerInvariant() ?? "medium";
             state.State.Preoccupation = json?["preoccupation"]?.ToString()?.Trim();
             state.State.Openers = SelfMath.ParseList(json?["openers"]?.ToString());
+            state.State.Whereabouts = SelfMath.ParseWhereabouts(json?["whereabouts"]?.ToString());
             var (open, done) = SelfMath.ParseThreads(json?["threads"]?.ToString());
             state.State.Resolved = done;
             if (open.Count > 0)
@@ -248,6 +251,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.ValenceSource = null;
             state.State.BatteryAt = now.ToUnixTimeMilliseconds();
             await state.WriteStateAsync();
+            if (state.State.Whereabouts.Count > 0) _ = ApplyWhereaboutsAsync(partyId, personaId);
             logger.LogInformation("Self day for {Persona}: {Mood}, {Energy}, {Beats} beats", self.Name, state.State.Mood, state.State.Energy, beats.Count);
         }
         catch (Exception ex)
@@ -426,6 +430,9 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
     /// <summary>A closed Moment's appraisal: <paramref name="better"/> = p(it left them in a better mood).</summary>
     [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
+
+    /// <summary>Today's stretches away from home (ADR 0027); empty before today's Day. Read-only.</summary>
+    [AlwaysInterleave, Alias("GetWhereaboutsAsync")] Task<List<Whereabout>> GetWhereaboutsAsync();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayWindow")]
@@ -454,6 +461,8 @@ public sealed class SelfState
     /// <summary>Threads today's day settled.</summary>
     [Id(16)] public List<string> Resolved { get; set; } = new();
     [Id(17)] public string? ThreadsKey { get; set; }
+    /// <summary>Today's stretches away from home (ADR 0027).</summary>
+    [Id(18)] public List<Whereabout> Whereabouts { get; set; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

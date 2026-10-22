@@ -178,6 +178,7 @@ public sealed partial class PlacesGrain(
     {
         await SettleAsync();
         await SleepCycleAsync();
+        await WhereaboutsCycleAsync();
         return state.State.Bodies.Values.Where(b => b.Asleep).Select(b => b.ParticipantId).ToList();
     }
 
@@ -432,6 +433,7 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         await SleepCycleAsync();
+        await WhereaboutsCycleAsync();
         return new PlacesSnapshot
         {
             Places = state.State.Places.ToList(),
@@ -484,6 +486,7 @@ public sealed partial class PlacesGrain(
         {
             body.AwayAs = null;
             body.CameFrom = null;
+            body.AwayByDay = false;
         }
         await SaveAsync();
 
@@ -960,6 +963,12 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>What the Body is busy with ("working"); null lasts until changed.</summary>
     [Alias("SetActivityAsync")] Task<Body?> SetActivityAsync(Guid participantId, string? activity, TimeSpan? lasts);
+
+    /// <summary>Resolve-or-create a Locale and, if it has no District yet, place it in this one ("Zuid").</summary>
+    [Alias("LocaleInAsync")] Task<Guid> LocaleInAsync(string name, Guid? forParticipant, string? district);
+
+    /// <summary>Names for the Day prompt: Places in your District, Locales you've been to, and the busiest Locales. Read-only.</summary>
+    [AlwaysInterleave, Alias("GetKnownPlacesAsync")] Task<List<string>> GetKnownPlacesAsync(Guid participantId);
 
     /// <summary>Distinct local days in the last 7 the Participant spent time at each Place or Locale.</summary>
     [Alias("GetVisitDaysAsync")] Task<Dictionary<Guid, int>> GetVisitDaysAsync(Guid participantId);

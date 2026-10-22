@@ -132,4 +132,25 @@ public partial class PlacesTest
         _fx.Time.Advance(TimeSpan.FromMinutes(3));
         Assert.StartsWith("You're at the Café", await places.GetSituationAsync(denise));
     }
+
+    [Fact]
+    public async Task LocaleIn_PlacesANewLocaleInItsDistrict_AndKnownPlacesListIt()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+
+        var gym = await places.LocaleInAsync("the climbing gym", denise, "Zuid");
+        var again = await places.LocaleInAsync("Climbing gym", pieter, "Noord");
+        await places.GoAwayAsync(denise, gym, "out");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        await places.GetSnapshotAsync();
+
+        Assert.Equal(gym, again);
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.Equal("zuid", snapshot.Places.Single(p => p.Id == gym).DistrictId);
+        Assert.DoesNotContain(snapshot.Districts, d => d.Id == "noord");
+        var known = await places.GetKnownPlacesAsync(pieter);
+        Assert.Contains("the Café", known);
+        Assert.Contains("the climbing gym (Zuid)", known);
+    }
 }

@@ -5657,6 +5657,15 @@
             ],
             "format": "uuid"
           },
+          "awayByDay": {
+            "type": "boolean"
+          },
+          "awayStretch": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "isWalking": {
             "type": "boolean"
           }
