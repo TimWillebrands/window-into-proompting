@@ -246,6 +246,7 @@ public sealed partial class PlacesGrain
                 Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Public, MadeBy = madeBy,
                 At = json["at"]?.ToString() is "in" or "on" ? json["at"]!.ToString() : "at",
                 Description = WorldStream.Clip(json["description"]?.ToString() ?? description, 200),
+                Purpose = json["purpose"]?.ToString()?.Trim() is { Length: > 0 } purpose ? WorldStream.Clip(purpose, 120) : null,
                 Spots = spots, CustomScene = PlaceDesign.Store(scene), Scene = "custom",
             };
             state.State.Places.Add(place);

@@ -100,8 +100,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         }
 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
-        var restless = stayed > Restless;
-        if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.OwnerId == ctx.Self.Id ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
+        // Away at a Locale (ADR 0027): you're there for a reason, so no restlessness, and leaving means leaving it.
+        var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
+        var restless = stayed > Restless && !awayHere;
+        if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
+        else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.OwnerId == ctx.Self.Id ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         // A Gathering at a Place you said you'd come to (spec phase 7): be there, then talk.
         var nowMsG = ctx.Now.ToUnixTimeMilliseconds();
         foreach (var g in (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
@@ -132,6 +135,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var elsewhere = new List<string>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
+            if (place.Kind == PlaceKinds.Locale) continue;
             var mine = place.OwnerId == ctx.Self.Id;
             if (place.Kind == PlaceKinds.Home && !mine)
             {
@@ -154,10 +158,12 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
             var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
             // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
-            var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0);
+            var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");
+        var offscreen = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.AwayAs is not null && !b.IsWalking).Select(b => $"{b.Name} ({b.AwayAs})").ToList();
+        if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
         // At home: who's at the door, and who you could have over.
         if (!self.IsWalking && here?.OwnerId == ctx.Self.Id)

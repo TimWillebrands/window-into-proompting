@@ -62,7 +62,7 @@ public sealed partial class PlacesGrain(
             await SaveAsync();
         }
         BackfillPrepositions();
-        if (AddNewPublicPlaces() | Poses.Fill(state.State.Places.SelectMany(p => p.Spots))) await SaveAsync();
+        if (AddNewPublicPlaces() | Poses.Fill(state.State.Places.SelectMany(p => p.Spots)) | BackfillPurposes()) await SaveAsync();
         foreach (var place in state.State.Places) EnsureFurni(place);
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
@@ -454,7 +454,16 @@ public sealed partial class PlacesGrain(
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
         var place = state.State.Places.FirstOrDefault(p => p.Id == placeId);
-        if (place is null || !MayEnter(place, participantId)) return null;
+        // Locales are reached by going away (GoAwayAsync), never by walking over.
+        if (place is null || place.Kind == PlaceKinds.Locale) return null;
+        return await WalkAsync(body, place, spotId);
+    }
+
+    private async Task<Body?> WalkAsync(Body body, Place place, string? spotId)
+    {
+        var participantId = body.ParticipantId;
+        var placeId = place.Id;
+        if (!MayEnter(place, participantId)) return null;
         var spot = PickSpot(place, spotId, participantId);
         if (spot is null) return null;
         if (body.PlaceId == placeId && body.SpotId == spot.Id && !body.IsWalking) return body;
@@ -468,6 +477,11 @@ public sealed partial class PlacesGrain(
         body.DepartedAt = now;
         body.ArriveAt = now + (long)(body.PlaceId == placeId ? WithinPlace : BetweenPlaces).TotalMilliseconds;
         body.Posture = Posture.Walking;
+        if (place.Kind != PlaceKinds.Locale)
+        {
+            body.AwayAs = null;
+            body.CameFrom = null;
+        }
         await SaveAsync();
 
         if (leaving is { } left && left != placeId)
@@ -490,6 +504,7 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(otherId, out var other)) return null;
+        if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale }) return null;
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
     }
 
@@ -690,7 +705,7 @@ public sealed partial class PlacesGrain(
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
         if (arrived.Count == 0)
         {
-            if (mishapDue != state.State.NextMishapAt) await SaveAsync();
+            if (mishapDue != state.State.NextMishapAt | NoteVisits()) await SaveAsync();
             return;
         }
         foreach (var body in arrived)
@@ -707,6 +722,7 @@ public sealed partial class PlacesGrain(
             body.DepartedAt = null;
             body.ArriveAt = null;
         }
+        NoteVisits();
         await SaveAsync();
         foreach (var placeId in arrived.Select(b => b.PlaceId).Distinct())
             await SyncTalkRoomAsync(placeId);
@@ -731,7 +747,7 @@ public sealed partial class PlacesGrain(
     private async Task SyncTalkRoomAsync(Guid placeId)
     {
         var place = Find(placeId);
-        if (place is null) return;
+        if (place is null || place.Kind == PlaceKinds.Locale) return;
         var occupants = Occupants(placeId).Select(b => b.ParticipantId).ToHashSet();
         if (place.TalkRoomId is null)
         {
@@ -772,6 +788,7 @@ public sealed partial class PlacesGrain(
         }
         var place = Find(body.PlaceId);
         if (body.Asleep) return $"You're asleep in bed {AtName(place, body.ParticipantId)}.";
+        if (place is { Kind: PlaceKinds.Locale }) return AwaySituation(body, place);
         var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
@@ -790,6 +807,7 @@ public sealed partial class PlacesGrain(
             var shown = place.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderByDescending(f => f.TendedAt).Take(2).Select(f => f.Name).ToList();
             if (shown.Count > 0) sb.Append(" On display: ").Append(string.Join("; ", shown)).Append('.');
         }
+        if (place is { Kind: PlaceKinds.Public, Purpose.Length: > 0 }) sb.Append($" {Capital(place.Name)} is {place.Purpose}.");
         return sb.ToString();
     }
 
@@ -924,4 +942,19 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor);
 
     [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
+
+    /// <summary>Resolve-or-create an offscreen Locale by name (ADR 0027); "work" for someone becomes their own. A drawn Place with that name wins.</summary>
+    [Alias("LocaleAsync")] Task<Guid> LocaleAsync(string name, Guid? forParticipant);
+
+    /// <summary>Walk out to a Locale and be away there ("at work"); a drawn Place id just walks there, to a Staff spot if any.</summary>
+    [Alias("GoAwayAsync")] Task<Body?> GoAwayAsync(Guid participantId, Guid localeId, string? activity);
+
+    /// <summary>Back from a Locale to the Place left, else home. A Body that isn't away stays put.</summary>
+    [Alias("ReturnAsync")] Task<Body?> ReturnAsync(Guid participantId);
+
+    /// <summary>What the Body is busy with ("working"); null lasts until changed.</summary>
+    [Alias("SetActivityAsync")] Task<Body?> SetActivityAsync(Guid participantId, string? activity, TimeSpan? lasts);
+
+    /// <summary>Distinct local days in the last 7 the Participant spent time at each Place or Locale.</summary>
+    [Alias("GetVisitDaysAsync")] Task<Dictionary<Guid, int>> GetVisitDaysAsync(Guid participantId);
 }

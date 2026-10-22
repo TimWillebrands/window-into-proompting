@@ -39,6 +39,22 @@ export function walkingText(b: Body, now: number): string | null {
     return left === 0 ? 'arriving…' : `arriving in ${left}s`;
 }
 
+/** Offscreen Locales (ADR 0027) are never drawn or entered. */
+export const isLocale = (p: Place) => p.kind === 'locale';
+
+/** "Denise — at work, the office in Zuid" per Body away at a Locale. */
+export function awayLines(bodies: Body[], places: Place[]): string[] {
+    const locales = new Map(
+        places.filter(isLocale).map((l) => [l.id, l] as const),
+    );
+    return bodies.flatMap((b) => {
+        const at = locales.get(bodyPlaceId(b) ?? '');
+        if (!at) return [];
+        const where = at.name?.endsWith("'s work") ? '' : `, ${at.name}`;
+        return [`${b.name} — ${b.awayAs ?? 'away'}${where}`];
+    });
+}
+
 /** Ordered for the Navigator: public Places first, then the viewer's Home. */
 export const navigatorPlaces = (places: Place[], viewerId: string | null) => {
     const rank = (p: Place) =>

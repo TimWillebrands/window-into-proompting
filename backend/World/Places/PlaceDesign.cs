@@ -182,9 +182,10 @@ public static class PlaceDesign
     public static string Prompt(bool outdoor) => $$$"""
         You design one new place in a small, cosy low-poly 3D world seen from above at an angle (like Habbo Hotel). People hang out there.
         Output ONLY JSON:
-        {"name": "the Rooftop Bar", "at": "at", "description": "one sentence a visitor would notice", "spots": [...], "scene": {...}}
+        {"name": "the Rooftop Bar", "at": "at", "description": "one sentence a visitor would notice", "purpose": "what people come here for, one plain line", "spots": [...], "scene": {...}}
 
         "at" is the preposition: "at the Rooftop Bar", "in the park".
+        "purpose": plain words, no slogan: "where people go for a drink after work".
         spots: 3 to 5 named places to be, what people say they're at: {"id": "bar", "name": "the bar", "at": "at|on|in|by", "capacity": 2-5, "seat": true|false, "poses": [...]}
           poses it affords, from: lean, lounge, perch, dance, lie, cross-legged.
 
@@ -205,7 +206,7 @@ public static class PlaceDesign
         {{{string.Join("\n", Prefabs.Values.Select(p => $"  {p.Name} {p.Size[0]}x{p.Size[1]}{(p.Seats > 0 ? $" seats {p.Seats}" : "")}: {p.About}"))}}}
 
         Example (a café):
-        {"name": "the Café", "at": "at", "description": "a small café that smells of coffee", "spots": [{"id": "counter", "name": "the counter", "at": "at", "capacity": 3, "seat": false, "poses": ["lean"]}, {"id": "booth", "name": "the corner booth", "at": "in", "capacity": 3, "seat": true, "poses": ["lounge"]}],
+        {"name": "the Café", "at": "at", "description": "a small café that smells of coffee", "purpose": "where people get coffee and linger", "spots": [{"id": "counter", "name": "the counter", "at": "at", "capacity": 3, "seat": false, "poses": ["lean"]}, {"id": "booth", "name": "the corner booth", "at": "in", "capacity": 3, "seat": true, "poses": ["lounge"]}],
          "scene": {"map": ["##ww#######", "#.........#", "#.........#", "#.........#", "D.........#", "#.........#", "###########"],
                    "props": [{"p": "booth", "at": [1, 1], "spot": "booth"}, {"p": "counter", "at": [6, 1]}, {"p": "espresso", "at": [8, 1], "y": 1.04}, {"p": "stool", "at": [6, 2], "rot": 2, "spot": "counter"}, {"p": "big-plant", "at": [1, 5]}],
                    "spots": {"counter": {"at": [7, 2]}, "booth": {"at": [2, 3]}}, "floor": "#b98a5a", "wall": "#e6d7b8"}}

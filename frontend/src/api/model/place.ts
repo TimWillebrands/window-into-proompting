@@ -32,4 +32,6 @@ export interface Place {
     wallColour?: string | null;
     /** @nullable */
     floorColour?: string | null;
+    /** @nullable */
+    purpose?: string | null;
 }

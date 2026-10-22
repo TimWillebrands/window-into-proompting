@@ -5644,6 +5644,19 @@
             ],
             "format": "int64"
           },
+          "awayAs": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cameFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "isWalking": {
             "type": "boolean"
           }
@@ -6999,6 +7012,12 @@
               "null",
               "string"
             ]
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7469,6 +7488,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "staff": {
+            "type": "boolean"
           }
         }
       },

@@ -781,3 +781,9 @@
 .pl-stage > * {
     flex-shrink: 0;
 }
+
+.pl-away {
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #555;
+}

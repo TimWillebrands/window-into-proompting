@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Body } from '../../api/model/body';
 import type { Place } from '../../api/model/place';
 import {
+    awayLines,
     bodiesIn,
     canHear,
     mayEnter,
@@ -92,5 +93,29 @@ describe('places-lib', () => {
         expect(occupancy(roomy, 2).level).toBe('calm');
         expect(occupancy(roomy, 5).level).toBe('busy');
         expect(occupancy(roomy, 9).level).toBe('full');
+    });
+
+    it('lists Bodies away at a Locale, without repeating a plain workplace', () => {
+        const office: Place = {
+            id: 'o',
+            name: 'the office in Zuid',
+            kind: 'locale',
+            spots: [],
+        };
+        const hers: Place = {
+            id: 'w',
+            name: "Ana's work",
+            kind: 'locale',
+            spots: [],
+        };
+        const bodies: Body[] = [
+            { name: 'Denise', placeId: 'o', awayAs: 'at work' },
+            { name: 'Ana', placeId: 'w', awayAs: 'at work' },
+            { name: 'Bo', placeId: 'c' },
+        ];
+        expect(awayLines(bodies, [cafe, office, hers])).toEqual([
+            'Denise — at work, the office in Zuid',
+            'Ana — at work',
+        ]);
     });
 });

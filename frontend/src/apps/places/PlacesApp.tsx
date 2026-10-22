@@ -43,10 +43,12 @@ const webgl2 = (() => {
 
 import {
     avatarColour,
+    awayLines,
     bodiesIn,
     bodySpotId,
     canHear,
     furniIcon,
+    isLocale,
     mayEnter,
     navigatorPlaces,
     occupancy,
@@ -69,7 +71,8 @@ export default function PlacesApp() {
     const playerId = usePlayerId();
     const queryClient = useQueryClient();
     const snapshot = useGetWorldsPartyIdPlacesSuspense(WORLD_ID).data.data;
-    const places = snapshot.places ?? [];
+    const allPlaces = snapshot.places ?? [];
+    const places = allPlaces.filter((p) => !isLocale(p));
     const bodies = snapshot.bodies ?? [];
     const me = bodies.find((b) => b.participantId === playerId);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -104,6 +107,7 @@ export default function PlacesApp() {
         <div className="pl-app">
             <Navigator
                 places={navigatorPlaces(places, playerId)}
+                away={awayLines(bodies, allPlaces)}
                 bodies={bodies}
                 me={me}
                 playerId={playerId}
@@ -160,6 +164,7 @@ function useNow() {
 
 function Navigator({
     places,
+    away,
     bodies,
     me,
     playerId,
@@ -169,6 +174,7 @@ function Navigator({
     onAllEars,
 }: {
     places: Place[];
+    away: string[];
     bodies: Body[];
     me: Body | undefined;
     playerId: string | null;
@@ -260,6 +266,19 @@ function Navigator({
                         })}
                     </section>
                 ))}
+            {away.length > 0 ? (
+                <section className="pl-pane">
+                    <div className="pl-pane-head">
+                        Away
+                        <small>{away.length} offscreen</small>
+                    </div>
+                    {away.map((line) => (
+                        <div key={line} className="pl-away">
+                            {line}
+                        </div>
+                    ))}
+                </section>
+            ) : null}
             <label
                 className="pl-nav-foot"
                 title="Author view: hear Place talk beyond your Earshot, and build things"

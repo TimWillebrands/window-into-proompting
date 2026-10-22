@@ -6,7 +6,7 @@ public sealed class Place
 {
     [Id(0)] public Guid Id { get; set; }
     [Id(1)] public string Name { get; set; } = string.Empty;
-    /// <summary><c>public</c> or <c>home</c>.</summary>
+    /// <summary><c>public</c>, <c>home</c> or <c>locale</c> (offscreen, ADR 0027).</summary>
     [Id(2)] public string Kind { get; set; } = PlaceKinds.Public;
     /// <summary>Home owner; null for public Places.</summary>
     [Id(3)] public Guid? OwnerId { get; set; }
@@ -30,6 +30,8 @@ public sealed class Place
     /// <summary>Owner's choice of wall and floor colour (hex); null = the scene's.</summary>
     [Id(14)] public string? WallColour { get; set; }
     [Id(15)] public string? FloorColour { get; set; }
+    /// <summary>What it's for, one plain line (ADR 0026): "where people get coffee and linger".</summary>
+    [Id(16)] public string? Purpose { get; set; }
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
@@ -44,6 +46,8 @@ public sealed class Spot
     [Id(4)] public string At { get; set; } = "at";
     /// <summary>Poses this spot affords beyond standing or sitting (see <see cref="Poses"/>).</summary>
     [Id(5)] public List<string> Poses { get; set; } = new();
+    /// <summary>Behind the counter: where someone working here stands (ADR 0026).</summary>
+    [Id(6)] public bool Staff { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Posture")]
@@ -86,6 +90,10 @@ public sealed class Body
     [Id(17)] public Guid? PoseWith { get; set; }
     /// <summary>When a momentary pose (hug, high five) ends.</summary>
     [Id(18)] public long? PoseUntil { get; set; }
+    /// <summary>Why the Body is at a Locale ("at work"); null when not away.</summary>
+    [Id(19)] public string? AwayAs { get; set; }
+    /// <summary>The Place it left to go away, to return to.</summary>
+    [Id(20)] public Guid? CameFrom { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }
@@ -128,12 +136,15 @@ public sealed class PlacesState
     [Id(1)] public Dictionary<Guid, Body> Bodies { get; set; } = new();
     /// <summary>When the next rule-based mishap (a machine breaking) may happen; 0 = not scheduled.</summary>
     [Id(2)] public long NextMishapAt { get; set; }
+    /// <summary>Per participant: "placeId:yyyy-MM-dd" for each local day they spent time there; last 7 days.</summary>
+    [Id(3)] public Dictionary<Guid, List<string>> Visits { get; set; } = new();
 }
 
 public static class PlaceKinds
 {
     public const string Public = "public";
     public const string Home = "home";
+    public const string Locale = "locale";
 }
 
 /// <summary>The Places a World starts with, and the Home template.</summary>
@@ -145,11 +156,12 @@ public static class PlaceSeeds
         {
             Id = Guid.NewGuid(), Name = "the Lobby", Kind = PlaceKinds.Public, Scene = "lobby",
             Description = "a big carpeted hall with a reception desk, worn sofas and a noticeboard",
+            Purpose = "where people come in, wait for someone and check the noticeboard",
             Spots = new List<Spot>
             {
                 new() { Id = "entrance", Name = "the entrance", Capacity = 4 },
                 new() { Id = "sofas", Name = "the sofas", At = "on", Capacity = 4, Seat = true },
-                new() { Id = "desk", Name = "the reception desk", Capacity = 3 },
+                new() { Id = "desk", Name = "the reception desk", Capacity = 3, Staff = true },
                 new() { Id = "window", Name = "the window bench", At = "on", Capacity = 2, Seat = true },
             },
         },
@@ -157,9 +169,10 @@ public static class PlaceSeeds
         {
             Id = Guid.NewGuid(), Name = "the Café", Kind = PlaceKinds.Public, Scene = "cafe",
             Description = "a small café that smells of coffee, with a counter, a few tables and a jukebox",
+            Purpose = "where people get coffee and linger",
             Spots = new List<Spot>
             {
-                new() { Id = "counter", Name = "the counter", Capacity = 3 },
+                new() { Id = "counter", Name = "the counter", Capacity = 3, Staff = true },
                 new() { Id = "window-table", Name = "the window table", Capacity = 2, Seat = true },
                 new() { Id = "booth", Name = "the corner booth", Capacity = 4, Seat = true },
                 new() { Id = "jukebox", Name = "the jukebox", Capacity = 2 },
@@ -169,6 +182,7 @@ public static class PlaceSeeds
         {
             Id = Guid.NewGuid(), Name = "the city centre", Kind = PlaceKinds.Public, Scene = "centre", At = "in",
             Description = "the old centre outside: two canals lined with crooked gabled houses, cobbled streets, a humped bridge and bikes chained to every railing",
+            Purpose = "where people pass through, sit by the water and run into each other",
             Spots = new List<Spot>
             {
                 new() { Id = "bridge", Name = "the bridge", At = "on", Capacity = 4 },
@@ -188,6 +202,7 @@ public static class PlaceSeeds
         Scene = "home",
         OwnerId = ownerId,
         Description = "a small apartment",
+        Purpose = "where they live",
         Spots = new List<Spot>
         {
             new() { Id = "sofa", Name = "the sofa", At = "on", Capacity = 3, Seat = true },
@@ -196,6 +211,13 @@ public static class PlaceSeeds
             new() { Id = "bed", Name = "the bed", At = "on", Capacity = 2, Seat = true },
         },
     });
+
+    /// <summary>An offscreen Place (ADR 0027): one spot, never drawn, no talk Room.</summary>
+    public static Place Locale(string name) => new()
+    {
+        Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Locale, Description = name,
+        Spots = new List<Spot> { new() { Id = "there", Name = name, Capacity = 99 } },
+    };
 
     private static Place WithPoses(Place p)
     {

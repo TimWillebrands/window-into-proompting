@@ -13,4 +13,5 @@ export interface Spot {
     seat?: boolean;
     at?: string;
     poses?: string[];
+    staff?: boolean;
 }

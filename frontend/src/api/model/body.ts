@@ -53,5 +53,9 @@ export interface Body {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     poseUntil?: number | string | null;
+    /** @nullable */
+    awayAs?: string | null;
+    /** @nullable */
+    cameFrom?: string | null;
     isWalking?: boolean;
 }
