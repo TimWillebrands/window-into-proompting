@@ -180,4 +180,23 @@ public partial class PlacesTest
         var reading = Assert.Single(readings);
         Assert.Equal((gym, 2, 0.4), (reading.LocaleId, reading.People, reading.Footfall));
     }
+
+    [Fact]
+    public async Task CapturedTopics_AddTalkFootfall_ForWhoeverSpoke()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var gym = await places.LocaleAsync("the climbing gym", denise);
+
+        await places.NoteTopicsAsync(new List<string> { "climbing gym", "lease" }, new List<Guid> { denise, pieter, Guid.NewGuid() });
+
+        var growth = _fx.GrainFactory.GetGrain<PartyTown.World.Growth.IGrowthGrain>(partyId);
+        PartyTown.World.Growth.FootfallReading? reading = null;
+        for (var i = 0; i < 50 && reading?.People != 2; i++)
+        {
+            await Task.Delay(50);
+            reading = (await growth.GetReadingsAsync()).SingleOrDefault(r => r.LocaleId == gym);
+        }
+        Assert.Equal(2, reading?.People);
+    }
 }

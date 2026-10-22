@@ -79,4 +79,14 @@ public class FootfallTest
     [InlineData("the bar", "the bar", false)]
     public void Mentions_AreWholeWords_AndNotForGenericPlaces(string content, string locale, bool expected)
         => Assert.Equal(expected, PlacesGrain.Mentioned(content, locale));
+
+    [Theory]
+    [InlineData("climbing gym", "the climbing gym", true)]
+    [InlineData("gym", "the climbing gym", true)]
+    [InlineData("bouldering", "the climbing gym", false)]
+    [InlineData("office", "the office in Zuid", true)]
+    [InlineData("office politics", "the office in Zuid", false)]
+    [InlineData("coffee", "Café de Jaren", false)]
+    public void ATopicTag_NamesAPlace_WhenItsWordsCoverEnoughOfTheName(string topic, string place, bool expected)
+        => Assert.Equal(expected, PlacesGrain.TopicNames(topic, place));
 }

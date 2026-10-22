@@ -139,6 +139,7 @@ public sealed class MemoryRepository(
             ConceptsTouched: extraction.Concepts.Count)
         {
             RecollectionPersonaIds = writtenPersonaIds,
+            Concepts = extraction.Concepts.Select(c => c.Display).ToList(),
         };
     }
 

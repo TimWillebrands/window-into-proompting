@@ -988,6 +988,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Resolve-or-create a District by name ("Zuid"); returns its slug id.</summary>
     [Alias("DistrictAsync")] Task<string> DistrictAsync(string name);
 
+    /// <summary>Concept tags from a captured moment: footfall for each speaker on Locales they name; wakes quiet opened Places.</summary>
+    [Alias("NoteTopicsAsync")] Task NoteTopicsAsync(List<string> topics, List<Guid> speakers);
+
     /// <summary>Every District's name, for prompts that should reuse them. Read-only.</summary>
     [AlwaysInterleave, Alias("GetDistrictNamesAsync")] Task<List<string>> GetDistrictNamesAsync();
 

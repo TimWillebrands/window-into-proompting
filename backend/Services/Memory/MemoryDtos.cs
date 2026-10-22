@@ -79,6 +79,8 @@ public sealed record MemoryCaptureResult(
     int ConceptsTouched)
 {
     public IReadOnlyList<Guid> RecollectionPersonaIds { get; init; } = Array.Empty<Guid>();
+    /// <summary>The Event's Concept tags (display labels), for consumers outside memory (ADR 0027 footfall).</summary>
+    public IReadOnlyList<string> Concepts { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>

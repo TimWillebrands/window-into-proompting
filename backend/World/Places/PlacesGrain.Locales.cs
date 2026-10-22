@@ -187,6 +187,34 @@ public sealed partial class PlacesGrain
                 opened.MentionedAt = Now();
     }
 
+    public Task NoteTopicsAsync(List<string> topics, List<Guid> speakers)
+    {
+        var now = Now();
+        foreach (var place in state.State.Places.Where(p => !Unnamed(p.Name) && topics.Any(t => TopicNames(t, p.Name))))
+        {
+            if (place.Kind == PlaceKinds.Locale)
+                foreach (var speaker in speakers.Where(state.State.Bodies.ContainsKey))
+                    _ = GrainFactory.GetGrain<Growth.IGrowthGrain>(PartyId).NoteAsync(place.Id, speaker, Growth.FootfallSources.Talk);
+            else if (place.OpenedAt is not null)
+                place.MentionedAt = now;
+        }
+        return Task.CompletedTask;
+    }
+
+    private static readonly HashSet<string> NameStop = new(StringComparer.Ordinal) { "the", "in", "at", "on", "of", "and", "near", "by" };
+
+    private static List<string> NameWords(string s)
+        => System.Text.RegularExpressions.Regex.Split(s.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Where(w => w.Length >= 3 && !NameStop.Contains(w)).ToList();
+
+    /// <summary>A topic tag names a place when all its words are in the name and it covers at least half of it ("gym", "climbing gym" → "the climbing gym").</summary>
+    internal static bool TopicNames(string topic, string placeName)
+    {
+        var said = NameWords(topic);
+        var name = NameWords(placeName);
+        return said.Count > 0 && said.All(name.Contains) && said.Count * 2 >= name.Count;
+    }
+
     internal static bool Mentioned(string content, string localeName)
     {
         if (Unnamed(localeName)) return false;

@@ -139,6 +139,11 @@ public sealed class WorldMemory(
                 });
             }
 
+            // What was talked about is footfall on the Locales it names (ADR 0027), credited to who spoke.
+            if (result.Concepts.Count > 0)
+                _ = grains.GetGrain<Places.IPlacesGrain>(partyId).NoteTopicsAsync(
+                    result.Concepts.ToList(), moment.Lines.Select(l => l.SenderId).Distinct().ToList());
+
             if (result.RecollectionPersonaIds.Count > 0)
             {
                 var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
