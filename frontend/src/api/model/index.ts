@@ -27,6 +27,7 @@ export * from './decorateRequest';
 export * from './defaultPersonaTemplate';
 export * from './diaryEntry';
 export * from './directChatSummary';
+export * from './district';
 export * from './driverKind';
 export * from './driverOverrideEntry';
 export * from './ensurePlayerRequest';

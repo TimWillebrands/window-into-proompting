@@ -5958,6 +5958,17 @@
           }
         }
       },
+      "District": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "DriverKind": {
         "enum": [
           "User",
@@ -7018,6 +7029,12 @@
               "null",
               "string"
             ]
+          },
+          "districtId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7048,6 +7065,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FurniView"
+            }
+          },
+          "districts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/District"
             }
           }
         }

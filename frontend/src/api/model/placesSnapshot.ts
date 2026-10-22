@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Body } from './body';
+import type { District } from './district';
 import type { FurniView } from './furniView';
 import type { Place } from './place';
 
@@ -14,4 +15,5 @@ export interface PlacesSnapshot {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     now?: number | string;
     furni?: FurniView[];
+    districts?: District[];
 }

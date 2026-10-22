@@ -62,7 +62,7 @@ public sealed partial class PlacesGrain(
             await SaveAsync();
         }
         BackfillPrepositions();
-        if (AddNewPublicPlaces() | Poses.Fill(state.State.Places.SelectMany(p => p.Spots)) | BackfillPurposes()) await SaveAsync();
+        if (AddNewPublicPlaces() | Poses.Fill(state.State.Places.SelectMany(p => p.Spots)) | BackfillPurposes() | BackfillDistricts()) await SaveAsync();
         foreach (var place in state.State.Places) EnsureFurni(place);
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
@@ -438,6 +438,7 @@ public sealed partial class PlacesGrain(
             Bodies = state.State.Bodies.Values.OrderBy(b => b.Name).ToList(),
             Now = Now(),
             Furni = state.State.Places.SelectMany(p => p.Furni.Select(f => View(p, f, Now()))).ToList(),
+            Districts = state.State.Districts.ToList(),
         };
     }
 
@@ -475,7 +476,9 @@ public sealed partial class PlacesGrain(
         body.DestPlaceId = placeId;
         body.DestSpotId = spot.Id;
         body.DepartedAt = now;
-        body.ArriveAt = now + (long)(body.PlaceId == placeId ? WithinPlace : BetweenPlaces).TotalMilliseconds;
+        var walk = body.PlaceId == placeId ? WithinPlace
+            : Find(body.PlaceId) is { } from && Districts.Apart(from, place) ? BetweenDistricts : BetweenPlaces;
+        body.ArriveAt = now + (long)walk.TotalMilliseconds;
         body.Posture = Posture.Walking;
         if (place.Kind != PlaceKinds.Locale)
         {
@@ -782,9 +785,12 @@ public sealed partial class PlacesGrain(
         {
             var dest = Find(body.DestPlaceId!.Value);
             var mins = Math.Max(0, (body.ArriveAt!.Value - Now()) / 60_000.0);
-            return body.DestPlaceId == body.PlaceId
-                ? $"You're walking over to {SpotName(dest, body.DestSpotId)} {(dest?.OwnerId == body.ParticipantId ? "at" : dest?.At ?? "at")} {WhereName(dest, body.ParticipantId)}."
-                : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {(mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away")}.";
+            var eta = mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away";
+            if (body.DestPlaceId == body.PlaceId)
+                return $"You're walking over to {SpotName(dest, body.DestSpotId)} {(dest?.OwnerId == body.ParticipantId ? "at" : dest?.At ?? "at")} {WhereName(dest, body.ParticipantId)}.";
+            return Find(body.PlaceId) is { } from && dest is not null && Districts.Apart(from, dest)
+                ? $"You're on the tram to {WhereName(dest, body.ParticipantId)} in {DistrictName(dest.DistrictId)}, {eta}."
+                : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {eta}.";
         }
         var place = Find(body.PlaceId);
         if (body.Asleep) return $"You're asleep in bed {AtName(place, body.ParticipantId)}.";
@@ -957,4 +963,10 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Distinct local days in the last 7 the Participant spent time at each Place or Locale.</summary>
     [Alias("GetVisitDaysAsync")] Task<Dictionary<Guid, int>> GetVisitDaysAsync(Guid participantId);
+
+    /// <summary>Resolve-or-create a District by name ("Zuid"); returns its slug id.</summary>
+    [Alias("DistrictAsync")] Task<string> DistrictAsync(string name);
+
+    /// <summary>Put a Place or Locale in a District; false when either is unknown.</summary>
+    [Alias("SetDistrictAsync")] Task<bool> SetDistrictAsync(Guid placeId, string districtId);
 }

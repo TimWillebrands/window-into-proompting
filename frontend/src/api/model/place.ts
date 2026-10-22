@@ -34,4 +34,6 @@ export interface Place {
     floorColour?: string | null;
     /** @nullable */
     purpose?: string | null;
+    /** @nullable */
+    districtId?: string | null;
 }

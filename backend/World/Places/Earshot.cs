@@ -58,7 +58,8 @@ public static class Overhearing
     public static readonly string[] Tones = { "laughing", "arguing", "serious", "flirting", "chatting" };
 
     /// <summary>Public Places share doors; a shout carries into the next one.</summary>
-    public static bool NextDoor(Place a, Place b) => a.Id != b.Id && a.Kind == PlaceKinds.Public && b.Kind == PlaceKinds.Public;
+    public static bool NextDoor(Place a, Place b)
+        => a.Id != b.Id && a.Kind == PlaceKinds.Public && b.Kind == PlaceKinds.Public && !Districts.Apart(a, b);
 
     /// <summary>One perception line per group of speakers at a spot (or next door), newest first.</summary>
     public static List<(string Line, Overheard Latest, bool Name)> Lines(IEnumerable<Overheard> heard, Guid listener, Place place)

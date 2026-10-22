@@ -248,6 +248,7 @@ public sealed partial class PlacesGrain
                 Description = WorldStream.Clip(json["description"]?.ToString() ?? description, 200),
                 Purpose = json["purpose"]?.ToString()?.Trim() is { Length: > 0 } purpose ? WorldStream.Clip(purpose, 120) : null,
                 Spots = spots, CustomScene = PlaceDesign.Store(scene), Scene = "custom",
+                DistrictId = Districts.Centre,
             };
             state.State.Places.Add(place);
             await SaveAsync();

@@ -32,6 +32,37 @@ public sealed class Place
     [Id(15)] public string? FloorColour { get; set; }
     /// <summary>What it's for, one plain line (ADR 0026): "where people get coffee and linger".</summary>
     [Id(16)] public string? Purpose { get; set; }
+    /// <summary>Which part of the city it's in (ADR 0027); null for a Locale nobody has placed yet.</summary>
+    [Id(17)] public string? DistrictId { get; set; }
+}
+
+/// <summary>A part of the city that holds Places (ADR 0027): "the centre", "Zuid".</summary>
+[GenerateSerializer, Alias("PartyTown.World.Places.District")]
+public sealed class District
+{
+    /// <summary>Slug: centre, zuid, de-pijp.</summary>
+    [Id(0)] public string Id { get; set; } = string.Empty;
+    [Id(1)] public string Name { get; set; } = string.Empty;
+}
+
+public static class Districts
+{
+    public const string Centre = "centre";
+
+    public static District Seed() => new() { Id = Centre, Name = "the centre" };
+
+    /// <summary>"Amsterdam Zuid" → "amsterdam-zuid"; letters and digits only, dashed.</summary>
+    public static string Slug(string name)
+    {
+        var trimmed = name.Trim();
+        if (trimmed.StartsWith("the ", StringComparison.OrdinalIgnoreCase)) trimmed = trimmed[4..];
+        var chars = trimmed.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>Two drawn Places in different Districts are a tram ride apart; unplaced Locales are never.</summary>
+    public static bool Apart(Place a, Place b)
+        => a.DistrictId is { } x && b.DistrictId is { } y && x != y;
 }
 
 /// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
@@ -106,6 +137,7 @@ public sealed class PlacesSnapshot
     [Id(2)] public long Now { get; set; }
     /// <summary>Furni as the rules read them now, so clients never re-implement decay.</summary>
     [Id(3)] public List<FurniView> Furni { get; set; } = new();
+    [Id(4)] public List<District> Districts { get; set; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.FurniView")]
@@ -138,6 +170,7 @@ public sealed class PlacesState
     [Id(2)] public long NextMishapAt { get; set; }
     /// <summary>Per participant: "placeId:yyyy-MM-dd" for each local day they spent time there; last 7 days.</summary>
     [Id(3)] public Dictionary<Guid, List<string>> Visits { get; set; } = new();
+    [Id(4)] public List<District> Districts { get; set; } = new();
 }
 
 public static class PlaceKinds
@@ -154,7 +187,7 @@ public static class PlaceSeeds
     {
         new Place
         {
-            Id = Guid.NewGuid(), Name = "the Lobby", Kind = PlaceKinds.Public, Scene = "lobby",
+            Id = Guid.NewGuid(), Name = "the Lobby", Kind = PlaceKinds.Public, Scene = "lobby", DistrictId = Districts.Centre,
             Description = "a big carpeted hall with a reception desk, worn sofas and a noticeboard",
             Purpose = "where people come in, wait for someone and check the noticeboard",
             Spots = new List<Spot>
@@ -167,7 +200,7 @@ public static class PlaceSeeds
         },
         new Place
         {
-            Id = Guid.NewGuid(), Name = "the Café", Kind = PlaceKinds.Public, Scene = "cafe",
+            Id = Guid.NewGuid(), Name = "the Café", Kind = PlaceKinds.Public, Scene = "cafe", DistrictId = Districts.Centre,
             Description = "a small café that smells of coffee, with a counter, a few tables and a jukebox",
             Purpose = "where people get coffee and linger",
             Spots = new List<Spot>
@@ -180,7 +213,7 @@ public static class PlaceSeeds
         },
         new Place
         {
-            Id = Guid.NewGuid(), Name = "the city centre", Kind = PlaceKinds.Public, Scene = "centre", At = "in",
+            Id = Guid.NewGuid(), Name = "the city centre", Kind = PlaceKinds.Public, Scene = "centre", At = "in", DistrictId = Districts.Centre,
             Description = "the old centre outside: two canals lined with crooked gabled houses, cobbled streets, a humped bridge and bikes chained to every railing",
             Purpose = "where people pass through, sit by the water and run into each other",
             Spots = new List<Spot>
@@ -200,6 +233,7 @@ public static class PlaceSeeds
         Name = $"{ownerName.Split(' ')[0]}'s place",
         Kind = PlaceKinds.Home,
         Scene = "home",
+        DistrictId = Districts.Centre,
         OwnerId = ownerId,
         Description = "a small apartment",
         Purpose = "where they live",

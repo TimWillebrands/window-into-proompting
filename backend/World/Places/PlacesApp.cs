@@ -133,6 +133,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         }
 
         var elsewhere = new List<string>();
+        // Your own District in full; others collapse to a line each (ADR 0027), so the list doesn't grow with the city.
+        var myDistrict = here?.DistrictId ?? snapshot.Places.FirstOrDefault(p => p.Id == self.CameFrom)?.DistrictId ?? Districts.Centre;
+        var further = new List<(Place Place, List<string> There)>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
             if (place.Kind == PlaceKinds.Locale) continue;
@@ -154,6 +157,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 continue;
             }
             var there = snapshot.Bodies.Where(b => (b.DestPlaceId ?? b.PlaceId) == place.Id).Select(b => b.Name).ToList();
+            if (place.DistrictId is { } district && district != myDistrict && !mine)
+            {
+                further.Add((place, there));
+                continue;
+            }
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
             var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
@@ -162,6 +170,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");
+        var (furtherLine, trams) = FurtherAway(Id, further, snapshot.Districts);
+        if (furtherLine is not null) sb.AppendLine(furtherLine);
+        affordances.AddRange(trams.Select(t => awayHere ? t with { Priority = t.Priority - 1 } : t));
         var offscreen = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.AwayAs is not null && !b.IsWalking).Select(b => $"{b.Name} ({b.AwayAs})").ToList();
         if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
@@ -266,6 +277,25 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             default:
                 return null;
         }
+    }
+
+    /// <summary>Other Districts: one line and one tram per District, toward where people are.</summary>
+    internal static (string? Line, List<Affordance> Go) FurtherAway(string appId, IEnumerable<(Place Place, List<string> There)> further, IReadOnlyList<District> districts)
+    {
+        var parts = new List<string>();
+        var go = new List<Affordance>();
+        foreach (var g in further.GroupBy(f => f.Place.DistrictId))
+        {
+            var name = districts.FirstOrDefault(d => d.Id == g.Key)?.Name ?? g.Key ?? "elsewhere";
+            var busy = g.Where(f => f.There.Count > 0).OrderByDescending(f => f.There.Count).ToList();
+            var shown = busy.Take(2).Select(f => $"{f.Place.Name}: {string.Join(", ", f.There.Take(3))}").ToList();
+            var count = g.Count();
+            parts.Add($"{name}: {(shown.Count == 0 ? "nobody" : string.Join(", ", shown))}{(count > shown.Count ? $" ({count} places)" : string.Empty)}");
+            var target = busy.FirstOrDefault().Place ?? g.First().Place;
+            var who = busy.FirstOrDefault().There is { Count: > 0 } people ? $", {string.Join(", ", people.Take(3))} there" : string.Empty;
+            go.Add(new Affordance(appId, $"Take the tram to {name} ({target.Name}{who})", busy.Count > 0 ? 1 : 0, target.Id, "go"));
+        }
+        return (parts.Count == 0 ? null : $"Further away, a tram ride — {string.Join("; ", parts)}.", go);
     }
 
     /// <summary>" (to lean or perch)" for spots that afford poses.</summary>

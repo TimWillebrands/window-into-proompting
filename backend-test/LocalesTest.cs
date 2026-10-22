@@ -112,4 +112,24 @@ public partial class PlacesTest
         await places.GetSnapshotAsync();
         Assert.False((await places.GetVisitDaysAsync(denise)).ContainsKey(cafe.Id));
     }
+
+    [Fact]
+    public async Task AnotherDistrict_IsATramRideAway()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.Contains(snapshot.Districts, d => d.Id == Districts.Centre);
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+
+        var zuid = await places.DistrictAsync("Amsterdam Zuid");
+        Assert.Equal(zuid, await places.DistrictAsync("amsterdam zuid"));
+        Assert.True(await places.SetDistrictAsync(cafe.Id, zuid));
+        await places.MoveAsync(denise, cafe.Id, "booth");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        Assert.StartsWith("You're on the tram to the Café in Amsterdam Zuid", await places.GetSituationAsync(denise));
+        _fx.Time.Advance(TimeSpan.FromMinutes(3));
+        Assert.StartsWith("You're at the Café", await places.GetSituationAsync(denise));
+    }
 }
