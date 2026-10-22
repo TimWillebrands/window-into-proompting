@@ -1,7 +1,7 @@
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
 import type { Pt } from '../iso/iso';
-import { KIT_SCENES } from './kits';
+import { KIT_SCENES, variedKit } from './kits';
 import { type Part, type Prefab, pick, rng, turned } from './prefab';
 import { FURNI_PREFAB, PREFABS, prefabForSpot } from './prefabs';
 import {
@@ -353,7 +353,10 @@ function baseDef(place: Place): SceneDef {
     }
     // An opened Locale draws from its archetype's kit (ADR 0027).
     if (place.archetype && KIT_SCENES[place.archetype])
-        return { ...KIT_SCENES[place.archetype], id: `kit:${place.archetype}` };
+        return {
+            ...variedKit(KIT_SCENES[place.archetype], place.id ?? ''),
+            id: `kit:${place.archetype}`,
+        };
     if (place.scene === 'home' || place.kind === 'home') return homeFor(place);
     const def = place.scene ? SCENES[place.scene] : undefined;
     return def ?? generateScene(place);

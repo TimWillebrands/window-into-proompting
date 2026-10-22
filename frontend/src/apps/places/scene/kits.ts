@@ -1,3 +1,5 @@
+import { pick, rng } from './prefab';
+import { PREFABS } from './prefabs';
 import type { PropDef, SceneDef } from './scene';
 
 /** Kit scenes (ADR 0027): how a Locale looks once it opens, by archetype. Spot ids are backend kits.json's (a test checks). */
@@ -242,3 +244,53 @@ export const KIT_SCENES: Record<string, Omit<SceneDef, 'id'>> = {
         entrances: { '*': [10, 9] },
     },
 };
+
+const FLOORS = [
+    '#9aa3a8',
+    '#b98a5a',
+    '#c9b48a',
+    '#8a5a3c',
+    '#d8d2c4',
+    '#6f7d6a',
+];
+const WALLS = [
+    '#e9e6df',
+    '#e6d7b8',
+    '#efe3c8',
+    '#d9dee5',
+    '#e8d5cf',
+    '#dfe8dc',
+];
+const FABRICS = [
+    '#3d6b8c',
+    '#8c3d3d',
+    '#5a7d6a',
+    '#b8862f',
+    '#6b4c8a',
+    '#2f3136',
+];
+
+/** One Place's take on its kit: floor, walls and fabrics picked from its id, so two offices don't look alike. */
+export function variedKit(
+    def: Omit<SceneDef, 'id'>,
+    placeId: string,
+): Omit<SceneDef, 'id'> {
+    if (def.outdoor) return def;
+    let h = 7;
+    for (const c of placeId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const r = rng(h);
+    const fabric = pick(r, FABRICS);
+    return {
+        ...def,
+        floor: pick(r, FLOORS),
+        wall: pick(r, WALLS),
+        props: (def.props ?? []).map((p) =>
+            PREFABS[p.p]?.tint?.fabric
+                ? {
+                      ...p,
+                      tint: { ...p.tint, fabric: p.tint?.fabric ?? fabric },
+                  }
+                : p,
+        ),
+    };
+}

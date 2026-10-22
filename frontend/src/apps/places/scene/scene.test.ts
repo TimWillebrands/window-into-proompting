@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Body } from '../../../api/model/body';
 import type { Place } from '../../../api/model/place';
-import { KIT_SCENES } from './kits';
+import { KIT_SCENES, variedKit } from './kits';
 import { targets } from './motion';
 import { PREFABS } from './prefabs';
 import {
@@ -356,5 +356,29 @@ describe('entrances by Place id (ADR 0027)', () => {
         expect(entrance(s, 'sketch', 'venue-a')).toEqual({ x: 1, y: 0 });
         expect(entrance(s, 'sketch', 'venue-b')).toEqual({ x: 3, y: 0 });
         expect(entrance(s, null, null)).toEqual({ x: 2, y: 4 });
+    });
+});
+
+describe('varied kits (ADR 0027)', () => {
+    it('gives each opened Place its own colours, the same every time', () => {
+        const office = (id: string): Place => ({
+            id,
+            name: 'office',
+            kind: 'public',
+            scene: 'sketch',
+            archetype: 'office',
+            spots: [],
+        });
+        const looks = ['a', 'b', 'c', 'd', 'e'].map((id) => {
+            const def = variedKit(KIT_SCENES.office, id);
+            return `${def.floor}/${def.wall}`;
+        });
+        expect(new Set(looks).size).toBeGreaterThan(1);
+        expect(variedKit(KIT_SCENES.office, 'a')).toEqual(
+            variedKit(KIT_SCENES.office, 'a'),
+        );
+        expect(sceneFor(office('x')).def.floor).toBe(
+            variedKit(KIT_SCENES.office, 'x').floor,
+        );
     });
 });
