@@ -28,7 +28,7 @@ straight to its kit scene. The generated room is only for archetypes without one
    someone is their own. Opening a Locale keeps its id, so Events captured there keep their `place_id`. This
    amends ADR 0020: a Body is in exactly one Place, and that Place may be a Locale.
 2. **Districts.** `Place.DistrictId`. The old centre is the first District. Within a District walking stays
-   60 s and shouts carry next door. Between Districts it's a tram ride of a few minutes. Life's place list
+   15 s and shouts carry next door. Between Districts it's a tram ride of 45 s. Life's place list
    shows your District, your anchors and where your Ties are; other Districts collapse to one line. This
    comes before any growth, so prompts don't grow with the city.
 3. **Anchors.** A Participant's standing tie to a Locale: lives, works, studies, regular. "Works" is read from

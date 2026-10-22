@@ -360,7 +360,7 @@ A named **Place** that exists only offscreen ("the office in Zuid", "Ana's work"
 _Avoid_: elsewhere (that's the Life prompt's list of other Places), offscreen place, stub, location.
 
 **District**:
-A part of the city that holds **Places**; the old centre is the first. Walking within one is a minute; between Districts it's a tram ride.
+A part of the city that holds **Places**; the old centre is the first. Walking within one takes seconds; between Districts it's a short tram ride.
 _Avoid_: zone, area, region, neighbourhood (fine in prose).
 
 **Whereabout**:

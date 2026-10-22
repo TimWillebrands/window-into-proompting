@@ -130,10 +130,10 @@ public partial class PlacesTest
         Assert.Contains("Amsterdam Zuid", await places.GetDistrictNamesAsync());
         Assert.True(await places.SetDistrictAsync(cafe.Id, zuid));
         await places.MoveAsync(denise, cafe.Id, "booth");
-        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        _fx.Time.Advance(TimeSpan.FromSeconds(30));
 
         Assert.StartsWith("You're on the tram to the Café in Amsterdam Zuid", await places.GetSituationAsync(denise));
-        _fx.Time.Advance(TimeSpan.FromMinutes(3));
+        _fx.Time.Advance(TimeSpan.FromSeconds(20));
         Assert.StartsWith("You're at the Café", await places.GetSituationAsync(denise));
     }
 

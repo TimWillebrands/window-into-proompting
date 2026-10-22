@@ -22,8 +22,10 @@ public sealed partial class PlacesGrain(
     ILogger<PlacesGrain> logger)
     : Grain, IPlacesGrain
 {
-    private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(6);
-    private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(15);
+    /// <summary>How soon after its arrival time a walking Body is settled; walks are short, so this is quick.</summary>
+    private static readonly TimeSpan SettleEvery = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
     private static readonly TimeSpan BusyWithFurni = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan MishapMin = TimeSpan.FromHours(3);
@@ -749,7 +751,7 @@ public sealed partial class PlacesGrain(
                 _arrivals?.Dispose();
                 _arrivals = null;
             }
-        }, new GrainTimerCreationOptions(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) { KeepAlive = true });
+        }, new GrainTimerCreationOptions(SettleEvery, SettleEvery) { KeepAlive = true });
     }
 
     /// <summary>The Place talk Room's cast is whoever is there (not on their way out).</summary>

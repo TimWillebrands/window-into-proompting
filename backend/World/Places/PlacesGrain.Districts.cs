@@ -3,7 +3,7 @@ namespace PartyTown.World.Places;
 /// <summary>Districts (ADR 0027): parts of the city; crossing between them is a tram ride.</summary>
 public sealed partial class PlacesGrain
 {
-    private static readonly TimeSpan BetweenDistricts = TimeSpan.FromMinutes(4);
+    private static readonly TimeSpan BetweenDistricts = TimeSpan.FromSeconds(45);
 
     public async Task<string> DistrictAsync(string name)
     {
