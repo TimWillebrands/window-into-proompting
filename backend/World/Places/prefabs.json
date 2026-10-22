@@ -801,5 +801,258 @@
   "wall": false,
   "seats": 0,
   "about": "low flat-roofed building, outdoors (Kenney model)"
+ },
+ {
+  "name": "k-desk-corner",
+  "size": [
+   2,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "corner desk (Kenney model)"
+ },
+ {
+  "name": "k-laptop",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "open laptop; lift onto a desk with y (Kenney model)"
+ },
+ {
+  "name": "k-bookcase",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "bookcase with doors (Kenney model)"
+ },
+ {
+  "name": "k-lounge-sofa",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "low lounge sofa (Kenney model)"
+ },
+ {
+  "name": "k-coffee-machine",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "espresso machine; lift onto a counter with y (Kenney model)"
+ },
+ {
+  "name": "k-round-table",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "small round table (Kenney model)"
+ },
+ {
+  "name": "k-chair",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "plain chair (Kenney model)"
+ },
+ {
+  "name": "k-kitchen-bar",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "bar counter (Kenney model)"
+ },
+ {
+  "name": "k-bar-stool",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "square bar stool (Kenney model)"
+ },
+ {
+  "name": "k-barrel",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "wooden barrel (Kenney model)"
+ },
+ {
+  "name": "k-cloth-table",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "table with a cloth (Kenney model)"
+ },
+ {
+  "name": "k-stove",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "kitchen stove (Kenney model)"
+ },
+ {
+  "name": "k-fridge",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "tall fridge (Kenney model)"
+ },
+ {
+  "name": "k-shelves",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "open shelves (Kenney model)"
+ },
+ {
+  "name": "k-tree-large",
+  "size": [
+   2,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "big leafy tree (Kenney model)"
+ },
+ {
+  "name": "k-tree-fall",
+  "size": [
+   2,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "autumn tree (Kenney model)"
+ },
+ {
+  "name": "k-potted-plant",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "potted plant (Kenney model)"
+ },
+ {
+  "name": "k-bed",
+  "size": [
+   1,
+   2
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "single bed (Kenney model)"
+ },
+ {
+  "name": "k-hospital-sign",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "hospital sign (Kenney model)"
+ },
+ {
+  "name": "k-skyscraper",
+  "size": [
+   3,
+   3
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "glass office tower, outdoors (Kenney model)"
+ },
+ {
+  "name": "k-small-building",
+  "size": [
+   3,
+   3
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "small shop building, outdoors (Kenney model)"
+ },
+ {
+  "name": "k-carton",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "cardboard box (Kenney model)"
+ },
+ {
+  "name": "k-park-bench",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 2,
+  "about": "bench (Kenney model)"
  }
 ]

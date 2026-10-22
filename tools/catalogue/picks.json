@@ -1,0 +1,369 @@
+[
+    {
+        "id": "6PbVkqPzEU",
+        "name": "k-desk",
+        "size": [
+            2,
+            1
+        ],
+        "fit": [
+            1.9,
+            0.78,
+            0.8
+        ],
+        "c": "#d6ae74",
+        "mats": {
+            "wood": {
+                "c": "#d6ae74"
+            }
+        },
+        "about": "office desk"
+    },
+    {
+        "id": "CKSz6PB1vO",
+        "name": "k-desk-chair",
+        "fit": [
+            0.7,
+            1.05,
+            0.7
+        ],
+        "c": "#2f3136",
+        "tint": {
+            "fabric": "#3d6b8c"
+        },
+        "mats": {
+            "carpet": {
+                "c": "$fabric"
+            }
+        },
+        "seats": [
+            {
+                "at": [
+                    0,
+                    0
+                ],
+                "h": 0.5,
+                "face": 0
+            }
+        ],
+        "about": "swivel office chair"
+    },
+    {
+        "id": "V5Qo141OcB",
+        "name": "k-screen",
+        "solid": false,
+        "fit": [
+            0.6,
+            0.45,
+            0.25
+        ],
+        "c": "#2f3136",
+        "mats": {
+            "metal": {
+                "c": "#9fc7e6",
+                "glow": true
+            }
+        },
+        "about": "computer screen; lift onto a desk with y"
+    },
+    {
+        "id": "yKo7F36Qk2",
+        "name": "k-office-block",
+        "size": [
+            3,
+            3
+        ],
+        "fit": [
+            3,
+            0,
+            3
+        ],
+        "c": "$brick",
+        "tint": {
+            "brick": "#cdbb9c",
+            "trim": "#6b5a48"
+        },
+        "mats": {
+            "_defaultMat": {
+                "c": "$brick"
+            },
+            "border": {
+                "c": "$trim"
+            }
+        },
+        "about": "modern office block, outdoors"
+    },
+    {
+        "id": "dYEbYdPfJr",
+        "name": "k-low-building",
+        "size": [
+            3,
+            3
+        ],
+        "fit": [
+            3,
+            3,
+            3
+        ],
+        "c": "$brick",
+        "tint": {
+            "brick": "#a9573f",
+            "trim": "#4a3a33"
+        },
+        "mats": {
+            "_defaultMat": {
+                "c": "$brick"
+            },
+            "border": {
+                "c": "$trim"
+            }
+        },
+        "about": "low flat-roofed building, outdoors"
+    },
+    {
+        "id": "LCfBX1FVJr",
+        "name": "k-desk-corner",
+        "about": "corner desk"
+    },
+    {
+        "id": "GnbwSUiVty",
+        "name": "k-laptop",
+        "solid": false,
+        "about": "open laptop; lift onto a desk with y"
+    },
+    {
+        "id": "6Z0Z91EvJw",
+        "name": "k-bookcase",
+        "about": "bookcase with doors"
+    },
+    {
+        "id": "jMu2iCmGxU",
+        "name": "k-lounge-sofa",
+        "size": [
+            2,
+            1
+        ],
+        "seats": [
+            {
+                "at": [
+                    0,
+                    0
+                ],
+                "h": 0.4,
+                "face": 0
+            },
+            {
+                "at": [
+                    1,
+                    0
+                ],
+                "h": 0.4,
+                "face": 0
+            }
+        ],
+        "tint": {
+            "fabric": "#5a7d6a"
+        },
+        "mats": {
+            "carpet": {
+                "c": "$fabric"
+            }
+        },
+        "about": "low lounge sofa"
+    },
+    {
+        "id": "jBUiOz36vs",
+        "name": "k-coffee-machine",
+        "solid": false,
+        "about": "espresso machine; lift onto a counter with y"
+    },
+    {
+        "id": "AXbvcMDC8j",
+        "name": "k-round-table",
+        "about": "small round table",
+        "size": [
+            1,
+            1
+        ]
+    },
+    {
+        "id": "vHyrBYPBum",
+        "name": "k-chair",
+        "seats": [
+            {
+                "at": [
+                    0,
+                    0
+                ],
+                "h": 0.45,
+                "face": 0
+            }
+        ],
+        "about": "plain chair"
+    },
+    {
+        "id": "w00V8SbhYD",
+        "name": "k-kitchen-bar",
+        "size": [
+            2,
+            1
+        ],
+        "about": "bar counter"
+    },
+    {
+        "id": "2EwBIClO8u",
+        "name": "k-bar-stool",
+        "seats": [
+            {
+                "at": [
+                    0,
+                    0
+                ],
+                "h": 0.7,
+                "face": 0
+            }
+        ],
+        "about": "square bar stool"
+    },
+    {
+        "id": "orjMeJQfFD",
+        "name": "k-barrel",
+        "about": "wooden barrel"
+    },
+    {
+        "id": "VhhNCfQ8gj",
+        "name": "k-cloth-table",
+        "about": "table with a cloth"
+    },
+    {
+        "id": "kTJU2y4R15",
+        "name": "k-stove",
+        "about": "kitchen stove"
+    },
+    {
+        "id": "McgsrFB5x6",
+        "name": "k-fridge",
+        "about": "tall fridge"
+    },
+    {
+        "id": "MTH8ZwnA27",
+        "name": "k-shelves",
+        "about": "open shelves"
+    },
+    {
+        "id": "ORCbG8dslS",
+        "name": "k-tree-large",
+        "about": "big leafy tree"
+    },
+    {
+        "id": "XMvD3AilGv",
+        "name": "k-tree-fall",
+        "about": "autumn tree"
+    },
+    {
+        "id": "23Dx9CC95C",
+        "name": "k-potted-plant",
+        "about": "potted plant"
+    },
+    {
+        "id": "sn8az3odMR",
+        "name": "k-bed",
+        "size": [
+            1,
+            2
+        ],
+        "about": "single bed"
+    },
+    {
+        "id": "PeM20xAT0V",
+        "name": "k-hospital-sign",
+        "solid": false,
+        "about": "hospital sign"
+    },
+    {
+        "id": "XST1j6kYsL",
+        "name": "k-skyscraper",
+        "size": [
+            3,
+            3
+        ],
+        "fit": [
+            3,
+            0,
+            3
+        ],
+        "c": "$brick",
+        "tint": {
+            "brick": "#b9c2c9",
+            "trim": "#4b5560"
+        },
+        "mats": {
+            "_defaultMat": {
+                "c": "$brick"
+            },
+            "border": {
+                "c": "$trim"
+            }
+        },
+        "about": "glass office tower, outdoors"
+    },
+    {
+        "id": "QjL4Fo9dU9",
+        "name": "k-small-building",
+        "size": [
+            3,
+            3
+        ],
+        "fit": [
+            3,
+            0,
+            3
+        ],
+        "c": "$brick",
+        "tint": {
+            "brick": "#b88a5a",
+            "trim": "#4a3a33"
+        },
+        "mats": {
+            "_defaultMat": {
+                "c": "$brick"
+            },
+            "border": {
+                "c": "$trim"
+            }
+        },
+        "about": "small shop building, outdoors"
+    },
+    {
+        "id": "T2QjC2ZQya",
+        "name": "k-carton",
+        "about": "cardboard box"
+    },
+    {
+        "id": "vfKIesr9bk",
+        "name": "k-park-bench",
+        "size": [
+            2,
+            1
+        ],
+        "seats": [
+            {
+                "at": [
+                    0,
+                    0
+                ],
+                "h": 0.45,
+                "face": 0
+            },
+            {
+                "at": [
+                    1,
+                    0
+                ],
+                "h": 0.45,
+                "face": 0
+            }
+        ],
+        "about": "bench"
+    }
+]

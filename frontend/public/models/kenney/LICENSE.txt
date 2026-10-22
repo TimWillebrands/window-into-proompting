@@ -1,6 +1,29 @@
-Models by Kenney (kenney.nl), CC0 1.0 (public domain), fetched via Poly Pizza.
-desk.glb             https://poly.pizza/m/6PbVkqPzEU
-desk-chair.glb       https://poly.pizza/m/CKSz6PB1vO
-computer-screen.glb  https://poly.pizza/m/V5Qo141OcB
-office-block.glb     https://poly.pizza/m/yKo7F36Qk2
-low-building.glb     https://poly.pizza/m/dYEbYdPfJr
+Models by Kenney, CC0 1.0 (public domain), via Poly Pizza.
+desk.glb                     https://poly.pizza/m/6PbVkqPzEU  "Desk"
+desk-chair.glb               https://poly.pizza/m/CKSz6PB1vO  "Desk Chair"
+screen.glb                   https://poly.pizza/m/V5Qo141OcB  "Computer Screen"
+office-block.glb             https://poly.pizza/m/yKo7F36Qk2  "Large Building"
+low-building.glb             https://poly.pizza/m/dYEbYdPfJr  "Low Building"
+desk-corner.glb              https://poly.pizza/m/LCfBX1FVJr  "Desk Corner"
+laptop.glb                   https://poly.pizza/m/GnbwSUiVty  "Laptop"
+bookcase.glb                 https://poly.pizza/m/6Z0Z91EvJw  "Bookcase Closed Doors"
+lounge-sofa.glb              https://poly.pizza/m/jMu2iCmGxU  "Lounge Sofa"
+coffee-machine.glb           https://poly.pizza/m/jBUiOz36vs  "Kitchen Coffee Machine"
+round-table.glb              https://poly.pizza/m/AXbvcMDC8j  "Round Table"
+chair.glb                    https://poly.pizza/m/vHyrBYPBum  "Chair"
+kitchen-bar.glb              https://poly.pizza/m/w00V8SbhYD  "Kitchen Bar"
+bar-stool.glb                https://poly.pizza/m/2EwBIClO8u  "Stool Bar Square"
+barrel.glb                   https://poly.pizza/m/orjMeJQfFD  "Barrel"
+cloth-table.glb              https://poly.pizza/m/VhhNCfQ8gj  "Table Cross Cloth"
+stove.glb                    https://poly.pizza/m/kTJU2y4R15  "Kitchen Stove"
+fridge.glb                   https://poly.pizza/m/McgsrFB5x6  "Kitchen Fridge Large"
+shelves.glb                  https://poly.pizza/m/MTH8ZwnA27  "Bookcase Open"
+tree-large.glb               https://poly.pizza/m/ORCbG8dslS  "Tree Large"
+tree-fall.glb                https://poly.pizza/m/XMvD3AilGv  "Tree Fall"
+potted-plant.glb             https://poly.pizza/m/23Dx9CC95C  "Potted Plant"
+bed.glb                      https://poly.pizza/m/sn8az3odMR  "Bed Single"
+hospital-sign.glb            https://poly.pizza/m/PeM20xAT0V  "Sign Hospital"
+skyscraper.glb               https://poly.pizza/m/XST1j6kYsL  "Skyscraper"
+small-building.glb           https://poly.pizza/m/QjL4Fo9dU9  "Small Building"
+carton.glb                   https://poly.pizza/m/T2QjC2ZQya  "Carton"
+park-bench.glb               https://poly.pizza/m/vfKIesr9bk  "Bench"

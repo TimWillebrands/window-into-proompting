@@ -1,0 +1,13 @@
+{
+    "office": ["office desk", "office chair", "computer", "printer", "water cooler", "filing cabinet", "whiteboard"],
+    "cafe": ["coffee machine", "cafe table", "bar stool", "cake"],
+    "bar": ["bar counter", "beer", "bottle shelf", "pool table"],
+    "restaurant": ["dining table", "kitchen counter", "stove", "plate"],
+    "shop": ["shelf", "cash register", "shopping cart", "fridge", "crate"],
+    "gym": ["treadmill", "dumbbell", "bench press", "yoga mat"],
+    "park": ["tree", "bush", "bench", "fountain", "flower"],
+    "station": ["train", "bench", "ticket machine", "clock"],
+    "school": ["school desk", "chalkboard", "bookshelf", "globe"],
+    "clinic": ["hospital bed", "waiting chair", "plant"],
+    "street": ["building", "skyscraper", "street lamp", "traffic light", "fence", "car", "bicycle"]
+}

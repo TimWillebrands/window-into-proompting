@@ -1,3 +1,4 @@
+import { CATALOGUE } from './catalogue.gen';
 import {
     type Part,
     type Prefab,
@@ -1577,71 +1578,8 @@ export const PREFABS: Record<string, Prefab> = {
             },
         ],
     },
-    // Catalogue models (ADR 0027): CC0 Kenney via Poly Pizza, self-hosted in public/models.
-    'k-desk': {
-        size: [2, 1],
-        parts: [
-            {
-                glb: '/models/kenney/desk.glb',
-                fit: [1.9, 0.78, 0.8],
-                c: C.lightWood,
-                mats: { wood: { c: C.lightWood } },
-            },
-        ],
-    },
-    'k-desk-chair': {
-        tint: { fabric: '#3d6b8c' },
-        seats: [{ at: [0, 0], h: 0.5, face: 0 }],
-        parts: [
-            {
-                glb: '/models/kenney/desk-chair.glb',
-                fit: [0.7, 1.05, 0.7],
-                c: C.dark,
-                mats: { carpet: { c: '$fabric' } },
-            },
-        ],
-    },
-    'k-screen': {
-        solid: false,
-        parts: [
-            {
-                glb: '/models/kenney/computer-screen.glb',
-                fit: [0.6, 0.45, 0.25],
-                c: C.dark,
-                mats: { metal: { c: '#9fc7e6', glow: true } },
-            },
-        ],
-    },
-    'k-office-block': {
-        size: [3, 3],
-        tint: { brick: '#cdbb9c', trim: '#6b5a48' },
-        parts: [
-            {
-                glb: '/models/kenney/office-block.glb',
-                fit: [3, 0, 3],
-                c: '$brick',
-                mats: {
-                    _defaultMat: { c: '$brick' },
-                    border: { c: '$trim' },
-                },
-            },
-        ],
-    },
-    'k-low-building': {
-        size: [3, 3],
-        tint: { brick: '#a9573f', trim: '#4a3a33' },
-        parts: [
-            {
-                glb: '/models/kenney/low-building.glb',
-                fit: [3, 0, 3],
-                c: '$brick',
-                mats: {
-                    _defaultMat: { c: '$brick' },
-                    border: { c: '$trim' },
-                },
-            },
-        ],
-    },
+    // Catalogue models (ADR 0027), generated from tools/catalogue/picks.json.
+    ...CATALOGUE,
 };
 
 /** The prefab a furni kind (or a decor style) draws with by default. */
