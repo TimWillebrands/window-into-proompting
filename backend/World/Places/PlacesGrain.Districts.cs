@@ -27,6 +27,19 @@ public sealed partial class PlacesGrain
 
     public Task<List<string>> GetDistrictNamesAsync() => Task.FromResult(state.State.Districts.Select(d => d.Name).ToList());
 
+    public async Task<bool> SetHomeDistrictAsync(Guid ownerId, string district)
+    {
+        await SyncCastAsync();
+        if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId) is not { } home) return false;
+        var id = await DistrictAsync(district);
+        if (home.DistrictId == id) return true;
+        home.DistrictId = id;
+        await SaveAsync();
+        await PublishPlaceAsync(home);
+        await EnsureStreetsAsync(id);
+        return true;
+    }
+
     private string DistrictName(string? id)
         => state.State.Districts.FirstOrDefault(d => d.Id == id)?.Name ?? "another part of town";
 

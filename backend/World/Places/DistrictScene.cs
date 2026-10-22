@@ -7,6 +7,8 @@ public static class DistrictScene
 {
     public const int MinVenues = 2;
     public const int MaxShown = 4;
+    /// <summary>Homes in a District that earn it streets without any venue (lives-in anchors).</summary>
+    public const int MinResidents = 3;
     private const int Height = 12;
     private static readonly string[] Towers = { "k-office-block", "k-skyscraper", "k-small-building", "k-low-building" };
 

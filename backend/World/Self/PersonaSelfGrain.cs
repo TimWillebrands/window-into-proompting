@@ -268,6 +268,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.BatteryAt = now.ToUnixTimeMilliseconds();
             await state.WriteStateAsync();
             if (state.State.Whereabouts.Count > 0) _ = ApplyWhereaboutsAsync(partyId, personaId);
+            if (state.State.Neighbourhood is null) _ = SettleHomeAsync(partyId, personaId);
             logger.LogInformation("Self day for {Persona}: {Mood}, {Energy}, {Beats} beats", self.Name, state.State.Mood, state.State.Energy, beats.Count);
         }
         catch (Exception ex)
@@ -479,6 +480,8 @@ public sealed class SelfState
     [Id(17)] public string? ThreadsKey { get; set; }
     /// <summary>Today's stretches away from home (ADR 0027).</summary>
     [Id(18)] public List<Whereabout> Whereabouts { get; set; } = new();
+    /// <summary>The part of town they live in, read once from who they are (ADR 0027); "" when it couldn't be read.</summary>
+    [Id(19)] public string? Neighbourhood { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

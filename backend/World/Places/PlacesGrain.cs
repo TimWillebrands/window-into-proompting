@@ -991,6 +991,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Concept tags from a captured moment: footfall for each speaker on Locales they name; wakes quiet opened Places.</summary>
     [Alias("NoteTopicsAsync")] Task NoteTopicsAsync(List<string> topics, List<Guid> speakers);
 
+    /// <summary>Where someone lives (ADR 0027): their Home moves into that District, made if new.</summary>
+    [Alias("SetHomeDistrictAsync")] Task<bool> SetHomeDistrictAsync(Guid ownerId, string district);
+
     /// <summary>Every District's name, for prompts that should reuse them. Read-only.</summary>
     [AlwaysInterleave, Alias("GetDistrictNamesAsync")] Task<List<string>> GetDistrictNamesAsync();
 

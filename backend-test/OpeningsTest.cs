@@ -161,4 +161,19 @@ public partial class PlacesTest
         _fx.Time.Advance(TimeSpan.FromDays(1));
         Assert.NotNull(await places.OpenAsync(bar, null, "footfall"));
     }
+
+    [Fact]
+    public async Task WhereSomeoneLives_MovesTheirHome_AndThreeResidentsGiveADistrictItsStreets()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+
+        Assert.True(await places.SetHomeDistrictAsync(denise, "De Pijp"));
+        Assert.True(await places.SetHomeDistrictAsync(pieter, "the Pijp"));
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.Equal("de-pijp", snapshot.Places.Single(p => p.OwnerId == denise).DistrictId);
+        Assert.Equal("de-pijp", snapshot.Places.Single(p => p.OwnerId == pieter).DistrictId);
+        Assert.DoesNotContain(snapshot.Places, p => p.Scene == "district");
+        Assert.False(await places.SetHomeDistrictAsync(Guid.NewGuid(), "De Pijp"));
+    }
 }

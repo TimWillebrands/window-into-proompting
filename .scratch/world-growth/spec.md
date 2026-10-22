@@ -49,3 +49,20 @@ Still open:
 - Tram-stop exit in the centre scene.
 - Counting repeat catalogue misses.
 - The Bench probe.
+
+## Second round (2026-10-22, after merge)
+
+Done:
+- Talk footfall from Capture concept tags. `MemoryCaptureResult.Concepts` feeds `IPlacesGrain.NoteTopicsAsync`; "gym" names
+  "the climbing gym". Each speaker is credited, and quiet opened Places wake.
+- Kit scenes vary per Place (floor, walls, fabrics from the id).
+- Gatherings at a Locale. The Calendar offers a Locale you're a regular at, and starting the Gathering opens it. Gatherings
+  aren't held to the daily budget.
+- Lives-in anchors. One General call per persona reads where they live. Their Home moves into that District (going home
+  becomes a tram ride), and 3 residents earn a District its streets.
+
+Still open:
+- Tram-stop exit in the centre scene.
+- Counting repeat catalogue misses.
+- The Bench probe.
+- Tuning the gates on the live world (Auto still off).

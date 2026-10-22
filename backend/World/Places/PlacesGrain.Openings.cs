@@ -79,7 +79,8 @@ public sealed partial class PlacesGrain
             .Where(p => p.DistrictId == districtId && p.Kind == PlaceKinds.Public && p.OpenedAt is not null && !IsStreets(p))
             .OrderBy(p => p.OpenedAt).ToList();
         var streets = state.State.Places.FirstOrDefault(p => p.DistrictId == districtId && IsStreets(p));
-        if (streets is null && venues.Count < DistrictScene.MinVenues) return;
+        var residents = state.State.Places.Count(p => p.Kind == PlaceKinds.Home && p.DistrictId == districtId);
+        if (streets is null && venues.Count < DistrictScene.MinVenues && residents < DistrictScene.MinResidents) return;
         var scene = DistrictScene.Build(districtId, venues);
         if (streets is null)
         {

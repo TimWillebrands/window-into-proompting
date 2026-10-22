@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using PartyTown.Grains;
 
 namespace PartyTown.World.Self;
 
@@ -28,6 +29,31 @@ public sealed partial class PersonaSelfGrain
         {
             logger.LogDebug(ex, "Known places unavailable for the Day prompt");
             return string.Empty;
+        }
+    }
+
+    /// <summary>Once: which part of town they live in; their Home moves into that District (a lives-in anchor).</summary>
+    private async Task SettleHomeAsync(Guid partyId, Guid personaId)
+    {
+        state.State.Neighbourhood = string.Empty;
+        try
+        {
+            var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+            var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
+            if (self is null) return;
+            var districts = await places.GetDistrictNamesAsync();
+            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
+                $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"district\": the part of town (Amsterdam) {self.Name} lives in, from what you know of them. Reuse one of these names if it fits: {string.Join(", ", districts)}. If nothing says, answer \"the centre\".",
+                "Where do they live?", CancellationToken.None, 0.3, ["district"]);
+            var district = json?["district"]?.ToString()?.Trim();
+            if (string.IsNullOrWhiteSpace(district)) return;
+            state.State.Neighbourhood = WorldStream.Clip(district, 40);
+            await state.WriteStateAsync();
+            await places.SetHomeDistrictAsync(personaId, state.State.Neighbourhood);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Settling a home district failed for {Persona}", personaId);
         }
     }
 
