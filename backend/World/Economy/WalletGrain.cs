@@ -37,6 +37,14 @@ public sealed class WalletGrain(
         await PostAsync(amount, reason);
     }
 
+    public async Task SetEmployedAsync(bool employed)
+    {
+        await EnsureAsync();
+        if (state.State.Employed == employed) return;
+        state.State.Employed = employed;
+        await state.WriteStateAsync();
+    }
+
     public async Task AddToWardrobeAsync(string key, Guid? fromId, string? fromName)
     {
         await EnsureAsync();
@@ -78,8 +86,13 @@ public sealed class WalletGrain(
         if (state.State.PaidDay != today)
         {
             state.State.PaidDay = today;
-            await PostAsync(Money.DailyPay(state.State.Means), "payday");
-            return;
+            // People with a job are paid per shift (ADR 0026); flat daily pay is for everyone else.
+            if (!state.State.Employed)
+            {
+                await PostAsync(Money.DailyPay(state.State.Means), "payday");
+                return;
+            }
+            dirty = true;
         }
         if (dirty) await state.WriteStateAsync();
     }
@@ -119,7 +132,8 @@ public sealed class WalletGrain(
         state.State.PaidDay == Money.DayKey(DateTimeOffset.Now),
         state.State.Wardrobe.Select(Catalog.Normalize).OfType<string>().Distinct().ToList(),
         state.State.Ledger.TakeLast(10).Reverse().ToList(),
-        state.State.Gifts.Where(g => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - g.At < Money.GiftFreshMs).ToList());
+        state.State.Gifts.Where(g => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - g.At < Money.GiftFreshMs).ToList(),
+        state.State.Employed);
 }
 
 [Alias("PartyTown.World.Economy.IWalletGrain")]
@@ -129,6 +143,8 @@ public interface IWalletGrain : IGrainWithStringKey
     /// <summary>False (and nothing changes) when they can't afford it.</summary>
     [Alias("SpendAsync")] Task<bool> SpendAsync(int amount, string reason);
     [Alias("EarnAsync")] Task EarnAsync(int amount, string reason);
+    /// <summary>Employed people are paid per shift, not daily (ADR 0026).</summary>
+    [Alias("SetEmployedAsync")] Task SetEmployedAsync(bool employed);
     /// <summary>Own a catalog item; with a giver it's also a gift note until seen.</summary>
     [Alias("AddToWardrobeAsync")] Task AddToWardrobeAsync(string key, Guid? fromId, string? fromName);
 }
@@ -142,7 +158,8 @@ public sealed record WalletView(
     [property: Id(4)] List<string> Wardrobe,
     [property: Id(5)] List<LedgerEntry> Ledger,
     /// <summary>Gifts from the last 12 hours.</summary>
-    [property: Id(6)] List<GiftNote> NewGifts);
+    [property: Id(6)] List<GiftNote> NewGifts,
+    [property: Id(7)] bool Employed = false);
 
 [GenerateSerializer, Alias("PartyTown.World.Economy.WalletState")]
 public sealed class WalletState
@@ -154,6 +171,7 @@ public sealed class WalletState
     [Id(4)] public List<string> Wardrobe { get; set; } = new();
     [Id(5)] public List<LedgerEntry> Ledger { get; set; } = new();
     [Id(6)] public List<GiftNote> Gifts { get; set; } = new();
+    [Id(7)] public bool Employed { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Economy.LedgerEntry")]

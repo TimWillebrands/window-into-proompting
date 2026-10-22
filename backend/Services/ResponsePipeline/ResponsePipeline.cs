@@ -26,7 +26,8 @@ public sealed class ResponsePipeline(
     IMemoryRepository memoryRepository,
     ILoggerFactory loggerFactory,
     ILogger<ResponsePipeline> logger,
-    World.Self.FollowThrough? followThrough = null)
+    World.Self.FollowThrough? followThrough = null,
+    World.Work.Responsibilities? responsibilities = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
@@ -593,7 +594,11 @@ public sealed class ResponsePipeline(
             var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
             // Money and fresh gifts (ADR 0024) only in the World, where there's a wallet to speak of.
             if (string.IsNullOrWhiteSpace(scenario))
+            {
                 presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
+                if (responsibilities is not null)
+                    presence += await responsibilities.RoleAsync(partyId, self.Id) + await responsibilities.RenderAsync(partyId, self.Id, DateTimeOffset.UtcNow);
+            }
             var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
             return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }

@@ -21,11 +21,18 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         var spare = wallet.Wardrobe.Where(k => !wearing.Contains(k)).Select(Catalog.Find).OfType<ShopItem>().ToList();
 
         var sb = new StringBuilder();
-        sb.AppendLine($"You have {wallet.Balance} credits ({(wallet.PaidToday ? "paid today" : "payday is due")}; you earn about {wallet.DailyPay} a day).");
+        sb.AppendLine(wallet.Employed
+            ? $"You have {wallet.Balance} credits (paid per shift at work)."
+            : $"You have {wallet.Balance} credits ({(wallet.PaidToday ? "paid today" : "payday is due")}; you earn about {wallet.DailyPay} a day).");
         sb.AppendLine($"Wearing: {Describe(look)}.");
         if (spare.Count > 0) sb.AppendLine($"Also in your wardrobe: {string.Join(", ", spare.Select(i => i.Name))}.");
         foreach (var g in wallet.NewGifts) sb.AppendLine($"New: {Catalog.Find(g.Key)?.Name ?? "something"}, a present from {g.FromName}.");
         var open = Money.ShopsOpen(ctx.Now.ToLocalTime());
+        var wanted = await WantedAsync(ctx.PartyId, ctx.Self.Id, wallet.Wardrobe);
+        if (wanted is not null)
+            sb.AppendLine(wallet.Balance >= wanted.Price
+                ? $"You've been wanting {wanted.Name} ({wanted.Price} credits)."
+                : $"You've been wanting {wanted.Name} ({wanted.Price} credits); you're saving up for it.");
         if (!open) sb.AppendLine($"The shops are closed until {Money.OpensAt}:00.");
         else if (shops.Count > 0) sb.AppendLine($"In the shops today (open till {Money.ClosesAt}:00): {string.Join(", ", shops.Select(i => $"{i.Name} ({i.Price})"))}.");
 
@@ -33,9 +40,11 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         if (spare.Count > 0)
             affordances.Add(new Affordance(Id, "Change into something else from your wardrobe", wallet.NewGifts.Count > 0 ? 1 : 0, null, "wear"));
         var cheapest = shops.Count == 0 || !open ? int.MaxValue : shops.Min(i => i.Price);
-        // Spending follows means: someone flush buys more readily than someone counting coins.
+        if (open && wanted is not null && wallet.Balance >= wanted.Price)
+            affordances.Add(new Affordance(Id, $"Buy {wanted.Name}, the thing you've been wanting", 2, null, "buy-wanted"));
+        // Spending follows means: someone flush buys more readily than someone counting coins; saving up holds it back.
         if (wallet.Balance >= cheapest)
-            affordances.Add(new Affordance(Id, "Buy something new to wear", wallet.Balance >= wallet.DailyPay * 3 ? 1 : 0, null, "buy"));
+            affordances.Add(new Affordance(Id, "Buy something new to wear", (wallet.Balance >= wallet.DailyPay * 3 ? 1 : 0) - (wanted is not null && wallet.Balance < wanted.Price ? 1 : 0), null, "buy"));
         if (open && wallet.Balance >= cheapest * 2L && ctx.Others.OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } friend)
             affordances.Add(new Affordance(Id, $"Get {friend.Name} a little present", 0, friend.Id, "gift"));
 
@@ -56,6 +65,11 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
                 var spare = wallet.Wardrobe.Where(k => !wearing.Contains(k)).Select(Catalog.Find).OfType<ShopItem>().ToList();
                 var item = Catalog.Match(text, spare) ?? await PickAsync(text, spare);
                 return item is null ? null : await WearAsync(ctx.PartyId, ctx.Self.Id, item);
+            }
+            case "buy-wanted":
+            {
+                var wanted = await WantedAsync(ctx.PartyId, ctx.Self.Id, wallet.Wardrobe);
+                return wanted is null ? null : await BuyAsync(ctx.PartyId, ctx.Self.Id, wanted);
             }
             case "buy":
             {
@@ -89,6 +103,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         if (!await wallet.SpendAsync(item.Price, item.Name)) return null;
         if (!Catalog.IsService(item)) await wallet.AddToWardrobeAsync(item.Key, null, null);
         await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, Picks(item));
+        await FulfilAsync(partyId, who, item);
         return new ActOutcome("buy", Catalog.IsService(item) ? $"got {item.Name} ({item.Price} credits)" : $"bought {item.Name} ({item.Price} credits) and put it on", null);
     }
 
@@ -97,6 +112,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     {
         if (Catalog.IsService(item) || !await WalletOf(partyId, from).SpendAsync(item.Price, $"{item.Name} for {toName}")) return null;
         await WalletOf(partyId, to).AddToWardrobeAsync(item.Key, from, fromName);
+        await FulfilAsync(partyId, to, item);
         try { await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, to)).ShiftWarmthAsync(from, 0.85); }
         catch (Exception ex) { logger.LogDebug(ex, "Gift warmth failed"); }
         return new ActOutcome("gift", $"bought {toName} {item.Name} as a present", null, to);
@@ -123,6 +139,33 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
             logger.LogDebug(ex, "Wardrobe pick failed");
             return options[0];
         }
+    }
+
+    /// <summary>The catalog item a having-desire names (ADR 0026), when they don't own it yet.</summary>
+    private async Task<ShopItem?> WantedAsync(Guid partyId, Guid who, IReadOnlyCollection<string> owned)
+    {
+        try
+        {
+            var desires = await grains.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, who)).GetAsync();
+            return Desires.DesireRules.Shopping(desires.All, owned)?.ItemKey is { } key ? Catalog.Find(key) : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Desires lookup failed for {Who}", who);
+            return null;
+        }
+    }
+
+    /// <summary>Getting the thing you wanted, bought or given, fulfils the desire.</summary>
+    private async Task FulfilAsync(Guid partyId, Guid who, ShopItem item)
+    {
+        try
+        {
+            var grain = grains.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, who));
+            foreach (var d in (await grain.GetAsync()).All.Where(d => d.Status == Desires.DesireStatus.Active && d.ItemKey == item.Key))
+                await grain.MarkAsync(d.Id, Desires.DesireStatus.Fulfilled);
+        }
+        catch (Exception ex) { logger.LogDebug(ex, "Desire fulfilment failed for {Who}", who); }
     }
 
     private IWalletGrain WalletOf(Guid partyId, Guid who) => grains.GetGrain<IWalletGrain>(WorldKeys.Life(partyId, who));

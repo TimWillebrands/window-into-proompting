@@ -3,6 +3,7 @@ import CalendarApp from '../apps/calendar/CalendarApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
 import DiaryApp from '../apps/diary/DiaryApp';
+import JobsApp from '../apps/jobs/JobsApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
@@ -77,6 +78,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: WardrobeApp,
         initialPosition: { x: 320, y: 140 },
         initialSize: { width: 680, height: 520 },
+    },
+    {
+        id: 'jobs',
+        title: 'Work & Wants',
+        icon: '💼',
+        component: JobsApp,
+        initialPosition: { x: 340, y: 160 },
+        initialSize: { width: 640, height: 420 },
     },
     {
         id: 'personas',
@@ -160,6 +169,12 @@ export const DESKTOP_ICONS = [
         label: 'Wardrobe',
         icon: '/img/icons/wardrobe.ico',
         windowId: 'wardrobe',
+    },
+    {
+        id: 'jobs',
+        label: 'Work & Wants',
+        icon: '/img/icons/jobs.ico',
+        windowId: 'jobs',
     },
     {
         id: 'personas',

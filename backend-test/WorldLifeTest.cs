@@ -202,6 +202,8 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     services.AddSingleton<IWorldApp, DiaryApp>();
                     services.AddSingleton<IWorldApp, CalendarApp>();
                     services.AddSingleton<IWorldApp, PartyTown.World.Places.PlacesApp>();
+                    services.AddSingleton<PartyTown.World.Work.Workplaces>();
+                    services.AddSingleton<PartyTown.World.Work.Responsibilities>();
                 });
             }
         }

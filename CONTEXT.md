@@ -323,6 +323,34 @@ _Avoid_: custom room, user level.
 A named, reusable 3D thing built from coloured primitives (a sofa, a canal house, a herring cart), with seats, tints and a variant seed; Furni state can restyle it.
 _Avoid_: model, asset, mesh.
 
+### Occupation, responsibilities and desires
+
+See [ADR 0026](docs/adr/0026-occupations-responsibilities-desires.md). Rule: these reach prompts as facts ("shift at 9, you're late"), never as traits.
+
+**Purpose**:
+What a **Place** is for, in one plain line ("where people get coffee and linger").
+_Avoid_: telos, theme, description (that's the look).
+
+**Role**:
+A Participant's standing in a **Place**, derived and not stored: Owner, Staff (works there), Regular (there on 3+ of the last 7 days), Newcomer. Owners and Staff get host Affordances.
+_Avoid_: rank, permission, membership.
+
+**Occupation**:
+What a Participant does for a living in one Party: a job title, a workplace, hours and pay per shift. Onscreen when the workplace is a Place in the Party (the Body goes to a Staff spot), offscreen otherwise (the Body is away at a **Locale**, and the shift is a fixed beat in the **Day**). Started and ended by the **World clock**, not chosen. Pays into the **Wallet**; **Means** is the fallback for people with no Occupation.
+_Avoid_: job (fine in prose), career, class.
+
+**Responsibility**:
+Something someone holds a Persona to. Always has a holder (a Participant, a Place, or someone offscreen) and a due time. Today it comes from a shift, a Gathering you RSVP'd to or are hosting, or guests in your Home. It renders as "# What you owe" in Right now. Keeping one warms the Tie; neglecting one costs something visible.
+_Avoid_: task, duty, chore, quest, obligation.
+
+**Desire**:
+Something a Persona wants, either *having* (a thing, money, someone's attention) or *being* (becoming someone: a craft, a mended tie). An **Intrinsic Desire** is on the Persona (authored, or distilled from the lived sheet). An **Acquired Desire** forms in play on the Participant, fades after two untouched weeks, and can be **Promoted**. Desires steer Initiative only; Speaking never sees them.
+_Avoid_: goal, need, drive (collides with **Driver**), motivation, objective.
+
+**Mimesis**:
+An **Acquired Desire** caught from someone through a **Tie**: wanting what they have or want. Capped hard: a Tie of 10+ exchanges, one at a time, and a 3-day gap between catches. Wanting the same person's attention as the one you caught it from becomes a **Rivalry**, shown as Tie friction, with at most one live per World.
+_Avoid_: envy, contagion, imitation.
+
 ### World growth
 
 See [ADR 0027](docs/adr/0027-world-growth-districts-locales-openings.md) (proposed). Rule: fidelity follows use; draw where people meet, not where people are mentioned.
@@ -401,6 +429,10 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Body** is in exactly one **Place**, which may be a **Locale** (then it's away).
 - A **Place** belongs to one **District**; an **Opening** turns a **Locale** into a drawn **Place** with the same id.
 - A **Persona**'s **Nature** is shared by all its **Participants**; each **Participant** has its own **Nurture**.
+- A **Place** has one **Purpose**; a **Participant** has one **Role** per Place they relate to.
+- A **Participant** has zero or one **Occupation**, whose workplace is a **Place** in the Party or offscreen.
+- A **Responsibility** belongs to one **Participant** and has exactly one holder.
+- A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue

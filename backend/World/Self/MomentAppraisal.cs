@@ -9,7 +9,7 @@ namespace PartyTown.World.Self;
 /// Conversations move moods (ADR 0021): when a Moment closes, System One asks per present persona whether it
 /// left them better or worse off, and nudges their Self's valence. Detached and non-fatal.
 /// </summary>
-public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains, ILogger<MomentAppraisal> logger)
+public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains, ILogger<MomentAppraisal> logger, Desires.Mimesis? mimesis = null)
 {
     private const int MaxLines = 14;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, string> appraised = new();
@@ -62,6 +62,9 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
                 p => (SystemOneQuestion)new ChoiceQuestion($"How did this conversation leave {p.Name}'s mood, compared to before it?", Moods));
             foreach (var (p, q) in pairs)
                 questions[$"{p.Id:N}-{q.Id:N}"] = new ChoiceQuestion($"By the end of this, how did {p.Name} feel toward {q.Name}?", Closeness);
+            // Mimesis (ADR 0026) rides the same call: one noul per pair that clears its caps.
+            var mimetic = mimesis is null ? new() : await mimesis.EligibleAsync(moment.PartyId, pairs.Where(x => x.q.Driver == DriverKind.LLM), DateTimeOffset.UtcNow);
+            foreach (var (p, q) in mimetic) questions[Desires.Mimesis.Key(p, q)] = Desires.Mimesis.Question(p, q);
             var answers = await judge.AskAsync(transcript, questions, cts.Token);
             var shifts = personas.Select(p => (p, Better: Appraisal.Better(answers.Choices.GetValueOrDefault(p.Id.ToString("N"))))).ToList();
             foreach (var (p, better) in shifts)
@@ -70,6 +73,7 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
                 await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(moment.PartyId, p.Id))
                     .ShiftWarmthAsync(q.Id, Appraisal.Better(answers.Choices.GetValueOrDefault($"{p.Id:N}-{q.Id:N}")));
             logger.LogInformation("Appraisal in {Where}: {Values}", where, string.Join(", ", shifts.Select(x => $"{x.p.Name}={x.Better:F2}")));
+            if (mimetic.Count > 0) await mimesis!.CatchAsync(moment.PartyId, transcript, mimetic, answers, moment.Present);
         }
         catch (Exception ex)
         {

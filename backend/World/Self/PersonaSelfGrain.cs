@@ -182,6 +182,21 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
+    /// <summary>Today's shift (ADR 0026) as a beat the day must keep; empty on a day off or without a job.</summary>
+    private async Task<string> FixedTodayAsync(Guid partyId, Guid personaId, DateTimeOffset now)
+    {
+        try
+        {
+            var shift = await GrainFactory.GetGrain<Work.IOccupationGrain>(WorldKeys.Life(partyId, personaId)).FixedTodayAsync(now.ToLocalTime());
+            return shift is null ? string.Empty : $"\nFixed today: {shift}.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Shift lookup failed for the day of {Persona}", personaId);
+            return string.Empty;
+        }
+    }
+
     private async Task EnsureDayAsync(Guid partyId, Guid personaId, DateTimeOffset now)
     {
         var key = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -213,6 +228,7 @@ public sealed partial class PersonaSelfGrain(
                 watching or reading, one small annoyance, one small good thing.
                 No epiphanies, no symbolism, no metaphors, nothing poetic. Plain, specific, a little boring.
                 Keep their job, home and circumstances consistent with who they are. Don't mention any online chat or its people.
+                If a "Fixed today" is given, it happens: put it in the beats at those times.
                 Output ONLY JSON with string fields:
                 - mood: 2-4 plain words for how they woke up feeling
                 - energy: low, medium or high
@@ -223,7 +239,7 @@ public sealed partial class PersonaSelfGrain(
                 - whereabouts: {WhereaboutsSpec}
                 Let today's beats move at least one ongoing thread a little.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}",
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}{await FixedTodayAsync(partyId, personaId, now)}",
                 cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)

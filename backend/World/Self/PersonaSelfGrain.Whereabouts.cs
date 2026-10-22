@@ -31,9 +31,23 @@ public sealed partial class PersonaSelfGrain
         }
     }
 
-    /// <summary>Stretches that aren't errands: Occupation shifts (ADR 0026) fill this in; none on this branch.</summary>
-    private Task<List<(int Start, int End)>> FixedWindowsAsync(Guid partyId, Guid personaId)
-        => Task.FromResult(new List<(int Start, int End)>());
+    /// <summary>Stretches that aren't errands: today's Occupation shift (ADR 0026).</summary>
+    private async Task<List<(int Start, int End)>> FixedWindowsAsync(Guid partyId, Guid personaId)
+    {
+        // Today's shift (ADR 0026) is work, never an errand; called detached, so awaiting Occupation can't cycle.
+        try
+        {
+            var job = (await GrainFactory.GetGrain<Work.IOccupationGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).Job;
+            return job is not null && Work.Shifts.WorksOn(job, DateTimeOffset.Now.DayOfWeek)
+                ? new List<(int Start, int End)> { (job.Start, job.End) }
+                : new List<(int Start, int End)>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Shift window lookup failed for {Persona}", personaId);
+            return new List<(int Start, int End)>();
+        }
+    }
 
     /// <summary>Detached: resolve each stretch to a Locale (in its District) once the Day is written.</summary>
     private async Task ApplyWhereaboutsAsync(Guid partyId, Guid personaId)

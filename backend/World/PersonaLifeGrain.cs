@@ -20,7 +20,9 @@ public sealed class PersonaLifeGrain(
     WorldMemory memory,
     ISystemOneJudge judge,
     ILogger<PersonaLifeGrain> logger,
-    FollowThrough? followThrough = null)
+    FollowThrough? followThrough = null,
+    Work.Responsibilities? responsibilities = null,
+    Desires.DesireReview? desireReview = null)
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
@@ -48,6 +50,7 @@ public sealed class PersonaLifeGrain(
         // Time to yourself recharges (ADR 0021): resting and writing are how talked-out people refill.
         if (activity.Action is "rest" or "diary")
         {
+            if (activity.Action == "diary" && desireReview is not null) _ = ReviewDesiresAsync(partyId, personaId);
             try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
             catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
         }
@@ -85,7 +88,8 @@ public sealed class PersonaLifeGrain(
         var recentApps = ctx.RecentOwn.Where(a => a.Action != LookAction).Take(3).Select(a => a.App).ToList();
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
-        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk);
+        var onShift = await OnShiftAsync(partyId, personaId);
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk) - Work.Shifts.Damping(a.AppId, onShift);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -100,6 +104,9 @@ public sealed class PersonaLifeGrain(
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
         var presence = await PresenceAsync(partyId, personaId);
+        if (responsibilities is not null)
+            presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
+        presence += await DesiresAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
             .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList());
 
@@ -209,6 +216,35 @@ Output ONLY JSON: {ChoiceShape}
         {
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
             return (Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought), false);
+        }
+    }
+
+    /// <summary>"# What you want lately" (ADR 0026): Initiative only, so wanting steers what they do, not what they talk about.</summary>
+    private async Task<string> DesiresAsync(Guid partyId, Guid personaId)
+    {
+        try { return Desires.DesireRules.Render((await GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).All); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Desires failed for {Persona}", personaId);
+            return string.Empty;
+        }
+    }
+
+    private async Task ReviewDesiresAsync(Guid partyId, Guid personaId)
+    {
+        var cast = await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        if (cast.FirstOrDefault(c => c.Id == personaId) is not { } self) return;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await desireReview!.ReviewAsync(partyId, self, cast.Select(c => c.Id).ToList(), cts.Token);
+    }
+
+    private async Task<bool> OnShiftAsync(Guid partyId, Guid personaId)
+    {
+        try { return (await GrainFactory.GetGrain<Work.IOccupationGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).OnShift; }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Shift lookup failed for {Persona}", personaId);
+            return false;
         }
     }
 

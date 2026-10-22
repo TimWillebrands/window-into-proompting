@@ -40,9 +40,10 @@ public static class Money
     public static bool ShopsOpen(DateTimeOffset localNow) => localNow.Hour >= OpensAt && localNow.Hour < ClosesAt;
 
     /// <summary>One short line for "Right now"; silent when money isn't on your mind.</summary>
-    public static string? Cue(int balance, string? means, bool paidToday)
+    public static string? Cue(int balance, string? means, bool paidToday, bool employed = false)
     {
         var pay = DailyPay(means);
+        if (balance < pay / 2 && employed) return $"Money's tight: {balance} credits until your next shift pays.";
         if (balance < pay / 2) return $"Money's tight: {balance} credits until {(paidToday ? "tomorrow's" : "the next")} payday.";
         if (balance >= pay * 6) return $"You've got some money put by ({balance} credits).";
         return null;
@@ -52,7 +53,7 @@ public static class Money
     public static string Render(WalletView wallet, DateTimeOffset now)
     {
         var lines = new List<string>();
-        if (Cue(wallet.Balance, wallet.Means, wallet.PaidToday) is { } cue) lines.Add(cue);
+        if (Cue(wallet.Balance, wallet.Means, wallet.PaidToday, wallet.Employed) is { } cue) lines.Add(cue);
         foreach (var g in wallet.NewGifts)
             lines.Add($"{g.FromName} gave you {Catalog.Find(g.Key)?.Name ?? "something"} {WorldStream.Ago(g.At, now)}.");
         return lines.Count == 0 ? string.Empty : $"# Money and things\n{string.Join("\n", lines)}\n";

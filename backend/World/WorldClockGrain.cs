@@ -16,6 +16,8 @@ public sealed class WorldClockGrain(
     IPersistentState<WorldClockState> state,
     WorldMemory memory,
     IWorldLlm llm,
+    Work.Workplaces workplaces,
+    Work.Responsibilities responsibilities,
     ILogger<WorldClockGrain> logger)
     : Grain, IWorldClockGrain
 {
@@ -50,6 +52,7 @@ public sealed class WorldClockGrain(
 
         await CaptureLullsAsync();
         await StartDueGatheringsAsync(now);
+        await StepShiftsAsync(now);
         if (!ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return;
         (var ambientDue, state.State.LastAmbientAt) = ClockPolicy.Ambient(state.State.LastAmbientAt, state.State.AmbientMinutes, now);
         if (ambientDue)
@@ -262,6 +265,9 @@ public sealed class WorldClockGrain(
         var going = ClockPolicy.WalkToGathering(g.AttendeeIds, cast, asleep);
         foreach (var id in going)
             await places.MoveAsync(id, placeId, null);
+        // Humans come themselves; only personas who could have come and didn't count as no-shows.
+        var personas = g.AttendeeIds.Where(id => cast.FirstOrDefault(c => c.Id == id)?.DefaultDriver == DriverKind.LLM).ToHashSet();
+        await responsibilities.KeptAsync(PartyId, new Gathering { HostId = g.HostId, AttendeeIds = g.AttendeeIds.Where(personas.Contains).ToList() }, going);
 
         await RecordAsync(new WorldActivity
         {
@@ -270,6 +276,28 @@ public sealed class WorldClockGrain(
         });
         foreach (var id in going.Where(id => !IsBusy(id, now)))
             StartLife(id, $"It's time for \"{g.Title}\" {g.Where}; you're on your way, you said you'd be there.");
+    }
+
+    /// <summary>Jobs happen in time (ADR 0026): shifts start, end or get missed whether or not anyone picks them.</summary>
+    private async Task StepShiftsAsync(DateTimeOffset now)
+    {
+        try
+        {
+            var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+            var asleep = (await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetAsleepAsync()).ToHashSet();
+            var local = now.ToLocalTime();
+            foreach (var c in cast.Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId))
+            {
+                var change = await GrainFactory.GetGrain<Work.IOccupationGrain>(WorldKeys.Life(PartyId, c.Id)).StepAsync(local, asleep.Contains(c.Id));
+                if (change.Step == Work.ShiftStep.None) continue;
+                if (await workplaces.ApplyAsync(PartyId, c, change) is { } activity) await RecordAsync(activity);
+                await responsibilities.WeighShiftAsync(PartyId, c.Id, change);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Shift step failed");
+        }
     }
 
     /// <summary>Novelty against echo chambers: the Narrator lets something small happen in the world.</summary>
