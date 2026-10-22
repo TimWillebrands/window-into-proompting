@@ -790,7 +790,7 @@
 
 .pl-grow {
     display: grid;
-    grid-template-columns: 1fr 48px;
+    grid-template-columns: 1fr auto;
     gap: 2px 6px;
     padding: 3px 8px;
     font-size: 11px;
@@ -805,4 +805,15 @@
 .pl-grow-note {
     grid-column: 1 / -1;
     color: #666;
+}
+
+.pl-grow-act {
+    font-size: 10px;
+    padding: 0 4px;
+    min-width: 0;
+    min-height: 0;
+}
+
+.pl-grow .pl-occ-bar {
+    grid-column: 1 / -1;
 }

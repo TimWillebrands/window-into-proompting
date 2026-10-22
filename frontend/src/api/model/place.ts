@@ -36,4 +36,11 @@ export interface Place {
     purpose?: string | null;
     /** @nullable */
     districtId?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    openedAt?: number | string | null;
+    /** @nullable */
+    archetype?: string | null;
 }

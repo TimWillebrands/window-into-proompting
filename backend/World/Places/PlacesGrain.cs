@@ -511,7 +511,7 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(otherId, out var other)) return null;
-        if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale }) return null;
+        if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale } locale && !await OpenForVisitAsync(locale)) return null;
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
     }
 
@@ -973,6 +973,12 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Distinct local days in the last 7 the Participant spent time at each Place or Locale.</summary>
     [Alias("GetVisitDaysAsync")] Task<Dictionary<Guid, int>> GetVisitDaysAsync(Guid participantId);
+
+    /// <summary>Open a Locale as a drawn Place from a kit (null archetype = guess from its name); same id. Null when it can't.</summary>
+    [Alias("OpenAsync")] Task<Place?> OpenAsync(Guid localeId, string? archetype, string reason);
+
+    /// <summary>Author veto: an opened Place goes back to being a Locale; anyone there is away there again.</summary>
+    [Alias("CloseAsync")] Task<bool> CloseAsync(Guid placeId);
 
     /// <summary>Resolve-or-create a District by name ("Zuid"); returns its slug id.</summary>
     [Alias("DistrictAsync")] Task<string> DistrictAsync(string name);

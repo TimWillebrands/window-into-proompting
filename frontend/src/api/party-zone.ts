@@ -51,7 +51,8 @@ import type {
     GetWorldsPartyIdActivitiesParams,
     GetWorldsPartyIdMessengerParams,
     GetWorldsPartyIdVoiceLinesParams,
-    GrowthRow,
+    GrowthAutoRequest,
+    GrowthReport,
     IdleRequest,
     InviteResidentRequest,
     KnockRequest,
@@ -71,6 +72,7 @@ import type {
     PlanGatheringRequest,
     PlayerResponse,
     PoseRequest,
+    PostWorldsPartyIdGrowthOpenLocaleIdParams,
     PostWorldsPartyIdPlacesRedressParams,
     ProblemDetails,
     ProceedRequest,
@@ -1503,17 +1505,17 @@ export const usePostWorldsPartyIdWalletsParticipantIdGift = <
 };
 
 export type getWorldsPartyIdGrowthResponse200TextPlain = {
-    data: GrowthRow[];
+    data: GrowthReport;
     status: 200;
 };
 
 export type getWorldsPartyIdGrowthResponse200ApplicationJson = {
-    data: GrowthRow[];
+    data: GrowthReport;
     status: 200;
 };
 
 export type getWorldsPartyIdGrowthResponse200TextJson = {
-    data: GrowthRow[];
+    data: GrowthReport;
     status: 200;
 };
 
@@ -1827,6 +1829,390 @@ export function useGetWorldsPartyIdGrowthSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type postWorldsPartyIdGrowthOpenLocaleIdResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdGrowthOpenLocaleIdResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdGrowthOpenLocaleIdResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdGrowthOpenLocaleIdResponseError = (
+    | postWorldsPartyIdGrowthOpenLocaleIdResponse409TextPlain
+    | postWorldsPartyIdGrowthOpenLocaleIdResponse409ApplicationJson
+    | postWorldsPartyIdGrowthOpenLocaleIdResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdGrowthOpenLocaleIdResponse =
+    postWorldsPartyIdGrowthOpenLocaleIdResponseError;
+
+export const getPostWorldsPartyIdGrowthOpenLocaleIdUrl = (
+    partyId: string,
+    localeId: string,
+    params?: PostWorldsPartyIdGrowthOpenLocaleIdParams,
+) => {
+    const normalizedParams = new URLSearchParams();
+
+    Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined) {
+            normalizedParams.append(
+                key,
+                value === null ? 'null' : value.toString(),
+            );
+        }
+    });
+
+    const stringifiedParams = normalizedParams.toString();
+
+    return stringifiedParams.length > 0
+        ? `/api/worlds/${partyId}/growth/open/${localeId}?${stringifiedParams}`
+        : `/api/worlds/${partyId}/growth/open/${localeId}`;
+};
+
+export const postWorldsPartyIdGrowthOpenLocaleId = async (
+    partyId: string,
+    localeId: string,
+    params?: PostWorldsPartyIdGrowthOpenLocaleIdParams,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdGrowthOpenLocaleIdResponse> => {
+    return customFetch<postWorldsPartyIdGrowthOpenLocaleIdResponse>(
+        getPostWorldsPartyIdGrowthOpenLocaleIdUrl(partyId, localeId, params),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostWorldsPartyIdGrowthOpenLocaleIdMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>,
+        TError,
+        {
+            partyId: string;
+            localeId: string;
+            params?: PostWorldsPartyIdGrowthOpenLocaleIdParams;
+        },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>,
+    TError,
+    {
+        partyId: string;
+        localeId: string;
+        params?: PostWorldsPartyIdGrowthOpenLocaleIdParams;
+    },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdGrowthOpenLocaleId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>,
+        {
+            partyId: string;
+            localeId: string;
+            params?: PostWorldsPartyIdGrowthOpenLocaleIdParams;
+        }
+    > = (props) => {
+        const { partyId, localeId, params } = props ?? {};
+
+        return postWorldsPartyIdGrowthOpenLocaleId(
+            partyId,
+            localeId,
+            params,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdGrowthOpenLocaleIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>
+>;
+
+export type PostWorldsPartyIdGrowthOpenLocaleIdMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdGrowthOpenLocaleId = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>,
+            TError,
+            {
+                partyId: string;
+                localeId: string;
+                params?: PostWorldsPartyIdGrowthOpenLocaleIdParams;
+            },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthOpenLocaleId>>,
+    TError,
+    {
+        partyId: string;
+        localeId: string;
+        params?: PostWorldsPartyIdGrowthOpenLocaleIdParams;
+    },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdGrowthOpenLocaleIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdGrowthClosePlaceIdResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdGrowthClosePlaceIdResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdGrowthClosePlaceIdResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdGrowthClosePlaceIdResponseError = (
+    | postWorldsPartyIdGrowthClosePlaceIdResponse409TextPlain
+    | postWorldsPartyIdGrowthClosePlaceIdResponse409ApplicationJson
+    | postWorldsPartyIdGrowthClosePlaceIdResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdGrowthClosePlaceIdResponse =
+    postWorldsPartyIdGrowthClosePlaceIdResponseError;
+
+export const getPostWorldsPartyIdGrowthClosePlaceIdUrl = (
+    partyId: string,
+    placeId: string,
+) => {
+    return `/api/worlds/${partyId}/growth/close/${placeId}`;
+};
+
+export const postWorldsPartyIdGrowthClosePlaceId = async (
+    partyId: string,
+    placeId: string,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdGrowthClosePlaceIdResponse> => {
+    return customFetch<postWorldsPartyIdGrowthClosePlaceIdResponse>(
+        getPostWorldsPartyIdGrowthClosePlaceIdUrl(partyId, placeId),
+        {
+            ...options,
+            method: 'POST',
+        },
+    );
+};
+
+export const getPostWorldsPartyIdGrowthClosePlaceIdMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>,
+        TError,
+        { partyId: string; placeId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>,
+    TError,
+    { partyId: string; placeId: string },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdGrowthClosePlaceId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>,
+        { partyId: string; placeId: string }
+    > = (props) => {
+        const { partyId, placeId } = props ?? {};
+
+        return postWorldsPartyIdGrowthClosePlaceId(
+            partyId,
+            placeId,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdGrowthClosePlaceIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>
+>;
+
+export type PostWorldsPartyIdGrowthClosePlaceIdMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdGrowthClosePlaceId = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>,
+            TError,
+            { partyId: string; placeId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdGrowthClosePlaceId>>,
+    TError,
+    { partyId: string; placeId: string },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdGrowthClosePlaceIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putWorldsPartyIdGrowthAutoResponse200 = {
+    data: void;
+    status: 200;
+};
+
+export type putWorldsPartyIdGrowthAutoResponseSuccess =
+    putWorldsPartyIdGrowthAutoResponse200 & {
+        headers: Headers;
+    };
+
+export type putWorldsPartyIdGrowthAutoResponse =
+    putWorldsPartyIdGrowthAutoResponseSuccess;
+
+export const getPutWorldsPartyIdGrowthAutoUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/growth/auto`;
+};
+
+export const putWorldsPartyIdGrowthAuto = async (
+    partyId: string,
+    growthAutoRequest: GrowthAutoRequest,
+    options?: RequestInit,
+): Promise<putWorldsPartyIdGrowthAutoResponse> => {
+    return customFetch<putWorldsPartyIdGrowthAutoResponse>(
+        getPutWorldsPartyIdGrowthAutoUrl(partyId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(growthAutoRequest),
+        },
+    );
+};
+
+export const getPutWorldsPartyIdGrowthAutoMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>,
+        TError,
+        { partyId: string; data: GrowthAutoRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>,
+    TError,
+    { partyId: string; data: GrowthAutoRequest },
+    TContext
+> => {
+    const mutationKey = ['putWorldsPartyIdGrowthAuto'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>,
+        { partyId: string; data: GrowthAutoRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return putWorldsPartyIdGrowthAuto(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutWorldsPartyIdGrowthAutoMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>
+>;
+export type PutWorldsPartyIdGrowthAutoMutationBody = GrowthAutoRequest;
+export type PutWorldsPartyIdGrowthAutoMutationError = unknown;
+
+export const usePutWorldsPartyIdGrowthAuto = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>,
+            TError,
+            { partyId: string; data: GrowthAutoRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putWorldsPartyIdGrowthAuto>>,
+    TError,
+    { partyId: string; data: GrowthAutoRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutWorldsPartyIdGrowthAutoMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type getLlmConfigProvidersResponse200TextPlain = {
     data: LlmProviderEntry[];

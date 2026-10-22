@@ -4,7 +4,7 @@ namespace PartyTown.World.Growth;
 
 /// <summary>
 /// World growth ledger of one Party (key = Party id, ADR 0027): footfall signals on Locales and what they add up to.
-/// Dry run for now: it logs what would open and opens nothing.
+/// Opens at most one Locale a day when the author has switched automatic openings on; otherwise a dry run that only logs.
 /// </summary>
 public sealed class GrowthGrain(
     [PersistentState(stateName: "growth", storageName: "parties")]
@@ -24,7 +24,7 @@ public sealed class GrowthGrain(
         if (FootfallMath.Duplicate(state.State.Signals, signal)) return;
         state.State.Signals.RemoveAll(s => now - s.At > FootfallMath.Kept.TotalMilliseconds);
         state.State.Signals.Add(signal);
-        DryRun(now);
+        await EvaluateAsync(now);
         await state.WriteStateAsync();
     }
 
@@ -32,16 +32,34 @@ public sealed class GrowthGrain(
 
     public Task<Dictionary<Guid, string>> GetWouldOpenAsync() => Task.FromResult(new Dictionary<Guid, string>(state.State.WouldOpen));
 
-    /// <summary>Log each Locale that passes all three gates, once a day.</summary>
-    private void DryRun(long now)
+    public async Task SetAutoAsync(bool on)
+    {
+        state.State.Auto = on;
+        await state.WriteStateAsync();
+    }
+
+    public Task<bool> GetAutoAsync() => Task.FromResult(state.State.Auto);
+
+    /// <summary>Each Locale past all three gates is logged once a day; with Auto on, the strongest opens, one a day.</summary>
+    private async Task EvaluateAsync(long now)
     {
         var today = DayKey();
         foreach (var r in FootfallMath.Read(state.State.Signals, now).Where(r => r.Missing is null))
         {
             if (state.State.WouldOpen.GetValueOrDefault(r.LocaleId) == today) continue;
             state.State.WouldOpen[r.LocaleId] = today;
-            logger.LogInformation("World growth (dry run): would open {Locale}: footfall {Footfall}, {People} people, {Days} days",
+            logger.LogInformation("World growth: {Locale} passed the gates: footfall {Footfall}, {People} people, {Days} days",
                 r.LocaleId, r.Footfall, r.People, r.Days);
+            if (!state.State.Auto || state.State.LastOpenedDay == today) continue;
+            try
+            {
+                if (await GrainFactory.GetGrain<Places.IPlacesGrain>(this.GetPrimaryKey()).OpenAsync(r.LocaleId, null, "footfall") is not null)
+                    state.State.LastOpenedDay = today;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Opening {Locale} failed", r.LocaleId);
+            }
         }
     }
 
@@ -61,6 +79,11 @@ public interface IGrowthGrain : IGrainWithGuidKey
 
     /// <summary>Locales that passed all gates, with the day they last did (dry run).</summary>
     [Alias("GetWouldOpenAsync")] Task<Dictionary<Guid, string>> GetWouldOpenAsync();
+
+    /// <summary>Author switch: open Locales that pass the gates (one a day), or only log them.</summary>
+    [Alias("SetAutoAsync")] Task SetAutoAsync(bool on);
+
+    [Alias("GetAutoAsync")] Task<bool> GetAutoAsync();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Growth.GrowthState")]
@@ -69,4 +92,7 @@ public sealed class GrowthState
     [Id(0)] public List<FootfallSignal> Signals { get; set; } = new();
     /// <summary>Locale id → last day it passed the gates.</summary>
     [Id(1)] public Dictionary<Guid, string> WouldOpen { get; set; } = new();
+    /// <summary>Open automatically; off until the thresholds are tuned on a live world.</summary>
+    [Id(2)] public bool Auto { get; set; }
+    [Id(3)] public string? LastOpenedDay { get; set; }
 }

@@ -34,6 +34,10 @@ public sealed class Place
     [Id(16)] public string? Purpose { get; set; }
     /// <summary>Which part of the city it's in (ADR 0027); null for a Locale nobody has placed yet.</summary>
     [Id(17)] public string? DistrictId { get; set; }
+    /// <summary>When a Locale was Opened into this Place (ADR 0027); null for seeded, made and home Places.</summary>
+    [Id(18)] public long? OpenedAt { get; set; }
+    /// <summary>The kit it opened from: office, bar, park…</summary>
+    [Id(19)] public string? Archetype { get; set; }
 }
 
 /// <summary>A part of the city that holds Places (ADR 0027): "the centre", "Zuid".</summary>

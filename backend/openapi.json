@@ -353,29 +353,168 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GrowthRow"
-                  }
+                  "$ref": "#/components/schemas/GrowthReport"
                 }
               },
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GrowthRow"
-                  }
+                  "$ref": "#/components/schemas/GrowthReport"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GrowthRow"
-                  }
+                  "$ref": "#/components/schemas/GrowthReport"
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/growth/open/{localeId}": {
+      "post": {
+        "tags": [
+          "Growth"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "localeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "archetype",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/growth/close/{placeId}": {
+      "post": {
+        "tags": [
+          "Growth"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "placeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/worlds/{partyId}/growth/auto": {
+      "put": {
+        "tags": [
+          "Growth"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrowthAutoRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrowthAutoRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrowthAutoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -6377,6 +6516,42 @@
           }
         }
       },
+      "GrowthAutoRequest": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GrowthReport": {
+        "required": [
+          "auto",
+          "rows",
+          "opened"
+        ],
+        "type": "object",
+        "properties": {
+          "auto": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrowthRow"
+            }
+          },
+          "opened": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpenedRow"
+            }
+          }
+        }
+      },
       "GrowthRow": {
         "required": [
           "localeId",
@@ -6896,6 +7071,45 @@
           }
         }
       },
+      "OpenedRow": {
+        "required": [
+          "placeId",
+          "name",
+          "district",
+          "archetype",
+          "openedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "district": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "archetype": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "Overheard": {
         "type": "object",
         "properties": {
@@ -7160,6 +7374,21 @@
             ]
           },
           "districtId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "archetype": {
             "type": [
               "null",
               "string"
