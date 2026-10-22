@@ -124,15 +124,25 @@ public sealed partial class PlacesGrain
         return View(place, furni, now);
     }
 
+    /// <summary>Most asked-for first ("3× a bike poster"), then newest.</summary>
     public Task<List<string>> GetCatalogueMissesAsync()
-        => Task.FromResult(Enumerable.Reverse(state.State.CatalogueMisses).ToList());
+        => Task.FromResult(Enumerable.Reverse(state.State.CatalogueMisses)
+            .Select((m, i) => (Text: m, Count: state.State.MissCounts.GetValueOrDefault(m, 1), Order: i))
+            .OrderByDescending(m => m.Count).ThenBy(m => m.Order)
+            .Select(m => m.Count > 1 ? $"{m.Count}× {m.Text}" : m.Text).ToList());
 
     private void NoteMiss(string description)
     {
+        var text = WorldStream.Clip(description, 120);
         var misses = state.State.CatalogueMisses;
-        misses.Remove(description);
-        misses.Add(WorldStream.Clip(description, 120));
-        if (misses.Count > 40) misses.RemoveAt(0);
+        misses.Remove(text);
+        misses.Add(text);
+        state.State.MissCounts[text] = state.State.MissCounts.GetValueOrDefault(text) + 1;
+        if (misses.Count > 40)
+        {
+            state.State.MissCounts.Remove(misses[0]);
+            misses.RemoveAt(0);
+        }
     }
 
     /// <summary>A catalogue model the description names; System One picks among close ones (or none), else the best word match.</summary>

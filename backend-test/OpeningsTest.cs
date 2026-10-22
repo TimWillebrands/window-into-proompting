@@ -103,6 +103,14 @@ public partial class PlacesTest
         }
         Assert.Equal("k-potted-plant", prefab);
         Assert.Contains("a poster of Lisbon at night", await places.GetCatalogueMissesAsync());
+        await places.AddThingAsync(cafe.Id, denise, "a poster of Lisbon at night");
+        List<string> misses = new();
+        for (var i = 0; i < 50 && !misses.Contains("2× a poster of Lisbon at night"); i++)
+        {
+            await Task.Delay(50);
+            misses = await places.GetCatalogueMissesAsync();
+        }
+        Assert.Equal("2× a poster of Lisbon at night", misses[0]);
     }
 
     [Fact]

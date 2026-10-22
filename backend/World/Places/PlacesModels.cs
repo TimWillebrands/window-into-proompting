@@ -204,6 +204,8 @@ public sealed class PlacesState
     [Id(5)] public List<string> CatalogueMisses { get; set; } = new();
     /// <summary>Local day of the last Opening that wasn't the author's: one a world-day (ADR 0027).</summary>
     [Id(6)] public string? LastOpenedDay { get; set; }
+    /// <summary>How often each catalogue miss came up: recurring ones are what to curate first.</summary>
+    [Id(7)] public Dictionary<string, int> MissCounts { get; set; } = new();
 }
 
 public static class PlaceKinds

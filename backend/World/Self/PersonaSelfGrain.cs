@@ -202,6 +202,7 @@ public sealed partial class PersonaSelfGrain(
         var key = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         if (state.State.DayKey == key)
         {
+            if (state.State.Neighbourhood is null) _ = SettleHomeAsync(partyId, personaId);
             if (state.State.Openers.Count == 0 && !state.State.OpenersTried) await EnsureOpenersAsync(partyId, personaId);
             if (state.State.Threads.Count == 0 && state.State.ThreadsKey != key) await EnsureThreadsAsync(partyId, personaId, key);
             return;
