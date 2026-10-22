@@ -14,8 +14,8 @@ public sealed partial class PlacesGrain
     {
         await SettleAsync();
         if (Find(localeId) is not { Kind: PlaceKinds.Locale } place || place.Name == Somewhere) return null;
-        // One a world-day, whatever asked (footfall, a visit); only the author may open more.
-        var budgeted = reason != "author";
+        // One a world-day for footfall and visits; the author and a planned get-together aren't held to it.
+        var budgeted = reason is not ("author" or "gathering");
         if (budgeted && state.State.LastOpenedDay == DayKey(0)) return null;
         if (state.State.Places.Count(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public) >= MaxOpened) return null;
         var kit = Kits.Of(archetype ?? Kits.FromName(place.Name) ?? await ClassifyAsync(place.Name));

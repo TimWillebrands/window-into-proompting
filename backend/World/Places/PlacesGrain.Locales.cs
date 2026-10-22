@@ -146,7 +146,7 @@ public sealed partial class PlacesGrain
         => time.GetLocalNow().AddDays(offsetDays).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>"Ana's work" or the fallback: Locales with no name of their own.</summary>
-    internal static bool Unnamed(string name) => name == Somewhere || name.EndsWith(WorkSuffix, StringComparison.Ordinal);
+    public static bool Unnamed(string name) => name == Somewhere || name.EndsWith(WorkSuffix, StringComparison.Ordinal);
 
     /// <summary>"work" for someone becomes "Ana's work"; anything else is kept as said.</summary>
     private string LocaleName(string name, Guid? forParticipant)

@@ -42,13 +42,21 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             foreach (var room in myRooms.OrderBy(_ => Random.Shared.Next()).Take(1))
                 affordances.Add(new Affordance(Id, $"Plan a get-together in #{room.Name} for later", 0, room.Id, "plan"));
             // Meeting in person: a public Place (spec .scratch/places phase 7).
-            var publicPlaces = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places
-                .Where(p => p.Kind == Places.PlaceKinds.Public).ToList();
+            var placesGrain = grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId);
+            var snapshot = await placesGrain.GetSnapshotAsync();
+            var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant).ToList();
             if (publicPlaces.Count > 0)
             {
                 var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];
                 affordances.Add(new Affordance(Id, $"Plan to meet people {place.At} {place.Name} later", 0, place.Id, "plan-place"));
             }
+            // Or somewhere offscreen you're a regular at (ADR 0027); it opens when the get-together starts.
+            var regular = (await placesGrain.GetVisitDaysAsync(ctx.Self.Id))
+                .Where(v => v.Value >= Places.PlacesGrain.RegularDays)
+                .Select(v => snapshot.Places.FirstOrDefault(p => p.Id == v.Key))
+                .FirstOrDefault(p => p is { Kind: Places.PlaceKinds.Locale } && !Places.PlacesGrain.Unnamed(p.Name));
+            if (regular is not null)
+                affordances.Add(new Affordance(Id, $"Plan to get people together {regular.At} {regular.Name}, where you often are", 0, regular.Id, "plan-place"));
         }
 
         if (sb.Length == 0) sb.Append("Nothing planned yet.");

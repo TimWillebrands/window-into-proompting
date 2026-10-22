@@ -144,4 +144,21 @@ public partial class PlacesTest
         Assert.Contains(gym.ToString(), streets.CustomScene);
         Assert.Contains(office.ToString(), streets.CustomScene);
     }
+
+    [Fact]
+    public async Task ADay_OpensOneLocaleForFootfallOrVisits_ButAGatheringStillOpensItsOwn()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var gym = await places.LocaleAsync("the climbing gym", denise);
+        var bar = await places.LocaleAsync("the corner bar", denise);
+        var park = await places.LocaleAsync("the little park", denise);
+
+        Assert.NotNull(await places.OpenAsync(gym, null, "visit"));
+        Assert.Null(await places.OpenAsync(bar, null, "footfall"));
+        Assert.NotNull(await places.OpenAsync(park, null, "gathering"));
+
+        _fx.Time.Advance(TimeSpan.FromDays(1));
+        Assert.NotNull(await places.OpenAsync(bar, null, "footfall"));
+    }
 }
