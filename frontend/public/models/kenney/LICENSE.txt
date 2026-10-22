@@ -1,0 +1,6 @@
+Models by Kenney (kenney.nl), CC0 1.0 (public domain), fetched via Poly Pizza.
+desk.glb             https://poly.pizza/m/6PbVkqPzEU
+desk-chair.glb       https://poly.pizza/m/CKSz6PB1vO
+computer-screen.glb  https://poly.pizza/m/V5Qo141OcB
+office-block.glb     https://poly.pizza/m/yKo7F36Qk2
+low-building.glb     https://poly.pizza/m/dYEbYdPfJr

@@ -35,7 +35,15 @@ export type Part = PartBase &
         | { ring: [number, number]; arc?: number }
         /** Flat sign facing +z: [width, height]; text drawn on it. */
         | { sign: [number, number]; text: string; fg?: string }
+        /** Catalogue model (ADR 0027), scaled to fit [w, h, d] tiles (h 0 = footprint only); `c` paints its stand-in. */
+        | { glb: string; fit: Vec3; mats?: Record<string, MaterialRule> }
     );
+
+/** How a catalogue model's named material is drawn: a palette colour or `$tint`, and lighting. */
+export interface MaterialRule {
+    c?: string;
+    glow?: boolean | 'night';
+}
 
 export interface Seat {
     /** Tile offset from the footprint's first tile, before rotation. */

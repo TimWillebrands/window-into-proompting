@@ -20,6 +20,7 @@ import { avatarColour, canHear, scribble, volumeOf } from '../places-lib';
 import Avatar, { type AvatarState } from './Avatar';
 import { type Built, build, type Placement } from './build';
 import { buildGround } from './ground';
+import { useMeshVersion } from './meshes';
 import { poseOf, round, targets, type Walk } from './motion';
 import {
     type PlacedProp,
@@ -381,6 +382,9 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         onBodyClick,
     } = props;
     const ground = useMemo(() => buildGround(scene), [scene]);
+    // Catalogue models load lazily; a landing one rebuilds what drew its stand-in.
+    const meshes = useMeshVersion();
+    // biome-ignore lint/correctness/useExhaustiveDependencies: meshes bumps when a model lands
     const statics = useMemo(
         () =>
             build([
@@ -389,7 +393,7 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                     .filter((p) => !p.furniId)
                     .map((p) => placement(scene, p)),
             ]),
-        [scene, ground],
+        [scene, ground, meshes],
     );
     const furniKey = JSON.stringify(
         furni.map((f) => [
@@ -413,6 +417,7 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         }));
     }, [scene, furniKey]);
     // One build per thing, so each can be picked when arranging.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: meshes bumps when a model lands
     const furniBuilt = useMemo(
         () =>
             furniProps.map(({ prop, view }) => ({
@@ -430,7 +435,7 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                     ),
                 ]),
             })),
-        [furniProps, scene],
+        [furniProps, scene, meshes],
     );
     const { arrange } = props;
     // Things where they stand now block walking and standing room.

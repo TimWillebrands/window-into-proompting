@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { fitScale, meshNow } from './meshes';
 import {
     colourOf,
+    type MaterialRule,
     type Part,
     type Prefab,
     type PrefabVariant,
@@ -70,6 +72,13 @@ function prism(w: number, h: number, d: number): THREE.BufferGeometry {
 }
 
 const cache = new Map<string, THREE.BufferGeometry>();
+
+/** Catalogue material names that mean the same thing in every model. */
+const MATERIAL_DEFAULTS: Record<string, MaterialRule> = {
+    window: { c: '#f3e2b0', glow: 'night' },
+    glass: { glow: 'night' },
+    light: { glow: true },
+};
 
 /** One part as geometry in prefab-local space (bottom-centre convention). */
 function shape(part: Part): THREE.BufferGeometry | null {
@@ -197,6 +206,49 @@ export function build(placements: Placement[]): Built {
                     fg: part.fg ?? '#fff',
                     matrix: m.clone().multiply(local),
                 });
+                continue;
+            }
+            if ('glb' in part) {
+                const [x, y, z] = part.at ?? [0, 0, 0];
+                const mesh = meshNow(part.glb);
+                const s = mesh ? fitScale(mesh.size, part.fit) : 1;
+                const local = new THREE.Matrix4()
+                    .compose(
+                        new THREE.Vector3(x, y, z),
+                        new THREE.Quaternion().setFromAxisAngle(
+                            new THREE.Vector3(0, 1, 0),
+                            part.ry ?? 0,
+                        ),
+                        new THREE.Vector3(s, s, s),
+                    )
+                    .premultiply(m);
+                if (!mesh) {
+                    // Stand-in until the model lands (or for good, if it never does).
+                    const [w, h, d] = part.fit;
+                    const box = unindexed(
+                        new THREE.BoxGeometry(
+                            w * 0.8,
+                            h || 0.6,
+                            d * 0.8,
+                        ).translate(0, (h || 0.6) / 2, 0),
+                    );
+                    plain.push(paint(box.applyMatrix4(local), colour));
+                    continue;
+                }
+                for (const g of mesh.groups) {
+                    const rule =
+                        part.mats?.[g.material] ??
+                        MATERIAL_DEFAULTS[g.material];
+                    const hex = rule?.c
+                        ? colourOf(rule.c, pl.prefab, pl.variant)
+                        : g.colour;
+                    const placed = paint(
+                        g.geometry.clone().applyMatrix4(local),
+                        hex,
+                    );
+                    const lit = rule?.glow ?? (g.emissive ? 'night' : false);
+                    (lit === 'night' ? night : lit ? glow : plain).push(placed);
+                }
                 continue;
             }
             const k = JSON.stringify({ ...part, c: 0 });

@@ -85,7 +85,7 @@
   "solid": true,
   "wall": false,
   "seats": 0,
-  "about": "small round caf\u00e9 table"
+  "about": "small round café table"
  },
  {
   "name": "long-table",
@@ -746,5 +746,60 @@
   "wall": false,
   "seats": 0,
   "about": "beach umbrella"
+ },
+ {
+  "name": "k-desk",
+  "size": [
+   2,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "office desk (Kenney model)"
+ },
+ {
+  "name": "k-desk-chair",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 1,
+  "about": "swivel office chair (Kenney model)"
+ },
+ {
+  "name": "k-screen",
+  "size": [
+   1,
+   1
+  ],
+  "solid": false,
+  "wall": false,
+  "seats": 0,
+  "about": "computer screen; lift onto a desk with y (Kenney model)"
+ },
+ {
+  "name": "k-office-block",
+  "size": [
+   3,
+   3
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "modern office block, outdoors (Kenney model)"
+ },
+ {
+  "name": "k-low-building",
+  "size": [
+   3,
+   3
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "low flat-roofed building, outdoors (Kenney model)"
  }
 ]
