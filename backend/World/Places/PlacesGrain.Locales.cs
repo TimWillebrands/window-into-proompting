@@ -24,6 +24,7 @@ public sealed partial class PlacesGrain
             wanted = Somewhere;
         if (FindByName(wanted) is { } fallback) return fallback.Id;
         var locale = PlaceSeeds.Locale(wanted);
+        if (Districts.FromName(wanted) is { } said) locale.DistrictId = await DistrictAsync(said);
         state.State.Places.Add(locale);
         await SaveAsync();
         return locale.Id;

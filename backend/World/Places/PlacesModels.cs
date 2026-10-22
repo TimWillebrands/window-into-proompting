@@ -68,6 +68,13 @@ public static class Districts
         return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
     }
 
+    /// <summary>"the office in Amsterdam-Zuid" → "Amsterdam-Zuid": a capitalised place after a final "in"; null otherwise.</summary>
+    public static string? FromName(string name)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(name, @"\bin\s+((?:\p{Lu}[\p{L}'’]*)(?:[\s-]\p{Lu}[\p{L}'’]*)*)\s*$");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
     /// <summary>"zuid" and "amsterdam-zuid" are one District: every word of the shorter slug is in the longer.</summary>
     public static bool Same(string a, string b)
     {

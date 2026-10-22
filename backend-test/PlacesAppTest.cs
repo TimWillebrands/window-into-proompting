@@ -65,5 +65,9 @@ public class PlacesAppTest
         Assert.True(Districts.Same("zuid", "amsterdam-zuid"));
         Assert.False(Districts.Same("zuid", "noord"));
         Assert.False(Districts.Same("oost", "amsterdam-zuid"));
+        Assert.Equal("Amsterdam-Zuid", Districts.FromName("the startup's office in Amsterdam-Zuid"));
+        Assert.Equal("De Pijp", Districts.FromName("a bar in De Pijp"));
+        Assert.Null(Districts.FromName("the gym in the centre"));
+        Assert.Null(Districts.FromName("Café de Jaren"));
     }
 }

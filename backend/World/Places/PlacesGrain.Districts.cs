@@ -7,13 +7,10 @@ public sealed partial class PlacesGrain
 
     public async Task<string> DistrictAsync(string name)
     {
-        var slug = Districts.Slug(name);
-        if (slug.Length == 0) return Districts.Centre;
-        if (state.State.Districts.FirstOrDefault(d => Districts.Same(d.Id, slug)) is { } known) return known.Id;
-        var trimmed = WorldStream.Clip(name.Trim(), 40);
-        state.State.Districts.Add(new District { Id = slug, Name = trimmed });
-        await SaveAsync();
-        return slug;
+        var before = state.State.Districts.Count;
+        var id = DistrictFor(name);
+        if (state.State.Districts.Count != before) await SaveAsync();
+        return id;
     }
 
     public async Task<bool> SetDistrictAsync(Guid placeId, string districtId)
@@ -57,6 +54,23 @@ public sealed partial class PlacesGrain
             place.DistrictId = Districts.Centre;
             changed = true;
         }
+        // Locales whose name says where they are ("… in Amsterdam-Zuid") go there.
+        foreach (var locale in state.State.Places.Where(p => p is { DistrictId: null, Kind: PlaceKinds.Locale }))
+            if (Districts.FromName(locale.Name) is { } said)
+            {
+                locale.DistrictId = DistrictFor(said);
+                changed = true;
+            }
         return changed;
+    }
+
+    /// <summary>Synchronous resolve-or-create, for activation backfills (saved by the caller).</summary>
+    private string DistrictFor(string name)
+    {
+        var slug = Districts.Slug(name);
+        if (slug.Length == 0) return Districts.Centre;
+        if (state.State.Districts.FirstOrDefault(d => Districts.Same(d.Id, slug)) is { } known) return known.Id;
+        state.State.Districts.Add(new District { Id = slug, Name = WorldStream.Clip(name.Trim(), 40) });
+        return slug;
     }
 }

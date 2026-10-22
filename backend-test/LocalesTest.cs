@@ -19,7 +19,8 @@ public partial class PlacesTest
         var office = await places.LocaleAsync("the office in Zuid", denise);
         Assert.Equal(office, await places.LocaleAsync("Office in Zuid", pieter));
         Assert.NotNull(await places.GoAwayAsync(denise, office, "at work"));
-        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        // "… in Zuid" puts the office in Zuid: a tram ride from the Café.
+        _fx.Time.Advance(TimeSpan.FromMinutes(5));
 
         var snapshot = await places.GetSnapshotAsync();
         var locale = snapshot.Places.Single(p => p.Id == office);
@@ -34,7 +35,7 @@ public partial class PlacesTest
         Assert.Null(await places.JoinAsync(pieter, denise));
 
         await places.ReturnAsync(denise);
-        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        _fx.Time.Advance(TimeSpan.FromMinutes(5));
         var back = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
         Assert.Equal(cafe.Id, back.PlaceId);
         Assert.Null(back.AwayAs);
