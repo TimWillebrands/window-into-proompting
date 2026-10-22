@@ -1026,163 +1026,128 @@ public sealed class MemoryRepository(
         try
         {
             var conn = (NpgsqlConnection)db.Database.GetDbConnection();
-
             var nodes = new Dictionary<string, MemoryGraphNode>(StringComparer.Ordinal);
-            var links = new HashSet<string>(StringComparer.Ordinal);
-            var orderedLinks = new List<MemoryGraphLink>();
+            var links = new List<MemoryGraphLink>();
+            string PartNode(string personaId) => $"part:{personaId}:{partyId}";
 
-            void AddNode(MemoryGraphNode node)
+            void AddNode(MemoryGraphNode node) => nodes.TryAdd(node.Id, node);
+
+            async Task ReadAsync(string cypher, string columns, Action<Func<int, string?>> row)
             {
-                if (!nodes.TryGetValue(node.Id, out var existing))
-                {
-                    nodes[node.Id] = node;
-                    return;
-                }
-                // Merge in any new non-null scalars (e.g. Event.description from one row,
-                // Concept.display from another) without churning the dedup key.
-                nodes[node.Id] = existing with
-                {
-                    Description = existing.Description ?? node.Description,
-                    Display = existing.Display ?? node.Display,
-                    CreatedAt = existing.CreatedAt ?? node.CreatedAt,
-                    RoomId = existing.RoomId ?? node.RoomId,
-                    AnchorMessageId = existing.AnchorMessageId ?? node.AnchorMessageId,
-                };
-            }
-
-            void AddLink(MemoryGraphLink link)
-            {
-                var key = $"{link.Source}\0{link.Target}\0{link.Kind}\0{link.Snippet}\0{link.Ts}";
-                if (links.Add(key))
-                {
-                    orderedLinks.Add(link);
-                }
-            }
-
-            // Anchor on Event party_id (Room/Message vertices are gone — the anchor lives as
-            // properties on the Event). Empty Rooms no longer appear; the viz lists Rooms
-            // from REST. :ABOUT Concepts, :ABOUT Participants, RECOLLECTS Participants and
-            // their Personas hang off each Event. Single OPTIONAL-MATCH-driven Cypher; wide
-            // rows with nulls dedup'd in C#. Projected scalars cast to text/int per the AGE
-            // agtype reader footgun.
-            var graphSql = $$"""
-                SELECT * FROM cypher('memory', $cy$
-                  MATCH (e:Event {party_id: '{{partyId}}'})
-                  OPTIONAL MATCH (e)-[:ABOUT]->(c:Concept)
-                  OPTIONAL MATCH (e)-[:ABOUT]->(p_about:Participant {party_id: '{{partyId}}'})
-                  OPTIONAL MATCH (persona_about:Persona)-[:HAS_PARTICIPANT]->(p_about)
-                  OPTIONAL MATCH (part:Participant {party_id: '{{partyId}}'})-[rec:RECOLLECTS]->(e)
-                  OPTIONAL MATCH (persona_rec:Persona)-[:HAS_PARTICIPANT]->(part)
-                  RETURN e.event_id, e.description, e.created_at, e.room_id, e.anchor_message_id,
-                         c.name, c.display,
-                         p_about.persona_id,
-                         persona_about.id,
-                         part.persona_id,
-                         persona_rec.id,
-                         rec.snippet, rec.ts
-                $cy$) AS (
-                  event_id text, event_description text, event_created_at text,
-                  event_room_id text, event_anchor_message_id int,
-                  concept_name text, concept_display text,
-                  p_about_persona_id text,
-                  persona_about_id text,
-                  part_persona_id text,
-                  persona_rec_id text,
-                  rec_snippet text, rec_ts text
-                );
-                """;
-
-            await using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = graphSql;
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"SELECT * FROM cypher('memory', $cy$ {cypher} $cy$) AS ({columns});";
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct))
                 {
-                    string? Get(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
-
-                    var eventId = Get(0);
-                    var eventDescription = Get(1);
-                    var eventCreatedAt = Get(2);
-                    var eventRoomId = Get(3);
-                    var eventAnchorMessageId = reader.IsDBNull(4) ? (int?)null : reader.GetInt32(4);
-                    var conceptName = Get(5);
-                    var conceptDisplay = Get(6);
-                    var pAboutPersonaId = Get(7);
-                    var personaAboutId = Get(8);
-                    var partPersonaId = Get(9);
-                    var personaRecId = Get(10);
-                    var recSnippet = Get(11);
-                    var recTs = Get(12);
-
-                    string? eventNodeId = null;
-                    if (eventId is not null)
-                    {
-                        eventNodeId = $"event:{eventId}";
-                        AddNode(new MemoryGraphNode(
-                            eventNodeId, "Event",
-                            Description: eventDescription,
-                            CreatedAt: eventCreatedAt,
-                            RoomId: eventRoomId,
-                            AnchorMessageId: eventAnchorMessageId));
-                    }
-
-                    if (conceptName is not null)
-                    {
-                        var conceptNodeId = $"concept:{conceptName}";
-                        AddNode(new MemoryGraphNode(conceptNodeId, "Concept", Display: conceptDisplay));
-                        if (eventNodeId is not null)
-                        {
-                            AddLink(new MemoryGraphLink(eventNodeId, conceptNodeId, "ABOUT"));
-                        }
-                    }
-
-                    if (pAboutPersonaId is not null)
-                    {
-                        var aboutNodeId = $"part:{pAboutPersonaId}:{partyId}";
-                        AddNode(new MemoryGraphNode(aboutNodeId, "Participant"));
-                        if (eventNodeId is not null)
-                        {
-                            AddLink(new MemoryGraphLink(eventNodeId, aboutNodeId, "ABOUT"));
-                        }
-                        if (personaAboutId is not null)
-                        {
-                            var personaNodeId = $"persona:{personaAboutId}";
-                            AddNode(new MemoryGraphNode(personaNodeId, "Persona"));
-                            AddLink(new MemoryGraphLink(personaNodeId, aboutNodeId, "HAS_PARTICIPANT"));
-                        }
-                    }
-
-                    if (partPersonaId is not null)
-                    {
-                        var partNodeId = $"part:{partPersonaId}:{partyId}";
-                        AddNode(new MemoryGraphNode(partNodeId, "Participant"));
-                        if (eventNodeId is not null && recSnippet is not null)
-                        {
-                            AddLink(new MemoryGraphLink(
-                                partNodeId, eventNodeId, "RECOLLECTS",
-                                Snippet: recSnippet, Ts: recTs));
-                        }
-                        if (personaRecId is not null)
-                        {
-                            var personaNodeId = $"persona:{personaRecId}";
-                            AddNode(new MemoryGraphNode(personaNodeId, "Persona"));
-                            AddLink(new MemoryGraphLink(personaNodeId, partNodeId, "HAS_PARTICIPANT"));
-                        }
-                    }
+                    row(i => reader.IsDBNull(i) ? null : reader.GetString(i));
                 }
             }
 
-            return new MemoryGraphDto(
-                nodes.Values.ToList(),
-                orderedLinks);
+            // One query per shape — the old single OPTIONAL MATCH chain multiplied concepts × recollections per Event.
+            await ReadAsync(
+                $"MATCH (e:Event {{party_id: '{partyId}'}}) " +
+                "RETURN e.event_id, e.description, e.created_at, e.room_id, e.anchor_message_id, e.source, e.place_id",
+                "event_id text, description text, created_at text, room_id text, anchor_message_id text, source text, place_id text",
+                get =>
+                {
+                    if (get(0) is not { } eventId) return;
+                    AddNode(new MemoryGraphNode(
+                        $"event:{eventId}", "Event",
+                        Description: get(1),
+                        CreatedAt: get(2),
+                        RoomId: get(3),
+                        AnchorMessageId: int.TryParse(get(4), out var anchor) ? anchor : null,
+                        Source: get(5),
+                        PlaceId: get(6)));
+                });
+
+            await ReadAsync(
+                $"MATCH (e:Event {{party_id: '{partyId}'}})-[:ABOUT]->(t) " +
+                "RETURN e.event_id, t.name, t.display, t.persona_id, t.party_id",
+                "event_id text, concept_name text, concept_display text, persona_id text, party_id text",
+                get =>
+                {
+                    var eventNodeId = $"event:{get(0)}";
+                    if (get(1) is { } conceptName)
+                    {
+                        var conceptNodeId = $"concept:{conceptName}";
+                        AddNode(new MemoryGraphNode(conceptNodeId, "Concept", Display: get(2)));
+                        links.Add(new MemoryGraphLink(eventNodeId, conceptNodeId, "ABOUT"));
+                    }
+                    else if (get(3) is { } personaId && get(4) == partyId.ToString())
+                    {
+                        AddNode(new MemoryGraphNode(PartNode(personaId), "Participant"));
+                        links.Add(new MemoryGraphLink(eventNodeId, PartNode(personaId), "ABOUT"));
+                    }
+                });
+
+            await ReadAsync(
+                $"MATCH (p:Participant {{party_id: '{partyId}'}})-[r:RECOLLECTS]->(e:Event {{party_id: '{partyId}'}}) " +
+                "RETURN p.persona_id, e.event_id, r.snippet, r.ts, r.weight, r.recall_count, r.last_recalled",
+                "persona_id text, event_id text, snippet text, ts text, weight text, recall_count text, last_recalled text",
+                get =>
+                {
+                    if (get(0) is not { } personaId || get(2) is not { } snippet) return;
+                    AddNode(new MemoryGraphNode(PartNode(personaId), "Participant"));
+                    links.Add(new MemoryGraphLink(
+                        PartNode(personaId), $"event:{get(1)}", "RECOLLECTS",
+                        Snippet: snippet, Ts: get(3),
+                        Weight: double.TryParse(get(4), NumberStyles.Float, CultureInfo.InvariantCulture, out var w) ? w : null,
+                        RecallCount: int.TryParse(get(5), out var rc) ? rc : null,
+                        LastRecalled: get(6)));
+                });
+
+            // Current belief per (author, target) — latest-wins, retract-current targets hold none (ADR 0016).
+            var stances = new List<(string Author, StanceEdgeRow Row)>();
+            await ReadAsync(
+                $"MATCH (src:Participant {{party_id: '{partyId}'}})-[s:STANCE]->(tgt) " +
+                "RETURN src.persona_id, s.valence, s.reasoning, s.ts, tgt.persona_id, tgt.name, tgt.display, s.origin, s.id",
+                "author text, valence text, reasoning text, ts text, target_persona_id text, concept_name text, concept_display text, origin text, id text",
+                get =>
+                {
+                    if (get(0) is not { } author) return;
+                    var targetPersonaId = Guid.TryParse(get(4), out var tp) ? tp : (Guid?)null;
+                    if (targetPersonaId is null && string.IsNullOrWhiteSpace(get(5))) return;
+                    var valence = double.TryParse(get(1), NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+                        ? Math.Clamp(v, -1.0, 1.0)
+                        : 0.0;
+                    var origin = get(7) == "retract" ? StanceOrigin.Retract : StanceOrigin.Curator;
+                    stances.Add((author, new StanceEdgeRow(
+                        Guid.TryParse(get(8), out var id) ? id : Guid.Empty, valence, get(2) ?? string.Empty,
+                        ParseIso(get(3)) ?? DateTimeOffset.MinValue, targetPersonaId, get(5), get(6), origin, null, null)));
+                });
+
+            foreach (var byAuthor in stances.GroupBy(s => s.Author))
+            {
+                var newestFirst = byAuthor.Select(s => s.Row).OrderByDescending(r => r.Ts);
+                foreach (var (row, isCurrent) in StanceProjection.WithCurrent(newestFirst))
+                {
+                    if (!isCurrent || row.Origin == StanceOrigin.Retract) continue;
+                    string targetNodeId;
+                    if (row.TargetPersonaId is Guid targetPersona)
+                    {
+                        targetNodeId = PartNode(targetPersona.ToString());
+                        AddNode(new MemoryGraphNode(targetNodeId, "Participant"));
+                    }
+                    else
+                    {
+                        targetNodeId = $"concept:{row.ConceptName}";
+                        AddNode(new MemoryGraphNode(targetNodeId, "Concept", Display: row.ConceptDisplay));
+                    }
+                    AddNode(new MemoryGraphNode(PartNode(byAuthor.Key), "Participant"));
+                    links.Add(new MemoryGraphLink(
+                        PartNode(byAuthor.Key), targetNodeId, "STANCE",
+                        Ts: row.Ts.ToString("o"), Valence: row.Valence, Reasoning: row.Reasoning));
+                }
+            }
+
+            return new MemoryGraphDto(nodes.Values.ToList(), links);
         }
         finally
         {
             await db.Database.CloseConnectionAsync();
         }
     }
-
-
 
     // The persona's newest snippets — the recency-capped dedup pool for substituted drafts.
     private static async Task<List<string>> ListRecentSnippetsAsync(

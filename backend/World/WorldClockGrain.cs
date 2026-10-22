@@ -8,25 +8,22 @@ namespace PartyTown.World;
 
 /// <summary>
 /// A Party's World clock (ADR 0018). Pulsed by <see cref="WorldPulseService"/>; on each due tick
-/// hands the turn to one idle Persona's Life, and closes lulled Room/DM conversations into memory.
+/// hands the turn to one idle Persona's Life and has <see cref="LullCaptureGrain"/> sweep for lulls.
 /// Owns the activity log and the hourly action budget. Worlds start paused.
 /// </summary>
 public sealed class WorldClockGrain(
     [PersistentState(stateName: "worldclock", storageName: "parties")]
     IPersistentState<WorldClockState> state,
     WorldMemory memory,
-    ISystemOneJudge judge,
     IWorldLlm llm,
     ILogger<WorldClockGrain> logger)
     : Grain, IWorldClockGrain
 {
     private const int MaxActivities = 300;
     private static readonly TimeSpan LifeTimeout = TimeSpan.FromMinutes(3);
-    private const double MemorableThreshold = 0.35;
     private const string AmbientShape = """{"happening": "<one or two sentences>"}""";
 
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
-    private readonly HashSet<Guid> _capturing = new();
 
     private Guid PartyId => this.GetPrimaryKey();
 
@@ -51,7 +48,7 @@ public sealed class WorldClockGrain(
             return;
         state.State.LastTickAt = now.ToUnixTimeMilliseconds();
 
-        await CaptureLullsAsync(now);
+        await CaptureLullsAsync();
         await StartDueGatheringsAsync(now);
         if (!ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return;
         (var ambientDue, state.State.LastAmbientAt) = ClockPolicy.Ambient(state.State.LastAmbientAt, state.State.AmbientMinutes, now);
@@ -95,6 +92,14 @@ public sealed class WorldClockGrain(
         await PublishAsync("activity", activity);
         if (activity.PersonaId != Guid.Empty)
             await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).NoteActivityAsync(activity.PersonaId, activity.App);
+    }
+
+    public async Task NotifyAsync(List<Guid> personaIds)
+    {
+        if (personaIds.Count == 0) return;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var id in personaIds) state.State.NotifiedAt[id] = now;
+        await state.WriteStateAsync();
     }
 
     public async Task<WorldActivity> AnnounceAsync(string text)
@@ -144,6 +149,19 @@ public sealed class WorldClockGrain(
             await state.WriteStateAsync();
         }
         return link.Id;
+    }
+
+    /// <summary>Hands the lull sweep to <see cref="LullCaptureGrain"/>; cursors once kept here move over on first sweep.</summary>
+    private async Task CaptureLullsAsync()
+    {
+        var capture = GrainFactory.GetGrain<ILullCaptureGrain>(PartyId);
+        if (state.State.CaptureCursors.Count > 0)
+        {
+            await capture.AdoptCursorsAsync(state.State.CaptureCursors);
+            state.State.CaptureCursors.Clear();
+            await state.WriteStateAsync();
+        }
+        await capture.SweepAsync();
     }
 
     private void StartLife(Guid personaId, string? nudge)
@@ -197,70 +215,13 @@ public sealed class WorldClockGrain(
         if (candidates.Count == 0) return null;
 
         var free = await Task.WhenAll(candidates.Select(c => AvailabilityAsync(c.Id)));
-        var weighed = candidates.Select((c, i) => new LifeCandidate(
-            c.Id, c.Chattiness, state.State.LastActedAt.TryGetValue(c.Id, out var last) ? last : null, free[i])).ToList();
+        var weighed = candidates.Select((c, i) =>
+        {
+            long? last = state.State.LastActedAt.TryGetValue(c.Id, out var l) ? l : null;
+            long? notified = state.State.NotifiedAt.TryGetValue(c.Id, out var n) ? n : null;
+            return new LifeCandidate(c.Id, c.Chattiness, last, free[i], ClockPolicy.Notified(notified, last));
+        }).ToList();
         return ClockPolicy.Pick(weighed, ClockPolicy.LifeWeights(weighed, state.State.TickSeconds, cast.Count, now), Random.Shared.NextDouble());
-    }
-
-    /// <summary>Automatic Capture: a conversation that went quiet becomes one remembered moment.</summary>
-    private async Task CaptureLullsAsync(DateTimeOffset now)
-    {
-        var threads = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups();
-        var moved = false;
-        foreach (var thread in threads)
-        {
-            if (_capturing.Contains(thread.Id)) continue;
-            var room = GrainFactory.GetGrain<IChatGroupGrain>(thread.Id);
-            var cursor = state.State.CaptureCursors.TryGetValue(thread.Id, out var c) ? c : (int?)null;
-            switch (ClockPolicy.Lulled(await room.GetRecentMessagesAsync(14), cursor, now))
-            {
-                case LullDecision.Seed seed:
-                    state.State.CaptureCursors[thread.Id] = seed.Cursor;
-                    moved = true;
-                    break;
-                case LullDecision.Capture capture:
-                    state.State.CaptureCursors[thread.Id] = capture.Cursor;
-                    moved = true;
-                    _capturing.Add(thread.Id);
-                    _ = CaptureAsync(thread, capture.Anchor, capture.Context, ClockPolicy.Witnesses(capture.Context, (await room.GetCastAsync()).Views()));
-                    break;
-            }
-        }
-        // Only cursor moves are worth a storage write; most ticks change nothing here.
-        if (moved) await state.WriteStateAsync();
-    }
-
-    private async Task CaptureAsync(ChatGroupInfo thread, ChatMessage anchor, List<ChatMessage> context, List<ParticipantView> present)
-    {
-        try
-        {
-            if (judge.Enabled && !await IsMemorableAsync(context, present))
-                return;
-            var placeId = thread.Kind == ChatGroupKinds.Place
-                ? await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetPlaceOfTalkRoomAsync(thread.Id)
-                : null;
-            var result = await memory.CaptureAsync(
-                Moment.FromMessages(PartyId, MomentSources.OfKind(thread.Kind), thread.Id, context, anchor.MessageId, present, placeId),
-                CancellationToken.None);
-            if (result is { EventCreated: true, RecollectionsCreated: > 0 })
-            {
-                var where = thread.Kind switch
-                {
-                    ChatGroupKinds.Direct => $"the chat {thread.Name}",
-                    ChatGroupKinds.Place => $"talk at {thread.Name}",
-                    _ => $"#{thread.Name}",
-                };
-                await RecordAsync(new WorldActivity
-                {
-                    App = "memory", Action = "capture", PersonaName = "World", TargetId = thread.Id,
-                    Summary = $"a moment in {where} became a memory for {result.RecollectionsCreated} people",
-                });
-            }
-        }
-        finally
-        {
-            _capturing.Remove(thread.Id);
-        }
     }
 
     /// <summary>A planned Gathering came due: attendees join its Room and get a Life turn pointed at it.</summary>
@@ -335,28 +296,6 @@ public sealed class WorldClockGrain(
         }
     }
 
-    /// <summary>Capture as relevance realization: System One judges whether the span is worth a memory at all.</summary>
-    private async Task<bool> IsMemorableAsync(List<ChatMessage> context, List<ParticipantView> present)
-    {
-        var names = present.ToDictionary(p => p.Id, p => p.Name);
-        var transcript = string.Join("\n", context.Select(m => $"{names.GetValueOrDefault(m.SenderId, "someone")}: {m.Content}"));
-        try
-        {
-            var answers = await judge.AskAsync(transcript, new Dictionary<string, SystemOneQuestion>
-            {
-                ["memorable"] = new NoulQuestion("Something happened in this conversation that the people in it would still remember a week from now."),
-            }, CancellationToken.None);
-            var p = answers.Noul("memorable", 1);
-            logger.LogInformation("Capture gate p(memorable)={P:F2}", p);
-            return p >= MemorableThreshold;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "System One capture gate failed; capturing anyway");
-            return true;
-        }
-    }
-
     private bool IsBusy(Guid personaId, DateTimeOffset now)
         => _busy.TryGetValue(personaId, out var since) && now - since < LifeTimeout;
 
@@ -395,6 +334,8 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("EnsurePlayerAsync")] Task<Guid> EnsurePlayerAsync(string? name);
     /// <summary>Author-announced Happening: logged, perceived by every Life, remembered by everyone.</summary>
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);
+    /// <summary>Something concerning these Personas landed outside a live chat: they're likelier to get the next turn.</summary>
+    [Alias("NotifyAsync")] Task NotifyAsync(List<Guid> personaIds);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.WorldClockState")]
@@ -407,9 +348,11 @@ public sealed class WorldClockState
     [Id(4)] public List<long> ActionTimes { get; set; } = new();
     [Id(5)] public List<WorldActivity> Activities { get; set; } = new();
     [Id(6)] public Dictionary<Guid, long> LastActedAt { get; set; } = new();
+    /// <summary>Legacy: lull cursors now live in <see cref="LullCaptureGrain"/>; drained on first pulse.</summary>
     [Id(7)] public Dictionary<Guid, int> CaptureCursors { get; set; } = new();
     [Id(8)] public Guid? PlayerId { get; set; }
     /// <summary>Minutes between Narrator-generated Happenings; 0 = off.</summary>
     [Id(9)] public int AmbientMinutes { get; set; } = 30;
     [Id(10)] public long? LastAmbientAt { get; set; }
+    [Id(11)] public Dictionary<Guid, long> NotifiedAt { get; set; } = new();
 }

@@ -21,4 +21,8 @@ export interface MemoryGraphNode {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     anchorMessageId?: number | string | null;
+    /** @nullable */
+    source?: string | null;
+    /** @nullable */
+    placeId?: string | null;
 }

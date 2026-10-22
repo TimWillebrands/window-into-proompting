@@ -54,6 +54,21 @@ public class ClockPolicyTest
     }
 
     [Fact]
+    public void LifeWeights_NotifiedSinceLastAct_PullsHarder()
+    {
+        var plain = new LifeCandidate(Guid.NewGuid(), 0.5, Ago(TimeSpan.FromMinutes(5)), 1);
+        var notified = plain with { Id = Guid.NewGuid(), Notified = true };
+
+        var w = ClockPolicy.LifeWeights(new[] { plain, notified }, 30, 2, Now);
+
+        Assert.Equal(w[0] * ClockPolicy.NotifiedBoost, w[1], 6);
+        Assert.True(ClockPolicy.Notified(Ago(TimeSpan.FromMinutes(1)), Ago(TimeSpan.FromMinutes(2))));
+        Assert.True(ClockPolicy.Notified(Ago(TimeSpan.FromMinutes(1)), null));
+        Assert.False(ClockPolicy.Notified(Ago(TimeSpan.FromMinutes(3)), Ago(TimeSpan.FromMinutes(2))));
+        Assert.False(ClockPolicy.Notified(null, null));
+    }
+
+    [Fact]
     public void Pick_DrawsByWeight()
     {
         var a = new LifeCandidate(Guid.NewGuid(), 0.5, null, 1);

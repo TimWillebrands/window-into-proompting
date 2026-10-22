@@ -13,4 +13,23 @@ export interface MemoryGraphLink {
     snippet?: string | null;
     /** @nullable */
     ts?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
+     */
+    weight?: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    recallCount?: number | string | null;
+    /** @nullable */
+    lastRecalled?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
+     */
+    valence?: number | string | null;
+    /** @nullable */
+    reasoning?: string | null;
 }

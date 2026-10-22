@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import type { MemoryGraphLink } from '../../api/model';
+import { indexGraph } from './graphView';
 import MemoryGraphSidePanel from './MemoryGraphSidePanel';
-import type { EnrichedMemoryGraph, EnrichedMemoryNode } from './types';
+import type { EnrichedMemoryLink, EnrichedMemoryNode } from './types';
 
 const partyId = '00000000-0000-0000-0000-000000000000';
 
@@ -13,7 +13,8 @@ const eventNode: EnrichedMemoryNode = {
     createdAt: '2026-05-10T10:00:00Z',
     roomId: 'cg-1',
     anchorMessageId: 42,
-    label: 'general',
+    label: 'Room · general',
+    where: 'Room · general',
 };
 
 const allNodes: EnrichedMemoryNode[] = [
@@ -28,15 +29,17 @@ const allNodes: EnrichedMemoryNode[] = [
         id: `part:persona-1:${partyId}`,
         kind: 'Participant',
         label: 'Denise',
+        colour: '#7B5CC4',
     },
     {
         id: `part:persona-2:${partyId}`,
         kind: 'Participant',
         label: 'Vlad',
+        colour: '#D2477A',
     },
 ];
 
-const allLinks: MemoryGraphLink[] = [
+const allLinks: EnrichedMemoryLink[] = [
     { source: 'event:ev-1', target: 'concept:horticulture', kind: 'ABOUT' },
     {
         source: 'event:ev-1',
@@ -49,8 +52,19 @@ const allLinks: MemoryGraphLink[] = [
         kind: 'RECOLLECTS',
         snippet: 'you pitched horticulture to a sceptical Vlad',
         ts: '2026-05-10T10:00:01Z',
+        weight: 0.8,
+        recallCount: 2,
+    },
+    {
+        source: `part:persona-1:${partyId}`,
+        target: `part:persona-2:${partyId}`,
+        kind: 'STANCE',
+        valence: -0.4,
+        reasoning: 'Vlad keeps shooting down your demos',
     },
 ];
+
+const index = indexGraph({ nodes: allNodes, links: allLinks });
 
 const meta = {
     title: 'Apps/MemoryGraphSidePanel',
@@ -60,7 +74,7 @@ const meta = {
         (Story) => (
             <div
                 style={{
-                    width: 280,
+                    width: 320,
                     height: 520,
                     background: '#5C87C2',
                     padding: 8,
@@ -72,11 +86,10 @@ const meta = {
     ],
     args: {
         node: eventNode,
-        graph: {
-            nodes: allNodes,
-            links: allLinks,
-        } satisfies EnrichedMemoryGraph,
+        index,
         onSelectNode: fn(),
+        lens: null,
+        onLens: fn(),
     },
 } satisfies Meta<typeof MemoryGraphSidePanel>;
 
@@ -87,4 +100,12 @@ export const EventSelected: Story = {};
 
 export const NothingSelected: Story = {
     args: { node: null },
+};
+
+export const PersonSelected: Story = {
+    args: { node: allNodes[2] },
+};
+
+export const ConceptSelected: Story = {
+    args: { node: allNodes[1] },
 };

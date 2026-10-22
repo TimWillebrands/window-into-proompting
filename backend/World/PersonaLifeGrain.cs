@@ -27,6 +27,8 @@ public sealed class PersonaLifeGrain(
     private const int MaxOptionsPerApp = 3;
     private static readonly TimeSpan TurnBudget = TimeSpan.FromSeconds(150);
     private const double ChoiceTemperature = 0.8;
+    /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
+    public const string LookAction = "look";
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
     private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
 
@@ -34,7 +36,15 @@ public sealed class PersonaLifeGrain(
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         if (followThrough is not null) await followThrough.ConsiderPendingAsync(partyId, personaId);
-        var activity = await LiveCoreAsync(nudge);
+        // Under the 3 min grain response timeout, so a stalled model call ends as a fizzle, not a timeout.
+        using var turnCts = new CancellationTokenSource(TurnBudget);
+        var (activity, looked) = await LiveCoreAsync(nudge, turnCts.Token);
+        // Looking is a step, not a turn: having opened something, decide what to do with what you now see.
+        if (looked)
+        {
+            await GrainFactory.GetGrain<IWorldClockGrain>(partyId).RecordAsync(activity);
+            (activity, _) = await LiveCoreAsync($"You just {activity.Summary}. Now that it's in front of you, what do you do?", turnCts.Token, lookedAlready: true);
+        }
         // Time to yourself recharges (ADR 0021): resting and writing are how talked-out people refill.
         if (activity.Action is "rest" or "diary")
         {
@@ -44,17 +54,15 @@ public sealed class PersonaLifeGrain(
         return activity;
     }
 
-    private async Task<WorldActivity> LiveCoreAsync(string? nudge)
+    /// <returns>The activity, and whether it was only a look (opening an App, scrolling back) that wants a follow-up choice.</returns>
+    private async Task<(WorldActivity Activity, bool Looked)> LiveCoreAsync(string? nudge, CancellationToken ct, bool lookedAlready = false)
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
-        // Under the 3 min grain response timeout, so a stalled model call ends as a fizzle, not a timeout.
-        using var turnCts = new CancellationTokenSource(TurnBudget);
-        var ct = turnCts.Token;
         var party = GrainFactory.GetGrain<IPartyGrain>(partyId);
         var cast = await party.GetCastAsync();
         var self = cast.FirstOrDefault(c => c.Id == personaId && c.DefaultDriver == DriverKind.LLM);
         if (self is null)
-            return Activity(personaId, "?", "life", "error", "is not an LLM-driven participant here");
+            return (Activity(personaId, "?", "life", "error", "is not an LLM-driven participant here"), false);
 
         var clock = GrainFactory.GetGrain<IWorldClockGrain>(partyId);
         var ctx = new LifeContext(
@@ -63,7 +71,8 @@ public sealed class PersonaLifeGrain(
             await party.GetChatGroups(),
             (await clock.GetActivitiesAsync(12, personaId))
                 .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync());
 
         var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
             .Where(a => a.Action == "happening" && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromHours(12))
@@ -73,7 +82,7 @@ public sealed class PersonaLifeGrain(
             .Where(p => p is not null).Select(p => p!).ToList();
 
         // Habituation: an App you just used pulls less (explore ⇄ exploit); urgent items still surface.
-        var recentApps = ctx.RecentOwn.Take(3).Select(a => a.App).ToList();
+        var recentApps = ctx.RecentOwn.Where(a => a.Action != LookAction).Take(3).Select(a => a.App).ToList();
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
         int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk);
@@ -81,6 +90,7 @@ public sealed class PersonaLifeGrain(
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
             .SelectMany(p => p.Affordances
+                .Where(a => !(lookedAlready && a.Look))
                 .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
                 .Take(MaxOptionsPerApp))
             .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
@@ -130,6 +140,7 @@ Output ONLY JSON: {ChoiceShape}
         sb.AppendLine("\n# The world right now");
         foreach (var p in perceptions)
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
+        var world = sb.ToString();
         sb.AppendLine("# Options");
         for (var i = 0; i < options.Count; i++)
             sb.AppendLine($"{i + 1}. {options[i].Label}");
@@ -152,11 +163,18 @@ Output ONLY JSON: {ChoiceShape}
             }, ct);
             choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
             if (choice < 1 || choice > options.Count)
-                return Activity(personaId, self.Name, "life", "rest", "is taking it easy");
+                return (Activity(personaId, self.Name, "life", "rest", "is taking it easy"), false);
 
+            // A Look needs no voice: what to say comes after seeing.
+            if (options[choice - 1].Look)
+                return await ActOnAsync(personaId, self, ctx, options[choice - 1], options[choice - 1].Label, null, ct);
+
+            // No options menu here: with it in view the intent drifted to another App's option.
+            var decided = options[choice - 1];
+            var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
             var voiced = await llm.CompleteJsonAsync(JobComplexity.General,
-                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next: {options[choice - 1].Label}. Say what's on your mind and what exactly you'll do.\nOutput ONLY JSON: {IntentShape}",
-                sb.ToString(), ct, 0.8, ["thought", "intent"]);
+                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\nOutput ONLY JSON: {IntentShape}",
+                $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
             thought = voiced?["thought"]?.ToString();
             intent = voiced?["intent"]?.ToString() ?? string.Empty;
         }
@@ -170,22 +188,27 @@ Output ONLY JSON: {ChoiceShape}
         }
 
         if (choice < 1 || choice > options.Count)
-            return Activity(personaId, self.Name, "life", "rest", "is taking it easy", thought);
+            return (Activity(personaId, self.Name, "life", "rest", "is taking it easy", thought), false);
 
-        var picked = options[choice - 1];
+        return await ActOnAsync(personaId, self, ctx, options[choice - 1], intent, thought, ct);
+    }
+
+    private async Task<(WorldActivity Activity, bool Looked)> ActOnAsync(
+        Guid personaId, CastMember self, LifeContext ctx, Affordance picked, string intent, string? thought, CancellationToken ct)
+    {
         var app = apps.First(a => a.Id == picked.AppId);
         logger.LogInformation("Life {Persona} → {Label} | {Intent}", self.Name, picked.Label, intent);
         try
         {
             var outcome = await app.ActAsync(ctx, picked, string.IsNullOrWhiteSpace(intent) ? picked.Label : intent, thought, ct);
             return outcome is null
-                ? Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought)
-                : Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId);
+                ? (Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought), false)
+                : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId), outcome.Looked);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
-            return Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought);
+            return (Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought), false);
         }
     }
 

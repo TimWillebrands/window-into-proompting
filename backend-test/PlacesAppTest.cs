@@ -10,7 +10,8 @@ public class PlacesAppTest
 {
     private static LifeContext With(params WorldActivity[] recent) => new(
         Guid.NewGuid(), new CastMember { Id = Guid.NewGuid(), Name = "Denise" }, new List<CastMember>(),
-        new HashSet<Guid>(), new List<ChatGroupInfo>(), recent.ToList(), DateTimeOffset.UtcNow);
+        new HashSet<Guid>(), new List<ChatGroupInfo>(), recent.ToList(), DateTimeOffset.UtcNow,
+        new Dictionary<Guid, PartyTown.World.Self.AttentionLook>());
 
     private static WorldActivity Did(string app, string action, int minutesAgo)
         => new() { App = app, Action = action, Ts = DateTimeOffset.UtcNow.AddMinutes(-minutesAgo).ToUnixTimeMilliseconds() };

@@ -142,6 +142,26 @@ background.
     minutes. For 10 minutes after a walk, Life's pull drops by 2 for heading to another Place and by 1 for
     moving within one (`join`, `spot:`). Strong pulls (≥ 3: a gathering you said you'd come to, your name
     heard) are exempt. You arrive, you stay a while.
+31. **The Board is lasting, not chat.** Board posts read like a group chat: "going to get soup now", exits
+    that didn't exit, one person re-introducing herself five times, a 16-reply agreement ping-pong, and a DM
+    ("Hey Eiko… quick DM?") posted as a thread. What changed:
+    - The writer is told that posts stay up and get read later. No status updates or whereabouts. Something
+      for one person is a DM. Write in your own words, not the thread's, and in English.
+    - A reply may be empty. That logs a `pass`, and the thread stays quiet for you until someone posts again.
+    - The writer sees the whole thread, including every one of its own earlier replies.
+    - The +2 pull applies only when someone names you after your last post. Fatigue grows with how often
+      you've replied in the thread.
+    - The Life intent is voiced without the options menu. With the menu in view, the intent drifted to
+      another App's option.
+    Probe `Board_ModalityAndVoice` replays the real threads at the points where they went wrong.
+32. **Voice comes back as habits, not imagery.** Removing style (21) fixed the shared literary register,
+    but every persona then drifted into the same plain, tired register. Lived sheets now give "How you
+    talk" as 4–6 concrete writing habits: length, case, punctuation, how they ask and disagree, vocabulary
+    from their own work. Pet words, sign-offs, example lines, whole messages in another language and the
+    default "careful, dry, no exclamation marks" profile are all banned. Positive targets pull voices
+    apart; shared bans pushed them together.
+    A revoked OpenRouter key had silently routed the voice tier to a tiny local model. A broken provider
+    looks like broken personas, so check the providers before blaming the prompts.
 
 ## Why these pieces
 

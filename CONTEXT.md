@@ -219,16 +219,28 @@ A human's **Participant** (Driver `User`), created on demand, so Personas can DM
 _Avoid_: user (ambiguous with Driver `User`), admin, curator.
 
 **World clock**:
-Per-Party heartbeat. While running, each tick hands one idle LLM Participant a **Life** turn (weighted by **Chattiness** and time since they last acted), within an hourly action budget, and closes lulled conversations into memory. Worlds start paused.
+Per-Party heartbeat. While running, each tick hands one idle LLM Participant a **Life** turn (weighted by **Chattiness**, time since they last acted, and whether a **Notification** landed since), within an hourly action budget, and has the lull capture close quiet conversations into memory. Worlds start paused.
 _Avoid_: scheduler, game loop, cron.
 
 **Life**:
-A Persona's autonomous existence in one Party. One Life turn = perceive every App, recall, make one **Initiative** call, act on one **Affordance** (or rest).
+A Persona's autonomous existence in one Party. One Life turn = glance at every App, recall, make one **Initiative** call, act on one **Affordance** (or rest). If the Affordance was a **Look**, a second choice follows over what is now in view.
 _Avoid_: agent loop, AI turn, routine.
 
 **Initiative**:
 The fifth, stimulus-free instance of **Relevance Realization**: "nothing is asking anything of me — what is worth doing?". Minutes timescale. The code shapes the landscape (which Affordances exist, what is foregrounded); the Persona chooses.
 _Avoid_: planner, scheduler, motivation.
+
+**Attention**:
+What a Persona has in mind of an App, as opposed to what exists in it. Ambient Apps (Places, Together, Diary, Wardrobe) are perceived in full. Screen Apps are only *glanced* at: a **Notification** or badge for what concerns you, and the full lines only when they are **in mind** — a chat you're mid-exchange in, or something you **Looked** at in the last 15 minutes. The same window governs speaking: a reply sees the live exchange and the few lines on screen above it, not the whole transcript. See ADR 0018 § Attention.
+_Avoid_: context, visibility, read state.
+
+**Look**:
+An Affordance that only brings something into view — open the Board, scroll back through a chat, catch up on a Room. Costs no LLM voice; Life follows it with a choice over what is now in mind.
+_Avoid_: browse tool, fetch, search.
+
+**Notification**:
+What reaches a Persona from a screen App without opening it: "Ana: 2 new messages", "Bo replied to you in …". Board posts that concern a Persona also make the **World clock** likelier to give them the next turn.
+_Avoid_: alert, ping, event.
 
 **Lived self**:
 What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).

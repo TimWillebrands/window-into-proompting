@@ -68,18 +68,27 @@ public static class LivedSheets
         Remove everything that makes someone perform instead of live:
         - modes, states, triggers, IF/THEN rules
         - example dialogue, quoted lines, catchphrases, signature phrases
-        - style instructions ("uses metaphors from…", "always uses emoji X", "speaks in riddles"); describe at most
-          a loose habit in one plain sentence
+        - style instructions ("uses metaphors from…", "always uses emoji X", "speaks in riddles")
         - epithets and archetype labels ("The Syncretic Architect")
         - grand themes and symbolism
         Write it in your own plain words; don't copy sentences or imagery from the description. Looks get at most
         one sentence. No essays about their inner psychology: show it through ordinary facts (a habit, a fight they
         keep having, what they avoid). Where the description is thin, add ordinary specifics that fit (daily rhythm,
-        a few named offscreen people, small tastes, money, health). 300–500 words. Output only the rewritten description.
+        a few named offscreen people, small tastes, money, health).
+        ## How you talk is the exception to "plain": it's what makes this person recognisable in text next to
+        others. Give 4–6 concrete, observable writing habits that set them apart from an average person: typical
+        message length, capitals and punctuation, how they open, ask, disagree and joke, words or slang from their
+        own work, age, region or languages, and things they'd never say or do in writing. Habits, not imagery:
+        no metaphor themes, no example lines, no pet word, signature phrase or sign-off (if the description has
+        one, drop it; a word they always reach for becomes a tic). Another language shows as the odd word, never
+        whole messages, and only languages their background gives them. Steer clear of the default profile
+        ("full sentences, careful punctuation, no exclamation marks, rare dry humour") unless the description
+        clearly calls for it: pick what this particular person does instead. 300–550 words. Output only the
+        rewritten description.
         """;
 
     /// <summary>Bump to redo every distillation after a prompt change.</summary>
-    private const int Version = 2;
+    private const int Version = 5;
 
     public static string Hash(string source)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"v{Version}\n{source}")))[..16];

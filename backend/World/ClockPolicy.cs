@@ -3,7 +3,8 @@ using PartyTown.Model;
 namespace PartyTown.World;
 
 /// <summary>One Life candidate as the clock weighs it.</summary>
-public readonly record struct LifeCandidate(Guid Id, double Chattiness, long? LastActedAt, double Availability);
+/// <param name="Notified">Something concerning them landed since they last acted (a Board reply, a mention).</param>
+public readonly record struct LifeCandidate(Guid Id, double Chattiness, long? LastActedAt, double Availability, bool Notified = false);
 
 /// <summary>What the clock does with one thread on a tick.</summary>
 public abstract record LullDecision
@@ -44,16 +45,23 @@ public static class ClockPolicy
         return nowMs - last >= ambientMinutes * 60_000L ? (true, nowMs) : (false, last);
     }
 
-    /// <summary>Chattiness × time since last act × how free their offscreen day leaves them (ADR 0021).</summary>
+    /// <summary>A notification makes someone likelier to pick up their phone, not certain to.</summary>
+    public const double NotifiedBoost = 2.5;
+
+    /// <summary>Chattiness × time since last act × how free their offscreen day leaves them (ADR 0021), boosted when notified.</summary>
     public static double[] LifeWeights(IReadOnlyList<LifeCandidate> candidates, int tickSeconds, int castCount, DateTimeOffset now)
     {
         var expectedGap = Math.Max(1, tickSeconds * castCount);
         return candidates.Select(c =>
         {
             var since = c.LastActedAt is { } last ? (now.ToUnixTimeMilliseconds() - last) / 1000.0 : expectedGap * 3.0;
-            return (0.25 + c.Chattiness) * Math.Clamp(since / expectedGap, 0.1, 3) * (0.15 + 0.85 * c.Availability);
+            return (0.25 + c.Chattiness) * Math.Clamp(since / expectedGap, 0.1, 3) * (0.15 + 0.85 * c.Availability)
+                * (c.Notified ? NotifiedBoost : 1);
         }).ToArray();
     }
+
+    /// <summary>Notified after they last acted (or never acted).</summary>
+    public static bool Notified(long? notifiedAt, long? lastActedAt) => notifiedAt is { } n && (lastActedAt is not { } a || n > a);
 
     /// <summary>Weighted draw; <paramref name="unit"/> in [0, 1).</summary>
     public static Guid? Pick(IReadOnlyList<LifeCandidate> candidates, double[] weights, double unit)

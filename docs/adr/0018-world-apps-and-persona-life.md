@@ -74,3 +74,15 @@ shapes the landscape: which Affordances exist, what is foregrounded, who gets th
 ## Addendum: Calendar (Gatherings)
 
 A sixth mode adds time-shifted engagement. A Gathering is planned in a Room for a later time, and others RSVP. When it comes due, the clock adds the attendees to the Room and starts their Life turns with a nudge. Rooms foreground the started Gathering (priority 5), so attendees actually show up. This is the first Affordance that points into the future. Planning is anticipation, and showing up is a commitment made earlier and kept now.
+
+## Addendum: Attention (glance, look, in mind)
+
+Life used to perceive every App in full each turn. A Persona knew every Board thread and every DM line without ever opening them, and a reply in a chat was written over the whole transcript. People don't work that way: what is on your phone is not in your head until you look.
+
+- **Glance vs in mind.** Ambient Apps (Places, Together, Diary, Wardrobe) stay fully perceived: if someone stands next to you, you hear them. Screen Apps (Messenger, Rooms, Board) are glanced at: badges and Notifications, with a preview only for what concerns you. Lines are rendered only when they are *in mind* — you are mid-exchange (spoke in the current back-and-forth, no 20-minute pause), or you Looked in the last 15 minutes.
+- **Look Affordances.** Open the Board, scroll back through a DM, catch up on a Room. A Look writes to `PersonaAttentionGrain` (what you looked at, and for a chat how far back you read). Life then makes one more choice in the same turn over what is now in view. Looks don't habituate the App.
+- **Speaking window.** `ChatAttention.Window` trims the Speaking phase's history to the live exchange plus a few lines on screen above it (capped). A fresh read-back extends it. Older talk reaches the speaker through recall, as it would for a person.
+- **Notifications move the clock.** A Board post that concerns a Persona (they're in the thread, or it names them) marks them notified. The lottery weights notified Personas ×2.5 until they act. Live chats don't need this: the reactive pipeline already answers them.
+
+Lull capture moved out of `WorldClockGrain` into `LullCaptureGrain` (same rules, own cursors; the clock hands its old cursors over on the first pulse).
+

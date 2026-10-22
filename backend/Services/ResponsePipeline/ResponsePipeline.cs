@@ -520,6 +520,8 @@ public sealed class ResponsePipeline(
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
+        // Only the live exchange (or what they just scrolled back to) is in mind; older talk comes through recall.
+        var held = ChatAttention.Window(history, await ReadFromAsync(chatGroupGrain, chatGroupId, self.Id)).Held;
 
         // Wrap the streaming callback so each content chunk also feeds the in-flight
         // record. The race-trigger snapshot reads token count + accumulated text from
@@ -544,7 +546,7 @@ public sealed class ResponsePipeline(
 
                 result = await session.GenerateResponseOnlyAsync(
                     self,
-                    history,
+                    held,
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
@@ -653,6 +655,21 @@ public sealed class ResponsePipeline(
     {
         try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).IsWindingDownAsync(); }
         catch { return false; }
+    }
+
+    private async Task<int?> ReadFromAsync(IChatGroupGrain chatGroupGrain, Guid chatGroupId, Guid personaId)
+    {
+        try
+        {
+            var partyId = await chatGroupGrain.GetPartyIdAsync();
+            var looks = await grainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync();
+            return ChatAttention.ReadFrom(looks.GetValueOrDefault(chatGroupId), DateTimeOffset.UtcNow);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "Attention lookup failed for {PersonaId}", personaId);
+            return null;
+        }
     }
 
     private async Task NoteSpokeAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)

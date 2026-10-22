@@ -198,8 +198,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Contains(graph.Nodes, n => n.Id == $"concept:{conceptName}" && n.Kind == "Concept" && n.Display == conceptDisplay);
         Assert.Contains(graph.Nodes, n => n.Id == $"part:{vlad.Id}:{partyId}" && n.Kind == "Participant");
         Assert.Contains(graph.Nodes, n => n.Id == $"part:{hana.Id}:{partyId}" && n.Kind == "Participant");
-        Assert.Contains(graph.Nodes, n => n.Id == $"persona:{vlad.Id}" && n.Kind == "Persona");
-        Assert.Contains(graph.Nodes, n => n.Id == $"persona:{hana.Id}" && n.Kind == "Persona");
+        Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Persona");
 
         // Silent user (no Recollections, not :ABOUT'd by any in-party Event) is invisible.
         Assert.DoesNotContain(graph.Nodes, n => n.Id.Contains(userBob.Id.ToString()));
@@ -209,8 +208,42 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Contains(graph.Links, l => l.Source == eventNode.Id && l.Target == $"part:{vlad.Id}:{partyId}" && l.Kind == "ABOUT");
         Assert.Contains(graph.Links, l => l.Source == $"part:{hana.Id}:{partyId}" && l.Target == eventNode.Id && l.Kind == "RECOLLECTS" && l.Snippet == snippetHana);
         Assert.Contains(graph.Links, l => l.Source == $"part:{vlad.Id}:{partyId}" && l.Target == eventNode.Id && l.Kind == "RECOLLECTS" && l.Snippet == snippetVlad);
-        Assert.Contains(graph.Links, l => l.Source == $"persona:{hana.Id}" && l.Target == $"part:{hana.Id}:{partyId}" && l.Kind == "HAS_PARTICIPANT");
-        Assert.Contains(graph.Links, l => l.Source == $"persona:{vlad.Id}" && l.Target == $"part:{vlad.Id}:{partyId}" && l.Kind == "HAS_PARTICIPANT");
+        Assert.All(graph.Links.Where(l => l.Kind == "RECOLLECTS"), l => Assert.NotNull(l.Weight));
+        Assert.Equal(MomentSources.Rooms, eventNode.Source);
+    }
+
+    [Fact]
+    public async Task GetPartyMemoryGraphAsync_Stances_OnlyCurrentAndUnretracted()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var vlad = Guid.NewGuid();
+        var hana = Guid.NewGuid();
+        var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
+        var ct = CancellationToken.None;
+        var toVlad = new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null);
+
+        await repo.AppendStanceAsync(partyId, author, toVlad, -0.5, "Vlad is aloof", null, ct);
+        await repo.AppendStanceAsync(partyId, author, toVlad, 0.6, "Vlad warmed up", null, ct);
+        var junk = await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, hana, null, null), -0.9, "Hana lies", null, ct);
+        await repo.RetractStanceAsync(partyId, author, junk, ct);
+        var lisp = MemoryExtractor.NormaliseConceptName("Lisp");
+        await repo.AppendStanceAsync(
+            partyId, author, new StanceTargetSpec(StanceTargetKind.Concept, null, lisp, "Lisp"), 0.4, "Lisp is elegant", null, ct);
+
+        var graph = await repo.GetPartyMemoryGraphAsync(partyId, ct);
+
+        var stances = graph.Links.Where(l => l.Kind == "STANCE").ToList();
+        Assert.Equal(2, stances.Count);
+        var vladStance = Assert.Single(stances, l => l.Target == $"part:{vlad}:{partyId}");
+        Assert.Equal(0.6, vladStance.Valence);
+        Assert.Equal("Vlad warmed up", vladStance.Reasoning);
+        Assert.Contains(stances, l => l.Target == $"concept:{lisp}" && l.Valence == 0.4);
+        Assert.DoesNotContain(graph.Nodes, n => n.Id == $"part:{hana}:{partyId}");
+        Assert.Contains(graph.Nodes, n => n.Id == $"concept:{lisp}" && n.Display == "Lisp");
     }
 
     [Fact]

@@ -91,11 +91,10 @@ public sealed record MemoryGraphDto(
 
 /// <summary>
 /// <see cref="Id"/> is a kind-prefixed stable string (e.g. <c>event:&lt;guid&gt;</c>,
-/// <c>concept:&lt;name&gt;</c>) used as the canonical join key on both ends of every
-/// <see cref="MemoryGraphLink"/>. <see cref="RoomId"/> / <see cref="AnchorMessageId"/>
-/// are populated on <c>Event</c> nodes only — they carry the message anchor that used to
-/// live on a separate <c>Message</c> vertex, so the viz can still show which Room/Message
-/// an Event hangs off without a Room or Message node in the graph.
+/// <c>concept:&lt;name&gt;</c>, <c>part:&lt;persona&gt;:&lt;party&gt;</c>) used as the join key
+/// on both ends of every <see cref="MemoryGraphLink"/>. <see cref="RoomId"/>,
+/// <see cref="AnchorMessageId"/>, <see cref="Source"/> and <see cref="PlaceId"/> are Event-only:
+/// the thread, App (<see cref="MomentSources"/>) and Place the moment happened in.
 /// </summary>
 public sealed record MemoryGraphNode(
     string Id,
@@ -104,17 +103,25 @@ public sealed record MemoryGraphNode(
     string? Display = null,
     string? CreatedAt = null,
     string? RoomId = null,
-    int? AnchorMessageId = null);
+    int? AnchorMessageId = null,
+    string? Source = null,
+    string? PlaceId = null);
 
 /// <summary>
-/// <see cref="Kind"/> is one of <c>RECOLLECTS</c>, <c>ABOUT</c>, <c>HAS_PARTICIPANT</c>.
+/// <see cref="Kind"/> is <c>RECOLLECTS</c> (snippet, weight, recall stats), <c>ABOUT</c>, or
+/// <c>STANCE</c> (the author's current belief: valence + reasoning; retracted ones omitted).
 /// </summary>
 public sealed record MemoryGraphLink(
     string Source,
     string Target,
     string Kind,
     string? Snippet = null,
-    string? Ts = null);
+    string? Ts = null,
+    double? Weight = null,
+    int? RecallCount = null,
+    string? LastRecalled = null,
+    double? Valence = null,
+    string? Reasoning = null);
 
 /// <summary>
 /// A closed moment an App hands to Capture (ADR 0018): lines oldest → newest, one marked.

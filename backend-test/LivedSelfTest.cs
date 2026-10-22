@@ -171,6 +171,18 @@ public class ThreadFatigueTest
         longThread.AddRange(new[] { Me, Me });
         Assert.Equal(2, PartyTown.World.Apps.BoardApp.ThreadFatigue(longThread, Me));
         Assert.Equal(2, PartyTown.World.Apps.BoardApp.ThreadFatigue(Enumerable.Repeat(Other, 20).ToList(), Me));
+        var pingPong = Enumerable.Range(0, 8).SelectMany(_ => new[] { Me, Other }).ToList();
+        Assert.Equal(4, PartyTown.World.Apps.BoardApp.ThreadFatigue(pingPong, Me));
+    }
+
+    [Fact]
+    public void PassedOn_OnlyUntilSomeoneWritesAgain()
+    {
+        var thread = new PartyTown.World.BoardThread { Id = Guid.NewGuid(), LastActivityAt = 1_000 };
+        var pass = new PartyTown.World.WorldActivity { App = "board", Action = "pass", TargetId = thread.Id, Ts = 2_000 };
+        Assert.True(PartyTown.World.Apps.BoardApp.PassedOn(new[] { pass }, thread));
+        thread.LastActivityAt = 3_000;
+        Assert.False(PartyTown.World.Apps.BoardApp.PassedOn(new[] { pass }, thread));
     }
 }
 

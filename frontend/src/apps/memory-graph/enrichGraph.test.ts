@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { enrichGraph } from './enrichGraph';
+import { PERSON_PALETTE } from './palette';
 import type { MemoryGraphData } from './types';
 
 const personaA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const personaB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const partyId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const roomA = '11111111-1111-1111-1111-111111111111';
+const threadA = '22222222-2222-2222-2222-222222222222';
 
 const baseGraph: MemoryGraphData = {
     nodes: [
@@ -15,72 +17,19 @@ const baseGraph: MemoryGraphData = {
             description: 'Hana defended Lisp.',
             roomId: roomA,
             anchorMessageId: 42,
+            source: 'rooms',
         },
         { id: 'concept:lisp', kind: 'Concept', display: 'Lisp' },
         { id: `part:${personaA}:${partyId}`, kind: 'Participant' },
-        { id: `persona:${personaA}`, kind: 'Persona' },
-        { id: `persona:${personaB}`, kind: 'Persona' },
+        { id: `part:${personaB}:${partyId}`, kind: 'Participant' },
     ],
     links: [],
 };
 
+const empty = { personas: [], rooms: [] };
+
 describe('enrichGraph', () => {
-    it('joins Persona display names by id', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [
-                { id: personaA, name: 'Hana' },
-                { id: personaB, name: 'Vlad' },
-            ],
-            rooms: [],
-        });
-
-        const hana = enriched.nodes.find((n) => n.id === `persona:${personaA}`);
-        const vlad = enriched.nodes.find((n) => n.id === `persona:${personaB}`);
-        expect(hana?.label).toBe('Hana');
-        expect(vlad?.label).toBe('Vlad');
-    });
-
-    it('falls back to short guid when no Persona match', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [],
-            rooms: [],
-        });
-
-        const hana = enriched.nodes.find((n) => n.id === `persona:${personaA}`);
-        expect(hana?.label).toBe(`Persona(${personaA.slice(0, 8)})`);
-    });
-
-    it('labels Event nodes with their Room name (from the Event roomId property)', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [],
-            rooms: [{ id: roomA, name: 'general' }],
-        });
-
-        const event = enriched.nodes.find((n) => n.id === 'event:e1');
-        expect(event?.label).toBe('general');
-    });
-
-    it('falls back to short room guid when no Room match for an Event', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [],
-            rooms: [],
-        });
-
-        const event = enriched.nodes.find((n) => n.id === 'event:e1');
-        expect(event?.label).toBe(`Room(${roomA.slice(0, 8)})`);
-    });
-
-    it('labels Concept nodes from their display value', () => {
-        const enriched = enrichGraph(baseGraph, {
-            personas: [],
-            rooms: [],
-        });
-
-        const concept = enriched.nodes.find((n) => n.id === 'concept:lisp');
-        expect(concept?.label).toBe('Lisp');
-    });
-
-    it('labels Participant nodes by their backing Persona name', () => {
+    it('labels Participants by their backing Persona name', () => {
         const enriched = enrichGraph(baseGraph, {
             personas: [{ id: personaA, name: 'Hana' }],
             rooms: [],
@@ -92,43 +41,106 @@ describe('enrichGraph', () => {
         expect(part?.label).toBe('Hana');
     });
 
-    it('passes unknown node kinds through unchanged (only a fallback label is added)', () => {
+    it('falls back to a short guid when no Persona matches', () => {
+        const enriched = enrichGraph(baseGraph, empty);
+
+        const part = enriched.nodes.find(
+            (n) => n.id === `part:${personaB}:${partyId}`,
+        );
+        expect(part?.label).toBe(`Participant(${personaB.slice(0, 8)})`);
+    });
+
+    it('gives each Participant a distinct palette colour', () => {
+        const enriched = enrichGraph(baseGraph, empty);
+
+        const colours = enriched.nodes
+            .filter((n) => n.kind === 'Participant')
+            .map((n) => n.colour);
+        expect(colours).toEqual([PERSON_PALETTE[0], PERSON_PALETTE[1]]);
+    });
+
+    it('labels Events with their App and thread name', () => {
+        const enriched = enrichGraph(baseGraph, {
+            personas: [],
+            rooms: [{ id: roomA, name: 'general', kind: 'room' }],
+        });
+
+        const event = enriched.nodes.find((n) => n.id === 'event:e1');
+        expect(event?.where).toBe('Room · general');
+        expect(event?.label).toBe('Room · general');
+    });
+
+    it('resolves Board threads by title and infers the source for legacy Events', () => {
+        const graph: MemoryGraphData = {
+            nodes: [{ id: 'event:e2', kind: 'Event', roomId: threadA }],
+            links: [],
+        };
+        const enriched = enrichGraph(graph, {
+            ...empty,
+            boardThreads: [{ id: threadA, title: 'Ginkgo watch' }],
+        });
+
+        expect(enriched.nodes[0]).toMatchObject({
+            source: 'board',
+            where: 'Board · Ginkgo watch',
+        });
+    });
+
+    it('falls back to a short thread guid when nothing resolves', () => {
+        const enriched = enrichGraph(baseGraph, empty);
+
+        const event = enriched.nodes.find((n) => n.id === 'event:e1');
+        expect(event?.where).toBe(`Room · ${roomA.slice(0, 8)}`);
+    });
+
+    it('labels Concepts from their display value', () => {
+        const enriched = enrichGraph(baseGraph, empty);
+
+        const concept = enriched.nodes.find((n) => n.id === 'concept:lisp');
+        expect(concept?.label).toBe('Lisp');
+    });
+
+    it('passes unknown node kinds through with the id as label', () => {
         const graph: MemoryGraphData = {
             nodes: [{ id: 'mystery:xyz', kind: 'Mystery' }],
             links: [],
         };
-        const enriched = enrichGraph(graph, {
-            personas: [],
-            rooms: [],
-        });
+        const enriched = enrichGraph(graph, empty);
 
-        const node = enriched.nodes.find((n) => n.id === 'mystery:xyz');
-        expect(node?.kind).toBe('Mystery');
-        expect(node?.label).toBe('mystery:xyz');
+        expect(enriched.nodes[0]).toMatchObject({
+            kind: 'Mystery',
+            label: 'mystery:xyz',
+        });
     });
 
-    it('passes links through unmodified', () => {
+    it('normalises numeric link fields the DTO types as number | string', () => {
         const graph: MemoryGraphData = {
             nodes: baseGraph.nodes,
             links: [
-                {
-                    source: 'event:e1',
-                    target: 'concept:lisp',
-                    kind: 'ABOUT',
-                },
                 {
                     source: `part:${personaA}:${partyId}`,
                     target: 'event:e1',
                     kind: 'RECOLLECTS',
                     snippet: 'you defended Lisp',
+                    weight: '0.7',
+                    recallCount: 2,
+                },
+                {
+                    source: `part:${personaA}:${partyId}`,
+                    target: `part:${personaB}:${partyId}`,
+                    kind: 'STANCE',
+                    valence: -0.4,
                 },
             ],
         };
-        const enriched = enrichGraph(graph, {
-            personas: [],
-            rooms: [],
-        });
+        const enriched = enrichGraph(graph, empty);
 
-        expect(enriched.links).toEqual(graph.links);
+        expect(enriched.links[0]).toMatchObject({
+            snippet: 'you defended Lisp',
+            weight: 0.7,
+            recallCount: 2,
+            valence: null,
+        });
+        expect(enriched.links[1].valence).toBe(-0.4);
     });
 });
