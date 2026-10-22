@@ -36,6 +36,7 @@ public sealed partial class PlacesGrain
         var where = place.DistrictId == Districts.Centre ? string.Empty : $" in {DistrictName(place.DistrictId)}";
         _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync($"{Capital(place.Name)}{where} is on the map now.");
         logger.LogInformation("Opened {Place} as {Archetype} ({Reason})", place.Name, kit.Archetype, reason);
+        await EnsureStreetsAsync(place.DistrictId);
         return place;
     }
 
@@ -60,7 +61,38 @@ public sealed partial class PlacesGrain
             await GrainFactory.GetGrain<IChatGroupGrain>(room).SetParticipantIdsAsync(new HashSet<Guid>());
         await SaveAsync();
         await PublishPlaceAsync(place);
+        await EnsureStreetsAsync(place.DistrictId);
         return true;
+    }
+
+    private static bool IsStreets(Place p) => p.Scene == "district";
+
+    /// <summary>Once a District has two opened venues it gets its own streets (ADR 0027), redrawn as venues open and close.</summary>
+    private async Task EnsureStreetsAsync(string? districtId)
+    {
+        if (districtId is null or Districts.Centre) return;
+        var venues = state.State.Places
+            .Where(p => p.DistrictId == districtId && p.Kind == PlaceKinds.Public && p.OpenedAt is not null && !IsStreets(p))
+            .OrderBy(p => p.OpenedAt).ToList();
+        var streets = state.State.Places.FirstOrDefault(p => p.DistrictId == districtId && IsStreets(p));
+        if (streets is null && venues.Count < DistrictScene.MinVenues) return;
+        var scene = DistrictScene.Build(districtId, venues);
+        if (streets is null)
+        {
+            var name = DistrictName(districtId);
+            streets = new Place
+            {
+                Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Public, At = "in", DistrictId = districtId,
+                Scene = "district", Spots = DistrictScene.Spots(),
+                Description = $"the streets of {name}: towers, a tram stop and a small square",
+                Purpose = $"where people pass through {name} between the places they go",
+            };
+            state.State.Places.Add(streets);
+            _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync($"{name} is on the map now: the tram stops there.");
+        }
+        streets.CustomScene = PlaceDesign.Store(scene);
+        await SaveAsync();
+        await PublishPlaceAsync(streets);
     }
 
     public static readonly TimeSpan GoesQuiet = TimeSpan.FromDays(7);

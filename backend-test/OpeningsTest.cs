@@ -126,4 +126,22 @@ public partial class PlacesTest
         }
         Assert.False(dormant);
     }
+
+    [Fact]
+    public async Task ADistrict_WithTwoOpenedVenues_GetsItsOwnStreets()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var gym = await places.LocaleInAsync("the climbing gym", denise, "Amsterdam Zuid");
+        var office = await places.LocaleInAsync("the office in Zuid", denise, "Amsterdam Zuid");
+
+        await places.OpenAsync(gym, null, "author");
+        Assert.DoesNotContain((await places.GetSnapshotAsync()).Places, p => p.Scene == "district");
+
+        await places.OpenAsync(office, null, "author");
+        var streets = Assert.Single((await places.GetSnapshotAsync()).Places, p => p.Scene == "district");
+        Assert.Equal(("Amsterdam Zuid", "amsterdam-zuid", "in"), (streets.Name, streets.DistrictId, streets.At));
+        Assert.Contains("kit:gym", streets.CustomScene);
+        Assert.Contains("kit:office", streets.CustomScene);
+    }
 }
