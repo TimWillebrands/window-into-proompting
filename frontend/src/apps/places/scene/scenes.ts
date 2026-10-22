@@ -1,6 +1,7 @@
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
 import type { Pt } from '../iso/iso';
+import { KIT_SCENES } from './kits';
 import { type Part, type Prefab, pick, rng, turned } from './prefab';
 import { FURNI_PREFAB, PREFABS, prefabForSpot } from './prefabs';
 import {
@@ -350,6 +351,9 @@ function baseDef(place: Place): SceneDef {
             return generateScene(place);
         }
     }
+    // An opened Locale draws from its archetype's kit (ADR 0027).
+    if (place.archetype && KIT_SCENES[place.archetype])
+        return { ...KIT_SCENES[place.archetype], id: `kit:${place.archetype}` };
     if (place.scene === 'home' || place.kind === 'home') return homeFor(place);
     const def = place.scene ? SCENES[place.scene] : undefined;
     return def ?? generateScene(place);
@@ -359,7 +363,7 @@ const parsed = new Map<string, Scene>();
 
 /** Parsed scene for a Place, cached per Place and its spots. */
 export function sceneFor(place: Place): Scene {
-    const k = `${place.id}:${place.scene}:${place.wallColour}:${place.floorColour}:${place.customScene?.length}:${(place.spots ?? []).map((s) => s.id).join(',')}`;
+    const k = `${place.id}:${place.scene}:${place.archetype}:${place.wallColour}:${place.floorColour}:${place.customScene?.length}:${(place.spots ?? []).map((s) => s.id).join(',')}`;
     const hit = parsed.get(k);
     if (hit) return hit;
     try {

@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Body } from '../../../api/model/body';
 import type { Place } from '../../../api/model/place';
+import { KIT_SCENES } from './kits';
 import { targets } from './motion';
 import { PREFABS } from './prefabs';
 import {
@@ -285,4 +288,47 @@ describe('made and arranged', () => {
         expect(placed[0].p).toBe('k-potted-plant');
         expect(placed[0].prefab).toBe(PREFABS['k-potted-plant']);
     });
+});
+
+describe('kit scenes (ADR 0027)', () => {
+    type KitSpot = { id: string; capacity: number };
+    const kits: { archetype: string; spots: KitSpot[] }[] = JSON.parse(
+        readFileSync(
+            resolve(__dirname, '../../../../../backend/World/Places/kits.json'),
+            'utf8',
+        ),
+    );
+    const opened = (k: (typeof kits)[number]): Place => ({
+        id: `kit-${k.archetype}`,
+        name: k.archetype,
+        kind: 'public',
+        scene: 'sketch',
+        archetype: k.archetype,
+        spots: k.spots.map((s) => ({ id: s.id, name: s.id })),
+    });
+
+    it.each(kits.map((k) => [k.archetype, k] as const))(
+        '%s: drawn from its kit, every spot with room, reachable from the way in',
+        (_, k) => {
+            expect(KIT_SCENES[k.archetype]).toBeDefined();
+            const s = sceneFor(opened(k));
+            expect(s.def.id).toBe(`kit:${k.archetype}`);
+            const door = entrance(s);
+            for (const spot of k.spots) {
+                const slots = s.spots[spot.id];
+                expect(slots, spot.id).toBeDefined();
+                expect(
+                    slots.seats.length + slots.stands.length,
+                    spot.id,
+                ).toBeGreaterThanOrEqual(spot.capacity);
+                for (const slot of [...slots.stands, ...slots.seats])
+                    expect(
+                        pathIn(s, door, slot.tile).at(-1),
+                        `${spot.id} ${key(slot.tile)}`,
+                    ).toEqual(slot.tile);
+            }
+            for (const p of KIT_SCENES[k.archetype].props ?? [])
+                expect(PREFABS[p.p], p.p).toBeDefined();
+        },
+    );
 });

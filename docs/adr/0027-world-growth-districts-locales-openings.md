@@ -16,9 +16,11 @@ and each rung is earned:
 | Rung | What exists | Cost |
 | --- | --- | --- |
 | Locale | a named offscreen Place; Bodies can be away there | 0 calls |
-| Sketched | spots and a purpose; drawn by the generated-room fallback (ADR 0023) | 0–1 small call |
-| Kit-drawn | an archetype template scene, slots filled | 0 calls |
+| Opened | spots, purpose and a kit scene of its archetype (office, café, bar, park…) furnished from the catalogue | 0 calls (System One only if the name doesn't say) |
 | Bespoke | `CreatePlaceAsync` design, seeded with the kit map | author only |
+
+Sketched and Kit-drawn started as two rungs. Kit scenes turned out to cost nothing at runtime, so an Opening goes
+straight to its kit scene. The generated room is only for archetypes without one.
 
 1. **Locales** (built). A Place with `Kind = "locale"`: one spot, no talk Room, never drawn, not offered as
    somewhere to go, excluded from Earshot and co-presence. `GoAwayAsync` walks a Body out (`AwayAs`, e.g. "at
@@ -44,9 +46,7 @@ and each rung is earned:
    - **Opening needs three gates:** footfall ≥ 3, from ≥ 2 Participants, across ≥ 2 days.
    - **Demand opens at once**, but only to Sketched: a Gathering planned there, a FollowThrough to there, or
      the Player asking to visit. A concrete plan needs a place.
-   - **Higher rungs.**
-     - Kit-drawn: two or more Bodies there at once, on two or more occasions.
-     - District scene: two or more opened venues in it, or anchors from three or more Participants.
+   - **District scene:** two or more opened venues in it, or anchors from three or more Participants.
    - **Budget:** at most one Opening per world-day, queued by footfall.
    - **Dormant:** no visits for 7 days and footfall < 1. The Place stays, out of Life's lists, and any new
      signal wakes it. Nothing is deleted.

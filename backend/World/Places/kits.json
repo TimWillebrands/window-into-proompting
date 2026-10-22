@@ -1,0 +1,408 @@
+[
+ {
+  "archetype": "office",
+  "purpose": "where people work at desks and grab coffee between meetings",
+  "description": "an open-plan office with rows of desks",
+  "at": "at",
+  "keywords": [
+   "office",
+   "work",
+   "agency",
+   "firm",
+   "headquarters",
+   "hq",
+   "coworking",
+   "bank"
+  ],
+  "spots": [
+   {
+    "id": "desks",
+    "name": "the desks",
+    "capacity": 4,
+    "at": "at",
+    "seat": true,
+    "staff": true
+   },
+   {
+    "id": "coffee",
+    "name": "the coffee corner",
+    "capacity": 3,
+    "at": "at"
+   },
+   {
+    "id": "meeting",
+    "name": "the meeting room",
+    "capacity": 4,
+    "at": "in",
+    "seat": true
+   },
+   {
+    "id": "window",
+    "name": "the window",
+    "capacity": 2,
+    "at": "at"
+   }
+  ]
+ },
+ {
+  "archetype": "cafe",
+  "purpose": "where people get coffee and linger",
+  "description": "a small café with a counter and a few tables",
+  "at": "at",
+  "keywords": [
+   "café",
+   "cafe",
+   "coffee",
+   "bakery",
+   "lunchroom",
+   "tearoom",
+   "patisserie"
+  ],
+  "spots": [
+   {
+    "id": "counter",
+    "name": "the counter",
+    "capacity": 3,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "window-table",
+    "name": "the window table",
+    "capacity": 2,
+    "at": "at",
+    "seat": true
+   },
+   {
+    "id": "big-table",
+    "name": "the big table",
+    "capacity": 4,
+    "at": "at",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "bar",
+  "purpose": "where people go for a drink",
+  "description": "a bar with a long counter and a corner sofa",
+  "at": "at",
+  "keywords": [
+   "bar",
+   "pub",
+   "brewery",
+   "brouwerij",
+   "club",
+   "lounge",
+   "café bar"
+  ],
+  "spots": [
+   {
+    "id": "bar",
+    "name": "the bar",
+    "capacity": 4,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "high-tables",
+    "name": "the high tables",
+    "capacity": 4,
+    "at": "at"
+   },
+   {
+    "id": "sofa",
+    "name": "the corner sofa",
+    "capacity": 3,
+    "at": "on",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "restaurant",
+  "purpose": "where people go out to eat",
+  "description": "a restaurant with a row of tables and an open kitchen",
+  "at": "at",
+  "keywords": [
+   "restaurant",
+   "diner",
+   "eatery",
+   "pizzeria",
+   "bistro",
+   "kitchen",
+   "ramen",
+   "sushi"
+  ],
+  "spots": [
+   {
+    "id": "pass",
+    "name": "the kitchen pass",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "tables",
+    "name": "the tables",
+    "capacity": 4,
+    "at": "at",
+    "seat": true
+   },
+   {
+    "id": "booth",
+    "name": "the booth",
+    "capacity": 4,
+    "at": "in",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "shop",
+  "purpose": "where people shop and browse",
+  "description": "a shop with a till and crowded shelves",
+  "at": "at",
+  "keywords": [
+   "shop",
+   "store",
+   "supermarket",
+   "boutique",
+   "bookshop",
+   "bookstore",
+   "market",
+   "albert heijn",
+   "mall"
+  ],
+  "spots": [
+   {
+    "id": "till",
+    "name": "the till",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "aisles",
+    "name": "the aisles",
+    "capacity": 4,
+    "at": "in"
+   },
+   {
+    "id": "window",
+    "name": "the shop window",
+    "capacity": 2,
+    "at": "by"
+   }
+  ]
+ },
+ {
+  "archetype": "gym",
+  "purpose": "where people work out",
+  "description": "a gym with machines, mats and a front desk",
+  "at": "at",
+  "keywords": [
+   "gym",
+   "fitness",
+   "climbing",
+   "boulder",
+   "pool",
+   "yoga",
+   "dojo",
+   "sports"
+  ],
+  "spots": [
+   {
+    "id": "front-desk",
+    "name": "the front desk",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "machines",
+    "name": "the machines",
+    "capacity": 4,
+    "at": "by"
+   },
+   {
+    "id": "mats",
+    "name": "the mats",
+    "capacity": 4,
+    "at": "on"
+   }
+  ]
+ },
+ {
+  "archetype": "park",
+  "purpose": "where people walk, sit in the grass and get some air",
+  "description": "a park with lawns, a pond and benches",
+  "at": "in",
+  "keywords": [
+   "park",
+   "garden",
+   "beach",
+   "square",
+   "plein",
+   "field",
+   "woods",
+   "forest",
+   "zoo"
+  ],
+  "spots": [
+   {
+    "id": "bench",
+    "name": "the bench",
+    "capacity": 3,
+    "at": "on",
+    "seat": true
+   },
+   {
+    "id": "lawn",
+    "name": "the lawn",
+    "capacity": 5,
+    "at": "on",
+    "seat": true
+   },
+   {
+    "id": "pond",
+    "name": "the pond",
+    "capacity": 3,
+    "at": "by"
+   }
+  ]
+ },
+ {
+  "archetype": "station",
+  "purpose": "where people catch trains and wait",
+  "description": "a station hall with platforms and a kiosk",
+  "at": "at",
+  "keywords": [
+   "station",
+   "platform",
+   "airport",
+   "terminal",
+   "tram stop",
+   "bus stop"
+  ],
+  "spots": [
+   {
+    "id": "platform",
+    "name": "the platform",
+    "capacity": 5,
+    "at": "on"
+   },
+   {
+    "id": "kiosk",
+    "name": "the kiosk",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "benches",
+    "name": "the benches",
+    "capacity": 3,
+    "at": "on",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "school",
+  "purpose": "where people study and teach",
+  "description": "classrooms off a long hallway, and a quiet library",
+  "at": "at",
+  "keywords": [
+   "school",
+   "university",
+   "uni",
+   "college",
+   "campus",
+   "library",
+   "academy",
+   "lecture"
+  ],
+  "spots": [
+   {
+    "id": "classroom",
+    "name": "the classroom",
+    "capacity": 5,
+    "at": "in",
+    "seat": true
+   },
+   {
+    "id": "hallway",
+    "name": "the hallway",
+    "capacity": 4,
+    "at": "in"
+   },
+   {
+    "id": "library",
+    "name": "the library tables",
+    "capacity": 4,
+    "at": "at",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "clinic",
+  "purpose": "where people go to see a doctor",
+  "description": "a clinic with a reception desk and a waiting room",
+  "at": "at",
+  "keywords": [
+   "clinic",
+   "hospital",
+   "doctor",
+   "dentist",
+   "gp",
+   "pharmacy",
+   "physio"
+  ],
+  "spots": [
+   {
+    "id": "reception",
+    "name": "the reception desk",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "waiting",
+    "name": "the waiting room",
+    "capacity": 5,
+    "at": "in",
+    "seat": true
+   }
+  ]
+ },
+ {
+  "archetype": "place",
+  "purpose": "where people come and go",
+  "description": "a plain room with a few places to sit",
+  "at": "at",
+  "keywords": [],
+  "spots": [
+   {
+    "id": "entrance",
+    "name": "the entrance",
+    "capacity": 3,
+    "at": "at"
+   },
+   {
+    "id": "main",
+    "name": "the main room",
+    "capacity": 5,
+    "at": "in"
+   },
+   {
+    "id": "corner",
+    "name": "the corner",
+    "capacity": 2,
+    "at": "at",
+    "seat": true
+   }
+  ]
+ }
+]
