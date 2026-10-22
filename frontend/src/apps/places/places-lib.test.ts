@@ -5,6 +5,7 @@ import {
     awayLines,
     bodiesIn,
     canHear,
+    earshotRuns,
     growingSummary,
     mayEnter,
     navigatorPlaces,
@@ -12,6 +13,8 @@ import {
     placeIcon,
     placeLabel,
     scribble,
+    serverNow,
+    setServerClock,
     walkingText,
 } from './places-lib';
 
@@ -141,5 +144,40 @@ describe('places-lib', () => {
         expect(growingSummary({ ...row, missing: null }, 3).note).toBe(
             'would open',
         );
+    });
+
+    it('folds runs of talk out of earshot, keeps what you heard', () => {
+        const line = (id: number, senderId: string, heardBy?: string[]) => ({
+            messageId: id,
+            senderId,
+            heardBy,
+        });
+        const runs = earshotRuns(
+            [
+                line(1, 'a', ['b']),
+                line(2, 'b', ['a']),
+                line(3, 'me', ['me']),
+                line(4, 'a', ['b']),
+                line(5, 'b'),
+            ],
+            'me',
+        );
+        expect(runs.map((r) => (r.heard ? 'heard' : r.lines.length))).toEqual([
+            2,
+            'heard',
+            1,
+            'heard',
+        ]);
+        expect(earshotRuns([line(1, 'a', ['b'])], 'me', true)[0].heard).toBe(
+            true,
+        );
+    });
+
+    it('reads the server clock through the skew of the last snapshot', () => {
+        setServerClock(10_000, 4_000);
+        const t = Date.now();
+        expect(serverNow() - t).toBeGreaterThanOrEqual(6_000);
+        expect(serverNow() - t).toBeLessThan(6_050);
+        setServerClock(0, 0);
     });
 });

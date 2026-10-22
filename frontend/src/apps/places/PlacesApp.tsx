@@ -1,5 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     getGetWorldsPartyIdPlacesQueryKey,
     useGetWorldsPartyIdLivesSuspense,
@@ -23,6 +31,7 @@ import { useRealtimeStoreActions } from '#lib/realtime-store';
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
+import type { PlacesSnapshot } from '../../api/model/placesSnapshot';
 import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
@@ -48,7 +57,7 @@ import {
     awayLines,
     bodiesIn,
     bodySpotId,
-    canHear,
+    earshotRuns,
     furniIcon,
     isLocale,
     mayEnter,
@@ -58,6 +67,9 @@ import {
     placeLabel,
     postureIcon,
     scribble,
+    serverNow,
+    setServerClock,
+    toMs,
     volumeOf,
     walkingText,
 } from './places-lib';
@@ -72,13 +84,14 @@ const panel = {
 export default function PlacesApp() {
     const playerId = usePlayerId();
     const queryClient = useQueryClient();
-    const snapshot = useGetWorldsPartyIdPlacesSuspense(WORLD_ID).data.data;
+    const placesQuery = useGetWorldsPartyIdPlacesSuspense(WORLD_ID);
+    const snapshot = placesQuery.data.data;
+    setServerClock(toMs(snapshot.now), placesQuery.dataUpdatedAt);
     const allPlaces = snapshot.places ?? [];
     const places = allPlaces.filter((p) => !isLocale(p));
     const bodies = snapshot.bodies ?? [];
     const me = bodies.find((b) => b.participantId === playerId);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const now = useNow();
     const [allEars, setAllEars] = useAllEars();
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
@@ -88,16 +101,49 @@ export default function PlacesApp() {
         return () => disconnectPartyRealtime(WORLD_ID);
     }, [connectPartyRealtime, disconnectPartyRealtime]);
 
+    // The first Body event refetches at once; a burst behind it (everyone settling) gets one more, not one each.
+    const cooling = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const again = useRef(false);
+    useEffect(
+        () => () => {
+            clearTimeout(cooling.current ?? undefined);
+            cooling.current = null;
+            again.current = false;
+        },
+        [],
+    );
+    const patchBody = usePatchBody();
     useWorldEvents((envelope) => {
         if (!envelope.type.startsWith('world.')) return;
-        const kind = (envelope.data as WorldEventData).kind;
+        const event = envelope.data as WorldEventData<Body>;
+        const kind = event.kind;
         if (kind !== 'body' && kind !== 'place') return;
-        const prefix = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID)[0];
-        queryClient.invalidateQueries({
-            predicate: (q) =>
-                typeof q.queryKey[0] === 'string' &&
-                q.queryKey[0].startsWith(prefix),
-        });
+        // The push carries the whole Body: show the move now, the refetch just confirms it.
+        if (kind === 'body') void patchBody(event.payload);
+        if (cooling.current) {
+            again.current = true;
+            return;
+        }
+        const refresh = () => {
+            const prefix = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID)[0];
+            queryClient.invalidateQueries({
+                predicate: (q) =>
+                    typeof q.queryKey[0] === 'string' &&
+                    q.queryKey[0].startsWith(prefix) &&
+                    !q.queryKey[0].includes('/appearance'),
+            });
+        };
+        const cool = () => {
+            cooling.current = setTimeout(() => {
+                cooling.current = null;
+                if (!again.current) return;
+                again.current = false;
+                refresh();
+                cool();
+            }, 150);
+        };
+        refresh();
+        cool();
     });
 
     const selected =
@@ -129,7 +175,6 @@ export default function PlacesApp() {
                     )}
                     me={me}
                     playerId={playerId}
-                    now={now}
                     allEars={allEars}
                 />
             ) : null}
@@ -155,13 +200,42 @@ function useAllEars(): [boolean, (on: boolean) => void] {
     ];
 }
 
-function useNow() {
-    const [now, setNow] = useState(() => Date.now());
+/** The clock, once a second while `on`; only the component that shows a countdown re-renders. */
+function useTicker(on: boolean) {
+    const [now, setNow] = useState(serverNow);
     useEffect(() => {
-        const t = setInterval(() => setNow(Date.now()), 1000);
+        if (!on) return;
+        setNow(serverNow());
+        const t = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(t);
-    }, []);
+    }, [on]);
     return now;
+}
+
+/** Your Body as the move endpoint returned it, so the view answers the click before the refetch lands. */
+function usePatchBody() {
+    const queryClient = useQueryClient();
+    return async (body: Body | null | undefined) => {
+        if (!body?.participantId) return;
+        const queryKey = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID);
+        // A refetch already in flight predates the move; let it land on top and you'd turn back.
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData(
+            queryKey,
+            (old: { data: PlacesSnapshot } | undefined) =>
+                old && {
+                    ...old,
+                    data: {
+                        ...old.data,
+                        bodies: (old.data.bodies ?? []).map((b) =>
+                            b.participantId === body.participantId ? body : b,
+                        ),
+                    },
+                },
+            // Its `now` is still the old one; keep the time it came with.
+            { updatedAt: queryClient.getQueryState(queryKey)?.dataUpdatedAt },
+        );
+    };
 }
 
 function Navigator({
@@ -186,6 +260,7 @@ function Navigator({
     onAllEars: (on: boolean) => void;
 }) {
     const visit = usePostWorldsPartyIdPlacesJoin();
+    const patchBody = usePatchBody();
     const sections: [string, Place[]][] = [
         [
             'Out and about',
@@ -221,8 +296,14 @@ function Navigator({
                         </div>
                         {list.map((p) => {
                             const here = bodiesIn(bodies, p.id);
+                            const going =
+                                !!me &&
+                                me.destPlaceId === p.id &&
+                                me.placeId !== p.id;
                             const mine =
-                                me && (me.destPlaceId ?? me.placeId) === p.id;
+                                !!me &&
+                                !going &&
+                                (me.destPlaceId ?? me.placeId) === p.id;
                             const occ = occupancy(p, here.length);
                             return (
                                 <button
@@ -239,6 +320,13 @@ function Navigator({
                                         {placeLabel(p, playerId)}
                                         {mine ? (
                                             <span className="pl-you">YOU</span>
+                                        ) : going ? (
+                                            <span
+                                                className="pl-you pl-you--going"
+                                                title="On your way"
+                                            >
+                                                🚶
+                                            </span>
                                         ) : null}
                                     </span>
                                     <span
@@ -289,13 +377,22 @@ function Navigator({
                                     className="pl-grow-act"
                                     disabled={visit.isPending}
                                     onClick={() =>
-                                        visit.mutate({
-                                            partyId: WORLD_ID,
-                                            data: {
-                                                otherId: line.participantId,
-                                                participantId: null,
+                                        visit.mutate(
+                                            {
+                                                partyId: WORLD_ID,
+                                                data: {
+                                                    otherId: line.participantId,
+                                                    participantId: null,
+                                                },
                                             },
-                                        })
+                                            {
+                                                onSuccess: (res) =>
+                                                    patchBody(
+                                                        (res as { data?: Body })
+                                                            .data,
+                                                    ),
+                                            },
+                                        )
                                     }
                                 >
                                     Visit
@@ -329,7 +426,6 @@ function PlaceView({
     furni,
     me,
     playerId,
-    now,
     allEars,
 }: {
     place: Place;
@@ -339,10 +435,11 @@ function PlaceView({
     furni: FurniView[];
     me: Body | undefined;
     playerId: string | null;
-    now: number;
     allEars: boolean;
 }) {
     const move = usePostWorldsPartyIdPlacesMove();
+    const patchBody = usePatchBody();
+    const queryClient = useQueryClient();
     const situation = useGetWorldsPartyIdPlacesSituationParticipantId(
         WORLD_ID,
         playerId ?? '',
@@ -352,8 +449,15 @@ function PlaceView({
     const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
     const [profileId, setProfileId] = useState<string | null>(null);
     const profiled = allBodies.find((b) => b.participantId === profileId);
-    const amHere = !!me && me.placeId === place.id && !me.destPlaceId;
-    const heading = !!me && me.destPlaceId === place.id;
+    // Crossing the room to another spot still counts as here: you keep hearing and talking.
+    const amHere =
+        !!me &&
+        me.placeId === place.id &&
+        (!me.destPlaceId || me.destPlaceId === place.id);
+    const heading =
+        !!me && me.destPlaceId === place.id && me.placeId !== place.id;
+    const travelling =
+        !!me && !!me.destPlaceId && me.destPlaceId !== me.placeId;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
     const owner = allBodies.find((b) => b.participantId === place.ownerId);
     const canKnock =
@@ -372,6 +476,7 @@ function PlaceView({
     const letIn = usePostWorldsPartyIdPlacesLetIn();
     const arrangeThing = usePostWorldsPartyIdPlacesThingsArrange();
     const [arranging, setArranging] = useState(false);
+    const [tab, setTab] = useState<'talk' | 'spots'>('talk');
     const [picked, setPicked] = useState<string | null>(null);
     const [rot, setRot] = useState(0);
     const mayArrange = (ownHome && amHere) || allEars;
@@ -395,20 +500,85 @@ function PlaceView({
             },
         });
 
-    const goTo = (spotId?: string) =>
-        place.id &&
-        move.mutate({
-            partyId: WORLD_ID,
-            data: {
-                placeId: place.id,
-                spotId: spotId ?? null,
-                participantId: playerId,
+    const walk = async (placeId: string, spotId: string | null) => {
+        // Across the room needs no answer to start walking; between Places waits for the timings.
+        if (me && placeId === me.placeId && spotId && !travelling)
+            await patchBody({
+                ...me,
+                destPlaceId: placeId,
+                destSpotId: spotId,
+                posture: 'Walking',
+                pose: null,
+                poseWith: null,
+                asleep: false,
+            });
+        move.mutate(
+            {
+                partyId: WORLD_ID,
+                data: { placeId, spotId, participantId: playerId },
             },
-        });
+            {
+                // The generated type only knows the 409; a 200 carries the Body.
+                onSuccess: (res) => patchBody((res as { data?: Body }).data),
+                onError: () =>
+                    queryClient.invalidateQueries({
+                        queryKey: getGetWorldsPartyIdPlacesQueryKey(WORLD_ID),
+                    }),
+            },
+        );
+    };
+    const goTo = (spotId?: string) => {
+        if (place.id) void walk(place.id, spotId ?? null);
+    };
+    const turnBack = () => {
+        if (me?.placeId) void walk(me.placeId, me.spotId ?? null);
+    };
 
     const onSpot =
         amHere || canGo ? (spotId: string) => goTo(spotId) : undefined;
     const here = bodies.length;
+    // Knocks and who-is-this float over the view, so the view never changes size under you.
+    const pops =
+        knockers.length > 0 || profiled ? (
+            <div className="pl-pops">
+                {knockers.map((id) => (
+                    <div
+                        key={id}
+                        className="pl-card pl-card--note flex items-center"
+                        style={{ gap: 6 }}
+                    >
+                        🚪{' '}
+                        <strong>
+                            {allBodies.find((b) => b.participantId === id)
+                                ?.name ?? 'Someone'}
+                        </strong>{' '}
+                        is knocking at your door.
+                        <button
+                            type="button"
+                            className="pl-btn pl-btn--go pl-btn--small"
+                            style={{ marginLeft: 'auto' }}
+                            disabled={letIn.isPending}
+                            onClick={() =>
+                                letIn.mutate({
+                                    partyId: WORLD_ID,
+                                    data: { visitorId: id, ownerId: playerId },
+                                })
+                            }
+                        >
+                            Let in
+                        </button>
+                    </div>
+                ))}
+                {profiled ? (
+                    <BodyProfile
+                        body={profiled}
+                        canEdit={profiled.participantId === playerId || allEars}
+                        isMe={profiled.participantId === playerId}
+                        onClose={() => setProfileId(null)}
+                    />
+                ) : null}
+            </div>
+        ) : null;
     const hud = (
         <>
             <div className="pl-plate">
@@ -420,15 +590,28 @@ function PlaceView({
                     · {here === 0 ? 'empty' : `${here} here`}
                 </span>
             </div>
+            {me && travelling ? (
+                <Travel
+                    me={me}
+                    places={places}
+                    playerId={playerId}
+                    onTurnBack={turnBack}
+                />
+            ) : null}
+            {pops}
             {amHere && me && !arranging ? (
                 <PoseBar
                     place={place}
                     me={me}
                     bodies={allBodies}
-                    bottom={situation ? 58 : 10}
+                    bottom={situation && !travelling ? 42 : 10}
                 />
             ) : null}
-            {situation ? <div className="pl-caption">{situation}</div> : null}
+            {situation && !travelling ? (
+                <div className="pl-caption" title={situation}>
+                    {situation}
+                </div>
+            ) : null}
         </>
     );
 
@@ -437,7 +620,9 @@ function PlaceView({
             <header className="pl-roombar">
                 <div className="min-w-0 flex-1">
                     <h3>{placeLabel(place, playerId)}</h3>
-                    <p>{place.description}</p>
+                    <p title={place.description ?? undefined}>
+                        {place.description}
+                    </p>
                 </div>
                 <div className="pl-actions">
                     {canKnock ? (
@@ -468,11 +653,6 @@ function PlaceView({
                         >
                             ➜ Go here
                         </button>
-                    ) : null}
-                    {heading ? (
-                        <span className="pl-btn pl-btn--ghost">
-                            🚶 On your way…
-                        </span>
                     ) : null}
                     {mayArrange && !arranging ? (
                         <button
@@ -511,49 +691,16 @@ function PlaceView({
                     }}
                 />
             ) : null}
-            {knockers.map((id) => (
-                <div
-                    key={id}
-                    className="pl-card pl-card--note flex items-center"
-                    style={{ gap: 6 }}
-                >
-                    🚪{' '}
-                    <strong>
-                        {allBodies.find((b) => b.participantId === id)?.name ??
-                            'Someone'}
-                    </strong>{' '}
-                    is knocking at your door.
-                    <button
-                        type="button"
-                        className="pl-btn pl-btn--go pl-btn--small"
-                        style={{ marginLeft: 'auto' }}
-                        disabled={letIn.isPending}
-                        onClick={() =>
-                            letIn.mutate({
-                                partyId: WORLD_ID,
-                                data: { visitorId: id, ownerId: playerId },
-                            })
-                        }
-                    >
-                        Let in
-                    </button>
-                </div>
-            ))}
             {amHere && ownHome && laptopOpen ? (
                 <Droste onClose={() => setLaptopOpen(false)} />
-            ) : null}
-            {profiled ? (
-                <BodyProfile
-                    body={profiled}
-                    canEdit={profiled.participantId === playerId || allEars}
-                    isMe={profiled.participantId === playerId}
-                    onClose={() => setProfileId(null)}
-                />
             ) : null}
             {webgl2 ? (
                 <Suspense
                     fallback={
-                        <div className="pl-view" style={{ height: 320 }} />
+                        <div
+                            className="pl-view"
+                            style={{ flex: '1 0 240px', background: '#1b2238' }}
+                        />
                     }
                 >
                     <PlaceScene
@@ -588,6 +735,7 @@ function PlaceView({
                 </Suspense>
             ) : (
                 <>
+                    {pops}
                     {situation ? (
                         <div className="pl-card pl-card--note">{situation}</div>
                     ) : null}
@@ -605,9 +753,30 @@ function PlaceView({
                     />
                 </>
             )}
-            {amHere && ownHome ? <DecorateForm playerId={playerId} /> : null}
-            <div className="pl-lower">
+            <div className="pl-lower" data-tab={tab}>
+                {/* Narrow windows show one of the two at a time. */}
+                <div className="pl-tabs" role="tablist">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === 'talk'}
+                        onClick={() => setTab('talk')}
+                    >
+                        💬 Talk
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === 'spots'}
+                        onClick={() => setTab('spots')}
+                    >
+                        🪑 Spots · {here}
+                    </button>
+                </div>
                 <div className="pl-spots">
+                    {amHere && ownHome ? (
+                        <DecorateForm playerId={playerId} />
+                    ) : null}
                     {(place.spots ?? []).map((s) => {
                         const at = bodies.filter((b) => bodySpotId(b) === s.id);
                         const capacity = Number(s.capacity ?? 1);
@@ -661,7 +830,6 @@ function PlaceView({
                                                 <BodyChip
                                                     key={b.participantId}
                                                     body={b}
-                                                    now={now}
                                                     isMe={
                                                         b.participantId ===
                                                         playerId
@@ -700,6 +868,7 @@ function PlaceView({
                 </div>
                 {amHere && place.talkRoomId ? (
                     <PlaceTalk
+                        shown={tab === 'talk'}
                         roomId={place.talkRoomId}
                         playerId={playerId}
                         allEars={allEars}
@@ -725,6 +894,58 @@ function PlaceView({
                 )}
             </div>
         </main>
+    );
+}
+
+/** You, between Places: where to, how far along, and the way back. */
+function Travel({
+    me,
+    places,
+    playerId,
+    onTurnBack,
+}: {
+    me: Body;
+    places: Place[];
+    playerId: string | null;
+    onTurnBack: () => void;
+}) {
+    const now = useTicker(true);
+    const start = toMs(me.departedAt);
+    const end = toMs(me.arriveAt);
+    const left = Math.max(0, Math.ceil((end - now) / 1000));
+    const share = end > start ? Math.min(1, (now - start) / (end - start)) : 1;
+    const to = places.find((p) => p.id === me.destPlaceId);
+    const from = places.find((p) => p.id === me.placeId);
+    return (
+        <output className="pl-travel">
+            <span className="pl-travel-walker">🚶</span>
+            <div className="pl-travel-main">
+                <div className="pl-travel-line">
+                    <b>
+                        {from ? `${placeLabel(from, playerId)} → ` : ''}
+                        {placeLabel(to, playerId)}
+                    </b>
+                    <small>
+                        {left > 0
+                            ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+                            : 'arriving…'}
+                    </small>
+                </div>
+                <div className="pl-travel-bar">
+                    <i style={{ width: `${share * 100}%` }} />
+                </div>
+            </div>
+            {from && left > 0 ? (
+                <button
+                    type="button"
+                    className="pl-btn pl-btn--small"
+                    title={`Go back to ${placeLabel(from, playerId)}`}
+                    onClick={onTurnBack}
+                >
+                    ↩ Back
+                </button>
+            ) : null}
+        </output>
     );
 }
 
@@ -786,9 +1007,11 @@ function BodyProfile({
                               : 'Just hanging around.'))}
                 </div>
                 {self?.mood ? (
-                    <div style={{ color: '#555' }}>
-                        Mood: {self.mood}
-                        {self.doing ? ` · ${self.doing}` : ''}
+                    <div style={{ color: '#555' }}>Mood: {self.mood}</div>
+                ) : null}
+                {self?.doing ? (
+                    <div className="pl-clamp" title={self.doing}>
+                        {self.doing}
                     </div>
                 ) : null}
             </div>
@@ -957,8 +1180,7 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
     const [text, setText] = useState('');
     return (
         <form
-            className="flex items-center"
-            style={{ gap: 4 }}
+            className="pl-decorate"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
@@ -973,18 +1195,22 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
         >
             <span>🖼️</span>
             <input
-                className="flex-1"
                 value={text}
                 maxLength={200}
                 onChange={(e) => setText(e.currentTarget.value)}
-                placeholder="Put something up… (a Bowie poster over the sofa)"
+                placeholder={
+                    decorate.isError
+                        ? 'Two new things a day — try tomorrow.'
+                        : 'Put something up… (a Bowie poster over the sofa)'
+                }
             />
-            <button type="submit" disabled={!text.trim() || decorate.isPending}>
+            <button
+                type="submit"
+                className="pl-btn pl-btn--small"
+                disabled={!text.trim() || decorate.isPending}
+            >
                 Put up
             </button>
-            {decorate.isError ? (
-                <span style={{ color: '#a33' }}>Two new things a day.</span>
-            ) : null}
         </form>
     );
 }
@@ -1068,15 +1294,14 @@ function FurniRow({
 
 function BodyChip({
     body,
-    now,
     isMe,
     onClick,
 }: {
     body: Body;
-    now: number;
     isMe: boolean;
     onClick?: () => void;
 }) {
+    const now = useTicker(!!body.destPlaceId);
     const walking = walkingText(body, now);
     const look = lookOf(body.appearance, avatarColour(body.participantId));
     return (
@@ -1108,11 +1333,14 @@ function BodyChip({
 
 /** Speech between the Bodies here. Everyone in the Place hears it (Earshot is phase 6). */
 function PlaceTalk({
+    shown: visible,
     roomId,
     playerId,
     nearby,
     allEars,
 }: {
+    /** False while a narrow window shows the Spots tab instead. */
+    shown: boolean;
     roomId: string;
     playerId: string | null;
     nearby: Body[];
@@ -1139,10 +1367,14 @@ function PlaceTalk({
     const [draft, setDraft] = useState('');
     const [volume, setVolume] = useState<'talk' | 'whisper' | 'shout'>('talk');
     const [to, setTo] = useState<string>('');
-    const endRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (shown.length) endRef.current?.scrollIntoView({ block: 'end' });
-    }, [shown.length]);
+    // Follow new talk only while you're at the bottom; scroll just the log, never the page.
+    const logRef = useRef<HTMLDivElement>(null);
+    const atEnd = useRef(true);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run as lines and typing arrive, and when the tab comes back
+    useLayoutEffect(() => {
+        const log = logRef.current;
+        if (log && atEnd.current) log.scrollTop = log.scrollHeight;
+    }, [shown, speaking.length, visible]);
 
     const nameOf = (id: string | undefined) => {
         const name = lives.find((l) => l.personaId === id)?.name ?? 'Someone';
@@ -1174,12 +1406,39 @@ function PlaceTalk({
     return (
         <section className="pl-chat">
             <div className="pl-chat-head">💬 Said out loud here</div>
-            <div className="pl-chat-log">
+            <div
+                ref={logRef}
+                className="pl-chat-log"
+                onScroll={(e) => {
+                    const el = e.currentTarget;
+                    atEnd.current =
+                        el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+                }}
+            >
                 {shown.length === 0 ? (
                     <div style={{ color: '#7a86a0' }}>Quiet.</div>
                 ) : null}
-                {shown.map((m) => {
-                    const heard = canHear(m, playerId, allEars);
+                {earshotRuns(shown, playerId, allEars).map((run) => {
+                    if (!run.heard && run.lines.length > 1) {
+                        const who = [
+                            ...new Set(
+                                run.lines.map(
+                                    (m) => nameOf(m.senderId).split(' ')[0],
+                                ),
+                            ),
+                        ];
+                        return (
+                            <div
+                                key={run.lines[0].messageId}
+                                className="pl-line pl-line--muffled"
+                            >
+                                🔇 {who.join(', ')} talking out of earshot ·{' '}
+                                {run.lines.length} lines
+                            </div>
+                        );
+                    }
+                    const m = run.heard ? run.line : run.lines[0];
+                    const heard = run.heard;
                     const v = volumeOf(m);
                     return (
                         <div
@@ -1205,7 +1464,6 @@ function PlaceTalk({
                         something…
                     </div>
                 ) : null}
-                <div ref={endRef} />
             </div>
             <form
                 className="pl-chat-form"

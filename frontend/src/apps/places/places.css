@@ -127,6 +127,9 @@
     background: linear-gradient(180deg, #6ccf5f, var(--pl-green));
     vertical-align: 1px;
 }
+.pl-you--going {
+    background: linear-gradient(180deg, #7cc8ff, var(--pl-blue-2));
+}
 /* Habbo navigator occupancy: green, then yellow, then red */
 .pl-occ {
     display: flex;
@@ -189,6 +192,10 @@
     margin: 0;
     opacity: 0.9;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+    /* One line, so the header (and the view under it) is the same height everywhere. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .pl-actions {
     display: flex;
@@ -345,6 +352,109 @@
     backdrop-filter: blur(4px);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+    /* One line over the scene; the rest on hover. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pl-caption:hover {
+    white-space: normal;
+}
+.pl-pops {
+    position: absolute;
+    top: 40px;
+    left: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: min(420px, calc(100% - 60px));
+    max-height: calc(100% - 110px);
+    overflow-y: auto;
+}
+.pl-pops > * {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    animation: pl-slide 0.18s ease-out;
+}
+@keyframes pl-slide {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+.pl-travel {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    /* translate, not transform: the slide-in animates transform. */
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(380px, calc(100% - 260px));
+    min-width: 220px;
+    padding: 5px 6px 5px 10px;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(
+        180deg,
+        rgba(20, 40, 90, 0.88),
+        rgba(10, 22, 55, 0.88)
+    );
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    animation: pl-slide 0.2s ease-out;
+}
+.pl-travel-walker {
+    font-size: 18px;
+    animation: pl-step 0.6s ease-in-out infinite;
+}
+@keyframes pl-step {
+    50% {
+        transform: translateY(-2px) rotate(-4deg);
+    }
+}
+.pl-travel-main {
+    flex: 1;
+    min-width: 0;
+}
+.pl-travel-line {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+.pl-travel-line b {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pl-travel-line small {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.pl-travel-bar {
+    height: 5px;
+    margin-top: 3px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+}
+.pl-travel-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #5ec8ff, #9ff0a8);
+    /* Ticks once a second; the transition fills the gaps. */
+    transition: width 1s linear;
+}
+.pl-clamp {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: #555;
 }
 .pl-zoom {
     position: absolute;
@@ -496,7 +606,10 @@
     line-height: 1.3;
     box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
     text-align: left;
-    animation: pl-pop 0.25s ease-out;
+    /* Delays are set inline: pop now, age from when it was said (14s, BUBBLE_MS). */
+    animation:
+        pl-pop 0.25s ease-out,
+        pl-age 14s linear forwards;
 }
 .pl-bubble::after {
     content: "";
@@ -530,7 +643,15 @@
 @keyframes pl-pop {
     from {
         transform: scale(0.6) translateY(6px);
-        opacity: 0;
+    }
+}
+@keyframes pl-age {
+    93% {
+        opacity: 0.3;
+    }
+    to {
+        opacity: 0.3;
+        translate: 0 -16px;
     }
 }
 .pl-mark {
@@ -571,22 +692,70 @@
     }
 }
 
-/* Spots and people */
+/* Spots and people: a fixed-height strip, so switching or moving never resizes the view */
 .pl-lower {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
     gap: 8px;
-    align-items: start;
+    height: 236px;
+}
+.pl-lower > * {
+    min-height: 0;
+}
+.pl-tabs {
+    display: none;
 }
 @container (max-width: 640px) {
     .pl-lower {
         grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 4px;
+        height: 200px;
     }
+    .pl-tabs {
+        display: flex;
+        gap: 4px;
+    }
+    .pl-lower[data-tab="talk"] > .pl-spots,
+    .pl-lower[data-tab="spots"] > .pl-chat {
+        display: none;
+    }
+}
+.pl-tabs > button {
+    min-width: 0;
+    min-height: 0;
+    padding: 2px 10px;
+    border-radius: 10px;
+    border: 1px solid #9fb3df;
+    background: #eef3ff;
+    color: var(--pl-ink);
+    font-weight: bold;
+}
+.pl-tabs > button[aria-selected="true"] {
+    color: #fff;
+    border-color: var(--pl-blue);
+    background: linear-gradient(180deg, var(--pl-blue-2), var(--pl-blue));
 }
 .pl-spots {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    align-content: start;
     gap: 6px;
+    overflow-y: auto;
+}
+.pl-decorate {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px 3px 8px;
+    border-radius: 6px;
+    border: 1px dashed #9fb3df;
+    background: #f6f9ff;
+}
+.pl-decorate input {
+    flex: 1;
+    min-width: 0;
 }
 .pl-spot {
     border-radius: 6px;
@@ -687,6 +856,9 @@
     background: #fff;
     min-height: 200px;
 }
+.pl-lower .pl-chat {
+    min-height: 0;
+}
 .pl-chat-head {
     padding: 4px 8px;
     color: #fff;
@@ -697,6 +869,7 @@
     flex: 1;
     min-height: 0;
     max-height: 260px;
+    overscroll-behavior: contain;
     overflow-y: auto;
     padding: 6px 8px;
     background: repeating-linear-gradient(
@@ -775,6 +948,7 @@
     box-shadow: 0 0 0 2px var(--pl-blue);
 }
 .pl-stage {
+    position: relative;
     container-type: inline-size;
 }
 .pl-nav > *,

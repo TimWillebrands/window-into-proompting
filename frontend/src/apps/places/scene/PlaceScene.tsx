@@ -2,7 +2,10 @@ import { MapControls, OrthographicCamera } from '@react-three/drei';
 import { Canvas, type ThreeEvent, useFrame } from '@react-three/fiber';
 import {
     createContext,
+    memo,
     type ReactNode,
+    type RefObject,
+    useCallback,
     useContext,
     useEffect,
     useMemo,
@@ -10,14 +13,23 @@ import {
     useState,
 } from 'react';
 import * as THREE from 'three';
-import { useChatGroupMessages } from '#lib/realtime-store';
+import { useStoreWithEqualityFn } from 'zustand/traditional';
+import { useRealtimeStore } from '#lib/realtime-store';
 import type { Body } from '../../../api/model/body';
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
-import { lookOf } from '../iso/appearance';
+import type { RealtimeChatMessage } from '../../../lib/room-state';
+import { type Look, lookOf } from '../iso/appearance';
 import type { Pt } from '../iso/iso';
-import { avatarColour, canHear, scribble, volumeOf } from '../places-lib';
-import Avatar, { type AvatarState } from './Avatar';
+import {
+    avatarColour,
+    canHear,
+    scribble,
+    serverNow,
+    toMs,
+    volumeOf,
+} from '../places-lib';
+import Avatar, { type AvatarState, avatarMaterials } from './Avatar';
 import { type Built, build, type Placement } from './build';
 import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
@@ -59,7 +71,7 @@ interface Props {
 
 const PIXEL_KEY = 'places.pixel';
 
-const MIN_HEIGHT = 300;
+const MIN_HEIGHT = 240;
 
 /** The 3D view of one Place (ADR 0023): scene from its map and prefabs, Bodies walking about, talk in bubbles. */
 export default function PlaceScene(props: Props) {
@@ -111,6 +123,10 @@ export default function PlaceScene(props: Props) {
                     flat
                     dpr={pixel ? 0.5 : [1, 2]}
                     gl={{ antialias: !pixel }}
+                    // Checking every shader stalls on compile; worth it in dev only.
+                    onCreated={({ gl }) => {
+                        gl.debug.checkShaderErrors = import.meta.env.DEV;
+                    }}
                     style={{
                         imageRendering: pixel ? 'pixelated' : 'auto',
                         cursor:
@@ -127,8 +143,10 @@ export default function PlaceScene(props: Props) {
                         zoomBy={zoomBy}
                         recentre={recentre}
                         focus={focusOf(scene, props)}
+                        mine={isMine(props)}
                     />
                     <Lights scene={scene} sky={sky} />
+                    <Warmup />
                     <World {...props} scene={scene} sky={sky} furni={here} />
                     <Projector />
                 </Canvas>
@@ -202,14 +220,13 @@ function useHour(pinned?: number) {
     return pinned ?? hour;
 }
 
-function useNow(ms: number) {
-    const [now, setNow] = useState(Date.now());
-    useEffect(() => {
-        const t = setInterval(() => setNow(Date.now()), ms);
-        return () => clearInterval(t);
-    }, [ms]);
-    return now;
-}
+/** Whether you're in, or on your way to, the Place on view. */
+const isMine = ({ bodies, playerId, place }: Props) =>
+    bodies.some(
+        (b) =>
+            b.participantId === playerId &&
+            (b.destPlaceId ?? b.placeId) === place.id,
+    );
 
 /** The camera starts on you if you're here, else the scene's focus, else its middle. */
 function focusOf(scene: Scene, { bodies, playerId, place }: Props): Pt {
@@ -232,6 +249,7 @@ function Rig({
     zoomBy,
     recentre,
     focus,
+    mine,
 }: {
     scene: Scene;
     width: number;
@@ -239,16 +257,21 @@ function Rig({
     zoomBy: number;
     recentre: number;
     focus: Pt;
+    /** Flips when you head here: then the camera finds you. */
+    mine: boolean;
 }) {
     const cam = useRef<THREE.OrthographicCamera>(null);
     // Controls must drive this camera, which only exists after the first commit.
     const [camera, setCamera] = useState<THREE.OrthographicCamera | null>(null);
     useEffect(() => setCamera(cam.current), []);
     const controls = useRef<React.ComponentRef<typeof MapControls>>(null);
-    const fx = focus.x;
-    const fy = focus.y;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: recentre is a trigger
+    // Read, not watched: walking to another spot shouldn't undo the user's pan and zoom.
+    const at = useRef(focus);
+    at.current = focus;
+    // biome-ignore lint/correctness/useExhaustiveDependencies: recentre and mine are triggers
     useEffect(() => {
+        const fx = at.current.x;
+        const fy = at.current.y;
         const c = cam.current;
         if (!c) return;
         let target = new THREE.Vector3(scene.w / 2, 0.6, scene.h / 2);
@@ -302,7 +325,7 @@ function Rig({
             ctl.target.copy(target);
             ctl.update();
         }
-    }, [scene, width, height, zoomBy, recentre, fx, fy, camera]);
+    }, [scene, width, height, zoomBy, recentre, mine, camera]);
     return (
         <>
             <OrthographicCamera ref={cam} makeDefault near={-100} far={300} />
@@ -368,6 +391,20 @@ const plainMat = new THREE.MeshStandardMaterial({
     roughness: 0.85,
 });
 const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+const clearMats = new Map<number, THREE.Material>();
+/** Shared per opacity, so a rebuild (a model landing) doesn't free and recompile its shader. */
+function clearMat(opacity: number): THREE.Material {
+    let m = clearMats.get(opacity);
+    if (!m) {
+        m = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity,
+        });
+        clearMats.set(opacity, m);
+    }
+    return m;
+}
 
 function World(props: Props & { scene: Scene; sky: Sky }) {
     const {
@@ -438,16 +475,14 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         [furniProps, scene, meshes],
     );
     const { arrange } = props;
-    // Things where they stand now block walking and standing room.
-    const walkable = useMemo(
-        () =>
-            withFurni(
-                scene,
-                furniProps.map((f) => f.prop),
-            ),
-        [scene, furniProps],
+    const placed = useMemo(() => furniProps.map((f) => f.prop), [furniProps]);
+    const lamps = useMemo(
+        () => [...scene.props.filter((p) => !p.furniId), ...placed],
+        [scene, placed],
     );
-    const [hover, setHover] = useState<Pt | null>(null);
+    // Things where they stand now block walking and standing room.
+    const walkable = useMemo(() => withFurni(scene, placed), [scene, placed]);
+    const hoverAt = useRef<(tile: Pt | null) => void>(() => {});
     const tileOf = (e: ThreeEvent<PointerEvent | MouseEvent>): Pt => ({
         x: Math.floor(e.point.x),
         y: Math.floor(e.point.z),
@@ -455,13 +490,16 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
 
     return (
         <>
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: a three.js group, not DOM */}
-            <group
+            {/* Pointer tiles come off one flat quad, not every triangle in the Place. */}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: a three.js mesh, not DOM */}
+            <mesh
+                position={[scene.w / 2, 0, scene.h / 2]}
+                rotation={[-Math.PI / 2, 0, 0]}
                 onPointerMove={(e) => {
                     e.stopPropagation();
-                    setHover(tileOf(e));
+                    hoverAt.current(tileOf(e));
                 }}
-                onPointerOut={() => setHover(null)}
+                onPointerOut={() => hoverAt.current(null)}
                 onClick={(e) => {
                     if (e.delta > 6) return;
                     if (arrange) {
@@ -473,6 +511,10 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                     if (spot) onSpotClick(spot);
                 }}
             >
+                <planeGeometry args={[scene.w, scene.h]} />
+                <meshBasicMaterial visible={false} />
+            </mesh>
+            <group>
                 {ground.solid ? (
                     <mesh
                         geometry={ground.solid}
@@ -538,17 +580,10 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                       ))
                 : null}
             {scene.def.outdoor ? <Water scene={scene} sky={sky} /> : null}
-            <PropLights
-                scene={scene}
-                props={[
-                    ...scene.props.filter((p) => !p.furniId),
-                    ...furniProps.map((f) => f.prop),
-                ]}
-                sky={sky}
-            />
-            <FurniAnchors props={furniProps.map((f) => f.prop)} />
-            {hover && (onSpotClick || arrange) ? (
-                <Hover scene={scene} tile={hover} />
+            <PropLights scene={scene} props={lamps} sky={sky} />
+            <FurniAnchors props={placed} />
+            {onSpotClick || arrange ? (
+                <Hover scene={scene} at={hoverAt} />
             ) : null}
             <Bodies
                 scene={walkable}
@@ -605,13 +640,11 @@ function BuiltMeshes({ built, night }: { built: Built; night: boolean }) {
                 />
             ) : null}
             {built.clear.map((c) => (
-                <mesh key={c.geometry.uuid} geometry={c.geometry}>
-                    <meshStandardMaterial
-                        vertexColors
-                        transparent
-                        opacity={c.opacity}
-                    />
-                </mesh>
+                <mesh
+                    key={c.geometry.uuid}
+                    geometry={c.geometry}
+                    material={clearMat(c.opacity)}
+                />
             ))}
             {built.signs.map((s) => (
                 <Sign key={`${s.text}:${s.matrix.elements.join(',')}`} {...s} />
@@ -799,29 +832,84 @@ function Water({ scene, sky }: { scene: Scene; sky: Sky }) {
     );
 }
 
-function Hover({ scene, tile }: { scene: Scene; tile: Pt }) {
-    if (
-        tile.x < 0 ||
-        tile.y < 0 ||
-        tile.x >= scene.w ||
-        tile.y >= scene.h ||
-        scene.blocked.has(`${tile.x},${tile.y}`)
-    )
-        return null;
+/** The tile under the pointer; only this re-renders as the mouse moves. */
+function Hover({
+    scene,
+    at,
+}: {
+    scene: Scene;
+    at: RefObject<(tile: Pt | null) => void>;
+}) {
+    const [tile, setTile] = useState<Pt | null>(null);
+    useEffect(() => {
+        at.current = (t) =>
+            setTile((p) => (p && t && p.x === t.x && p.y === t.y ? p : t));
+        return () => {
+            at.current = () => {};
+        };
+    }, [at]);
+    const shown =
+        !!tile &&
+        tile.x >= 0 &&
+        tile.y >= 0 &&
+        tile.x < scene.w &&
+        tile.y < scene.h &&
+        !scene.blocked.has(`${tile.x},${tile.y}`);
+    // Always mounted: unmounting frees its shader, and the next hover recompiles it.
     return (
         <mesh
-            position={[
-                tile.x + 0.5,
-                standHeight(scene, tile) + 0.015,
-                tile.y + 0.5,
-            ]}
+            visible={shown}
+            geometry={hoverRing}
+            material={hoverMat}
+            position={
+                tile
+                    ? [
+                          tile.x + 0.5,
+                          standHeight(scene, tile) + 0.015,
+                          tile.y + 0.5,
+                      ]
+                    : [0, -10, 0]
+            }
             rotation={[-Math.PI / 2, 0, 0]}
-        >
-            <ringGeometry args={[0.6, 0.68, 4, 1, Math.PI / 4]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.85} />
-        </mesh>
+        />
     );
 }
+
+/** Draws, too small to see, each material kind that otherwise first shows mid-visit (someone walking in, your beacon), so its shader is compiled up front instead of stalling that moment. */
+function Warmup() {
+    const materials = useMemo(
+        () => [...avatarMaterials(), hoverMat, beaconMat, basicMat],
+        [],
+    );
+    return (
+        <group scale={0.0001}>
+            {materials.map((m) => (
+                <mesh
+                    key={m.uuid}
+                    geometry={warmBox}
+                    material={m}
+                    frustumCulled={false}
+                />
+            ))}
+        </group>
+    );
+}
+
+const warmBox = new THREE.BoxGeometry(1, 1, 1);
+const beaconRing = new THREE.RingGeometry(0.3, 0.48, 32);
+const beaconMat = new THREE.MeshBasicMaterial({
+    color: '#5ec8ff',
+    transparent: true,
+    depthWrite: false,
+});
+const basicMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+
+const hoverRing = new THREE.RingGeometry(0.6, 0.68, 4, 1, Math.PI / 4);
+const hoverMat = new THREE.MeshBasicMaterial({
+    color: '#ffffff',
+    transparent: true,
+    opacity: 0.85,
+});
 
 interface BodiesProps {
     scene: Scene;
@@ -842,10 +930,12 @@ function Bodies({
     playerId,
     onBodyClick,
 }: BodiesProps) {
-    const messages = useChatGroupMessages(place.talkRoomId ?? '');
-    const now = useNow(1000);
+    const spoken = useSpoken(place.talkRoomId ?? '');
     const walks = useRef(new Map<string, Walk>());
     const shown = useRef(new Map<string, Pt>());
+    const states = useRef(new Map<string, () => AvatarState | null>());
+    const click = useRef(onBodyClick);
+    click.current = onBodyClick;
     const slots = useMemo(
         () => targets(scene, place.id, bodies),
         [scene, place.id, bodies],
@@ -868,29 +958,33 @@ function Bodies({
             if (start.x === slot.tile.x && start.y === slot.tile.y) continue;
             walks.current.set(id, {
                 path: pathIn(scene, start, slot.tile),
-                startedAt: Date.now(),
+                startedAt: serverNow(),
             });
         }
     }, [slots, scene]);
 
-    const recent = messages
-        .filter(
-            (m) => m.content?.trim() && m.sendAt && now - m.sendAt < BUBBLE_MS,
-        )
-        .slice(-8);
+    const me = bodies.find((b) => b.participantId === playerId);
+    const coming =
+        me && me.destPlaceId === place.id && me.placeId !== place.id
+            ? slots.get(playerId ?? '')
+            : undefined;
 
     return (
         <>
+            {coming ? (
+                <Beacon
+                    tile={coming.tile}
+                    ground={standHeight(scene, coming.tile)}
+                />
+            ) : null}
             {bodies.map((b) => {
                 const id = b.participantId ?? '';
-                const look = lookOf(
-                    b.appearance,
-                    avatarColour(b.participantId),
+                const said = toMs(
+                    spoken.filter((m) => m.senderId === id).at(-1)?.sendAt,
                 );
-                const mine = recent.filter((m) => m.senderId === id).slice(-2);
                 const busy = b.activity ?? '';
                 const isMe = id === playerId;
-                const state = (): AvatarState | null => {
+                states.current.set(id, (): AvatarState | null => {
                     const pose = poseOf(
                         b,
                         scene,
@@ -899,11 +993,12 @@ function Bodies({
                         walks.current,
                         shown.current,
                         slots,
-                        Date.now(),
+                        serverNow(),
                     );
                     if (!pose) return null;
                     shown.current.set(id, pose.tile);
-                    if (!pose.moving && walks.current.has(id))
+                    const walk = walks.current.get(id);
+                    if (!pose.moving && walk && !walk.out)
                         walks.current.delete(id);
                     return {
                         pose,
@@ -915,35 +1010,128 @@ function Bodies({
                         partner: b.poseWith
                             ? (shown.current.get(b.poseWith) ?? null)
                             : null,
-                        talking: mine.some(
-                            (m) => Date.now() - (m.sendAt ?? 0) < 3000,
-                        ),
+                        talking: serverNow() - said < 3000,
                     };
-                };
+                });
                 const here =
                     (b.destPlaceId ?? b.placeId) === place.id ||
                     b.placeId === place.id;
                 if (!here) return null;
                 return (
-                    <Avatar
+                    <Person
                         key={id}
-                        look={look}
+                        id={id}
+                        look={stableLook(
+                            lookOf(b.appearance, avatarColour(b.participantId)),
+                        )}
                         isMe={isMe}
-                        state={state}
-                        onClick={
-                            onBodyClick ? () => onBodyClick(id) : undefined
-                        }
-                    >
-                        <Anchor
-                            id={`body:${id}`}
-                            y={b.asleep || b.posture === 'Lying' ? 0.95 : 1.62}
-                        />
-                    </Avatar>
+                        lying={!!b.asleep || b.posture === 'Lying'}
+                        clickable={!!onBodyClick}
+                        states={states.current}
+                        click={click}
+                    />
                 );
             })}
         </>
     );
 }
+
+const looks = new Map<string, Look>();
+/** Same look, same object, so a Person only re-renders when someone changes clothes. */
+function stableLook(look: Look): Look {
+    const k = JSON.stringify(look);
+    const hit = looks.get(k);
+    if (hit) return hit;
+    looks.set(k, look);
+    return look;
+}
+
+/** One avatar; reads its state every frame, so talk and moves elsewhere don't re-render it. */
+const Person = memo(function Person({
+    id,
+    look,
+    isMe,
+    lying,
+    clickable,
+    states,
+    click,
+}: {
+    id: string;
+    look: Look;
+    isMe: boolean;
+    lying: boolean;
+    clickable: boolean;
+    states: Map<string, () => AvatarState | null>;
+    click: RefObject<((participantId: string) => void) | undefined>;
+}) {
+    const state = useCallback(() => states.get(id)?.() ?? null, [states, id]);
+    const onClick = useCallback(() => click.current?.(id), [click, id]);
+    return (
+        <Avatar
+            look={look}
+            isMe={isMe}
+            state={state}
+            onClick={clickable ? onClick : undefined}
+        >
+            <Anchor id={`body:${id}`} y={lying ? 0.95 : 1.62} />
+        </Avatar>
+    );
+});
+
+const BEACON = 'beacon';
+
+/** Where you'll stand once you get here: a soft pulsing ring while you're on your way. */
+function Beacon({ tile, ground }: { tile: Pt; ground: number }) {
+    const ref = useRef<THREE.Mesh>(null);
+    useFrame(({ clock }) => {
+        const m = ref.current;
+        if (!m) return;
+        const k = (clock.elapsedTime * 0.8) % 1;
+        m.scale.setScalar(0.7 + k * 0.6);
+        beaconMat.opacity = 0.9 * (1 - k);
+    });
+    return (
+        <group position={[tile.x + 0.5, ground + 0.03, tile.y + 0.5]}>
+            <mesh
+                ref={ref}
+                rotation={[-Math.PI / 2, 0, 0]}
+                geometry={beaconRing}
+                material={beaconMat}
+            />
+            <Anchor id={BEACON} y={0.25} />
+        </group>
+    );
+}
+
+const NO_LINES: RealtimeChatMessage[] = [];
+
+/** Finished lines in a Place's talk, latest few; tokens still streaming in don't re-render the scene. */
+function useSpoken(roomId: string): RealtimeChatMessage[] {
+    return useStoreWithEqualityFn(
+        useRealtimeStore,
+        (s) => {
+            const g = s.chatGroups[roomId];
+            if (!g) return NO_LINES;
+            const live = new Set(g.activeGenerationMessageIds);
+            return g.messages
+                .filter(
+                    (m) =>
+                        m.sendAt && m.content?.trim() && !live.has(m.messageId),
+                )
+                .slice(-8);
+        },
+        sameLines,
+    );
+}
+
+const sameLines = (a: RealtimeChatMessage[], b: RealtimeChatMessage[]) =>
+    a.length === b.length &&
+    a.every(
+        (m, i) =>
+            m.messageId === b[i].messageId &&
+            m.content === b[i].content &&
+            m.sendAt === b[i].sendAt,
+    );
 
 /** World points the DOM labels follow: avatars' heads and things that want attention. */
 interface Overlay {
@@ -1019,6 +1207,40 @@ function Projector() {
     return null;
 }
 
+/** Re-renders when the next bubble is due to go, not every second. */
+function useBubbleClock(spoken: RealtimeChatMessage[]): number {
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const now = serverNow();
+        const due = spoken
+            .map((m) => toMs(m.sendAt) + BUBBLE_MS)
+            .filter((t) => t > now);
+        if (due.length === 0) return;
+        const t = setTimeout(
+            () => setTick((n) => n + 1),
+            Math.min(...due) - now + 20,
+        );
+        return () => clearTimeout(t);
+    });
+    return serverNow();
+}
+
+/** One ref callback per label, so re-renders don't drop and re-add it. */
+function useTrack(overlay: Overlay) {
+    const refs = useRef(new Map<string, (el: HTMLDivElement | null) => void>());
+    return (id: string) => {
+        let r = refs.current.get(id);
+        if (!r) {
+            r = (el) => {
+                if (el) overlay.labels.set(id, el);
+                else overlay.labels.delete(id);
+            };
+            refs.current.set(id, r);
+        }
+        return r;
+    };
+}
+
 /** Names, talk bubbles and ❗ markers over the scene, as plain DOM (crisp in pixel mode). */
 function Labels({
     place,
@@ -1028,23 +1250,40 @@ function Labels({
     allEars,
     overlay,
 }: Props & { overlay: Overlay }) {
-    const messages = useChatGroupMessages(place.talkRoomId ?? '');
-    const now = useNow(1000);
-    const recent = messages
-        .filter(
-            (m) => m.content?.trim() && m.sendAt && now - m.sendAt < BUBBLE_MS,
-        )
-        .slice(-8);
-    const track = (id: string) => (el: HTMLDivElement | null) => {
-        if (el) overlay.labels.set(id, el);
-        else overlay.labels.delete(id);
+    const spoken = useSpoken(place.talkRoomId ?? '');
+    const now = useBubbleClock(spoken);
+    const recent = spoken.filter((m) => now - toMs(m.sendAt) < BUBBLE_MS);
+    // Age at first sight, fixed: a changed animation-delay would jump a running fade ahead.
+    const ages = useRef(new Map<number, number>());
+    const ageOf = (m: RealtimeChatMessage) => {
+        let a = ages.current.get(m.messageId);
+        if (a === undefined) {
+            a = Math.max(0, now - toMs(m.sendAt));
+            ages.current.set(m.messageId, a);
+            if (ages.current.size > 64)
+                ages.current.delete(ages.current.keys().next().value ?? 0);
+        }
+        return a;
     };
+    const track = useTrack(overlay);
     const here = bodies.filter(
         (b) =>
             (b.destPlaceId ?? b.placeId) === place.id || b.placeId === place.id,
     );
+    const me = bodies.find((b) => b.participantId === playerId);
+    const coming =
+        me && me.destPlaceId === place.id && me.placeId !== place.id
+            ? me
+            : undefined;
     return (
         <div className="pl-labels">
+            {coming ? (
+                <div ref={track(BEACON)} className="pl-label">
+                    <span className="pl-name pl-name--me">
+                        🚶 {(coming.name ?? '').split(' ')[0]} soon
+                    </span>
+                </div>
+            ) : null}
             {here.map((b) => {
                 const id = b.participantId ?? '';
                 const isMe = id === playerId;
@@ -1077,8 +1316,6 @@ function Labels({
                             .map((m) => {
                                 const heard = canHear(m, playerId, allEars);
                                 const volume = volumeOf(m);
-                                const age =
-                                    (now - (m.sendAt ?? now)) / BUBBLE_MS;
                                 const text = heard
                                     ? (m.content ?? '')
                                     : scribble(m.content);
@@ -1088,11 +1325,8 @@ function Labels({
                                         className={`pl-bubble${volume === 'shout' ? ' pl-bubble--shout' : volume === 'whisper' ? ' pl-bubble--whisper' : ''}${heard ? '' : ' pl-bubble--muffled'}`}
                                         style={{
                                             borderLeftColor: look.top,
-                                            opacity: Math.max(
-                                                0.3,
-                                                1 - age * 0.75,
-                                            ),
-                                            translate: `0 ${(-age * 16).toFixed(1)}px`,
+                                            // Fades as it ages; a late mount starts part-way through.
+                                            animationDelay: `0s, ${-ageOf(m)}ms`,
                                         }}
                                     >
                                         <b style={{ color: look.top }}>

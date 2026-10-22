@@ -42,7 +42,10 @@ export function PoseBar({
     bottom?: number;
 }) {
     const pose = usePostWorldsPartyIdPlacesPose();
-    const spot = (place.spots ?? []).find((s) => s.id === me.spotId);
+    // Mid-walk across the room, the dock is already for where you're going.
+    const spot = (place.spots ?? []).find(
+        (s) => s.id === (me.destSpotId ?? me.spotId),
+    );
     if (!spot) return null;
     const company = bodies.filter(
         (b) =>

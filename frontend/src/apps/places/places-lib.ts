@@ -6,6 +6,13 @@ import type { Place } from '../../api/model/place';
 export const toMs = (v: number | string | null | undefined) =>
     v == null ? 0 : Number(v);
 
+let skew = 0;
+/** Server clock minus ours, from a snapshot's `now` and when it landed; walk timings are server times. */
+export const setServerClock = (server: number, receivedAt: number) => {
+    skew = server - receivedAt;
+};
+export const serverNow = () => Date.now() + skew;
+
 /** Where a Body counts as being: its destination once it's heading somewhere. */
 export const bodyPlaceId = (b: Body) => b.destPlaceId ?? b.placeId;
 
@@ -163,6 +170,26 @@ export const canHear = (
     const heard = (m as Heard).heardBy;
     return allEars || !heard || (!!viewerId && heard.includes(viewerId));
 };
+
+export type EarshotRun<M> =
+    | { heard: true; line: M }
+    | { heard: false; lines: M[] };
+
+/** Talk as the viewer got it: lines they heard, and each run they didn't folded into one. */
+export function earshotRuns<M extends object>(
+    lines: M[],
+    viewerId: string | null,
+    allEars = false,
+): EarshotRun<M>[] {
+    const out: EarshotRun<M>[] = [];
+    for (const m of lines) {
+        const last = out.at(-1);
+        if (canHear(m, viewerId, allEars)) out.push({ heard: true, line: m });
+        else if (last && !last.heard) last.lines.push(m);
+        else out.push({ heard: false, lines: [m] });
+    }
+    return out;
+}
 
 /** The shape of talk you can't make out: same rhythm, no words. */
 export const scribble = (text: string | null | undefined) =>

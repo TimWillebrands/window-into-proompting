@@ -4,13 +4,19 @@ import { toMs } from '../places-lib';
 import { entrance, pathIn, type Scene, type Slot } from './scene';
 
 export const STEP_MS = 280;
-/** Share of a between-Places walk spent visible in the Place you leave or arrive in. */
-export const DOORWAY = 0.3;
+/** A beat standing in the doorway, coming in or going out. */
+export const DOOR_PAUSE_MS = 700;
 
 export interface Walk {
     path: Pt[];
     startedAt: number;
+    /** Out through the door, toward another Place. */
+    out?: boolean;
 }
+
+/** Through the door at walking pace, but never more than half the trip. */
+const doorWalkMs = (path: Pt[], trip: number) =>
+    Math.max(1, Math.min(Math.max(1, path.length - 1) * STEP_MS, trip / 2));
 
 export interface Pose {
     tile: Pt;
@@ -81,25 +87,44 @@ export function poseOf(
     if (leaving || arriving) {
         const start = toMs(b.departedAt);
         const end = toMs(b.arriveAt);
-        const p = end > start ? (now - start) / (end - start) : 1;
-        if (leaving && p < DOORWAY) {
-            const from = shown.get(id) ?? entrance(scene);
-            const door = entrance(scene, sceneOf(b.destPlaceId), b.destPlaceId);
-            const path = pathIn(scene, round(from), door);
-            return along(path, p / DOORWAY);
+        if (leaving) {
+            // Planned once from where they stood, so the walk doesn't speed up as it goes.
+            let walk = walks.get(id);
+            if (!walk?.out || walk.startedAt !== start) {
+                const from =
+                    shown.get(id) ??
+                    scene.spots[b.spotId ?? '']?.at ??
+                    entrance(scene);
+                const door = entrance(
+                    scene,
+                    sceneOf(b.destPlaceId),
+                    b.destPlaceId,
+                );
+                walk = {
+                    path: pathIn(scene, round(from), door),
+                    startedAt: start,
+                    out: true,
+                };
+                walks.set(id, walk);
+            }
+            const ms = doorWalkMs(walk.path, end - start);
+            if (now - start < ms) return along(walk.path, (now - start) / ms);
+            if (now - start < ms + DOOR_PAUSE_MS)
+                return { tile: walk.path[walk.path.length - 1], moving: false };
+            return null;
         }
-        if (arriving && p > 1 - DOORWAY) {
-            const door = entrance(scene, sceneOf(b.placeId), b.placeId);
-            const slot = slots.get(id);
-            const path = pathIn(scene, door, round(slot?.tile ?? door));
-            return { ...along(path, (p - (1 - DOORWAY)) / DOORWAY), slot };
-        }
-        return null;
+        const door = entrance(scene, sceneOf(b.placeId), b.placeId);
+        const slot = slots.get(id);
+        const path = pathIn(scene, door, round(slot?.tile ?? door));
+        const ms = doorWalkMs(path, end - start);
+        if (end - now > ms + DOOR_PAUSE_MS) return null;
+        if (end - now > ms) return { tile: door, moving: false };
+        return { ...along(path, 1 - (end - now) / ms), slot };
     }
     if ((b.destPlaceId ?? b.placeId) !== placeId) return null;
     const slot = slots.get(id);
     const walk = walks.get(id);
-    if (walk) {
+    if (walk && !walk.out) {
         const total = Math.max(1, walk.path.length - 1) * STEP_MS;
         const t = (now - walk.startedAt) / total;
         if (t < 1) return { ...along(walk.path, t), slot };

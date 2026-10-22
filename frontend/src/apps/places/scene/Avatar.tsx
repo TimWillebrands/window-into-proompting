@@ -61,6 +61,28 @@ function mat(c: string, opacity = 1): THREE.Material {
     return m;
 }
 
+const meRing = new THREE.RingGeometry(0.32, 0.4, 24);
+const meRingMat = new THREE.MeshBasicMaterial({
+    color: '#3b82f6',
+    transparent: true,
+    opacity: 0.8,
+});
+const blob = new THREE.CircleGeometry(0.24, 16);
+const blobMat = new THREE.MeshBasicMaterial({
+    color: '#000000',
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+});
+
+/** One of each kind of material an avatar draws with, to compile before anyone walks in. */
+export const avatarMaterials = (): THREE.Material[] => [
+    mat('#808080'),
+    mat('#808080', 0.5),
+    meRingMat,
+    blobMat,
+];
+
 const geos = new Map<string, THREE.BufferGeometry>();
 /** Shared geometry by shape and size. */
 function geo(kind: string, ...a: number[]): THREE.BufferGeometry {
@@ -558,30 +580,27 @@ export default function Avatar({
         // biome-ignore lint/a11y/noStaticElementInteractions: a three.js group, not DOM
         <group
             ref={root}
+            // Hidden until its first frame places it, so its label doesn't flash at the origin.
+            visible={false}
             onClick={(e) => {
                 e.stopPropagation();
                 onClick?.();
             }}
         >
             {isMe ? (
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-                    <ringGeometry args={[0.32, 0.4, 24]} />
-                    <meshBasicMaterial
-                        color="#3b82f6"
-                        transparent
-                        opacity={0.8}
-                    />
-                </mesh>
-            ) : null}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-                <circleGeometry args={[0.24, 16]} />
-                <meshBasicMaterial
-                    color="#000000"
-                    transparent
-                    opacity={0.18}
-                    depthWrite={false}
+                <mesh
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    position={[0, 0.02, 0]}
+                    geometry={meRing}
+                    material={meRingMat}
                 />
-            </mesh>
+            ) : null}
+            <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[0, 0.01, 0]}
+                geometry={blob}
+                material={blobMat}
+            />
             <group scale={[S * wide, sy, S * wide]}>
                 <group ref={body}>
                     {leg(-1, legL, kneeL)}
