@@ -29,6 +29,8 @@ public sealed class Furni
     [Id(14)] public int Rot { get; set; }
     /// <summary>Who it belongs to (put up, bought, made).</summary>
     [Id(15)] public Guid? OwnerId { get; set; }
+    /// <summary>A catalogue model it's drawn as (ADR 0027), picked from its description; wins over <see cref="Model"/>.</summary>
+    [Id(16)] public string? Prefab { get; set; }
 }
 
 public static class FurniKinds

@@ -167,6 +167,8 @@ public sealed class FurniView
     [Id(12)] public int? TileX { get; set; }
     [Id(13)] public int? TileZ { get; set; }
     [Id(14)] public int Rot { get; set; }
+    /// <summary>Catalogue prefab name; null = drawn from its kind or <see cref="Model"/>.</summary>
+    [Id(15)] public string? Prefab { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.PlacesState")]
@@ -179,6 +181,8 @@ public sealed class PlacesState
     /// <summary>Per participant: "placeId:yyyy-MM-dd" for each local day they spent time there; last 7 days.</summary>
     [Id(3)] public Dictionary<Guid, List<string>> Visits { get; set; } = new();
     [Id(4)] public List<District> Districts { get; set; } = new();
+    /// <summary>Thing descriptions the catalogue had nothing for (newest last): what to curate next.</summary>
+    [Id(5)] public List<string> CatalogueMisses { get; set; } = new();
 }
 
 public static class PlaceKinds

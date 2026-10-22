@@ -265,4 +265,24 @@ describe('made and arranged', () => {
         expect(w.blocked.has('6,4')).toBe(true);
         expect(s.blocked.has('6,4')).toBe(false);
     });
+
+    it('draws a thing as its catalogue model when one was picked, over a generated model', () => {
+        const s = sceneFor(rooftop);
+        const placed = placeFurni(s, [
+            {
+                furniId: 'plant',
+                kind: 'decor',
+                style: 'plant',
+                tileX: 6,
+                tileZ: 4,
+                rot: 0,
+                prefab: 'k-potted-plant',
+                model: JSON.stringify({
+                    parts: [{ box: [0.5, 0.5, 0.5], c: '#f00' }],
+                }),
+            },
+        ]);
+        expect(placed[0].p).toBe('k-potted-plant');
+        expect(placed[0].prefab).toBe(PREFABS['k-potted-plant']);
+    });
 });

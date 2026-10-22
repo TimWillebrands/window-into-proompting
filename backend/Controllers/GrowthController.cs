@@ -38,6 +38,11 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
         return Ok(new GrowthReport(await growth.GetAutoAsync(), rows, opened));
     }
 
+    /// <summary>Thing descriptions the catalogue had no model for, newest first: what to curate next.</summary>
+    [HttpGet("catalogue-misses")]
+    public async Task<ActionResult<List<string>>> GetCatalogueMisses(Guid partyId)
+        => Ok(await grains.GetGrain<IPlacesGrain>(partyId).GetCatalogueMissesAsync());
+
     /// <summary>Author: open a Locale now, from its name's kit (or a given archetype).</summary>
     [HttpPost("open/{localeId:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

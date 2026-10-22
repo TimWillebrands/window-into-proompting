@@ -36,4 +36,6 @@ export interface FurniView {
     tileZ?: number | string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     rot?: number | string;
+    /** @nullable */
+    prefab?: string | null;
 }

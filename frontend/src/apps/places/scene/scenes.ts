@@ -437,6 +437,7 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
     for (const f of furni.filter(moved)) {
         const from = scene.props.find((p) => p.furniId === f.furniId);
         const name =
+            (f.prefab && PREFABS[f.prefab] ? f.prefab : undefined) ??
             from?.p ??
             (f.kind === 'decor' && f.style
                 ? (FURNI_PREFAB[f.style] ?? 'thing')
@@ -455,6 +456,15 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
         });
     }
     return placed.map((p) => {
+        // A catalogue model picked for this thing (ADR 0027) wins over its kind and a generated model.
+        const cat = byId.get(p.furniId ?? '')?.prefab;
+        if (cat && PREFABS[cat])
+            return {
+                ...p,
+                p: cat,
+                prefab: PREFABS[cat],
+                size: turned(PREFABS[cat].size ?? [1, 1], p.rot),
+            };
         const model = byId.get(p.furniId ?? '')?.model;
         const prefab = model ? modelPrefab(model) : null;
         return prefab

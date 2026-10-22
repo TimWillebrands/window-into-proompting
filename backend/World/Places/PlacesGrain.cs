@@ -604,7 +604,7 @@ public sealed partial class PlacesGrain(
         UseLabel = FurniRules.UseOf(f, now)?.Label,
         On = FurniRules.IsOn(f, now),
         Style = f.Style,
-        Model = f.Model, TileX = f.TileX, TileZ = f.TileZ, Rot = f.Rot,
+        Model = f.Model, TileX = f.TileX, TileZ = f.TileZ, Rot = f.Rot, Prefab = f.Prefab,
     };
 
     private static long NextMishapDelay()
@@ -952,6 +952,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor);
 
     [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
+
+    /// <summary>Thing descriptions the catalogue couldn't draw, newest first: the curation queue.</summary>
+    [Alias("GetCatalogueMissesAsync")] Task<List<string>> GetCatalogueMissesAsync();
 
     /// <summary>Resolve-or-create an offscreen Locale by name (ADR 0027); "work" for someone becomes their own. A drawn Place with that name wins.</summary>
     [Alias("LocaleAsync")] Task<Guid> LocaleAsync(string name, Guid? forParticipant);

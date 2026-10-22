@@ -42,4 +42,6 @@ export interface Furni {
     rot?: number | string;
     /** @nullable */
     ownerId?: string | null;
+    /** @nullable */
+    prefab?: string | null;
 }

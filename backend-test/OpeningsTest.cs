@@ -84,4 +84,24 @@ public partial class PlacesTest
         Assert.Equal(1, kinds.Count(k => k == PlaceKinds.Public));
         Assert.Equal(1, kinds.Count(k => k == PlaceKinds.Locale));
     }
+
+    [Fact]
+    public async Task AThing_ThatTheCatalogueHas_IsDrawnAsIt_AndAMissIsQueued()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
+
+        var plant = await places.AddThingAsync(cafe.Id, denise, "a big potted plant");
+        await places.AddThingAsync(cafe.Id, denise, "a poster of Lisbon at night");
+
+        string? prefab = null;
+        for (var i = 0; i < 50 && prefab is null; i++)
+        {
+            await Task.Delay(50);
+            prefab = (await places.GetSnapshotAsync()).Furni.Single(f => f.FurniId == plant!.FurniId).Prefab;
+        }
+        Assert.Equal("k-potted-plant", prefab);
+        Assert.Contains("a poster of Lisbon at night", await places.GetCatalogueMissesAsync());
+    }
 }

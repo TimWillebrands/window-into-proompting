@@ -124,6 +124,42 @@ public sealed partial class PlacesGrain
         return View(place, furni, now);
     }
 
+    public Task<List<string>> GetCatalogueMissesAsync()
+        => Task.FromResult(Enumerable.Reverse(state.State.CatalogueMisses).ToList());
+
+    private void NoteMiss(string description)
+    {
+        var misses = state.State.CatalogueMisses;
+        misses.Remove(description);
+        misses.Add(WorldStream.Clip(description, 120));
+        if (misses.Count > 40) misses.RemoveAt(0);
+    }
+
+    /// <summary>A catalogue model the description names; System One picks among close ones (or none), else the best word match.</summary>
+    private async Task<string?> FromCatalogueAsync(string description)
+    {
+        var candidates = CatalogueMatch.Candidates(description, CatalogueMatch.Catalogue);
+        if (candidates.Count == 0) return null;
+        if (!judge.Enabled) return candidates[0].Name;
+        try
+        {
+            var options = candidates.ToDictionary(c => c.Name, c => (string?)c.About);
+            options["none"] = "none of these is really it";
+            var answers = await judge.AskAsync($"Someone puts up or gets: \"{WorldStream.Clip(description, 200)}\"",
+                new Dictionary<string, Services.SystemOne.SystemOneQuestion>
+                {
+                    ["thing"] = new Services.SystemOne.ChoiceQuestion("Which of these models shows it best?", options),
+                }, CancellationToken.None);
+            var pick = answers.SampleChoice("thing", 0.2);
+            return pick is null or "none" ? null : pick;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Catalogue pick failed for {Thing}; using the best word match", description);
+            return candidates[0].Name;
+        }
+    }
+
     /// <summary>Author: make a thing's model again.</summary>
     public Task RemodelAsync(Guid placeId, string furniId)
     {
@@ -151,11 +187,20 @@ public sealed partial class PlacesGrain
         }
     }
 
-    /// <summary>One LLM call per thing: a few coloured primitives, cleaned to fit a tile. The kind's prefab stands in until (or unless) it lands.</summary>
+    /// <summary>The catalogue first (no LLM); otherwise one LLM call: a few coloured primitives, cleaned to fit a tile. The kind's prefab stands in until (or unless) it lands.</summary>
     private async Task ModelAsync(Guid placeId, string furniId, string description)
     {
         try
         {
+            if (await FromCatalogueAsync(description) is { } prefab)
+            {
+                if (Find(placeId) is not { } at || at.Furni.FirstOrDefault(f => f.Id == furniId) is not { } thing) return;
+                thing.Prefab = prefab;
+                await SaveAsync();
+                await PublishPlaceAsync(at);
+                return;
+            }
+            NoteMiss(description);
             var json = await llm.CompleteJsonAsync(JobComplexity.General, ThingModel.Prompt,
                 $"Make: {WorldStream.Clip(description, 200)}", CancellationToken.None, 0.7);
             var model = ThingModel.Clean(json);
