@@ -32,7 +32,7 @@ straight to its kit scene. The generated room is only for archetypes without one
    shows your District, your anchors and where your Ties are; other Districts collapse to one line. This
    comes before any growth, so prompts don't grow with the city.
 3. **Anchors.** A Participant's standing tie to a Locale: lives, works, studies, regular. "Works" is read from
-   the Occupation (ADR 0026), never stored twice. "Lives in" comes from the lived sheet. "Regular" comes from
+   the Occupation (ADR 0026), never stored twice. "Lives in" is read once per persona and moves their Home into that District. "Regular" comes from
    visit days.
 4. **Footfall.** Decaying pressure on a Locale, with a 3-day half-life:
 
