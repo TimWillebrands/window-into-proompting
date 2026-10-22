@@ -1,5 +1,6 @@
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
+import type { GrowthRow } from '../../api/model/growthRow';
 import type { Place } from '../../api/model/place';
 
 export const toMs = (v: number | string | null | undefined) =>
@@ -53,6 +54,24 @@ export function awayLines(bodies: Body[], places: Place[]): string[] {
         const where = at.name?.endsWith("'s work") ? '' : `, ${at.name}`;
         return [`${b.name} — ${b.awayAs ?? 'away'}${where}`];
     });
+}
+
+/** Footfall needed to open a Locale (backend FootfallMath.OpenAt). */
+export const OPEN_AT = 3;
+
+/** One Growing row: how close a Locale is to opening, and who's pulling. */
+export function growingSummary(row: GrowthRow) {
+    const footfall = Number(row.footfall);
+    const ready = !row.missing;
+    return {
+        name: row.district ? `${row.name} (${row.district})` : row.name,
+        share: Math.min(1, footfall / OPEN_AT),
+        ready,
+        note: ready
+            ? 'would open'
+            : `${Number(row.people)}p · ${Number(row.days)}d · ${row.missing}`,
+        who: row.contributors.join(', '),
+    };
 }
 
 /** Ordered for the Navigator: public Places first, then the viewer's Home. */

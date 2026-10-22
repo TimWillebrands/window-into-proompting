@@ -170,6 +170,25 @@ public sealed partial class PlacesGrain
         return $"You're {why}{where}{doing}. That's offscreen: nobody in the World sees you there, but your phone works.";
     }
 
+    /// <summary>Naming a Locale in talk is a little footfall (ADR 0027); generic workplaces don't count.</summary>
+    private void NoteMentions(Guid speakerId, string content)
+    {
+        foreach (var locale in state.State.Places.Where(p => p.Kind == PlaceKinds.Locale))
+            if (Mentioned(content, locale.Name))
+                _ = GrainFactory.GetGrain<Growth.IGrowthGrain>(PartyId).NoteAsync(locale.Id, speakerId, Growth.FootfallSources.Talk);
+    }
+
+    internal static bool Mentioned(string content, string localeName)
+    {
+        if (localeName == Elsewhere || localeName.EndsWith("'s work", StringComparison.Ordinal)) return false;
+        var key = localeName.StartsWith("the ", StringComparison.OrdinalIgnoreCase) ? localeName[4..] : localeName;
+        if (key.Length < 5) return false;
+        var at = content.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+        if (at < 0) return false;
+        var end = at + key.Length;
+        return (at == 0 || !char.IsLetterOrDigit(content[at - 1])) && (end == content.Length || !char.IsLetterOrDigit(content[end]));
+    }
+
     /// <summary>Seeded Places stored before ADR 0026 get their purpose and staff spots.</summary>
     private bool BackfillPurposes()
     {

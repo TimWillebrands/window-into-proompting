@@ -1,3 +1,4 @@
+using PartyTown.Grains;
 using PartyTown.World.Places;
 
 namespace BackendTest;
@@ -152,5 +153,29 @@ public partial class PlacesTest
         var known = await places.GetKnownPlacesAsync(pieter);
         Assert.Contains("the Café", known);
         Assert.Contains("the climbing gym (Zuid)", known);
+    }
+
+    [Fact]
+    public async Task NamingALocaleInTalk_AddsFootfall_OncePerDay()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var gym = await places.LocaleInAsync("the climbing gym", denise, "Zuid");
+        var dm = await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(denise, pieter);
+        var chat = _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id);
+
+        await chat.SendNewMessageAsync(denise, "back from the climbing gym, arms are dead", null, null);
+        await chat.SendNewMessageAsync(denise, "seriously, the climbing gym again tomorrow", null, null);
+        await chat.SendNewMessageAsync(pieter, "which climbing gym?", null, null);
+
+        var growth = _fx.GrainFactory.GetGrain<PartyTown.World.Growth.IGrowthGrain>(partyId);
+        List<PartyTown.World.Growth.FootfallReading> readings = new();
+        for (var i = 0; i < 50 && readings.FirstOrDefault()?.People != 2; i++)
+        {
+            await Task.Delay(100);
+            readings = await growth.GetReadingsAsync();
+        }
+        var reading = Assert.Single(readings);
+        Assert.Equal((gym, 2, 0.4), (reading.LocaleId, reading.People, reading.Footfall));
     }
 }

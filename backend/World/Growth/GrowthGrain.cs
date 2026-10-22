@@ -1,0 +1,72 @@
+using System.Globalization;
+
+namespace PartyTown.World.Growth;
+
+/// <summary>
+/// World growth ledger of one Party (key = Party id, ADR 0027): footfall signals on Locales and what they add up to.
+/// Dry run for now: it logs what would open and opens nothing.
+/// </summary>
+public sealed class GrowthGrain(
+    [PersistentState(stateName: "growth", storageName: "parties")]
+    IPersistentState<GrowthState> state,
+    TimeProvider time,
+    ILogger<GrowthGrain> logger)
+    : Grain, IGrowthGrain
+{
+    public async Task NoteAsync(Guid localeId, Guid participantId, string source)
+    {
+        var now = Now();
+        var signal = new FootfallSignal
+        {
+            LocaleId = localeId, ParticipantId = participantId, Source = source,
+            Weight = FootfallSources.WeightOf(source), At = now, Day = DayKey(),
+        };
+        if (FootfallMath.Duplicate(state.State.Signals, signal)) return;
+        state.State.Signals.RemoveAll(s => now - s.At > FootfallMath.Kept.TotalMilliseconds);
+        state.State.Signals.Add(signal);
+        DryRun(now);
+        await state.WriteStateAsync();
+    }
+
+    public Task<List<FootfallReading>> GetReadingsAsync() => Task.FromResult(FootfallMath.Read(state.State.Signals, Now()));
+
+    public Task<Dictionary<Guid, string>> GetWouldOpenAsync() => Task.FromResult(new Dictionary<Guid, string>(state.State.WouldOpen));
+
+    /// <summary>Log each Locale that passes all three gates, once a day.</summary>
+    private void DryRun(long now)
+    {
+        var today = DayKey();
+        foreach (var r in FootfallMath.Read(state.State.Signals, now).Where(r => r.Missing is null))
+        {
+            if (state.State.WouldOpen.GetValueOrDefault(r.LocaleId) == today) continue;
+            state.State.WouldOpen[r.LocaleId] = today;
+            logger.LogInformation("World growth (dry run): would open {Locale}: footfall {Footfall}, {People} people, {Days} days",
+                r.LocaleId, r.Footfall, r.People, r.Days);
+        }
+    }
+
+    private long Now() => time.GetUtcNow().ToUnixTimeMilliseconds();
+
+    private string DayKey() => time.GetLocalNow().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}
+
+[Alias("PartyTown.World.Growth.IGrowthGrain")]
+public interface IGrowthGrain : IGrainWithGuidKey
+{
+    /// <summary>One signal on a Locale from one Participant (<see cref="FootfallSources"/>); repeats within a day are ignored.</summary>
+    [Alias("NoteAsync")] Task NoteAsync(Guid localeId, Guid participantId, string source);
+
+    /// <summary>Every Locale with live footfall, strongest first, with the gate it's still missing.</summary>
+    [Alias("GetReadingsAsync")] Task<List<FootfallReading>> GetReadingsAsync();
+
+    /// <summary>Locales that passed all gates, with the day they last did (dry run).</summary>
+    [Alias("GetWouldOpenAsync")] Task<Dictionary<Guid, string>> GetWouldOpenAsync();
+}
+
+[GenerateSerializer, Alias("PartyTown.World.Growth.GrowthState")]
+public sealed class GrowthState
+{
+    [Id(0)] public List<FootfallSignal> Signals { get; set; } = new();
+    /// <summary>Locale id → last day it passed the gates.</summary>
+    [Id(1)] public Dictionary<Guid, string> WouldOpen { get; set; } = new();
+}

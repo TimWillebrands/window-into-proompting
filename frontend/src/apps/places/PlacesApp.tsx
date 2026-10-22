@@ -25,6 +25,7 @@ import type { Place } from '../../api/model/place';
 import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
+import GrowingPane from './GrowingPane';
 import PlaceCanvas from './iso/PlaceCanvas';
 import './places.css';
 import { lookOf } from './iso/appearance';
@@ -279,6 +280,7 @@ function Navigator({
                     ))}
                 </section>
             ) : null}
+            {allEars ? <GrowingPane /> : null}
             <label
                 className="pl-nav-foot"
                 title="Author view: hear Place talk beyond your Earshot, and build things"

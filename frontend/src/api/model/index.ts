@@ -41,6 +41,7 @@ export * from './getWorldsPartyIdActivitiesParams';
 export * from './getWorldsPartyIdMessengerParams';
 export * from './getWorldsPartyIdVoiceLinesParams';
 export * from './giftSummary';
+export * from './growthRow';
 export * from './idleRequest';
 export * from './inviteResidentRequest';
 export * from './jobComplexity';

@@ -5,6 +5,7 @@ import {
     awayLines,
     bodiesIn,
     canHear,
+    growingSummary,
     mayEnter,
     navigatorPlaces,
     occupancy,
@@ -117,5 +118,29 @@ describe('places-lib', () => {
             'Denise — at work, the office in Zuid',
             'Ana — at work',
         ]);
+    });
+
+    it('sums up a Locale on its way to opening', () => {
+        const row = {
+            localeId: 'g',
+            name: 'the climbing gym',
+            district: 'Zuid',
+            footfall: '1.5',
+            people: 1,
+            days: 3,
+            missing: 'needs 1 more person',
+            contributors: ['Ana'],
+            wouldOpenOn: null,
+        };
+        expect(growingSummary(row)).toEqual({
+            name: 'the climbing gym (Zuid)',
+            share: 0.5,
+            ready: false,
+            note: '1p · 3d · needs 1 more person',
+            who: 'Ana',
+        });
+        expect(growingSummary({ ...row, missing: null }).note).toBe(
+            'would open',
+        );
     });
 });

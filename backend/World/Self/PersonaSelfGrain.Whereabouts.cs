@@ -40,8 +40,12 @@ public sealed partial class PersonaSelfGrain
             var fixedWindows = await FixedWindowsAsync(partyId, personaId);
             state.State.Whereabouts.RemoveAll(w => fixedWindows.Any(f => w.Start < f.End && f.Start < w.End));
             var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
+            var growth = GrainFactory.GetGrain<Growth.IGrowthGrain>(partyId);
             foreach (var w in state.State.Whereabouts.Where(w => w.LocaleId is null))
+            {
                 w.LocaleId = await places.LocaleInAsync(w.Place, personaId, w.District);
+                await growth.NoteAsync(w.LocaleId.Value, personaId, Growth.FootfallSources.Day);
+            }
             await state.WriteStateAsync();
         }
         catch (Exception ex)

@@ -787,3 +787,22 @@
     font-size: 11px;
     color: #555;
 }
+
+.pl-grow {
+    display: grid;
+    grid-template-columns: 1fr 48px;
+    gap: 2px 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.pl-grow-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pl-grow-note {
+    grid-column: 1 / -1;
+    color: #666;
+}

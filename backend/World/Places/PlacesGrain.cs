@@ -86,6 +86,7 @@ public sealed partial class PlacesGrain(
     {
         if (e.Type != "message" || e.Message is not { } m || string.IsNullOrWhiteSpace(m.Content)) return;
         if (!state.State.Bodies.ContainsKey(m.SenderId)) return;
+        NoteMentions(m.SenderId, m.Content);
         if (!_rooms.TryGetValue(e.ChatGroupId, out var room))
         {
             foreach (var g in await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetChatGroups()) _rooms[g.Id] = g;
