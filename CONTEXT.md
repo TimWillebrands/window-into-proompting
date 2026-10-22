@@ -323,6 +323,37 @@ _Avoid_: custom room, user level.
 A named, reusable 3D thing built from coloured primitives (a sofa, a canal house, a herring cart), with seats, tints and a variant seed; Furni state can restyle it.
 _Avoid_: model, asset, mesh.
 
+### World growth
+
+See [ADR 0027](docs/adr/0027-world-growth-districts-locales-openings.md) (proposed). Rule: fidelity follows use; draw where people meet, not where people are mentioned.
+
+**Locale**:
+A named **Place** that exists only offscreen ("the office in Zuid", "Ana's work"): never drawn, no Place talk, not somewhere you walk to. A **Body** is *away* there (`AwayAs`: "at work") and comes back. Keeps its id when **Opened**.
+_Avoid_: elsewhere (that's the Life prompt's list of other Places), offscreen place, stub, location.
+
+**District**:
+A part of the city that holds **Places**; the old centre is the first. Walking within one is a minute; between Districts it's a tram ride.
+_Avoid_: zone, area, region, neighbourhood (fine in prose).
+
+**Anchor**:
+A **Participant**'s standing tie to a **Locale** or **Place**: lives, works, studies, regular. Read from the **Occupation**, the lived sheet and visit days; never stored twice.
+_Avoid_: home base, affiliation.
+
+**Footfall**:
+The decaying pressure on a **Locale** from anchors, Day beats and talk, capped per **Participant**. An **Opening** needs enough of it, from at least two people, over at least two days.
+_Avoid_: popularity, heat, score.
+
+**Opening**:
+A **Locale** becoming a drawn **Place**, at the lowest fidelity it has earned (sketched, kit-drawn, bespoke). Concrete plans (a Gathering there, the Player visiting) open it at once.
+_Avoid_: spawn, generate, promotion (taken: **Promotion**).
+
+**Kit**:
+A validated archetype scene (office, bar, shop, park…) a Place is drawn from by filling slots, not designed.
+_Avoid_: template (fine in prose), preset.
+
+**Dormant**:
+An opened **Place** that lost its **Footfall**: kept, but not foregrounded in Life.
+
 ### The Bench (development)
 
 Tooling vocabulary — these terms describe how Proompting is *developed*, not what it is. See [ADR 0011](docs/adr/0011-bench-probe-runner.md).
@@ -359,6 +390,8 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
 - A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant**.
 - A **Place talk** message has one **Earshot**.
+- A **Body** is in exactly one **Place**, which may be a **Locale** (then it's away).
+- A **Place** belongs to one **District**; an **Opening** turns a **Locale** into a drawn **Place** with the same id.
 - A **Persona**'s **Nature** is shared by all its **Participants**; each **Participant** has its own **Nurture**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
