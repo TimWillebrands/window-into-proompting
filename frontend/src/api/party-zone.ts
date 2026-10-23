@@ -30,6 +30,7 @@ import type {
     AppendStanceRequest,
     AppendStanceResponse,
     ArrangeRequest,
+    BoardRespectRequest,
     BoardThread,
     ChatGroupInfo,
     ConsolidationRunResponse,
@@ -21493,6 +21494,134 @@ export const usePostWorldsPartyIdBoardThreadIdReplies = <
 > => {
     return useMutation(
         getPostWorldsPartyIdBoardThreadIdRepliesMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdBoardThreadIdRespectResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdBoardThreadIdRespectResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdBoardThreadIdRespectResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+export type postWorldsPartyIdBoardThreadIdRespectResponseError = (
+    | postWorldsPartyIdBoardThreadIdRespectResponse404TextPlain
+    | postWorldsPartyIdBoardThreadIdRespectResponse404ApplicationJson
+    | postWorldsPartyIdBoardThreadIdRespectResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdBoardThreadIdRespectResponse =
+    postWorldsPartyIdBoardThreadIdRespectResponseError;
+
+export const getPostWorldsPartyIdBoardThreadIdRespectUrl = (
+    partyId: string,
+    threadId: string,
+) => {
+    return `/api/worlds/${partyId}/board/${threadId}/respect`;
+};
+
+export const postWorldsPartyIdBoardThreadIdRespect = async (
+    partyId: string,
+    threadId: string,
+    boardRespectRequest: BoardRespectRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdBoardThreadIdRespectResponse> => {
+    return customFetch<postWorldsPartyIdBoardThreadIdRespectResponse>(
+        getPostWorldsPartyIdBoardThreadIdRespectUrl(partyId, threadId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(boardRespectRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdBoardThreadIdRespectMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>,
+        TError,
+        { partyId: string; threadId: string; data: BoardRespectRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>,
+    TError,
+    { partyId: string; threadId: string; data: BoardRespectRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdBoardThreadIdRespect'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>,
+        { partyId: string; threadId: string; data: BoardRespectRequest }
+    > = (props) => {
+        const { partyId, threadId, data } = props ?? {};
+
+        return postWorldsPartyIdBoardThreadIdRespect(
+            partyId,
+            threadId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdBoardThreadIdRespectMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>
+>;
+export type PostWorldsPartyIdBoardThreadIdRespectMutationBody =
+    BoardRespectRequest;
+export type PostWorldsPartyIdBoardThreadIdRespectMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdBoardThreadIdRespect = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>,
+            TError,
+            { partyId: string; threadId: string; data: BoardRespectRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdBoardThreadIdRespect>>,
+    TError,
+    { partyId: string; threadId: string; data: BoardRespectRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdBoardThreadIdRespectMutationOptions(options),
         queryClient,
     );
 };

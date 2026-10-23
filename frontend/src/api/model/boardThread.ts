@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { BoardReply } from './boardReply';
+import type { BoardRespect } from './boardRespect';
 
 export interface BoardThread {
     id?: string;
@@ -17,4 +18,5 @@ export interface BoardThread {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     lastActivityAt?: number | string;
     replies?: BoardReply[];
+    respect?: BoardRespect[];
 }

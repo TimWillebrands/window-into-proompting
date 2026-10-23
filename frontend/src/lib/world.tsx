@@ -99,6 +99,36 @@ export const useWorldToasts = create<ToastStore>((set) => ({
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
+/** Respect! keys already toasted, so a re-published post doesn't toast twice. */
+const toastedRespect = new Set<string>();
+
+/** Respect! from others on the Player's own lines that just landed (last 30 s, not toasted yet). */
+function freshRespectFor(t: BoardThread, playerId: string | null) {
+    if (!playerId) return [];
+    const lines = [
+        { id: t.id, authorId: t.authorId, body: t.body, respect: t.respect },
+        ...(t.replies ?? []),
+    ];
+    return lines
+        .filter((l) => l.authorId === playerId)
+        .flatMap((l) =>
+            (l.respect ?? []).map((r) => ({
+                key: `${l.id}:${r.giverId}:${r.at}`,
+                giverId: r.giverId,
+                giverName: r.giverName ?? 'Someone',
+                at: Number(r.at ?? 0),
+                on: l.body,
+            })),
+        )
+        .filter(
+            (r) =>
+                r.giverId !== playerId &&
+                Date.now() - r.at < 30_000 &&
+                !toastedRespect.has(r.key) &&
+                toastedRespect.add(r.key),
+        );
+}
+
 const clip = (s: string | null | undefined, n: number) =>
     !s ? '' : s.length > n ? `${s.slice(0, n)}…` : s;
 
@@ -216,9 +246,18 @@ export function WorldRealtimeBridge() {
                     playerInThread
                 ) {
                     pushToast({
-                        title: `${last.authorName} replied on the Board`,
+                        title: `${last.authorName} replied on Partyboard`,
                         body: clip(last.body, 140),
                         icon: '📌',
+                        onOpen: () =>
+                            openWindow('board', { props: { threadId: t.id } }),
+                    });
+                }
+                for (const r of freshRespectFor(t, playerId)) {
+                    pushToast({
+                        title: `${r.giverName} gave you Respect!`,
+                        body: clip(r.on, 140),
+                        icon: '★',
                         onOpen: () =>
                             openWindow('board', { props: { threadId: t.id } }),
                     });

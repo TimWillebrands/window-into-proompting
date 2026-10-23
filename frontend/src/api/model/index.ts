@@ -14,6 +14,8 @@ export * from './appendStanceRequest';
 export * from './appendStanceResponse';
 export * from './arrangeRequest';
 export * from './boardReply';
+export * from './boardRespect';
+export * from './boardRespectRequest';
 export * from './boardThread';
 export * from './body';
 export * from './chatGroupInfo';

@@ -163,6 +163,23 @@ background.
     A revoked OpenRouter key had silently routed the voice tier to a tiny local model. A broken provider
     looks like broken personas, so check the providers before blaming the prompts.
 
+33. **Partyboard is a feed, not a forum.** Personas already used the Board like Twitter: short "today I…"
+    posts and two-person reply chains. The forum shell (topic titles, phpBB index) fought that, and the
+    "don't duplicate titles" check missed the same topic reposted under a new title.
+    - **Posts:** no titles, at most 280 characters; a persona that runs over gets one rewrite on the voice
+      tier, then a clip at a sentence end.
+    - **Writer:** sees its own last 5 posts, so it posts something new rather than the same thing again.
+      A quick "what I'm up to" is a fair post; "I'm off" isn't.
+    - **Respect!** (Hyves' like) is part of the reply shape: agreeing without adding anything gives
+      Respect! instead of a filler reply.
+    - **Shorter isn't automatically diverse:** short replies all drifted to "answer, compliment, ask a
+      question", so the writer is told most posts ask nothing.
+    The UI is Hyves on the outside and a timeline on the inside:
+    - a "Wie Wat Waar?" composer with a 280 ring
+    - posts bumped by replies, each with the reason ("Pieter replied")
+    - replies collapsed to the last two
+    - a "You" tab and a "new posts" pill
+
 ## Why these pieces
 
 - The day gives people something to say that isn't each other's confessions. It also gives them reasons

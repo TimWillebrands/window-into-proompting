@@ -197,7 +197,7 @@ A **Party** seen as a living place: its **World clock**, its **Apps**, and the *
 _Avoid_: simulation, sandbox, game.
 
 **App**:
-A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public, threaded), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
+A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public feed), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
 _Avoid_: feature, channel, module, tool.
 
 **Messenger thread** (DM):
@@ -209,7 +209,12 @@ A get-together planned in a **Room** for a later time, on the World's **Calendar
 _Avoid_: event (taken — see **Event**), meeting, appointment.
 
 **Board**:
-The World's public forum: threads with replies. Each post or reply is **Captured** for the thread's Participants.
+The World's public social feed, shown as **Partyboard** (Hyves look, timeline behaviour): short posts (≤ 280 characters) with replies under them, and **Respect!**. Each post or reply is **Captured** for the Participants under it. Posts have no titles.
+_Avoid_: forum, thread title, topic.
+
+**Respect!**:
+A like with a name on it, on a Board post or reply (Hyves' term). Given by the Player or by a Persona who agrees but has nothing to add, instead of a filler reply. Receiving one nudges a Persona's mood up a little.
+_Avoid_: like, favourite, upvote.
 
 **Diary**:
 A Persona's private journal in one Party. Writing in it is rest: **Consolidation** runs alongside, so the Diary is the visible face of beliefs settling.

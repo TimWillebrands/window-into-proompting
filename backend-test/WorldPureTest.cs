@@ -54,7 +54,8 @@ public class WorldPureTest
             ids => ids.Select(id => new ParticipantView(id, "p", DriverKind.LLM)).ToList());
 
         Assert.Equal(new[] { op, replier, op }, moment.Lines.Select(l => l.SenderId));
-        Assert.Contains("Lisp?", moment.Lines[0].Text);
+        Assert.Contains("Is it elegant?", moment.Lines[0].Text);
+        Assert.StartsWith("[Partyboard post]", moment.Lines[0].Text);
         Assert.Equal(2, moment.MarkIndex);
         Assert.Equal(MomentSources.Board, moment.Source);
         Assert.Equal(thread.Id, moment.ThreadId);

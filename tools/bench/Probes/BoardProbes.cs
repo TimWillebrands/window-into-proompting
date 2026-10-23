@@ -45,7 +45,7 @@ public static partial class BoardProbes
 
     private const string SameQuestion = "What's your favourite rainy-day ritual?";
 
-    [Probe("Board: fresh lived sheets → reply cases (should they pass?), new posts (status talk? DMs?), and all four on the same open question (do voices differ?). Needs BOARD_FIXTURE.")]
+    [Probe("Partyboard: fresh lived sheets → reply cases (should they pass?), new posts (status talk? DMs?), and all four on the same open question (do voices differ?). Needs BOARD_FIXTURE.")]
     public static async Task Board_ModalityAndVoice(Bench bench)
     {
         var ct = bench.Cancellation;
@@ -81,9 +81,10 @@ public static partial class BoardProbes
             var thread = Cut(full, c.Cut);
             var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice,
                 BoardApp.WriterSystem(WorldLlm.Identity(self), presence),
-                BoardApp.ReplyUser(BoardApp.Render(thread, self.Id), c.Intent, null), ct, 0.9, ["body"]);
-            var body = json is null ? "(model failed)" : BoardApp.ReplyBody(json) ?? "(pass)";
-            var verdict = body == "(pass)" ? "pass" : "reply";
+                BoardApp.ReplyUser(BoardApp.Render(thread, self.Id), c.Intent, null), ct, 0.9, ["body", "respect"]);
+            var body = json is null ? "(model failed)" : BoardApp.ReplyBody(json) ?? (BoardApp.GivesRespect(json) ? "(respect)" : "(pass)");
+            var verdict = body is "(pass)" or "(respect)" ? "pass" : "reply";
+            if (body.Length > BoardApp.MaxLength) Count("overCap");
             Count($"replies.expect:{c.Expect}.got:{verdict}");
             if (verdict == "reply" && StatusTalk().IsMatch(body)) Count("replies.statusTalk");
             bench.Observe($"reply · {c.Thread} @{c.Cut} · {c.Author} · expect {c.Expect}", new { c.Intent, body });
@@ -94,10 +95,11 @@ public static partial class BoardProbes
             if (!cast.TryGetValue(author, out var self)) continue;
             var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice,
                 BoardApp.WriterSystem(WorldLlm.Identity(self), presence),
-                BoardApp.PostUser(intent, null, fixture.Threads.Take(10).Select(t => t.Title)), ct, 0.9, ["title", "body"]);
-            var body = json?["body"]?.ToString() ?? "(model failed)";
+                BoardApp.PostUser(intent, null, BoardApp.OwnRecent(fixture.Threads, self.Id, now), BoardApp.OthersRecent(fixture.Threads, self.Id)), ct, 0.9, ["post"]);
+            var body = json?["post"]?.ToString() ?? "(model failed)";
+            if (body.Length > BoardApp.MaxLength) Count("overCap");
             if (StatusTalk().IsMatch(body)) Count("posts.statusTalk");
-            bench.Observe($"post · {author}", new { intent, title = json?["title"]?.ToString(), body });
+            bench.Observe($"post · {author}", new { intent, chars = body.Length, body });
         }
 
         var question = new BoardThread { Id = Guid.NewGuid(), AuthorId = Guid.NewGuid(), AuthorName = "Tim", Title = SameQuestion, Body = "It's pouring here. Mine is tea, a blanket and an old adventure game. What do you all do when the weather keeps you in?" };
@@ -106,7 +108,7 @@ public static partial class BoardProbes
         {
             var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice,
                 BoardApp.WriterSystem(WorldLlm.Identity(self), presence),
-                BoardApp.ReplyUser(BoardApp.Render(question, self.Id), "Answer Tim's question.", null), ct, 0.9, ["body"]);
+                BoardApp.ReplyUser(BoardApp.Render(question, self.Id), "Answer Tim's question.", null), ct, 0.9, ["body", "respect"]);
             answers[name] = json is null ? "(model failed)" : BoardApp.ReplyBody(json) ?? "(pass)";
         }
         bench.Observe("same question · side by side", answers);

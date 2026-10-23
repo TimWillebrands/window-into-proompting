@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { BoardRespect } from './boardRespect';
 
 export interface BoardReply {
     id?: string;
@@ -12,4 +13,5 @@ export interface BoardReply {
     body?: string;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     createdAt?: number | string;
+    respect?: BoardRespect[];
 }

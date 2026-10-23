@@ -18,8 +18,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     private BoardApp BoardApp => apps.OfType<BoardApp>().Single();
     private CalendarApp CalendarApp => apps.OfType<CalendarApp>().Single();
 
-    private const int MaxPostLength = 4000;
-
     [HttpGet]
     public async Task<ActionResult<WorldStatus>> GetStatus(Guid partyId)
         => Ok(await Clock(partyId).GetStatusAsync());
@@ -136,10 +134,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     [HttpPost("board")]
     public async Task<ActionResult<BoardThread>> CreatePost(Guid partyId, [FromBody] CreateBoardPostRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body) || request.Body.Length > MaxPostLength)
-            return BadRequest("Title and body are required (body ≤ 4000 chars).");
+        if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Trim().Length > BoardApp.MaxLength)
+            return BadRequest($"Body is required (≤ {BoardApp.MaxLength} chars).");
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
-        var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Title, request.Body, await ViewsOfAsync(partyId));
+        var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId));
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, outcome);
         return Ok(thread);
     }
@@ -147,13 +145,22 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     [HttpPost("board/{threadId:guid}/replies")]
     public async Task<ActionResult<BoardThread>> Reply(Guid partyId, Guid threadId, [FromBody] CreateBoardReplyRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Length > MaxPostLength)
-            return BadRequest("Body is required (≤ 4000 chars).");
+        if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Trim().Length > BoardApp.MaxLength)
+            return BadRequest($"Body is required (≤ {BoardApp.MaxLength} chars).");
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
-        if (await BoardApp.ReplyAsync(partyId, threadId, authorId, authorName, request.Body, await ViewsOfAsync(partyId)) is not { } done)
+        if (await BoardApp.ReplyAsync(partyId, threadId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId)) is not { } done)
             return NotFound();
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, done.Outcome);
         return Ok(done.Thread);
+    }
+
+    /// <summary>Give (or take back) Respect! on a post, or on one of its replies when <c>ReplyId</c> is set.</summary>
+    [HttpPost("board/{threadId:guid}/respect")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<BoardThread>> Respect(Guid partyId, Guid threadId, [FromBody] BoardRespectRequest request)
+    {
+        var (giverId, giverName) = await AuthorAsync(partyId, request.AuthorId);
+        return await BoardApp.RespectAsync(partyId, threadId, request.ReplyId, giverId, giverName, request.Given) is { } t ? Ok(t) : NotFound();
     }
 
     // ─── Messenger ────────────────────────────────────────────────────────────
@@ -278,7 +285,8 @@ public sealed record InviteResidentRequest(Guid PersonaId);
 public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
 public sealed record PlayerResponse(Guid PlayerId);
-public sealed record CreateBoardPostRequest(string Title, string Body, Guid? AuthorId);
+public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
+public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);
 public sealed record OpenDirectChatRequest(Guid WithPersonaId, Guid? FromPersonaId);
 public sealed record DirectChatSummary(Guid ChatGroupId, Guid WithId, string WithName, string? LastMessage, Guid? LastSenderId, long LastAt);

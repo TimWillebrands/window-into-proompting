@@ -6,7 +6,6 @@
  */
 
 export interface CreateBoardPostRequest {
-    title: string;
     body: string;
     /** @nullable */
     authorId: string | null;

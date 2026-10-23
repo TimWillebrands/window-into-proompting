@@ -37,7 +37,8 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         var threads = await _fx.GrainFactory.GetGrain<IBoardGrain>(partyId).GetThreadsAsync();
         var thread = Assert.Single(threads);
         Assert.Equal(denise, thread.AuthorId);
-        Assert.Equal("Scripted title", thread.Title);
+        Assert.Equal("Scripted post", thread.Body);
+        Assert.Equal("Scripted post", thread.Title);
     }
 
     [Fact]
@@ -143,7 +144,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     ["thought"] = "scripted thought", ["choice"] = number, ["intent"] = "say hello to everyone",
                 });
             }
-            return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["body"] = "Scripted body" });
+            return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["post"] = "Scripted post", ["body"] = "Scripted body", ["respect"] = "no" });
         }
     }
 

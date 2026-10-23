@@ -1,162 +1,282 @@
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    type ReactNode,
+    type RefObject,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { useGetWorldsPartyIdBoardSuspense } from '#api/party-zone';
 import { useDesktopStore } from '#lib/desktop-context';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { usePlayerId, usePlayerSession, WORLD_ID } from '../../lib/world';
-import { avatarUrl, ms, postCounts } from './board-lib';
-import NewTopicForm from './NewTopicForm';
-import ThreadList from './ThreadList';
-import ThreadView from './ThreadView';
+import {
+    avatarUrl,
+    involvesPlayer,
+    ms,
+    playerActivityAt,
+    sortFeed,
+    useBoardSeen,
+    useNow,
+} from './board-lib';
+import Composer from './Composer';
+import PostCard from './PostCard';
+import { useBoardActions } from './useBoardActions';
 import './board.css';
 
+/** Posts rendered before "show older posts". */
+const PAGE = 30;
+
 interface BoardAppProps {
-    /** Topic to show; set by toasts / World Monitor or by in-app navigation. */
+    /** Post to show; set by toasts / World Monitor. */
     threadId?: string;
+    /** Focus the composer on open. */
     compose?: boolean;
 }
 
-/** Partyboard: the World's asynchronous public forum, phpBB 2 style. */
+type Tab = 'timeline' | 'you';
+
+/** Partyboard: the World's social feed. Hyves on the outside, a timeline on the inside. */
 export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const { windowId } = useWindowInstance();
     const setWindowProps = useDesktopStore((s) => s.setWindowProps);
     const playerId = usePlayerId();
-    const playerName = usePlayerSession((s) => s.name);
+    const playerName = usePlayerSession((s) => s.name) ?? null;
     const { data } = useGetWorldsPartyIdBoardSuspense(WORLD_ID);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const { post, reply, respect } = useBoardActions(playerId, playerName);
+    const now = useNow();
     const rootRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const composerRef = useRef<HTMLTextAreaElement>(null);
     const width = useWidth(rootRef);
-    const size =
-        width <= 520 ? 'pb-narrow pb-tiny' : width <= 640 ? 'pb-narrow' : '';
+    const [tab, setTab] = useState<Tab>('timeline');
+    const [limit, setLimit] = useState(PAGE);
 
-    const threads = useMemo(
+    // Highlight against where you were when you opened the app; catch up when you leave.
+    const storedSince = useBoardSeen((s) => s.since);
+    const catchUp = useBoardSeen((s) => s.catchUp);
+    const [since] = useState(storedSince);
+    useEffect(() => () => catchUp(Date.now()), [catchUp]);
+
+    const threads = useMemo(() => sortFeed(data.data ?? []), [data.data]);
+    const yours = useMemo(
         () =>
-            [...(data.data ?? [])].sort(
-                (a, b) => ms(b.lastActivityAt) - ms(a.lastActivityAt),
+            threads.filter(
+                (t) =>
+                    involvesPlayer(t, playerId, playerName) ||
+                    playerActivityAt(t, playerId) > 0,
             ),
-        [data.data],
+        [threads, playerId, playerName],
     );
-    const counts = useMemo(() => postCounts(threads), [threads]);
-    const thread = threadId
-        ? threads.find((t) => t.id === threadId)
-        : undefined;
+    const unseenForYou = yours.filter(
+        (t) => playerActivityAt(t, playerId) > since,
+    ).length;
+    const names = useMemo(
+        () => [
+            ...new Set(
+                threads.flatMap((t) =>
+                    [
+                        t.authorName,
+                        ...(t.replies ?? []).map((r) => r.authorName),
+                    ]
+                        .filter((n): n is string => !!n)
+                        .map((n) => n.split(' ')[0]),
+                ),
+            ),
+        ],
+        [threads],
+    );
+    const feed = tab === 'you' ? yours : threads;
 
-    // View state lives in window props so it survives reloads with the desktop.
-    const go = (next: BoardAppProps) =>
-        setWindowProps(windowId, (p) => ({
-            ...p,
-            threadId: next.threadId,
-            compose: next.compose,
-        }));
-    const toIndex = () => go({});
-    const toThread = (id: string) => go({ threadId: id });
-    const toCompose = () => go({ compose: true });
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: scroll reset on navigation only
+    // "N new posts" pill: activity that arrived while you were scrolled down.
+    const [topSeenAt, setTopSeenAt] = useState(() =>
+        Math.max(0, ...threads.map((t) => ms(t.lastActivityAt))),
+    );
+    const [atTop, setAtTop] = useState(true);
+    const newest = Math.max(0, ...threads.map((t) => ms(t.lastActivityAt)));
     useEffect(() => {
-        scrollRef.current?.scrollTo({ top: 0 });
-    }, [threadId, compose]);
+        if (atTop) setTopSeenAt(newest);
+    }, [atTop, newest]);
+    const fresh = threads.filter(
+        (t) =>
+            ms(t.lastActivityAt) > topSeenAt &&
+            (t.replies?.at(-1)?.authorId ?? t.authorId) !== playerId,
+    ).length;
+
+    const toTop = () =>
+        scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Deep link: show it on the timeline, then let go so the window can be used normally.
+    const focusId =
+        threadId && threads.some((t) => t.id === threadId)
+            ? threadId
+            : undefined;
+    useEffect(() => {
+        if (!threadId) return;
+        setTab('timeline');
+        const t = window.setTimeout(
+            () =>
+                setWindowProps(windowId, (p) => ({
+                    ...p,
+                    threadId: undefined,
+                })),
+            2500,
+        );
+        return () => window.clearTimeout(t);
+    }, [threadId, setWindowProps, windowId]);
+    useEffect(() => {
+        if (!compose) return;
+        composerRef.current?.focus();
+        setWindowProps(windowId, (p) => ({ ...p, compose: undefined }));
+    }, [compose, setWindowProps, windowId]);
+    const shownLimit = Math.max(
+        limit,
+        feed.findIndex((t) => t.id === focusId) + 1,
+    );
 
     return (
         <div
             ref={rootRef}
-            className={`pb flex h-full min-h-0 flex-col ${size}`}
+            className={`pb flex h-full min-h-0 flex-col ${width <= 520 ? 'pb-narrow' : ''}`}
         >
-            <div className="pb-header flex items-center gap-3 px-3 py-2">
-                <button
-                    type="button"
-                    className="pb-link flex min-w-0 items-center gap-2"
-                    onClick={toIndex}
-                    title="Board index"
-                >
-                    <span style={{ fontSize: 26 }}>📌</span>
-                    <span className="flex min-w-0 flex-col items-start">
-                        <span className="pb-logo">
-                            Party<span>board</span>
-                        </span>
-                        <span className="pb-small pb-muted truncate">
-                            Where the World's personas think out loud
-                        </span>
-                    </span>
-                </button>
-                <div className="ml-auto flex shrink-0 items-center gap-2 pb-small">
-                    {playerId && (
-                        <img
-                            className="pb-avatar"
-                            src={avatarUrl(playerId, true, 24)}
-                            alt=""
-                            width={24}
-                            height={24}
-                        />
-                    )}
-                    <span className="pb-muted">
-                        Logged in as{' '}
-                        <b className="pb-player-name">{playerName ?? 'you'}</b>
-                    </span>
-                </div>
-            </div>
-
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-2.5">
-                <div className="pb-nav mb-2 truncate">
+            <header className="pb-header">
+                <div className="flex items-center gap-3 px-3 pt-2 pb-1.5">
                     <button
                         type="button"
-                        className="pb-link pb-nav"
-                        onClick={toIndex}
+                        className="pb-logo"
+                        onClick={() => {
+                            setTab('timeline');
+                            toTop();
+                        }}
+                        title="Back to the top"
                     >
-                        Partyboard Forum Index
+                        party<span>board</span>
                     </button>
-                    {compose && ' » Post a new topic'}
-                    {!compose && threadId && (
-                        <>
-                            {' » '}
-                            <span className="font-normal">
-                                {thread?.title ?? 'Topic not found'}
+                    <span className="pb-tagline truncate">
+                        what the World is up to
+                    </span>
+                    {playerId && (
+                        <span className="pb-me ml-auto">
+                            <img
+                                className="pb-avatar"
+                                src={avatarUrl(playerId, true, 24)}
+                                alt=""
+                                width={24}
+                                height={24}
+                            />
+                            <span className="truncate">
+                                {playerName ?? 'you'}
                             </span>
-                        </>
+                        </span>
                     )}
                 </div>
+                <nav className="pb-tabs" aria-label="Partyboard views">
+                    <TabButton
+                        active={tab === 'timeline'}
+                        onClick={() => setTab('timeline')}
+                    >
+                        Timeline
+                    </TabButton>
+                    <TabButton
+                        active={tab === 'you'}
+                        onClick={() => setTab('you')}
+                    >
+                        You
+                        {unseenForYou > 0 && (
+                            <span className="pb-tab-badge">{unseenForYou}</span>
+                        )}
+                    </TabButton>
+                </nav>
+            </header>
 
-                {compose ? (
-                    <NewTopicForm
-                        onCancel={toIndex}
-                        onCreated={toThread}
-                        playerId={playerId}
-                    />
-                ) : threadId && thread ? (
-                    <ThreadView
-                        key={threadId}
-                        thread={thread}
-                        playerId={playerId}
-                        counts={counts}
-                        onNewTopic={toCompose}
-                    />
-                ) : threadId ? (
-                    <div className="pb-info">
-                        <b>Information</b>
-                        <p className="my-2">
-                            The topic you requested does not exist.
-                        </p>
+            <div
+                ref={scrollRef}
+                className="relative min-h-0 flex-1 overflow-auto"
+                onScroll={(e) => setAtTop(e.currentTarget.scrollTop < 40)}
+            >
+                {fresh > 0 && !atTop && (
+                    <button type="button" className="pb-pill" onClick={toTop}>
+                        ↑ {fresh} new {fresh === 1 ? 'post' : 'posts'}
+                    </button>
+                )}
+                <div className="pb-column">
+                    <section className="pb-box">
+                        <h2 className="pb-box-title">Wie Wat Waar?</h2>
+                        <Composer
+                            playerId={playerId}
+                            textareaRef={composerRef}
+                            placeholder="What are you up to?"
+                            submitLabel="Post"
+                            onSubmit={async (body) => {
+                                await post(body);
+                                setTab('timeline');
+                                toTop();
+                            }}
+                        />
+                    </section>
+
+                    {feed.length === 0 ? (
+                        <div className="pb-empty">
+                            {tab === 'you'
+                                ? 'Nothing for you yet. Post something, reply to someone, or hand out a Respect!.'
+                                : 'Partyboard is quiet. Be the first to post something.'}
+                        </div>
+                    ) : (
+                        feed
+                            .slice(0, shownLimit)
+                            .map((t) => (
+                                <PostCard
+                                    key={t.id}
+                                    thread={t}
+                                    playerId={playerId}
+                                    now={now}
+                                    since={since}
+                                    names={names}
+                                    focused={t.id === focusId}
+                                    onReply={reply}
+                                    onRespect={(id, replyId, given) =>
+                                        void respect(id, replyId, given)
+                                    }
+                                />
+                            ))
+                    )}
+                    {feed.length > shownLimit && (
                         <button
                             type="button"
-                            className="pb-link"
-                            onClick={toIndex}
+                            className="pb-btn pb-older"
+                            onClick={() => setLimit(shownLimit + PAGE)}
                         >
-                            Return to the forum index
+                            Show older posts
                         </button>
-                    </div>
-                ) : (
-                    <ThreadList
-                        threads={threads}
-                        playerId={playerId}
-                        onOpen={toThread}
-                        onNewTopic={toCompose}
-                    />
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
-/** Element width; drives the narrow layouts (no container queries needed). */
+function TabButton({
+    active,
+    onClick,
+    children,
+}: {
+    active: boolean;
+    onClick: () => void;
+    children: ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            className={`pb-tab ${active ? 'pb-tab-on' : ''}`}
+            aria-current={active ? 'page' : undefined}
+            onClick={onClick}
+        >
+            {children}
+        </button>
+    );
+}
+
+/** Element width; drives the narrow layout (no container queries needed). */
 function useWidth(ref: RefObject<HTMLElement | null>) {
     const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
     useEffect(() => {
