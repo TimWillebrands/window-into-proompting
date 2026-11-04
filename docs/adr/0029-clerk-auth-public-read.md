@@ -1,4 +1,4 @@
-# 0028. Clerk auth: public read, signed-in write, owned Players
+# 0029. Clerk auth: public read, signed-in write, owned Players
 
 Date: 2026-11-04
 

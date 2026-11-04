@@ -43,7 +43,7 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 - **Grain storage JSON includes defaults** (configured in `Program.cs`). Don't remove that: `DriverKind.User == 0` and `IsEnabled=false` were silently dropped and resurrected by property initializers.
 - Vite listens on `[::1]:8080` only. Browser tools that resolve `localhost` to IPv4 may get stale or cached pages; use `http://[::1]:8080`.
 - Realtime is a custom raw-WebSocket hub (`PartyRealtimeHub`), not SignalR.
-- **Auth is closed by default** (ADR 0028): new endpoints need sign-in unless marked `[AllowAnonymous]`, and only GETs may be. Take the acting Participant from `Actors`, never from the request. New realtime payloads naming a Room must implement `IRoomFrame`.
+- **Auth is closed by default** (ADR 0029): new endpoints need sign-in unless marked `[AllowAnonymous]`, and only GETs may be. Take the acting Participant from `Actors`, never from the request. New realtime payloads naming a Room must implement `IRoomFrame`.
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
 
 ## Code style

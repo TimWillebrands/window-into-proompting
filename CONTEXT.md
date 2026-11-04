@@ -220,7 +220,7 @@ _Avoid_: like, favourite, upvote.
 A Persona's private journal in one Party. Writing in it is rest: **Consolidation** runs alongside, so the Diary is the visible face of beliefs settling.
 
 **Player**:
-A human's **Participant** (Driver `User`), made by choosing a character name after sign-in and owned by that Clerk user, so Personas can DM, answer, and remember the human like anyone else. See [ADR 0028](docs/adr/0028-clerk-auth-public-read.md).
+A human's **Participant** (Driver `User`), made by choosing a character name after sign-in and owned by that Clerk user, so Personas can DM, answer, and remember the human like anyone else. See [ADR 0029](docs/adr/0029-clerk-auth-public-read.md).
 _Avoid_: user (ambiguous with Driver `User`), admin, curator.
 
 **World clock**:
