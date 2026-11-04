@@ -38,6 +38,7 @@ import { type Built, build, type Placement } from './build';
 import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
 import { poseOf, round, targets, type Walk } from './motion';
+import { PIXEL_DPR, PIXEL_STYLE } from './pixel';
 import {
     type PlacedProp,
     pathIn,
@@ -73,8 +74,6 @@ interface Props {
     };
 }
 
-const PIXEL_KEY = 'places.pixel';
-
 const MIN_HEIGHT = 240;
 
 /** The 3D view of one Place (ADR 0023): scene from its map and prefabs, Bodies walking about, talk in bubbles. */
@@ -84,9 +83,6 @@ export default function PlaceScene(props: Props) {
     const wrap = useRef<HTMLDivElement>(null);
     const [width, setWidth] = useState(640);
     const [height, setHeight] = useState(MIN_HEIGHT);
-    const [pixel, setPixel] = useState(
-        () => localStorage.getItem(PIXEL_KEY) !== 'off',
-    );
     const [zoomBy, setZoomBy] = useState(1);
     const [recentre, setRecentre] = useState(0);
     const hour = useHour(props.hour);
@@ -125,14 +121,14 @@ export default function PlaceScene(props: Props) {
                 <Canvas
                     shadows="percentage"
                     flat
-                    dpr={pixel ? 0.5 : [1, 2]}
-                    gl={{ antialias: !pixel }}
+                    dpr={PIXEL_DPR}
+                    gl={{ antialias: false }}
                     // Checking every shader stalls on compile; worth it in dev only.
                     onCreated={({ gl }) => {
                         gl.debug.checkShaderErrors = import.meta.env.DEV;
                     }}
                     style={{
-                        imageRendering: pixel ? 'pixelated' : 'auto',
+                        ...PIXEL_STYLE,
                         cursor:
                             props.onSpotClick || props.arrange
                                 ? 'pointer'
@@ -185,22 +181,6 @@ export default function PlaceScene(props: Props) {
                             onClick={() => setRecentre((n) => n + 1)}
                         >
                             ⌖
-                        </button>
-                        <button
-                            type="button"
-                            className="pl-round"
-                            title="Pixel look on/off"
-                            onClick={() =>
-                                setPixel((p) => {
-                                    localStorage.setItem(
-                                        PIXEL_KEY,
-                                        p ? 'off' : 'on',
-                                    );
-                                    return !p;
-                                })
-                            }
-                        >
-                            {pixel ? '▦' : '▢'}
                         </button>
                     </div>
                 </div>
@@ -1246,7 +1226,7 @@ function useTrack(overlay: Overlay) {
     };
 }
 
-/** Names, talk bubbles and ❗ markers over the scene, as plain DOM (crisp in pixel mode). */
+/** Names, talk bubbles and ❗ markers over the scene, as plain DOM (crisp over the pixels). */
 function Labels({
     place,
     bodies,

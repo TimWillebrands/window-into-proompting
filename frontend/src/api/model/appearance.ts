@@ -26,4 +26,5 @@ export interface Appearance {
     design?: string | null;
     /** @nullable */
     summary?: string | null;
+    bodyType?: string;
 }

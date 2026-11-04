@@ -128,6 +128,7 @@ export function occlusion(
     s: Surface,
     field: Field,
     reach: number,
+    crotchY: number,
 ): Float32Array {
     const n = s.positions.length / 3;
     const out = new Float32Array(n);
@@ -140,6 +141,8 @@ export function occlusion(
         const nz = s.normals[i * 3 + 2];
         let shade = 0;
         for (const k of [0.5, 1]) {
+            // Legs are closer in the bind pose than they ever stand: the other one casts nothing.
+            if (y < crotchY && (x + nx * reach * k) * x < 0) continue;
             const d = field(
                 x + nx * reach * k,
                 y + ny * reach * k,

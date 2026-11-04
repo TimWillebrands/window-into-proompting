@@ -6199,6 +6199,9 @@
               "null",
               "string"
             ]
+          },
+          "bodyType": {
+            "type": "string"
           }
         }
       },

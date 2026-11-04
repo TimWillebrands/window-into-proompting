@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { BodyDoc } from './doc';
 import type { V3 } from './sdf';
-import { mix } from './sdf';
+import { mix, smooth } from './sdf';
 import bones from './skeleton.gen.json';
 
 export interface BoneRest {
@@ -32,15 +32,19 @@ export interface Proportions {
     armLen: number;
 }
 
+/** How much of an hourglass the curve slider really draws: under about 0.2 it's none at all. */
+export const curveOf = (b: BodyDoc) => smooth(0.2, 0.95, b.curve);
+
 export function proportions(b: BodyDoc): Proportions {
-    const H = BASE_HEIGHT * mix(0.92, 1.09, b.height);
+    const H = BASE_HEIGHT * mix(0.9, 1.1, b.height);
+    const c = curveOf(b);
     return {
         H,
         headH: H * mix(0.215, 0.265, b.head),
-        hipY: H * mix(0.43, 0.5, b.legs),
+        hipY: H * mix(0.4, 0.53, b.legs),
         neckY: H * 0.71,
-        shoulderX: H * mix(0.092, 0.122, b.shoulders),
-        hipX: H * mix(0.042, 0.058, b.hips),
+        shoulderX: H * mix(0.082, 0.14, b.shoulders) * mix(1.1, 0.95, c),
+        hipX: H * mix(0.034, 0.058, b.hips) * mix(0.94, 1.12, c),
         armLen: H * 0.325,
     };
 }
@@ -78,7 +82,7 @@ export function poseFor(b: BodyDoc): Posed {
     const spineScale = (p.neckY - p.hipY) / (1.488 - hipRig);
     const neckScale = (p.H - p.headH * 0.86 - p.neckY) / (1.569 - 1.488);
     const armScale = p.armLen / 0.547;
-    const handScale = (p.H / RIG_HEIGHT) * 0.92;
+    const handScale = (p.H / RIG_HEIGHT) * 0.92 * mix(1.12, 0.96, curveOf(b));
     const t = BONES.map((bone) => {
         const s = {
             leg: legScale,

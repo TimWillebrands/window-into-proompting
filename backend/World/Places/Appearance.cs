@@ -25,6 +25,7 @@ public sealed class Appearance
     [Id(16)] public string? Design { get; set; }
     /// <summary>One plain line of what you'd notice; gone once a pick outdates it.</summary>
     [Id(17)] public string? Summary { get; set; }
+    [Id(18)] public string BodyType { get; set; } = "straight";
 }
 
 /// <summary>One choosable part of a look, for editors and prompts.</summary>
@@ -44,6 +45,7 @@ public static class AppearanceRules
     public static readonly string[] Legwears = { "none", "knee-socks", "striped-socks", "tights", "fishnets" };
     public static readonly string[] FacialHairs = { "none", "stubble", "beard", "moustache" };
     public static readonly string[] Builds = { "slim", "average", "broad" };
+    public static readonly string[] BodyTypes = { "straight", "athletic", "lanky", "stocky", "heavyset", "pear", "hourglass" };
     public static readonly string[] Heights = { "short", "average", "tall" };
     public static readonly string[] EyeColours = { "dark", "brown", "blue", "green", "grey" };
 
@@ -62,6 +64,7 @@ public static class AppearanceRules
         new("shoes", "Shoe colour", Colours),
         new("legwear", "Legwear", Legwears),
         new("accessory", "Extra", Accessories),
+        new("bodyType", "Body type", BodyTypes),
         new("build", "Build", Builds),
         new("height", "Height", Heights),
     };
@@ -82,6 +85,7 @@ public static class AppearanceRules
             BottomStyle = BottomStyles[b[10] % 4],
             Shoes = new[] { "black", "brown", "white", "grey", "navy" }[b[11] % 5],
             Build = Builds[b[12] % Builds.Length],
+            BodyType = BodyTypes[b[15] % BodyTypes.Length],
             Height = Heights[b[13] % Heights.Length],
             Eyes = EyeColours[b[14] % EyeColours.Length],
         };
@@ -102,6 +106,7 @@ public static class AppearanceRules
         "legwear" => a.Legwear,
         "facialHair" => a.FacialHair,
         "build" => a.Build,
+        "bodyType" => a.BodyType,
         "height" => a.Height,
         "eyes" => a.Eyes,
         _ => string.Empty,
@@ -130,6 +135,7 @@ public static class AppearanceRules
             Shoes = Pick("shoes"),
             FacialHair = Pick("facialHair"),
             Build = Pick("build"),
+            BodyType = Pick("bodyType"),
             Height = Pick("height"),
             Eyes = Pick("eyes"),
             ShoeStyle = Pick("shoeStyle"),

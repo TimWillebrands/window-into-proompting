@@ -312,6 +312,10 @@ _Avoid_: avatar, sprite, skin (as a whole).
 How a Body is drawn in 3D: a doll compiled from a document of numbers, names, colours, SVG and blobs. See [ADR 0028](docs/adr/0028-figures-as-documents.md).
 _Avoid_: avatar (fine for the React component), model, character.
 
+**Body type**:
+The shape of a **Figure**: straight, athletic, lanky, stocky, heavyset, pear or hourglass. A palette pick that sets its sliders; build then says how much of it there is. Not a gender.
+_Avoid_: gender, sex, build (that's the amount, not the shape).
+
 **Design**:
 The LLM-written part of an **Appearance**, slot by slot: body, face, hair, clothes, extras, stance, moves. Goes beyond the palette; a palette pick replaces the slots it touches.
 _Avoid_: outfit (it covers the body too), skin, preset.

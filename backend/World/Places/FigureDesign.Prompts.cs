@@ -14,7 +14,12 @@ public static partial class FigureDesign
     private const string Schema = """
         Numbers are 0..1 unless given otherwise; 0.5 is average. Colours are "#rrggbb". Leave out any optional field you don't need.
 
-        body: {skin, height, build, curve (0 straight, 1 hourglass), shoulders, hips, legs, head}
+        body: {skin, height, build (how much of them there is), curve, shoulders, hips, legs, head, muscle, belly}
+          Bodies differ as much as people do, so don't default to slim or curvy. curve is a feminine hourglass, not "average": 0.1 flat and straight, 0.35 a little shape, 0.7 curvy, 1 full hourglass. Most men sit under 0.2, and plenty of women do too.
+          Start from their picks bodyType, then adjust:
+          straight {curve 0.2, shoulders 0.6, hips 0.4}, athletic {curve 0.1, shoulders 1, hips 0.3, muscle 0.9}, lanky {curve 0.15, shoulders 0.45, hips 0.25, legs 1, build 0.2, height 0.8},
+          stocky {curve 0.2, shoulders 0.8, hips 0.6, legs 0.1, muscle 0.6, belly 0.45, build 0.65, height 0.25}, heavyset {curve 0.3, shoulders 0.65, hips 0.75, belly 1, build 0.75},
+          pear {curve 0.62, shoulders 0.25, hips 1, belly 0.2}, hourglass {curve 0.95, shoulders 0.5, hips 0.7}.
         face: {shape (0 round, 1 long), jaw, nose, ears,
           eyes: {shape: round|almond|cat|droopy|wide, size, iris, liner (eyeliner weight), wing, linerColor, shadow?},
           brows: {color, weight, arch, slit?: true},
@@ -51,9 +56,9 @@ public static partial class FigureDesign
     private const string Example = """
         A scene kid, for scale (invent your own, don't copy it):
         {"picks": {"skin": "fair", "hair": "black", "hairStyle": "scene", "eyes": "blue", "facialHair": "none", "topStyle": "band-tee", "top": "black", "bottomStyle": "plaid-skirt", "bottom": "black",
-          "shoeStyle": "platforms", "shoes": "black", "legwear": "striped-socks", "accessory": "studded-belt", "build": "slim", "height": "short"},
+          "shoeStyle": "platforms", "shoes": "black", "legwear": "striped-socks", "accessory": "studded-belt", "bodyType": "lanky", "build": "slim", "height": "short"},
          "summary": "Black and pink scene hair over one eye, a broken-heart tee, plaid skirt, striped socks and platforms.",
-         "design": {"body": {"skin": "#f0cdb4", "height": 0.4, "build": 0.3, "curve": 0.6, "shoulders": 0.35, "hips": 0.5, "legs": 0.6, "head": 0.5},
+         "design": {"body": {"skin": "#f0cdb4", "height": 0.4, "build": 0.25, "curve": 0.25, "shoulders": 0.4, "hips": 0.35, "legs": 0.8, "head": 0.5, "muscle": 0.1, "belly": 0},
           "face": {"shape": 0.4, "jaw": 0.3, "nose": 0.3, "ears": 0.4, "eyes": {"shape": "cat", "size": 0.8, "iris": "#3e8fb0", "liner": 0.9, "wing": 0.7, "linerColor": "#120c14"},
             "brows": {"color": "#1b1418", "weight": 0.35, "arch": 0.7}, "mouth": {"width": 0.45, "lips": 0.6, "color": "#c2415e", "set": 0.2}, "blush": "#ff7fa0", "piercings": ["snakebites"]},
           "hair": {"color": "#141016", "cap": 1, "zones": [

@@ -66,6 +66,8 @@ export interface Look {
     legwear: string;
     facialHair: string;
     build: string;
+    /** straight, athletic, lanky, stocky, heavyset, pear, hourglass. */
+    bodyType: string;
     height: string;
     eyes: string;
     /** What the LLM designed, slot by slot, over the palette picks. */
@@ -99,6 +101,7 @@ export const lookOf = (
     legwear: a?.legwear ?? 'none',
     facialHair: a?.facialHair ?? 'none',
     build: a?.build ?? 'average',
+    bodyType: a?.bodyType ?? 'straight',
     height: a?.height ?? 'average',
     eyes: EYES[a?.eyes ?? ''] ?? EYES.dark,
     design: designOf(a),

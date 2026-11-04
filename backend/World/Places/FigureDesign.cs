@@ -47,6 +47,7 @@ public static partial class FigureDesign
         ["shoes"] = new[] { "shoes" },
         ["skin"] = new[] { "body" },
         ["build"] = new[] { "body" },
+        ["bodyType"] = new[] { "body" },
         ["height"] = new[] { "body" },
         ["eyes"] = new[] { "face" },
         ["facialHair"] = new[] { "face" },
@@ -168,11 +169,13 @@ public static partial class FigureDesign
         ["skin"] = Colour(o["skin"], "#f1c9a5"),
         ["height"] = Unit(o["height"]),
         ["build"] = Unit(o["build"]),
-        ["curve"] = Unit(o["curve"]),
+        ["curve"] = Unit(o["curve"], 0.2),
         ["shoulders"] = Unit(o["shoulders"]),
         ["hips"] = Unit(o["hips"]),
         ["legs"] = Unit(o["legs"]),
         ["head"] = Unit(o["head"]),
+        ["muscle"] = Unit(o["muscle"], 0.3),
+        ["belly"] = Unit(o["belly"], 0.1),
     };
 
     private static JsonObject Face(JsonObject o)

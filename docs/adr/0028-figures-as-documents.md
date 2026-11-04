@@ -31,7 +31,12 @@ document in exactly those terms, and the client compiles it to a skinned mesh.
   `tools/figure/bake-rig.mjs`. The Figure is built around that skeleton, so clips apply unchanged at any proportions. The mesh is bound
   in an A-pose for better shoulders; clips keep their T rest.
 - **Look: big-headed fashion doll.** About 1:4.2 head to body, because faces must read at 80 px. Toon ramp, baked occlusion from the
-  fields, gloss, and a screen-space ink line that gives pixel mode its Habbo edge.
+  fields, gloss, and a screen-space ink line that gives the pixel look its Habbo edge. Everything is drawn at one detail level, because
+  at half resolution finer meshes and fingers don't show.
+- **Bodies differ on purpose.** Seven body types (straight, athletic, lanky, stocky, heavyset, pear, hourglass) are palette picks that
+  set the sliders, and the LLM adjusts from there. An hourglass has to be asked for: `curve` draws nothing under about 0.2, a bust
+  only from about 0.3, and thigh width follows the hip line. Left at fixed radii, every body drifted to an hourglass. LLMs read
+  `curve` 0.5 as "average", so the prompt spells out what it means.
 - **`Appearance` keeps its palette picks and gains `Design`.** Picks still drive shops, prompts and the 2D fallback, and every palette
   value has a recipe in `dress.ts`. `Design` lays over them slot by slot (body, face, hair, top, under, outer, bottom, legwear, shoes,
   extras, stance, moves). A pick replaces the slots it touches, so buying a hoodie takes the designed top off. A dye keeps the cut.

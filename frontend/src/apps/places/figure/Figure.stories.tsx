@@ -10,10 +10,12 @@ import DressingRoom from '../../wardrobe/DressingRoom';
 import { type Look, lookOf as paletteLook } from '../iso/appearance';
 import Avatar, { type AvatarState } from '../scene/Avatar';
 import PlaceScene from '../scene/PlaceScene';
+import { PIXEL_DPR, PIXEL_STYLE } from '../scene/pixel';
 import type { SceneDef } from '../scene/scene';
 import type { FigureDoc } from './doc';
 import { EXTRAS, figureDoc, HAIR } from './dress';
 import { SAMPLES } from './samples';
+import bodyAnswers from './samples.bodies.llm.json';
 import designed from './samples.llm.json';
 
 const LOOK: Look = {
@@ -30,6 +32,7 @@ const LOOK: Look = {
     legwear: 'none',
     facialHair: 'none',
     build: 'average',
+    bodyType: 'straight',
     height: 'average',
     eyes: '#1d1d1d',
 };
@@ -46,7 +49,6 @@ function Person({
     x,
     turn,
     hangout,
-    close,
     talking,
     phone,
     moving,
@@ -56,7 +58,6 @@ function Person({
     x: number;
     turn: number;
     hangout: string | null;
-    close: boolean;
     talking?: boolean;
     phone?: boolean;
     moving?: boolean;
@@ -90,7 +91,7 @@ function Person({
     );
     return (
         <group position={[x, 0, 0]} rotation={[0, moving ? 0 : turn, 0]}>
-            <Avatar look={look} isMe={false} state={state} close={close} />
+            <Avatar look={look} isMe={false} state={state} />
         </group>
     );
 }
@@ -104,7 +105,6 @@ function Aim({ y }: { y: number }) {
 }
 
 interface LineupProps {
-    close: boolean;
     turn: number;
     hangout?: string | null;
     portrait?: boolean;
@@ -140,7 +140,8 @@ function Sheet({
         >
             <Canvas
                 flat
-                dpr={1}
+                dpr={PIXEL_DPR}
+                style={PIXEL_STYLE}
                 orthographic
                 camera={{ position: [0, 1.2, distance], zoom: 200 }}
             >
@@ -157,13 +158,7 @@ function Sheet({
                             0,
                         ]}
                     >
-                        <Person
-                            doc={d}
-                            x={0}
-                            turn={0.35}
-                            hangout={null}
-                            close={false}
-                        />
+                        <Person doc={d} x={0} turn={0.35} hangout={null} />
                     </group>
                 ))}
             </Canvas>
@@ -172,10 +167,16 @@ function Sheet({
 }
 
 /** Real answers to the production prompt, from models that saw nothing else, through the production path. */
-function Designed({ turn = 0.35 }: { turn?: number }) {
+function Designed({
+    turn = 0.35,
+    answers = designed,
+}: {
+    turn?: number;
+    answers?: typeof designed;
+}) {
     const docs = useMemo(
         () =>
-            designed.map((d) => ({
+            answers.map((d) => ({
                 id: d.id,
                 doc: figureDoc(
                     paletteLook(
@@ -187,14 +188,15 @@ function Designed({ turn = 0.35 }: { turn?: number }) {
                     ),
                 ),
             })),
-        [],
+        [answers],
     );
     return (
         <div style={{ width: 1400, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
                 shadows="percentage"
-                dpr={1}
+                dpr={PIXEL_DPR}
+                style={PIXEL_STYLE}
                 camera={{ position: [0, 1, 5.6], fov: 26 }}
             >
                 <color attach="background" args={['#3d3350']} />
@@ -212,7 +214,6 @@ function Designed({ turn = 0.35 }: { turn?: number }) {
                         x={(i - (docs.length - 1) / 2) * 0.78}
                         turn={turn}
                         hangout={null}
-                        close
                     />
                 ))}
                 <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -223,6 +224,73 @@ function Designed({ turn = 0.35 }: { turn?: number }) {
         </div>
     );
 }
+
+const BODY_TYPES = [
+    'straight',
+    'athletic',
+    'lanky',
+    'stocky',
+    'heavyset',
+    'pear',
+    'hourglass',
+];
+
+const bodyLooks = [
+    ...BODY_TYPES.map((bodyType) => ({
+        bodyType,
+        topStyle: 'tank',
+        bottomStyle: 'shorts',
+        hairStyle: 'buzz',
+    })),
+    ...BODY_TYPES.map((bodyType, i) => ({
+        bodyType,
+        topStyle: [
+            'tshirt',
+            'hoodie',
+            'band-tee',
+            'flannel',
+            'shirt',
+            'sweater',
+            'dress',
+        ][i],
+        bottomStyle: [
+            'jeans',
+            'baggy-jeans',
+            'skinny-jeans',
+            'cargo',
+            'trousers',
+            'skirt',
+            'jeans',
+        ][i],
+        hairStyle: [
+            'short',
+            'fringe',
+            'spiky',
+            'curly',
+            'undercut',
+            'long',
+            'bob',
+        ][i],
+        hair: [
+            '#5a3a22',
+            '#1f1b18',
+            '#e3c36b',
+            '#b2462a',
+            '#1f1b18',
+            '#5a3a22',
+            '#e57fb0',
+        ][i],
+        skin: [
+            '#f1c9a5',
+            '#9a6440',
+            '#f6d7bf',
+            '#c68c5d',
+            '#5e3b24',
+            '#d6a77a',
+            '#f1c9a5',
+        ][i],
+    })),
+];
 
 const hairLooks = Object.keys(HAIR).map((hairStyle, i) => ({
     hairStyle,
@@ -285,7 +353,6 @@ const extraLooks = Object.keys(EXTRAS).map((accessory, i) => ({
 }));
 
 function Lineup({
-    close,
     turn,
     hangout = null,
     portrait = false,
@@ -299,7 +366,8 @@ function Lineup({
             <Canvas
                 flat
                 shadows="percentage"
-                dpr={1}
+                dpr={PIXEL_DPR}
+                style={PIXEL_STYLE}
                 camera={
                     portrait
                         ? { position: [0, 1.3, 4], fov: 11 }
@@ -321,7 +389,6 @@ function Lineup({
                         x={(i - (SAMPLES.length - 1) / 2) * 0.85}
                         turn={turn}
                         hangout={hangout}
-                        close={close}
                         talking={talking}
                         phone={phone}
                         moving={moving}
@@ -345,33 +412,29 @@ const meta: Meta<typeof Lineup> = {
 export default meta;
 type Story = StoryObj<typeof Lineup>;
 
-export const Close: Story = { args: { close: true, turn: 0.35 } };
-export const Scene: Story = { args: { close: false, turn: 0.35 } };
+export const Front: Story = { args: { turn: 0.35 } };
 export const Portrait: Story = {
-    args: { close: true, turn: 0.3, portrait: true },
+    args: { turn: 0.3, portrait: true },
 };
-export const Back: Story = { args: { close: true, turn: 3.5 } };
-export const Walk: Story = { args: { close: true, turn: 0.9, moving: true } };
-export const Talk: Story = { args: { close: true, turn: 0.4, talking: true } };
-export const Phone: Story = { args: { close: true, turn: 0.4, phone: true } };
-export const Sit: Story = { args: { close: true, turn: 0.9, seat: 0.45 } };
-export const SitScene: Story = {
-    args: { close: false, turn: 0.9, seat: 0.45 },
-};
+export const Back: Story = { args: { turn: 3.5 } };
+export const Walk: Story = { args: { turn: 0.9, moving: true } };
+export const Talk: Story = { args: { turn: 0.4, talking: true } };
+export const Phone: Story = { args: { turn: 0.4, phone: true } };
+export const Sit: Story = { args: { turn: 0.9, seat: 0.45 } };
 export const Pose: Story = {
-    args: { close: true, turn: 0.5, hangout: 'think' },
+    args: { turn: 0.5, hangout: 'think' },
 };
 export const Lean: Story = {
-    args: { close: true, turn: 0.5, hangout: 'lean' },
+    args: { turn: 0.5, hangout: 'lean' },
 };
 export const Wave: Story = {
-    args: { close: true, turn: 0.3, hangout: 'wave' },
+    args: { turn: 0.3, hangout: 'wave' },
 };
 export const CrossLegged: Story = {
-    args: { close: true, turn: 0.5, hangout: 'cross-legged' },
+    args: { turn: 0.5, hangout: 'cross-legged' },
 };
 export const Dance: Story = {
-    args: { close: true, turn: 0.5, hangout: 'dance' },
+    args: { turn: 0.5, hangout: 'dance' },
 };
 
 const lounge: Omit<SceneDef, 'id'> = {
@@ -437,11 +500,7 @@ const bodies: Body[] = [
     body(6, 'sofa', { posture: 'Sitting' }),
 ];
 
-function Room({ pixel, hour = 13 }: { pixel: boolean; hour?: number }) {
-    useMemo(
-        () => localStorage.setItem('places.pixel', pixel ? 'on' : 'off'),
-        [pixel],
-    );
+function Room({ hour = 13 }: { hour?: number }) {
     return (
         <div
             style={{
@@ -463,6 +522,9 @@ function Room({ pixel, hour = 13 }: { pixel: boolean; hour?: number }) {
     );
 }
 
+export const BodyTypes: StoryObj<typeof Sheet> = {
+    render: () => <Sheet looks={bodyLooks} columns={7} />,
+};
 export const Hairstyles: StoryObj<typeof Sheet> = {
     render: () => <Sheet looks={hairLooks} />,
 };
@@ -472,6 +534,11 @@ export const Accessories: StoryObj<typeof Sheet> = {
 
 export const LlmDesigned: StoryObj<typeof Designed> = {
     render: () => <Designed />,
+};
+export const LlmBodies: StoryObj<typeof Designed> = {
+    render: () => (
+        <Designed answers={bodyAnswers as unknown as typeof designed} />
+    ),
 };
 export const LlmDesignedBack: StoryObj<typeof Designed> = {
     render: () => <Designed turn={3.4} />,
@@ -495,11 +562,8 @@ export const FittingRoom: StoryObj<typeof DressingRoom> = {
 };
 
 export const InTheRoom: StoryObj<typeof Room> = {
-    render: () => <Room pixel={false} />,
+    render: () => <Room />,
 };
 export const InTheRoomAtNight: StoryObj<typeof Room> = {
-    render: () => <Room pixel={false} hour={22} />,
-};
-export const InTheRoomPixel: StoryObj<typeof Room> = {
-    render: () => <Room pixel />,
+    render: () => <Room hour={22} />,
 };

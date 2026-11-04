@@ -5,12 +5,14 @@ import {
     type Field,
     Loft,
     mix,
+    sint,
     smin,
+    smooth,
     sphere,
     ssub,
     type V3,
 } from './sdf';
-import { joint, type Posed } from './skeleton';
+import { curveOf, joint, type Posed } from './skeleton';
 
 export interface Anatomy {
     H: number;
@@ -36,66 +38,58 @@ export interface Anatomy {
     handR: Field;
     /** Softness of cut edges: a hem can't be crisper than the grid it's sampled on. */
     soft: number;
+    crotchY: number;
+    /** Cuts a field apart below the crotch: legs fused in the mesh stretch into webs when they part. */
+    apart: (d: number, x: number, y: number, depth?: number) => number;
     /** Where the elbow sits on the arm, the knee on the leg (0..1). */
     elbow: number;
     knee: number;
     waistT: number;
 }
 
-/** Blended solid of a chest, with a bust and a seat. */
+/** Blended solid of a chest, with a seat, and a bust only on a body that has one. */
 function torsoField(torso: Loft, body: BodyDoc, H: number): Field {
-    const c = body.curve;
+    const c = curveOf(body);
+    const bust = smooth(0.3, 0.9, body.curve);
     const bustY = torso.at(0.72)[1];
-    const r = (0.03 + c * 0.012) * H;
+    const r = (0.024 + bust * 0.018) * H;
     const bustL = ellipsoid(
-        [0.04 * H, bustY, 0.03 * H + c * 0.012 * H],
-        [r, r * 0.9, r * (0.55 + c * 0.35)],
+        [0.04 * H, bustY, 0.03 * H + bust * 0.012 * H],
+        [r, r * 0.9, r * (0.55 + bust * 0.35)],
     );
     const bustR = ellipsoid(
-        [-0.04 * H, bustY, 0.03 * H + c * 0.012 * H],
-        [r, r * 0.9, r * (0.55 + c * 0.35)],
+        [-0.04 * H, bustY, 0.03 * H + bust * 0.012 * H],
+        [r, r * 0.9, r * (0.55 + bust * 0.35)],
     );
     const seatY = torso.at(0.1)[1];
-    const seatR = (0.056 + c * 0.012) * H;
+    const seatR = (0.046 + c * 0.022) * H;
+    const seatX = mix(0.04, 0.046, c) * H;
     const seatL = ellipsoid(
-        [0.046 * H, seatY, -0.03 * H],
+        [seatX, seatY, -0.03 * H],
         [seatR, seatR, seatR * 0.95],
     );
     const seatRt = ellipsoid(
-        [-0.046 * H, seatY, -0.03 * H],
+        [-seatX, seatY, -0.03 * H],
         [seatR, seatR, seatR * 0.95],
     );
     const k = 0.04 * H;
     return (x, y, z) => {
         let d = torso.d(x, y, z);
-        d = smin(d, x > 0 ? bustL(x, y, z) : bustR(x, y, z), k);
+        if (bust > 0.02)
+            d = smin(d, x > 0 ? bustL(x, y, z) : bustR(x, y, z), k);
         d = smin(d, x > 0 ? seatL(x, y, z) : seatRt(x, y, z), k);
         return d;
     };
 }
 
-function handField(
-    posed: Posed,
-    side: 'l' | 'r',
-    H: number,
-    fingers: boolean,
-): Field {
+function handField(posed: Posed, side: 'l' | 'r', H: number): Field {
     const j = (n: string) => joint(posed, `${n}_${side}`);
     const wrist = j('hand');
     const knuckle = j('middle_01');
     const palm = capsule(wrist, knuckle, 0.019 * H, 0.024 * H);
     const palmFlat = (x: number, y: number, z: number) => palm(x, y, z);
     const parts: Field[] = [];
-    if (fingers)
-        for (const f of ['index', 'middle', 'ring', 'pinky']) {
-            parts.push(
-                capsule(j(`${f}_01`), j(`${f}_02`), 0.0085 * H, 0.0078 * H),
-                capsule(j(`${f}_02`), j(`${f}_03`), 0.0078 * H, 0.007 * H),
-                capsule(j(`${f}_03`), j(`${f}_04_leaf`), 0.007 * H, 0.006 * H),
-            );
-        }
-    else
-        parts.push(capsule(knuckle, j('middle_04_leaf'), 0.021 * H, 0.015 * H));
+    parts.push(capsule(knuckle, j('middle_04_leaf'), 0.021 * H, 0.015 * H));
     parts.push(
         capsule(j('thumb_01'), j('thumb_02'), 0.011 * H, 0.0095 * H),
         capsule(j('thumb_02'), j('thumb_03'), 0.0095 * H, 0.0085 * H),
@@ -182,15 +176,27 @@ export function anatomy(
     posed: Posed,
     body: BodyDoc,
     face: FaceDoc,
-    fingers: boolean,
     voxel: number,
 ): Anatomy {
     const { H, headH, hipY } = posed.p;
-    const thick = mix(0.84, 1.28, body.build);
-    const c = body.curve;
-    const hips = mix(0.92, 1.1, body.hips) * mix(0.95, 1.08, c) * thick;
-    const waist = mix(1.06, 0.86, c) * thick;
-    const chest = mix(0.92, 1.1, body.shoulders) * mix(1.04, 0.96, c) * thick;
+    const thick = mix(0.8, 1.4, body.build ** 1.2);
+    const c = curveOf(body);
+    const muscle = body.muscle ?? 0.3;
+    const belly = body.belly ?? 0.1;
+    // A big belly comes with weight everywhere; a small one is just a belly.
+    const weight = 1 + belly * belly * 0.2;
+    // Half widths: a straight body is widest at the chest, an hourglass at the hips.
+    const hipW =
+        0.076 * H * mix(0.86, 1.2, body.hips) * mix(1, 1.2, c) * thick * weight;
+    const waistW = mix(0.073, 0.058, c) * H * thick * (1 + belly * 0.5);
+    const chestW =
+        0.087 *
+        H *
+        mix(0.86, 1.22, body.shoulders) *
+        mix(1.06, 0.9, c) *
+        thick *
+        weight *
+        (1 + muscle * 0.1);
 
     const neckBase = joint(posed, 'neck_01');
     const crotchY = hipY - 0.05 * H;
@@ -198,37 +204,44 @@ export function anatomy(
         [0, crotchY, -0.002 * H],
         [0, neckBase[1] + 0.02 * H, -0.004 * H],
         [
-            { t: 0, u: 0.056 * H * hips, v: 0.05 * H * thick },
+            { t: 0, u: hipW * 0.64, v: 0.05 * H * thick },
             {
                 t: 0.16,
-                u: 0.09 * H * hips,
-                v: 0.064 * H * thick,
-                ov: -0.006 * H,
+                u: hipW,
+                v: mix(0.058, 0.066, c) * H * thick,
+                ov: -0.006 * H * c,
             },
             {
                 t: 0.34,
-                u: 0.08 * H * mix(hips, waist, 0.5),
-                v: 0.054 * H * thick,
+                u: mix(hipW, waistW, 0.55),
+                v: (0.053 + belly * 0.03) * H * thick,
+                ov: belly * 0.012 * H,
             },
             {
                 t: 0.52,
-                u: 0.066 * H * waist,
-                v: 0.047 * H * thick,
-                ov: 0.006 * H,
+                u: waistW,
+                v: (0.047 + belly * 0.05) * H * thick,
+                ov: (0.006 + belly * 0.024) * H,
             },
             {
                 t: 0.74,
-                u: 0.082 * H * chest,
-                v: 0.056 * H * thick,
+                u: chestW,
+                v: 0.056 * H * thick * (1 + muscle * 0.2),
                 ov: 0.004 * H,
             },
-            { t: 0.88, u: 0.08 * H * chest, v: 0.05 * H * thick },
-            { t: 0.965, u: 0.05 * H * chest, v: 0.036 * H * thick },
+            { t: 0.88, u: chestW * 0.975, v: 0.05 * H * thick },
+            { t: 0.965, u: chestW * 0.61, v: 0.036 * H * thick },
             { t: 1, u: 0.03 * H, v: 0.03 * H },
         ],
     );
 
-    const neckR = 0.03 * H * mix(0.9, 1.2, body.build);
+    const neckR =
+        0.03 *
+        H *
+        mix(0.9, 1.2, body.build) *
+        mix(1.14, 0.94, c) *
+        weight *
+        (1 + muscle * 0.14);
     const headBone = joint(posed, 'Head');
     const neck = new Loft(
         [0, neckBase[1] - 0.012 * H, -0.004 * H],
@@ -247,7 +260,7 @@ export function anatomy(
         const elbow =
             Math.hypot(e[0] - a[0], e[1] - a[1], e[2] - a[2]) /
             Math.hypot(w[0] - a[0], w[1] - a[1], w[2] - a[2]);
-        const r = thick * H;
+        const r = thick * H * weight * (1 + muscle * 0.34) * mix(1.06, 0.95, c);
         return {
             elbow,
             loft: new Loft(
@@ -274,13 +287,17 @@ export function anatomy(
         const knee =
             Math.hypot(k[0] - a[0], k[1] - a[1], k[2] - a[2]) /
             Math.hypot(f[0] - a[0], f[1] - a[1], f[2] - a[2]);
-        const r = thick * H;
-        const thigh = mix(0.96, 1.1, c) * mix(0.96, 1.04, body.hips);
+        const r = thick * H * weight * (1 + muscle * 0.1);
+        // The thigh's outer edge is the hip line: fixed radii would give everyone an hourglass flare.
+        const top = Math.max(
+            hipW * 1.02 - posed.p.hipX,
+            0.036 * H * thick * weight * (1 + c * 0.5),
+        );
         return {
             knee,
             loft: new Loft(a, f, [
-                { t: 0, u: 0.064 * r * thigh, v: 0.07 * r * thigh },
-                { t: 0.16, u: 0.06 * r * thigh, v: 0.064 * r * thigh },
+                { t: 0, u: top, v: 0.066 * r * mix(0.93, 1.1, c) },
+                { t: 0.16, u: top * 0.96, v: 0.06 * r * mix(0.93, 1.1, c) },
                 { t: 0.36, u: 0.046 * r, v: 0.05 * r },
                 { t: knee - 0.02, u: 0.0345 * r, v: 0.037 * r },
                 { t: knee + 0.02, u: 0.033 * r, v: 0.036 * r },
@@ -316,13 +333,24 @@ export function anatomy(
     const chestField = torsoField(torso, body, H);
     const kArm = 0.05 * H;
     const kLeg = 0.05 * H;
+    const soft = voxel * 1.1;
+    const apart = (d: number, x: number, y: number, depth = 1) => {
+        if (y > crotchY + soft) return d;
+        const gap = mix(
+            -2 * soft,
+            soft * depth,
+            smooth(crotchY + soft, crotchY - soft, y),
+        );
+        return sint(d, gap - Math.abs(x), soft * 0.6);
+    };
     const trunk: Field = (x, y, z) => {
         let d = chestField(x, y, z);
         d = smin(d, neck.d(x, y, z), 0.03 * H);
         d = smin(d, (x > 0 ? left : right).loft.d(x, y, z), kArm);
         d = smin(d, (x > 0 ? legL : legR).loft.d(x, y, z), kLeg);
         d = smin(d, (x > 0 ? footL : footR).d(x, y, z), 0.03 * H);
-        return d;
+        // Deeper than the cloth over it, or the two inner faces fight for the same pixels.
+        return apart(d, x, y, 1.7);
     };
 
     const headC: V3 = [0, H - headH / 2, 0.01 * H];
@@ -343,9 +371,11 @@ export function anatomy(
         trunk,
         head,
         skull,
-        handL: handField(posed, 'l', H, fingers),
-        handR: handField(posed, 'r', H, fingers),
-        soft: voxel * 1.1,
+        handL: handField(posed, 'l', H),
+        handR: handField(posed, 'r', H),
+        soft,
+        crotchY,
+        apart,
         elbow: left.elbow,
         knee: legL.knee,
         waistT: 0.52,

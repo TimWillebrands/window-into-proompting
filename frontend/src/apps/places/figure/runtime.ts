@@ -44,7 +44,7 @@ const cache = new Map<string, Promise<Compiled>>();
 
 /** Mesh buffers for a doc: compiled once, in a worker, however many people wear it. */
 export function compiled(doc: FigureDoc, detail: Detail): Promise<Compiled> {
-    const key = `${detail.voxel}:${detail.fingers}:${JSON.stringify(doc)}`;
+    const key = `${detail.voxel}:${JSON.stringify(doc)}`;
     const hit = cache.get(key);
     if (hit) return hit;
     const id = ++next;

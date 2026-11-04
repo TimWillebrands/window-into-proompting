@@ -10,12 +10,15 @@ export interface BodyDoc {
     /** All 0..1, 0.5 = average. */
     height: number;
     build: number;
-    /** 0 straight, 1 hourglass. */
+    /** 0 flat and straight, 1 full hourglass; drawn as nothing at all under about 0.2. */
     curve: number;
     shoulders: number;
     hips: number;
     legs: number;
     head: number;
+    /** Older designs have neither. */
+    muscle?: number;
+    belly?: number;
 }
 
 export interface FaceDoc {

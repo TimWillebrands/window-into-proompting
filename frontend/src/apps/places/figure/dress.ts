@@ -1,6 +1,7 @@
 import type { Look } from '../iso/appearance';
 import type {
     BlobDoc,
+    BodyDoc,
     BottomDoc,
     ExtraDoc,
     FaceDoc,
@@ -12,6 +13,7 @@ import type {
     ShoeDoc,
     TopDoc,
 } from './doc';
+import { clamp } from './sdf';
 
 const zone = (at: HairZone['at'], o: Partial<HairZone>): HairZone => ({
     at,
@@ -377,7 +379,7 @@ export const HAIR: Record<string, Style> = {
 const top = (color: Hex, o: Partial<TopDoc>): TopDoc => ({
     color,
     sleeve: 0.28,
-    hem: 0.42,
+    hem: 0.52,
     fit: 0.25,
     neck: 'crew',
     ...o,
@@ -386,7 +388,7 @@ const top = (color: Hex, o: Partial<TopDoc>): TopDoc => ({
 /** Palette garments as cuts. */
 const TOPS: Record<string, (c: Hex) => TopDoc> = {
     tshirt: (c) => top(c, {}),
-    tank: (c) => top(c, { sleeve: 0, neck: 'scoop', fit: 0.15 }),
+    tank: (c) => top(c, { sleeve: 0, fit: 0.15 }),
     shirt: (c) => top(c, { sleeve: 0.92, neck: 'collar', hem: 0.48, fit: 0.3 }),
     sweater: (c) =>
         top(c, { sleeve: 0.98, neck: 'crew', hem: 0.48, fit: 0.5, trim: c }),
@@ -397,7 +399,7 @@ const TOPS: Record<string, (c: Hex) => TopDoc> = {
     dress: (c) => top(c, { sleeve: 0.1, hem: 0.95, fit: 0.2, neck: 'scoop' }),
     'baby-tee': (c) =>
         top(c, { sleeve: 0.2, hem: 0.2, fit: 0.05, neck: 'scoop' }),
-    'band-tee': (c) => top(c, { sleeve: 0.3, hem: 0.46, fit: 0.35 }),
+    'band-tee': (c) => top(c, { sleeve: 0.3, hem: 0.56, fit: 0.35 }),
     'long-sleeve': (c) =>
         top(c, {
             sleeve: 1,
@@ -443,12 +445,12 @@ const bottom = (color: Hex, o: Partial<BottomDoc>): BottomDoc => ({
     length: 1,
     fit: 0.3,
     flare: 0,
-    rise: 0.35,
+    rise: 0.2,
     ...o,
 });
 
 const BOTTOMS: Record<string, (c: Hex) => BottomDoc> = {
-    trousers: (c) => bottom(c, { fit: 0.3, rise: 0.5 }),
+    trousers: (c) => bottom(c, { fit: 0.3, rise: 0.3 }),
     jeans: (c) => bottom(c, { fit: 0.25 }),
     shorts: (c) => bottom(c, { length: 0.42, fit: 0.45 }),
     skirt: (c) =>
@@ -518,7 +520,11 @@ const face = (look: Look): FaceDoc => {
     const dark = look.skin < '#9';
     return {
         shape: 0.5,
-        jaw: look.build === 'broad' ? 0.6 : 0.4,
+        jaw:
+            look.build === 'broad' ||
+            ['athletic', 'stocky', 'heavyset'].includes(look.bodyType)
+                ? 0.62
+                : 0.4,
         nose: 0.4,
         ears: 0.45,
         // A near-black iris reads as a hole when small; brown does the same job.
@@ -548,6 +554,45 @@ const face = (look: Look): FaceDoc => {
     };
 };
 
+/** Body types as sliders: shape, plus how far they push the palette's build and height. */
+const BODY_TYPES: Record<
+    string,
+    Partial<BodyDoc> & { thicker?: number; taller?: number }
+> = {
+    straight: { curve: 0.2, shoulders: 0.6, hips: 0.4, muscle: 0.3 },
+    athletic: { curve: 0.1, shoulders: 1, hips: 0.3, muscle: 0.9, belly: 0 },
+    lanky: {
+        curve: 0.15,
+        shoulders: 0.45,
+        hips: 0.25,
+        legs: 1,
+        muscle: 0.05,
+        belly: 0,
+        thicker: -0.22,
+        taller: 0.22,
+    },
+    stocky: {
+        curve: 0.2,
+        shoulders: 0.8,
+        hips: 0.6,
+        legs: 0.1,
+        muscle: 0.6,
+        belly: 0.45,
+        thicker: 0.18,
+        taller: -0.2,
+    },
+    heavyset: {
+        curve: 0.3,
+        shoulders: 0.65,
+        hips: 0.75,
+        muscle: 0.2,
+        belly: 1,
+        thicker: 0.3,
+    },
+    pear: { curve: 0.62, shoulders: 0.25, hips: 1, belly: 0.2, thicker: 0.05 },
+    hourglass: { curve: 0.95, shoulders: 0.5, hips: 0.7, belly: 0.05 },
+};
+
 const SLIDER: Record<string, number> = {
     slim: 0.25,
     average: 0.45,
@@ -561,16 +606,22 @@ export function figureDoc(look: Look): FigureDoc {
     const hair = (HAIR[look.hairStyle] ?? HAIR.short)(look.hair);
     const cut = TOPS[look.topStyle] ?? TOPS.tshirt;
     const leg = BOTTOMS[look.bottomStyle] ?? BOTTOMS.trousers;
+    const {
+        thicker = 0,
+        taller = 0,
+        ...shape
+    } = BODY_TYPES[look.bodyType] ?? BODY_TYPES.straight;
     const base: FigureDoc = {
         body: {
             skin: look.skin,
-            height: SLIDER[look.height] ?? 0.5,
-            build: SLIDER[look.build] ?? 0.45,
-            curve: 0.4,
+            height: clamp((SLIDER[look.height] ?? 0.5) + taller, 0, 1),
+            build: clamp((SLIDER[look.build] ?? 0.45) + thicker, 0, 1),
+            curve: 0.2,
             shoulders: 0.5,
             hips: 0.5,
             legs: 0.55,
             head: 0.5,
+            ...shape,
         },
         face: face(look),
         hair: { color: look.hair, ...hair },
@@ -895,6 +946,7 @@ export const EXTRAS: Record<string, () => ExtraDoc[]> = {
 
 /** What this file can draw, per backend palette list; a test keeps them in step. */
 export const paletteCovers = (): Record<string, string[]> => ({
+    BodyTypes: Object.keys(BODY_TYPES),
     Styles: Object.keys(HAIR),
     TopStyles: Object.keys(TOPS),
     BottomStyles: Object.keys(BOTTOMS),

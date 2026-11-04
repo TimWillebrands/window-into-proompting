@@ -51,11 +51,9 @@ export interface Compiled {
 export interface Detail {
     /** Cell size for the body, in tiles. */
     voxel: number;
-    fingers: boolean;
 }
 
-export const SCENE_DETAIL: Detail = { voxel: 0.021, fingers: false };
-export const CLOSE_DETAIL: Detail = { voxel: 0.013, fingers: true };
+export const SCENE_DETAIL: Detail = { voxel: 0.021 };
 
 function skinned(surface: Surface, skinner: Skinner) {
     const count = surface.positions.length / 3;
@@ -135,7 +133,7 @@ function capField(a: Anatomy): Field {
 /** Turns a Figure doc into mesh buffers. Pure, so it can run in a worker. */
 export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
     const posed: Posed = poseFor(doc.body);
-    const a = anatomy(posed, doc.body, doc.face, detail.fingers, detail.voxel);
+    const a = anatomy(posed, doc.body, doc.face, detail.voxel);
     const { H } = a;
     const h = detail.voxel;
     const skinner = bodySkinner(a, posed);
@@ -153,7 +151,7 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
     ) => {
         const colors = extra?.colors ?? white(s);
         // Shade by what's crowding the surface; self-shadowing from the field itself.
-        const dark = occlusion(s, shadowField, 0.05 * H);
+        const dark = occlusion(s, shadowField, 0.05 * H, a.crotchY);
         for (let i = 0; i < dark.length; i++) {
             const k = 1 - dark[i] * 0.62;
             colors[i * 3] *= k;
@@ -305,7 +303,7 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
             f,
             [xs[0] - pad, ys[0] - pad, wrist[2] - pad],
             [xs[1] + pad, ys[1] + pad, wrist[2] + pad],
-            detail.fingers ? h * 0.42 : h * 0.6,
+            h * 0.6,
         );
         push(
             `hand-${side}`,

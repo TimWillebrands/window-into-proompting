@@ -97,7 +97,9 @@ export function topField(
             0.012 * H * smooth(shoulderY - 0.1 * H, shoulderY - 0.2 * H, y) +
             loose * (0.5 + 0.8 * smooth(shoulderY, hemY, y));
         const growS = e + loose * 0.9;
-        let d = a.chest(x, y, z) - growT;
+        // The hip joints bulge past the chest, so the shell takes in the tops of the legs.
+        const thigh = (x > 0 ? a.legL : a.legR).d(x, y, z) - growT;
+        let d = smin(a.chest(x, y, z) - growT, thigh, 0.03 * H);
         // Wraps what's beneath it, however baggy; a short sleeve still stops short of a long one under it.
         const reach = x > 0 ? a.armL : a.armR;
         const onArm = reach.d(x, y, z) < 0.06 * H && reach.t > sleeve;
@@ -121,7 +123,7 @@ export function topField(
             let s = arm.d(x, y, z, growS);
             const t = arm.t;
             s = sint(s, (t - sleeve) * arm.length, a.soft);
-            d = smin(d, s, 0.05 * H);
+            d = smin(d, s, 0.032 * H);
             d += folds(x, y, z, foldS, fold) * smooth(0, 0.2, t);
         } else {
             d += folds(x, y, z, foldS, fold * 0.7);
@@ -197,7 +199,7 @@ export function bottomField(a: Anatomy, doc: BottomDoc): Field {
             d = sint(d, y - top, a.soft);
             return Math.min(
                 sint(d, hem - y, a.soft),
-                sint(shorts, y - top, a.soft),
+                a.apart(sint(shorts, y - top, a.soft), x, y),
             );
         };
     }
@@ -212,9 +214,9 @@ export function bottomField(a: Anatomy, doc: BottomDoc): Field {
         const legD = leg.d(x, y, z, e + baggy + flare);
         const cut = (t - endT) * leg.length;
         let d = sint(legD, cut, a.soft);
-        // Two legs stay two legs, however baggy.
-        d = sint(d, 0.003 * H - Math.abs(x), 0.012 * H);
         d = smin(d, a.chest(x, y, z) - e - loose * 0.2, 0.03 * H);
+        // Two legs stay two legs, however baggy.
+        d = a.apart(d, x, y);
         const bunch = smooth(endT - 0.25, endT, t);
         d += folds(x, y, z, foldS, fold * (0.5 + bunch * 1.2));
         return sint(d, y - waistY, a.soft);
@@ -227,7 +229,7 @@ export function legwearField(a: Anatomy, doc: LegwearDoc): Field {
     return (x, y, z) => {
         const leg = x > 0 ? a.legL : a.legR;
         const d = leg.d(x, y, z, 0.0035 * H);
-        return Math.max(d, (startT - leg.t) * leg.length);
+        return a.apart(Math.max(d, (startT - leg.t) * leg.length), x, y, 1.35);
     };
 }
 
@@ -326,11 +328,7 @@ export function shoeFields(a: Anatomy, doc: ShoeDoc): ShoeFields {
     return {
         lift,
         field: (x, y, z) =>
-            sint(
-                (x > 0 ? left : right).field(x, y, z),
-                0.002 * H - Math.abs(x),
-                0.004 * H,
-            ),
+            a.apart((x > 0 ? left : right).field(x, y, z), x, y),
         zone: (x, y, z) => {
             if (y < soleTop) return 1;
             const toe = (x > 0 ? left : right).toeZ;

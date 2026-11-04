@@ -8,8 +8,8 @@ Places looked alike, and adding one meant writing drawing code.
 ## Decision
 
 - **three.js via react-three-fiber** (+ drei). It's an orthographic camera at Habbo's 2:1 angle,
-  low-poly flat-shaded geometry, a pixel look (half-resolution canvas, `image-rendering: pixelated`,
-  toggleable), local-time day and night, shadows, and animated water. It's lazy-loaded, and without
+  low-poly flat-shaded geometry, a pixel look (half-resolution canvas, `image-rendering: pixelated`;
+  the only look, shared by every 3D view through `scene/pixel.ts`), local-time day and night, shadows, and animated water. It's lazy-loaded, and without
   WebGL2 the old canvas still draws.
 - **No art assets** (people moved on in ADR 0028). Everything is coloured primitives (box, cylinder, cone, ball, gable, ring,
   sign). Each prop is baked into a few merged meshes (plain, always lit, lit at night), so a

@@ -2,13 +2,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Look } from '../iso/appearance';
+import { anatomy } from './anatomy';
 import { compileFigure, SCENE_DETAIL } from './compile';
+import type { BodyDoc } from './doc';
 import { EXTRAS, figureDoc, HAIR, paletteCovers } from './dress';
 import { MOVES, standMove, talkMove } from './moves';
 import { moveClip } from './pose';
 import { SAMPLES } from './samples';
+import bodies from './samples.bodies.llm.json';
 import designed from './samples.llm.json';
-import { BONES } from './skeleton';
+import { BONES, joint, poseFor } from './skeleton';
 
 const LOOK: Look = {
     skin: '#f1c9a5',
@@ -24,6 +27,7 @@ const LOOK: Look = {
     legwear: 'none',
     facialHair: 'none',
     build: 'average',
+    bodyType: 'straight',
     height: 'average',
     eyes: '#1d1d1d',
 };
@@ -64,7 +68,7 @@ describe('compileFigure', () => {
         },
     );
 
-    it.each(designed.map((d) => [d.id, d] as const))(
+    it.each([...designed, ...bodies].map((d) => [d.id, d] as const))(
         'compiles real LLM answer %s',
         (_, d) => {
             const c = compileFigure(
@@ -115,6 +119,57 @@ describe('compileFigure', () => {
         expect(lowest).toBeGreaterThan(0.74);
     });
 
+    it.each(['straight', 'athletic', 'heavyset', 'hourglass'])(
+        'keeps a %s pair of legs apart in the mesh, so they part cleanly',
+        (bodyType) => {
+            const doc = figureDoc({
+                ...LOOK,
+                bodyType,
+                legwear: 'tights',
+                bottomStyle: 'mini-skirt',
+            });
+            const c = compileFigure(doc, SCENE_DETAIL);
+            const below = 0.38 * c.H;
+            for (const l of c.layers) {
+                if (l.kind === 'hair' || l.kind === 'head') continue;
+                for (let t = 0; t < l.indices.length; t += 3) {
+                    const tri = [
+                        l.indices[t],
+                        l.indices[t + 1],
+                        l.indices[t + 2],
+                    ];
+                    if (tri.some((v) => l.positions[v * 3 + 1] > below))
+                        continue;
+                    const xs = tri.map((v) => l.positions[v * 3]);
+                    // A triangle crossing the middle is a web between the legs.
+                    expect(
+                        Math.min(...xs) < 0 && Math.max(...xs) > 0,
+                        l.name,
+                    ).toBe(false);
+                }
+            }
+        },
+    );
+
+    it.each(['straight', 'heavyset', 'lanky'])(
+        'shows no skin through full-length trousers on a %s body',
+        (bodyType) => {
+            const c = compileFigure(
+                figureDoc({ ...LOOK, bodyType }),
+                SCENE_DETAIL,
+            );
+            const skin = c.layers.find((l) => l.name === 'skin') as NonNullable<
+                (typeof c.layers)[number]
+            >;
+            let bare = 0;
+            for (let t = 0; t < skin.indices.length; t += 3) {
+                const y = skin.positions[skin.indices[t] * 3 + 1];
+                if (y > 0.12 * c.H && y < 0.36 * c.H) bare++;
+            }
+            expect(bare).toBe(0);
+        },
+    );
+
     it('stands on the floor', () => {
         const c = compileFigure(figureDoc(LOOK), SCENE_DETAIL);
         const shoes = c.layers.find((l) => l.name === 'shoes');
@@ -140,6 +195,95 @@ describe('compileFigure', () => {
             if (accessory !== 'none')
                 expect(c.layers.some((l) => l.positions.length > 0)).toBe(true);
         }
+    });
+});
+
+/** Half widths and depths of a bare body, plus how far the chest stands out. */
+function shapeOf(look: Partial<Look>, body: Partial<BodyDoc> = {}) {
+    const doc = figureDoc({ ...LOOK, ...look });
+    const b = { ...doc.body, ...body };
+    const posed = poseFor(b);
+    const a = anatomy(posed, b, doc.face, 0.02);
+    const bustY = a.torso.at(0.72)[1];
+    let front = 0;
+    while (a.chest(0.04 * a.H, bustY, front) < 0) front += 0.001;
+    return {
+        hip: a.torso.radii(0.16)[0],
+        waist: a.torso.radii(0.52)[0],
+        chest: a.torso.radii(0.74)[0],
+        belly: a.torso.radii(0.52)[1],
+        shoulder: joint(posed, 'upperarm_l')[0],
+        hipLine: joint(posed, 'thigh_l')[0] + a.legL.radii(0)[0],
+        front: front / a.H,
+    };
+}
+
+describe('body types', () => {
+    it('draws a straight body with no waist to speak of', () => {
+        const s = shapeOf({ bodyType: 'straight' });
+        expect(s.waist / s.hip).toBeGreaterThan(0.9);
+        expect(s.chest).toBeGreaterThan(s.hip);
+    });
+
+    it('tapers an athletic body from the shoulders', () => {
+        const athletic = shapeOf({ bodyType: 'athletic' });
+        expect(athletic.chest / athletic.waist).toBeGreaterThan(1.25);
+        expect(athletic.shoulder).toBeGreaterThan(
+            shapeOf({ bodyType: 'straight' }).shoulder,
+        );
+    });
+
+    it('keeps hips under the chest on a straight or athletic body', () => {
+        for (const bodyType of ['straight', 'athletic']) {
+            const s = shapeOf({ bodyType });
+            expect(s.hipLine).toBeLessThan(s.chest);
+        }
+    });
+
+    it('keeps the hourglass for hourglasses', () => {
+        const s = shapeOf({ bodyType: 'hourglass' });
+        expect(s.waist / s.hip).toBeLessThan(0.7);
+    });
+
+    it('puts a pear widest at the hips', () => {
+        const s = shapeOf({ bodyType: 'pear' });
+        expect(s.hip).toBeGreaterThan(s.chest);
+    });
+
+    it('gives a heavyset body a belly', () => {
+        expect(shapeOf({ bodyType: 'heavyset' }).belly).toBeGreaterThan(
+            shapeOf({ bodyType: 'straight' }).belly * 1.5,
+        );
+    });
+
+    it('only draws a bust on a body with curves', () => {
+        const flat = shapeOf({ bodyType: 'straight' });
+        const curvy = shapeOf({ bodyType: 'hourglass' });
+        expect(curvy.front - flat.front).toBeGreaterThan(0.012);
+    });
+
+    it('reads an LLM middle-of-the-road curve as mostly straight', () => {
+        const s = shapeOf({}, { curve: 0.45, shoulders: 0.45, hips: 0.45 });
+        expect(s.waist / s.hip).toBeGreaterThan(0.8);
+    });
+
+    it('draws designs from before muscle and belly existed', () => {
+        const old = {
+            skin: '#f1c9a5',
+            height: 0.5,
+            build: 0.4,
+            curve: 0.5,
+            shoulders: 0.5,
+            hips: 0.5,
+            legs: 0.5,
+            head: 0.5,
+        };
+        const c = compileFigure(
+            figureDoc({ ...LOOK, design: { body: old } }),
+            SCENE_DETAIL,
+        );
+        for (const l of c.layers)
+            expect(l.positions.every(Number.isFinite)).toBe(true);
     });
 });
 

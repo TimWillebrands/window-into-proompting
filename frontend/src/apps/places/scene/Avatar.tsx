@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { CLOSE_DETAIL, SCENE_DETAIL } from '../figure/compile';
+import { SCENE_DETAIL } from '../figure/compile';
 import { figureDoc } from '../figure/dress';
 import { PAIRED, SEATED } from '../figure/moves';
 import { setInk, warmupMeshes } from '../figure/object';
@@ -31,8 +31,6 @@ interface Props {
     /** Read every frame; no React re-render while walking. */
     state: () => AvatarState | null;
     onClick?: () => void;
-    /** Dressing-room close-up: fingers, finer cloth. */
-    close?: boolean;
     children?: React.ReactNode;
 }
 
@@ -40,11 +38,6 @@ export const SCENE_QUALITY: Quality = {
     ...SCENE_DETAIL,
     cloth: 512,
     face: 256,
-};
-export const CLOSE_QUALITY: Quality = {
-    ...CLOSE_DETAIL,
-    cloth: 1024,
-    face: 512,
 };
 
 /** Ink line width in drawing-buffer pixels. */
@@ -118,12 +111,11 @@ export default function Avatar({
     isMe,
     state,
     onClick,
-    close,
     children,
 }: Props) {
     const root = useRef<THREE.Group>(null);
     const doc = useMemo(() => figureDoc(look), [look]);
-    const figure = useFigure(doc, close ? CLOSE_QUALITY : SCENE_QUALITY);
+    const figure = useFigure(doc, SCENE_QUALITY);
     const puppet = useRef<Puppet | null>(null);
     const facing = useRef(0);
     const height = useRef(0);

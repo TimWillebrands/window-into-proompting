@@ -134,6 +134,36 @@ public class FigureDesignTest
     }
 
     [Fact]
+    public void ABodyTypePick_TakesTheDesignedBodyOff()
+    {
+        var before = new Appearance { Design = """{"body": {"curve": 0.9}, "top": {"color": "#111111"}}""" };
+
+        var after = AppearanceRules.Merge(before, new Dictionary<string, string?> { ["bodyType"] = "stocky" });
+
+        Assert.Equal("stocky", after.BodyType);
+        Assert.Null(Doc(after.Design!)["body"]);
+        Assert.NotNull(Doc(after.Design!)["top"]);
+    }
+
+    [Fact]
+    public void Clean_FillsMuscleAndBelly_AndLeavesCurveLowWhenUnsaid()
+    {
+        var body = Doc(FigureDesign.Clean(Doc("""{"body": {"muscle": 3}}"""))!)["body"]!;
+
+        Assert.Equal(1, body["muscle"]!.GetValue<double>());
+        Assert.Equal(0.1, body["belly"]!.GetValue<double>());
+        Assert.Equal(0.2, body["curve"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public void DefaultLooks_SpreadOverEveryBodyType()
+    {
+        var seen = Enumerable.Range(0, 200).Select(_ => AppearanceRules.Default(Guid.NewGuid()).BodyType).ToHashSet();
+
+        Assert.Equal(AppearanceRules.BodyTypes.ToHashSet(), seen);
+    }
+
+    [Fact]
     public void Picks_ThatChangeNothing_LeaveTheDesignAndSummary()
     {
         var before = new Appearance { TopStyle = "hoodie", Design = """{"top": {"color": "#111111"}}""", Summary = "all in black" };

@@ -4,6 +4,7 @@ import type * as THREE from 'three';
 import type { Appearance } from '../../api/model/appearance';
 import { lookOf } from '../places/iso/appearance';
 import Avatar, { type AvatarState } from '../places/scene/Avatar';
+import { PIXEL_DPR, PIXEL_STYLE } from '../places/scene/pixel';
 
 interface Props {
     appearance: Appearance | null | undefined;
@@ -51,9 +52,10 @@ export default function DressingRoom({
             <Canvas
                 shadows="percentage"
                 flat
-                dpr={[1, 2]}
+                dpr={PIXEL_DPR}
+                style={PIXEL_STYLE}
                 camera={{ position: [0, 1.15, 3.6], fov: 30 }}
-                gl={{ alpha: true }}
+                gl={{ alpha: true, antialias: false }}
             >
                 <ambientLight intensity={0.9} color="#fff1f6" />
                 <spotLight
@@ -169,7 +171,7 @@ function Podium({
                 />
             </mesh>
             <group ref={turn}>
-                <Avatar look={look} isMe={false} state={state} close />
+                <Avatar look={look} isMe={false} state={state} />
             </group>
             <group ref={sparkles}>
                 {[0, 1, 2, 3, 4, 5].map((i) => (
