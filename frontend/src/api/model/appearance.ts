@@ -20,4 +20,10 @@ export interface Appearance {
     build?: string;
     height?: string;
     eyes?: string;
+    shoeStyle?: string;
+    legwear?: string;
+    /** @nullable */
+    design?: string | null;
+    /** @nullable */
+    summary?: string | null;
 }

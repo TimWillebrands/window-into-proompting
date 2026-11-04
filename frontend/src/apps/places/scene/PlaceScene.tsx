@@ -29,7 +29,11 @@ import {
     toMs,
     volumeOf,
 } from '../places-lib';
-import Avatar, { type AvatarState, avatarMaterials } from './Avatar';
+import Avatar, {
+    type AvatarState,
+    AvatarWarmup,
+    avatarMaterials,
+} from './Avatar';
 import { type Built, build, type Placement } from './build';
 import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
@@ -891,6 +895,7 @@ function Warmup() {
                     frustumCulled={false}
                 />
             ))}
+            <AvatarWarmup />
         </group>
     );
 }
@@ -1073,7 +1078,7 @@ const Person = memo(function Person({
             state={state}
             onClick={clickable ? onClick : undefined}
         >
-            <Anchor id={`body:${id}`} y={lying ? 0.95 : 1.62} />
+            <Anchor id={`body:${id}`} y={lying ? 0.95 : 1.72} />
         </Avatar>
     );
 });

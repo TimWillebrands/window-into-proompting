@@ -178,6 +178,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
 
     public static string Describe(Appearance look)
     {
+        if (look.Summary is { Length: > 0 } summary) return summary.TrimEnd('.');
         var parts = new List<string> { $"{look.Hair} {look.HairStyle} hair" };
         parts.AddRange(Catalog.Wearing(look).Skip(2).Select(Catalog.Find).OfType<ShopItem>().Select(i => i.Name));
         return string.Join(", ", parts);

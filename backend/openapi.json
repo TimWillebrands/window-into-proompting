@@ -6181,6 +6181,24 @@
           },
           "eyes": {
             "type": "string"
+          },
+          "shoeStyle": {
+            "type": "string"
+          },
+          "legwear": {
+            "type": "string"
+          },
+          "design": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summary": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

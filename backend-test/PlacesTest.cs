@@ -425,10 +425,11 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
     {
         public static readonly ScriptedLlm Instance = new();
         public Func<string, string, System.Text.Json.Nodes.JsonObject?> Json { get; set; } = (_, _) => null;
+        public Func<string, string, string?> Text { get; set; } = (_, _) => null;
         public List<string> Users { get; } = new();
 
         public Task<string?> CompleteAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
-            => Task.FromResult<string?>(null);
+            => Task.FromResult(Text(system, user));
 
         public Task<System.Text.Json.Nodes.JsonObject?> CompleteJsonAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
         {

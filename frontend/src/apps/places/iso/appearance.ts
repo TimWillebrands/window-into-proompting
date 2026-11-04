@@ -1,4 +1,5 @@
 import type { Appearance } from '../../../api/model/appearance';
+import type { FigureDoc } from '../figure/doc';
 
 /** Palette names (backend AppearanceRules) → pixel colours. */
 const SKIN: Record<string, string> = {
@@ -59,10 +60,26 @@ export interface Look {
     /** trousers, jeans, shorts, skirt. */
     bottomStyle: string;
     shoes: string;
+    /** sneakers, skate-shoes, hi-tops, boots, platforms, heels, sandals, loafers. */
+    shoeStyle: string;
+    /** none, knee-socks, striped-socks, tights, fishnets. */
+    legwear: string;
     facialHair: string;
     build: string;
     height: string;
     eyes: string;
+    /** What the LLM designed, slot by slot, over the palette picks. */
+    design?: Partial<FigureDoc>;
+}
+
+/** The stored Design, as far as it parses; palette picks carry on without it. */
+function designOf(a: Appearance | null | undefined): Look['design'] {
+    if (!a?.design) return undefined;
+    try {
+        return JSON.parse(a.design);
+    } catch {
+        return undefined;
+    }
 }
 
 export const lookOf = (
@@ -78,10 +95,13 @@ export const lookOf = (
     topStyle: a?.topStyle ?? 'tshirt',
     bottomStyle: a?.bottomStyle ?? 'trousers',
     shoes: CLOTH[a?.shoes ?? ''] ?? '#2b2b2b',
+    shoeStyle: a?.shoeStyle ?? 'sneakers',
+    legwear: a?.legwear ?? 'none',
     facialHair: a?.facialHair ?? 'none',
     build: a?.build ?? 'average',
     height: a?.height ?? 'average',
     eyes: EYES[a?.eyes ?? ''] ?? EYES.dark,
+    design: designOf(a),
 });
 
 /** Hair and accessory over a head of radius r at (x, y). */

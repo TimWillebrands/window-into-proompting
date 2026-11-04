@@ -1,6 +1,6 @@
 namespace PartyTown.World.Places;
 
-/// <summary>How a Body looks (spec phase 8). Named choices from fixed palettes, so the low-poly figures stay coherent.</summary>
+/// <summary>How a Body looks: named picks from fixed palettes, plus what an LLM designed beyond them (ADR 0028).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Appearance")]
 public sealed class Appearance
 {
@@ -19,6 +19,12 @@ public sealed class Appearance
     [Id(11)] public string Build { get; set; } = "average";
     [Id(12)] public string Height { get; set; } = "average";
     [Id(13)] public string Eyes { get; set; } = "dark";
+    [Id(14)] public string ShoeStyle { get; set; } = "sneakers";
+    [Id(15)] public string Legwear { get; set; } = "none";
+    /// <summary>The Figure as designed, slot by slot over the picks (<see cref="FigureDesign"/>).</summary>
+    [Id(16)] public string? Design { get; set; }
+    /// <summary>One plain line of what you'd notice; gone once a pick outdates it.</summary>
+    [Id(17)] public string? Summary { get; set; }
 }
 
 /// <summary>One choosable part of a look, for editors and prompts.</summary>
@@ -29,11 +35,13 @@ public static class AppearanceRules
 {
     public static readonly string[] Skins = { "light", "fair", "olive", "tan", "brown", "dark" };
     public static readonly string[] Hairs = { "black", "brown", "blonde", "red", "grey", "white", "blue", "pink", "green", "purple" };
-    public static readonly string[] Styles = { "short", "long", "curly", "bun", "bald", "mohawk", "ponytail", "afro", "braids", "buzz", "bob", "spiky" };
+    public static readonly string[] Styles = { "short", "long", "curly", "bun", "bald", "mohawk", "ponytail", "afro", "braids", "buzz", "bob", "spiky", "fringe", "scene", "pigtails", "undercut", "dreads" };
     public static readonly string[] Colours = { "red", "orange", "yellow", "green", "teal", "blue", "navy", "purple", "pink", "black", "white", "grey", "brown", "beige", "olive", "maroon" };
-    public static readonly string[] Accessories = { "none", "glasses", "sunglasses", "hat", "cap", "beanie", "scarf", "headphones", "earrings", "flower", "bow", "necklace", "bandana" };
-    public static readonly string[] TopStyles = { "tshirt", "hoodie", "shirt", "sweater", "jacket", "dress", "tank", "suit" };
-    public static readonly string[] BottomStyles = { "trousers", "jeans", "shorts", "skirt" };
+    public static readonly string[] Accessories = { "none", "glasses", "sunglasses", "hat", "cap", "beanie", "scarf", "headphones", "earrings", "flower", "bow", "necklace", "bandana", "choker", "studded-belt", "wristbands", "arm-warmers", "wallet-chain" };
+    public static readonly string[] TopStyles = { "tshirt", "hoodie", "shirt", "sweater", "jacket", "dress", "tank", "suit", "baby-tee", "band-tee", "long-sleeve", "mesh", "corset", "flannel", "tracksuit" };
+    public static readonly string[] BottomStyles = { "trousers", "jeans", "shorts", "skirt", "skinny-jeans", "baggy-jeans", "bootcut", "cargo", "plaid-skirt", "mini-skirt" };
+    public static readonly string[] ShoeStyles = { "sneakers", "skate-shoes", "hi-tops", "boots", "platforms", "heels", "sandals", "loafers" };
+    public static readonly string[] Legwears = { "none", "knee-socks", "striped-socks", "tights", "fishnets" };
     public static readonly string[] FacialHairs = { "none", "stubble", "beard", "moustache" };
     public static readonly string[] Builds = { "slim", "average", "broad" };
     public static readonly string[] Heights = { "short", "average", "tall" };
@@ -50,7 +58,9 @@ public static class AppearanceRules
         new("top", "Top colour", Colours),
         new("bottomStyle", "Bottom", BottomStyles),
         new("bottom", "Bottom colour", Colours),
-        new("shoes", "Shoes", Colours),
+        new("shoeStyle", "Shoes", ShoeStyles),
+        new("shoes", "Shoe colour", Colours),
+        new("legwear", "Legwear", Legwears),
         new("accessory", "Extra", Accessories),
         new("build", "Build", Builds),
         new("height", "Height", Heights),
@@ -64,12 +74,12 @@ public static class AppearanceRules
         {
             Skin = Skins[b[2] % Skins.Length],
             Hair = Hairs[b[3] % 5],
-            HairStyle = Styles[b[4] % Styles.Length],
+            HairStyle = Styles[b[4] % 12],
             Top = Colours[b[5] % Colours.Length],
             Bottom = Colours[6 + b[6] % 7],
-            Accessory = b[7] % 3 == 0 ? Accessories[1 + b[8] % (Accessories.Length - 1)] : "none",
+            Accessory = b[7] % 3 == 0 ? Accessories[1 + b[8] % 12] : "none",
             TopStyle = TopStyles[b[9] % 5],
-            BottomStyle = BottomStyles[b[10] % BottomStyles.Length],
+            BottomStyle = BottomStyles[b[10] % 4],
             Shoes = new[] { "black", "brown", "white", "grey", "navy" }[b[11] % 5],
             Build = Builds[b[12] % Builds.Length],
             Height = Heights[b[13] % Heights.Length],
@@ -88,6 +98,8 @@ public static class AppearanceRules
         "topStyle" => a.TopStyle,
         "bottomStyle" => a.BottomStyle,
         "shoes" => a.Shoes,
+        "shoeStyle" => a.ShoeStyle,
+        "legwear" => a.Legwear,
         "facialHair" => a.FacialHair,
         "build" => a.Build,
         "height" => a.Height,
@@ -105,7 +117,7 @@ public static class AppearanceRules
                 ? v.Trim().ToLowerInvariant()
                 : Get(fallback, key);
         }
-        return new Appearance
+        var merged = new Appearance
         {
             Skin = Pick("skin"),
             Hair = Pick("hair"),
@@ -120,8 +132,14 @@ public static class AppearanceRules
             Build = Pick("build"),
             Height = Pick("height"),
             Eyes = Pick("eyes"),
+            ShoeStyle = Pick("shoeStyle"),
+            Legwear = Pick("legwear"),
             FromBio = fromBio || fallback.FromBio,
         };
+        var changed = Fields.Select(f => f.Key).Where(k => Get(merged, k) != Get(fallback, k)).ToList();
+        merged.Design = FigureDesign.Without(fallback.Design, changed);
+        merged.Summary = changed.Count == 0 ? fallback.Summary : null;
+        return merged;
     }
 
     /// <summary>What changed, in words: "pink hair, a hoodie".</summary>
@@ -141,6 +159,8 @@ public static class AppearanceRules
                 "bottomStyle" => b,
                 "bottom" => $"{b} {(after.BottomStyle == "skirt" ? "skirt" : "bottoms")}",
                 "shoes" => $"{b} shoes",
+                "shoeStyle" => b,
+                "legwear" => b == "none" ? "bare legs" : b,
                 "accessory" => b == "none" ? $"no more {a}" : b,
                 "facialHair" => b == "none" ? "clean-shaven" : $"a {b}",
                 _ => $"{f.Label.ToLowerInvariant()} {b}",
@@ -148,21 +168,6 @@ public static class AppearanceRules
         }
         return string.Join(", ", parts);
     }
-
-    private static string Options => string.Join("\n", Fields.Select(f => $"{f.Key}: {string.Join(", ", f.Options)}"));
-
-    public static string Prompt => $$"""
-        Dress this person for a small low-poly 3D world, based on who they are. Choose ONE option per field, exactly as written.
-        {{Options}}
-        Output ONLY JSON with every field: {"skin": "...", "hair": "...", ...}
-        """;
-
-    public static string RestylePrompt => $$"""
-        Someone in a small low-poly 3D world changes how they look. Apply what they want to their current look,
-        changing only what they asked for (or what it implies), choosing ONE option per field exactly as written.
-        {{Options}}
-        Output ONLY JSON with every field, changed or not: {"skin": "...", "hair": "...", ...}
-        """;
 
     public static string Describe(Appearance a)
         => string.Join(", ", Fields.Select(f => $"{f.Key}: {Get(a, f.Key)}"));

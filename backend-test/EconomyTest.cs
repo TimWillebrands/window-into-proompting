@@ -66,6 +66,16 @@ public class EconomyTest
     }
 
     [Fact]
+    public void Wearing_NamesShoeStyleAndLegwear_WhenTheyAreMoreThanPlain()
+    {
+        var look = new Appearance { ShoeStyle = "platforms", Shoes = "black", Legwear = "fishnets" };
+        var wearing = Catalog.Wearing(look);
+        Assert.Contains("shoes:platforms:black", wearing);
+        Assert.Contains("legwear:fishnets", wearing);
+        Assert.All(wearing.Where(k => !k.StartsWith("accessory:none")), k => Assert.NotNull(Catalog.Find(k)));
+    }
+
+    [Fact]
     public void Wearing_ListsTheLookAsKeys()
     {
         var look = new Appearance { Hair = "red", HairStyle = "bun", TopStyle = "jacket", Top = "teal", BottomStyle = "skirt", Bottom = "black", Shoes = "white", Accessory = "glasses" };

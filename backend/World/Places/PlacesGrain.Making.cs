@@ -86,13 +86,16 @@ public sealed partial class PlacesGrain
     {
         if (string.IsNullOrWhiteSpace(intent) || !state.State.Bodies.TryGetValue(participantId, out var body)) return null;
         var before = body.Appearance ?? AppearanceRules.Default(participantId);
-        var json = await llm.CompleteJsonAsync(JobComplexity.General, AppearanceRules.RestylePrompt,
-            $"Current look: {AppearanceRules.Describe(before)}\nWhat they want: {WorldStream.Clip(intent, 300)}",
-            CancellationToken.None, 0.4, AppearanceRules.Fields.Select(f => f.Key).ToList());
-        if (json is null || !state.State.Bodies.TryGetValue(participantId, out body)) return null;
-        var after = AppearanceRules.Merge(before, json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString()), fromBio: true);
+        var json = await llm.CompleteJsonAsync(JobComplexity.General, FigureDesign.RestylePrompt,
+            $"Current look: {AppearanceRules.Describe(before)}\nDrawn as: {WorldStream.Clip(before.Design ?? "(palette only)", 5000)}\nWhat they want: {WorldStream.Clip(intent, 300)}",
+            CancellationToken.None, 0.5);
+        if (json is null) return null;
+        var design = await DrawPrintsAsync(FigureDesign.Clean(json["design"]));
+        if (!state.State.Bodies.TryGetValue(participantId, out body)) return null;
+        var after = Dressed(before, json, design);
         var changes = AppearanceRules.Changes(before, after);
-        if (changes.Length == 0) return new RestyleResult(before, "looks in the mirror and keeps their look");
+        if (changes.Length == 0 && after.Design == before.Design) return new RestyleResult(before, "looks in the mirror and keeps their look");
+        if (changes.Length == 0) changes = after.Summary ?? "a new look";
         body.Appearance = after;
         body.Activity = "showing off a new look";
         body.ActivityUntil = Now() + (long)ActivityWearsOff.TotalMilliseconds;

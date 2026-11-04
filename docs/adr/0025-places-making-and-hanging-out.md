@@ -23,7 +23,7 @@ itself and for Bodies to hang out the way people do.
 - **Shared prefab catalogue.** `backend/World/Places/prefabs.json` (name, footprint, solidity,
   seats, a one-line description) prompts the designer and validates designs. A frontend test keeps
   it identical to `PREFABS`.
-- **Appearance v2.** The palette now covers top and bottom styles, shoes, facial hair, build,
+- **Appearance v2** (extended by ADR 0028, which adds the LLM-written Design). The palette now covers top and bottom styles, shoes, facial hair, build,
   height and eyes, plus more hair and accessories. `RestyleAsync` maps words ("dye my hair pink")
   onto the palette, and only palette values are accepted. The options API is a field list, so
   editors and the Wardrobe follow new fields automatically.

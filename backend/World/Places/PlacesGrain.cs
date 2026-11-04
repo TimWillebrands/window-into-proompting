@@ -322,14 +322,15 @@ public sealed partial class PlacesGrain(
                 .Where(b => b.ParticipantId != who.Id && b.Appearance is { FromBio: true })
                 .Select(b => $"{b.Name.Split(' ')[0]}: {b.Appearance!.Hair} {b.Appearance.HairStyle} hair, {b.Appearance.Top} {b.Appearance.TopStyle}, {b.Appearance.Accessory}")
                 .ToList();
+            var current = state.State.Bodies.GetValueOrDefault(who.Id)?.Appearance;
             var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}"
+                + (current is { FromBio: true } ? $"\n\nPeople know them like this; keep it recognisably them: {AppearanceRules.Describe(current)}" : string.Empty)
                 + (others.Count == 0 ? string.Empty : $"\n\nOthers here already look like this; be recognisably different:\n{string.Join("\n", others)}");
-            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General, AppearanceRules.Prompt,
-                user, CancellationToken.None, 0.9,
-                AppearanceRules.Fields.Select(f => f.Key).ToList());
-            if (json is null || !state.State.Bodies.TryGetValue(who.Id, out var body)) return;
-            var picked = json.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString());
-            body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(who.Id), picked);
+            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General, FigureDesign.Prompt, user, CancellationToken.None, 0.9);
+            if (json is null) return;
+            var design = await DrawPrintsAsync(FigureDesign.Clean(json["design"]));
+            if (!state.State.Bodies.TryGetValue(who.Id, out var body)) return;
+            body.Appearance = Dressed(body.Appearance ?? AppearanceRules.Default(who.Id), json, design);
             await SaveAsync();
             await PublishAsync(body);
         }
@@ -337,6 +338,28 @@ public sealed partial class PlacesGrain(
         {
             logger.LogDebug(ex, "Dressing {Persona} failed; keeping the default look", who.Name);
         }
+    }
+
+    /// <summary>Palette picks and the design from one answer, laid over the look as it was.</summary>
+    private static Appearance Dressed(Appearance before, System.Text.Json.Nodes.JsonObject answer, string? design)
+    {
+        var picks = answer["picks"] as System.Text.Json.Nodes.JsonObject ?? answer;
+        var look = AppearanceRules.Merge(before, picks.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString()));
+        look.Design = FigureDesign.Over(look.Design, design);
+        look.Summary = answer["summary"]?.ToString() is { Length: > 0 } s ? WorldStream.Clip(s, 160) : look.Summary;
+        return look;
+    }
+
+    /// <summary>Draws each print a design asked for; one that doesn't come out is left off.</summary>
+    private async Task<string?> DrawPrintsAsync(string? design)
+    {
+        var art = new Dictionary<(string, int), string>();
+        foreach (var (slot, index, brief) in FigureDesign.Briefs(design).Take(FigureDesign.MaxPrints))
+        {
+            var svg = await llm.CompleteAsync(Grains.Generation.JobComplexity.General, FigureDesign.PrintPrompt, brief, CancellationToken.None, 0.8);
+            if (FigureDesign.Svg(svg) is { } clean) art[(slot, index)] = clean;
+        }
+        return FigureDesign.WithArtwork(design, art);
     }
 
     private async Task RestAsync(Guid personaId)
@@ -686,7 +709,8 @@ public sealed partial class PlacesGrain(
                 body.Appearance = AppearanceRules.Default(c.Id);
                 changed = true;
             }
-            if (!body.Appearance.FromBio && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
+            // No Design yet is a look from before Figures: same person, drawn anew.
+            if ((!body.Appearance.FromBio || body.Appearance.Design is null) && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
                 _dressQueue.Enqueue(c);
         }
         if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();

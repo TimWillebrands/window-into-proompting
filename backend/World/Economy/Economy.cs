@@ -70,27 +70,46 @@ public static class Catalog
     private static readonly Dictionary<string, int> TopPrices = new()
     {
         ["tshirt"] = 30, ["tank"] = 25, ["shirt"] = 45, ["sweater"] = 50, ["hoodie"] = 55, ["jacket"] = 90, ["dress"] = 70, ["suit"] = 150,
+        ["baby-tee"] = 30, ["band-tee"] = 40, ["long-sleeve"] = 35, ["mesh"] = 35, ["corset"] = 60, ["flannel"] = 50, ["tracksuit"] = 65,
     };
 
-    private static readonly Dictionary<string, int> BottomPrices = new() { ["trousers"] = 35, ["jeans"] = 45, ["shorts"] = 25, ["skirt"] = 35 };
+    private static readonly Dictionary<string, int> BottomPrices = new()
+    {
+        ["trousers"] = 35, ["jeans"] = 45, ["shorts"] = 25, ["skirt"] = 35,
+        ["skinny-jeans"] = 50, ["baggy-jeans"] = 50, ["bootcut"] = 45, ["cargo"] = 45, ["plaid-skirt"] = 40, ["mini-skirt"] = 30,
+    };
+
+    private static readonly Dictionary<string, int> ShoePrices = new()
+    {
+        ["skate-shoes"] = 60, ["hi-tops"] = 55, ["boots"] = 80, ["platforms"] = 90, ["heels"] = 70, ["sandals"] = 25, ["loafers"] = 55,
+    };
+
+    private static readonly Dictionary<string, int> LegwearPrices = new() { ["knee-socks"] = 10, ["striped-socks"] = 12, ["tights"] = 15, ["fishnets"] = 18 };
 
     private static readonly Dictionary<string, int> AccessoryPrices = new()
     {
         ["glasses"] = 60, ["sunglasses"] = 50, ["hat"] = 45, ["cap"] = 20, ["beanie"] = 25, ["scarf"] = 30, ["headphones"] = 80,
         ["earrings"] = 35, ["flower"] = 5, ["bow"] = 10, ["necklace"] = 60, ["bandana"] = 15,
+        ["choker"] = 15, ["studded-belt"] = 30, ["wristbands"] = 12, ["arm-warmers"] = 18, ["wallet-chain"] = 20,
     };
 
     private static readonly Dictionary<string, string> Nouns = new()
     {
         ["tshirt"] = "T-shirt", ["tank"] = "tank top", ["glasses"] = "pair of glasses", ["sunglasses"] = "pair of sunglasses",
         ["earrings"] = "pair of earrings", ["flower"] = "flower for the hair", ["bow"] = "hair bow",
+        ["baby-tee"] = "baby tee", ["band-tee"] = "band tee", ["long-sleeve"] = "striped long-sleeve", ["mesh"] = "mesh top", ["flannel"] = "flannel shirt",
+        ["studded-belt"] = "studded belt", ["wallet-chain"] = "wallet chain", ["arm-warmers"] = "pair of arm warmers", ["wristbands"] = "set of wristbands",
+        ["skate-shoes"] = "skate shoes", ["hi-tops"] = "hi-tops", ["knee-socks"] = "pair of knee socks", ["striped-socks"] = "pair of striped socks",
+        ["tights"] = "pair of tights", ["fishnets"] = "pair of fishnets", ["skinny-jeans"] = "skinny jeans", ["baggy-jeans"] = "baggy jeans",
+        ["plaid-skirt"] = "plaid skirt", ["mini-skirt"] = "mini skirt", ["bootcut"] = "bootcut jeans", ["cargo"] = "cargo pants",
     };
 
     private static readonly Dictionary<string, string> Cuts = new()
     {
         ["bald"] = "a clean shave of the head", ["braids"] = "getting your hair braided", ["buzz"] = "a buzz cut",
         ["bun"] = "a cut long enough for a bun", ["ponytail"] = "a cut long enough for a ponytail", ["mohawk"] = "a mohawk",
-        ["afro"] = "an afro", ["long"] = "growing it long (extensions)",
+        ["afro"] = "an afro", ["long"] = "growing it long (extensions)", ["fringe"] = "a long side fringe", ["scene"] = "a choppy scene cut",
+        ["pigtails"] = "a cut long enough for pigtails", ["undercut"] = "an undercut", ["dreads"] = "dreadlocks",
     };
 
     public static readonly IReadOnlyList<ShopItem> All = Build();
@@ -107,8 +126,13 @@ public static class Catalog
                 items.Add(new($"top:{style}:{c}", "top", $"{An(c)} {c} {Noun(style)}", TopPrices.GetValueOrDefault(style, 40), new() { ["topStyle"] = style, ["top"] = c }));
         foreach (var style in AppearanceRules.BottomStyles)
             foreach (var c in AppearanceRules.Colours)
-                items.Add(new($"bottom:{style}:{c}", "bottom", style == "skirt" ? $"{An(c)} {c} skirt" : $"{c} {style}", BottomPrices.GetValueOrDefault(style, 35), new() { ["bottomStyle"] = style, ["bottom"] = c }));
-        foreach (var c in AppearanceRules.Colours) items.Add(new($"shoes:{c}", "shoes", $"{c} shoes", 40, new() { ["shoes"] = c }));
+                items.Add(new($"bottom:{style}:{c}", "bottom", style.EndsWith("skirt") ? $"{An(c)} {c} {Noun(style)}" : $"{c} {Noun(style)}", BottomPrices.GetValueOrDefault(style, 35), new() { ["bottomStyle"] = style, ["bottom"] = c }));
+        foreach (var c in AppearanceRules.Colours) items.Add(new($"shoes:{c}", "shoes", $"{c} shoes", 40, new() { ["shoes"] = c, ["shoeStyle"] = "sneakers" }));
+        foreach (var style in AppearanceRules.ShoeStyles.Skip(1))
+            foreach (var c in AppearanceRules.Colours)
+                items.Add(new($"shoes:{style}:{c}", "shoes", $"{c} {Noun(style)}", ShoePrices.GetValueOrDefault(style, 50), new() { ["shoes"] = c, ["shoeStyle"] = style }));
+        foreach (var v in AppearanceRules.Legwears.Where(l => l != "none"))
+            items.Add(new($"legwear:{v}", "legwear", $"{An(Noun(v))} {Noun(v)}", LegwearPrices.GetValueOrDefault(v, 12), new() { ["legwear"] = v }));
         foreach (var v in AppearanceRules.Accessories.Where(a => a != "none"))
             items.Add(new($"accessory:{v}", "accessory", $"{An(Noun(v))} {Noun(v)}", AccessoryPrices.GetValueOrDefault(v, 40), new() { ["accessory"] = v }));
         return items;
@@ -135,11 +159,16 @@ public static class Catalog
     public static bool IsService(ShopItem item) => item.Slot is "hair" or "hairStyle";
 
     /// <summary>The keys of what someone is wearing now (body: skin, build, eyes, facial hair are never for sale).</summary>
-    public static List<string> Wearing(Appearance look) => new()
+    public static List<string> Wearing(Appearance look)
     {
-        $"hair:{look.Hair}", $"hairStyle:{look.HairStyle}", $"top:{look.TopStyle}:{look.Top}", $"bottom:{look.BottomStyle}:{look.Bottom}",
-        $"shoes:{look.Shoes}", $"accessory:{look.Accessory}",
-    };
+        var keys = new List<string>
+        {
+            $"hair:{look.Hair}", $"hairStyle:{look.HairStyle}", $"top:{look.TopStyle}:{look.Top}", $"bottom:{look.BottomStyle}:{look.Bottom}",
+            look.ShoeStyle == AppearanceRules.ShoeStyles[0] ? $"shoes:{look.Shoes}" : $"shoes:{look.ShoeStyle}:{look.Shoes}", $"accessory:{look.Accessory}",
+        };
+        if (look.Legwear != "none") keys.Add($"legwear:{look.Legwear}");
+        return keys;
+    }
 
     /// <summary>Today's window display for one person: a stable handful, different per day and per person.</summary>
     public static List<ShopItem> InTheShops(Guid personaId, string dayKey, IReadOnlyCollection<string> owned, int count = 5)
@@ -153,9 +182,10 @@ public static class Catalog
     {
         var words = Words(intent);
         // The thing ("scarf", "hoodie") outweighs the colour, which several slots share.
-        var scored = options.Select(o => (Item: o, Score: Words(o.Name).Where(words.Contains).Sum(w => AppearanceRules.Colours.Contains(w) || AppearanceRules.Hairs.Contains(w) ? 1 : 2)))
-            .Where(x => x.Score > 0).OrderByDescending(x => x.Score).ToList();
-        return scored.Count == 0 || (scored.Count > 1 && scored[0].Score == scored[1].Score) ? null : scored[0].Item;
+        var scored = options.Select(o => (Item: o, Score: Words(o.Name).Where(words.Contains).Sum(w => AppearanceRules.Colours.Contains(w) || AppearanceRules.Hairs.Contains(w) ? 1 : 2), Extra: Words(o.Name).Count(w => !words.Contains(w))))
+            .Where(x => x.Score > 0).OrderByDescending(x => x.Score).ThenBy(x => x.Extra).ToList();
+        // "Black jeans" means the plain ones, not the skinny ones.
+        return scored.Count == 0 || (scored.Count > 1 && scored[0].Score == scored[1].Score && scored[0].Extra == scored[1].Extra) ? null : scored[0].Item;
     }
 
     private static readonly HashSet<string> Filler = new(StringComparer.Ordinal) { "a", "an", "the", "of", "pair", "some", "new", "for", "top" };

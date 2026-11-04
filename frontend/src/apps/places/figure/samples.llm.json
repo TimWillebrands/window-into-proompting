@@ -1,0 +1,1720 @@
+[
+    {
+        "id": "h1",
+        "summary": "Red bob, glasses and a deadpan look; a band tee under an open flannel, boots, and keys swinging from the hip.",
+        "picks": {
+            "skin": "fair",
+            "hair": "red",
+            "hairStyle": "bob",
+            "eyes": "green",
+            "facialHair": "none",
+            "topStyle": "band-tee",
+            "top": "black",
+            "bottomStyle": "skinny-jeans",
+            "bottom": "navy",
+            "shoeStyle": "boots",
+            "shoes": "black",
+            "legwear": "none",
+            "accessory": "glasses",
+            "build": "slim",
+            "height": "average"
+        },
+        "design": {
+            "body": {
+                "skin": "#f3d3bd",
+                "height": 0.5,
+                "build": 0.35,
+                "curve": 0.5,
+                "shoulders": 0.4,
+                "hips": 0.5,
+                "legs": 0.55,
+                "head": 0.55
+            },
+            "face": {
+                "shape": 0.35,
+                "jaw": 0.4,
+                "nose": 0.45,
+                "ears": 0.5,
+                "eyes": {
+                    "shape": "almond",
+                    "size": 0.5,
+                    "iris": "#3f6b4a",
+                    "liner": 0.25,
+                    "wing": 0.2,
+                    "linerColor": "#2a2226",
+                    "shadow": "#b9a2a6"
+                },
+                "brows": { "color": "#7a2a24", "weight": 0.45, "arch": 0.3 },
+                "mouth": {
+                    "width": 0.4,
+                    "lips": 0.4,
+                    "color": "#b8565a",
+                    "set": -0.1
+                },
+                "freckles": 0.45
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 8,
+                        "len": 0.3,
+                        "width": 0.3,
+                        "jag": 0.4,
+                        "lift": 0.05,
+                        "fall": 0.6,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 5,
+                        "len": 0.55,
+                        "width": 0.3,
+                        "jag": 0.5,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0.4,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 6,
+                        "len": 0.95,
+                        "width": 0.28,
+                        "jag": 0.7,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": -0.2,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 6,
+                        "len": 0.95,
+                        "width": 0.28,
+                        "jag": 0.7,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0.2,
+                        "curl": 0
+                    },
+                    {
+                        "at": "back",
+                        "count": 7,
+                        "len": 1,
+                        "width": 0.3,
+                        "jag": 0.8,
+                        "lift": 0.05,
+                        "fall": 0.95,
+                        "sweep": 0,
+                        "curl": 0,
+                        "color": "#8a1c24"
+                    }
+                ],
+                "color": "#b3262f"
+            },
+            "top": {
+                "color": "#17171b",
+                "sleeve": 0.28,
+                "hem": 0.45,
+                "fit": 0.35,
+                "neck": "crew",
+                "prints": [
+                    {
+                        "at": "chest",
+                        "size": 0.5,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\n\u003Cg transform=\u0022rotate(-8 128 128)\u0022\u003E\n\u003Ccircle cx=\u0022128\u0022 cy=\u0022112\u0022 r=\u002276\u0022 fill=\u0022#f4f1ee\u0022 /\u003E\n\u003Ccircle cx=\u0022128\u0022 cy=\u0022112\u0022 r=\u002228\u0022 fill=\u0022#ff3e9a\u0022 /\u003E\n\u003Ccircle cx=\u0022128\u0022 cy=\u0022112\u0022 r=\u00226\u0022 fill=\u0022#f4f1ee\u0022 /\u003E\n\u003Cpolyline points=\u002256,84 80,98 70,116 98,124 88,146 112,156\u0022 fill=\u0022none\u0022 stroke=\u0022#ff3e9a\u0022 stroke-width=\u00227\u0022 stroke-linejoin=\u0022round\u0022 stroke-linecap=\u0022round\u0022 /\u003E\n\u003Ctext x=\u0022128\u0022 y=\u0022236\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002238\u0022 fill=\u0022#f4f1ee\u0022 text-anchor=\u0022middle\u0022\u003EVINYL FLAW\u003C/text\u003E\n\u003C/g\u003E\n\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "outer": {
+                "color": "#3f4d3e",
+                "sleeve": 1,
+                "hem": 0.5,
+                "fit": 0.55,
+                "neck": "collar",
+                "open": true,
+                "pattern": {
+                    "kind": "plaid",
+                    "colors": ["#3f4d3e", "#1f2630", "#c99a4b"],
+                    "scale": 0.3
+                }
+            },
+            "bottom": {
+                "color": "#1f2a40",
+                "kind": "pants",
+                "length": 0.9,
+                "fit": 0.15,
+                "flare": 0.1,
+                "rise": 0.55,
+                "rips": 0.35
+            },
+            "shoes": {
+                "kind": "boot",
+                "color": "#16161a",
+                "sole": "#2c2a30",
+                "trim": "#b7b7c0",
+                "platform": 0.15
+            },
+            "stance": {
+                "spine": [5, -6, 4],
+                "head": [-8, -12, 10],
+                "armL": [10, 8, 0],
+                "armR": [14, -6, 0],
+                "legL": [0, 6],
+                "legR": [6, -4],
+                "elbowL": 35,
+                "elbowR": 55,
+                "kneeL": 0,
+                "kneeR": 8,
+                "shift": 0.03,
+                "handL": "relaxed",
+                "handR": "point"
+            },
+            "extras": [
+                {
+                    "name": "keys",
+                    "socket": "hip-l",
+                    "blobs": [
+                        {
+                            "shape": "capsule",
+                            "at": [0.05, -0.05, 0],
+                            "r": 0.015,
+                            "color": "#9a9aa3",
+                            "to": [0.05, -0.35, 0.02],
+                            "metal": true
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0.05, -0.4, 0.02],
+                            "r": 0.05,
+                            "color": "#c0c0c8",
+                            "metal": true
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "h2",
+        "summary": "Neat pale-blue shirt, grey cardigan, beige trousers and loafers; a fountain pen in the pocket and a trouser clip for the bike.",
+        "picks": {
+            "skin": "olive",
+            "hair": "brown",
+            "hairStyle": "short",
+            "eyes": "brown",
+            "facialHair": "none",
+            "topStyle": "shirt",
+            "top": "blue",
+            "bottomStyle": "trousers",
+            "bottom": "beige",
+            "shoeStyle": "loafers",
+            "shoes": "brown",
+            "legwear": "none",
+            "accessory": "none",
+            "build": "average",
+            "height": "average"
+        },
+        "design": {
+            "body": {
+                "skin": "#c4a07e",
+                "height": 0.5,
+                "build": 0.45,
+                "curve": 0.45,
+                "shoulders": 0.45,
+                "hips": 0.45,
+                "legs": 0.6,
+                "head": 0.5
+            },
+            "face": {
+                "shape": 0.45,
+                "jaw": 0.5,
+                "nose": 0.5,
+                "ears": 0.55,
+                "eyes": {
+                    "shape": "almond",
+                    "size": 0.45,
+                    "iris": "#5a3a22",
+                    "liner": 0.05,
+                    "wing": 0,
+                    "linerColor": "#2a2226"
+                },
+                "brows": { "color": "#4a3525", "weight": 0.4, "arch": 0.35 },
+                "mouth": {
+                    "width": 0.35,
+                    "lips": 0.45,
+                    "color": "#a8675c",
+                    "set": 0.25
+                }
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 5,
+                        "len": 0.2,
+                        "width": 0.3,
+                        "jag": 0.1,
+                        "lift": 0.1,
+                        "fall": 0.2,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 4,
+                        "len": 0.25,
+                        "width": 0.3,
+                        "jag": 0.1,
+                        "lift": 0.1,
+                        "fall": 0.2,
+                        "sweep": 0.6,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 3,
+                        "len": 0.2,
+                        "width": 0.22,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 0.1,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 3,
+                        "len": 0.2,
+                        "width": 0.22,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 0.1,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "back",
+                        "count": 4,
+                        "len": 0.22,
+                        "width": 0.25,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 0.2,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#4a3525"
+            },
+            "top": {
+                "color": "#9fb9cc",
+                "sleeve": 1,
+                "hem": 0.5,
+                "fit": 0.3,
+                "neck": "collar"
+            },
+            "outer": {
+                "color": "#56606a",
+                "sleeve": 1,
+                "hem": 0.5,
+                "fit": 0.5,
+                "neck": "v",
+                "trim": "#e6e0d2",
+                "open": true
+            },
+            "bottom": {
+                "color": "#c9b89a",
+                "kind": "pants",
+                "length": 0.95,
+                "fit": 0.35,
+                "flare": 0.1,
+                "rise": 0.7
+            },
+            "shoes": {
+                "kind": "loafer",
+                "color": "#4a2c1d",
+                "sole": "#2a1a12",
+                "trim": "#6e4a33",
+                "platform": 0.02
+            },
+            "stance": {
+                "spine": [1, 0, 0],
+                "head": [2, -4, 10],
+                "armL": [4, 4, 0],
+                "armR": [6, 4, 0],
+                "legL": [0, 2],
+                "legR": [0, -2],
+                "elbowL": 15,
+                "elbowR": 25,
+                "kneeL": 0,
+                "kneeR": 0,
+                "shift": 0,
+                "handL": "relaxed",
+                "handR": "grip"
+            },
+            "extras": [
+                {
+                    "name": "fountain pen",
+                    "socket": "chest",
+                    "blobs": [
+                        {
+                            "shape": "capsule",
+                            "at": [0.1, 0.02, 0.12],
+                            "r": 0.02,
+                            "color": "#1f3f6b",
+                            "to": [0.1, 0.32, 0.12]
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0.1, 0.34, 0.12],
+                            "r": 0.025,
+                            "color": "#c9a24a",
+                            "metal": true
+                        }
+                    ]
+                },
+                {
+                    "name": "trouser clip left",
+                    "socket": "ankle-l",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0.08, 0],
+                            "r": 0.09,
+                            "color": "#c7c9cc",
+                            "tube": 0.015,
+                            "metal": true
+                        }
+                    ]
+                },
+                {
+                    "name": "trouser clip right",
+                    "socket": "ankle-r",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0.08, 0],
+                            "r": 0.09,
+                            "color": "#c7c9cc",
+                            "tube": 0.015,
+                            "metal": true
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "h3",
+        "summary": "Pink pigtails, glow sticks at wrist and neck, black mesh with a CARE CREW back print, cargo pants and chunky platforms.",
+        "picks": {
+            "skin": "brown",
+            "hair": "pink",
+            "hairStyle": "pigtails",
+            "eyes": "blue",
+            "facialHair": "none",
+            "topStyle": "mesh",
+            "top": "black",
+            "bottomStyle": "cargo",
+            "bottom": "olive",
+            "shoeStyle": "platforms",
+            "shoes": "white",
+            "legwear": "none",
+            "accessory": "bow",
+            "build": "slim",
+            "height": "short"
+        },
+        "design": {
+            "body": {
+                "skin": "#7b4b30",
+                "height": 0.3,
+                "build": 0.3,
+                "curve": 0.7,
+                "shoulders": 0.35,
+                "hips": 0.62,
+                "legs": 0.6,
+                "head": 0.55
+            },
+            "face": {
+                "shape": 0.4,
+                "jaw": 0.35,
+                "nose": 0.4,
+                "ears": 0.5,
+                "eyes": {
+                    "shape": "wide",
+                    "size": 0.6,
+                    "iris": "#4f8fd1",
+                    "liner": 0.5,
+                    "wing": 0.3,
+                    "linerColor": "#1a1020",
+                    "shadow": "#7a3fd1"
+                },
+                "brows": { "color": "#c2407f", "weight": 0.4, "arch": 0.5 },
+                "mouth": {
+                    "width": 0.5,
+                    "lips": 0.55,
+                    "color": "#e0527a",
+                    "set": 0.6
+                },
+                "blush": "#ff8fb8",
+                "piercings": ["septum"]
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 6,
+                        "len": 0.4,
+                        "width": 0.32,
+                        "jag": 0.3,
+                        "lift": 0.2,
+                        "fall": 0.5,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 5,
+                        "len": 0.45,
+                        "width": 0.32,
+                        "jag": 0.6,
+                        "lift": 0.05,
+                        "fall": 0.4,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 6,
+                        "len": 1.1,
+                        "width": 0.3,
+                        "jag": 0.4,
+                        "lift": 0.7,
+                        "fall": 0.3,
+                        "sweep": 0.6,
+                        "curl": 0,
+                        "bands": ["#e8358f", "#ff8fc7", "#ffe14d"]
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 6,
+                        "len": 1.1,
+                        "width": 0.3,
+                        "jag": 0.4,
+                        "lift": 0.7,
+                        "fall": 0.3,
+                        "sweep": -0.6,
+                        "curl": 0,
+                        "bands": ["#e8358f", "#ff8fc7", "#ffe14d"]
+                    },
+                    {
+                        "at": "back",
+                        "count": 5,
+                        "len": 0.7,
+                        "width": 0.3,
+                        "jag": 0.5,
+                        "lift": 0.05,
+                        "fall": 0.6,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#ff5fb4"
+            },
+            "top": {
+                "color": "#121116",
+                "sleeve": 1,
+                "hem": 0.4,
+                "fit": 0.2,
+                "neck": "scoop",
+                "pattern": {
+                    "kind": "fishnet",
+                    "colors": ["#121116", "#2a2630"],
+                    "scale": 0.3
+                },
+                "prints": [
+                    {
+                        "at": "back",
+                        "size": 0.6,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\n\u003Cg transform=\u0022rotate(-4 128 128)\u0022\u003E\n\u003Ctext x=\u0022128\u0022 y=\u0022112\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002296\u0022 fill=\u0022#ff3ea5\u0022 stroke=\u0022#39ff7a\u0022 stroke-width=\u00228\u0022 text-anchor=\u0022middle\u0022\u003ECARE\u003C/text\u003E\n\u003Ctext x=\u0022128\u0022 y=\u0022222\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002296\u0022 fill=\u0022#39ff7a\u0022 stroke=\u0022#ff3ea5\u0022 stroke-width=\u00228\u0022 text-anchor=\u0022middle\u0022\u003ECREW\u003C/text\u003E\n\u003C/g\u003E\n\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "under": {
+                "color": "#39ff7a",
+                "sleeve": 0,
+                "hem": 0,
+                "fit": 0.1,
+                "neck": "scoop"
+            },
+            "bottom": {
+                "color": "#4d5a3c",
+                "kind": "pants",
+                "length": 0.9,
+                "fit": 0.7,
+                "flare": 0.6,
+                "rise": 0.45,
+                "prints": [
+                    {
+                        "at": "thighL",
+                        "size": 0.3,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\n\u003Ccircle cx=\u0022128\u0022 cy=\u0022128\u0022 r=\u0022116\u0022 fill=\u0022#ffe14d\u0022 /\u003E\n\u003Cellipse cx=\u002290\u0022 cy=\u0022104\u0022 rx=\u002216\u0022 ry=\u002226\u0022 fill=\u0022#1a1020\u0022 /\u003E\n\u003Cellipse cx=\u0022166\u0022 cy=\u0022104\u0022 rx=\u002216\u0022 ry=\u002226\u0022 fill=\u0022#1a1020\u0022 /\u003E\n\u003Cpath d=\u0022M56 144 Q128 252 200 144 Z\u0022 fill=\u0022#1a1020\u0022 /\u003E\n\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "shoes": {
+                "kind": "platform",
+                "color": "#f3f1f7",
+                "sole": "#e4e1ee",
+                "trim": "#39ff7a",
+                "platform": 0.8
+            },
+            "stance": {
+                "spine": [3, -4, -3],
+                "head": [-2, 6, -6],
+                "armL": [8, 14, 0],
+                "armR": [12, -10, 0],
+                "legL": [0, 6],
+                "legR": [0, -4],
+                "elbowL": 20,
+                "elbowR": 30,
+                "kneeL": 4,
+                "kneeR": 0,
+                "shift": 0.03,
+                "handL": "relaxed",
+                "handR": "open"
+            },
+            "extras": [
+                {
+                    "name": "glow bracelets",
+                    "socket": "wrist-l",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0.02, 0],
+                            "r": 0.09,
+                            "color": "#39ff7a",
+                            "tube": 0.03
+                        },
+                        {
+                            "shape": "band",
+                            "at": [0, 0.12, 0],
+                            "r": 0.09,
+                            "color": "#ff3ea5",
+                            "tube": 0.03
+                        }
+                    ]
+                },
+                {
+                    "name": "glow necklace",
+                    "socket": "neck",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0.1, 0],
+                            "r": 0.22,
+                            "color": "#ffe14d",
+                            "tube": 0.025
+                        }
+                    ]
+                },
+                {
+                    "name": "glow stick",
+                    "socket": "hand-r",
+                    "blobs": [
+                        {
+                            "shape": "capsule",
+                            "at": [0, 0.02, 0],
+                            "r": 0.035,
+                            "color": "#9b3dff",
+                            "to": [0, 0.3, 0.02]
+                        }
+                    ]
+                }
+            ],
+            "moves": {
+                "dance": {
+                    "loop": 2.4,
+                    "keys": [
+                        {
+                            "spine": [2, -8, -6],
+                            "head": [-4, 10, -8],
+                            "armL": [60, 30, 0],
+                            "armR": [10, -20, 0],
+                            "shift": 0.04,
+                            "handL": "open",
+                            "handR": "open",
+                            "t": 0
+                        },
+                        {
+                            "spine": [4, 8, 6],
+                            "head": [-6, -8, 8],
+                            "armL": [10, 40, 0],
+                            "armR": [70, 20, 0],
+                            "shift": -0.04,
+                            "handL": "horns",
+                            "handR": "open",
+                            "t": 0.5
+                        },
+                        {
+                            "spine": [2, -8, -6],
+                            "head": [-4, 10, -8],
+                            "armL": [60, 30, 0],
+                            "armR": [10, -20, 0],
+                            "shift": 0.04,
+                            "handL": "open",
+                            "handR": "open",
+                            "t": 1
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "id": "s1",
+        "summary": "Blue-black bob with teal tips, glasses, mustard :-P tee under an open navy hoodie, skinny jeans and cream hi-tops.",
+        "picks": {
+            "skin": "tan",
+            "hair": "blue",
+            "hairStyle": "bob",
+            "eyes": "brown",
+            "facialHair": "none",
+            "topStyle": "hoodie",
+            "top": "navy",
+            "bottomStyle": "skinny-jeans",
+            "bottom": "blue",
+            "shoeStyle": "hi-tops",
+            "shoes": "white",
+            "legwear": "none",
+            "accessory": "glasses",
+            "build": "average",
+            "height": "average"
+        },
+        "design": {
+            "body": {
+                "skin": "#c99a76",
+                "height": 0.45,
+                "build": 0.45,
+                "curve": 0.5,
+                "shoulders": 0.4,
+                "hips": 0.5,
+                "legs": 0.55,
+                "head": 0.55
+            },
+            "face": {
+                "shape": 0.35,
+                "jaw": 0.4,
+                "nose": 0.4,
+                "ears": 0.4,
+                "eyes": {
+                    "shape": "almond",
+                    "size": 0.6,
+                    "iris": "#4a3123",
+                    "liner": 0.5,
+                    "wing": 0.35,
+                    "linerColor": "#1a1620"
+                },
+                "brows": { "color": "#1d1a26", "weight": 0.4, "arch": 0.65 },
+                "mouth": {
+                    "width": 0.45,
+                    "lips": 0.45,
+                    "color": "#b5495a",
+                    "set": 0.35
+                },
+                "blush": "#e59a8c"
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 16,
+                        "len": 0.45,
+                        "width": 0.2,
+                        "jag": 0.2,
+                        "lift": 0.25,
+                        "fall": 0.6,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 9,
+                        "len": 0.55,
+                        "width": 0.24,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 0.85,
+                        "sweep": 0.3,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 7,
+                        "len": 0.75,
+                        "width": 0.22,
+                        "jag": 0.15,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 7,
+                        "len": 0.75,
+                        "width": 0.22,
+                        "jag": 0.15,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "back",
+                        "count": 12,
+                        "len": 0.7,
+                        "width": 0.24,
+                        "jag": 0.15,
+                        "lift": 0.05,
+                        "fall": 0.95,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#1f2d5c",
+                "tips": "#2aa7a1"
+            },
+            "top": {
+                "color": "#e5b535",
+                "sleeve": 0.28,
+                "hem": 0.3,
+                "fit": 0.15,
+                "neck": "crew",
+                "prints": [
+                    {
+                        "at": "chest",
+                        "size": 0.6,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Ctext x=\u0022128\u0022 y=\u0022160\u0022 font-family=\u0022Courier New,monospace\u0022 font-size=\u0022124\u0022 font-weight=\u0022bold\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#27324f\u0022\u003E:-P\u003C/text\u003E\u003Crect x=\u002288\u0022 y=\u0022184\u0022 width=\u002280\u0022 height=\u002226\u0022 fill=\u0022#2aa7a1\u0022 /\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "outer": {
+                "color": "#27324f",
+                "sleeve": 1,
+                "hem": 0.5,
+                "fit": 0.55,
+                "neck": "crew",
+                "trim": "#2aa7a1",
+                "hood": true,
+                "open": true,
+                "prints": [
+                    {
+                        "at": "back",
+                        "size": 0.7,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Cg fill=\u0022#f1ead8\u0022\u003E\u003Crect x=\u0022112\u0022 y=\u00228\u0022 width=\u002232\u0022 height=\u002216\u0022 /\u003E\u003Crect x=\u002296\u0022 y=\u002224\u0022 width=\u002264\u0022 height=\u002232\u0022 /\u003E\u003Crect x=\u002280\u0022 y=\u002256\u0022 width=\u002296\u0022 height=\u002296\u0022 /\u003E\u003C/g\u003E\u003Cg fill=\u0022#2aa7a1\u0022\u003E\u003Crect x=\u0022112\u0022 y=\u002272\u0022 width=\u002232\u0022 height=\u002232\u0022 /\u003E\u003Crect x=\u002248\u0022 y=\u0022120\u0022 width=\u002232\u0022 height=\u002248\u0022 /\u003E\u003Crect x=\u0022176\u0022 y=\u0022120\u0022 width=\u002232\u0022 height=\u002248\u0022 /\u003E\u003Crect x=\u002296\u0022 y=\u0022152\u0022 width=\u002264\u0022 height=\u002216\u0022 /\u003E\u003C/g\u003E\u003Cg fill=\u0022#e5b535\u0022\u003E\u003Crect x=\u0022104\u0022 y=\u0022168\u0022 width=\u002248\u0022 height=\u002216\u0022 /\u003E\u003Crect x=\u0022112\u0022 y=\u0022184\u0022 width=\u002232\u0022 height=\u002216\u0022 /\u003E\u003Crect x=\u0022120\u0022 y=\u0022200\u0022 width=\u002216\u0022 height=\u002216\u0022 /\u003E\u003C/g\u003E\u003Ctext x=\u0022128\u0022 y=\u0022250\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002238\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#e5b535\u0022\u003ESHIP IT\u003C/text\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "bottom": {
+                "color": "#5d7fa8",
+                "kind": "pants",
+                "length": 1,
+                "fit": 0.1,
+                "flare": 0,
+                "rise": 0.4,
+                "rips": 0.2
+            },
+            "shoes": {
+                "kind": "hi-top",
+                "color": "#efe9d8",
+                "sole": "#2f3b52",
+                "trim": "#2aa7a1",
+                "platform": 0.1
+            },
+            "stance": {
+                "spine": [5, 0, 2],
+                "head": [-3, 6, 4],
+                "armL": [4, 8, 0],
+                "armR": [10, 6, 0],
+                "legL": [0, 3],
+                "legR": [0, 3],
+                "elbowL": 15,
+                "elbowR": 30,
+                "shift": 0.03,
+                "handL": "relaxed",
+                "handR": "grip"
+            },
+            "extras": [
+                {
+                    "name": "lanyard",
+                    "socket": "neck",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0, 0],
+                            "r": 0.05,
+                            "color": "#2aa7a1",
+                            "tube": 0.012
+                        },
+                        {
+                            "shape": "capsule",
+                            "at": [0, -0.1, 0.2],
+                            "r": 0.015,
+                            "color": "#2aa7a1",
+                            "to": [0, -0.7, 0.25]
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0, -0.76, 0.26],
+                            "r": 0.07,
+                            "color": "#f1ead8"
+                        }
+                    ]
+                },
+                {
+                    "name": "watch",
+                    "socket": "wrist-l",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0, 0],
+                            "r": 0.05,
+                            "color": "#1d1a26",
+                            "tube": 0.012
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0, 0, 0.09],
+                            "r": 0.04,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        }
+                    ]
+                }
+            ],
+            "moves": {
+                "dance": {
+                    "loop": 2,
+                    "keys": [
+                        {
+                            "spine": [5, 0, 2],
+                            "head": [-3, 6, 4],
+                            "handR": "point",
+                            "t": 0
+                        },
+                        {
+                            "spine": [8, -4, 0],
+                            "head": [4, -8, -4],
+                            "armR": [28, 10, 0],
+                            "elbowR": 70,
+                            "t": 0.25
+                        },
+                        {
+                            "spine": [5, 0, -2],
+                            "head": [-3, 8, 4],
+                            "armL": [26, 10, 0],
+                            "elbowL": 70,
+                            "handL": "point",
+                            "t": 0.5
+                        },
+                        { "spine": [8, 4, 0], "head": [4, -6, 4], "t": 0.75 },
+                        {
+                            "spine": [5, 0, 2],
+                            "head": [-3, 6, 4],
+                            "handR": "point",
+                            "t": 1
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "id": "s2",
+        "summary": "Tall quiet skater in a beanie, faded pan-print tee, baggy jeans, gum-sole skate shoes and a checked kitchen cloth at the hip.",
+        "picks": {
+            "skin": "olive",
+            "hair": "brown",
+            "hairStyle": "short",
+            "eyes": "brown",
+            "facialHair": "stubble",
+            "topStyle": "tshirt",
+            "top": "black",
+            "bottomStyle": "baggy-jeans",
+            "bottom": "blue",
+            "shoeStyle": "skate-shoes",
+            "shoes": "beige",
+            "legwear": "none",
+            "accessory": "beanie",
+            "build": "average",
+            "height": "tall"
+        },
+        "design": {
+            "body": {
+                "skin": "#b0825c",
+                "height": 0.7,
+                "build": 0.4,
+                "curve": 0.2,
+                "shoulders": 0.55,
+                "hips": 0.4,
+                "legs": 0.6,
+                "head": 0.5
+            },
+            "face": {
+                "shape": 0.55,
+                "jaw": 0.6,
+                "nose": 0.55,
+                "ears": 0.5,
+                "eyes": {
+                    "shape": "droopy",
+                    "size": 0.5,
+                    "iris": "#4a3524",
+                    "liner": 0.1,
+                    "wing": 0,
+                    "linerColor": "#2a2020"
+                },
+                "brows": { "color": "#2b2019", "weight": 0.6, "arch": 0.25 },
+                "mouth": {
+                    "width": 0.4,
+                    "lips": 0.35,
+                    "color": "#8c5648",
+                    "set": -0.1
+                },
+                "facialHair": "stubble",
+                "facialHairColor": "#2e2420"
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 14,
+                        "len": 0.3,
+                        "width": 0.2,
+                        "jag": 0.3,
+                        "lift": 0.3,
+                        "fall": 0.5,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 6,
+                        "len": 0.35,
+                        "width": 0.2,
+                        "jag": 0.3,
+                        "lift": 0.05,
+                        "fall": 0.8,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 6,
+                        "len": 0.35,
+                        "width": 0.2,
+                        "jag": 0.3,
+                        "lift": 0.05,
+                        "fall": 0.8,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "nape",
+                        "count": 6,
+                        "len": 0.45,
+                        "width": 0.2,
+                        "jag": 0.3,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#2b2019"
+            },
+            "top": {
+                "color": "#2e3138",
+                "sleeve": 0.3,
+                "hem": 0.5,
+                "fit": 0.55,
+                "neck": "crew",
+                "prints": [
+                    {
+                        "at": "chest",
+                        "size": 0.5,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Ccircle cx=\u0022112\u0022 cy=\u002292\u0022 r=\u002258\u0022 fill=\u0022none\u0022 stroke=\u0022#efe7d2\u0022 stroke-width=\u002222\u0022 /\u003E\u003Cpath d=\u0022M156 132L238 182\u0022 fill=\u0022none\u0022 stroke=\u0022#efe7d2\u0022 stroke-width=\u002226\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003Ccircle cx=\u0022112\u0022 cy=\u002292\u0022 r=\u002234\u0022 fill=\u0022#efe7d2\u0022 /\u003E\u003Ccircle cx=\u0022112\u0022 cy=\u002292\u0022 r=\u002214\u0022 fill=\u0022#e3a82e\u0022 /\u003E\u003Cpath d=\u0022M112 176C140 200 142 230 112 250C84 230 86 200 112 176Z\u0022 fill=\u0022#c8392f\u0022 /\u003E\u003Cpath d=\u0022M64 200C80 214 80 230 64 244C48 230 48 214 64 200Z\u0022 fill=\u0022#c8392f\u0022 /\u003E\u003Cpath d=\u0022M160 200C176 214 176 230 160 244C144 230 144 214 160 200Z\u0022 fill=\u0022#c8392f\u0022 /\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "bottom": {
+                "color": "#7d93ad",
+                "kind": "pants",
+                "length": 1,
+                "fit": 0.9,
+                "flare": 0.15,
+                "rise": 0.3,
+                "rips": 0.2,
+                "prints": [
+                    {
+                        "at": "thighR",
+                        "size": 0.4,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Crect x=\u002228\u0022 y=\u002228\u0022 width=\u0022200\u0022 height=\u0022200\u0022 fill=\u0022#efe7d2\u0022 /\u003E\u003Cpath d=\u0022M28 28h40v40h-40zM108 28h40v40h-40zM188 28h40v40h-40zM68 68h40v40h-40zM148 68h40v40h-40zM28 108h40v40h-40zM108 108h40v40h-40zM188 108h40v40h-40zM68 148h40v40h-40zM148 148h40v40h-40zM28 188h40v40h-40zM108 188h40v40h-40zM188 188h40v40h-40z\u0022 fill=\u0022#c8392f\u0022 /\u003E\u003Crect x=\u002214\u0022 y=\u002214\u0022 width=\u0022228\u0022 height=\u0022228\u0022 rx=\u002210\u0022 fill=\u0022none\u0022 stroke=\u0022#2e3138\u0022 stroke-width=\u00228\u0022 stroke-dasharray=\u002220 14\u0022 /\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "shoes": {
+                "kind": "skate",
+                "color": "#e4ddc8",
+                "sole": "#c49a5a",
+                "trim": "#2e3138",
+                "platform": 0.1
+            },
+            "stance": {
+                "spine": [8, 0, 2],
+                "head": [6, -5, 3],
+                "armL": [2, 6, 0],
+                "armR": [2, 6, 0],
+                "legL": [0, 4],
+                "legR": [0, 4],
+                "elbowL": 20,
+                "elbowR": 20,
+                "kneeL": 6,
+                "kneeR": 10,
+                "shift": 0.04,
+                "handL": "relaxed",
+                "handR": "relaxed"
+            },
+            "extras": [
+                {
+                    "name": "kitchen cloth",
+                    "socket": "hip-l",
+                    "blobs": [
+                        {
+                            "shape": "capsule",
+                            "at": [0, 0.02, 0.1],
+                            "r": 0.07,
+                            "color": "#efe7d2",
+                            "to": [0, -0.55, 0.12]
+                        },
+                        {
+                            "shape": "capsule",
+                            "at": [0.04, 0, 0.15],
+                            "r": 0.025,
+                            "color": "#c8392f",
+                            "to": [0.04, -0.5, 0.16]
+                        }
+                    ]
+                }
+            ],
+            "moves": {
+                "dance": {
+                    "loop": 3,
+                    "keys": [
+                        { "spine": [8, 0, 2], "head": [6, -5, 3], "t": 0 },
+                        {
+                            "spine": [6, 4, 0],
+                            "head": [2, 6, -3],
+                            "armL": [6, 10, 0],
+                            "elbowL": 40,
+                            "kneeL": 12,
+                            "t": 0.33
+                        },
+                        {
+                            "spine": [8, -4, 3],
+                            "head": [8, -6, 4],
+                            "armR": [6, 10, 0],
+                            "elbowR": 40,
+                            "kneeR": 16,
+                            "t": 0.66
+                        },
+                        { "spine": [8, 0, 2], "head": [6, -5, 3], "t": 1 }
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "id": "s3",
+        "summary": "Pale, dry-eyed, plum lips, long black hair, corset under a grey cardigan, tartan skirt, fishnets, boots and a silver cat pendant.",
+        "picks": {
+            "skin": "light",
+            "hair": "black",
+            "hairStyle": "long",
+            "eyes": "grey",
+            "facialHair": "none",
+            "topStyle": "corset",
+            "top": "black",
+            "bottomStyle": "plaid-skirt",
+            "bottom": "black",
+            "shoeStyle": "boots",
+            "shoes": "black",
+            "legwear": "fishnets",
+            "accessory": "choker",
+            "build": "slim",
+            "height": "average"
+        },
+        "design": {
+            "body": {
+                "skin": "#eee1dd",
+                "height": 0.5,
+                "build": 0.3,
+                "curve": 0.7,
+                "shoulders": 0.4,
+                "hips": 0.55,
+                "legs": 0.55,
+                "head": 0.5
+            },
+            "face": {
+                "shape": 0.55,
+                "jaw": 0.35,
+                "nose": 0.4,
+                "ears": 0.4,
+                "eyes": {
+                    "shape": "almond",
+                    "size": 0.65,
+                    "iris": "#4d5058",
+                    "liner": 0.95,
+                    "wing": 0.65,
+                    "linerColor": "#0e0b12",
+                    "shadow": "#3b2038"
+                },
+                "brows": { "color": "#15101a", "weight": 0.3, "arch": 0.75 },
+                "mouth": {
+                    "width": 0.4,
+                    "lips": 0.5,
+                    "color": "#4a1830",
+                    "set": -0.05
+                },
+                "piercings": ["septum"]
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 18,
+                        "len": 0.5,
+                        "width": 0.2,
+                        "jag": 0.05,
+                        "lift": 0.2,
+                        "fall": 0.8,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 10,
+                        "len": 0.65,
+                        "width": 0.26,
+                        "jag": 0.05,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0.05,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 8,
+                        "len": 1.5,
+                        "width": 0.22,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 1,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 8,
+                        "len": 1.5,
+                        "width": 0.22,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 1,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "back",
+                        "count": 16,
+                        "len": 1.9,
+                        "width": 0.25,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 1,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "nape",
+                        "count": 6,
+                        "len": 1.8,
+                        "width": 0.22,
+                        "jag": 0.1,
+                        "lift": 0.05,
+                        "fall": 1,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#0e0b12",
+                "tips": "#3a1840"
+            },
+            "top": {
+                "color": "#15111a",
+                "sleeve": 0,
+                "hem": 0.4,
+                "fit": 0,
+                "neck": "scoop",
+                "trim": "#7a2038",
+                "prints": [
+                    {
+                        "at": "chest",
+                        "size": 0.45,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Ccircle cx=\u0022128\u0022 cy=\u0022128\u0022 r=\u0022118\u0022 fill=\u0022none\u0022 stroke=\u0022#cfc8dc\u0022 stroke-width=\u002210\u0022 /\u003E\u003Cpath d=\u0022M140 36C100 38 80 70 90 92C100 114 128 120 148 108C118 106 104 84 112 64C118 50 128 42 140 36Z\u0022 fill=\u0022#cfc8dc\u0022 /\u003E\u003Cpath d=\u0022M176 48L182 64L198 70L182 76L176 92L170 76L154 70L170 64Z\u0022 fill=\u0022#cfc8dc\u0022 /\u003E\u003Cpath d=\u0022M52 168Q128 112 204 168Q128 224 52 168Z\u0022 fill=\u0022none\u0022 stroke=\u0022#cfc8dc\u0022 stroke-width=\u002212\u0022 stroke-linejoin=\u0022round\u0022 /\u003E\u003Ccircle cx=\u0022128\u0022 cy=\u0022168\u0022 r=\u002226\u0022 fill=\u0022#8e1f3c\u0022 /\u003E\u003Ccircle cx=\u0022128\u0022 cy=\u0022168\u0022 r=\u00229\u0022 fill=\u0022#cfc8dc\u0022 /\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "outer": {
+                "color": "#55525c",
+                "sleeve": 1,
+                "hem": 0.7,
+                "fit": 0.7,
+                "neck": "v",
+                "trim": "#2f2c34",
+                "open": true,
+                "prints": [
+                    {
+                        "at": "back",
+                        "size": 0.7,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Cg fill=\u0022#e7e1d3\u0022\u003E\u003Cpath d=\u0022M100 236C68 236 64 176 90 146C98 134 126 134 134 146C160 176 156 236 124 236Z\u0022 /\u003E\u003Ccircle cx=\u0022112\u0022 cy=\u0022116\u0022 r=\u002230\u0022 /\u003E\u003Cpath d=\u0022M84 104L86 64L110 88ZM114 88L138 64L140 104Z\u0022 /\u003E\u003C/g\u003E\u003Cpath d=\u0022M152 226C204 228 218 190 198 164\u0022 fill=\u0022none\u0022 stroke=\u0022#e7e1d3\u0022 stroke-width=\u002216\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003Cg fill=\u0022#e8c872\u0022\u003E\u003Cpath d=\u0022M206 18C176 22 160 46 168 64C176 82 198 86 214 78C192 76 182 60 188 46C192 34 198 24 206 18Z\u0022 /\u003E\u003Ccircle cx=\u0022102\u0022 cy=\u0022116\u0022 r=\u00225\u0022 /\u003E\u003Ccircle cx=\u0022124\u0022 cy=\u0022116\u0022 r=\u00225\u0022 /\u003E\u003Ccircle cx=\u002248\u0022 cy=\u002252\u0022 r=\u00226\u0022 /\u003E\u003Ccircle cx=\u002288\u0022 cy=\u002226\u0022 r=\u00225\u0022 /\u003E\u003Ccircle cx=\u002230\u0022 cy=\u0022110\u0022 r=\u00225\u0022 /\u003E\u003C/g\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "under": {
+                "color": "#1a1620",
+                "sleeve": 1,
+                "hem": 0.4,
+                "fit": 0.1,
+                "neck": "crew",
+                "pattern": {
+                    "kind": "fishnet",
+                    "colors": ["#1a1620"],
+                    "scale": 0.15
+                }
+            },
+            "bottom": {
+                "color": "#1a1418",
+                "kind": "skirt",
+                "length": 0.45,
+                "fit": 0.2,
+                "flare": 0.55,
+                "rise": 0.7,
+                "pleats": 0.5,
+                "pattern": {
+                    "kind": "plaid",
+                    "colors": ["#1a1418", "#6a1a30"],
+                    "scale": 0.35
+                }
+            },
+            "legwear": {
+                "color": "#111014",
+                "length": 1,
+                "pattern": {
+                    "kind": "fishnet",
+                    "colors": ["#111014"],
+                    "scale": 0.2
+                }
+            },
+            "shoes": {
+                "kind": "boot",
+                "color": "#121014",
+                "sole": "#1d1a20",
+                "trim": "#b9b6c4",
+                "platform": 0.35
+            },
+            "stance": {
+                "spine": [2, 0, 0],
+                "head": [-2, 4, 6],
+                "armL": [2, 6, 0],
+                "armR": [4, 8, 0],
+                "legL": [0, 2],
+                "legR": [0, 2],
+                "elbowL": 25,
+                "elbowR": 30,
+                "shift": 0.01,
+                "handL": "relaxed",
+                "handR": "relaxed"
+            },
+            "extras": [
+                {
+                    "name": "cat pendant",
+                    "socket": "chest",
+                    "blobs": [
+                        {
+                            "shape": "ball",
+                            "at": [0, 0.08, 0.17],
+                            "r": 0.055,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [-0.035, 0.14, 0.17],
+                            "r": 0.022,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0.035, 0.14, 0.17],
+                            "r": 0.022,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        }
+                    ]
+                },
+                {
+                    "name": "shop keys",
+                    "socket": "hip-l",
+                    "blobs": [
+                        {
+                            "shape": "ring",
+                            "at": [0, 0, 0.1],
+                            "r": 0.05,
+                            "color": "#c9c9d4",
+                            "tube": 0.01,
+                            "axis": "z",
+                            "metal": true
+                        },
+                        {
+                            "shape": "capsule",
+                            "at": [0, -0.05, 0.1],
+                            "r": 0.015,
+                            "color": "#b79a4a",
+                            "to": [0, -0.2, 0.1],
+                            "metal": true
+                        }
+                    ]
+                }
+            ],
+            "moves": {
+                "dance": {
+                    "loop": 4,
+                    "keys": [
+                        { "spine": [2, 0, 0], "head": [-2, 4, 6], "t": 0 },
+                        {
+                            "spine": [2, 6, 2],
+                            "head": [-4, -6, -4],
+                            "armL": [6, 10, 0],
+                            "armR": [6, 12, 0],
+                            "t": 0.5
+                        },
+                        { "spine": [2, 0, 0], "head": [-2, 4, 6], "t": 1 }
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "id": "s4",
+        "summary": "Long black side fringe with a red streak over one eye, band tee over stripes, skinny jeans, hi-tops, studded belt and a notebook.",
+        "picks": {
+            "skin": "light",
+            "hair": "black",
+            "hairStyle": "fringe",
+            "eyes": "brown",
+            "facialHair": "none",
+            "topStyle": "band-tee",
+            "top": "black",
+            "bottomStyle": "skinny-jeans",
+            "bottom": "black",
+            "shoeStyle": "hi-tops",
+            "shoes": "black",
+            "legwear": "none",
+            "accessory": "wristbands",
+            "build": "slim",
+            "height": "average"
+        },
+        "design": {
+            "body": {
+                "skin": "#eadccf",
+                "height": 0.5,
+                "build": 0.2,
+                "curve": 0.3,
+                "shoulders": 0.35,
+                "hips": 0.4,
+                "legs": 0.6,
+                "head": 0.55
+            },
+            "face": {
+                "shape": 0.5,
+                "jaw": 0.3,
+                "nose": 0.35,
+                "ears": 0.4,
+                "eyes": {
+                    "shape": "wide",
+                    "size": 0.75,
+                    "iris": "#4b3a35",
+                    "liner": 0.95,
+                    "wing": 0.15,
+                    "linerColor": "#0e0c10",
+                    "shadow": "#5a3a4c"
+                },
+                "brows": { "color": "#0f0d12", "weight": 0.45, "arch": 0.3 },
+                "mouth": {
+                    "width": 0.4,
+                    "lips": 0.4,
+                    "color": "#a66a70",
+                    "set": -0.15
+                },
+                "blush": "#e8a3a5",
+                "piercings": ["labret"]
+            },
+            "hair": {
+                "cap": 1,
+                "zones": [
+                    {
+                        "at": "crown",
+                        "count": 14,
+                        "len": 0.5,
+                        "width": 0.2,
+                        "jag": 0.6,
+                        "lift": 0.45,
+                        "fall": 0.4,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "fringe",
+                        "count": 10,
+                        "len": 1.2,
+                        "width": 0.26,
+                        "jag": 0.5,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0.9,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideL",
+                        "count": 7,
+                        "len": 1,
+                        "width": 0.2,
+                        "jag": 0.7,
+                        "lift": 0.05,
+                        "fall": 0.95,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 5,
+                        "len": 1,
+                        "width": 0.2,
+                        "jag": 0.7,
+                        "lift": 0.05,
+                        "fall": 0.95,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "sideR",
+                        "count": 3,
+                        "len": 1.1,
+                        "width": 0.2,
+                        "jag": 0.7,
+                        "lift": 0.05,
+                        "fall": 0.95,
+                        "sweep": 0,
+                        "curl": 0,
+                        "color": "#a3182c"
+                    },
+                    {
+                        "at": "back",
+                        "count": 12,
+                        "len": 0.9,
+                        "width": 0.22,
+                        "jag": 0.8,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0,
+                        "curl": 0
+                    },
+                    {
+                        "at": "nape",
+                        "count": 6,
+                        "len": 0.8,
+                        "width": 0.2,
+                        "jag": 0.8,
+                        "lift": 0.05,
+                        "fall": 0.9,
+                        "sweep": 0,
+                        "curl": 0
+                    }
+                ],
+                "color": "#0d0b10"
+            },
+            "top": {
+                "color": "#17151b",
+                "sleeve": 0.3,
+                "hem": 0.45,
+                "fit": 0.3,
+                "neck": "crew",
+                "prints": [
+                    {
+                        "at": "chest",
+                        "size": 0.6,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Cpath d=\u0022M128 150C40 100 30 44 78 32C104 26 122 40 128 56C134 40 152 26 178 32C226 44 216 100 128 150Z\u0022 fill=\u0022#c4263a\u0022 /\u003E\u003Cpath d=\u0022M128 50L112 80L140 96L118 124L128 146\u0022 fill=\u0022none\u0022 stroke=\u0022#efe9e1\u0022 stroke-width=\u00228\u0022 stroke-linejoin=\u0022round\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003Ctext x=\u0022128\u0022 y=\u0022196\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002238\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#efe9e1\u0022\u003EDEAD LETTER\u003C/text\u003E\u003Ctext x=\u0022128\u0022 y=\u0022240\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002238\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#c4263a\u0022\u003ESUMMER\u003C/text\u003E\u003C/svg\u003E"
+                    },
+                    {
+                        "at": "back",
+                        "size": 0.7,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Ctext x=\u0022128\u0022 y=\u002252\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002240\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#efe9e1\u0022\u003EALL THE SAD\u003C/text\u003E\u003Ctext x=\u0022128\u0022 y=\u002296\u0022 font-family=\u0022Impact,sans-serif\u0022 font-size=\u002240\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#c4263a\u0022\u003ECITIES TOUR\u003C/text\u003E\u003Crect x=\u002228\u0022 y=\u0022110\u0022 width=\u0022200\u0022 height=\u00226\u0022 fill=\u0022#c4263a\u0022 /\u003E\u003Cg font-family=\u0022Courier New,monospace\u0022 font-size=\u002218\u0022 font-weight=\u0022bold\u0022 text-anchor=\u0022middle\u0022 fill=\u0022#efe9e1\u0022\u003E\u003Ctext x=\u0022128\u0022 y=\u0022152\u0022\u003E11.03 THE BASEMENT\u003C/text\u003E\u003Ctext x=\u0022128\u0022 y=\u0022188\u0022\u003E11.04 SOMEONE\u0027S GARAGE\u003C/text\u003E\u003Ctext x=\u0022128\u0022 y=\u0022224\u0022\u003E11.05 HOME (CRYING)\u003C/text\u003E\u003C/g\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "under": {
+                "color": "#17151b",
+                "sleeve": 1,
+                "hem": 0.3,
+                "fit": 0.05,
+                "neck": "crew",
+                "pattern": {
+                    "kind": "stripes",
+                    "colors": ["#17151b", "#c4263a"],
+                    "scale": 0.25
+                }
+            },
+            "bottom": {
+                "color": "#16151b",
+                "kind": "pants",
+                "length": 1,
+                "fit": 0,
+                "flare": 0,
+                "rise": 0.3,
+                "rips": 0.3,
+                "prints": [
+                    {
+                        "at": "thighL",
+                        "size": 0.4,
+                        "svg": "\u003Csvg viewBox=\u00220 0 256 256\u0022 width=\u0022256\u0022 height=\u0022256\u0022 xmlns=\u0022http://www.w3.org/2000/svg\u0022\u003E\u003Cpath d=\u0022M128 206C58 154 52 100 88 90C110 84 124 100 128 114C132 100 146 84 168 90C204 100 198 154 128 206Z\u0022 fill=\u0022none\u0022 stroke=\u0022#e9e6f0\u0022 stroke-width=\u002210\u0022 stroke-linejoin=\u0022round\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003Cpath d=\u0022M92 128L150 100M92 148L160 116M104 168L146 142\u0022 fill=\u0022none\u0022 stroke=\u0022#c4263a\u0022 stroke-width=\u00228\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003Cpath d=\u0022M52 24L60 46L84 48L66 62L72 86L52 72L32 86L38 62L20 48L44 46Z\u0022 fill=\u0022none\u0022 stroke=\u0022#e9e6f0\u0022 stroke-width=\u00228\u0022 stroke-linejoin=\u0022round\u0022 /\u003E\u003Cpath d=\u0022M196 196L232 232M232 196L196 232\u0022 fill=\u0022none\u0022 stroke=\u0022#e9e6f0\u0022 stroke-width=\u002210\u0022 stroke-linecap=\u0022round\u0022 /\u003E\u003C/svg\u003E"
+                    }
+                ]
+            },
+            "shoes": {
+                "kind": "hi-top",
+                "color": "#1b1a20",
+                "sole": "#e9e6e1",
+                "trim": "#c4263a",
+                "platform": 0.1
+            },
+            "stance": {
+                "spine": [10, 0, 3],
+                "head": [10, -6, 6],
+                "armL": [0, 4, 0],
+                "armR": [0, 4, 0],
+                "legL": [0, 2],
+                "legR": [0, 2],
+                "elbowL": 15,
+                "elbowR": 15,
+                "kneeL": 4,
+                "kneeR": 4,
+                "shift": 0.03,
+                "handL": "relaxed",
+                "handR": "relaxed"
+            },
+            "extras": [
+                {
+                    "name": "studded belt",
+                    "socket": "waist",
+                    "blobs": [
+                        {
+                            "shape": "band",
+                            "at": [0, 0, 0],
+                            "r": 0.05,
+                            "color": "#141318",
+                            "tube": 0.02
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0, 0, 0.3],
+                            "r": 0.025,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [-0.15, 0, 0.28],
+                            "r": 0.025,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        },
+                        {
+                            "shape": "ball",
+                            "at": [0.15, 0, 0.28],
+                            "r": 0.025,
+                            "color": "#c9c9d4",
+                            "metal": true
+                        }
+                    ]
+                },
+                {
+                    "name": "torn notebook",
+                    "socket": "hip-r",
+                    "blobs": [
+                        {
+                            "shape": "capsule",
+                            "at": [0, 0, -0.1],
+                            "r": 0.07,
+                            "color": "#d8d2c0",
+                            "to": [0, 0.3, -0.1]
+                        },
+                        {
+                            "shape": "capsule",
+                            "at": [0.02, 0, -0.14],
+                            "r": 0.05,
+                            "color": "#17151b",
+                            "to": [0.02, 0.28, -0.14]
+                        }
+                    ]
+                }
+            ],
+            "moves": {
+                "dance": {
+                    "loop": 2.4,
+                    "keys": [
+                        { "spine": [10, 0, 3], "head": [10, -6, 6], "t": 0 },
+                        {
+                            "spine": [6, 4, 0],
+                            "head": [4, 8, -4],
+                            "armL": [8, 10, 0],
+                            "elbowL": 50,
+                            "handL": "fist",
+                            "t": 0.25
+                        },
+                        { "spine": [10, 0, -3], "head": [12, -8, 6], "t": 0.5 },
+                        {
+                            "spine": [6, -4, 0],
+                            "head": [4, 8, 4],
+                            "armR": [8, 10, 0],
+                            "elbowR": 50,
+                            "handR": "fist",
+                            "t": 0.75
+                        },
+                        { "spine": [10, 0, 3], "head": [10, -6, 6], "t": 1 }
+                    ]
+                }
+            }
+        }
+    }
+]

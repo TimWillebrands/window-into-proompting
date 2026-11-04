@@ -72,3 +72,44 @@ describe('wardrobe-lib', () => {
         expect(inTab(cap, 'all')).toBe(true);
     });
 });
+
+describe('tryOn over a design', () => {
+    const base = {
+        topStyle: 'tshirt',
+        design: JSON.stringify({
+            top: { color: '#111111' },
+            under: { color: '#222222' },
+            shoes: { color: '#333333' },
+        }),
+    };
+
+    it('takes the designed garment off what it replaces', () => {
+        const look = tryOn(base, [
+            {
+                key: 'top:hoodie:navy',
+                slot: 'top',
+                name: 'a navy hoodie',
+                price: 55,
+                picks: { topStyle: 'hoodie', top: 'navy' },
+            },
+        ]);
+        const design = JSON.parse(look.design as string);
+        expect(look.topStyle).toBe('hoodie');
+        expect(design.top).toBeUndefined();
+        expect(design.under).toBeUndefined();
+        expect(design.shoes).toEqual({ color: '#333333' });
+    });
+
+    it('leaves the design alone for an accessory', () => {
+        const look = tryOn(base, [
+            {
+                key: 'accessory:scarf',
+                slot: 'accessory',
+                name: 'a scarf',
+                price: 30,
+                picks: { accessory: 'scarf' },
+            },
+        ]);
+        expect(look.design).toBe(base.design);
+    });
+});

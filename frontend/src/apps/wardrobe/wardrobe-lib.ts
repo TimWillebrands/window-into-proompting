@@ -12,7 +12,7 @@ export const TABS: {
     { id: 'all', label: 'Everything', icon: '✨', slots: [] },
     { id: 'top', label: 'Tops', icon: '👕', slots: ['top'] },
     { id: 'bottom', label: 'Bottoms', icon: '👖', slots: ['bottom'] },
-    { id: 'shoes', label: 'Shoes', icon: '👟', slots: ['shoes'] },
+    { id: 'shoes', label: 'Shoes', icon: '👟', slots: ['shoes', 'legwear'] },
     { id: 'accessory', label: 'Extras', icon: '🎩', slots: ['accessory'] },
     { id: 'hair', label: 'Salon', icon: '✂️', slots: ['hair', 'hairStyle'] },
 ];
@@ -35,12 +35,25 @@ const TOP: Record<string, string> = {
     dress: '👗',
     tank: '🎽',
     suit: '🤵',
+    'baby-tee': '👚',
+    'band-tee': '🤘',
+    'long-sleeve': '👕',
+    mesh: '🕸️',
+    corset: '🎀',
+    flannel: '👔',
+    tracksuit: '🧥',
 };
 const BOTTOM: Record<string, string> = {
     trousers: '👖',
     jeans: '👖',
     shorts: '🩳',
     skirt: '👗',
+    'skinny-jeans': '👖',
+    'baggy-jeans': '👖',
+    bootcut: '👖',
+    cargo: '👖',
+    'plaid-skirt': '👗',
+    'mini-skirt': '👗',
 };
 const EXTRA: Record<string, string> = {
     glasses: '👓',
@@ -55,7 +68,19 @@ const EXTRA: Record<string, string> = {
     bow: '🎀',
     necklace: '📿',
     bandana: '🧣',
+    choker: '📿',
+    'studded-belt': '⛓️',
+    wristbands: '🤘',
+    'arm-warmers': '🧤',
+    'wallet-chain': '⛓️',
     none: '🚫',
+};
+const SHOE: Record<string, string> = {
+    boots: '🥾',
+    platforms: '🥾',
+    heels: '👠',
+    sandals: '🩴',
+    loafers: '👞',
 };
 
 /** The big icon on an item's tile. */
@@ -67,7 +92,9 @@ export function itemIcon(item: ShopItem): string {
         case 'bottom':
             return BOTTOM[p.bottomStyle ?? ''] ?? '👖';
         case 'shoes':
-            return '👟';
+            return SHOE[p.shoeStyle ?? ''] ?? '👟';
+        case 'legwear':
+            return '🧦';
         case 'accessory':
             return EXTRA[p.accessory ?? ''] ?? '✨';
         case 'hairStyle':
@@ -85,6 +112,15 @@ export function itemColour(item: ShopItem): string {
     return paletteHex(p.top ?? p.bottom ?? p.shoes ?? p.hair, '#e8dff5');
 }
 
+/** Design slots a shop slot replaces, as the backend's FigureDesign does when you buy it. */
+const REPLACES: Record<string, string[]> = {
+    top: ['top', 'under', 'outer'],
+    bottom: ['bottom'],
+    shoes: ['shoes'],
+    legwear: ['legwear'],
+    hairStyle: ['hair'],
+};
+
 /** A look with items tried on over it; later items win per appearance key. */
 export function tryOn(
     base: Appearance | null | undefined,
@@ -92,6 +128,12 @@ export function tryOn(
 ): Appearance {
     const look: Record<string, unknown> = { ...(base ?? {}) };
     for (const item of items) Object.assign(look, item.picks ?? {});
+    const slots = items.flatMap((i) => REPLACES[i.slot ?? ''] ?? []);
+    if (base?.design && slots.length > 0) {
+        const design = JSON.parse(base.design);
+        for (const slot of slots) delete design[slot];
+        look.design = JSON.stringify(design);
+    }
     return look as Appearance;
 }
 

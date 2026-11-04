@@ -52,7 +52,7 @@ export default function DressingRoom({
                 shadows="percentage"
                 flat
                 dpr={[1, 2]}
-                camera={{ position: [0, 1.2, 3.6], fov: 30 }}
+                camera={{ position: [0, 1.15, 3.6], fov: 30 }}
                 gl={{ alpha: true }}
             >
                 <ambientLight intensity={0.9} color="#fff1f6" />
@@ -74,7 +74,7 @@ export default function DressingRoom({
                     intensity={4}
                     color="#ff8fc8"
                 />
-                <Aim y={0.72} />
+                <Aim y={0.78} />
                 <Podium spin={spin} look={look} mood={mood} />
             </Canvas>
             <span className="wr-stage-hint">⟲ drag to turn</span>
@@ -169,7 +169,7 @@ function Podium({
                 />
             </mesh>
             <group ref={turn}>
-                <Avatar look={look} isMe={false} state={state} />
+                <Avatar look={look} isMe={false} state={state} close />
             </group>
             <group ref={sparkles}>
                 {[0, 1, 2, 3, 4, 5].map((i) => (

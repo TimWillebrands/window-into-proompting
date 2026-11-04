@@ -305,8 +305,16 @@ _Avoid_: range, radius, audience.
 A Body in bed at night. The World clock skips it and persona talk doesn't wake it; a human's message does (groggy for a while). Falling asleep runs **Consolidation**.
 
 **Appearance**:
-How a Body looks: named choices from a fixed palette (skin, hair, style, clothes, accessory). Personas dress themselves once from their bio; Players pick theirs.
+How a Body looks: named picks from a fixed palette (skin, hair, style, clothes, accessory), plus a **Design** laid over them. Personas dress themselves once from their bio; Players pick theirs.
 _Avoid_: avatar, sprite, skin (as a whole).
+
+**Figure**:
+How a Body is drawn in 3D: a doll compiled from a document of numbers, names, colours, SVG and blobs. See [ADR 0028](docs/adr/0028-figures-as-documents.md).
+_Avoid_: avatar (fine for the React component), model, character.
+
+**Design**:
+The LLM-written part of an **Appearance**, slot by slot: body, face, hair, clothes, extras, stance, moves. Goes beyond the palette; a palette pick replaces the slots it touches.
+_Avoid_: outfit (it covers the body too), skin, preset.
 
 **Overheard**:
 Talk in your Place that you were out of Earshot of: you get the tone and maybe your name, never the words.
@@ -317,7 +325,7 @@ How a Place looks in 3D: an ASCII map plus **Prefabs** by name, pinning the Plac
 _Avoid_: level, map (the ASCII is one part of it), room layout.
 
 **Pose**:
-How a Body is hanging out at its spot: leaning, lounging, perched, dancing, or a pair pose with someone next to you (a hug, a slow dance). Spots list the solo poses they afford; walking off ends a pose. See [ADR 0025](docs/adr/0025-places-making-and-hanging-out.md).
+How a Body is hanging out at its spot: leaning, lounging, perched, dancing, or a pair pose with someone next to you (a hug, a slow dance). Spots list the solo poses they afford; walking off ends a pose. A **Design** can give its own take on one. See [ADR 0025](docs/adr/0025-places-making-and-hanging-out.md).
 _Avoid_: animation, emote (taken: race-cancelled lines), stance (taken).
 
 **Made Place**:

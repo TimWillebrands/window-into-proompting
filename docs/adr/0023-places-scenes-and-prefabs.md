@@ -11,7 +11,7 @@ Places looked alike, and adding one meant writing drawing code.
   low-poly flat-shaded geometry, a pixel look (half-resolution canvas, `image-rendering: pixelated`,
   toggleable), local-time day and night, shadows, and animated water. It's lazy-loaded, and without
   WebGL2 the old canvas still draws.
-- **No art assets.** Everything is coloured primitives (box, cylinder, cone, ball, gable, ring,
+- **No art assets** (people moved on in ADR 0028). Everything is coloured primitives (box, cylinder, cone, ball, gable, ring,
   sign). Each prop is baked into a few merged meshes (plain, always lit, lit at night), so a
   city of ~60 houses stays cheap.
 - **A prefab** is a named list of parts in `prefabs.ts`. It has a footprint, seats, an optional

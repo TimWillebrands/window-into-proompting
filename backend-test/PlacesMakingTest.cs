@@ -32,13 +32,79 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task Restyling_DrawsThePrintsItAsked_AndKeepsTheRestOfTheDesign()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        await places.GetSnapshotAsync();
+        var answers = new Queue<string>(new[]
+        {
+            """{"picks": {"topStyle": "band-tee", "top": "black"}, "summary": "A black band tee.", "design": {"shoes": {"kind": "platform", "color": "#111111"}, "top": {"color": "#111111", "prints": [{"at": "chest", "brief": "a skull"}, {"at": "back", "brief": "a bat"}]}}}""",
+            """{"picks": {}, "summary": "A red band tee.", "design": {"top": {"color": "#aa0000"}}}""",
+        });
+        ScriptedLlm.Instance.Json = (system, _) => system == FigureDesign.RestylePrompt ? Obj(answers.Dequeue()) : null;
+        ScriptedLlm.Instance.Text = (system, brief) => system == FigureDesign.PrintPrompt && brief == "a skull" ? """Here: <svg><circle r="9"/></svg>""" : "no can do";
+        try
+        {
+            var first = await places.RestyleAsync(denise, "a band tee with a skull");
+            var second = await places.RestyleAsync(denise, "make the tee red");
+
+            var drawn = Obj(first!.Look.Design!);
+            var print = Assert.Single(drawn["top"]!["prints"]!.AsArray());
+            Assert.Contains("circle", print!["svg"]!.ToString());
+            Assert.Equal("A black band tee.", first.Look.Summary);
+
+            var after = Obj(second!.Look.Design!);
+            Assert.Equal("#aa0000", after["top"]!["color"]!.ToString());
+            Assert.Equal("platform", after["shoes"]!["kind"]!.ToString());
+            Assert.Contains("A red band tee.", second.Done);
+        }
+        finally
+        {
+            ScriptedLlm.Instance.Json = (_, _) => null;
+            ScriptedLlm.Instance.Text = (_, _) => null;
+        }
+    }
+
+    [Fact]
+    public async Task ALookFromBeforeFigures_IsDrawnAnew_AsTheSamePerson()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        await places.SetAppearanceAsync(denise, new Dictionary<string, string?> { ["hairStyle"] = "afro" });
+        ScriptedLlm.Instance.Json = (system, user) =>
+        {
+            if (system != FigureDesign.Prompt || !user.Contains("Denise")) return null;
+            return Obj("""{"picks": {"hairStyle": "afro"}, "summary": "Big afro, plain tee.", "design": {"top": {"color": "#123456"}}}""");
+        };
+        try
+        {
+            await places.RedressAsync(denise);
+            Appearance? look = null;
+            for (var i = 0; i < 50 && look?.Design is null; i++)
+            {
+                await Task.Delay(100);
+                look = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Appearance;
+            }
+
+            Assert.Contains("123456", look!.Design);
+            Assert.Equal("Big afro, plain tee.", look.Summary);
+            Assert.Equal("afro", look.HairStyle);
+        }
+        finally
+        {
+            ScriptedLlm.Instance.Json = (_, _) => null;
+        }
+    }
+
+    [Fact]
     public async Task Restyling_ChangesOnlyWhatWasAsked_WithinThePalette()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var places = _fx.Places(partyId);
         var before = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Appearance
             ?? AppearanceRules.Default(denise);
-        ScriptedLlm.Instance.Json = (system, user) => system == AppearanceRules.RestylePrompt
+        ScriptedLlm.Instance.Json = (system, user) => system == FigureDesign.RestylePrompt
             ? Obj($$"""{"hair": "pink", "topStyle": "hoodie", "skin": "{{before.Skin}}", "shoes": "glitter"}""")
             : null;
         try
