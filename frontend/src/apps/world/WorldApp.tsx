@@ -26,7 +26,12 @@ import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { SelfSummary } from '../../api/model/selfSummary';
 import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
-import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
+import {
+    useOpenDirectChat,
+    usePlayerId,
+    usePlayerSession,
+    WORLD_ID,
+} from '../../lib/world';
 
 const NARRATOR_ID = '0000aaaa-0000-0000-0000-00000000a17e';
 
@@ -204,8 +209,13 @@ const usd = (n: number) => `$${n < 1 ? n.toFixed(3) : n.toFixed(2)}`;
 
 /** LLM spend across providers, polled. */
 function SpendCell() {
+    const signedIn = usePlayerSession((s) => !!s.userId);
     const usageQuery = useGetLlmConfigUsage({
-        query: { refetchInterval: 30_000, staleTime: 15_000 },
+        query: {
+            enabled: signedIn,
+            refetchInterval: 30_000,
+            staleTime: 15_000,
+        },
     });
     const rows = usageQuery.data?.data;
     if (!Array.isArray(rows)) return <span>💲 —</span>;
@@ -853,9 +863,11 @@ function ActivityFeed({
         { query: { placeholderData: keepPreviousData } },
     );
     const playerId = usePlayerId();
-    const dmsQuery = useGetWorldsPartyIdMessenger(WORLD_ID, {
-        personaId: playerId ?? undefined,
-    });
+    const dmsQuery = useGetWorldsPartyIdMessenger(
+        WORLD_ID,
+        { personaId: playerId ?? undefined },
+        { query: { enabled: !!playerId } },
+    );
     const activities = activitiesQuery.data?.data ?? [];
     const dms = dmsQuery.data?.data ?? [];
 

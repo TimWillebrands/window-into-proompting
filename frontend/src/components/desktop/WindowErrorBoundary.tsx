@@ -7,6 +7,7 @@ import {
     useState,
 } from 'react';
 import { ProblemDetailsError } from '../../api/custom-fetch';
+import { redirectToSignIn } from '../../lib/clerk-session';
 
 interface InnerProps {
     children: ReactNode;
@@ -116,9 +117,12 @@ function ErrorFallback({
     const headingId = useId();
     const { headline, status } = summarize(error);
     const isServer = status !== undefined && status >= 500;
-    const heading = windowTitle
-        ? `${windowTitle} couldn't load`
-        : "This window couldn't load";
+    const needsSignIn = status === 401;
+    const heading = needsSignIn
+        ? 'Sign in to see this'
+        : windowTitle
+          ? `${windowTitle} couldn't load`
+          : "This window couldn't load";
 
     return (
         <div className="flex h-full w-full items-center justify-center p-4 text-slate-800 dark:text-slate-100">
@@ -159,10 +163,10 @@ function ErrorFallback({
                 <div className="flex justify-end gap-2 border-t border-white/60 px-4 py-3 dark:border-white/10">
                     <button
                         type="button"
-                        onClick={onRetry}
+                        onClick={needsSignIn ? redirectToSignIn : onRetry}
                         className="rounded-md bg-blue-600 px-3 py-1 text-[12px] font-medium text-white shadow-sm ring-1 ring-blue-700/50 transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                        Retry
+                        {needsSignIn ? 'Sign in' : 'Retry'}
                     </button>
                     {onClose && (
                         <button

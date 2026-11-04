@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
@@ -11,6 +13,7 @@ namespace PartyTown.Controllers;
 [Route("worlds/{partyId:guid}")]
 public sealed class SelfController(IGrainFactory grains) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("selves")]
     public async Task<ActionResult<List<SelfSummary>>> GetSelves(Guid partyId)
     {
@@ -32,9 +35,13 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
             .ToList());
     }
 
+    [AllowAnonymous]
+
     [HttpGet("voice/lines")]
     public async Task<ActionResult<List<VoiceLine>>> GetVoiceLines(Guid partyId, [FromQuery] int limit = 40)
         => Ok(await grains.GetGrain<IWorldVoiceGrain>(partyId).GetLinesAsync(limit));
+
+    [AllowAnonymous]
 
     [HttpGet("voice")]
     public async Task<ActionResult<VoiceWearReport>> GetVoice(Guid partyId)

@@ -1,5 +1,7 @@
 import { createElement, useEffect, useMemo, useState } from 'react';
 import { Rnd } from 'react-rnd';
+import ClerkPlayerBridge from '../components/desktop/ClerkPlayerBridge';
+import CreateCharacterScreen from '../components/desktop/CreateCharacterScreen';
 import DesktopIcon from '../components/desktop/DesktopIcon';
 import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
@@ -10,7 +12,12 @@ import WorldToasts from '../components/desktop/WorldToasts';
 import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
-import { usePlayerSession, WorldRealtimeBridge } from '../lib/world';
+import {
+    useCanOpen,
+    usePlayerAccount,
+    usePlayerSession,
+    WorldRealtimeBridge,
+} from '../lib/world';
 
 const TASKBAR_HEIGHT = 30;
 const MIN_WIDTH = 360;
@@ -32,6 +39,7 @@ function useViewport() {
 }
 
 function DesktopWindowLayer() {
+    const canOpen = useCanOpen();
     const {
         desktopState,
         openWindow,
@@ -69,15 +77,17 @@ function DesktopWindowLayer() {
     return (
         <>
             <div className="absolute inset-0">
-                {DESKTOP_ICONS.map((icon, index) => (
-                    <DesktopIcon
-                        key={icon.id}
-                        label={icon.label}
-                        icon={icon.icon}
-                        position={{ x: 20, y: 20 + index * 110 }}
-                        onActivate={() => openWindow(icon.windowId)}
-                    />
-                ))}
+                {DESKTOP_ICONS.filter((i) => canOpen(i.access)).map(
+                    (icon, index) => (
+                        <DesktopIcon
+                            key={icon.id}
+                            label={icon.label}
+                            icon={icon.icon}
+                            position={{ x: 20, y: 20 + index * 110 }}
+                            onActivate={() => openWindow(icon.windowId)}
+                        />
+                    ),
+                )}
             </div>
 
             <div
@@ -209,20 +219,33 @@ function DesktopWindowLayer() {
 }
 
 export default function DesktopExperience() {
-    const playerName = usePlayerSession((s) => s.name);
+    const userId = usePlayerSession((s) => s.userId);
     const hydrated = usePlayerSession((s) => s.hydrated);
-    const hydrate = usePlayerSession((s) => s.hydrate);
-    useEffect(() => hydrate(), [hydrate]);
-    if (!hydrated) return <DesktopWallpaper />;
-    if (!playerName) return <WelcomeScreen />;
+    const visiting = usePlayerSession((s) => s.visiting);
+    const { account, isLoading } = usePlayerAccount();
+    const playerId = account?.playerId as string | null | undefined;
+
+    const screen = () => {
+        if (!hydrated || isLoading) return <DesktopWallpaper />;
+        if (!userId && !visiting) return <WelcomeScreen />;
+        if (userId && !playerId) return <CreateCharacterScreen />;
+        return (
+            <section className="fixed inset-0">
+                <DesktopWallpaper />
+                <DesktopProvider>
+                    <DesktopWindowLayer />
+                    {/* Keyed so a new character reopens the socket as that viewer. */}
+                    <WorldRealtimeBridge key={playerId ?? 'visitor'} />
+                    <WorldToasts />
+                </DesktopProvider>
+            </section>
+        );
+    };
+
     return (
-        <section className="fixed inset-0">
-            <DesktopWallpaper />
-            <DesktopProvider>
-                <DesktopWindowLayer />
-                <WorldRealtimeBridge />
-                <WorldToasts />
-            </DesktopProvider>
-        </section>
+        <>
+            <ClerkPlayerBridge />
+            {screen()}
+        </>
     );
 }

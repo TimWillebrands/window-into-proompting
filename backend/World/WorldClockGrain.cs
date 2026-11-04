@@ -124,34 +124,44 @@ public sealed class WorldClockGrain(
         return happening;
     }
 
-    public async Task<Guid> EnsurePlayerAsync(string? name)
+    public Task<Guid?> FindPlayerAsync(string clerkUserId)
+        => Task.FromResult<Guid?>(state.State.PlayersByClerkId.TryGetValue(clerkUserId, out var id) ? id : null);
+
+    public Task<bool> IsClaimedAsync(Guid participantId)
+        => Task.FromResult(state.State.PlayersByClerkId.ContainsValue(participantId));
+
+    /// <summary>Makes this Clerk user's character; null when someone in the cast already has that name.</summary>
+    public async Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name)
     {
+        if (state.State.PlayersByClerkId.TryGetValue(clerkUserId, out var existing)) return existing;
+
         var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
         var info = await party.GetParty();
+        if (info.Participants.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))) return null;
+
         var humans = info.Participants.Where(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId).ToList();
-        var wanted = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        var id = Guid.NewGuid();
+        await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(
+            new Persona(id, name, "A human visiting this world.", "A real person, not a character."));
+        await party.AddParticipantsAsync(new List<PartyParticipant> { new() { Id = id, Name = name, Driver = DriverKind.User } });
 
-        // Named → that human (several Players can share a World); unnamed → the default Player.
-        var link = wanted is not null
-            ? humans.FirstOrDefault(p => string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase))
-            : humans.FirstOrDefault(p => p.Id == state.State.PlayerId) ?? humans.FirstOrDefault();
+        state.State.PlayersByClerkId[clerkUserId] = id;
+        if (state.State.PlayerId is null || humans.All(h => h.Id != state.State.PlayerId)) state.State.PlayerId = id;
+        await state.WriteStateAsync();
+        return id;
+    }
 
-        if (link is null)
-        {
-            var id = Guid.NewGuid();
-            var display = wanted ?? "You";
-            await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(
-                new Persona(id, display, "A human visiting this world.", "A real person, not a character."));
-            link = new PartyParticipant { Id = id, Name = display, Driver = DriverKind.User };
-            await party.AddParticipantsAsync(new List<PartyParticipant> { link });
-        }
-
-        if (state.State.PlayerId is null || humans.All(h => h.Id != state.State.PlayerId))
-        {
-            state.State.PlayerId = link.Id;
-            await state.WriteStateAsync();
-        }
-        return link.Id;
+    /// <summary>Drops a removed Player's ownership and everything the clock kept about them.</summary>
+    public async Task ForgetPlayerAsync(Guid participantId)
+    {
+        foreach (var owner in state.State.PlayersByClerkId.Where(kv => kv.Value == participantId).Select(kv => kv.Key).ToList())
+            state.State.PlayersByClerkId.Remove(owner);
+        state.State.Activities.RemoveAll(a => a.PersonaId == participantId || a.WithPersonaId == participantId);
+        state.State.LastActedAt.Remove(participantId);
+        state.State.NotifiedAt.Remove(participantId);
+        if (state.State.PlayerId == participantId)
+            state.State.PlayerId = state.State.PlayersByClerkId.Values.Cast<Guid?>().FirstOrDefault();
+        await state.WriteStateAsync();
     }
 
     /// <summary>Hands the lull sweep to <see cref="LullCaptureGrain"/>; cursors once kept here move over on first sweep.</summary>
@@ -361,7 +371,10 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("GetActivitiesAsync")] Task<List<WorldActivity>> GetActivitiesAsync(int limit, Guid? personaId);
     [Alias("RecordAsync")] Task RecordAsync(WorldActivity activity);
     /// <summary>The human's Participant (Driver = User), created on first use.</summary>
-    [Alias("EnsurePlayerAsync")] Task<Guid> EnsurePlayerAsync(string? name);
+    [Alias("FindPlayerAsync")] Task<Guid?> FindPlayerAsync(string clerkUserId);
+    [Alias("ClaimPlayerAsync")] Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name);
+    [Alias("IsClaimedAsync")] Task<bool> IsClaimedAsync(Guid participantId);
+    [Alias("ForgetPlayerAsync")] Task ForgetPlayerAsync(Guid participantId);
     /// <summary>Author-announced Happening: logged, perceived by every Life, remembered by everyone.</summary>
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);
     /// <summary>Something concerning these Personas landed outside a live chat: they're likelier to get the next turn.</summary>
@@ -385,4 +398,6 @@ public sealed class WorldClockState
     [Id(9)] public int AmbientMinutes { get; set; } = 30;
     [Id(10)] public long? LastAmbientAt { get; set; }
     [Id(11)] public Dictionary<Guid, long> NotifiedAt { get; set; } = new();
+    /// <summary>Clerk user id → their Player. Players not listed here are unowned.</summary>
+    [Id(12)] public Dictionary<string, Guid> PlayersByClerkId { get; set; } = new();
 }

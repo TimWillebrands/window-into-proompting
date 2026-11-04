@@ -32,10 +32,12 @@ env:
     ASPNETCORE_ENVIRONMENT: Production
     ASPNETCORE_URLS: http://+:5072
     Llm__Providers__0__Type: openrouter
+    Clerk__AdminUserIds__0: user_2ticN4zG13HbJjZG4FC8SsDNfZK
     OTEL_EXPORTER_OTLP_ENDPOINT: http://proompting-dashboard:18889
   secret:
     - POSTGRES_PASSWORD
     - OPENROUTER_API_KEY
+    - CLERK_SECRET_KEY
     - ConnectionStrings__Default
 
 accessories:

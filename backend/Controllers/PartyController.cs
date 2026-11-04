@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
@@ -21,6 +23,7 @@ namespace PartyTown.Controllers;
 public sealed class PartyController(
     IGrainFactory grains,
     IPartyRealtimeHub realtimeHub,
+    Actors actors,
     IMemoryCache cache,
     PartyTown.World.WorldMemory worldMemory,
     ILogger<PartyController> logger) : ControllerBase
@@ -31,6 +34,7 @@ public sealed class PartyController(
     /// <returns>
     /// A <see cref="PartyInfo"/> array wrapped in <c>200 OK</c>.
     /// </returns>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<PartyInfo[]>> GetAll()
     {
@@ -49,6 +53,7 @@ public sealed class PartyController(
     /// <c>201 Created</c> with the newly created <see cref="PartyInfoFull"/> when successful;
     /// otherwise <c>400 Bad Request</c> if the party name is missing or whitespace.
     /// </returns>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("create")]
     public async Task<ActionResult<PartyInfo>> Create([FromBody] CreatePartyRequest request)
     {
@@ -92,6 +97,7 @@ public sealed class PartyController(
     /// <c>400 Bad Request</c> if <paramref name="id"/> is empty; or <c>404 Not Found</c>
     /// when the party does not exist.
     /// </returns>
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PartyDetails>> GetById(Guid id)
     {
@@ -118,6 +124,7 @@ public sealed class PartyController(
     /// Returns <c>400 Bad Request</c> when <paramref name="id"/> is empty, or
     /// <c>404 Not Found</c> when the party does not exist.
     /// </returns>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{id:guid}/reset-participants")]
     public async Task<ActionResult<PartyInfo>> ResetParticipants(Guid id)
     {
@@ -138,6 +145,8 @@ public sealed class PartyController(
 
         return Ok(current);
     }
+
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
 
     [HttpPut("{id:guid}/participants")]
     public async Task<ActionResult<PartyInfo>> SetParticipants(Guid id, [FromBody] UpdatePartyParticipantsRequest request)
@@ -178,6 +187,7 @@ public sealed class PartyController(
     /// Driver lives elsewhere (on the Participant, or in the override map) — see
     /// <see cref="GetChatGroupDriverOverrides"/>.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/participants")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -203,6 +213,7 @@ public sealed class PartyController(
         [FromBody] UpdateChatGroupParticipantIdsRequest request)
     {
         if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
+        await actors.RequireRoomAsync(User, chatGroupId);
 
         var idsSet = new HashSet<Guid>((request.ParticipantIds ?? []).Where(g => g != Guid.Empty));
 
@@ -251,6 +262,7 @@ public sealed class PartyController(
     /// Returns the Room's sparse Driver override map. A missing entry means that
     /// Persona's Default Driver (from its Party Participant) applies in this Room.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}/chat-groups/{chatGroupId:guid}/driver-overrides")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -276,6 +288,7 @@ public sealed class PartyController(
         [FromBody] UpdateChatGroupDriverOverridesRequest request)
     {
         if (await ValidateChatGroupAsync(id, chatGroupId) is { } error) return error;
+        await actors.RequireRoomAsync(User, chatGroupId);
 
         var deduped = (request.Overrides ?? [])
             .Where(o => o.PersonaId != Guid.Empty)
@@ -332,7 +345,7 @@ public sealed class PartyController(
 
         logger.LogInformation("Sending prompt to party {PartyId}, message length: {Length}", id, request.Prompt.Length);
 
-        var senderId = request.SenderId ?? Guid.NewGuid();
+        var senderId = await actors.SpeakAsync(User, request.ChatGroupId, request.SenderId);
 
         // Route directly to ChatGroupGrain for parallel persona fan-out
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
@@ -361,6 +374,8 @@ public sealed class PartyController(
         {
             return BadRequest("Invalid chat group id");
         }
+
+        await actors.RequireRoomAsync(User, request.ChatGroupId);
 
 
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId).ContinueAsync();
@@ -402,6 +417,8 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
+        await actors.RequireRoomAsync(User, chatGroupId);
+
         if (messageId < 0)
         {
             return BadRequest("Invalid message id");
@@ -429,6 +446,8 @@ public sealed class PartyController(
         {
             return BadRequest("Invalid chat group id");
         }
+
+        await actors.RequireRoomAsync(User, chatGroupId);
 
         if (messageId < 0)
         {
@@ -465,6 +484,8 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
+        await actors.RequireRoomAsync(User, request.ChatGroupId);
+
 
         var chatGroupGrain = grains.GetGrain<IChatGroupGrain>(request.ChatGroupId);
         await chatGroupGrain.DeleteMessagesAfterAsync(messageId);
@@ -484,6 +505,7 @@ public sealed class PartyController(
     /// envelope messages containing a <c>type</c>, a per-session <c>sequence</c>, and a typed
     /// <c>data</c> payload. Clients should treat this endpoint as the authoritative realtime feed.
     /// </remarks>
+    [AllowAnonymous]
     [HttpGet("{id:guid}/ws")]
     public async Task Realtime(Guid id)
     {
@@ -494,8 +516,9 @@ public sealed class PartyController(
             return;
         }
 
+        var viewer = await actors.ViewerAsync(User, id);
         using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
-        await realtimeHub.HandleConnectionAsync(id, socket, HttpContext.RequestAborted);
+        await realtimeHub.HandleConnectionAsync(id, socket, viewer, HttpContext.RequestAborted);
     }
 
     /// <summary>
@@ -524,6 +547,7 @@ public sealed class PartyController(
     /// <returns>
     /// <c>200 OK</c> containing all chat groups; <c>404 Not Found</c> if the party does not exist.
     /// </returns>
+    [AllowAnonymous]
     [HttpGet("{id:guid}/chat-groups")]
     public async Task<ActionResult<List<ChatGroupInfo>>> GetChatGroups(Guid id)
     {
@@ -535,7 +559,9 @@ public sealed class PartyController(
         }
 
         var chatGroups = await grains.GetGrain<IPartyGrain>(id).GetChatGroups();
-        return Ok(chatGroups);
+        var viewer = await actors.ViewerAsync(User, id);
+        var humans = await actors.HumansAsync(id);
+        return Ok(chatGroups.Where(g => AccessRules.CanSeeRoom(viewer, AccessRules.PrivateMembers(g, humans))).ToList());
     }
 
     /// <summary>
@@ -593,6 +619,8 @@ public sealed class PartyController(
             return BadRequest("Invalid chat group id");
         }
 
+        await actors.RequireRoomAsync(User, chatGroupId);
+
         var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
         await EnsureDefaultParty(root, id);
         if (!await root.HasPartyId(id))
@@ -627,6 +655,8 @@ public sealed class PartyController(
         {
             return BadRequest("Invalid chat group id");
         }
+
+        await actors.RequireRoomAsync(User, chatGroupId);
 
         if (messageId < 0)
         {
@@ -684,6 +714,8 @@ public sealed class PartyController(
         {
             return BadRequest("Invalid chat group id");
         }
+
+        await actors.RequireRoomAsync(User, chatGroupId);
 
         var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
         await EnsureDefaultParty(root, id);

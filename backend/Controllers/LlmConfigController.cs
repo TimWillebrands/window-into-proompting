@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using Microsoft.AspNetCore.OutputCaching;
 using PartyTown.Grains.Generation;
 
@@ -73,6 +75,8 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         return Ok(models.Select(m => m.Name).ToList());
     }
 
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+
     [HttpPost("providers")]
     public async Task<ActionResult<LlmProviderEntry>> AddProvider([FromBody] LlmProviderEntry entry)
     {
@@ -81,6 +85,8 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         // Add a GetProvider(Guid id) action and use CreatedAtAction(nameof(GetProvider), new { id = created.Id }, created).
         return CreatedAtAction(nameof(GetProviders), created with { ApiKey = Mask(created.ApiKey) });
     }
+
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
 
     [HttpPut("providers/{id:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -106,6 +112,8 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
             return NotFound(ex.Message);
         }
     }
+
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
 
     [HttpDelete("providers/{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

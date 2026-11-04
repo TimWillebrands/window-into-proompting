@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using PartyTown.Services.Memory;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
@@ -13,35 +15,43 @@ namespace PartyTown.Controllers;
 /// </summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps) : ControllerBase
+public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal) : ControllerBase
 {
     private BoardApp BoardApp => apps.OfType<BoardApp>().Single();
     private CalendarApp CalendarApp => apps.OfType<CalendarApp>().Single();
 
+    [AllowAnonymous]
+
     [HttpGet]
     public async Task<ActionResult<WorldStatus>> GetStatus(Guid partyId)
         => Ok(await Clock(partyId).GetStatusAsync());
+
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
 
     [HttpPut]
     public async Task<ActionResult<WorldStatus>> Update(Guid partyId, [FromBody] UpdateWorldRequest request)
         => Ok(await Clock(partyId).UpdateAsync(request.Running, request.TickSeconds, request.MaxActionsPerHour, request.AmbientMinutes));
 
     /// <summary>Give one Persona (or a weighted pick) a Life turn right now.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("tick")]
     public async Task<ActionResult<TickResponse>> Tick(Guid partyId, [FromBody] TickRequest request)
         => Ok(new TickResponse(await Clock(partyId).TickNowAsync(request.PersonaId, request.Nudge)));
 
+    [AllowAnonymous]
+
     [HttpGet("activities")]
     public async Task<ActionResult<List<WorldActivity>>> GetActivities(Guid partyId, [FromQuery] int limit = 100, [FromQuery] Guid? personaId = null)
-        => Ok(await Clock(partyId).GetActivitiesAsync(limit, personaId));
+        => Ok(await VisibleAsync(partyId, await Clock(partyId).GetActivitiesAsync(limit, personaId)));
 
     /// <summary>Who lives here and what they're up to.</summary>
+    [AllowAnonymous]
     [HttpGet("lives")]
     public async Task<ActionResult<List<LifeSummary>>> GetLives(Guid partyId)
     {
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
         var status = await Clock(partyId).GetStatusAsync();
-        var activities = await Clock(partyId).GetActivitiesAsync(300, null);
+        var activities = await VisibleAsync(partyId, await Clock(partyId).GetActivitiesAsync(300, null));
         return Ok(cast
             .Where(c => c.Id != Narrator.PersonaId)
             .Select(c =>
@@ -54,6 +64,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     /// <summary>Announce a Happening every Persona will perceive and remember.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("happenings")]
     public async Task<ActionResult<WorldActivity>> Announce(Guid partyId, [FromBody] AnnounceRequest request)
     {
@@ -63,6 +74,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     /// <summary>Invite a library Persona to live in this World (LLM-driven Participant).</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("residents")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LifeSummary>> Invite(Guid partyId, [FromBody] InviteResidentRequest request)
@@ -85,6 +97,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     /// <summary>A Persona moves out: their Participant (and Party-scoped memories' owner) leaves the cast.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("residents/{personaId:guid}")]
     public async Task<ActionResult> Evict(Guid partyId, Guid personaId)
     {
@@ -99,33 +112,43 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return NoContent();
     }
 
-    [HttpPost("player")]
-    public async Task<ActionResult<PlayerResponse>> EnsurePlayer(Guid partyId, [FromBody] EnsurePlayerRequest request)
-        => Ok(new PlayerResponse(await Clock(partyId).EnsurePlayerAsync(request.Name)));
+    /// <summary>The caller's character here; PlayerId is null until they've made one.</summary>
+    [HttpGet("player")]
+    public async Task<ActionResult<PlayerResponse>> GetPlayer(Guid partyId)
+    {
+        var id = await actors.FindPlayerAsync(User, partyId);
+        var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
+        return Ok(new PlayerResponse(id, info.Participants.FirstOrDefault(p => p.Id == id)?.Name, Actors.IsAdmin(User)));
+    }
 
-    /// <summary>Remove a human Player and their DM threads. Personas keep their memories; the default Player moves on.</summary>
+    /// <summary>Make the caller's character. 409 when the name is taken.</summary>
+    [HttpPost("player")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PlayerResponse>> CreatePlayer(Guid partyId, [FromBody] CreatePlayerRequest request)
+    {
+        if (AccessRules.CleanPlayerName(request.Name) is not { } name) return BadRequest($"A name, up to {AccessRules.MaxPlayerName} characters.");
+        return await Clock(partyId).ClaimPlayerAsync(User.ClerkUserId()!, name) is { } id
+            ? Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)))
+            : Conflict("Someone here already goes by that name.");
+    }
+
+    /// <summary>Remove a human Player and what's theirs. Personas keep their memories.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("players/{playerId:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> RemovePlayer(Guid partyId, Guid playerId)
-    {
-        var party = grains.GetGrain<IPartyGrain>(partyId);
-        var info = await party.GetParty();
-        if (info.Participants.All(p => p.Id != playerId || p.Driver != DriverKind.User)) return NotFound();
-        foreach (var dm in (await party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(playerId) == true))
-            await party.RemoveChatGroup(dm.Id);
-        if (await party.RemoveParticipantAsync(playerId) is not { } leaving) return NotFound();
-        await Clock(partyId).RecordAsync(new WorldActivity
-        {
-            PersonaId = playerId, PersonaName = leaving.Name, App = "world", Action = "leave", Summary = "left the world",
-        });
-        return NoContent();
-    }
+        => await removal.RemoveAsync(partyId, playerId) ? NoContent() : NotFound();
 
     // ─── Board ────────────────────────────────────────────────────────────────
+
+    [AllowAnonymous]
 
     [HttpGet("board")]
     public async Task<ActionResult<List<BoardThread>>> GetBoard(Guid partyId)
         => Ok(await Board(partyId).GetThreadsAsync());
+
+    [AllowAnonymous]
 
     [HttpGet("board/{threadId:guid}")]
     public async Task<ActionResult<BoardThread>> GetThread(Guid partyId, Guid threadId)
@@ -169,16 +192,18 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     [HttpGet("messenger")]
     public async Task<ActionResult<List<DirectChatSummary>>> GetDirectChats(Guid partyId, [FromQuery] Guid? personaId = null)
     {
-        var who = personaId ?? (await Clock(partyId).GetStatusAsync()).PlayerId;
-        if (who is null) return Ok(new List<DirectChatSummary>());
+        var viewer = await actors.ViewerAsync(User, partyId);
+        if ((personaId ?? viewer.PlayerId) is not { } who) return Ok(new List<DirectChatSummary>());
+        var humans = await actors.HumansAsync(partyId);
         var party = grains.GetGrain<IPartyGrain>(partyId);
         var info = await party.GetParty();
         var names = info.Participants.ToDictionary(p => p.Id, p => p.Name);
 
         var result = new List<DirectChatSummary>();
-        foreach (var dm in (await party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(who.Value) == true))
+        foreach (var dm in (await party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(who) == true))
         {
-            var other = dm.MemberIds!.First(id => id != who.Value);
+            if (!AccessRules.CanSeeRoom(viewer, AccessRules.PrivateMembers(dm, humans))) continue;
+            var other = dm.MemberIds!.First(id => id != who);
             var last = (await grains.GetGrain<IChatGroupGrain>(dm.Id).GetRecentMessagesAsync(1)).LastOrDefault();
             result.Add(new DirectChatSummary(dm.Id, other, names.GetValueOrDefault(other, "someone"),
                 last?.Content, last?.SenderId, last?.SendAt ?? dm.CreatedAt));
@@ -189,7 +214,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     [HttpPost("messenger")]
     public async Task<ActionResult<ChatGroupInfo>> OpenDirectChat(Guid partyId, [FromBody] OpenDirectChatRequest request)
     {
-        var from = request.FromPersonaId ?? await Clock(partyId).EnsurePlayerAsync(null);
+        var from = await actors.ActAsync(User, partyId, request.FromPersonaId);
         if (from == request.WithPersonaId) return BadRequest("Cannot DM yourself.");
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
         if (info.Participants.All(p => p.Id != request.WithPersonaId)) return NotFound();
@@ -197,6 +222,8 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     // ─── Calendar ─────────────────────────────────────────────────────────────
+
+    [AllowAnonymous]
 
     [HttpGet("gatherings")]
     public async Task<ActionResult<List<Gathering>>> GetGatherings(Guid partyId)
@@ -268,9 +295,16 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
             .ToList();
     }
 
+    private async Task<List<WorldActivity>> VisibleAsync(Guid partyId, IEnumerable<WorldActivity> activities)
+    {
+        var viewer = await actors.ViewerAsync(User, partyId);
+        var humans = await actors.HumansAsync(partyId);
+        return activities.Where(a => AccessRules.CanSeeActivity(viewer, a, humans)).ToList();
+    }
+
     private async Task<(Guid Id, string Name)> AuthorAsync(Guid partyId, Guid? authorId)
     {
-        var id = authorId ?? await Clock(partyId).EnsurePlayerAsync(null);
+        var id = await actors.ActAsync(User, partyId, authorId);
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
         return (id, info.Participants.FirstOrDefault(p => p.Id == id)?.Name ?? "You");
     }
@@ -279,12 +313,12 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
 public sealed record UpdateWorldRequest(bool? Running, int? TickSeconds, int? MaxActionsPerHour, int? AmbientMinutes = null);
 public sealed record TickRequest(Guid? PersonaId, string? Nudge);
 public sealed record TickResponse(bool Started);
-public sealed record EnsurePlayerRequest(string? Name);
 public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
 public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
-public sealed record PlayerResponse(Guid PlayerId);
+public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin);
+public sealed record CreatePlayerRequest(string Name);
 public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
 public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);

@@ -26,4 +26,14 @@ builder:
   arch: amd64
   dockerfile: frontend/Dockerfile
   context: frontend
+  args:
+    VITE_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ
+
+env:
+  clear:
+    VITE_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ
+    VITE_CLERK_SIGN_IN_URL: /sign-in
+    VITE_CLERK_SIGN_UP_URL: /sign-up
+  secret:
+    - CLERK_SECRET_KEY
 
