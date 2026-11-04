@@ -368,6 +368,74 @@ _Avoid_: goal, need, drive (collides with **Driver**), motivation, objective.
 An **Acquired Desire** caught from someone through a **Tie**: wanting what they have or want. Capped hard: a Tie of 10+ exchanges, one at a time, and a 3-day gap between catches. Wanting the same person's attention as the one you caught it from becomes a **Rivalry**, shown as Tie friction, with at most one live per World.
 _Avoid_: envy, contagion, imitation.
 
+### Real work
+
+See [ADR 0030](docs/adr/0030-real-work-companies-and-practices.md). An **Occupation** can do more than fill a shift: it can sit in a **Company** or run a **Practice**. Who does it is the **Driver**'s business; humans and Personas work, trade and book the same way.
+
+**Company**:
+An outfit in one Party with a name, a workplace, staff and a **Mandate**. Staff are **Participants** whose **Occupation** names it. Today every Company runs one **Book**.
+_Avoid_: firm, org, employer, trading office, desk.
+
+**Mandate**:
+What a **Company** is set up to do, in one line ("trades AI questions on Polymarket"), plus the **Market** and focus that decide its **Watchlist**.
+_Avoid_: strategy, brief, goal.
+
+**Market**:
+A real outside source of prices: prediction markets, crypto or stocks. The World reads it and never writes to it.
+_Avoid_: exchange, feed, venue.
+
+**Instrument**:
+One thing a **Market** quotes, such as one outcome of a question or one coin. Some **Settle**; others never do.
+_Avoid_: asset, ticker, symbol, security.
+
+**Watchlist**:
+The handful of **Instruments** a **Company** is following, from its **Mandate**.
+_Avoid_: universe, screen, portfolio.
+
+**Book**:
+A **Company**'s ghost money: cash, **Positions** and **Trades**, in credits. Real prices, pretend fills. Never mixes with a **Wallet**.
+_Avoid_: portfolio, fund, account, ledger (that's the Wallet's).
+
+**Position**:
+What a **Book** holds of one **Instrument**, and what it paid.
+_Avoid_: holding, stake, bet.
+
+**Trade**:
+One buy or sell in a **Book**, filled at the real quote on the wrong side of the spread, with the trader's **Thesis**.
+_Avoid_: order, fill, transaction.
+
+**Thesis**:
+Why someone made a **Trade**, and on a question how likely they said it was. Kept, so the outcome can be held against it.
+_Avoid_: rationale, reasoning, signal.
+
+**Settlement**:
+A **Market** declaring an **Instrument** finished: its **Positions** pay out and close. Only the Market's own word settles; a passed date never does.
+_Avoid_: resolution, expiry, payout.
+
+**Practice**:
+An **Occupation** that sells **Sessions**: a field ("careers in logistics"), an approach and a **Fee**. Therapist, career coach and tarot reader are all Practices. Pays by Session, not by shift.
+_Avoid_: service, clinic, consultancy, therapy.
+
+**Practitioner**:
+The **Participant** running a **Practice**.
+_Avoid_: therapist, coach, provider, host.
+
+**Client**:
+A **Participant** who books a **Session**. Practitioners can be Clients of each other.
+_Avoid_: patient, customer, attendee.
+
+**Session**:
+A paid booking between a **Practitioner** and a **Client**. When it's due they meet at the workplace and talk like anyone: **Place talk**, **Earshot**, and memory all apply. It ends in a **Fee** and usually **Homework**. Unlike a **Gathering**, nobody else is invited. (A **Bench Session** is something else.)
+_Avoid_: appointment, consult, meeting.
+
+**Fee**:
+Credits a **Client** pays a **Practitioner** for a **Session** that took place, Wallet to Wallet.
+_Avoid_: price, rate, invoice.
+
+**Homework**:
+One concrete thing a **Session** leaves a **Client** owing, held by the **Practitioner**. A **Responsibility**.
+_Avoid_: task, action item, assignment.
+
 ### World growth
 
 See [ADR 0027](docs/adr/0027-world-growth-districts-locales-openings.md) (proposed). Rule: fidelity follows use; draw where people meet, not where people are mentioned.
@@ -449,6 +517,10 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Place** has one **Purpose**; a **Participant** has one **Role** per Place they relate to.
 - A **Participant** has zero or one **Occupation**, whose workplace is a **Place** in the Party or offscreen.
 - A **Responsibility** belongs to one **Participant** and has exactly one holder.
+- A **Company** has one **Mandate**, one **Book** and zero or more staff; an **Occupation** belongs to at most one **Company** or one **Practice**, never both.
+- A **Book** has zero or more **Positions**; a **Position** is of exactly one **Instrument**, from the **Company**'s **Market**.
+- A **Session** has exactly one **Practitioner** and one **Client**, either of whom may be driven by a human or an LLM.
+- A **Homework** comes from one **Session**, belongs to its **Client** and is held by its **Practitioner**.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 

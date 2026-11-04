@@ -95,6 +95,15 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Desires.DesireReview>();
     builder.Services.AddSingleton<PartyTown.World.Desires.Mimesis>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.WorkApp>();
+    builder.Services.AddHttpClient("markets", c => c.Timeout = TimeSpan.FromSeconds(10));
+    builder.Services.AddSingleton<PartyTown.World.Work.Markets.IMarketFeed, PartyTown.World.Work.Markets.PolymarketFeed>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Markets.IMarketFeed, PartyTown.World.Work.Markets.KrakenFeed>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Markets.IMarketFeed, PartyTown.World.Work.Markets.YahooFeed>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Markets.MarketFeeds>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Companies.Desks>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Practices.Sessions>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.Companies.DeskApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.Practices.PracticeApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp>(sp => sp.GetRequiredService<PartyTown.World.Economy.WardrobeApp>());
     builder.Services.TryAddSingleton(TimeProvider.System);
 

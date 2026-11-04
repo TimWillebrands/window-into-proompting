@@ -40,7 +40,8 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
 
     private async Task<int> PayAsync(Guid partyId, Guid who, Occupation job, ShiftRecord record)
     {
-        if (record.StartedAt is not { } from || record.EndedAt is not { } to) return 0;
+        // A Practice lives on its Fees (ADR 0030).
+        if (job.Practice is not null || record.StartedAt is not { } from || record.EndedAt is not { } to) return 0;
         var key = WorldKeys.Life(partyId, who);
         var wallet = grains.GetGrain<IWalletGrain>(key);
         var pay = Shifts.Pay((await wallet.GetAsync()).Means, from, to);

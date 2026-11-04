@@ -20,6 +20,10 @@ public sealed class Occupation
     /// <summary>Local minutes since midnight; a shift never wraps past midnight.</summary>
     [Id(5)] public int Start { get; set; } = 9 * 60;
     [Id(6)] public int End { get; set; } = 17 * 60;
+    /// <summary>The Company this job is at (ADR 0030); never alongside a Practice.</summary>
+    [Id(7)] public Guid? CompanyId { get; set; }
+    /// <summary>Set when this job sells Sessions (ADR 0030); then it pays by Fee, not by shift.</summary>
+    [Id(8)] public Practices.Practice? Practice { get; set; }
 
     public bool Onscreen => PlaceId is not null;
 }
@@ -87,7 +91,10 @@ public static class Shifts
     }
 
     /// <summary>Pull taken off everything but work while on shift: other things wait, they're not forbidden.</summary>
-    public static int Damping(string appId, bool onShift) => onShift && appId != WorkApp.AppId ? 1 : 0;
+    public static int Damping(string appId, bool onShift) => onShift && !IsWork(appId) ? 1 : 0;
+
+    /// <summary>The Apps that are the job itself, so a shift doesn't damp them.</summary>
+    public static bool IsWork(string appId) => appId is WorkApp.AppId or Companies.DeskApp.AppId or Practices.PracticeApp.AppId;
 
     /// <summary>Hourly rate so five 8-hour shifts pay what a week of flat daily pay did (ADR 0024).</summary>
     public static double HourlyRate(string? means) => Money.DailyPay(means) * 7 / 40.0;
@@ -180,6 +187,14 @@ public static class Shifts
 /// <summary>Pure: keeping a job's workplace in step with Places.</summary>
 public static class WorkRules
 {
+    /// <summary>Editing hours keeps what the job is; naming a Company or Practice replaces the other (ADR 0030).</summary>
+    public static void Carry(Occupation next, Occupation? previous)
+    {
+        if (next.CompanyId is not null) next.Practice = null;
+        else if (next.Practice is not null) next.CompanyId = null;
+        else (next.CompanyId, next.Practice) = (previous?.CompanyId, previous?.Practice);
+    }
+
     /// <summary>Public → onscreen, Locale → offscreen (an Opened place Closed again); the name follows renames.</summary>
     public static void Sync(Occupation job, Places.Place place)
     {

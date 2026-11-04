@@ -27,7 +27,11 @@ public sealed class OccupationGrain(
 
     public async Task<OccupationView> SetAsync(Occupation? job)
     {
-        if (job is not null) await PlaceAsync(job);
+        if (job is not null)
+        {
+            WorkRules.Carry(job, state.State.Job);
+            await PlaceAsync(job);
+        }
         state.State.Job = job;
         state.State.Seeded = true;
         if (job is null && state.State.History.LastOrDefault() is { Status: ShiftStatus.On } on) on.Status = ShiftStatus.LeftEarly;

@@ -89,6 +89,8 @@ public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilit
             }
             owed.AddRange(ResponsibilityRules.FromGuests(snapshot, personaId, NameOf, now));
             owed.AddRange(ResponsibilityRules.FromGatherings(await grains.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync(), personaId, now));
+            var practice = grains.GetGrain<Practices.ISessionsGrain>(partyId);
+            owed.AddRange(Practices.PracticeRules.Owed(await practice.GetSessionsAsync(), await practice.GetHomeworkAsync(), personaId, NameOf, now, job.Job?.Practice?.Approach));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

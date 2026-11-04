@@ -169,6 +169,7 @@ public static class MomentSources
     public const string Board = "board";
     public const string World = "world";
     public const string Import = "import";
+    public const string Work = "work";
 
     public static string OfKind(string? chatGroupKind) => chatGroupKind switch
     {

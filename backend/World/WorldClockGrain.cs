@@ -18,7 +18,9 @@ public sealed class WorldClockGrain(
     IWorldLlm llm,
     Work.Workplaces workplaces,
     Work.Responsibilities responsibilities,
-    ILogger<WorldClockGrain> logger)
+    ILogger<WorldClockGrain> logger,
+    Work.Companies.Desks? desks = null,
+    Work.Practices.Sessions? sessions = null)
     : Grain, IWorldClockGrain
 {
     private const int MaxActivities = 300;
@@ -53,6 +55,9 @@ public sealed class WorldClockGrain(
         await CaptureLullsAsync();
         await StartDueGatheringsAsync(now);
         await StepShiftsAsync(now);
+        // Detached: a slow Market or a Session's LLM calls must never hold up the tick.
+        if (desks is not null) _ = desks.RefreshAsync(PartyId, now);
+        if (sessions is not null) _ = sessions.StepAsync(PartyId, now);
         if (!ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return;
         (var ambientDue, state.State.LastAmbientAt) = ClockPolicy.Ambient(state.State.LastAmbientAt, state.State.AmbientMinutes, now);
         if (ambientDue)

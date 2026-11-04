@@ -9,6 +9,7 @@ import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
 import PersonasApp from '../apps/personas/PersonasApp';
 import PlacesApp from '../apps/places/PlacesApp';
+import RealWorkApp from '../apps/real-work/RealWorkApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import WardrobeApp from '../apps/wardrobe/WardrobeApp';
 import WorldApp from '../apps/world/WorldApp';
@@ -86,6 +87,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: JobsApp,
         initialPosition: { x: 340, y: 160 },
         initialSize: { width: 640, height: 420 },
+    },
+    {
+        id: 'real-work',
+        title: 'Companies & Practices',
+        icon: '🏦',
+        component: RealWorkApp,
+        initialPosition: { x: 360, y: 120 },
+        initialSize: { width: 720, height: 520 },
     },
     {
         id: 'personas',
@@ -186,6 +195,12 @@ export const DESKTOP_ICONS: DesktopIconEntry[] = [
         label: 'Work & Wants',
         icon: '/img/icons/jobs.ico',
         windowId: 'jobs',
+    },
+    {
+        id: 'real-work',
+        label: 'Companies & Practices',
+        icon: '/img/icons/jobs.ico',
+        windowId: 'real-work',
     },
     {
         id: 'personas',
