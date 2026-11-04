@@ -21,6 +21,12 @@ public sealed record class PartyRealtimeEnvelope
     public required IPartyRealtimeData Data { get; init; }
 }
 
+/// <summary>A payload belonging to one Room, so it inherits that Room's privacy.</summary>
+public interface IRoomFrame : IPartyRealtimeData
+{
+    Guid ChatGroupId { get; }
+}
+
 /// <summary>
 /// Marker interface for typed envelope payloads.
 /// </summary>
@@ -49,31 +55,31 @@ public sealed record class PartySnapshotData(
     Guid ChatGroupId,
     IReadOnlyList<ChatMessage> Messages,
     IReadOnlyList<PartyTown.Grains.SkippedTurn> SkippedTurns,
-    IReadOnlyList<PartyTown.Grains.RaceEvaluation> RaceEvaluations) : IPartyRealtimeData;
+    IReadOnlyList<PartyTown.Grains.RaceEvaluation> RaceEvaluations) : IRoomFrame;
 
 /// <summary>Payload for the "party.message.created" event: a new message was added to the party.</summary>
-public sealed record class PartyMessageCreatedData(Guid PartyId, Guid ChatGroupId, ChatMessage? Message) : IPartyRealtimeData;
+public sealed record class PartyMessageCreatedData(Guid PartyId, Guid ChatGroupId, ChatMessage? Message) : IRoomFrame;
 
 /// <summary>Payload for the "party.message.deleted" event: a single message was removed.</summary>
-public sealed record class PartyMessageDeletedData(Guid PartyId, Guid ChatGroupId, int? MessageId) : IPartyRealtimeData;
+public sealed record class PartyMessageDeletedData(Guid PartyId, Guid ChatGroupId, int? MessageId) : IRoomFrame;
 
 /// <summary>Payload for the "party.messages.truncated" event: all messages after a point were removed.</summary>
-public sealed record class PartyMessagesTruncatedData(Guid PartyId, Guid ChatGroupId, int? MessageId) : IPartyRealtimeData;
+public sealed record class PartyMessagesTruncatedData(Guid PartyId, Guid ChatGroupId, int? MessageId) : IRoomFrame;
 
 /// <summary>Payload for the "party.generation.started" event: a new message generation has begun.</summary>
-public sealed record class PartyGenerationStartedData(Guid PartyId, Guid ChatGroupId, int MessageId) : IPartyRealtimeData;
+public sealed record class PartyGenerationStartedData(Guid PartyId, Guid ChatGroupId, int MessageId) : IRoomFrame;
 
 /// <summary>Payload for the "party.generation.delta" event: token/reasoning chunk during generation.</summary>
-public sealed record class PartyGenerationDeltaData(Guid PartyId, Guid ChatGroupId, int MessageId, string Event, string? Data, bool Done) : IPartyRealtimeData;
+public sealed record class PartyGenerationDeltaData(Guid PartyId, Guid ChatGroupId, int MessageId, string Event, string? Data, bool Done) : IRoomFrame;
 
 /// <summary>Payload for the "party.generation.completed" event: generation finished (success or failure).</summary>
-public sealed record class PartyGenerationCompletedData(Guid PartyId, Guid ChatGroupId, int MessageId) : IPartyRealtimeData;
+public sealed record class PartyGenerationCompletedData(Guid PartyId, Guid ChatGroupId, int MessageId) : IRoomFrame;
 
 /// <summary>Payload for the "party.pong" event: server response to client ping.</summary>
 public sealed record class PartyPongData(Guid PartyId, Guid ChatGroupId) : IPartyRealtimeData;
 
 /// <summary>Payload for unhandled or unknown event types.</summary>
-public sealed record class PartyUnknownEventData(Guid PartyId, Guid ChatGroupId, string EventType, ChatMessage? Message, int? MessageId) : IPartyRealtimeData;
+public sealed record class PartyUnknownEventData(Guid PartyId, Guid ChatGroupId, string EventType, ChatMessage? Message, int? MessageId) : IRoomFrame;
 
 /// <summary>Payload for the "persona.generation.delta" event: a streamed text chunk from persona generation.</summary>
 public sealed record class PersonaGenerationDeltaData(string Data) : IPartyRealtimeData;
@@ -86,7 +92,7 @@ public sealed record class PersonaGenerationErrorData(string Message) : IPartyRe
 
 /// <summary>Payload for the "party.race.evaluation" event: one stop-signal race outcome
 /// from <c>PersonaGrain.RunStopSignalRaceAsync</c>, surfaced live to the thought log.</summary>
-public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IPartyRealtimeData;
+public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IRoomFrame;
 
 /// <summary>Payload for "world.*" events: a World App surface changed (ADR 0018).</summary>
 public sealed record class PartyWorldEventData(Guid PartyId, string Kind, System.Text.Json.JsonElement Payload) : IPartyRealtimeData;

@@ -1,6 +1,7 @@
 import deepEqual from 'fast-deep-equal';
 import { create } from 'zustand';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
+import { sessionToken } from './clerk-session';
 import {
     type ActiveGenerationPhase,
     type ChatGroupRealtimeState,
@@ -56,6 +57,12 @@ interface RealtimeStoreState {
 }
 
 export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
+    /** The handshake carries the session cookie, and a stale one would quietly mean anonymous. */
+    const openWithFreshSession = async (partyId: string) => {
+        await sessionToken();
+        establishPartyRealtime(partyId);
+    };
+
     const establishPartyRealtime = (partyId: string) => {
         if (typeof window === 'undefined') {
             return;
@@ -194,7 +201,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
         }));
 
         window.setTimeout(() => {
-            establishPartyRealtime(partyId);
+            void openWithFreshSession(partyId);
         }, delayMs);
     };
 
@@ -215,7 +222,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                 },
             }));
 
-            queueMicrotask(() => establishPartyRealtime(partyId));
+            void openWithFreshSession(partyId);
         },
         disconnectPartyRealtime: (partyId: string) => {
             const connection = get().connections[partyId];

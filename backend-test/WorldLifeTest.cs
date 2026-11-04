@@ -112,14 +112,64 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         var (partyId, _) = await _fx.CreateWorldAsync();
         var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
 
-        var a = await clock.EnsurePlayerAsync("Tim");
-        var b = await clock.EnsurePlayerAsync("tim");
-        var other = await clock.EnsurePlayerAsync("Sam");
+        var a = await clock.ClaimPlayerAsync("user_a", "Sparky");
+        var again = await clock.ClaimPlayerAsync("user_a", "Renamed");
+        var taken = await clock.ClaimPlayerAsync("user_b", "sparky");
 
-        Assert.Equal(a, b);
-        Assert.NotEqual(a, other);
+        Assert.Equal(a, again);
+        Assert.Null(taken);
+        Assert.Equal(a, await clock.FindPlayerAsync("user_a"));
         var party = await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetParty();
         Assert.Equal(DriverKind.User, party.Participants.Single(p => p.Id == a).Driver);
+    }
+
+    [Fact]
+    public async Task RemovedPlayer_TakesTheirTraceAndCanMakeANewCharacter()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var board = _fx.GrainFactory.GetGrain<IBoardGrain>(partyId);
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var places = _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlacesGrain>(partyId);
+        var player = (await clock.ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+
+        var mine = await board.CreateThreadAsync(player, "Sparky", "mine");
+        var hers = await board.CreateThreadAsync(denise, "Denise", "hers");
+        await board.ReplyAsync(hers.Id, player, "Sparky", "my reply");
+        await board.ReplyAsync(hers.Id, denise, "Denise", "her reply");
+        await board.RespectAsync(hers.Id, null, player, "Sparky", true);
+        await clock.RecordAsync(new WorldActivity { PersonaId = player, PersonaName = "Sparky", App = "board", Action = "post" });
+        await clock.RecordAsync(new WorldActivity { PersonaId = denise, WithPersonaId = player, App = "messenger", Action = "dm" });
+        await clock.RecordAsync(new WorldActivity { PersonaId = denise, App = "board", Action = "post" });
+        var dm = await party.GetOrCreateDirectChatAsync(player, denise);
+        await places.GetSnapshotAsync();
+
+        Assert.True(await new PlayerRemoval(_fx.GrainFactory).RemoveAsync(partyId, player));
+
+        var threads = await board.GetThreadsAsync();
+        var kept = Assert.Single(threads);
+        Assert.Equal(hers.Id, kept.Id);
+        Assert.Equal("her reply", Assert.Single(kept.Replies).Body);
+        Assert.Empty(kept.Respect);
+        Assert.DoesNotContain(await clock.GetActivitiesAsync(50, null), a => a.PersonaId == player || a.WithPersonaId == player);
+        Assert.DoesNotContain(await party.GetChatGroups(), g => g.Id == dm.Id);
+        Assert.DoesNotContain((await party.GetParty()).Participants, p => p.Id == player);
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.DoesNotContain(snapshot.Bodies, b => b.ParticipantId == player);
+        Assert.DoesNotContain(snapshot.Places, p => p.OwnerId == player);
+        Assert.False(await _fx.GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).HasPersonaId(player));
+        Assert.Null(await clock.FindPlayerAsync("user_a"));
+        Assert.NotEqual(player, await clock.ClaimPlayerAsync("user_a", "Sparky"));
+    }
+
+    [Fact]
+    public async Task Removal_LeavesPersonasAlone()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+
+        Assert.False(await new PlayerRemoval(_fx.GrainFactory).RemoveAsync(partyId, denise));
+
+        Assert.Contains((await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetParty()).Participants, p => p.Id == denise);
     }
 
     /// <summary>Answers the Initiative call by picking the menu line matching <see cref="ChooseOptionContaining"/>.</summary>

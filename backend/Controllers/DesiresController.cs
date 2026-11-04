@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
@@ -10,6 +12,7 @@ namespace PartyTown.Controllers;
 [ApiController]
 public sealed class DesiresController(IGrainFactory grains) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("worlds/{partyId:guid}/desires")]
     public async Task<ActionResult<List<DesireSummary>>> GetDesires(Guid partyId)
     {
@@ -19,11 +22,13 @@ public sealed class DesiresController(IGrainFactory grains) : ControllerBase
     }
 
     /// <summary>Author a Persona's Intrinsic Desires; from then on the sheet no longer rewrites them.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("personas/{personaId:guid}/desires")]
     public async Task<ActionResult<List<Desire>>> SetIntrinsic(Guid personaId, [FromBody] List<DesireRequest> request)
         => Ok(await grains.GetGrain<IIntrinsicDesiresGrain>(personaId).SetAsync(request.Select(r => New(r, DesireSource.Authored)).ToList()));
 
     /// <summary>Give a Participant an Acquired Desire in this Party.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/desires/{participantId:guid}")]
     public async Task<ActionResult<Desire>> AddAcquired(Guid partyId, Guid participantId, [FromBody] DesireRequest request)
     {
@@ -31,12 +36,15 @@ public sealed class DesiresController(IGrainFactory grains) : ControllerBase
         return Ok(await Desires(partyId, participantId).AddAsync(New(request, DesireSource.Authored)));
     }
 
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+
     [HttpPost("worlds/{partyId:guid}/desires/{participantId:guid}/{desireId:guid}/status")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> SetStatus(Guid partyId, Guid participantId, Guid desireId, [FromBody] DesireStatusRequest request)
         => await Desires(partyId, participantId).MarkAsync(desireId, request.Status) ? NoContent() : NotFound();
 
     /// <summary>Promotion: an Acquired Desire becomes part of who the Persona is, in every Party.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/desires/{participantId:guid}/{desireId:guid}/promote")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<Desire>>> Promote(Guid partyId, Guid participantId, Guid desireId)

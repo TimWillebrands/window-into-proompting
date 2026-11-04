@@ -80,9 +80,11 @@ function Conversation({
 }) {
     const playerId = usePlayerId();
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
-    const chatsQuery = useGetWorldsPartyIdMessenger(WORLD_ID, {
-        personaId: playerId ?? undefined,
-    });
+    const chatsQuery = useGetWorldsPartyIdMessenger(
+        WORLD_ID,
+        { personaId: playerId ?? undefined },
+        { query: { enabled: !!playerId } },
+    );
     const lives = livesQuery.data.data ?? [];
     const withId = chatsQuery.data?.data.find(
         (c) => c.chatGroupId === chatGroupId,

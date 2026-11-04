@@ -1,22 +1,18 @@
-import { useState } from 'react';
-import { useGetWorldsPartyIdLives } from '#api/party-zone';
-import { usePlayerSession, WORLD_ID } from '../../lib/world';
+import type { ReactNode } from 'react';
+import { redirectToSignIn } from '../../lib/clerk-session';
+import { usePlayerSession } from '../../lib/world';
 
-const avatar = (name: string) =>
-    `https://robohash.org/${encodeURIComponent(name)}?size=64x64&set=set5`;
+const CHOICE =
+    'flex w-72 items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-lg text-white hover:bg-[#2c5bd3]';
 
-/** XP-style login: pick (or create) the human you are in this World. */
-export default function WelcomeScreen() {
-    const signIn = usePlayerSession((s) => s.signIn);
-    const lives = useGetWorldsPartyIdLives(WORLD_ID);
-    const humans = (lives.data?.data ?? []).filter((l) => l.driver === 'User');
-    const [name, setName] = useState('');
+interface LoginShellProps {
+    prompt: string;
+    blurb: string;
+    children: ReactNode;
+}
 
-    const submit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (name.trim()) signIn(name.trim());
-    };
-
+/** The XP login frame: greeting on the left, choices on the right. */
+export function LoginShell({ prompt, blurb, children }: LoginShellProps) {
     return (
         <div
             className="fixed inset-0 flex flex-col text-white"
@@ -33,11 +29,8 @@ export default function WelcomeScreen() {
             <main className="flex flex-1 items-center justify-center">
                 <section className="flex w-1/2 flex-col items-end gap-3 pr-10 text-right">
                     <div className="text-4xl font-bold italic">Partytown</div>
-                    <p className="text-lg">To begin, click your user name</p>
-                    <p className="max-w-xs text-xs opacity-80">
-                        Everyone who signs in lives in the same world. The
-                        personas will remember you.
-                    </p>
+                    <p className="text-lg">{prompt}</p>
+                    <p className="max-w-xs text-xs opacity-80">{blurb}</p>
                 </section>
                 <div
                     className="h-80 w-px"
@@ -47,37 +40,7 @@ export default function WelcomeScreen() {
                     }}
                 />
                 <section className="flex w-1/2 flex-col gap-2 pl-10">
-                    {humans.map((h) => (
-                        <button
-                            key={h.personaId}
-                            type="button"
-                            onClick={() => signIn(h.name)}
-                            className="flex w-72 items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-lg text-white hover:bg-[#2c5bd3]"
-                        >
-                            <img
-                                src={avatar(h.name)}
-                                alt=""
-                                className="h-14 w-14 rounded border-2 border-white bg-white"
-                            />
-                            {h.name}
-                        </button>
-                    ))}
-                    <form
-                        onSubmit={submit}
-                        className="flex w-72 items-center gap-2 p-2"
-                    >
-                        <input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="New here? Type your name"
-                            maxLength={40}
-                            className="flex-1 text-black"
-                            aria-label="Your name"
-                        />
-                        <button type="submit" disabled={!name.trim()}>
-                            Go
-                        </button>
-                    </form>
+                    {children}
                 </section>
             </main>
             <div
@@ -94,5 +57,24 @@ export default function WelcomeScreen() {
                 After you sign in, the personas may message you on their own.
             </footer>
         </div>
+    );
+}
+
+/** XP-style login: sign in to live here, or look around as a visitor. */
+export default function WelcomeScreen() {
+    const visit = usePlayerSession((s) => s.visit);
+
+    return (
+        <LoginShell
+            prompt="To begin, sign in"
+            blurb="Everyone who signs in lives in the same world. The personas will remember you."
+        >
+            <button type="button" onClick={redirectToSignIn} className={CHOICE}>
+                Sign in
+            </button>
+            <button type="button" onClick={visit} className={CHOICE}>
+                Just look around
+            </button>
+        </LoginShell>
     );
 }

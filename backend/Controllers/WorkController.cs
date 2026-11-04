@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
@@ -9,8 +11,9 @@ namespace PartyTown.Controllers;
 /// <summary>Jobs (ADR 0026): who works where and when, and how today's shift went. Authors set or clear them.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class WorkController(IGrainFactory grains) : ControllerBase
+public sealed class WorkController(IGrainFactory grains, Actors actors) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("jobs")]
     public async Task<ActionResult<List<JobSummary>>> GetJobs(Guid partyId)
     {
@@ -29,6 +32,7 @@ public sealed class WorkController(IGrainFactory grains) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<JobSummary>> SetJob(Guid partyId, Guid participantId, [FromBody] JobRequest request)
     {
+        await actors.ActAsync(User, partyId, participantId);
         var who = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
         if (who is null) return NotFound();
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Workplace)) return BadRequest("A job needs a title and a workplace.");
@@ -43,6 +47,7 @@ public sealed class WorkController(IGrainFactory grains) : ControllerBase
     [HttpDelete("jobs/{participantId:guid}")]
     public async Task<ActionResult<JobSummary>> ClearJob(Guid partyId, Guid participantId)
     {
+        await actors.ActAsync(User, partyId, participantId);
         var who = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
         if (who is null) return NotFound();
         return Ok(Summary(who.Id, who.Name, await Occupation(partyId, participantId).SetAsync(null)));

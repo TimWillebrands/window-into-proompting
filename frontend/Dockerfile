@@ -10,6 +10,11 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_SIGN_IN_URL=/sign-in
+ENV VITE_CLERK_SIGN_UP_URL=/sign-up
+
 RUN pnpm run build
 
 RUN pnpm prune --prod

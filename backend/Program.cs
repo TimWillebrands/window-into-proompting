@@ -4,6 +4,7 @@ using Orleans.Configuration;
 using PartyTown.Configuration;
 using PartyTown.Data;
 using PartyTown.Logging;
+using PartyTown.Services.Auth;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
 using PartyTown.Services.ResponsePipeline;
@@ -23,7 +24,8 @@ builder.Services.AddLlmProviderOptions();
 builder.Services.AddMemoryCache();
 builder.Services.AddOutputCache();
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.Filters.Add<PartyTown.Services.Auth.ForbiddenActorFilter>());
+builder.Services.AddClerkAuth(builder.Configuration);
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 builder.Services.AddSingleton<RaceTrigger>();
@@ -33,6 +35,8 @@ if (!openApiBuild)
 {
     var connectionString = builder.Configuration.GetConnectionString("Default")
         ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+    if (string.IsNullOrEmpty(builder.Configuration["CLERK_SECRET_KEY"]))
+        throw new InvalidOperationException("CLERK_SECRET_KEY not set.");
 
     builder.Services.AddSingleton<AgeOperatorInterceptor>();
     builder.Services.AddDbContextFactory<AppDbContext>((sp, options) =>
@@ -75,6 +79,7 @@ if (!openApiBuild)
     builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
+    builder.Services.AddSingleton<PartyTown.World.PlayerRemoval>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Self.FollowThrough>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.RoomsApp>();
@@ -175,8 +180,6 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-app.UseOutputCache();
-
 app.Logger.LogInformation("App starting...");
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 
@@ -184,15 +187,20 @@ app.UsePathBase("/api");
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi("/api/openapi/v1.json");
+    app.MapOpenApi("/api/openapi/v1.json").AllowAnonymous();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/api/openapi/v1.json", "v1");
     });
 }
 
-app.MapGet("/up", () => Results.NoContent()).Produces(StatusCodes.Status204NoContent);
+app.MapGet("/up", () => Results.NoContent()).Produces(StatusCodes.Status204NoContent).AllowAnonymous();
 app.UseWebSockets();
+
+app.UseAuthentication();
+app.UseAuthorization();
+// After auth: a cached response must not skip the sign-in check.
+app.UseOutputCache();
 
 app.MapControllers();
 

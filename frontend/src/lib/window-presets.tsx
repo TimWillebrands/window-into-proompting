@@ -127,7 +127,16 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     },
 ];
 
-export const DESKTOP_ICONS = [
+interface DesktopIconEntry {
+    id: string;
+    label: string;
+    icon: string;
+    windowId: string;
+    /** Who sees it; unset means visitors too. */
+    access?: 'member' | 'admin';
+}
+
+export const DESKTOP_ICONS: DesktopIconEntry[] = [
     {
         id: 'world',
         label: 'World Monitor',
@@ -145,6 +154,7 @@ export const DESKTOP_ICONS = [
         label: 'Messenger',
         icon: '/img/icons/messenger.ico',
         windowId: 'messenger',
+        access: 'member',
     },
     {
         id: 'board',
@@ -163,6 +173,7 @@ export const DESKTOP_ICONS = [
         label: 'Diaries',
         icon: '/img/icons/diary.ico',
         windowId: 'diary',
+        access: 'member',
     },
     {
         id: 'wardrobe',
@@ -193,17 +204,20 @@ export const DESKTOP_ICONS = [
         label: 'Control Panel',
         icon: '/img/icons/control-panel.ico',
         windowId: 'config-panel',
+        access: 'admin',
     },
     {
         id: 'memory-graph',
         label: 'Memory Graph',
         icon: '/img/icons/memory-graph.ico',
         windowId: 'memory-graph',
+        access: 'member',
     },
     {
         id: 'stance-floor',
         label: 'Stance Floor',
         icon: '/img/icons/stance-floor.ico',
         windowId: 'stance-floor',
+        access: 'admin',
     },
 ];

@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Clerk.BackendAPI" Version="3.0.0" />
     <PackageReference Include="JsonRepairSharp" Version="1.2.4" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.3.26207.106" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0-preview.3.26207.106" />

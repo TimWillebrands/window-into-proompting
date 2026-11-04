@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.World.Growth;
 using PartyTown.World.Places;
@@ -11,6 +13,8 @@ namespace PartyTown.Controllers;
 public sealed class GrowthController(IGrainFactory grains) : ControllerBase
 {
     private static readonly TimeSpan RecentlyOpened = TimeSpan.FromDays(7);
+
+    [AllowAnonymous]
 
     [HttpGet]
     public async Task<ActionResult<GrowthReport>> GetGrowth(Guid partyId)
@@ -39,11 +43,13 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
     }
 
     /// <summary>Thing descriptions the catalogue had no model for, newest first: what to curate next.</summary>
+    [AllowAnonymous]
     [HttpGet("catalogue-misses")]
     public async Task<ActionResult<List<string>>> GetCatalogueMisses(Guid partyId)
         => Ok(await grains.GetGrain<IPlacesGrain>(partyId).GetCatalogueMissesAsync());
 
     /// <summary>Author: open a Locale now, from its name's kit (or a given archetype).</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("open/{localeId:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<Place>> Open(Guid partyId, Guid localeId, [FromQuery] string? archetype)
@@ -53,12 +59,14 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
     }
 
     /// <summary>Author veto: an opened Place goes back offscreen.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("close/{placeId:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Close(Guid partyId, Guid placeId)
         => await grains.GetGrain<IPlacesGrain>(partyId).CloseAsync(placeId) ? NoContent() : Conflict("Only opened Places can close.");
 
     /// <summary>Author: open Locales that pass the gates automatically (one a day), or only log them.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("auto")]
     public async Task<ActionResult> SetAuto(Guid partyId, [FromBody] GrowthAutoRequest request)
     {

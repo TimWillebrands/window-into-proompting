@@ -5,6 +5,7 @@ import {
     getGetWorldsPartyIdLivesQueryKey,
     getGetWorldsPartyIdMessengerQueryKey,
     getGetWorldsPartyIdQueryKey,
+    getWorldsPartyIdPlayer,
     postWorldsPartyIdPlayer,
 } from '#api/party-zone';
 import { useDesktopContext } from '#lib/desktop-context';
@@ -29,46 +30,70 @@ export function useWorldEvents(handler: (envelope: WorldEnvelope) => void) {
     useEffect(() => worldBus.subscribe((e) => ref.current(e)), []);
 }
 
-const PLAYER_KEY = 'proompting.player';
-
 interface PlayerSession {
-    name: string | null;
-    /** False until the browser's stored sign-in is read; SSR and first paint agree on "unknown". */
+    /** Clerk user id; null for a visitor. */
+    userId: string | null;
+    /** False until Clerk has loaded; SSR and first paint agree on "unknown". */
     hydrated: boolean;
-    hydrate: () => void;
-    signIn: (name: string) => void;
-    signOut: () => void;
+    /** A visitor chose to look around without signing in. */
+    visiting: boolean;
+    sync: (userId: string | null) => void;
+    visit: () => void;
 }
 
-/** Which human sits at this browser. Several humans can share a World, each signed in by name. */
+/** Which human sits at this browser, as Clerk reports it. Several humans can share a World. */
 export const usePlayerSession = create<PlayerSession>((set) => ({
-    name: null,
+    userId: null,
     hydrated: false,
-    hydrate: () =>
-        set({ name: window.localStorage.getItem(PLAYER_KEY), hydrated: true }),
-    signIn: (name) => {
-        window.localStorage.setItem(PLAYER_KEY, name);
-        set({ name });
-    },
-    signOut: () => {
-        window.localStorage.removeItem(PLAYER_KEY);
-        set({ name: null });
-    },
+    visiting: false,
+    sync: (userId) => set({ userId, hydrated: true }),
+    visit: () => set({ visiting: true }),
 }));
 
-/** The signed-in human's Participant id in this World, created on first use. */
-export function usePlayerId(): string | null {
-    const name = usePlayerSession((s) => s.name);
-    const { data } = useQuery({
-        queryKey: ['world-player', WORLD_ID, name],
-        queryFn: async () => {
-            const res = await postWorldsPartyIdPlayer(WORLD_ID, { name });
-            return res.data.playerId as string;
-        },
-        enabled: !!name,
+const playerKey = (userId: string | null) => ['world-player', WORLD_ID, userId];
+
+/** This human's character here; playerId stays null until they've made one. */
+export function usePlayerAccount() {
+    const userId = usePlayerSession((s) => s.userId);
+    const { data, isLoading } = useQuery({
+        queryKey: playerKey(userId),
+        queryFn: async () => (await getWorldsPartyIdPlayer(WORLD_ID)).data,
+        enabled: !!userId,
         staleTime: Number.POSITIVE_INFINITY,
     });
-    return data ?? null;
+    return { account: data, isLoading };
+}
+
+export function useCreatePlayer() {
+    const queryClient = useQueryClient();
+    const userId = usePlayerSession((s) => s.userId);
+    return async (name: string) => {
+        const res = await postWorldsPartyIdPlayer(WORLD_ID, { name });
+        queryClient.setQueryData(playerKey(userId), res.data);
+    };
+}
+
+/** The signed-in human's Participant id in this World. */
+export function usePlayerId(): string | null {
+    return (usePlayerAccount().account?.playerId as string | null) ?? null;
+}
+
+/** The name this human chose for their character. */
+export function usePlayerName(): string | null {
+    return usePlayerAccount().account?.name ?? null;
+}
+
+/** Hides admin-only windows; the backend enforces it either way. */
+export function useIsAdmin(): boolean {
+    return usePlayerAccount().account?.isAdmin ?? false;
+}
+
+/** Which desktop entries this human can open. */
+export function useCanOpen() {
+    const signedIn = usePlayerSession((s) => !!s.userId);
+    const isAdmin = useIsAdmin();
+    return (access?: 'member' | 'admin') =>
+        !access || (access === 'admin' ? isAdmin : signedIn);
 }
 
 export interface WorldToast {

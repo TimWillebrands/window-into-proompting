@@ -1,3 +1,4 @@
+import { redirectToSignIn, sessionToken } from '../lib/clerk-session';
 import type { ProblemDetails } from './model/problemDetails';
 
 export class ProblemDetailsError extends Error implements ProblemDetails {
@@ -61,7 +62,13 @@ export const customFetch = async <T>(
     url: string,
     init?: RequestInit,
 ): Promise<T> => {
-    const res = await fetch(url, init);
+    const headers = new Headers(init?.headers);
+    const token = await sessionToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+
+    const res = await fetch(url, { ...init, headers });
+    const isWrite = (init?.method ?? 'GET').toUpperCase() !== 'GET';
+    if (res.status === 401 && isWrite) redirectToSignIn();
     const contentType = res.headers.get('content-type');
     const hasBody = !NO_BODY_STATUSES.has(res.status);
     const body = hasBody ? await res.text() : '';

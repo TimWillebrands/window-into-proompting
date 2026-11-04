@@ -17,6 +17,19 @@ public sealed class BoardGrain(
     public Task<BoardThread?> GetThreadAsync(Guid threadId)
         => Task.FromResult(state.State.Threads.FirstOrDefault(t => t.Id == threadId));
 
+    /// <summary>Their posts go with everything under them; their replies and Respect elsewhere go too.</summary>
+    public async Task RemoveParticipantAsync(Guid participantId)
+    {
+        state.State.Threads.RemoveAll(t => t.AuthorId == participantId);
+        foreach (var thread in state.State.Threads)
+        {
+            thread.Replies.RemoveAll(r => r.AuthorId == participantId);
+            thread.Respect.RemoveAll(r => r.GiverId == participantId);
+            foreach (var reply in thread.Replies) reply.Respect.RemoveAll(r => r.GiverId == participantId);
+        }
+        await state.WriteStateAsync();
+    }
+
     public async Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -87,6 +100,7 @@ public interface IBoardGrain : IGrainWithGuidKey
     [Alias("GetThreadsAsync")] Task<List<BoardThread>> GetThreadsAsync();
     [Alias("GetThreadAsync")] Task<BoardThread?> GetThreadAsync(Guid threadId);
     [Alias("CreateThreadAsync")] Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body);
+    [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
     [Alias("ReplyAsync")] Task<BoardThread?> ReplyAsync(Guid threadId, Guid authorId, string authorName, string body);
 
     /// <summary>Give (or take back) Respect on a post, or on one of its replies; idempotent. Null when it's gone.</summary>

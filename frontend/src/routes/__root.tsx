@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { ClerkProvider } from '@clerk/tanstack-react-start';
 import {
     createRootRoute,
     HeadContent,
@@ -38,7 +39,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                 <HeadContent />
             </head>
             <body className="min-h-screen bg-slate-300">
-                {children}
+                <ClerkProvider>{children}</ClerkProvider>
                 <Scripts />
             </body>
         </html>

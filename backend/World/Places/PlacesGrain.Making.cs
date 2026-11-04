@@ -317,6 +317,31 @@ public sealed partial class PlacesGrain
     }
 
     /// <summary>Author: take a generated Place down; anyone there walks home.</summary>
+    /// <summary>Their Body, Home and visit history go; guests there go to their own Homes.</summary>
+    public async Task RemoveParticipantAsync(Guid participantId)
+    {
+        await SettleAsync();
+        state.State.Bodies.Remove(participantId);
+        state.State.Visits.Remove(participantId);
+        if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == participantId) is { } home)
+        {
+            foreach (var guest in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == home.Id).ToList())
+                if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == guest.ParticipantId) is { } own)
+                {
+                    guest.PlaceId = own.Id;
+                    guest.SpotId = own.Spots[0].Id;
+                    guest.DestPlaceId = null;
+                    guest.DestSpotId = null;
+                    guest.ArriveAt = null;
+                    guest.DepartedAt = null;
+                    EndPose(guest);
+                    await PublishAsync(guest);
+                }
+            state.State.Places.Remove(home);
+        }
+        await state.WriteStateAsync();
+    }
+
     public async Task<bool> RemovePlaceAsync(Guid placeId)
     {
         await SettleAsync();

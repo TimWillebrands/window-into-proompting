@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
@@ -62,6 +64,7 @@ public class PersonaController(
     /// <summary>
     /// Returns all personas currently registered.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<Persona[]>> GetAll()
     {
@@ -73,6 +76,7 @@ public class PersonaController(
     /// <summary>
     /// Returns a single persona by id.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Persona>> GetById(Guid id)
     {
@@ -96,6 +100,7 @@ public class PersonaController(
     /// <summary>
     /// Creates or updates a persona based on the payload and optional route id.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("{id:guid?}")]
     public async Task<ActionResult<Persona>> Upsert(Guid? id, [FromBody] Persona persona)
     {
@@ -157,6 +162,7 @@ public class PersonaController(
     /// <summary>
     /// Removes a persona by id.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Remove(Guid id)
     {
@@ -180,6 +186,7 @@ public class PersonaController(
     /// <summary>
     /// Returns the built-in default persona templates.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("defaults")]
     public async Task<ActionResult<DefaultPersonaTemplate[]>> GetDefaults()
     {
@@ -222,6 +229,7 @@ public class PersonaController(
     ///   { "type": "generate-bio", "systemPrompt": "..." }
     ///   { "type": "generate", "prompt": "..." }
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpGet("ws")]
     public async Task RealtimeGeneration()
     {
@@ -448,6 +456,7 @@ public class PersonaController(
     /// Append an Intrinsic Stance at Persona (library) scope. The edge travels into every
     /// Party the Persona joins. Append-only — prior edges are not mutated.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

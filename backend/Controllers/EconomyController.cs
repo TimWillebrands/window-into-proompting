@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
@@ -10,8 +12,9 @@ namespace PartyTown.Controllers;
 /// <summary>Money and wardrobes (ADR 0024): everyone's wallet, today's shop, and buying/wearing/gifting for the Player.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe) : ControllerBase
+public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe, Actors actors) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("wallets")]
     public async Task<ActionResult<List<WalletSummary>>> GetWallets(Guid partyId)
     {
@@ -22,6 +25,7 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
     }
 
     /// <summary>What's in the shops today for one participant (their own window display).</summary>
+    [AllowAnonymous]
     [HttpGet("wallets/{participantId:guid}/shop")]
     public async Task<ActionResult<List<ShopItem>>> GetShop(Guid partyId, Guid participantId)
     {
@@ -51,6 +55,7 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
 
     private async Task<ActionResult<WalletSummary>> ActAsync(Guid partyId, Guid participantId, WardrobeRequest request, Func<ShopItem, Task<ActOutcome?>> act, string refusal)
     {
+        await actors.ActAsync(User, partyId, participantId);
         if (Catalog.Find(request.Key) is not { } item) return NotFound("No such item.");
         var who = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
         if (who is null) return NotFound();

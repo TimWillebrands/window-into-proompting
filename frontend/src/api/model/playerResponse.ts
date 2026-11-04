@@ -6,5 +6,9 @@
  */
 
 export interface PlayerResponse {
-    playerId: string;
+    /** @nullable */
+    playerId: string | null;
+    /** @nullable */
+    name: string | null;
+    isAdmin: boolean;
 }

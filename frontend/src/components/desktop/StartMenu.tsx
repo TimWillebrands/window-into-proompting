@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { redirectToSignIn, signOut } from '../../lib/clerk-session';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
-import { usePlayerSession } from '../../lib/world';
+import { useCanOpen, usePlayerName, usePlayerSession } from '../../lib/world';
 
 interface StartMenuProps {
     onLaunch: (windowId: string) => void;
@@ -9,8 +10,9 @@ interface StartMenuProps {
 
 export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
     const rootRef = useRef<HTMLDivElement | null>(null);
-    const playerName = usePlayerSession((s) => s.name);
-    const signOut = usePlayerSession((s) => s.signOut);
+    const playerName = usePlayerName();
+    const signedIn = usePlayerSession((s) => !!s.userId);
+    const canOpen = useCanOpen();
 
     useEffect(() => {
         const handlePointer = (event: PointerEvent) => {
@@ -36,7 +38,7 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
         };
     }, [onClose]);
 
-    const items = DESKTOP_ICONS.map((icon) => {
+    const items = DESKTOP_ICONS.filter((i) => canOpen(i.access)).map((icon) => {
         const preset = WINDOW_PRESETS.find((p) => p.id === icon.windowId);
         return {
             ...icon,
@@ -60,16 +62,17 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
                 >
                     👤
                 </span>
-                <h1>{playerName ?? 'Partytown User'}</h1>
+                <h1>{playerName ?? 'Visitor'}</h1>
                 <button
                     type="button"
                     className="ml-auto mr-2 text-xs"
                     onClick={() => {
                         onClose();
-                        signOut();
+                        if (signedIn) signOut();
+                        else redirectToSignIn();
                     }}
                 >
-                    Log Off
+                    {signedIn ? 'Log Off' : 'Sign In'}
                 </button>
             </header>
 

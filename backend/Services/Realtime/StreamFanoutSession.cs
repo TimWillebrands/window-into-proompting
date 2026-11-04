@@ -2,19 +2,21 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Orleans.Streams;
+using PartyTown.Services.Auth;
 
 namespace PartyTown.Services.Realtime;
 
 /// <summary>
 /// Fans one Orleans stream out to N WebSocket clients: subscribes on the first client, unsubscribes on the
-/// last, answers pings, numbers frames. Channel specifics come in as translate + snapshot.
+/// last, answers pings, numbers frames. Channel specifics come in as translate + snapshot + audience.
 /// </summary>
 internal sealed class StreamFanoutSession<TEvent>(
     IAsyncStream<TEvent> stream,
     Func<TEvent, IReadOnlyList<RealtimeFrame>> translate,
-    Func<CancellationToken, Task<IReadOnlyList<RealtimeFrame>>> snapshot,
+    Func<Viewer, CancellationToken, Task<IReadOnlyList<RealtimeFrame>>> snapshot,
     Func<RealtimeFrame> pong,
     Action onEmpty,
+    Func<RealtimeFrame, Task<Func<Viewer, bool>>> audience,
     ILogger logger)
 {
     private readonly JsonSerializerOptions jsonOptions = new(JsonSerializerDefaults.Web);
@@ -24,9 +26,9 @@ internal sealed class StreamFanoutSession<TEvent>(
     private long sequence;
     private bool started;
 
-    public async Task HandleConnectionAsync(WebSocket socket, CancellationToken cancellationToken)
+    public async Task HandleConnectionAsync(WebSocket socket, Viewer viewer, CancellationToken cancellationToken)
     {
-        var client = new RealtimeClientConnection(socket, jsonOptions);
+        var client = new RealtimeClientConnection(socket, viewer, jsonOptions);
         logger.LogInformation("Realtime client connected");
         await AddClientAsync(client, cancellationToken);
         try
@@ -67,7 +69,7 @@ internal sealed class StreamFanoutSession<TEvent>(
         if (shouldStart)
             subscription = await stream.SubscribeAsync((evt, _) => BroadcastAsync(translate(evt)));
 
-        foreach (var frame in await snapshot(ct))
+        foreach (var frame in await snapshot(client.Viewer, ct))
             await client.SendAsync(Envelope(frame), ct);
     }
 
@@ -135,8 +137,9 @@ internal sealed class StreamFanoutSession<TEvent>(
 
         foreach (var frame in frames)
         {
+            var canSee = await audience(frame);
             var envelope = Envelope(frame);
-            await Task.WhenAll(open.Select(c => c.SendAsync(envelope, CancellationToken.None)));
+            await Task.WhenAll(open.Where(c => canSee(c.Viewer)).Select(c => c.SendAsync(envelope, CancellationToken.None)));
         }
     }
 

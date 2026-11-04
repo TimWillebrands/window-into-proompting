@@ -980,6 +980,7 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor);
 
     [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
+    [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
 
     /// <summary>Thing descriptions the catalogue couldn't draw, newest first: the curation queue.</summary>
     [Alias("GetCatalogueMissesAsync")] Task<List<string>> GetCatalogueMissesAsync();

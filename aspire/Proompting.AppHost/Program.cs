@@ -6,6 +6,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var pgUser = builder.AddParameter("postgres-user", "partytown");
 var pgPass = builder.AddParameter("postgres-password", secret: true);
 var openRouterKey = builder.AddParameter("openrouter-api-key", secret: true);
+var clerkSecretKey = builder.AddParameter("clerk-secret-key", secret: true);
 
 var postgres = builder
     .AddPostgres("age-db", userName: pgUser, password: pgPass, port: 5455)
@@ -22,6 +23,7 @@ var backend = builder
     .WithReference(partydb, connectionName: "Default")
     .WaitFor(partydb)
     .WithEnvironment("OPENROUTER_API_KEY", openRouterKey)
+    .WithEnvironment("CLERK_SECRET_KEY", clerkSecretKey)
     .WithEndpoint("http", e => e.Port = 5072)
     .WithEndpoint(name: "orleans-silo", port: 11111, targetPort: 11111, scheme: "tcp", isProxied: false)
     .WithEndpoint(name: "orleans-gateway", port: 30000, targetPort: 30000, scheme: "tcp", isProxied: false);

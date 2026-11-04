@@ -9,7 +9,7 @@ import {
 import { useGetWorldsPartyIdBoardSuspense } from '#api/party-zone';
 import { useDesktopStore } from '#lib/desktop-context';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
-import { usePlayerId, usePlayerSession, WORLD_ID } from '../../lib/world';
+import { usePlayerId, usePlayerName, WORLD_ID } from '../../lib/world';
 import {
     avatarUrl,
     involvesPlayer,
@@ -41,7 +41,7 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const { windowId } = useWindowInstance();
     const setWindowProps = useDesktopStore((s) => s.setWindowProps);
     const playerId = usePlayerId();
-    const playerName = usePlayerSession((s) => s.name) ?? null;
+    const playerName = usePlayerName();
     const { data } = useGetWorldsPartyIdBoardSuspense(WORLD_ID);
     const { post, reply, respect } = useBoardActions(playerId, playerName);
     const now = useNow();

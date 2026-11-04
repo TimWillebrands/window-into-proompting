@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.Memory;
@@ -29,6 +31,7 @@ public sealed class MemoryController(
     /// Concept, or themselves. Append-only — the new edge becomes the latest-wins current
     /// stance; prior edges are never mutated. The curator is the floor's first writer.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -107,6 +110,7 @@ public sealed class MemoryController(
     /// Latest-wins makes the retract current immediately — the target stops rendering in
     /// <c># Where you stand</c> — and the retracted edge stays in the log. Never deletes.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/retract")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -127,6 +131,7 @@ public sealed class MemoryController(
     /// Recollections past their watermark, one LLM call, auto-append the proposed Stances,
     /// advance the watermark. A run over nothing new is a cheap no-op (no LLM call).
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/consolidate")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -150,6 +155,7 @@ public sealed class MemoryController(
     /// Participants with nothing past their watermark come back with zero walked — only
     /// those with unprocessed experience cost an LLM call.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("consolidate")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<ConsolidationRunResponse>>> ConsolidateParty(
@@ -201,6 +207,7 @@ public sealed class MemoryController(
     /// re-pointed at the target's underlying Persona so the edge is meaningful across
     /// Parties. The original Acquired edge is not touched.
     /// </summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/promote")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

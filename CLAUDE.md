@@ -22,7 +22,7 @@ dotnet run --project aspire/Proompting.AppHost   # start everything; dashboard U
 
 Prereqs: .NET 10 runtime + .NET 11 preview SDK (AppHost targets `net10.0`, backend `net11.0`), Node 22+ with pnpm, Docker.
 
-Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars.
+Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars. That includes `clerk-secret-key`; the backend won't start without it. Frontend Clerk keys live in `frontend/.env.local`.
 
 URLs: frontend http://localhost:5173 · backend http://localhost:5072 (Swagger at `/swagger`) · Postgres via `psql -h localhost -p 5455 -U partytown -d partytown`.
 
@@ -43,6 +43,7 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 - **Grain storage JSON includes defaults** (configured in `Program.cs`). Don't remove that: `DriverKind.User == 0` and `IsEnabled=false` were silently dropped and resurrected by property initializers.
 - Vite listens on `[::1]:8080` only. Browser tools that resolve `localhost` to IPv4 may get stale or cached pages; use `http://[::1]:8080`.
 - Realtime is a custom raw-WebSocket hub (`PartyRealtimeHub`), not SignalR.
+- **Auth is closed by default** (ADR 0029): new endpoints need sign-in unless marked `[AllowAnonymous]`, and only GETs may be. Take the acting Participant from `Actors`, never from the request. New realtime payloads naming a Room must implement `IRoomFrame`.
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
 
 ## Code style
@@ -61,7 +62,7 @@ When working on UI components, verify component properties through the `proompti
 
 ## Deployment
 
-Kamal (`config/deploy.yml`, `config/deploy.frontend.yml`) deploys to game.timwillebrands.nl. Production builds `backend/Dockerfile` and `frontend/Dockerfile` directly — the Aspire AppHost is dev-only.
+Kamal (`config/deploy.yml`, `config/deploy.frontend.yml`) deploys to proompting.party. Production builds `backend/Dockerfile` and `frontend/Dockerfile` directly — the Aspire AppHost is dev-only.
 
 ## Agent docs
 
