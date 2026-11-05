@@ -701,6 +701,21 @@ export function useGetWorldsPartyIdCompaniesSuspense<
     return { ...query, queryKey: queryOptions.queryKey };
 }
 
+export type postWorldsPartyIdCompaniesResponse200TextPlain = {
+    data: CompanySummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdCompaniesResponse200ApplicationJson = {
+    data: CompanySummary;
+    status: 200;
+};
+
+export type postWorldsPartyIdCompaniesResponse200TextJson = {
+    data: CompanySummary;
+    status: 200;
+};
+
 export type postWorldsPartyIdCompaniesResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
@@ -730,6 +745,14 @@ export type postWorldsPartyIdCompaniesResponse409TextJson = {
     data: ProblemDetails;
     status: 409;
 };
+
+export type postWorldsPartyIdCompaniesResponseSuccess = (
+    | postWorldsPartyIdCompaniesResponse200TextPlain
+    | postWorldsPartyIdCompaniesResponse200ApplicationJson
+    | postWorldsPartyIdCompaniesResponse200TextJson
+) & {
+    headers: Headers;
+};
 export type postWorldsPartyIdCompaniesResponseError = (
     | postWorldsPartyIdCompaniesResponse400TextPlain
     | postWorldsPartyIdCompaniesResponse400ApplicationJson
@@ -742,7 +765,8 @@ export type postWorldsPartyIdCompaniesResponseError = (
 };
 
 export type postWorldsPartyIdCompaniesResponse =
-    postWorldsPartyIdCompaniesResponseError;
+    | postWorldsPartyIdCompaniesResponseSuccess
+    | postWorldsPartyIdCompaniesResponseError;
 
 export const getPostWorldsPartyIdCompaniesUrl = (partyId: string) => {
     return `/api/worlds/${partyId}/companies`;

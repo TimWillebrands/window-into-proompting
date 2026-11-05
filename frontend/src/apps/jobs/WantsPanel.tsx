@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import {
     getGetWorldsPartyIdDesiresQueryKey,
     useGetWorldsPartyIdDesiresSuspense,
@@ -10,6 +10,7 @@ import {
 import type { Desire, DesireKind } from '../../api/model';
 import { WORLD_ID } from '../../lib/world';
 import { desireLabel } from './jobs-lib';
+import { Card, Empty } from './parts';
 
 /** One person's wants: who they are (intrinsic) and what play gave them (acquired). */
 export function WantsPanel({
@@ -21,7 +22,6 @@ export function WantsPanel({
     name: string;
     nameOf: (id: string) => string;
 }) {
-    const ids = useId();
     const queryClient = useQueryClient();
     const all = useGetWorldsPartyIdDesiresSuspense(WORLD_ID).data.data ?? [];
     const mine = all.find((d) => d.participantId === participantId);
@@ -42,15 +42,8 @@ export function WantsPanel({
         usePostWorldsPartyIdDesiresParticipantIdDesireIdPromote(refresh);
 
     const row = (d: Desire, acquired: boolean) => (
-        <li
-            key={d.id}
-            className="flex items-center"
-            style={{
-                gap: 6,
-                opacity: d.status && d.status !== 'Active' ? 0.55 : 1,
-            }}
-        >
-            <span className="min-w-0 flex-1">{desireLabel(d, nameOf)}</span>
+        <li key={d.id} data-faded={d.status !== 'Active' || undefined}>
+            <span className="wk-grow">{desireLabel(d, nameOf)}</span>
             {d.status === 'Active' ? (
                 <>
                     <button
@@ -102,25 +95,20 @@ export function WantsPanel({
     const intrinsic = mine?.intrinsic ?? [];
     const acquired = mine?.acquired ?? [];
     return (
-        <fieldset style={{ margin: '0 6px 6px' }}>
-            <legend>What {name} wants</legend>
+        <Card title={`What ${name} wants`}>
             {intrinsic.length + acquired.length === 0 ? (
-                <p style={{ margin: 0, color: '#666' }}>
+                <Empty>
                     Nothing yet. Personas read theirs off who they are; it can
                     take a moment.
-                </p>
+                </Empty>
             ) : (
-                <ul
-                    className="flex flex-col"
-                    style={{ gap: 3, margin: 0, padding: 0, listStyle: 'none' }}
-                >
+                <ul className="wk-rows">
                     {intrinsic.map((d) => row(d, false))}
                     {acquired.map((d) => row(d, true))}
                 </ul>
             )}
             <form
-                className="flex items-center"
-                style={{ gap: 6, marginTop: 6 }}
+                className="wk-inline"
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!text.trim()) return;
@@ -145,17 +133,16 @@ export function WantsPanel({
                     <option value="Being">to become</option>
                 </select>
                 <input
-                    id={`${ids}-w`}
+                    className="wk-grow"
                     aria-label="What they want"
                     value={text}
                     placeholder="a navy hoodie, get better at chess"
                     onChange={(e) => setText(e.currentTarget.value)}
-                    style={{ flex: 1 }}
                 />
                 <button type="submit" disabled={!text.trim() || add.isPending}>
                     Add
                 </button>
             </form>
-        </fieldset>
+        </Card>
     );
 }

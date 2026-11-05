@@ -28,6 +28,7 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Actor
     /// <summary>Start a Company: "trades AI questions" on predictions, crypto or stocks, with its own office.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost]
+    [ProducesResponseType<CompanySummary>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CompanySummary>> Found(Guid partyId, [FromBody] FoundCompanyRequest request)

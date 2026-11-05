@@ -1,212 +1,168 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useId, useState } from 'react';
+import { Suspense, useCallback } from 'react';
+import { useWindowInstance } from '../../components/desktop/window-instance-context';
+import { useDesktopContext } from '../../lib/desktop-context';
+import { CompaniesPage, CompanyPage } from './CompanyPages';
+import './jobs.css';
 import {
-    getGetWorldsPartyIdJobsQueryKey,
-    useDeleteWorldsPartyIdJobsParticipantId,
-    useGetWorldsPartyIdJobsSuspense,
-    usePutWorldsPartyIdJobsParticipantId,
-} from '#api/party-zone';
-import type { JobSummary } from '../../api/model';
-import { WORLD_ID } from '../../lib/world';
-import { shiftLabel } from './jobs-lib';
-import { WantsPanel } from './WantsPanel';
+    bookReturn,
+    placeFrom,
+    shiftLabel,
+    signedPercent,
+    toneOf,
+    type WorkPlace,
+} from './jobs-lib';
+import { PeoplePage, PersonPage } from './PeoplePages';
+import { PracticesPage } from './PracticesPage';
+import { useWork, WorkProvider } from './work-context';
 
-const panel = {
-    background: '#fff',
-    border: '1px solid',
-    borderColor: '#7f9db9 #fff #fff #7f9db9',
-} as const;
-
-/** Work & Wants (ADR 0026): who works where and when, how today's shift went, and what each person wants. */
-export default function JobsApp() {
-    const jobs = useGetWorldsPartyIdJobsSuspense(WORLD_ID).data.data ?? [];
-    const [picked, setPicked] = useState<string | null>(null);
-    const selected = jobs.find((j) => j.participantId === picked) ?? null;
+/** Work & Wants (ADR 0026, 0030): who does what, the Companies they trade for, the Practices they run. */
+export default function JobsApp({ page, id }: { page?: string; id?: string }) {
+    const { setWindowProps } = useDesktopContext();
+    const { windowId } = useWindowInstance();
+    const go = useCallback(
+        (place: WorkPlace) =>
+            setWindowProps(windowId, (p) => ({
+                ...p,
+                page: place.page,
+                id: 'id' in place ? place.id : undefined,
+            })),
+        [setWindowProps, windowId],
+    );
+    const here = placeFrom(page, id);
 
     return (
-        <div className="app-surface flex h-full flex-col" style={{ gap: 6 }}>
-            <div
-                className="min-h-0 flex-1 overflow-y-auto"
-                style={{ ...panel, margin: '6px 6px 0' }}
-            >
-                <table
-                    className="w-full"
-                    style={{ borderCollapse: 'collapse' }}
-                >
-                    <thead>
-                        <tr
-                            style={{ background: '#ece9d8', textAlign: 'left' }}
-                        >
-                            <th style={{ padding: '2px 6px' }}>Who</th>
-                            <th style={{ padding: '2px 6px' }}>Job</th>
-                            <th style={{ padding: '2px 6px' }}>Where</th>
-                            <th style={{ padding: '2px 6px' }}>When</th>
-                            <th style={{ padding: '2px 6px' }}>Today</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {jobs.map((j) => (
-                            <tr
-                                key={j.participantId}
-                                onClick={() => setPicked(j.participantId)}
-                                aria-selected={j.participantId === picked}
-                                style={{
-                                    cursor: 'pointer',
-                                    background:
-                                        j.participantId === picked
-                                            ? '#316ac5'
-                                            : undefined,
-                                    color:
-                                        j.participantId === picked
-                                            ? '#fff'
-                                            : undefined,
-                                }}
-                            >
-                                <td style={{ padding: '2px 6px' }}>{j.name}</td>
-                                <td style={{ padding: '2px 6px' }}>
-                                    {j.title ??
-                                        (j.seeded ? '—' : 'working it out…')}
-                                </td>
-                                <td style={{ padding: '2px 6px' }}>
-                                    {j.workplace ? (
-                                        <span
-                                            title={
-                                                j.onscreen
-                                                    ? 'A Place in this world'
-                                                    : 'Offscreen'
-                                            }
-                                        >
-                                            {j.onscreen ? '📍' : '🏢'}{' '}
-                                            {j.workplace}
-                                        </span>
-                                    ) : null}
-                                </td>
-                                <td style={{ padding: '2px 6px' }}>
-                                    {j.days ? `${j.days} ${j.hours}` : null}
-                                </td>
-                                <td style={{ padding: '2px 6px' }}>
-                                    {shiftLabel(j)}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            {selected ? (
-                <>
-                    <JobForm key={selected.participantId} job={selected} />
+        <div className="app-surface wk-app">
+            <WorkProvider go={go}>
+                <TaskPane here={here} />
+                <main className="wk-main">
                     <Suspense fallback={null}>
-                        <WantsPanel
-                            key={`w-${selected.participantId}`}
-                            participantId={selected.participantId}
-                            name={selected.name}
-                            nameOf={(id) =>
-                                jobs.find((j) => j.participantId === id)
-                                    ?.name ?? 'someone'
-                            }
-                        />
+                        <Page here={here} />
                     </Suspense>
-                </>
-            ) : (
-                <p style={{ margin: '0 8px 8px', color: '#666' }}>
-                    Personas read their job and what they want off who they are.
-                    Pick someone to see or change it.
-                </p>
-            )}
+                </main>
+            </WorkProvider>
         </div>
     );
 }
 
-function JobForm({ job }: { job: JobSummary }) {
-    const ids = useId();
-    const queryClient = useQueryClient();
-    const [title, setTitle] = useState(job.title ?? '');
-    const [workplace, setWorkplace] = useState(job.workplace ?? '');
-    const [days, setDays] = useState(job.days ?? 'Mon-Fri');
-    const [hours, setHours] = useState(job.hours ?? '09:00-17:00');
-    const refresh = {
-        mutation: {
-            onSuccess: () =>
-                queryClient.invalidateQueries({
-                    queryKey: getGetWorldsPartyIdJobsQueryKey(WORLD_ID),
-                }),
-        },
-    };
-    const save = usePutWorldsPartyIdJobsParticipantId(refresh);
-    const clear = useDeleteWorldsPartyIdJobsParticipantId(refresh);
-    const error = save.error ?? clear.error;
+function Page({ here }: { here: WorkPlace }) {
+    const { people, companies } = useWork();
+    if (here.page === 'person') {
+        const person = people.find((p) => p.participantId === here.id);
+        if (person) return <PersonPage key={here.id} person={person} />;
+    }
+    if (here.page === 'company') {
+        const company = companies.find((c) => c.id === here.id);
+        if (company) return <CompanyPage key={here.id} company={company} />;
+    }
+    if (here.page === 'companies') return <CompaniesPage />;
+    if (here.page === 'practices') return <PracticesPage />;
+    return <PeoplePage />;
+}
+
+/** The XP Explorer task pane: three groups, each heading a page of its own. */
+function TaskPane({ here }: { here: WorkPlace }) {
+    const { people, companies, practices, go } = useWork();
+    const at = (page: WorkPlace['page'], id?: string) =>
+        here.page === page && (!id || ('id' in here && here.id === id))
+            ? ('page' as const)
+            : undefined;
 
     return (
-        <fieldset style={{ margin: '0 6px 6px' }}>
-            <legend>{job.name}'s job</legend>
-            <form
-                className="flex flex-wrap items-center"
-                style={{ gap: 6 }}
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    save.mutate({
-                        partyId: WORLD_ID,
-                        participantId: job.participantId,
-                        data: { title, workplace, days, hours },
-                    });
-                }}
-            >
-                <label htmlFor={`${ids}-t`}>Job</label>
-                <input
-                    id={`${ids}-t`}
-                    value={title}
-                    placeholder="barista"
-                    onChange={(e) => setTitle(e.currentTarget.value)}
-                    style={{ width: 130 }}
-                />
-                <label htmlFor={`${ids}-w`}>at</label>
-                <input
-                    id={`${ids}-w`}
-                    value={workplace}
-                    placeholder="the Café, the office in Zuid"
-                    onChange={(e) => setWorkplace(e.currentTarget.value)}
-                    style={{ flex: 1, minWidth: 140 }}
-                />
-                <label htmlFor={`${ids}-d`}>on</label>
-                <input
-                    id={`${ids}-d`}
-                    value={days}
-                    onChange={(e) => setDays(e.currentTarget.value)}
-                    style={{ width: 80 }}
-                />
-                <input
-                    aria-label="Hours"
-                    value={hours}
-                    onChange={(e) => setHours(e.currentTarget.value)}
-                    style={{ width: 90 }}
-                />
-                <button
-                    type="submit"
-                    disabled={
-                        !title.trim() || !workplace.trim() || save.isPending
-                    }
-                >
-                    Save
-                </button>
+        <nav className="wk-pane" aria-label="Work">
+            <section className="wk-group">
                 <button
                     type="button"
-                    disabled={!job.title || clear.isPending}
-                    onClick={() =>
-                        clear.mutate({
-                            partyId: WORLD_ID,
-                            participantId: job.participantId,
-                        })
-                    }
+                    className="xp-bare wk-group-head"
+                    aria-current={at('people')}
+                    onClick={() => go({ page: 'people' })}
                 >
-                    No job
+                    👥 People
                 </button>
-            </form>
-            {error ? (
-                <p style={{ color: '#a00', margin: '4px 0 0' }}>
-                    Couldn't save that. Hours look like 09:00-17:00, within one
-                    day.
-                </p>
-            ) : null}
-        </fieldset>
+                <ul>
+                    {people.map((p) => (
+                        <li key={p.participantId}>
+                            <button
+                                type="button"
+                                className="xp-bare wk-link"
+                                aria-current={at('person', p.participantId)}
+                                onClick={() =>
+                                    go({ page: 'person', id: p.participantId })
+                                }
+                            >
+                                <span>{p.name}</span>
+                                {shiftLabel(p) ? (
+                                    <small>{shiftLabel(p)}</small>
+                                ) : null}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </section>
+            <section className="wk-group">
+                <button
+                    type="button"
+                    className="xp-bare wk-group-head"
+                    aria-current={at('companies')}
+                    onClick={() => go({ page: 'companies' })}
+                >
+                    🏦 Companies
+                </button>
+                <ul>
+                    {companies.map((c) => {
+                        const change = bookReturn(c);
+                        return (
+                            <li key={c.id}>
+                                <button
+                                    type="button"
+                                    className="xp-bare wk-link"
+                                    aria-current={at('company', c.id)}
+                                    onClick={() =>
+                                        go({ page: 'company', id: c.id })
+                                    }
+                                >
+                                    <span>{c.name}</span>
+                                    <small data-tone={toneOf(change)}>
+                                        {signedPercent(change)}
+                                    </small>
+                                </button>
+                            </li>
+                        );
+                    })}
+                    {companies.length === 0 ? (
+                        <li className="wk-pane-hint">None yet</li>
+                    ) : null}
+                </ul>
+            </section>
+            <section className="wk-group">
+                <button
+                    type="button"
+                    className="xp-bare wk-group-head"
+                    aria-current={at('practices')}
+                    onClick={() => go({ page: 'practices' })}
+                >
+                    🛋️ Practices
+                </button>
+                <ul>
+                    {practices.map((p) => (
+                        <li key={p.participantId}>
+                            <button
+                                type="button"
+                                className="xp-bare wk-link"
+                                aria-current={at('person', p.participantId)}
+                                onClick={() =>
+                                    go({ page: 'person', id: p.participantId })
+                                }
+                            >
+                                <span>{p.name}</span>
+                                <small>{p.title}</small>
+                            </button>
+                        </li>
+                    ))}
+                    {practices.length === 0 ? (
+                        <li className="wk-pane-hint">None yet</li>
+                    ) : null}
+                </ul>
+            </section>
+        </nav>
     );
 }
