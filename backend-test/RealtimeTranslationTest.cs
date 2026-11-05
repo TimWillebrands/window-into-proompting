@@ -24,6 +24,17 @@ public class RealtimeTranslationTest
     }
 
     [Fact]
+    public void SkippedTurn_IsARoomFrame_SoADmsStaysPrivate()
+    {
+        var evt = new PartyStreamEvent { Type = "skippedTurn", ChatGroupId = Guid.NewGuid(), SkippedTurn = new PartyTown.Grains.SkippedTurn { Reason = "reflex: holding: finishing up first" } };
+
+        var frame = Assert.Single(RealtimeTranslation.Party(Guid.NewGuid(), evt));
+
+        Assert.Equal("party.turn.skipped", frame.Type);
+        Assert.IsAssignableFrom<IRoomFrame>(frame.Data);
+    }
+
+    [Fact]
     public void FinalDelta_AlsoEmitsGenerationCompleted()
     {
         PartyStreamEvent Delta(bool done) => new()

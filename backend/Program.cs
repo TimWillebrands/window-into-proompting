@@ -79,6 +79,7 @@ if (!openApiBuild)
     builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
+    builder.Services.AddSingleton<PartyTown.World.Reflex.ReflexGate>();
     builder.Services.AddSingleton<PartyTown.World.PlayerRemoval>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Self.FollowThrough>();

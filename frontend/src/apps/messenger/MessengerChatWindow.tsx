@@ -7,7 +7,11 @@ import {
 } from '#api/party-zone';
 import type { RealtimeChatMessage } from '#lib/realtime-store';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
-import { isShownInMessenger, typingState } from '../../lib/room-conversation';
+import {
+    heldBy,
+    isShownInMessenger,
+    typingState,
+} from '../../lib/room-conversation';
 import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, WORLD_ID } from '../../lib/world';
 import {
@@ -105,6 +109,7 @@ function Conversation({
         messages: allMessages,
         activeIds,
         phases,
+        declined,
         connection,
     } = useRoomConversation(WORLD_ID, chatGroupId);
     const messages = useMemo(
@@ -186,6 +191,8 @@ function Conversation({
         if (connection !== 'connected') return 'Connecting to the server…';
         if (isTyping) return `${withName} is typing a message.`;
         if (isReading) return `${withName} is reading your message…`;
+        if (withId && heldBy(withId, messages, declined))
+            return `${withName} saw this and will get back to you.`;
         if (prompt.isError) return 'Your message could not be delivered.';
         if (lastReceived)
             return `Last message received at ${new Date(lastReceived).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} on ${new Date(lastReceived).toLocaleDateString()}.`;

@@ -43,6 +43,7 @@ public interface IRoomFrame : IPartyRealtimeData
 [JsonDerivedType(typeof(PersonaGenerationCompletedData), "persona_generation_completed")]
 [JsonDerivedType(typeof(PersonaGenerationErrorData), "persona_generation_error")]
 [JsonDerivedType(typeof(PartyRaceEvaluationData), "party_race_evaluation")]
+[JsonDerivedType(typeof(PartySkippedTurnData), "party_skipped_turn")]
 [JsonDerivedType(typeof(PartyWorldEventData), "party_world_event")]
 public interface IPartyRealtimeData;
 
@@ -93,6 +94,9 @@ public sealed record class PersonaGenerationErrorData(string Message) : IPartyRe
 /// <summary>Payload for the "party.race.evaluation" event: one stop-signal race outcome
 /// from <c>PersonaGrain.RunStopSignalRaceAsync</c>, surfaced live to the thought log.</summary>
 public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IRoomFrame;
+
+/// <summary>Payload for the "party.turn.skipped" event: a live skipped turn, private to the Room.</summary>
+public sealed record class PartySkippedTurnData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.SkippedTurn Skipped) : IRoomFrame;
 
 /// <summary>Payload for "world.*" events: a World App surface changed (ADR 0018).</summary>
 public sealed record class PartyWorldEventData(Guid PartyId, string Kind, System.Text.Json.JsonElement Payload) : IPartyRealtimeData;

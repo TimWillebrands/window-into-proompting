@@ -40,7 +40,7 @@ public sealed class PersonaTiesGrain(
     {
         await EnsureSeededAsync();
         var tie = state.State.Ties.GetValueOrDefault(otherId);
-        return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow));
+        return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow), tie.LastAt);
     }
 
     public async Task<Guid?> GetClosestAsync()
@@ -171,7 +171,7 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.TieRead")]
-public sealed record TieRead([property: Id(0)] double Exchanges, [property: Id(1)] double Warmth)
+public sealed record TieRead([property: Id(0)] double Exchanges, [property: Id(1)] double Warmth, [property: Id(2)] long LastAt = 0)
 {
     public static readonly TieRead None = new(0, 0);
 }

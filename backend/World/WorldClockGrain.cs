@@ -1,3 +1,4 @@
+using Orleans.Concurrency;
 using PartyTown.Services.Memory;
 using PartyTown.Grains;
 using PartyTown.Model;
@@ -48,6 +49,7 @@ public sealed class WorldClockGrain(
     {
         if (!state.State.Running) return;
         var now = DateTimeOffset.UtcNow;
+        await SurfaceDueAsync(now);
         if (!ClockPolicy.TickDue(state.State.LastTickAt, state.State.TickSeconds, now))
             return;
         state.State.LastTickAt = now.ToUnixTimeMilliseconds();
@@ -100,6 +102,46 @@ public sealed class WorldClockGrain(
         await PublishAsync("activity", activity);
         if (activity.PersonaId != Guid.Empty)
             await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).NoteActivityAsync(activity.PersonaId, activity.App);
+    }
+
+    public async Task RemindAsync(Guid personaId, long? at)
+    {
+        if (at is { } due) state.State.Reminders[personaId] = due;
+        else if (!state.State.Reminders.Remove(personaId)) return;
+        await state.WriteStateAsync();
+    }
+
+    public async Task<bool> TrySpendAsync(bool forHuman)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!forHuman && !ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return false;
+        state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
+        await state.WriteStateAsync();
+        return true;
+    }
+
+    /// <summary>Detached: Reflex calls back here, and this grain must never wait on it.</summary>
+    private async Task SurfaceDueAsync(DateTimeOffset now)
+    {
+        var ms = now.ToUnixTimeMilliseconds();
+        var due = state.State.Reminders.Where(r => r.Value <= ms).Select(r => r.Key).ToList();
+        if (due.Count == 0) return;
+        foreach (var id in due)
+        {
+            state.State.Reminders.Remove(id);
+            _ = SurfaceAsync(id);
+        }
+        await state.WriteStateAsync();
+    }
+
+    private async Task SurfaceAsync(Guid personaId)
+    {
+        try { await GrainFactory.GetGrain<Reflex.IPersonaReflexGrain>(WorldKeys.Life(PartyId, personaId)).SurfaceAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Surfacing failed for {PersonaId}; trying again shortly", personaId);
+            await RemindAsync(personaId, DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds());
+        }
     }
 
     public async Task NotifyAsync(List<Guid> personaIds)
@@ -368,7 +410,7 @@ public sealed class WorldClockGrain(
 [Alias("PartyTown.World.IWorldClockGrain")]
 public interface IWorldClockGrain : IGrainWithGuidKey
 {
-    [Alias("GetStatusAsync")] Task<WorldStatus> GetStatusAsync();
+    [AlwaysInterleave, Alias("GetStatusAsync")] Task<WorldStatus> GetStatusAsync();
     [Alias("UpdateAsync")] Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour, int? ambientMinutes = null);
     [Alias("PulseAsync")] Task PulseAsync();
     /// <summary>Force one Life turn now (ignores pause and interval, respects busy).</summary>
@@ -384,6 +426,10 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);
     /// <summary>Something concerning these Personas landed outside a live chat: they're likelier to get the next turn.</summary>
     [Alias("NotifyAsync")] Task NotifyAsync(List<Guid> personaIds);
+    /// <summary>When to look at what this Persona put off; null clears it (ADR 0031).</summary>
+    [Alias("RemindAsync")] Task RemindAsync(Guid personaId, long? at);
+    /// <summary>Spend one action on something Reflex says out loud; a human is never made to wait on the budget.</summary>
+    [Alias("TrySpendAsync")] Task<bool> TrySpendAsync(bool forHuman);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.WorldClockState")]
@@ -405,4 +451,6 @@ public sealed class WorldClockState
     [Id(11)] public Dictionary<Guid, long> NotifiedAt { get; set; } = new();
     /// <summary>Clerk user id → their Player. Players not listed here are unowned.</summary>
     [Id(12)] public Dictionary<string, Guid> PlayersByClerkId { get; set; } = new();
+    /// <summary>Who has something coming back to mind, and when.</summary>
+    [Id(13)] public Dictionary<Guid, long> Reminders { get; set; } = new();
 }

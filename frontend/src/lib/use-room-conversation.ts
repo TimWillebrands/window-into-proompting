@@ -3,6 +3,7 @@ import {
     useActiveGenerationPhases,
     useChatGroupGenerationState,
     useChatGroupMessages,
+    useDeclinedDecisions,
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
@@ -21,6 +22,7 @@ export function useRoomConversation(partyId: string, chatGroupId: string) {
     const messages = useChatGroupMessages(chatGroupId);
     const activeIds = useChatGroupGenerationState(chatGroupId);
     const phases = useActiveGenerationPhases(chatGroupId);
+    const declined = useDeclinedDecisions(chatGroupId);
     const connection = useRealtimeConnectionStatus(partyId);
     const byPersona = useMemo(() => phaseByPersona(phases), [phases]);
 
@@ -28,6 +30,7 @@ export function useRoomConversation(partyId: string, chatGroupId: string) {
         messages,
         activeIds,
         phases,
+        declined,
         phaseByPersona: byPersona,
         connection,
     };

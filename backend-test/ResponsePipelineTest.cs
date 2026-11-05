@@ -57,7 +57,7 @@ public class ResponsePipelineTest
         Mock<IMemoryRepository> MemoryRepo,
         List<TurnOutcome> Outcomes);
 
-    private static Fixture BuildFixture()
+    private static Fixture BuildFixture(PartyTown.World.Reflex.ReflexVerdict? verdict = null)
     {
         var store = new InFlightStore();
         var partyId = Guid.NewGuid();
@@ -122,11 +122,22 @@ public class ResponsePipelineTest
                 It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<StanceLine>());
 
+        PartyTown.World.Reflex.ReflexGate? reflex = null;
+        if (verdict is not null)
+        {
+            var reflexGrain = new Mock<PartyTown.World.Reflex.IPersonaReflexGrain>();
+            reflexGrain.Setup(g => g.PerceiveAsync(It.IsAny<PartyTown.World.Reflex.Percept>())).ReturnsAsync(verdict);
+            reflexGrain.Setup(g => g.GetMindAsync()).ReturnsAsync(string.Empty);
+            factory.Setup(f => f.GetGrain<PartyTown.World.Reflex.IPersonaReflexGrain>(It.IsAny<string>(), null)).Returns(reflexGrain.Object);
+            reflex = new PartyTown.World.Reflex.ReflexGate(factory.Object, NullLogger<PartyTown.World.Reflex.ReflexGate>.Instance);
+        }
+
         var pipeline = new ResponsePipeline(
             factory.Object,
             memoryRepo.Object,
             NullLoggerFactory.Instance,
-            NullLogger<ResponsePipeline>.Instance);
+            NullLogger<ResponsePipeline>.Instance,
+            reflex: reflex);
 
         return new Fixture(pipeline, store, chatGroup, factory, router, personaRoot, memoryRepo, outcomes);
     }
@@ -317,6 +328,67 @@ public class ResponsePipelineTest
 
         // PersonaDeclinedResponse event fired with done=true.
         Assert.Contains(declinedEvents, e => e.Event == MessageStreamEvent.PersonaDeclinedResponse && e.Done);
+    }
+
+    // ── Reflex (ADR 0031) ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task HandleAsync_ReflexTakesIt_NoSlotNoLlm_ReasonInTheThoughtLog()
+    {
+        var fx = BuildFixture(PartyTown.World.Reflex.ReflexVerdict.Taken("putting it off"));
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess", senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
+        fx.Router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(PersonaId, PersonaName, triggering.MessageId, It.IsAny<double>(), "reflex: putting it off"), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_HumanOpensAQuietRoom_ReflexCantDropIt()
+    {
+        var fx = BuildFixture(PartyTown.World.Reflex.ReflexVerdict.Taken("listen"));
+        WireRouter(fx.Router, """{"gutReaction":"hm","memoryToReference":null,"wouldSay":"","respond":false}""");
+        var triggering = Msg(Guid.NewGuid(), "hiya");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ReflexTorn_NamedLine_GoesToTheDecisionModel_NotAutoRespond()
+    {
+        var fx = BuildFixture(PartyTown.World.Reflex.ReflexVerdict.Reply(0, deliberate: true, "torn"));
+        WireRouter(fx.Router, """{"gutReaction":"not now","memoryToReference":null,"wouldSay":"","respond":false}""");
+        var triggering = Msg(Guid.NewGuid(), $"{PersonaName} what do you reckon", senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes));
+    }
+
+    [Fact]
+    public async Task HandleAsync_NewerLineWhileReading_OnlyTheNewerOneReplies()
+    {
+        var fx = BuildFixture(PartyTown.World.Reflex.ReflexVerdict.Reply(5_000, deliberate: false, "now"));
+        var room = Guid.NewGuid();
+        var first = Msg(Guid.NewGuid(), "anyone up for chess", messageId: 1, senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { first });
+
+        var reading = fx.Pipeline.HandleAsync(MakePersona(), room, first, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+        await fx.Store.ReadAsync(room, TimeSpan.FromMilliseconds(1), CancellationToken.None);
+        await reading;
+
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
     }
 
     // ── 4. Decision + Speaking happy path ─────────────────────────────────────

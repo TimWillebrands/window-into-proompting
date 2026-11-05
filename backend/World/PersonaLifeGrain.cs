@@ -22,7 +22,8 @@ public sealed class PersonaLifeGrain(
     ILogger<PersonaLifeGrain> logger,
     FollowThrough? followThrough = null,
     Work.Responsibilities? responsibilities = null,
-    Desires.DesireReview? desireReview = null)
+    Desires.DesireReview? desireReview = null,
+    Reflex.ReflexGate? reflex = null)
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
@@ -107,6 +108,7 @@ public sealed class PersonaLifeGrain(
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await DesiresAsync(partyId, personaId);
+        if (reflex is not null) presence += await reflex.MindAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
             .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList());
 

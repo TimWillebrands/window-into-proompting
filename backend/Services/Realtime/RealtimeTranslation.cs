@@ -17,6 +17,8 @@ public static class RealtimeTranslation
         "messageEvent" when evt is { MessageId: { } id, MessageEvent: { } delta } => Delta(partyId, evt.ChatGroupId, id, delta),
         "raceEvaluation" when evt.RaceEvaluation is { } race =>
             One("party.race.evaluation", new PartyRaceEvaluationData(partyId, evt.ChatGroupId, race)),
+        "skippedTurn" when evt.SkippedTurn is { } skipped =>
+            One("party.turn.skipped", new PartySkippedTurnData(partyId, evt.ChatGroupId, skipped)),
         "world" when evt.WorldKind is { } kind => One($"world.{kind}", new PartyWorldEventData(partyId, kind, Json(evt.WorldJson))),
         _ => One("party.event", new PartyUnknownEventData(partyId, evt.ChatGroupId, evt.Type, evt.Message, evt.MessageId)),
     };

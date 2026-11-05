@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    heldBy,
     isShownInMessenger,
     isShownInRoom,
     parseAppraisal,
@@ -134,5 +135,44 @@ describe('phaseByPersona / typingState', () => {
         expect(typingState([deciding, typing])).toBe('typing');
         expect(typingState([deciding])).toBe('reading');
         expect(typingState([])).toBe('idle');
+    });
+});
+
+describe('heldBy', () => {
+    const held = (
+        messageId: number,
+        reason = 'reflex: holding: finishing up first',
+    ) => ({
+        personaId: 'vlad',
+        reason,
+        decisionText: '',
+        messageId,
+        timestamp: 0,
+    });
+
+    it('shows when they saw the latest line and put it off', () => {
+        const messages = [msg(1, { senderId: 'me' })];
+        expect(heldBy('vlad', messages, [held(1)])).toBe(true);
+    });
+
+    it('clears once they have spoken', () => {
+        const messages = [
+            msg(1, { senderId: 'me' }),
+            msg(2, { senderId: 'vlad' }),
+        ];
+        expect(heldBy('vlad', messages, [held(1)])).toBe(false);
+    });
+
+    it('ignores other skips', () => {
+        const messages = [msg(1, { senderId: 'me' })];
+        expect(heldBy('vlad', messages, [held(1, 'reflex: listen')])).toBe(
+            false,
+        );
+        expect(heldBy('vlad', messages, [held(1, 'obvious-skip')])).toBe(false);
+    });
+
+    it('is about that person only', () => {
+        const messages = [msg(1, { senderId: 'me' })];
+        expect(heldBy('denise', messages, [held(1)])).toBe(false);
     });
 });

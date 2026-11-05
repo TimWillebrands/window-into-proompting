@@ -445,6 +445,9 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             SendAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
         await ConfirmEvents();
+
+        if (State.SkippedTurns.LastOrDefault() is { } skipped)
+            await PublishPartyEvent(new PartyStreamEvent { Type = "skippedTurn", ChatGroupId = this.GetPrimaryKey(), SkippedTurn = skipped });
     }
 
     public Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync()

@@ -105,15 +105,36 @@ _Avoid_: catch-up, backlog, missed-message-marker.
 ### Relevance realization
 
 **Relevance Realization**:
-The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Four instances of it run in this project, at four timescales:
+The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Six instances of it run in this project, at their own timescales:
 
 - **Interruption** (milliseconds) — is the new message worth abandoning my in-flight reply? Scored as **Salience** during the **Stop-signal race**.
 - **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
 - **Recall** (days, backward) — which past moments belong in this beat?
 - **Capture** (days, forward) — which present moments are worth remembering at all?
 - **Initiative** (minutes, stimulus-free) — with nothing asking anything of me, what is worth doing? See § World.
+- **Reflex** (seconds, stimulus-driven) — something just reached me: did I notice, what do I do about it, and when?
 
 _Avoid_: relevance scoring, importance ranking, attention.
+
+**Reflex**:
+The instance of **Relevance Realization** between a stimulus and a response. Initiative's twin: Initiative asks what's worth doing with nothing going on, Reflex asks what to do about what just happened. It comes before the **Decision phase** and may answer for it. See [ADR 0031](docs/adr/0031-reflex-stimulus-driven-attention.md).
+_Avoid_: trigger, event handler, reaction.
+
+**Percept**:
+One thing that reached a **Persona**, in any modality: a private message, a line in a Room, something said within **Earshot**, a Body arriving, their name caught across the room, a knock. A **Percept** can go unnoticed.
+_Avoid_: stimulus, event, notification.
+
+**Load**:
+How much of a **Persona** is spoken for right now, seen from the channel something came in on. A phone in their hand costs the room around them, not the next message.
+_Avoid_: busyness, availability (that's one input to it).
+
+**Focus**:
+The one conversation a **Persona** is in the middle of. Its next line needs no **Reflex**; anything else competes with it.
+_Avoid_: active room, current chat.
+
+**Intention**:
+Something a **Persona** put off and means to get back to. It comes back at a breakpoint, stays on their mind until settled, and speaking in that chat settles it. One owed to a human happens by a deadline; any other can slip their mind. Not the "intent" of a **Life** turn, which is what they're about to say.
+_Avoid_: reminder, task, pending reply.
 
 **Salience**:
 How strongly something *pulls* on a **Persona**'s attention right now — an attractor acting on them from the **Arena**, the moment-to-moment output of **Relevance Realization**. Always relational: nothing is salient in itself, only salient *to this Persona in this beat*. Scored today during the **Stop-signal race** (is the interrupting message worth it?); the same notion ranks which **Recollections** surface at **Recall**. A Persona's memories under this ranking form their **salience landscape** — what looms large vs what has faded — reshaped by use: recalled memories strengthen, untouched ones sink.

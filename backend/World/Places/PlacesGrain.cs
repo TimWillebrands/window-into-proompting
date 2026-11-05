@@ -112,6 +112,9 @@ public sealed partial class PlacesGrain(
         if (app is not null) await NoteActivityAsync(m.SenderId, app);
     }
 
+    public Task<Body?> GetBodyAsync(Guid participantId)
+        => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var body) ? body : null);
+
     private static readonly TimeSpan KnockWaits = TimeSpan.FromMinutes(10);
 
     public async Task<bool> KnockAsync(Guid visitorId, Guid homeId)
@@ -123,6 +126,8 @@ public sealed partial class PlacesGrain(
         home.Knocks[visitorId] = Now();
         await SaveAsync();
         await PublishPlaceAsync(home);
+        if (!host.IsHuman && state.State.Bodies.TryGetValue(visitorId, out var visitor))
+            Perceive(owner, new Reflex.Percept(Reflex.PerceptKind.Knock, visitorId, visitor.Name, visitor.IsHuman, PlaceId: homeId));
         return true;
     }
 
@@ -444,6 +449,10 @@ public sealed partial class PlacesGrain(
             record.Tone = answers.SampleChoice("tone", 0.5) ?? record.Tone;
             record.NameHeardBy = listeners.Where((l, i) => answers.Noul($"name{i}", record.NameHeardBy.Contains(l.ParticipantId) ? 1 : 0) > 0.6)
                 .Select(l => l.ParticipantId).ToList();
+            var talkRoom = Find(record.PlaceId)?.TalkRoomId;
+            foreach (var heard in listeners.Where(l => !l.IsHuman && !l.Asleep && record.NameHeardBy.Contains(l.ParticipantId)))
+                Perceive(heard.ParticipantId, new Reflex.Percept(Reflex.PerceptKind.Overheard, record.SpeakerId, record.SpeakerName, state.State.Bodies.GetValueOrDefault(record.SpeakerId)?.IsHuman == true,
+                    record.Tone, talkRoom, Named: true, Near: !record.NextDoor.Contains(heard.ParticipantId), PlaceId: record.PlaceId, SpotId: record.SpotId));
         }
         catch (Exception ex)
         {
@@ -559,6 +568,10 @@ public sealed partial class PlacesGrain(
         await SaveAsync();
         await PublishAsync(body);
     }
+
+    /// <summary>The activity is using a device (see <see cref="DeviceUse"/>).</summary>
+    public static bool OnDevice(string? activity)
+        => activity is not null && (activity.StartsWith("on their phone", StringComparison.Ordinal) || activity.StartsWith("at their laptop", StringComparison.Ordinal));
 
     /// <summary>Online Apps are used on a device, and that shows on the Body. Phone unless at home.</summary>
     internal static string? DeviceUse(string app, bool atHome) => app switch
@@ -762,6 +775,25 @@ public sealed partial class PlacesGrain(
         foreach (var placeId in arrived.Select(b => b.PlaceId).Distinct())
             await SyncTalkRoomAsync(placeId);
         foreach (var body in arrived) await PublishAsync(body);
+        foreach (var body in arrived) NoticeArrival(body);
+    }
+
+    /// <summary>Those already here perceive who just came up; detached, since Reflex reads this grain.</summary>
+    private void NoticeArrival(Body arrived)
+    {
+        var talkRoom = Find(arrived.PlaceId)?.TalkRoomId;
+        foreach (var watcher in Occupants(arrived.PlaceId).Where(o => o.ParticipantId != arrived.ParticipantId && !o.IsHuman && !o.Asleep && !o.IsWalking))
+            Perceive(watcher.ParticipantId, new Reflex.Percept(Reflex.PerceptKind.Arrival, arrived.ParticipantId, arrived.Name, arrived.IsHuman,
+                RoomId: talkRoom, Near: watcher.SpotId == arrived.SpotId, PlaceId: arrived.PlaceId, SpotId: arrived.SpotId));
+    }
+
+    private void Perceive(Guid participantId, Reflex.Percept percept)
+        => _ = PerceiveAsync(participantId, percept);
+
+    private async Task PerceiveAsync(Guid participantId, Reflex.Percept percept)
+    {
+        try { await GrainFactory.GetGrain<Reflex.IPersonaReflexGrain>(WorldKeys.Life(PartyId, participantId)).PerceiveAsync(percept); }
+        catch (Exception ex) { logger.LogDebug(ex, "Reflex perception failed for {Participant}", participantId); }
     }
 
     private void WatchArrivals()
@@ -946,6 +978,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Read-only; safe to call from grains Places itself calls (Self).</summary>
     [AlwaysInterleave, Alias("IsAsleepAsync")] Task<bool> IsAsleepAsync(Guid participantId);
+    /// <summary>One Body as it stands, with no settling: safe from anything Places itself calls.</summary>
+    [AlwaysInterleave, Alias("GetBodyAsync")] Task<Body?> GetBodyAsync(Guid participantId);
 
     /// <summary>The Participant's next utterance goes at this volume (to one addressee for a whisper). Holds 2 min.</summary>
     [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);

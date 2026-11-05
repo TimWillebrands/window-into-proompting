@@ -121,6 +121,31 @@ public sealed class InFlightStore
     // for that chat group, then cleared regardless of decision outcome.
     private readonly ConcurrentDictionary<Guid, RepairHint> _pendingRepairByGroup = new();
 
+    // Who is mid-read per chat group: a newer line supersedes the older read.
+    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _reading = new();
+
+    /// <summary>Spend <paramref name="lag"/> reading; false when a newer line in the group took over.</summary>
+    public async Task<bool> ReadAsync(Guid chatGroupId, TimeSpan lag, CancellationToken ct)
+    {
+        using var mine = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (_reading.TryGetValue(chatGroupId, out var older))
+            try { older.Cancel(); } catch (ObjectDisposedException) { }
+        _reading[chatGroupId] = mine;
+        try
+        {
+            await Task.Delay(lag, mine.Token);
+            return true;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return false;
+        }
+        finally
+        {
+            _reading.TryRemove(new KeyValuePair<Guid, CancellationTokenSource>(chatGroupId, mine));
+        }
+    }
+
     /// <summary>Register a new in-flight generation. Returns the created record.</summary>
     public InFlightGeneration Register(Guid chatGroupId, int messageId, CancellationTokenSource cts)
     {

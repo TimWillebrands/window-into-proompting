@@ -206,6 +206,39 @@ export const reduceRooms = (
         );
     }
 
+    if (envelope.type === 'party.turn.skipped') {
+        // Live skip, same lane as the snapshot's: the thought log and Messenger's "seen" line read it.
+        const payload = envelope.data as {
+            chatGroupId?: string;
+            skipped?: {
+                personaId: string;
+                triggeredByMessageId: number;
+                reason?: string | null;
+                sendAt?: number;
+            };
+        };
+        if (!payload.chatGroupId || !payload.skipped) return rooms;
+        const s = payload.skipped;
+        return withRoom(
+            rooms,
+            payload.chatGroupId,
+            envelope.sequence,
+            (prev) => ({
+                ...prev,
+                declinedDecisions: [
+                    ...prev.declinedDecisions,
+                    {
+                        personaId: s.personaId,
+                        reason: s.reason ?? null,
+                        decisionText: '',
+                        messageId: s.triggeredByMessageId,
+                        timestamp: s.sendAt ?? 0,
+                    },
+                ],
+            }),
+        );
+    }
+
     if (envelope.type === 'party.message.created') {
         const payload = envelope.data as {
             chatGroupId?: string;

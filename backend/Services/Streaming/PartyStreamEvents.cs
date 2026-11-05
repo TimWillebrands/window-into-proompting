@@ -39,6 +39,10 @@ public sealed record class PartyStreamEvent
     /// <summary>Carried for <c>Type == "world"</c>: camelCase JSON payload for the client.</summary>
     [Id(7)]
     public string? WorldJson { get; init; }
+
+    /// <summary>Carried for <c>Type == "skippedTurn"</c>: someone let a line go by, and why.</summary>
+    [Id(8)]
+    public PartyTown.Grains.SkippedTurn? SkippedTurn { get; init; }
 }
 
 /// <summary>

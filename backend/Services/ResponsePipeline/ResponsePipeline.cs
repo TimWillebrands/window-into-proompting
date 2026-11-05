@@ -27,7 +27,8 @@ public sealed class ResponsePipeline(
     ILoggerFactory loggerFactory,
     ILogger<ResponsePipeline> logger,
     World.Self.FollowThrough? followThrough = null,
-    World.Work.Responsibilities? responsibilities = null)
+    World.Work.Responsibilities? responsibilities = null,
+    World.Reflex.ReflexGate? reflex = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
@@ -101,17 +102,28 @@ public sealed class ResponsePipeline(
             logger.LogDebug(
                 "Persona {PersonaName} silently skipped (urge={Urge:F2}, rounds={Rounds}, recentSelf={Self})",
                 persona.Name, preUrge.Total, preRounds, preRecentSelf);
-            try
-            {
-                await chatGroupGrain.RecordSkippedTurnAsync(
-                    persona.Id, persona.Name ?? string.Empty,
-                    triggeringMessage.MessageId, preUrge.Total, skipReason);
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Failed to record skip for persona {PersonaName}", persona.Name);
-            }
+            await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, skipReason);
             return;
+        }
+
+        // Reflex (ADR 0031): whether this reaches them at all, and whether now is when they answer it.
+        // A human opening a quiet Room keeps its floor (see UrgeMath): nobody answering there reads as broken.
+        var deliberate = false;
+        var coldOpen = preUrge.ColdOpenScore > 0 && !isDirect;
+        if (reflex is not null && !coldOpen && string.IsNullOrWhiteSpace(await chatGroupGrain.GetScenarioAsync()))
+        {
+            var verdict = await reflex.PerceiveAsync(partyId, persona.Id, PerceptOf(triggeringMessage, roomCast, preHistory, preUrge, chatGroupId));
+            turnSpan?.SetTag("reflex.proceed", verdict.Proceed);
+            turnSpan?.SetTag("reflex.note", verdict.Note);
+            if (!verdict.Proceed)
+            {
+                await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, $"reflex: {verdict.Note}");
+                return;
+            }
+            // A newer line while reading takes over: one reply to the burst, not one per line.
+            if (verdict.LagMs > 0 && !await store.ReadAsync(chatGroupId, TimeSpan.FromMilliseconds(verdict.LagMs), ct))
+                return;
+            deliberate = verdict.Deliberate;
         }
 
         var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId);
@@ -183,7 +195,7 @@ public sealed class ResponsePipeline(
             var decision = await RunDecisionPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
-                repairHint, stanceLines);
+                repairHint, stanceLines, deliberate);
 
             // Resolve the index pick (1-based into the numbered block; decision service
             // already range-clamped) back to the recalled memory: snippet → speaking phase,
@@ -297,6 +309,7 @@ public sealed class ResponsePipeline(
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
             followThrough?.Consider(partyId, chatGroupId, persona.Id);
+            if (reflex is not null) await reflex.NoteSpokeAsync(partyId, persona.Id, chatGroupId);
 
             if (result.Metadata is not null)
             {
@@ -456,6 +469,7 @@ public sealed class ResponsePipeline(
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
             followThrough?.Consider(partyId, chatGroupId, persona.Id);
+            if (reflex is not null) await reflex.NoteSpokeAsync(partyId, persona.Id, chatGroupId);
             return result.Message;
         }
         catch (OperationCanceledException)
@@ -474,6 +488,32 @@ public sealed class ResponsePipeline(
         {
             store.Remove(chatGroupId, messageId);
         }
+    }
+
+    private async Task RecordSkipAsync(IChatGroupGrain chatGroupGrain, Persona persona, ChatMessage trigger, double urge, string reason)
+    {
+        try
+        {
+            await chatGroupGrain.RecordSkippedTurnAsync(persona.Id, persona.Name ?? string.Empty, trigger.MessageId, urge, reason);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to record skip for persona {PersonaName}", persona.Name);
+        }
+    }
+
+    /// <summary>A chat line as Reflex sees it: DM, typed in a Room, or said out loud.</summary>
+    private static World.Reflex.Percept PerceptOf(ChatMessage m, RoomCast cast, IReadOnlyList<ChatMessage> history, ResponseUrge urge, Guid roomId)
+    {
+        var views = cast.Views();
+        string Name(Guid id) => views.Where(v => v.Id == id).Select(v => v.Name).FirstOrDefault() ?? "Someone";
+        var kind = cast.IsDirect ? World.Reflex.PerceptKind.Direct
+            : cast.Kind == ChatGroupKinds.Place ? World.Reflex.PerceptKind.Speech
+            : World.Reflex.PerceptKind.Line;
+        var context = history.Where(h => h.MessageId != m.MessageId && !string.IsNullOrWhiteSpace(h.Content)).TakeLast(5)
+            .Select(h => $"{Name(h.SenderId)}: {WorldStream.Clip(h.Content, 160)}").ToList();
+        return new World.Reflex.Percept(kind, m.SenderId, Name(m.SenderId), cast.EffectiveOf(m.SenderId) == DriverKind.User,
+            m.Content ?? string.Empty, roomId, Named: !cast.IsDirect && urge.MentionScore > 0, Context: context);
     }
 
     // Arm attribution as logged/papertrailed (ADR 0015 two-arm union observability).
@@ -600,6 +640,7 @@ public sealed class ResponsePipeline(
                     presence += await responsibilities.RoleAsync(partyId, self.Id) + await responsibilities.RenderAsync(partyId, self.Id, DateTimeOffset.UtcNow);
             }
             var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
+            if (reflex is not null && string.IsNullOrWhiteSpace(scenario)) block += await reflex.MindAsync(partyId, self.Id);
             return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }
         catch (Exception ex)
@@ -726,7 +767,8 @@ public sealed class ResponsePipeline(
         IReadOnlyList<string> recollections,
         CancellationToken ct,
         RepairHint? repairHint = null,
-        IReadOnlyList<string>? stances = null)
+        IReadOnlyList<string>? stances = null,
+        bool deliberate = false)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
@@ -754,7 +796,8 @@ public sealed class ResponsePipeline(
             stances: stances,
             isDirect: isDirect,
             presence: presence,
-            windingDown: windingDown);
+            windingDown: windingDown,
+            deliberate: deliberate);
     }
 
     private static Task NotifyStreamAsync(

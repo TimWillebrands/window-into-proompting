@@ -1,5 +1,9 @@
 // Room conversation rules shared by D'Accord and Messenger (a DM is a two-person Room).
-import type { ActiveGenerationPhase, RealtimeChatMessage } from './room-state';
+import type {
+    ActiveGenerationPhase,
+    DeclinedDecision,
+    RealtimeChatMessage,
+} from './room-state';
 
 /** A persona turn's appraisal JSON, normalised (older messages used PascalCase keys). */
 export interface Appraisal {
@@ -82,6 +86,24 @@ export const phaseByPersona = (
             map.set(p.personaName, p);
     }
     return map;
+};
+
+/** Persona saw the latest line and means to get back to it (ADR 0031): shown until they next speak. */
+export const heldBy = (
+    personaId: string,
+    messages: readonly RealtimeChatMessage[],
+    declined: readonly DeclinedDecision[],
+): boolean => {
+    const lastTheirs = messages.reduce(
+        (at, m) => (m.senderId === personaId ? m.messageId : at),
+        -1,
+    );
+    return declined.some(
+        (d) =>
+            d.personaId === personaId &&
+            d.messageId > lastTheirs &&
+            !!d.reason?.startsWith('reflex: holding:'),
+    );
 };
 
 /** Messenger's one-line status for the other side: typing beats reading. */
