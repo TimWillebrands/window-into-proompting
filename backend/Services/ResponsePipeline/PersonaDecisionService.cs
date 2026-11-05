@@ -138,7 +138,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         thinkSpan?.SetTag("persona.name", self.Name);
         thinkSpan?.SetTag("urge.total", urge.Total);
 
-        var call = await new LlmCall(router, logger).StreamAsync(job, LlmTiers.General, cancellationToken,
+        var call = await new LlmCall(router, logger, self.Id).StreamAsync(job, LlmTiers.General, cancellationToken,
             onEvent is null ? null : chunk => onEvent(MessageStreamEvent.PersonaEvaluationStreaming, chunk.Data, false),
             thinkSpan);
 

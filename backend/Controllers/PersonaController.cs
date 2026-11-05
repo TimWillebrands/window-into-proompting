@@ -180,6 +180,7 @@ public class PersonaController(
 
         logger.LogInformation("Deleting persona: {PersonaId}", id);
         await root.RemovePersona(id);
+        await grains.GetGrain<ILlmProviderConfigGrain>(0).SetPersonaRoutesAsync(id, new List<PersonaRoute>());
         return NoContent();
     }
 

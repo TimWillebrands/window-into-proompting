@@ -8,6 +8,7 @@ namespace PartyTown.Grains.Generation;
 public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlmRouterGrain
 {
     private IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>? _cachedProviders;
+    private Dictionary<(Guid Persona, JobComplexity Tier), Guid>? _cachedRoutes;
 
     private readonly Dictionary<Guid, DateTimeOffset> _benchedUntil = new();
     private static readonly TimeSpan BenchFor = TimeSpan.FromMinutes(10);
@@ -22,6 +23,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
     public Task InvalidateCacheAsync()
     {
         _cachedProviders = null;
+        _cachedRoutes = null;
         return Task.CompletedTask;
     }
 
@@ -44,6 +46,28 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         return results.SelectMany(model => model).ToList();
     }
 
+    public async Task<ILlmEndpointGrain?> AssignedEndpointAsync(
+        Guid personaId,
+        JobComplexity tier,
+        CancellationToken cancellationToken = default)
+    {
+        var routes = _cachedRoutes ??= (await GrainFactory.GetGrain<ILlmProviderConfigGrain>(0).GetPersonaRoutesAsync())
+            .ToDictionary(r => (r.PersonaId, r.Tier), r => r.ProviderId);
+        if (!routes.TryGetValue((personaId, tier), out var providerId)) return null;
+
+        // Disabled or benched: the persona falls back to the pool rather than going mute.
+        var benched = _benchedUntil.TryGetValue(providerId, out var until) && until > DateTimeOffset.UtcNow;
+        var assigned = benched ? null : (await GetProvidersAsync(cancellationToken))
+            .Where(p => p.Entry.Id == providerId).Select(p => p.Grain).FirstOrDefault();
+
+        using var span = Tracing.Persona.StartActivity("llm.route.assigned", ActivityKind.Internal);
+        span?.SetTag("persona.id", personaId);
+        span?.SetTag("job.complexity", tier.ToString());
+        span?.SetTag("provider.id", providerId);
+        span?.SetTag("decision", assigned is null ? "pool" : "assigned");
+        return assigned;
+    }
+
     public async Task<ILlmEndpointGrain> RouteAsync(
         JobComplexity jobComplexity,
         CancellationToken cancellationToken = default)
@@ -62,7 +86,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         // per-route network listing.
         var modelProviderTasks = providers.Select(async p =>
         {
-            var supports = p.Entry.SupportedComplexities.HasFlag(jobComplexity);
+            var supports = !p.Entry.Reserved && p.Entry.SupportedComplexities.HasFlag(jobComplexity);
             return new
             {
                 Grain = p.Grain,

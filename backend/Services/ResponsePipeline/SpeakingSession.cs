@@ -100,7 +100,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 
         // The spoken utterance is what the user reads: CharacterVoice tier, degrading to General
         // so a General-only setup never mutes every persona.
-        var result = await new LlmCall(router).StreamAsync(
+        var result = await new LlmCall(router, persona: persona.Id).StreamAsync(
             new LlmGenerationJob { Messages = messages }, LlmTiers.Voice, cancellationToken,
             chunk => onEvent(chunk.Type, chunk.Data, false), generateSpan);
 

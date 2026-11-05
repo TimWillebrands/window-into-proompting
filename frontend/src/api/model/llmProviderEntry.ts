@@ -23,4 +23,5 @@ export interface LlmProviderEntry {
     isEnabled?: boolean;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     priority?: number | string;
+    reserved?: boolean;
 }

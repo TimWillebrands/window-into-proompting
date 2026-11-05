@@ -10,8 +10,9 @@ public sealed record LlmCallResult(string Content, string Reasoning, ChatMessage
 /// <summary>
 /// One LLM call over the router seam: tier fallback, best-effort attribution, stream accumulation.
 /// Callers bring the job and their tier order; they no longer route or loop chunks themselves.
+/// With <paramref name="persona"/>, that persona's assigned providers win over the shared pool.
 /// </summary>
-public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null)
+public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid? persona = null)
 {
     /// <summary>Route to the first tier with a provider; <paramref name="tiers"/> is preference order.
     /// Throws the last tier's <see cref="InvalidOperationException"/> when none has one.</summary>
@@ -22,6 +23,8 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null)
         {
             try
             {
+                if (persona is { } id && await router.AssignedEndpointAsync(id, tiers[i], ct) is { } assigned)
+                    return (assigned, tiers[i]);
                 return (await router.RouteAsync(tiers[i], ct), tiers[i]);
             }
             catch (InvalidOperationException) when (i < tiers.Count - 1)

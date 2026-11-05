@@ -147,7 +147,7 @@ public sealed partial class PersonaSelfGrain(
         using var cts = new CancellationTokenSource(DayBudget);
         try
         {
-            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"threads\": {ThreadsSpec}",
                 $"Their day:\n{string.Join("\n", state.State.Beats.Select(b => b.Text))}\nOn their mind: {state.State.Preoccupation}",
                 cts.Token, 0.8, ["threads"]);
@@ -169,7 +169,7 @@ public sealed partial class PersonaSelfGrain(
         using var cts = new CancellationTokenSource(DayBudget);
         try
         {
-            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"openers\": {OpenersSpec}",
                 $"Their day so far:\n{string.Join("\n", state.State.Beats.Select(b => b.Text))}",
                 cts.Token, 0.9, ["openers"]);
@@ -219,7 +219,7 @@ public sealed partial class PersonaSelfGrain(
             var yesterday = state.State.DayKey is null
                 ? "(no record)"
                 : $"Mood: {state.State.Mood}. On your mind: {state.State.Preoccupation}. Last thing you did: {state.State.Beats.LastOrDefault()?.Text}";
-            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"""
                 {WorldLlm.Identity(self)}
 

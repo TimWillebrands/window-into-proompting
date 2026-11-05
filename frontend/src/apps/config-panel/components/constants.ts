@@ -1,10 +1,17 @@
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 
 export const JOB_COMPLEXITIES = [
-    { value: 1, label: 'General' },
-    { value: 2, label: 'Character Voice' },
-    { value: 4, label: 'Character Thoughts' },
+    { value: 1, label: 'General', hint: 'Decisions, plans and daily life' },
+    { value: 2, label: 'Character Voice', hint: 'What they say and write' },
+    {
+        value: 4,
+        label: 'Character Thoughts',
+        hint: 'Quick reactions and reflection',
+    },
 ] as const;
+
+export const providerLabel = (p: LlmProviderEntry) =>
+    `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Ollama' : 'OpenRouter'}`;
 
 export const EMPTY_ENTRY: LlmProviderEntry = {
     type: 'ollama',
@@ -34,9 +41,16 @@ export const SECTIONS = [
         icon: '🤖',
         description: 'Configure AI model endpoints and API keys',
     },
+    {
+        id: 'persona-models',
+        label: 'Persona Models',
+        icon: '🎭',
+        description: 'Give a persona its own model for a kind of work',
+    },
 ] as const;
 
 export const SECTION_NAMES: Record<string, string> = {
     home: 'Control Panel',
     'llm-providers': 'Language Model Providers',
+    'persona-models': 'Persona Models',
 };

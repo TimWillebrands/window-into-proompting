@@ -7,11 +7,13 @@ import { JOB_COMPLEXITIES } from './constants';
 
 export default function ProviderCard({
     provider,
+    personaCount = 0,
     onEdit,
     onDeleted,
     onToggled,
 }: {
     provider: LlmProviderEntry;
+    personaCount?: number;
     onEdit: () => void;
     onDeleted: () => void;
     onToggled: () => void;
@@ -121,20 +123,36 @@ export default function ProviderCard({
                             {provider.modelName}
                         </span>
                     )}
-                    {complexityLabels.map((label) => (
+                    {(provider.reserved ? ['Reserved'] : complexityLabels).map(
+                        (label) => (
+                            <span
+                                key={label}
+                                style={{
+                                    background: 'rgba(100,180,255,0.2)',
+                                    border: '1px solid rgba(100,180,255,0.4)',
+                                    color: '#adf',
+                                    fontSize: 10,
+                                    padding: '1px 6px',
+                                }}
+                            >
+                                {label}
+                            </span>
+                        ),
+                    )}
+                    {personaCount > 0 && (
                         <span
-                            key={label}
                             style={{
-                                background: 'rgba(100,180,255,0.2)',
-                                border: '1px solid rgba(100,180,255,0.4)',
-                                color: '#adf',
+                                background: 'rgba(255,210,120,0.2)',
+                                border: '1px solid rgba(255,210,120,0.45)',
+                                color: '#fe9',
                                 fontSize: 10,
                                 padding: '1px 6px',
                             }}
                         >
-                            {label}
+                            🎭 {personaCount}{' '}
+                            {personaCount === 1 ? 'persona' : 'personas'}
                         </span>
-                    ))}
+                    )}
                 </div>
             </div>
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>

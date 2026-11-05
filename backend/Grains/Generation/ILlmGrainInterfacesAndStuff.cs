@@ -58,6 +58,13 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
         JobComplexity jobComplexity,
         CancellationToken cancellationToken = default);
 
+    /// <summary>The provider this persona is assigned for this tier; null means use the shared pool.</summary>
+    [Alias("AssignedEndpointAsync")]
+    Task<ILlmEndpointGrain?> AssignedEndpointAsync(
+        Guid personaId,
+        JobComplexity tier,
+        CancellationToken cancellationToken = default);
+
     [Alias("GetModelsAsync")]
     Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default);
 

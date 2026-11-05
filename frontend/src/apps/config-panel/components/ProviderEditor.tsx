@@ -120,19 +120,19 @@ export default function ProviderEditor({
                 </div>
             </FormRow>
 
-            <FormRow label="Handles">
+            <FormRow label="Used by">
                 <div
-                    style={{
-                        display: 'flex',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                    }}
-                    title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
                 >
-                    {JOB_COMPLEXITIES.map((c) => (
+                    {[
+                        { reserved: false, label: 'All personas' },
+                        {
+                            reserved: true,
+                            label: 'Only personas assigned to it in Persona Models',
+                        },
+                    ].map((o) => (
                         <label
-                            key={c.value}
+                            key={o.label}
                             style={{
                                 color: '#000',
                                 fontSize: 12,
@@ -143,19 +143,55 @@ export default function ProviderEditor({
                             }}
                         >
                             <input
-                                type="checkbox"
-                                checked={
-                                    ((form.supportedComplexities ?? 0) &
-                                        c.value) !==
-                                    0
-                                }
-                                onChange={() => toggleComplexity(c.value)}
+                                type="radio"
+                                name="provider-used-by"
+                                checked={!!form.reserved === o.reserved}
+                                onChange={() => set({ reserved: o.reserved })}
                             />
-                            {c.label}
+                            {o.label}
                         </label>
                     ))}
                 </div>
             </FormRow>
+
+            {!form.reserved && (
+                <FormRow label="Handles">
+                    <div
+                        style={{
+                            display: 'flex',
+                            gap: 12,
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                        }}
+                        title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
+                    >
+                        {JOB_COMPLEXITIES.map((c) => (
+                            <label
+                                key={c.value}
+                                style={{
+                                    color: '#000',
+                                    fontSize: 12,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={
+                                        ((form.supportedComplexities ?? 0) &
+                                            c.value) !==
+                                        0
+                                    }
+                                    onChange={() => toggleComplexity(c.value)}
+                                />
+                                {c.label}
+                            </label>
+                        ))}
+                    </div>
+                </FormRow>
+            )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button

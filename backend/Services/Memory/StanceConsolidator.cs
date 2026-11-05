@@ -49,7 +49,7 @@ public sealed class StanceConsolidator(IGrainFactory grains, ILogger<StanceConso
             return Array.Empty<StanceProposal>();
         }
 
-        var (endpoint, complexity) = await RouteAsync(cancellationToken);
+        var (endpoint, complexity) = await RouteAsync(subject.PersonaId, cancellationToken);
 
         var nameById = roster.ToDictionary(r => r.PersonaId, r => r.Name);
         var rosterBlock = roster.Count == 0
@@ -250,6 +250,6 @@ New memories to sleep on (oldest first, weight = how much it stuck):
         };
 
     /// <summary>Consolidation runs in rest, off the beat path: cheap tier, degrading to General.</summary>
-    private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(CancellationToken cancellationToken)
-        => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger).RouteAsync(LlmTiers.Thoughts, cancellationToken);
+    private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(Guid personaId, CancellationToken cancellationToken)
+        => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger, personaId).RouteAsync(LlmTiers.Thoughts, cancellationToken);
 }

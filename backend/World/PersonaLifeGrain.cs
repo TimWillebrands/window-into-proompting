@@ -179,7 +179,7 @@ Output ONLY JSON: {ChoiceShape}
             // No options menu here: with it in view the intent drifted to another App's option.
             var decided = options[choice - 1];
             var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
-            var voiced = await llm.CompleteJsonAsync(JobComplexity.General,
+            var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\nOutput ONLY JSON: {IntentShape}",
                 $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
             thought = voiced?["thought"]?.ToString();
@@ -187,7 +187,7 @@ Output ONLY JSON: {ChoiceShape}
         }
         else
         {
-            var json = await llm.CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8, ["thought", "choice", "intent"]);
+            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8, ["thought", "choice", "intent"]);
             thought = json?["thought"]?.ToString();
             intent = json?["intent"]?.ToString() ?? string.Empty;
             var choiceRaw = json?["choice"]?.ToString() ?? "0";

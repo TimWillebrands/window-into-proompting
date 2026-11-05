@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { useGetLlmConfigProviders } from '#api/party-zone';
+import {
+    useGetLlmConfigPersonaRoutes,
+    useGetLlmConfigProviders,
+} from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 import { EMPTY_ENTRY } from './constants';
 import ProviderCard from './ProviderCard';
@@ -9,6 +12,13 @@ import ProviderModal from './ProviderModal';
 export default function LlmProvidersSection() {
     const { data, refetch } = useGetLlmConfigProviders();
     const providers: LlmProviderEntry[] = data?.data ?? [];
+    const routes = useGetLlmConfigPersonaRoutes().data?.data ?? [];
+    const personaCount = (providerId?: string) =>
+        new Set(
+            routes
+                .filter((r) => r.providerId === providerId)
+                .map((r) => r.personaId),
+        ).size;
     const [editing, setEditing] = useState<LlmProviderEntry | null>(null);
     const [isNew, setIsNew] = useState(false);
 
@@ -106,6 +116,7 @@ export default function LlmProvidersSection() {
                     <ProviderCard
                         key={p.id}
                         provider={p}
+                        personaCount={personaCount(p.id)}
                         onEdit={() => openEdit(p)}
                         onDeleted={refetch}
                         onToggled={refetch}

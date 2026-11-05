@@ -75,6 +75,78 @@ public class RouterGrainTest : TestKitBase
         Assert.Equal(1, endpoints[0].TotalJobsReceived);
     }
 
+    private (FakeEndpointGrain Pool, FakeEndpointGrain Reserved) SetupReserved(
+        Guid persona, bool enabled = true)
+    {
+        var pool = new FakeEndpointGrain(Guid.NewGuid(), JobComplexity.General);
+        var reserved = new FakeEndpointGrain(Guid.NewGuid(), JobComplexity.General);
+        pool.RegisterOn(Silo);
+        reserved.RegisterOn(Silo);
+        var config = Silo.AddProbe<ILlmProviderConfigGrain>(0);
+        config.Setup(g => g.GetProvidersAsync()).ReturnsAsync(new List<LlmProviderEntry>
+        {
+            new()
+            {
+                Id = pool.Id, Type = "ollama", BaseUrl = "http://fake", IsEnabled = true,
+                SupportedComplexities = JobComplexity.General,
+            },
+            new()
+            {
+                Id = reserved.Id, Type = "ollama", BaseUrl = "http://fake", IsEnabled = enabled,
+                SupportedComplexities = JobComplexity.General, Reserved = true,
+            },
+        });
+        config.Setup(g => g.GetPersonaRoutesAsync()).ReturnsAsync(new List<PersonaRoute>
+        {
+            new() { PersonaId = persona, Tier = JobComplexity.General, ProviderId = reserved.Id },
+        });
+        return (pool, reserved);
+    }
+
+    [Fact]
+    public async Task RouteAsync_NeverPicksAReservedProvider()
+    {
+        var (pool, _) = SetupReserved(Guid.NewGuid());
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        for (var i = 0; i < 5; i++)
+            Assert.Same(pool.Reference, await router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task AssignedEndpoint_ReturnsTheProviderForThatPersonaAndTierOnly()
+    {
+        var persona = Guid.NewGuid();
+        var (_, reserved) = SetupReserved(persona);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        Assert.Same(reserved.Reference, await router.AssignedEndpointAsync(persona, JobComplexity.General));
+        Assert.Null(await router.AssignedEndpointAsync(persona, JobComplexity.CharacterVoice));
+        Assert.Null(await router.AssignedEndpointAsync(Guid.NewGuid(), JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task AssignedEndpoint_FallsBackToThePoolWhenDisabled()
+    {
+        var persona = Guid.NewGuid();
+        SetupReserved(persona, enabled: false);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        Assert.Null(await router.AssignedEndpointAsync(persona, JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task AssignedEndpoint_FallsBackToThePoolWhileBenched()
+    {
+        var persona = Guid.NewGuid();
+        var (_, reserved) = SetupReserved(persona);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.ReportFailureAsync(reserved.Id, "quota");
+
+        Assert.Null(await router.AssignedEndpointAsync(persona, JobComplexity.General));
+    }
+
     [Fact]
     public async Task RouteAsync_PrefersLowerPriorityNumber()
     {
