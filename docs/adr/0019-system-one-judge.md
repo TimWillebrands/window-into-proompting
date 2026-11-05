@@ -71,6 +71,8 @@ build is 6.5 GB). That changes where compute should go:
   quality shows. The Speaking phase (`CharacterVoice` tier) now runs on `anthropic/claude-haiku-5.5`.
   Decision and Capture extraction stay on a cheap fast model.
 
+> Superseded by [ADR 0034](0034-system-one-through-providers.md): judges are now Decisions providers.
+
 `FailoverJudge` tries the judges in order: `SYSTEM_ONE_LOCAL_URL` (for example llama-server on :8091),
 then `TYPESAFE_API_KEY`, then Jev via `OPENROUTER_API_KEY` (on by default; turn it off with
 `SYSTEM_ONE_OPENROUTER=false`). A judge that fails sits out for 5 min.

@@ -1,12 +1,23 @@
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 
-export const JOB_COMPLEXITIES = [
-    { value: 1, label: 'General', hint: 'Decisions, plans and daily life' },
+export const DECISIONS = 8;
+
+export const PERSONA_TIERS = [
+    { value: 1, label: 'General', hint: 'Plans and daily life' },
     { value: 2, label: 'Character Voice', hint: 'What they say and write' },
     {
         value: 4,
         label: 'Character Thoughts',
         hint: 'Quick reactions and reflection',
+    },
+] as const;
+
+export const JOB_COMPLEXITIES = [
+    ...PERSONA_TIERS,
+    {
+        value: DECISIONS,
+        label: 'Decisions',
+        hint: 'System One weighing; the model must serve /systemone',
     },
 ] as const;
 

@@ -22,6 +22,11 @@ public sealed class LlmProviderConfigGrain(
         {
             await SeedFromOptionsAsync();
         }
+
+        if (!state.State.DecisionsSeeded)
+        {
+            await SeedDecisionProvidersAsync();
+        }
     }
 
     public Task<List<LlmProviderEntry>> GetProvidersAsync()
@@ -128,6 +133,16 @@ public sealed class LlmProviderConfigGrain(
         logger.LogInformation("Seeded {Count} LLM providers from appsettings", entries.Count);
     }
 
+    /// <summary>Worlds seeded before ADR 0034 have no Decisions provider; without this, Jev would silently go.</summary>
+    private async Task SeedDecisionProvidersAsync()
+    {
+        var entries = seedOptions.Value.DecisionProviders.Select(p => p with { Id = Guid.NewGuid() }).ToList();
+        state.State.Providers.AddRange(entries);
+        state.State.DecisionsSeeded = true;
+        await state.WriteStateAsync();
+        logger.LogInformation("Seeded {Count} Decisions providers", entries.Count);
+    }
+
     private Task InvalidateRouter()
         => GrainFactory.GetGrain<ILlmRouterGrain>(0).InvalidateCacheAsync();
 }
@@ -162,6 +177,7 @@ public sealed class LlmProviderConfigState
     [Id(0)] public List<LlmProviderEntry> Providers { get; set; } = [];
     [Id(1)] public bool SeededFromOptions { get; set; }
     [Id(2)] public List<PersonaRoute> PersonaRoutes { get; set; } = new();
+    [Id(3)] public bool DecisionsSeeded { get; set; }
 }
 
 /// <summary>This persona's work at this tier goes to this provider instead of the shared pool.</summary>

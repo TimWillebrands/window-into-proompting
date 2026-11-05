@@ -53,27 +53,30 @@ public sealed class SystemOneAnswers
 }
 
 /// <summary>
-/// Any <c>/v1/systemone</c> server: TypeSafe Jev, Jev via OpenRouter, or a local decision model
-/// (Cloudflare Clef via llama.cpp). Same wire format everywhere.
+/// The <c>/v1/systemone</c> wire format, served by TypeSafe Jev, Jev via OpenRouter, or a local decision
+/// model (Cloudflare Clef via llama.cpp). Providers call it through <see cref="ProviderJudge"/>.
 /// </summary>
 public sealed class HttpSystemOneJudge(HttpClient http, string name, string url, string? apiKey, string model, ILogger<HttpSystemOneJudge> logger)
     : ISystemOneJudge
 {
-    public const string TypeSafeUrl = "https://api.typesafe.ai/v1/systemone";
+    public const string ClientName = "systemone";
+    public const string TypeSafeBaseUrl = "https://api.typesafe.ai/v1";
     public const string TypeSafeModel = "jev-latest";
     public const string OpenRouterUrl = "https://openrouter.ai/api/v1/systemone";
     public const string OpenRouterModel = "~typesafe/jev-latest";
-
-    public string Name => name;
+    public const string LocalModel = "clef-flash";
 
     public bool Enabled => true;
 
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+        => ParseResponse(await PostAsync(http, url, apiKey, BuildRequest(model, state, questions), name, logger, ct));
+
+    public static async Task<string> PostAsync(HttpClient http, string url, string? apiKey, JsonObject request, string name, ILogger logger, CancellationToken ct)
     {
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         using var req = new HttpRequestMessage(HttpMethod.Post, url)
         {
-            Content = new StringContent(BuildRequest(model, state, questions).ToJsonString(), Encoding.UTF8, "application/json"),
+            Content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json"),
         };
         if (!string.IsNullOrEmpty(apiKey))
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -86,10 +89,16 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
         }
         logger.LogInformation("System One {Judge} answered in {Ms:F0}ms",
             name, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-        return ParseResponse(body);
+        return body;
     }
 
     public static JsonObject BuildRequest(string model, string state, IReadOnlyDictionary<string, SystemOneQuestion> questions)
+        => BuildRequest(model, state, BuildQuestions(questions));
+
+    public static JsonObject BuildRequest(string model, string state, JsonNode questions)
+        => new() { ["model"] = model, ["state"] = state, ["questions"] = questions };
+
+    public static JsonObject BuildQuestions(IReadOnlyDictionary<string, SystemOneQuestion> questions)
     {
         var qs = new JsonObject();
         foreach (var (key, q) in questions)
@@ -107,7 +116,7 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
                 _ => throw new NotSupportedException(q.GetType().Name),
             };
         }
-        return new JsonObject { ["model"] = model, ["state"] = state, ["questions"] = qs };
+        return qs;
     }
 
     public static SystemOneAnswers ParseResponse(string body)
@@ -127,45 +136,67 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
     }
 }
 
-/// <summary>Tries judges in order (local first); a failing judge sits out for a while instead of costing latency every beat.</summary>
-public sealed class FailoverJudge(IReadOnlyList<ISystemOneJudge> judges, ILogger<FailoverJudge> logger) : ISystemOneJudge
+/// <summary>System One on the provider layer (ADR 0034): the Decisions tier routes, benches and falls through like any other.</summary>
+public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILogger<ProviderJudge> logger)
+    : BackgroundService, ISystemOneJudge
 {
-    private static readonly TimeSpan Bench = TimeSpan.FromMinutes(5);
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DateTimeOffset> _benchedUntil = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> _down = new();
+    private static readonly TimeSpan RefreshEvery = TimeSpan.FromSeconds(30);
+    private volatile bool _hasProviders;
 
-    public bool Enabled => judges.Any(j => j.Enabled);
+    public bool Enabled => _hasProviders || emulation.Enabled;
+
+    /// <summary>Callers read <see cref="Enabled"/> synchronously, so it's answered before the world starts.</summary>
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await RefreshAsync();
+        await base.StartAsync(cancellationToken);
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(RefreshEvery);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken)) await RefreshAsync();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public async Task RefreshAsync()
+    {
+        try
+        {
+            var providers = await grains.GetGrain<ILlmProviderConfigGrain>(0).GetProvidersAsync();
+            _hasProviders = providers.Any(p => p.IsEnabled && !p.Reserved && p.SupportedComplexities.HasFlag(JobComplexity.Decisions));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't read providers for System One; keeping the last answer");
+        }
+    }
 
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
     {
+        if (!_hasProviders) return await emulation.AskAsync(state, questions, ct);
+
+        var router = grains.GetGrain<ILlmRouterGrain>(0);
+        var questionsJson = HttpSystemOneJudge.BuildQuestions(questions).ToJsonString();
+        var tried = new HashSet<ILlmEndpointGrain>();
         Exception? last = null;
-        for (var i = 0; i < judges.Count; i++)
+        while (true)
         {
-            if (!judges[i].Enabled) continue;
-            if (_benchedUntil.TryGetValue(i, out var until) && until > DateTimeOffset.UtcNow && i < judges.Count - 1) continue;
+            // A failing endpoint benches itself, so the next route finds another; the same one again means none is left.
+            var endpoint = await router.RouteAsync(JobComplexity.Decisions, ct);
+            if (!tried.Add(endpoint)) throw last!;
             try
             {
-                var answers = await judges[i].AskAsync(state, questions, ct);
-                _benchedUntil.TryRemove(i, out _);
-                if (_down.TryRemove(i, out _)) logger.LogInformation("System One judge #{Index} is back", i);
-                return answers;
+                return HttpSystemOneJudge.ParseResponse(await endpoint.JudgeAsync(state, questionsJson, ct));
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 last = ex;
-                _benchedUntil[i] = DateTimeOffset.UtcNow + Bench;
-                // Down or unreachable is expected (local Clef not running): one line, no stack trace.
-                // Warn once per outage; retries of a judge that's still down are debug.
-                if (ex is HttpRequestException or TaskCanceledException)
-                {
-                    if (_down.TryAdd(i, 0)) logger.LogWarning("System One judge #{Index} unavailable ({Error}); retrying every {Minutes} min", i, ex.Message, Bench.TotalMinutes);
-                    else logger.LogDebug("System One judge #{Index} still unavailable ({Error})", i, ex.Message);
-                }
-                else
-                    logger.LogWarning(ex, "System One judge #{Index} failed; benched for {Minutes} min", i, Bench.TotalMinutes);
             }
         }
-        throw last ?? new InvalidOperationException("No System One judge configured.");
     }
 }
 

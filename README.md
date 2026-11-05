@@ -56,10 +56,11 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 ```bash
 # local decision model (Cloudflare Clef-Flash, 6.5 GB) on llama.cpp's /v1/systemone
 tools/systemone/run-clef.sh                          # LLAMA_SERVER=/path/to/llama-server if not on PATH
-export SYSTEM_ONE_LOCAL_URL=http://127.0.0.1:8091   # before starting the AppHost
 ```
 
-Without a local server, Jev on OpenRouter (same API key) does the deciding. If both are down, the LLM decides as before. The voice runs on `anthropic/claude-haiku-5.5`; thinking and memory extraction run on `deepseek/deepseek-v4.1-flash`.
+Decision models are providers like any other. In Control Panel → LLM providers, add an Ollama entry with Base URL `http://127.0.0.1:8091` and model `clef-flash`, and tick only **Decisions** under Handles. Give it a lower Priority than Jev to run it first. Keep decision models on their own entries: they can't generate text, and a failing entry is benched as a whole.
+
+Your `OPENROUTER_API_KEY` adds Jev on OpenRouter as a Decisions provider on first boot, so it does the deciding without a local server. `SYSTEM_ONE_LOCAL_URL` and `TYPESAFE_API_KEY` are read at that same first boot too; after that, Control Panel owns them. If every decision provider is down, callers fall back to the LLM as before. The voice runs on `anthropic/claude-haiku-5.5`; thinking and memory extraction run on `deepseek/deepseek-v4.1-flash`.
 
 ## Hacking on it
 

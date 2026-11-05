@@ -223,6 +223,7 @@ export default function ProviderEditor({
                         {JOB_COMPLEXITIES.map((c) => (
                             <label
                                 key={c.value}
+                                title={c.hint}
                                 style={{
                                     color: '#000',
                                     fontSize: 12,
@@ -245,6 +246,20 @@ export default function ProviderEditor({
                             </label>
                         ))}
                     </div>
+                </FormRow>
+            )}
+
+            {!form.reserved && (
+                <FormRow label="Priority">
+                    <input
+                        type="number"
+                        value={form.priority ?? 0}
+                        onChange={(e) =>
+                            set({ priority: Number(e.target.value) })
+                        }
+                        title="Lower goes first; equal priorities share the load"
+                        style={inputStyle}
+                    />
                 </FormRow>
             )}
 

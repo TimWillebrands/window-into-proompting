@@ -8,6 +8,9 @@ public sealed class LlmOptions
     public const string SectionName = "Llm";
 
     public List<ILlmProviderConfig> Providers { get; set; } = [];
+
+    /// <summary>System One's env chain, added once as Decisions providers; Control Panel owns them after that.</summary>
+    public List<LlmProviderEntry> DecisionProviders { get; set; } = [];
 }
 
 /// <summary>

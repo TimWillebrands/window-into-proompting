@@ -39,34 +39,6 @@ public class SystemOneTest
     }
 
     [Fact]
-    public async Task Failover_SkipsFailingJudgeAndBenchesIt()
-    {
-        var broken = new FakeJudge(fail: true);
-        var good = new FakeJudge(fail: false);
-        var judge = new FailoverJudge(new ISystemOneJudge[] { broken, good },
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<FailoverJudge>.Instance);
-        var q = new Dictionary<string, SystemOneQuestion> { ["x"] = new NoulQuestion("x") };
-
-        await judge.AskAsync("s", q, CancellationToken.None);
-        await judge.AskAsync("s", q, CancellationToken.None);
-
-        Assert.Equal(1, broken.Calls);
-        Assert.Equal(2, good.Calls);
-    }
-
-    private sealed class FakeJudge(bool fail) : ISystemOneJudge
-    {
-        public int Calls;
-        public bool Enabled => true;
-
-        public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
-        {
-            Calls++;
-            return fail ? throw new HttpRequestException("down") : Task.FromResult(new SystemOneAnswers());
-        }
-    }
-
-    [Fact]
     public void SampleChoice_FollowsDistributionAndSharpensWithLowTemperature()
     {
         var answers = new SystemOneAnswers();

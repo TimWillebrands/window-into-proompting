@@ -1,0 +1,34 @@
+# System One through the provider layer
+
+> Status: accepted. Replaces the judge chain in ADR 0019's addendum. Builds on ADR 0032 and ADR 0033. Vocabulary in `CONTEXT.md`.
+
+System One's judges were an env-configured chain beside the providers. A local Clef couldn't use a Tailnet, changing a
+judge meant a redeploy, and decisions never showed up in Control Panel or AI observability.
+
+## Decision
+
+1. **System One is the Decisions tier.** A provider that handles Decisions answers `/systemone`. URL, key, model, Tailnet,
+   enabled and priority work as they do for generation.
+2. **The router picks and the endpoint calls.** `ProviderJudge` routes on the tier and asks the endpoint grain. A failing
+   endpoint benches itself, so routing again finds the next provider within the same call.
+3. **Any judge failure benches, not only hard ones.** Decisions sit on the beat path, so a slow or broken provider would
+   cost latency on every beat. A bench covers the whole entry, so decision models get their own entries.
+4. **Decisions don't queue behind generations.** Endpoint grains aren't reentrant, so `JudgeAsync` and `PressureAsync` are
+   `[AlwaysInterleave]`. Without this, routing a decision waits on any generation in progress.
+5. **`Enabled` stays synchronous.** Beat-path callers read it in about 14 places, so `ProviderJudge` caches it, refreshes
+   every 30 seconds, and answers before the World starts. Disabling the last Decisions provider takes up to 30 seconds.
+6. **The env chain seeds once.** `SYSTEM_ONE_LOCAL_URL`, `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` become Decisions
+   providers on first boot, in the old order. Worlds seeded earlier get this too, or Jev would silently stop. After that
+   Control Panel owns them, so a deleted one stays deleted and those variables are ignored.
+
+## What stays out
+
+- **Persona Routes.** Most System One calls have no Persona (ADR 0032), so Decisions isn't a Route tier.
+- **Reserved.** A Reserved Decisions provider is never used, because Routes are the only way to reach Reserved providers.
+- **LLM emulation** stays the fallback when no Decisions provider exists (`SYSTEM_ONE_EMULATE`).
+- **The Bench's Reflex calibration probe** keeps calling Jev directly through `HttpSystemOneJudge`.
+
+## Cost
+
+Decisions are now captured as AI generations, so PostHog events rise with the beat rate. Spend on a shared OpenRouter key
+already showed in Control Panel usage.

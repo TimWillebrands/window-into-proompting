@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace BackendTest.Fakes;
 
@@ -21,6 +22,9 @@ public sealed class FakeSocksProxy : IAsyncDisposable
 
     /// <summary>Hosts as received: a name here proves DNS was left to the sidecar.</summary>
     public List<string> Connects { get; } = new();
+
+    /// <summary>Each HTTP request as received, head then body.</summary>
+    public List<string> Requests { get; } = new();
 
     public string Url => $"socks5://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
 
@@ -50,8 +54,8 @@ public sealed class FakeSocksProxy : IAsyncDisposable
             await ReadAsync(s, greeting[1], ct);
             await s.WriteAsync(new byte[] { 5, 0 }, ct);
 
-            var head = await ReadAsync(s, 4, ct);
-            var host = head[3] switch
+            var socks = await ReadAsync(s, 4, ct);
+            var host = socks[3] switch
             {
                 1 => new IPAddress(await ReadAsync(s, 4, ct)).ToString(),
                 3 => Encoding.ASCII.GetString(await ReadAsync(s, (await ReadAsync(s, 1, ct))[0], ct)),
@@ -68,7 +72,11 @@ public sealed class FakeSocksProxy : IAsyncDisposable
             await s.WriteAsync(new byte[] { 5, reply, 0, 1, 0, 0, 0, 0, 0, 0 }, ct);
             if (reply != Succeeded) return;
 
-            await ReadHeadersAsync(s, ct);
+            var head = await ReadHeadersAsync(s, ct);
+            var length = Regex.Match(head, @"Content-Length: (\d+)", RegexOptions.IgnoreCase);
+            var sent = length.Success ? Encoding.UTF8.GetString(await ReadAsync(s, int.Parse(length.Groups[1].Value), ct)) : string.Empty;
+            lock (Requests) Requests.Add(head + sent);
+
             var body = Encoding.UTF8.GetBytes(Body);
             var response = $"HTTP/1.1 200 OK\r\nContent-Type: {ContentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
             await s.WriteAsync(Encoding.ASCII.GetBytes(response), ct);
@@ -84,7 +92,7 @@ public sealed class FakeSocksProxy : IAsyncDisposable
         return buffer;
     }
 
-    private static async Task ReadHeadersAsync(NetworkStream s, CancellationToken ct)
+    private static async Task<string> ReadHeadersAsync(NetworkStream s, CancellationToken ct)
     {
         var seen = new List<byte>();
         var one = new byte[1];
@@ -93,6 +101,7 @@ public sealed class FakeSocksProxy : IAsyncDisposable
             await s.ReadExactlyAsync(one, ct);
             seen.Add(one[0]);
         }
+        return Encoding.ASCII.GetString(seen.ToArray());
     }
 
     public async ValueTask DisposeAsync()

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PartyTown.Grains.Generation;
+using PartyTown.Services.SystemOne;
 
 namespace PartyTown.Configuration;
 
@@ -52,8 +53,30 @@ public static class LlmConfigurationExtensions
                         SupportedComplexities = JobComplexity.CharacterVoice,
                     });
                 }
+
+                AddDecisionProviders(options, config);
             });
         });
         return services;
+    }
+
+    private static void AddDecisionProviders(LlmOptions options, IConfiguration config)
+    {
+        void Add(string type, string baseUrl, string? apiKey, string model) => options.DecisionProviders.Add(new LlmProviderEntry
+        {
+            Type = type,
+            BaseUrl = baseUrl,
+            ApiKey = apiKey,
+            ModelName = model,
+            SupportedComplexities = JobComplexity.Decisions,
+            Priority = options.DecisionProviders.Count,
+        });
+
+        if (config["SYSTEM_ONE_LOCAL_URL"] is { Length: > 0 } local)
+            Add("ollama", local, null, config["SYSTEM_ONE_LOCAL_MODEL"] ?? HttpSystemOneJudge.LocalModel);
+        if (config["TYPESAFE_API_KEY"] is { Length: > 0 } typesafe)
+            Add("openrouter", HttpSystemOneJudge.TypeSafeBaseUrl, typesafe, config["TYPESAFE_MODEL"] ?? HttpSystemOneJudge.TypeSafeModel);
+        if (config["OPENROUTER_API_KEY"] is { Length: > 0 } openRouter && config.GetValue("SYSTEM_ONE_OPENROUTER", true))
+            Add("openrouter", new OpenRouterProviderConfig().BaseUrl, openRouter, config["SYSTEM_ONE_OPENROUTER_MODEL"] ?? HttpSystemOneJudge.OpenRouterModel);
     }
 }

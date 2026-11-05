@@ -6,6 +6,7 @@ using OpenAI.Chat;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Observability;
+using PartyTown.Services.SystemOne;
 
 namespace PartyTown.Grains.Generation;
 
@@ -105,6 +106,32 @@ public class OpenRouterEndpointGrain(
             modelName,
             BaseUrl,
             cancellationToken));
+    }
+
+    public async Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _activeGenerations);
+        try
+        {
+            return await LlmEndpointGrainUtils.JudgeAsync(
+                logger,
+                httpClientFactory.CreateClient(HttpSystemOneJudge.ClientName),
+                $"{BaseUrl.TrimEnd('/')}/systemone",
+                ApiKey,
+                state,
+                questionsJson,
+                () => Interlocked.Decrement(ref _activeGenerations),
+                aiObservability,
+                ProviderDescription,
+                ModelName,
+                BaseUrl,
+                cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            await ReportFailureAsync(ex);
+            throw;
+        }
     }
 
     private async Task<string> CompleteReportingAsync(Task<string> call)

@@ -46,6 +46,28 @@ public class RouterGrainTest : TestKitBase
         => endpoints.First(ep => ReferenceEquals(ep.Reference, routedGrain));
 
     [Fact]
+    public async Task RouteAsync_KeepsDecisionsAndGenerationApart()
+    {
+        var talker = new FakeEndpointGrain(Guid.NewGuid(), JobComplexity.General);
+        var decider = new FakeEndpointGrain(Guid.NewGuid(), JobComplexity.Decisions);
+        talker.RegisterOn(Silo);
+        decider.RegisterOn(Silo);
+        Silo.AddProbe<ILlmProviderConfigGrain>(0)
+            .Setup(g => g.GetProvidersAsync())
+            .ReturnsAsync(new[] { talker, decider }.Select(ep => new LlmProviderEntry
+            {
+                Id = ep.Id,
+                Type = "ollama",
+                BaseUrl = "http://fake",
+                SupportedComplexities = ep == talker ? JobComplexity.General : JobComplexity.Decisions,
+            }).ToList());
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        Assert.Same(decider.Reference, await router.RouteAsync(JobComplexity.Decisions));
+        Assert.Same(talker.Reference, await router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
     public async Task RouteAsync_ReturnsReferenceThatExposesRealEndpointMethods()
     {
         var endpoints = SetupEndpoints(1);

@@ -1,3 +1,4 @@
+using Orleans.Concurrency;
 using PartyTown.Model;
 
 namespace PartyTown.Grains.Generation;
@@ -20,8 +21,14 @@ public interface ILlmEndpointGrain : IGrainWithGuidKey
 
     // NOTE: Not sure if this is sufficient info for the router to make a decision
     // But this is how much backpressure (pending generations) the endpoint has
+    [AlwaysInterleave]
     [Alias("Pressure")]
     ValueTask<int> PressureAsync();
+
+    /// <summary>One System One call on this provider; wire JSON both ways, since questions aren't Orleans-serializable.</summary>
+    [AlwaysInterleave]
+    [Alias("JudgeAsync")]
+    Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default);
 
     /// <summary>Provider/model identity used for the next generation. Routed-to-and-recorded
     /// alongside the resulting <see cref="ChatMessage"/> as its papertrail metadata.</summary>
@@ -131,6 +138,11 @@ public enum JobComplexity
     /// history and character context.
     /// </summary>
     CharacterThoughts = 4,
+
+    /// <summary>
+    /// Decision model answering System One's probability questions over /systemone (ADR 0034).
+    /// </summary>
+    Decisions = 8,
 }
 
 /// <summary>

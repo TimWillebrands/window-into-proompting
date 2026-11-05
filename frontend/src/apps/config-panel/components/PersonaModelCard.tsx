@@ -2,7 +2,12 @@ import { usePutLlmConfigPersonaRoutesPersonaId } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 import type { Persona } from '../../../api/model/persona';
 import type { PersonaRoute } from '../../../api/model/personaRoute';
-import { JOB_COMPLEXITIES, providerLabel, selectStyle } from './constants';
+import {
+    DECISIONS,
+    PERSONA_TIERS,
+    providerLabel,
+    selectStyle,
+} from './constants';
 
 function TierSlot({
     label,
@@ -21,9 +26,11 @@ function TierSlot({
 }) {
     const chosen = providers.find((p) => p.id === providerId);
     const isOff = chosen?.isEnabled === false;
-    // A disabled provider stays listed only while it's the current choice.
+    // A disabled provider stays listed only while it's the current choice; a decisions-only one can't speak.
     const options = providers.filter(
-        (p) => p.isEnabled !== false || p.id === providerId,
+        (p) =>
+            p.id === providerId ||
+            (p.isEnabled !== false && p.supportedComplexities !== DECISIONS),
     );
     const reserved = options.filter((p) => p.reserved);
     const shared = options.filter((p) => !p.reserved);
@@ -215,7 +222,7 @@ export default function PersonaModelCard({
                     gap: 8,
                 }}
             >
-                {JOB_COMPLEXITIES.map((c) => (
+                {PERSONA_TIERS.map((c) => (
                     <TierSlot
                         key={c.value}
                         label={c.label}

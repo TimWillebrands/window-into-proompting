@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using OpenAI.Chat;
 using PartyTown.Observability;
+using PartyTown.Services.SystemOne;
 
 namespace PartyTown.Grains.Generation;
 
@@ -19,6 +20,48 @@ public static class LlmEndpointGrainUtils
         HttpRequestException => true,
         _ => false,
     };
+
+    private static readonly TimeSpan JudgeTimeout = TimeSpan.FromSeconds(20);
+
+    /// <summary>One System One call, captured like a generation; decisions sit on the beat path, so it gets a short deadline.</summary>
+    public static async Task<string> JudgeAsync(
+        ILogger logger,
+        HttpClient http,
+        string url,
+        string? apiKey,
+        string state,
+        string questionsJson,
+        Action onFinished,
+        IAiObservabilityCapture aiObservability,
+        string provider,
+        string model,
+        string baseUrl,
+        CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(JudgeTimeout);
+        var response = string.Empty;
+        var completed = false;
+
+        try
+        {
+            var request = HttpSystemOneJudge.BuildRequest(model, state, JsonNode.Parse(questionsJson)!);
+            response = await HttpSystemOneJudge.PostAsync(http, url, apiKey, request, provider, logger, deadline.Token);
+            completed = true;
+            return response;
+        }
+        finally
+        {
+            var input = new List<LlmChatMessage>
+            {
+                new() { Role = "system", Content = questionsJson },
+                new() { Role = "user", Content = state },
+            };
+            await aiObservability.CaptureGenerationAsync(
+                input, response, provider, model, baseUrl, null, streamed: false, isError: !completed, CancellationToken.None);
+            onFinished();
+        }
+    }
 
     /// <summary>Pass a stream through, telling the router when it dies of a hard failure.</summary>
     public static async IAsyncEnumerable<LlmGenerationEvent> ReportingHardFailures(

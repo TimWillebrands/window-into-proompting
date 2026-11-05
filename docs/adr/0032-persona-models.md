@@ -23,5 +23,5 @@ through the expensive model and everyone else stays cheap".
 
 Routed: the Response pipeline, Life, App acts in a Persona's voice, the day and lived sheet, and stance consolidation.
 
-Not routed: System One judges (a separate chain, also used with no Persona), memory extraction (one call covers several
+Not routed: System One judges (the Decisions tier, mostly used with no Persona; see ADR 0034), memory extraction (one call covers several
 Personas), Session homework (reads two people), Places design and art, the World Clock narrator.

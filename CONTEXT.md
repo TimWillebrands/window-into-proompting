@@ -289,7 +289,7 @@ An action an App offers *this* Persona *now* — "reply to Denise's DM", "say so
 _Avoid_: action, option, tool, command.
 
 **System One judge**:
-The fast, calibrated *weighing* half of a Relevance Realization call: state + typed questions → probabilities, no prose (TypeSafe Jev, or an LLM emulation). The *voicing* half stays with the LLM. Initiative samples from its distribution rather than taking the top pick. See [ADR 0019](docs/adr/0019-system-one-judge.md).
+The fast, calibrated *weighing* half of a Relevance Realization call: state + typed questions → probabilities, no prose (Jev, a local decision model, or an LLM emulation). Served by providers on the **Decisions** tier. The *voicing* half stays with the LLM. Initiative samples from its distribution rather than taking the top pick. See [ADR 0019](docs/adr/0019-system-one-judge.md) and [ADR 0034](docs/adr/0034-system-one-through-providers.md).
 _Avoid_: classifier, scorer, router.
 
 **Activity**:

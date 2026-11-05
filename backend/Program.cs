@@ -55,32 +55,14 @@ if (!openApiBuild)
 
     // World (ADR 0018): Apps are modes of engagement; Life picks among their Affordances.
     builder.Services.AddSingleton<PartyTown.World.IWorldLlm, PartyTown.World.WorldLlm>();
-    // System One (ADR 0019): local decision model first, then Jev (TypeSafe or OpenRouter), else LLM emulation.
+    // System One (ADR 0034): the Decisions provider tier; with none, LLM emulation if opted in.
+    builder.Services.AddSingleton<PartyTown.Services.SystemOne.LlmJudge>();
+    builder.Services.AddSingleton<PartyTown.Services.SystemOne.ProviderJudge>();
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(sp =>
-    {
-        var cfg = builder.Configuration;
-        var http = sp.GetRequiredService<IHttpClientFactory>();
-        var log = sp.GetRequiredService<ILogger<PartyTown.Services.SystemOne.HttpSystemOneJudge>>();
-        PartyTown.Services.SystemOne.ISystemOneJudge Http(string name, string url, string? key, string model)
-            => new PartyTown.Services.SystemOne.HttpSystemOneJudge(http.CreateClient("systemone"), name, url, key, model, log);
-
-        var judges = new List<PartyTown.Services.SystemOne.ISystemOneJudge>();
-        if (cfg["SYSTEM_ONE_LOCAL_URL"] is { Length: > 0 } local)
-            judges.Add(Http("local", $"{local.TrimEnd('/')}/v1/systemone", null, cfg["SYSTEM_ONE_LOCAL_MODEL"] ?? "clef-flash"));
-        if (cfg["TYPESAFE_API_KEY"] is { Length: > 0 } typesafe)
-            judges.Add(Http("typesafe", PartyTown.Services.SystemOne.HttpSystemOneJudge.TypeSafeUrl, typesafe,
-                cfg["TYPESAFE_MODEL"] ?? PartyTown.Services.SystemOne.HttpSystemOneJudge.TypeSafeModel));
-        if (cfg["OPENROUTER_API_KEY"] is { Length: > 0 } openRouter && cfg.GetValue("SYSTEM_ONE_OPENROUTER", true))
-            judges.Add(Http("openrouter-jev", PartyTown.Services.SystemOne.HttpSystemOneJudge.OpenRouterUrl, openRouter,
-                cfg["SYSTEM_ONE_OPENROUTER_MODEL"] ?? PartyTown.Services.SystemOne.HttpSystemOneJudge.OpenRouterModel));
-        if (judges.Count == 0)
-            return ActivatorUtilities.CreateInstance<PartyTown.Services.SystemOne.LlmJudge>(sp);
-        return new PartyTown.Services.SystemOne.FailoverJudge(judges,
-            sp.GetRequiredService<ILogger<PartyTown.Services.SystemOne.FailoverJudge>>());
-    });
-    // FailoverJudge is the resilience here: retrying a down local judge only adds latency and log noise.
+        sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
+    // The router's bench is the resilience here: retrying a down local judge only adds latency and log noise.
 #pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is still marked experimental
-    builder.Services.AddHttpClient("systemone", c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
+    builder.Services.AddHttpClient(PartyTown.Services.SystemOne.HttpSystemOneJudge.ClientName, c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
     builder.Services.AddSingleton<PartyTown.World.Reflex.ReflexGate>();
@@ -178,6 +160,8 @@ if (!openApiBuild)
     builder.Services.Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
 
     builder.Services.AddHostedService<NarratorSeederHostedService>();
+    // After the silo, before the World: beats read the judge's Enabled synchronously.
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
     builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();
 }
 
