@@ -219,6 +219,14 @@ app.UseOutputCache();
 
 app.MapControllers();
 
+// Before the silo starts (app.Run): nothing may touch memory ahead of its schema (ADR 0008).
+if (!openApiBuild)
+{
+    await using var schema = new Npgsql.NpgsqlConnection(app.Configuration.GetConnectionString("Default"));
+    await schema.OpenAsync();
+    await MemoryGraphSchema.EnsureAsync(schema);
+}
+
 // Dev runs one silo: a predecessor killed without a goodbye still reads Active and gets traffic until probed dead.
 if (!openApiBuild && app.Environment.IsDevelopment())
 {

@@ -248,7 +248,7 @@ public sealed class MemoryRepository(
     /// while the recency pool cap moves to C# (per-leg ORDER BY/LIMIT is not legal inside a
     /// UNION). Anchorless beats keep the exact pre-walk query, recency-pooled in Cypher.
     /// </summary>
-    private static string BuildRecallSql(
+    internal static string BuildRecallSql(
         Guid personaId,
         Guid partyId,
         IReadOnlyList<Guid> castAnchors,

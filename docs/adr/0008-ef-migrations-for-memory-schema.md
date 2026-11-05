@@ -1,6 +1,8 @@
 # EF migrations hold raw SQL for the AGE memory schema
 
 > Status: accepted. Supersedes the schema-management portion of [ADR 0006](0006-pure-age-for-memory.md) (specifically the "Schema lives in Cypher DDL, not EF migrations / manage in `docker-entrypoint-initdb.d/`" consequence). The rest of 0006 — pure AGE, no entity model, `AppDbContext` as connection holder — remains in force.
+>
+> Implemented with `InitMemoryGraph` and `AddMemoryReadIndexes`. See [As built](#as-built).
 
 The memory schema (`create_graph`, vertex and edge labels) is versioned through **EF Core migrations holding raw `migrationBuilder.Sql(...)` blocks**. There are still **no `DbSet<>`s** for memory entities and EF's model snapshot stays empty for them; the migration file is the schema's only source of truth. `dotnet ef migrations add <Name> --output-dir Data/Migrations` produces an empty scaffold, the developer hand-writes the Cypher DDL inside `Up()`.
 
@@ -54,6 +56,14 @@ Rationale: dev resets via volume wipe, prod rolls back by reverting the deployed
 ## Layout
 
 Migration files live flat under `backend/Data/Migrations/`. Descriptive names without a `Memory_` prefix — file count stays low, names like `InitMemoryGraph` / `AddStanceLabel` already self-describe. If file count explodes, subdir is a one-time refactor.
+
+## As built
+
+- **Boot path.** `Program.cs` calls `MemoryGraphSchema.EnsureAsync` before `app.Run`, so the silo never touches memory ahead of its schema. `backend-test` and the bench call the same method. A failed migration stops the boot.
+- **`InitMemoryGraph` is idempotent.** Dev volumes already have the graph from `06-memory-graph.sql`; production does not mount that script, so this migration is what creates it there.
+- **The history table is pinned to `public`** in `AppDbContext`. The database `search_path` leads with `ag_catalog`, so unqualified it would land in AGE's schema.
+- **An advisory lock wraps `MigrateAsync`.** The provider's `LOCK TABLE` is released between migrations, so concurrent callers double-apply and die on the history primary key.
+- **Hand-written, no snapshot.** Migrations carry their own `[DbContext]` and `[Migration]` attributes. The model is empty, so EF needs no snapshot, and the project has no `Microsoft.EntityFrameworkCore.Design` reference, so `dotnet ef migrations add` needs that added first.
 
 ## Consequences
 

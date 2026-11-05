@@ -629,6 +629,104 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     }
 
     [Fact]
+    public async Task Schema_HasEveryReadIndex_NoneUnique()
+    {
+        RequireDevStack();
+
+        await using var conn = new NpgsqlConnection(fixture.ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT c.relname::text, i.indisunique
+            FROM pg_catalog.pg_index i
+            JOIN pg_catalog.pg_class c ON c.oid = i.indexrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'memory'
+            """;
+        var unique = new Dictionary<string, bool>();
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+                unique[reader.GetString(0)] = reader.GetBoolean(1);
+        }
+
+        Assert.All(new[]
+        {
+            "memory_participant_id_idx", "memory_event_id_idx", "memory_concept_id_idx", "memory_persona_id_idx",
+            "memory_recollects_start_idx", "memory_recollects_end_idx", "memory_about_start_idx", "memory_about_end_idx",
+            "memory_stance_start_idx", "memory_participant_props_idx", "memory_persona_props_idx",
+        }, name => Assert.False(unique[name], name));
+    }
+
+    // Seq scans off: a leg no index can serve still shows Seq Scan, so this fails on the Cypher shape, not on table size.
+    [Fact]
+    public async Task Recall_EveryLeg_ReachesAnIndex()
+    {
+        RequireDevStack();
+
+        var sql = MemoryRepository.BuildRecallSql(
+            Guid.NewGuid(), Guid.NewGuid(), new[] { Guid.NewGuid() }, new[] { "lisp" }, Guid.NewGuid());
+
+        await using var conn = new NpgsqlConnection(
+            new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Options = "-c enable_seqscan=off" }.ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"EXPLAIN (COSTS OFF) {sql}";
+        var plan = new List<string>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            plan.Add(reader.GetString(0));
+
+        Assert.DoesNotContain(plan, line => line.Contains("Seq Scan"));
+        Assert.Contains(plan, line => line.Contains("memory_participant_props_idx"));
+    }
+
+    // RecallBeatAsync swallows read failures, so equal-and-empty must not pass: content is asserted first.
+    [Fact]
+    public async Task RecallBeat_SameResult_IndexedOrSeqScanned()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var cafe = Guid.NewGuid();
+        var vladId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var conceptName = $"lisp{Guid.NewGuid():N}";
+        var concept = new ConceptTag(conceptName, conceptName);
+        var repo = MakeRepo();
+
+        var aboutVlad = $"about-vlad-{Guid.NewGuid():N}";
+        var aboutLisp = $"about-lisp-{Guid.NewGuid():N}";
+        var atTheCafe = $"at-the-cafe-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, aboutVlad, weight: 0.5, aboutParticipantIds: new[] { vladId });
+        await CaptureForAsync(repo, partyId, roomId, hana, aboutLisp, weight: 0.5, concept: concept);
+        await CaptureForAsync(repo, partyId, roomId, hana, atTheCafe, weight: 0.5, placeId: cafe);
+        await CaptureForAsync(repo, partyId, roomId, hana, $"filler-{Guid.NewGuid():N}", weight: 0.5);
+
+        await repo.AppendStanceAsync(partyId, hana.Id, new StanceTargetSpec(StanceTargetKind.Participant, vladId, null, null),
+            0.4, "Vlad means well", null, CancellationToken.None);
+        await repo.AppendIntrinsicStanceAsync(hana.Id, new StanceTargetSpec(StanceTargetKind.Concept, null, conceptName, conceptName),
+            0.8, "Lisp is home", null, CancellationToken.None);
+
+        async Task<RecallBeat> ReadAsync(string sessionOptions) =>
+            await new MemoryRepository(fixture.FactoryWith(sessionOptions), NullExtractor.Instance, NullLogger<MemoryRepository>.Instance)
+                .RecallBeatAsync(new BeatAnchors(hana.Id, partyId, new[] { hana.Id, vladId }, $"so, {conceptName}?", cafe),
+                    memoryLimit: 10, stanceLimit: 6, NullLogger.Instance, CancellationToken.None);
+        static string[] Rows(RecallBeat beat) => beat.Memories.Select(m => $"{m.EdgeId}|{m.Arm}")
+            .Concat(beat.Stances.Select(s => $"{s.Reasoning}|{s.Valence}")).Order().ToArray();
+
+        var indexed = await ReadAsync("-c enable_seqscan=off");
+        var scanned = await ReadAsync("-c enable_indexscan=off -c enable_bitmapscan=off -c enable_indexonlyscan=off");
+
+        Assert.All(new[] { aboutVlad, aboutLisp, atTheCafe },
+            snippet => Assert.Equal(RecallArm.Relevant, Assert.Single(indexed.Memories, m => m.Snippet == snippet).Arm));
+        Assert.Equal(4, indexed.Memories.Count);
+        Assert.Equal(new[] { "Lisp is home", "Vlad means well" }, indexed.Stances.Select(s => s.Reasoning).Order());
+        Assert.Equal(Rows(scanned), Rows(indexed));
+    }
+
+    [Fact]
     public async Task Recall_ColdBeat_IdenticalToRecencyOnlyRecall()
     {
         RequireDevStack();

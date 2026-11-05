@@ -45,8 +45,7 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            // Dev Postgres already ran 05-age-setup.sql + 06-memory-graph.sql; this re-ensures the
-            // graph idempotently so a freshly-reset volume (or a partial init) still passes.
+            // Same migrations as backend boot, so tests run against the indexed schema; no-op once applied.
             await MemoryGraphSchema.EnsureAsync(probe);
             IsAvailable = true;
         }
@@ -56,6 +55,12 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
             UnavailableReason = ex.Message;
         }
     }
+
+    /// <summary>Same database with Postgres session settings applied, e.g. to force a plan.</summary>
+    public IDbContextFactory<AppDbContext> FactoryWith(string sessionOptions) => new TestDbContextFactory(
+        new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(new NpgsqlConnectionStringBuilder(ConnectionString) { Options = sessionOptions }.ConnectionString)
+            .Options);
 
     public Task DisposeAsync() => Task.CompletedTask;
 
