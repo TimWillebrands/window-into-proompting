@@ -22,7 +22,7 @@ dotnet run --project aspire/Proompting.AppHost   # start everything; dashboard U
 
 Prereqs: .NET 10 runtime + .NET 11 preview SDK (AppHost targets `net10.0`, backend `net11.0`), Node 22+ with pnpm, Docker.
 
-Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars. That includes `clerk-secret-key`; the backend won't start without it. Frontend Clerk keys live in `frontend/.env.local`.
+Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars. That includes `clerk-secret-key`; the backend won't start without it. Frontend Clerk keys live in `frontend/.env.local`. PostHog is off unless `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` are exported in the AppHost's shell.
 
 URLs: frontend http://localhost:5173 · backend http://localhost:5072 (Swagger at `/swagger`) · Postgres via `psql -h localhost -p 5455 -U partytown -d partytown`.
 

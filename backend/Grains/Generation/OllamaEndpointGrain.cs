@@ -6,11 +6,13 @@ using OpenAI;
 using OpenAI.Chat;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Observability;
 
 namespace PartyTown.Grains.Generation;
 
 public class OllamaEndpointGrain(
     IHttpClientFactory httpClientFactory,
+    IAiObservabilityCapture aiObservability,
     ILogger<OllamaEndpointGrain> logger
 ) : Grain, IOllamaEndpointGrain
 {
@@ -75,6 +77,10 @@ public class OllamaEndpointGrain(
                 parameters,
                 chatClient,
                 () => Interlocked.Decrement(ref _activeGenerations),
+                aiObservability,
+                "ollama",
+                modelName,
+                OpenAiOptions.Endpoint.ToString(),
                 cancellationToken),
             ReportFailureAsync,
             cancellationToken);
@@ -100,6 +106,10 @@ public class OllamaEndpointGrain(
             parameters,
             chatClient,
             () => Interlocked.Decrement(ref _activeGenerations),
+            aiObservability,
+            "ollama",
+            modelName,
+            OpenAiOptions.Endpoint.ToString(),
             cancellationToken));
     }
 

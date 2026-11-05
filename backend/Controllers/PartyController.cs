@@ -8,6 +8,7 @@ using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Realtime;
+using PostHog;
 
 namespace PartyTown.Controllers;
 
@@ -26,6 +27,7 @@ public sealed class PartyController(
     Actors actors,
     IMemoryCache cache,
     PartyTown.World.WorldMemory worldMemory,
+    IPostHogClient posthog,
     ILogger<PartyController> logger) : ControllerBase
 {
     /// <summary>
@@ -350,6 +352,11 @@ public sealed class PartyController(
         // Route directly to ChatGroupGrain for parallel persona fan-out
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
             .SendNewMessageAsync(senderId, request.Prompt);
+
+        posthog.Capture(User.ClerkUserId()!, "message_sent", new Dictionary<string, object>
+        {
+            ["party_id"] = id, ["room_id"] = request.ChatGroupId, ["length"] = request.Prompt.Length,
+        });
 
         return Accepted();
     }

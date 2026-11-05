@@ -1,0 +1,5 @@
+{
+  "provider": "manual-capture",
+  "package": "PostHog.AspNetCore",
+  "otel_init_file": "backend/Observability/AiObservabilityCapture.cs"
+}
