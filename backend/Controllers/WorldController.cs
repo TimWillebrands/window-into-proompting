@@ -107,6 +107,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var info = await party.GetParty();
         if (info.Participants.All(p => p.Id != personaId || p.Driver != DriverKind.LLM)) return NotFound();
         if (await party.RemoveParticipantAsync(personaId) is not { } leaving) return NotFound();
+        await grains.GetGrain<PartyTown.World.Relations.IRelationsGrain>(partyId).LeaveAsync(personaId);
         await Clock(partyId).RecordAsync(new WorldActivity
         {
             PersonaId = personaId, PersonaName = leaving.Name, App = "world", Action = "leave", Summary = "moved out of the world",

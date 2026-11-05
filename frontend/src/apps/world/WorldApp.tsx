@@ -7,7 +7,6 @@ import {
     useState,
 } from 'react';
 import {
-    getGetWorldsPartyIdLivesQueryKey,
     getGetWorldsPartyIdQueryKey,
     useGetLlmConfigUsage,
     useGetPersona,
@@ -17,7 +16,6 @@ import {
     useGetWorldsPartyIdSelves,
     useGetWorldsPartyIdSuspense,
     usePostWorldsPartyIdHappenings,
-    usePostWorldsPartyIdResidents,
     usePostWorldsPartyIdTick,
     usePutWorldsPartyId,
 } from '#api/party-zone';
@@ -33,8 +31,7 @@ import {
     usePlayerSession,
     WORLD_ID,
 } from '../../lib/world';
-
-const NARRATOR_ID = '0000aaaa-0000-0000-0000-00000000a17e';
+import { canMoveIn, useResidency } from '../personas/residence';
 
 const APPS: Record<string, { icon: string; label: string }> = {
     rooms: { icon: '💬', label: 'Rooms' },
@@ -240,24 +237,11 @@ function SpendCell() {
 /** Author-announced Happening: everyone perceives and remembers it. */
 /** Invite a library Persona to move into the World. */
 function InviteBar({ residentIds }: { residentIds: string[] }) {
-    const queryClient = useQueryClient();
     const personas = useGetPersona();
     const [pick, setPick] = useState('');
-    const invite = usePostWorldsPartyIdResidents({
-        mutation: {
-            onSuccess: () => {
-                setPick('');
-                queryClient.invalidateQueries({
-                    queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
-                });
-            },
-        },
-    });
+    const { moveIn, isPending } = useResidency();
     const candidates = (personas.data?.data ?? []).filter(
-        (p) =>
-            !residentIds.includes(p.id ?? '') &&
-            p.id !== NARRATOR_ID &&
-            p.systemPrompt !== 'A human visiting this world.',
+        (p) => !residentIds.includes(p.id ?? '') && canMoveIn(p),
     );
     if (candidates.length === 0) return null;
     return (
@@ -266,11 +250,7 @@ function InviteBar({ residentIds }: { residentIds: string[] }) {
             style={{ gap: 4, padding: '4px 8px' }}
             onSubmit={(e) => {
                 e.preventDefault();
-                if (pick)
-                    invite.mutate({
-                        partyId: WORLD_ID,
-                        data: { personaId: pick },
-                    });
+                if (pick) moveIn(pick, () => setPick(''));
             }}
         >
             <select
@@ -286,7 +266,7 @@ function InviteBar({ residentIds }: { residentIds: string[] }) {
                     </option>
                 ))}
             </select>
-            <button type="submit" disabled={!pick || invite.isPending}>
+            <button type="submit" disabled={!pick || isPending}>
                 Invite
             </button>
         </form>

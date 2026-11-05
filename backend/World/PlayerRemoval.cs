@@ -25,6 +25,7 @@ public sealed class PlayerRemoval(IGrainFactory grains)
         // Cast first: Places re-creates a Body for anyone still in it.
         if (await party.RemoveParticipantAsync(playerId) is null) return false;
         await grains.GetGrain<IPlacesGrain>(partyId).RemoveParticipantAsync(playerId);
+        await grains.GetGrain<Relations.IRelationsGrain>(partyId).LeaveAsync(playerId);
         await grains.GetGrain<IBoardGrain>(partyId).RemoveParticipantAsync(playerId);
         await grains.GetGrain<IWorldClockGrain>(partyId).ForgetPlayerAsync(playerId);
         await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).RemovePersona(playerId);

@@ -44,6 +44,16 @@ public sealed partial class PlacesGrain
         return place;
     }
 
+    public async Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name)
+    {
+        if (Find(placeId) is not { } place || place.Kind == PlaceKinds.Home) return null;
+        place.MadeBy = madeBy;
+        if (!string.IsNullOrWhiteSpace(name)) place.Name = WorldStream.Clip(name.Trim(), 60);
+        await SaveAsync();
+        await PublishPlaceAsync(place);
+        return place;
+    }
+
     public async Task<bool> CloseAsync(Guid placeId)
     {
         await SettleAsync();
@@ -79,7 +89,7 @@ public sealed partial class PlacesGrain
             .Where(p => p.DistrictId == districtId && p.Kind == PlaceKinds.Public && p.OpenedAt is not null && !IsStreets(p))
             .OrderBy(p => p.OpenedAt).ToList();
         var streets = state.State.Places.FirstOrDefault(p => p.DistrictId == districtId && IsStreets(p));
-        var residents = state.State.Places.Count(p => p.Kind == PlaceKinds.Home && p.DistrictId == districtId);
+        var residents = state.State.Places.Where(p => p.DistrictId == districtId).Sum(p => p.Living().Count());
         if (streets is null && venues.Count < DistrictScene.MinVenues && residents < DistrictScene.MinResidents) return;
         var scene = DistrictScene.Build(districtId, venues);
         if (streets is null)

@@ -121,19 +121,22 @@ public sealed partial class PlacesGrain(
     {
         await SettleAsync();
         var home = Find(homeId);
-        if (home is not { Kind: PlaceKinds.Home } || home.OwnerId is not { } owner || owner == visitorId) return false;
-        if (!state.State.Bodies.TryGetValue(owner, out var host) || host.IsWalking || host.PlaceId != homeId || host.Asleep) return false;
+        if (home is not { Kind: PlaceKinds.Home } || home.LivesIn(visitorId)) return false;
+        var hosts = home.Living().Select(id => state.State.Bodies.GetValueOrDefault(id))
+            .OfType<Body>().Where(b => !b.IsWalking && b.PlaceId == homeId && !b.Asleep).ToList();
+        if (hosts.Count == 0) return false;
         home.Knocks[visitorId] = Now();
         await SaveAsync();
         await PublishPlaceAsync(home);
-        if (!host.IsHuman && state.State.Bodies.TryGetValue(visitorId, out var visitor))
-            Perceive(owner, new Reflex.Percept(Reflex.PerceptKind.Knock, visitorId, visitor.Name, visitor.IsHuman, PlaceId: homeId));
+        if (state.State.Bodies.TryGetValue(visitorId, out var visitor))
+            foreach (var host in hosts.Where(h => !h.IsHuman))
+                Perceive(host.ParticipantId, new Reflex.Percept(Reflex.PerceptKind.Knock, visitorId, visitor.Name, visitor.IsHuman, PlaceId: homeId));
         return true;
     }
 
     public async Task<bool> LetInAsync(Guid ownerId, Guid visitorId)
     {
-        var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId);
+        var home = state.State.Places.HomeOf(ownerId);
         if (home is null) return false;
         var knocked = home.Knocks.Remove(visitorId);
         if (!home.Guests.Contains(visitorId)) home.Guests.Add(visitorId);
@@ -146,7 +149,7 @@ public sealed partial class PlacesGrain(
 
     public Task<List<Guid>> GetKnocksAsync(Guid ownerId)
     {
-        var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId);
+        var home = state.State.Places.HomeOf(ownerId);
         var now = Now();
         return Task.FromResult(home?.Knocks.Where(k => now - k.Value < KnockWaits.TotalMilliseconds).Select(k => k.Key).ToList()
             ?? new List<Guid>());
@@ -158,7 +161,7 @@ public sealed partial class PlacesGrain(
         if (string.IsNullOrWhiteSpace(description)) return null;
         if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking) return null;
         var home = Find(body.PlaceId);
-        if (home is not { Kind: PlaceKinds.Home } || home.OwnerId != participantId) return null;
+        if (home is not { Kind: PlaceKinds.Home } || !home.LivesIn(participantId)) return null;
         var now = Now();
         var midnight = new DateTimeOffset(time.GetLocalNow().Date, time.GetLocalNow().Offset).ToUnixTimeMilliseconds();
         if (Decor.PlacedToday(home.Furni, now, midnight) >= Decor.PerDay) return null;
@@ -211,7 +214,7 @@ public sealed partial class PlacesGrain(
                 continue;
             }
             if (!night || body.WokenUntil > now) continue;
-            var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == body.ParticipantId);
+            var home = state.State.Places.HomeOf(body.ParticipantId);
             if (home is null) continue;
             if (!body.IsWalking && body.PlaceId == home.Id && body.SpotId == "bed")
             {
@@ -528,7 +531,7 @@ public sealed partial class PlacesGrain(
 
         if (leaving is { } left && left != placeId)
         {
-            if (Find(left) is { Kind: PlaceKinds.Home } oldHome && oldHome.OwnerId == participantId)
+            if (Find(left) is { Kind: PlaceKinds.Home } oldHome && oldHome.LivesIn(participantId) && !Occupants(left).Any(b => oldHome.LivesIn(b.ParticipantId)))
             {
                 oldHome.Guests.Clear();
                 oldHome.Knocks.Clear();
@@ -560,7 +563,7 @@ public sealed partial class PlacesGrain(
     public async Task NoteActivityAsync(Guid participantId, string app)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
-        var atHome = Find(body.PlaceId)?.OwnerId == participantId && !body.IsWalking;
+        var atHome = Find(body.PlaceId)?.LivesIn(participantId) == true && !body.IsWalking;
         var activity = DeviceUse(app, atHome);
         if (activity is null) return;
         body.Activity = activity;
@@ -599,18 +602,21 @@ public sealed partial class PlacesGrain(
             done = FurniRules.Use(furni, place.Furni.FirstOrDefault(f => f.Kind == FurniKinds.Cups), now, body.Name.Split(' ')[0], intent);
         if (done is null) return null;
 
-        // Doing something with it means being next to it.
-        if (body.SpotId != furni.SpotId && PickSpot(place, furni.SpotId, participantId)?.Id == furni.SpotId)
-        {
-            body.SpotId = furni.SpotId;
-            body.Posture = place.Spots.FirstOrDefault(s => s.Id == furni.SpotId)?.Seat == true ? Posture.Sitting : Posture.Standing;
-        }
+        StepTo(body, place, furni);
         body.Activity = FurniRules.BusyWith(furni, care);
         body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
         await SaveAsync();
         await PublishAsync(body);
         await PublishPlaceAsync(place);
         return $"{done} {AtName(place, Guid.Empty)}";
+    }
+
+    /// <summary>Doing something with it means being next to it.</summary>
+    private void StepTo(Body body, Place place, Furni furni)
+    {
+        if (body.SpotId == furni.SpotId || PickSpot(place, furni.SpotId, body.ParticipantId)?.Id != furni.SpotId) return;
+        body.SpotId = furni.SpotId;
+        body.Posture = place.Spots.FirstOrDefault(s => s.Id == furni.SpotId)?.Seat == true ? Posture.Sitting : Posture.Standing;
     }
 
     /// <summary>Rule-based mishaps: now and then a machine somewhere public breaks, announced as a Happening.</summary>
@@ -686,7 +692,7 @@ public sealed partial class PlacesGrain(
         var changed = false;
         foreach (var c in present)
         {
-            var home = state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == c.Id);
+            var home = state.State.Places.HomeOf(c.Id) ?? OwnHome(c.Id);
             if (home is null)
             {
                 home = PlaceSeeds.Home(c.Id, c.Name);
@@ -729,6 +735,7 @@ public sealed partial class PlacesGrain(
         if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
+        changed |= ReleaseHousemates(state.State.Bodies.Keys.ToHashSet());
         // A Home goes with its owner once nobody's in it.
         state.State.Places.RemoveAll(p => p.Kind == PlaceKinds.Home && p.OwnerId is { } owner
             && present.All(c => c.Id != owner) && !Occupants(p.Id).Any());
@@ -832,7 +839,7 @@ public sealed partial class PlacesGrain(
         => state.State.Bodies.Values.Where(b => b.PlaceId == placeId && (b.DestPlaceId is null || b.DestPlaceId == placeId));
 
     private static bool MayEnter(Place place, Guid participantId)
-        => place.Kind != PlaceKinds.Home || place.OwnerId == participantId || place.Guests.Contains(participantId);
+        => place.Kind != PlaceKinds.Home || place.LivesIn(participantId) || place.Guests.Contains(participantId);
 
     private Spot? PickSpot(Place place, string? spotId, Guid participantId)
     {
@@ -851,7 +858,7 @@ public sealed partial class PlacesGrain(
             var mins = Math.Max(0, (body.ArriveAt!.Value - Now()) / 60_000.0);
             var eta = mins < 0.5 ? "almost there" : $"about {Math.Ceiling(mins)} min away";
             if (body.DestPlaceId == body.PlaceId)
-                return $"You're walking over to {SpotName(dest, body.DestSpotId)} {(dest?.OwnerId == body.ParticipantId ? "at" : dest?.At ?? "at")} {WhereName(dest, body.ParticipantId)}.";
+                return $"You're walking over to {SpotName(dest, body.DestSpotId)} {(dest?.LivesIn(body.ParticipantId) == true ? "at" : dest?.At ?? "at")} {WhereName(dest, body.ParticipantId)}.";
             return Find(body.PlaceId) is { } from && dest is not null && Districts.Apart(from, dest)
                 ? $"You're on the tram to {WhereName(dest, body.ParticipantId)} in {DistrictName(dest.DistrictId)}, {eta}."
                 : $"You're on your way to {WhereName(dest, body.ParticipantId)}, {eta}.";
@@ -871,10 +878,10 @@ public sealed partial class PlacesGrain(
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
-        // Someone else's Home shows who they are.
-        if (place is { Kind: PlaceKinds.Home } && place.OwnerId != body.ParticipantId)
+        // Someone else's Home shows who they are, and a Studio shows the work.
+        if (place is { Kind: PlaceKinds.Home } && !place.LivesIn(body.ParticipantId) || place?.Archetype == Art.Studio)
         {
-            var shown = place.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderByDescending(f => f.TendedAt).Take(2).Select(f => f.Name).ToList();
+            var shown = place!.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderByDescending(f => f.TendedAt).Take(2).Select(f => f.Name).ToList();
             if (shown.Count > 0) sb.Append(" On display: ").Append(string.Join("; ", shown)).Append('.');
         }
         if (place is { Kind: PlaceKinds.Public, Purpose.Length: > 0 }) sb.Append($" {Capital(place.Name)} is {place.Purpose}.");
@@ -912,10 +919,10 @@ public sealed partial class PlacesGrain(
     }
 
     internal static string WhereName(Place? place, Guid viewerId)
-        => place is null ? "somewhere" : place.OwnerId == viewerId ? "your place" : place.Name;
+        => place is null ? "somewhere" : place.LivesIn(viewerId) ? "your place" : place.Name;
 
     internal static string AtName(Place? place, Guid viewerId)
-        => place is null ? "somewhere" : place.OwnerId == viewerId ? "at home" : $"{place.At} {place.Name}";
+        => place is null ? "somewhere" : place.LivesIn(viewerId) ? "at home" : $"{place.At} {place.Name}";
 
     private static string TalkName(Place place)
         => place.Name.StartsWith("the ", StringComparison.Ordinal) ? place.Name[4..] : place.Name;
@@ -1051,6 +1058,21 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Concept tags from a captured moment: footfall for each speaker on Locales they name; wakes quiet opened Places.</summary>
     [Alias("NoteTopicsAsync")] Task NoteTopicsAsync(List<string> topics, List<Guid> speakers);
+
+    /// <summary>Finish a Piece at the easel here; it joins the work on show. Null without an easel, or past today's allowance.</summary>
+    [Alias("MakeArtAsync")] Task<string?> MakeArtAsync(Guid participantId, string description);
+
+    /// <summary>Author: this Place or Locale is someone's now, under a new name if given. Null for Homes.</summary>
+    [Alias("ClaimAsync")] Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name);
+
+    /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
+    [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);
+
+    /// <summary>The mover leaves their Home empty and shares the host's (ADR 0035); false when they share one already.</summary>
+    [Alias("MoveInAsync")] Task<bool> MoveInAsync(Guid moverId, Guid hostId);
+
+    /// <summary>Whoever moved in goes back to their own Home; false when these two don't share one.</summary>
+    [Alias("SeparateAsync")] Task<bool> SeparateAsync(Guid aId, Guid bId);
 
     /// <summary>Where someone lives (ADR 0027): their Home moves into that District, made if new.</summary>
     [Alias("SetHomeDistrictAsync")] Task<bool> SetHomeDistrictAsync(Guid ownerId, string district);

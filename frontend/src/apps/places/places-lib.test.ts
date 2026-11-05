@@ -7,6 +7,7 @@ import {
     canHear,
     earshotRuns,
     growingSummary,
+    livesIn,
     mayEnter,
     navigatorPlaces,
     occupancy,
@@ -33,6 +34,38 @@ const theirHome: Place = {
     ownerId: 'hana',
     spots: [],
 };
+
+const sharedHome: Place = {
+    ...theirHome,
+    name: "Hana and Tim's place",
+    housemates: ['me'],
+};
+const vacated: Place = { ...myHome, vacated: true };
+
+describe('shared Homes', () => {
+    it('counts housemates as living there, not a moved-out owner', () => {
+        expect(livesIn(sharedHome, 'me')).toBe(true);
+        expect(livesIn(sharedHome, 'hana')).toBe(true);
+        expect(livesIn(vacated, 'me')).toBe(false);
+        expect(livesIn(cafe, 'me')).toBe(false);
+    });
+
+    it('labels and opens a shared Home as your own', () => {
+        expect(placeLabel(sharedHome, 'me')).toBe('Home');
+        expect(mayEnter(sharedHome, 'me')).toBe(true);
+        expect(placeIcon(sharedHome, 'me')).toBe('🏠');
+    });
+
+    it('keeps a moved-out Home off the Navigator', () => {
+        expect(
+            navigatorPlaces([vacated, cafe, sharedHome], 'me').map((p) => p.id),
+        ).toEqual(['c', 'h2']);
+    });
+
+    it('locks a moved-out Home, even for its owner', () => {
+        expect(mayEnter(vacated, 'me')).toBe(false);
+    });
+});
 
 describe('places-lib', () => {
     it('counts a walking Body at its destination', () => {

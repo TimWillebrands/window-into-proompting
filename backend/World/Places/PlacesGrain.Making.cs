@@ -254,7 +254,7 @@ public sealed partial class PlacesGrain
     public async Task<bool> SetPlaceStyleAsync(Guid participantId, Guid placeId, string? wall, string? floor)
     {
         if (Find(placeId) is not { } place) return false;
-        if (participantId != Guid.Empty && place.OwnerId != participantId && place.MadeBy != participantId) return false;
+        if (participantId != Guid.Empty && !place.LivesIn(participantId) && place.MadeBy != participantId) return false;
         place.WallColour = Hex(wall);
         place.FloorColour = Hex(floor);
         await SaveAsync();
@@ -263,7 +263,7 @@ public sealed partial class PlacesGrain
     }
 
     private static bool MayArrange(Place place, Furni furni, Guid who)
-        => who == Guid.Empty || place.OwnerId == who || place.MadeBy == who || (furni.OwnerId == who && place.Kind == PlaceKinds.Public);
+        => who == Guid.Empty || place.LivesIn(who) || place.MadeBy == who || (furni.OwnerId == who && place.Kind == PlaceKinds.Public);
 
     private static string? Hex(string? c)
         => c is { Length: 7 } && c[0] == '#' && c.Skip(1).All(Uri.IsHexDigit) ? c.ToLowerInvariant() : null;
@@ -274,7 +274,31 @@ public sealed partial class PlacesGrain
     public async Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor)
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
-        if (state.State.Places.Count(p => p.CustomScene is not null) >= MaxMadePlaces) return null;
+        if (state.State.Places.Count(p => p.CustomScene is not null && p.Kind == PlaceKinds.Public) >= MaxMadePlaces) return null;
+        if (await DesignAsync(description, outdoor) is not { } draft) return null;
+        var json = draft.Json;
+        var name = json["name"]?.ToString()?.Trim() is { Length: > 0 } n ? WorldStream.Clip(n, 40) : "the new place";
+        if (!name.StartsWith("the ", StringComparison.OrdinalIgnoreCase) && !char.IsUpper(name[0])) name = $"the {name}";
+        if (state.State.Places.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) name = $"{name} ({state.State.Places.Count})";
+        var place = new Place
+        {
+            Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Public, MadeBy = madeBy,
+            At = json["at"]?.ToString() is "in" or "on" ? json["at"]!.ToString() : "at",
+            Description = WorldStream.Clip(json["description"]?.ToString() ?? description, 200),
+            Purpose = json["purpose"]?.ToString()?.Trim() is { Length: > 0 } purpose ? WorldStream.Clip(purpose, 120) : null,
+            Spots = draft.Spots, CustomScene = PlaceDesign.Store(draft.Scene), Scene = "custom",
+            DistrictId = Districts.Centre,
+        };
+        state.State.Places.Add(place);
+        await SaveAsync();
+        await PublishPlaceAsync(place);
+        return place;
+    }
+
+    /// <summary>Asks the designer until the scene checks out, three tries at most; null when it never does.</summary>
+    /// <param name="rule">What's wrong with these spots beyond the scene check; null when they're fine.</param>
+    private async Task<PlaceDraft?> DesignAsync(string description, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
+    {
         var user = $"Design: {WorldStream.Clip(description, 400)}\nPlaces that already exist: {string.Join(", ", state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name))}";
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -291,29 +315,47 @@ public sealed partial class PlacesGrain
             if (json?["scene"] is not JsonObject scene) { user += "\n\nYour last answer had no \"scene\" object. Try again."; continue; }
             var spots = PlaceDesign.SpotsOf(json["spots"] as JsonArray);
             var errors = spots.Count < 2 ? new List<string> { "give 2 to 5 spots" } : PlaceDesign.Check(scene, spots);
+            if (rule?.Invoke(spots) is { } broken) errors.Add(broken);
             if (errors.Count > 0)
             {
                 user += $"\n\nYour last design didn't work:\n- {string.Join("\n- ", errors.Take(8))}\nFix these and output the whole JSON again.";
                 continue;
             }
-            var name = json["name"]?.ToString()?.Trim() is { Length: > 0 } n ? WorldStream.Clip(n, 40) : "the new place";
-            if (!name.StartsWith("the ", StringComparison.OrdinalIgnoreCase) && !char.IsUpper(name[0])) name = $"the {name}";
-            if (state.State.Places.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) name = $"{name} ({state.State.Places.Count})";
-            var place = new Place
-            {
-                Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Public, MadeBy = madeBy,
-                At = json["at"]?.ToString() is "in" or "on" ? json["at"]!.ToString() : "at",
-                Description = WorldStream.Clip(json["description"]?.ToString() ?? description, 200),
-                Purpose = json["purpose"]?.ToString()?.Trim() is { Length: > 0 } purpose ? WorldStream.Clip(purpose, 120) : null,
-                Spots = spots, CustomScene = PlaceDesign.Store(scene), Scene = "custom",
-                DistrictId = Districts.Centre,
-            };
-            state.State.Places.Add(place);
-            await SaveAsync();
-            await PublishPlaceAsync(place);
-            return place;
+            return new PlaceDraft(json, scene, spots);
         }
         return null;
+    }
+
+    private sealed record PlaceDraft(JsonObject Json, JsonObject Scene, List<Spot> Spots);
+
+    public async Task<string?> MakeArtAsync(Guid participantId, string description)
+    {
+        await SettleAsync();
+        if (string.IsNullOrWhiteSpace(description)) return null;
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking) return null;
+        var place = Find(body.PlaceId);
+        var now = Now();
+        var midnight = new DateTimeOffset(time.GetLocalNow().Date, time.GetLocalNow().Offset).ToUnixTimeMilliseconds();
+        if (place is null || !Art.CanMake(place, participantId, now, midnight)) return null;
+
+        var onShow = place.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderBy(f => f.TendedAt).ToList();
+        if (onShow.Count >= Art.MaxOnShow) place.Furni.Remove(onShow[0]);
+        var title = Art.Title(description);
+        var wall = place.Spots.FirstOrDefault(s => s.Id == Art.Wall) ?? place.Spots[0];
+        var piece = new Furni
+        {
+            Id = $"piece-{now}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
+            Name = title, SpotId = wall.Id, TendedAt = now, OwnerId = participantId,
+        };
+        place.Furni.Add(piece);
+        QueueModel(place, piece, description);
+        StepTo(body, place, Art.EaselIn(place)!);
+        body.Activity = "at the easel";
+        body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
+        await SaveAsync();
+        await PublishAsync(body);
+        await PublishPlaceAsync(place);
+        return $"finishes {title} {AtName(place, Guid.Empty)}";
     }
 
     /// <summary>Author: take a generated Place down; anyone there walks home.</summary>
@@ -323,10 +365,11 @@ public sealed partial class PlacesGrain
         await SettleAsync();
         state.State.Bodies.Remove(participantId);
         state.State.Visits.Remove(participantId);
-        if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == participantId) is { } home)
+        ReleaseHousemates(state.State.Bodies.Keys.ToHashSet());
+        if (OwnHome(participantId) is { } home)
         {
             foreach (var guest in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == home.Id).ToList())
-                if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == guest.ParticipantId) is { } own)
+                if (state.State.Places.HomeOf(guest.ParticipantId) is { } own)
                 {
                     guest.PlaceId = own.Id;
                     guest.SpotId = own.Spots[0].Id;
@@ -345,9 +388,9 @@ public sealed partial class PlacesGrain
     public async Task<bool> RemovePlaceAsync(Guid placeId)
     {
         await SettleAsync();
-        if (Find(placeId) is not { CustomScene: not null } place) return false;
+        if (Find(placeId) is not { CustomScene: not null, Kind: PlaceKinds.Public } place) return false;
         foreach (var b in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == placeId).ToList())
-            if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == b.ParticipantId) is { } home)
+            if (state.State.Places.HomeOf(b.ParticipantId) is { } home)
             {
                 b.PlaceId = home.Id;
                 b.SpotId = home.Spots[0].Id;

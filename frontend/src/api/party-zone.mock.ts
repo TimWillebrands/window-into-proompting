@@ -175,6 +175,25 @@ export const useGetPersonaDefaultsSuspense = fn(() =>
 
 export const usePutPersonaId = fn(() => noopMutationResult());
 export const useDeletePersonaId = fn(() => noopMutationResult());
+export const useGetWorldsPartyIdLivesSuspense = fn(() =>
+    suspenseQueryResult({
+        data: mockPersonas.slice(0, 1).map((p) => ({
+            personaId: p.id ?? '',
+            name: p.name ?? '',
+            driver: 'LLM' as const,
+            chattiness: 0.5,
+            busy: false,
+            isPlayer: false,
+            lastActivity: null,
+        })),
+        status: 200,
+        headers: new Headers(),
+    }),
+);
+export const usePostWorldsPartyIdResidents = fn(() => noopMutationResult());
+export const useDeleteWorldsPartyIdResidentsPersonaId = fn(() =>
+    noopMutationResult(),
+);
 
 export const useGetPartyIdChatGroupsSuspense = fn(() =>
     suspenseQueryResult({

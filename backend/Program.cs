@@ -76,6 +76,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.CalendarApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Places.PlacesApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Self.TogetherApp>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Relations.RelationsApp>();
     builder.Services.AddSingleton<PartyTown.World.Economy.WardrobeApp>();
     builder.Services.AddSingleton<PartyTown.World.Work.Workplaces>();
     builder.Services.AddSingleton<PartyTown.World.Work.Responsibilities>();

@@ -95,7 +95,7 @@ public sealed partial class PlacesGrain
         if (Find(body.DestPlaceId ?? body.PlaceId) is not { Kind: PlaceKinds.Locale }) return body;
         var back = body.CameFrom is { } c && Find(c) is { Kind: not PlaceKinds.Locale } p && MayEnter(p, participantId)
             ? p
-            : state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == participantId);
+            : state.State.Places.HomeOf(participantId);
         return back is null ? null : await MoveAsync(participantId, back.Id, null);
     }
 

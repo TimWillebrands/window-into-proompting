@@ -313,7 +313,17 @@ A named place to be inside a Place ("the window table"). Canonical: Personas rea
 _Avoid_: tile, position, seat.
 
 **Home**:
-The Place that belongs to one Participant. Private: others knock, or are invited, and get let in as guests (cleared when the owner leaves). Where its owner sleeps and decorates.
+The Place that belongs to one Participant, and is lived in by them and any **Housemates**. Private: others knock, or are invited, and get let in as guests (cleared when the last one living there leaves). Where the people living there sleep and decorate.
+
+**Housemate**:
+Someone who moved into another Participant's **Home**. Stands there as the owner does. Their own Home stays empty (**Vacated**) until they move back.
+_Avoid_: resident (that's someone who lives in the World), roommate, tenant.
+
+**Vacated**:
+A **Home** whose owner lives elsewhere now: kept as it was, closed, and not offered to anyone.
+
+**Built Home**:
+A **Home** designed for a couple from a description ("een statig herenhuis"). It replaces the Homes they had and keeps the name it was given.
 
 **Furni**:
 A placed object with state (a plant that dries, cups that pile up, a jukebox that plays). Decay is computed from timestamps. Care is capped to one item per Place.
@@ -393,9 +403,25 @@ _Avoid_: job (fine in prose), career, class.
 Something someone holds a Persona to. Always has a holder (a Participant, a Place, or someone offscreen) and a due time. Today it comes from a shift, a Gathering you RSVP'd to or are hosting, or guests in your Home. It renders as "# What you owe" in Right now. Keeping one warms the Tie; neglecting one costs something visible.
 _Avoid_: task, duty, chore, quest, obligation.
 
+**Studio**:
+A **Place** where art gets made, with an easel and finished work on show. Whoever works there finishes **Pieces** on shift; visitors see them.
+_Avoid_: atelier, gallery, workshop.
+
+**Piece**:
+A finished work, in its maker's own words, hanging in a **Studio**. A couple a day at most. It's what the job leaves behind, not what pays: pay is still per shift.
+_Avoid_: artwork, painting (it may not be one), item.
+
 **Desire**:
 Something a Persona wants, either *having* (a thing, money, someone's attention) or *being* (becoming someone: a craft, a mended tie). An **Intrinsic Desire** is on the Persona (authored, or distilled from the lived sheet). An **Acquired Desire** forms in play on the Participant, fades after two untouched weeks, and can be **Promoted**. Desires steer Initiative only; Speaking never sees them.
 _Avoid_: goal, need, drive (collides with **Driver**), motivation, objective.
+
+**Relation**:
+What two Participants are or were to each other, as a fact they share: together, married, family, friends, or something only their own words say ("you dated in high school"). Current or past, and a pair can have several. Current ones are public; past ones stay between the two. A **Tie** is how one of them feels; a Relation is what's true. See [ADR 0035](docs/adr/0035-relations.md).
+_Avoid_: relationship (fine in prose), bond (that's Reflex's read of a Tie), connection.
+
+**Ask**:
+One Persona asking another, in person, to change what they are: go out, move in, marry. Needs a yes, lapses after a day, and stays private unless it's answered yes.
+_Avoid_: proposal, request.
 
 **Mimesis**:
 An **Acquired Desire** caught from someone through a **Tie**: wanting what they have or want. Capped hard: a Tie of 10+ exchanges, one at a time, and a 3-day gap between catches. Wanting the same person's attention as the one you caught it from becomes a **Rivalry**, shown as Tie friction, with at most one live per World.
@@ -542,7 +568,9 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
 - A **Player** is a **Participant** with **Default Driver** = `User`.
 - A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
-- A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant**.
+- A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant** and has zero or more **Housemates**.
+- A **Relation** is between exactly two **Participants**; a pair has at most one current **Relation** and any number of past ones.
+- An **Ask** comes from one **Persona** and is answered by one other.
 - A **Place talk** message has one **Earshot**.
 - A **Body** is in exactly one **Place**, which may be a **Locale** (then it's away).
 - A **Place** belongs to one **District**; an **Opening** turns a **Locale** into a drawn **Place** with the same id.
@@ -555,6 +583,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Session** has exactly one **Practitioner** and one **Client**, either of whom may be driven by a human or an LLM.
 - A **Homework** comes from one **Session**, belongs to its **Client** and is held by its **Practitioner**.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
+- A **Piece** is made by one **Participant** at one **Studio**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue

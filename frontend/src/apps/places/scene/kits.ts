@@ -204,6 +204,29 @@ export const KIT_SCENES: Record<string, Omit<SceneDef, 'id'>> = {
         },
         { floor: '#dfe6ee', wall: '#f3f6f8' },
     ),
+    studio: kit(
+        [
+            { p: 'long-table', at: [6, 1] },
+            { p: 'books', at: [10, 1] },
+            { p: 'painting', at: [2, 0] },
+            { p: 'painting', at: [11, 0] },
+            { p: 'painting', at: [12, 0] },
+            { p: 'sofa', at: [10, 6], rot: 2, spot: 'sofa' },
+            { p: 'rug', at: [3, 4] },
+            { p: 'lamp', at: [12, 6] },
+        ],
+        {
+            easel: { at: [3, 3] },
+            workbench: { at: [7, 3] },
+            wall: { at: [11, 3] },
+            sofa: { at: [10, 5] },
+        },
+        {
+            floor: '#c9c2b6',
+            wall: '#efeae0',
+            furni: { easel: { at: [3, 1], rot: 0 } },
+        },
+    ),
     place: kit(
         [
             { p: 'armchair', at: [12, 1], spot: 'corner' },

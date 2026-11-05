@@ -330,6 +330,17 @@
   "about": "painting (wall)"
  },
  {
+  "name": "easel",
+  "size": [
+   1,
+   1
+  ],
+  "solid": true,
+  "wall": false,
+  "seats": 0,
+  "about": "wooden easel holding a canvas, faces +z"
+ },
+ {
   "name": "photo",
   "size": [
    1,

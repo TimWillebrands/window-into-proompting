@@ -22,13 +22,20 @@ export const bodySpotId = (b: Body) => b.destSpotId ?? b.spotId;
 export const bodiesIn = (bodies: Body[], placeId: string | undefined) =>
     bodies.filter((b) => bodyPlaceId(b) === placeId);
 
+/** Lives there (ADR 0035): the owner until they've moved out, plus anyone who moved in. */
+export const livesIn = (place: Place, who: string | null) =>
+    !!who &&
+    place.kind === 'home' &&
+    ((place.ownerId === who && !place.vacated) ||
+        (place.housemates ?? []).includes(who));
+
 export const placeLabel = (
     place: Place | undefined,
     viewerId: string | null,
 ) =>
     !place
         ? 'somewhere'
-        : place.ownerId && place.ownerId === viewerId
+        : livesIn(place, viewerId)
           ? 'Home'
           : (place.name ?? '')
                 .replace(/^the /, '')
@@ -37,7 +44,7 @@ export const placeLabel = (
 /** Others' Homes are private in phase 1. */
 export const mayEnter = (place: Place, viewerId: string | null) =>
     place.kind !== 'home' ||
-    place.ownerId === viewerId ||
+    livesIn(place, viewerId) ||
     (!!viewerId && (place.guests ?? []).includes(viewerId));
 
 /** "arriving in 42s" while walking; null when settled. */
@@ -89,8 +96,8 @@ export function growingSummary(row: GrowthRow, openAt: number) {
 /** Ordered for the Navigator: public Places first, then the viewer's Home. */
 export const navigatorPlaces = (places: Place[], viewerId: string | null) => {
     const rank = (p: Place) =>
-        p.kind === 'public' ? 0 : p.ownerId === viewerId ? 1 : 2;
-    return [...places].sort((a, b) => rank(a) - rank(b));
+        p.kind === 'public' ? 0 : livesIn(p, viewerId) ? 1 : 2;
+    return places.filter((p) => !p.vacated).sort((a, b) => rank(a) - rank(b));
 };
 
 const AVATAR_COLOURS = [
@@ -205,7 +212,7 @@ export const scribble = (text: string | null | undefined) =>
 /** A Place's icon in the Navigator and on its nameplate, from its scene or what it's called. */
 export function placeIcon(place: Place, viewerId: string | null): string {
     if (place.kind === 'home')
-        return place.ownerId === viewerId
+        return livesIn(place, viewerId)
             ? '🏠'
             : mayEnter(place, viewerId)
               ? '🏡'

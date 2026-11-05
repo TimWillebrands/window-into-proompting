@@ -42,6 +42,32 @@ public sealed class Place
     [Id(20)] public long? MentionedAt { get; set; }
     /// <summary>Opened, then nobody went or talked about it for a week (ADR 0027): kept, but not offered. Set on each snapshot.</summary>
     [Id(21)] public bool Dormant { get; set; }
+    /// <summary>Home only: who moved in with the owner (ADR 0035).</summary>
+    [Id(22)] public List<Guid> Housemates { get; set; } = new();
+    /// <summary>Home only: the owner lives elsewhere now; kept empty for if they come back.</summary>
+    [Id(23)] public bool Vacated { get; set; }
+}
+
+/// <summary>Who lives in a Home (ADR 0035): the owner until they've moved out, plus anyone who moved in.</summary>
+public static class Homes
+{
+    public static IEnumerable<Guid> Living(this Place place)
+    {
+        if (place.Kind != PlaceKinds.Home) yield break;
+        if (place.OwnerId is { } owner && !place.Vacated) yield return owner;
+        foreach (var mate in place.Housemates) yield return mate;
+    }
+
+    public static bool LivesIn(this Place place, Guid who) => place.Living().Contains(who);
+
+    public static Place? HomeOf(this IEnumerable<Place> places, Guid who) => places.FirstOrDefault(p => p.LivesIn(who));
+
+    /// <summary>"Mara's place", "Mara and Lena's place".</summary>
+    public static string Named(IReadOnlyList<string> people)
+    {
+        var first = people.Select(n => n.Split(' ')[0]).ToList();
+        return first.Count == 1 ? $"{first[0]}'s place" : $"{string.Join(", ", first.SkipLast(1))} and {first[^1]}'s place";
+    }
 }
 
 /// <summary>A part of the city that holds Places (ADR 0027): "the centre", "Zuid".</summary>
@@ -267,7 +293,7 @@ public static class PlaceSeeds
     public static Place Home(Guid ownerId, string ownerName) => WithPoses(new Place
     {
         Id = Guid.NewGuid(),
-        Name = $"{ownerName.Split(' ')[0]}'s place",
+        Name = Homes.Named(new[] { ownerName }),
         Kind = PlaceKinds.Home,
         Scene = "home",
         DistrictId = Districts.Centre,

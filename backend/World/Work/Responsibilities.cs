@@ -26,9 +26,9 @@ public static class ResponsibilityRules
     /// <summary>Guests in your Home while you're there: you're the host.</summary>
     public static IEnumerable<Owed> FromGuests(PlacesSnapshot places, Guid self, Func<Guid, string> nameOf, DateTimeOffset now)
     {
-        var home = places.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == self);
+        var home = places.Places.HomeOf(self);
         if (home is null || places.Bodies.FirstOrDefault(b => b.ParticipantId == self) is not { IsWalking: false } me || me.PlaceId != home.Id) yield break;
-        foreach (var guest in places.Bodies.Where(b => b.ParticipantId != self && b.PlaceId == home.Id && !b.IsWalking))
+        foreach (var guest in places.Bodies.Where(b => !home.LivesIn(b.ParticipantId) && b.PlaceId == home.Id && !b.IsWalking))
             yield return new Owed($"{nameOf(guest.ParticipantId)} is over at your place; you're the host.", now.ToUnixTimeMilliseconds(), guest.ParticipantId);
     }
 

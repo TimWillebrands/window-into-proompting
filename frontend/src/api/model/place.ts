@@ -49,4 +49,6 @@ export interface Place {
      */
     mentionedAt?: number | string | null;
     dormant?: boolean;
+    housemates?: string[];
+    vacated?: boolean;
 }

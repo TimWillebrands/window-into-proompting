@@ -104,7 +104,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
         var restless = stayed > Restless && !awayHere;
         if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
-        else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.OwnerId == ctx.Self.Id ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
+        else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.LivesIn(ctx.Self.Id) == true ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         // A Gathering at a Place you said you'd come to (spec phase 7): be there, then talk.
         var nowMsG = ctx.Now.ToUnixTimeMilliseconds();
         foreach (var g in (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
@@ -138,12 +138,13 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var further = new List<(Place Place, List<string> There)>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
-            if (place.Kind == PlaceKinds.Locale || place.Dormant) continue;
-            var mine = place.OwnerId == ctx.Self.Id;
+            if (place.Kind == PlaceKinds.Locale || place.Dormant || place.Vacated) continue;
+            var mine = place.LivesIn(ctx.Self.Id);
             if (place.Kind == PlaceKinds.Home && !mine)
             {
                 // Someone else's Home: go if invited, else knock when they're in and awake.
-                var owner = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == place.OwnerId);
+                var hosts = snapshot.Bodies.Where(b => place.LivesIn(b.ParticipantId)).ToList();
+                var owner = hosts.FirstOrDefault(b => b is { IsWalking: false, Asleep: false } && b.PlaceId == place.Id) ?? hosts.FirstOrDefault();
                 var ownerName = owner?.Name.Split(' ')[0] ?? "someone";
                 if (place.Guests.Contains(ctx.Self.Id))
                 {
@@ -177,7 +178,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
         // At home: who's at the door, and who you could have over.
-        if (!self.IsWalking && here?.OwnerId == ctx.Self.Id)
+        if (!self.IsWalking && here?.LivesIn(ctx.Self.Id) == true)
         {
             foreach (var visitor in await places.GetKnocksAsync(ctx.Self.Id))
             {
@@ -189,7 +190,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             if (decor.Count > 0) sb.AppendLine($"Your place has: {string.Join("; ", decor.OrderByDescending(f => f.TendedAt).Take(4).Select(f => f.Name))}.");
             affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
 
-            var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId)).ToList();
+            var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId) && !here.LivesIn(b.ParticipantId)).ToList();
             if (away.Count > 0)
             {
                 var friend = away[Random.Shared.Next(away.Count)];
@@ -251,7 +252,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 var body = await places.MoveAsync(ctx.Self.Id, target, null);
                 if (body is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
-                return new ActOutcome("walk", place?.OwnerId == ctx.Self.Id ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
+                return new ActOutcome("walk", place?.LivesIn(ctx.Self.Id) == true ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
             }
             case { } verb when verb.StartsWith("care:", StringComparison.Ordinal) || verb.StartsWith("use:", StringComparison.Ordinal):
             {
