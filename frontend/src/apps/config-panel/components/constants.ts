@@ -2,7 +2,7 @@ import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 
 export const DECISIONS = 8;
 
-export const PERSONA_TIERS = [
+export const JOB_COMPLEXITIES = [
     { value: 1, label: 'General', hint: 'Plans and daily life' },
     { value: 2, label: 'Character Voice', hint: 'What they say and write' },
     {
@@ -10,10 +10,6 @@ export const PERSONA_TIERS = [
         label: 'Character Thoughts',
         hint: 'Quick reactions and reflection',
     },
-] as const;
-
-export const JOB_COMPLEXITIES = [
-    ...PERSONA_TIERS,
     {
         value: DECISIONS,
         label: 'Decisions',
@@ -31,7 +27,7 @@ export const REASONING_EFFORTS = [
 ] as const;
 
 export const providerLabel = (p: LlmProviderEntry) =>
-    `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Ollama' : 'OpenRouter'}`;
+    `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Local' : 'OpenRouter'}`;
 
 export const EMPTY_ENTRY: LlmProviderEntry = {
     type: 'ollama',

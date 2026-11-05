@@ -15,6 +15,15 @@ public class ProviderJudgeTest
 
     private readonly Mock<ILlmRouterGrain> _router = new();
     private readonly Mock<ILlmProviderConfigGrain> _config = new();
+    private readonly List<PersonaRoute> _routes = new();
+    private static readonly Guid Vlad = Guid.NewGuid();
+
+    private void AssignVlad(Mock<ILlmEndpointGrain>? endpoint)
+    {
+        _routes.Add(new PersonaRoute { PersonaId = Vlad, Tier = JobComplexity.Decisions, ProviderId = Guid.NewGuid() });
+        _router.Setup(r => r.AssignedEndpointAsync(Vlad, JobComplexity.Decisions, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(endpoint?.Object);
+    }
 
     private ProviderJudge Judge(bool emulate = false)
     {
@@ -32,6 +41,7 @@ public class ProviderJudgeTest
     private async Task<ProviderJudge> JudgeWithProvidersAsync(params LlmProviderEntry[] providers)
     {
         _config.Setup(c => c.GetProvidersAsync()).ReturnsAsync(providers.ToList());
+        _config.Setup(c => c.GetPersonaRoutesAsync()).ReturnsAsync(_routes);
         var judge = Judge();
         await judge.RefreshAsync();
         return judge;
@@ -112,6 +122,82 @@ public class ProviderJudgeTest
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => judge.AskAsync("state", Questions, cts.Token));
 
         next.Verify(e => e.JudgeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task For_AsksThePersonasOwnModel_NotThePool()
+    {
+        var own = Endpoint(Answer);
+        AssignVlad(own);
+        var judge = await JudgeWithProvidersAsync(Provider());
+
+        await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None);
+
+        own.Verify(e => e.JudgeAsync("state", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task For_FallsBackToThePool_WhenTheirModelFails()
+    {
+        AssignVlad(Endpoint(failure: new HttpRequestException("down")));
+        var judge = await JudgeWithProvidersAsync(Provider());
+        Routes(Endpoint(Answer));
+
+        var answers = await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None);
+
+        Assert.Equal(0.8, answers.Noul("x", 0));
+    }
+
+    [Fact]
+    public async Task For_UsesThePool_WhenTheirModelIsBenchedOrOff()
+    {
+        AssignVlad(null);
+        var judge = await JudgeWithProvidersAsync(Provider());
+        Routes(Endpoint(Answer));
+
+        var answers = await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None);
+
+        Assert.Equal(0.8, answers.Noul("x", 0));
+    }
+
+    [Fact]
+    public async Task For_WithoutARoute_UsesThePool()
+    {
+        var judge = await JudgeWithProvidersAsync(Provider());
+        Routes(Endpoint(Answer));
+
+        var answers = await judge.For(Guid.NewGuid()).AskAsync("state", Questions, CancellationToken.None);
+
+        Assert.Equal(0.8, answers.Noul("x", 0));
+    }
+
+    [Fact]
+    public async Task For_AReservedModelAlone_EnablesThatPersonaOnly()
+    {
+        AssignVlad(Endpoint(Answer));
+        var judge = await JudgeWithProvidersAsync(Provider(reserved: true));
+
+        Assert.True(judge.For(Vlad).Enabled);
+        Assert.False(judge.For(Guid.NewGuid()).Enabled);
+        Assert.Equal(0.8, (await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
+    }
+
+    [Fact]
+    public async Task For_AReservedModelAlone_ReportsItsOwnFailure_WithNoPoolToFallBackTo()
+    {
+        AssignVlad(Endpoint(failure: new HttpRequestException("down")));
+        var judge = await JudgeWithProvidersAsync(Provider(reserved: true));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None));
+    }
+
+    [Fact]
+    public void For_LeavesOtherJudgesAlone()
+    {
+        var other = Mock.Of<ISystemOneJudge>();
+
+        Assert.Same(other, other.For(Vlad));
     }
 
     [Fact]

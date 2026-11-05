@@ -43,7 +43,8 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
 
     private async Task ConsiderAsync(Guid partyId, Guid roomId, Guid speakerId)
     {
-        if (!judge.Enabled) return;
+        var weigh = judge.For(speakerId);
+        if (!weigh.Enabled) return;
         var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups()).FirstOrDefault(r => r.Id == roomId);
         if (room is not { Kind: ChatGroupKinds.Direct } || room.MemberIds?.FirstOrDefault(id => id != speakerId) is not { } otherId) return;
 
@@ -64,7 +65,7 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         var transcript = string.Join("\n", recent.Select(m => $"{Name(m.SenderId)}: {WorldStream.Clip(m.Content, 240)}"));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-        var answers = await judge.AskAsync(transcript, new Dictionary<string, SystemOneQuestion>
+        var answers = await weigh.AskAsync(transcript, new Dictionary<string, SystemOneQuestion>
         {
             ["coming"] = new NoulQuestion($"In their last message, {Name(speakerId)} says they will come over to where {Name(otherId)} is, now or very soon (for example 'on my way', 'coming down', 'be right there', 'see you in a sec')."),
         }, cts.Token);

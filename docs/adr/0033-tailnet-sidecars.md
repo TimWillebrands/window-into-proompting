@@ -24,13 +24,22 @@ worked in development.
   and a Go runtime inside the CLR. It would allow Tailnets to be added at runtime, which we don't need.
 - **`tailscale-rs`:** no .NET bindings ([issue 90](https://github.com/tailscale/tailscale-rs/issues/90)), a blocking socket
   API with no cancel, no MagicDNS or subnet routers, and pre-1.0.
+- **A "Connect tailnet" login link:** self-serve and closest to OAuth, since Tailscale has no third-party consent flow. It
+  needs a multi-tenant gateway and puts the server on each person's whole tailnet. Revisit if sharing gets tedious.
 - **Tailscale on the host:** no code, but it puts the whole server on the Tailnet and offers one Tailnet only.
 
 ## Security
 
 The SOCKS5 port has no auth, so it's never published: production keeps it on the Docker network and development binds it
-to loopback. Use a tagged auth key, and let tailnet ACLs limit that tag to the inference ports. Admins set provider URLs,
-so without that ACL they could reach any device on the Tailnet through the backend.
+to loopback.
+
+The sidecar is a user-owned node, not a tagged one: tagged machines can't reach devices shared from another tailnet, and
+sharing is how other people's machines get in. Each person shares one machine, which stays quarantined and can't start
+connections. Disable key expiry on the node, since user-owned keys expire after 180 days by default. Admins set provider
+URLs, so the owner's tailnet policy decides what the backend can reach.
+
+A shared machine in the pool gets everyone's prompts, DMs included, and its owner can read them. We accept that for now,
+for a small group who trust each other. Reserved keeps a machine to the Personas routed to it.
 
 `TS_AUTH_ONCE` matters: auth keys expire within 90 days, and without it a restart logs in again with the expired key.
 The state volume keeps the node identity across restarts.

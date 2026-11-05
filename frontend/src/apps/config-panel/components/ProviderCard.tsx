@@ -79,7 +79,7 @@ export default function ProviderCard({
                         gap: 6,
                     }}
                 >
-                    {isOllama ? 'Ollama' : 'OpenRouter'}
+                    {isOllama ? 'Local server' : 'OpenRouter'}
                     {!isEnabled && (
                         <span
                             style={{

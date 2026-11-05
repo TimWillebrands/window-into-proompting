@@ -21,6 +21,13 @@ public interface ISystemOneJudge
     Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct);
 }
 
+public static class SystemOneJudgeExtensions
+{
+    /// <summary>The judge for a call about one Persona: their Decisions Route first, then the pool (ADR 0034).</summary>
+    public static ISystemOneJudge For(this ISystemOneJudge judge, Guid persona)
+        => judge is ProviderJudge routed ? routed.ForPersona(persona) : judge;
+}
+
 public abstract record SystemOneQuestion(string Instructions);
 
 /// <summary>Yes/no statement → probability it is true.</summary>
@@ -64,7 +71,6 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
     public const string TypeSafeModel = "jev-latest";
     public const string OpenRouterUrl = "https://openrouter.ai/api/v1/systemone";
     public const string OpenRouterModel = "~typesafe/jev-latest";
-    public const string LocalModel = "clef-flash";
 
     public bool Enabled => true;
 
@@ -142,8 +148,20 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
 {
     private static readonly TimeSpan RefreshEvery = TimeSpan.FromSeconds(30);
     private volatile bool _hasProviders;
+    private volatile IReadOnlySet<Guid> _routed = new HashSet<Guid>();
 
     public bool Enabled => _hasProviders || emulation.Enabled;
+
+    public ISystemOneJudge ForPersona(Guid persona) => new PersonaJudge(this, persona);
+
+    private sealed class PersonaJudge(ProviderJudge judge, Guid persona) : ISystemOneJudge
+    {
+        // A Route to a Reserved model counts even when the pool has no decision model.
+        public bool Enabled => judge.Enabled || judge._routed.Contains(persona);
+
+        public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+            => judge.AskAsync(persona, state, questions, ct);
+    }
 
     /// <summary>Callers read <see cref="Enabled"/> synchronously, so it's answered before the world starts.</summary>
     public override async Task StartAsync(CancellationToken cancellationToken)
@@ -166,8 +184,11 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
     {
         try
         {
-            var providers = await grains.GetGrain<ILlmProviderConfigGrain>(0).GetProvidersAsync();
+            var config = grains.GetGrain<ILlmProviderConfigGrain>(0);
+            var providers = await config.GetProvidersAsync();
+            var routes = await config.GetPersonaRoutesAsync();
             _hasProviders = providers.Any(p => p.IsEnabled && !p.Reserved && p.SupportedComplexities.HasFlag(JobComplexity.Decisions));
+            _routed = routes.Where(r => r.Tier == JobComplexity.Decisions).Select(r => r.PersonaId).ToHashSet();
         }
         catch (Exception ex)
         {
@@ -175,18 +196,22 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         }
     }
 
-    public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
-    {
-        if (!_hasProviders) return await emulation.AskAsync(state, questions, ct);
+    public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+        => AskAsync(null, state, questions, ct);
 
+    private async Task<SystemOneAnswers> AskAsync(Guid? persona, string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+    {
         var router = grains.GetGrain<ILlmRouterGrain>(0);
+        var endpoint = persona is { } id ? await router.AssignedEndpointAsync(id, JobComplexity.Decisions, ct) : null;
+        if (endpoint is null && !_hasProviders) return await emulation.AskAsync(state, questions, ct);
+
         var questionsJson = HttpSystemOneJudge.BuildQuestions(questions).ToJsonString();
         var tried = new HashSet<ILlmEndpointGrain>();
         Exception? last = null;
         while (true)
         {
             // A failing endpoint benches itself, so the next route finds another; the same one again means none is left.
-            var endpoint = await router.RouteAsync(JobComplexity.Decisions, ct);
+            endpoint ??= _hasProviders ? await router.RouteAsync(JobComplexity.Decisions, ct) : throw last!;
             if (!tried.Add(endpoint)) throw last!;
             try
             {
@@ -195,6 +220,7 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 last = ex;
+                endpoint = null;
             }
         }
     }

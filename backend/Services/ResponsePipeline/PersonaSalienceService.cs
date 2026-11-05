@@ -1,3 +1,4 @@
+using PartyTown.Services.SystemOne;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -61,13 +62,13 @@ public sealed class PersonaSalienceService(
         span?.SetTag("new_message.sender", newMessageSenderName);
 
         // Interruption is pure weighing: System One answers it in one calibrated pass when available.
-        if (judge is { Enabled: true })
+        if (judge?.For(self.Id) is { Enabled: true } weigh)
         {
             try
             {
                 var state = UserPrompt(self.Name, inFlightGutReaction, inFlightWouldSay, inFlightGeneratedSoFar,
                     newMessage.Content ?? string.Empty, newMessageSenderName);
-                var answers = await judge.AskAsync(state, new Dictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>
+                var answers = await weigh.AskAsync(state, new Dictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>
                 {
                     ["interrupt"] = new PartyTown.Services.SystemOne.NoulQuestion(
                         $"If {self.Name} finishes and sends the in-flight message unchanged, it will look out of touch, wrong or rude given the new message."),

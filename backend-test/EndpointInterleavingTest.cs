@@ -1,6 +1,7 @@
 using BackendTest.Fakes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using Orleans.Hosting;
@@ -8,6 +9,7 @@ using Orleans.TestingHost;
 using PartyTown.Configuration;
 using PartyTown.Grains.Generation;
 using PartyTown.Observability;
+using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
@@ -15,6 +17,7 @@ namespace BackendTest;
 public class EndpointInterleavingTest : IAsyncLifetime
 {
     private static readonly FakeSocksProxy Sidecar = new() { Reply = null };
+    private static readonly FakeSocksProxy Answering = new() { Body = """{"answers":{"x":{"type":"noul","noul":0.8}}}""" };
 
     private TestCluster _cluster = null!;
 
@@ -29,7 +32,11 @@ public class EndpointInterleavingTest : IAsyncLifetime
                 services.AddSingleton(Mock.Of<IAiObservabilityCapture>());
                 services.AddSingleton(Options.Create(new LlmOptions()));
                 services.AddSingleton(new Tailnets(new ConfigurationBuilder()
-                    .AddInMemoryCollection(new Dictionary<string, string?> { ["Tailnets:home"] = Sidecar.Url })
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Tailnets:home"] = Sidecar.Url,
+                        ["Tailnets:shared"] = Answering.Url,
+                    })
                     .Build()));
             });
         }
@@ -54,6 +61,40 @@ public class EndpointInterleavingTest : IAsyncLifetime
     private int Dials
     {
         get { lock (Sidecar.Connects) return Sidecar.Connects.Count; }
+    }
+
+    [Fact]
+    public async Task APersonasDecisions_ReachTheirOwnModel_ThroughItsTailnet()
+    {
+        var config = _cluster.GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
+        var mac = await config.AddProviderAsync(new LlmProviderEntry
+        {
+            Type = "ollama", BaseUrl = "http://mac:8091", ModelName = "d1", Tailnet = "shared", Reserved = true,
+        });
+        var vlad = Guid.NewGuid();
+        await config.SetPersonaRoutesAsync(vlad, new List<PersonaRoute> { new() { Tier = JobComplexity.Decisions, ProviderId = mac.Id } });
+        var judge = new ProviderJudge(_cluster.GrainFactory,
+            new LlmJudge(_cluster.GrainFactory, new ConfigurationBuilder().Build(), NullLogger<LlmJudge>.Instance),
+            NullLogger<ProviderJudge>.Instance);
+        await judge.RefreshAsync();
+
+        var answers = await judge.For(vlad).AskAsync("state",
+            new Dictionary<string, SystemOneQuestion> { ["x"] = new NoulQuestion("x") }, CancellationToken.None);
+
+        Assert.Equal(0.8, answers.Noul("x", 0));
+        lock (Answering.Requests) Assert.Contains(Answering.Requests, r => r.StartsWith("POST /v1/systemone ") && r.Contains("\"model\":\"d1\""));
+    }
+
+    [Fact]
+    public async Task SavingAProviderWhoseEndpointIsAsleep_DoesNotDeadlock()
+    {
+        var config = _cluster.GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
+        var provider = await config.AddProviderAsync(new LlmProviderEntry { Type = "ollama", BaseUrl = "http://mac:8091", ModelName = "d1" });
+
+        var saved = await config.UpdateProviderAsync(provider with { SupportedComplexities = JobComplexity.Decisions })
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(JobComplexity.Decisions, saved.SupportedComplexities);
     }
 
     [Fact]

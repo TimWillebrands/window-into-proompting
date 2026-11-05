@@ -30,7 +30,7 @@ var backend = builder
 
 // Optional dev knobs passed through from the shell (System One / model overrides, ADR 0019).
 foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "SYSTEM_ONE_EMULATE", "OPENROUTER_MODEL",
-             "SYSTEM_ONE_LOCAL_URL", "SYSTEM_ONE_LOCAL_MODEL", "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL",
+             "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL",
              "POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST" })
 {
     if (Environment.GetEnvironmentVariable(name) is { Length: > 0 } value)

@@ -21,7 +21,7 @@ through the expensive model and everyone else stays cheap".
 
 ## What counts as a Persona's work
 
-Routed: the Response pipeline, Life, App acts in a Persona's voice, the day and lived sheet, and stance consolidation.
+Routed: the Response pipeline, Life, App acts in a Persona's voice, the day and lived sheet, stance consolidation, and
+System One calls about one Persona (ADR 0034).
 
-Not routed: System One judges (the Decisions tier, mostly used with no Persona; see ADR 0034), memory extraction (one call covers several
-Personas), Session homework (reads two people), Places design and art, the World Clock narrator.
+Not routed: System One calls about a group or a place, memory extraction (one call covers several Personas), Session homework (reads two people), Places design and art, the World Clock narrator.

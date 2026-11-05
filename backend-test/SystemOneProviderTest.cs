@@ -165,15 +165,19 @@ public class DecisionProviderSeedTest : TestKitBase
     }
 
     [Fact]
-    public void Env_KeepsTheOldOrder_LocalThenTypeSafeThenJevOnOpenRouter()
+    public void Env_KeepsTheOldOrder_TypeSafeThenJevOnOpenRouter()
     {
-        var seeded = OptionsFrom(("SYSTEM_ONE_LOCAL_URL", "http://box:8091"), ("TYPESAFE_API_KEY", "ts"), ("OPENROUTER_API_KEY", "or")).DecisionProviders;
+        var seeded = OptionsFrom(("TYPESAFE_API_KEY", "ts"), ("OPENROUTER_API_KEY", "or")).DecisionProviders;
 
-        Assert.Equal(new[] { "clef-flash", "jev-latest", "~typesafe/jev-latest" }, seeded.Select(p => p.ModelName));
-        Assert.Equal(new[] { 0, 1, 2 }, seeded.Select(p => p.Priority));
+        Assert.Equal(new[] { "jev-latest", "~typesafe/jev-latest" }, seeded.Select(p => p.ModelName));
+        Assert.Equal(new[] { 0, 1 }, seeded.Select(p => p.Priority));
         Assert.All(seeded, p => Assert.Equal(JobComplexity.Decisions, p.SupportedComplexities));
-        Assert.Equal("https://openrouter.ai/api/v1", seeded[2].BaseUrl);
+        Assert.Equal("https://openrouter.ai/api/v1", seeded[1].BaseUrl);
     }
+
+    [Fact]
+    public void Env_HasNoPathForLocalModels_TheyAreProvidersLikeAnyOther()
+        => Assert.Empty(OptionsFrom(("SYSTEM_ONE_LOCAL_URL", "http://box:8091")).DecisionProviders);
 
     [Fact]
     public void Env_RespectsTheOpenRouterSwitch()
@@ -230,13 +234,16 @@ public class DecisionProviderSeedTest : TestKitBase
     }
 
     [Fact]
-    public async Task PersonaRoutes_RejectTheDecisionsTier_SinceSystemOneHasNoPersona()
+    public async Task PersonaRoutes_AcceptTheDecisionsTier()
     {
         Silo.AddService(Options.Create(new LlmOptions()));
         Silo.AddProbe<ILlmRouterGrain>(0);
         var config = await Silo.CreateGrainAsync<LlmProviderConfigGrain>(0);
+        var provider = await config.AddProviderAsync(new LlmProviderEntry { Type = "ollama", BaseUrl = "http://mac:8091", ModelName = "d1" });
 
-        await Assert.ThrowsAsync<ArgumentException>(() => config.SetPersonaRoutesAsync(
-            Guid.NewGuid(), new List<PersonaRoute> { new() { Tier = JobComplexity.Decisions, ProviderId = Guid.NewGuid() } }));
+        var routes = await config.SetPersonaRoutesAsync(
+            Guid.NewGuid(), new List<PersonaRoute> { new() { Tier = JobComplexity.Decisions, ProviderId = provider.Id } });
+
+        Assert.Equal(JobComplexity.Decisions, Assert.Single(routes).Tier);
     }
 }

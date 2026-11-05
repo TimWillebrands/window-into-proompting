@@ -14,7 +14,8 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
 
     public async Task ReviewAsync(Guid partyId, CastMember self, IReadOnlyList<Guid> cast, CancellationToken ct)
     {
-        if (!judge.Enabled) return;
+        var weigh = judge.For(self.Id);
+        if (!weigh.Enabled) return;
         var grain = grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, self.Id));
         try
         {
@@ -29,7 +30,7 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
                 if (active[i].ItemKey is null) questions[$"done{i}"] = new NoulQuestion($"{self.Name} has got what they wanted: {active[i].Text}");
                 questions[$"closer{i}"] = new NoulQuestion($"Lately {self.Name} has moved closer to what they want: {active[i].Text}");
             }
-            var answers = await judge.AskAsync(state, questions, ct);
+            var answers = await weigh.AskAsync(state, questions, ct);
             for (var i = 0; i < active.Count; i++)
             {
                 var (done, closer) = (answers.Noul($"done{i}", 0), answers.Noul($"closer{i}", 0));

@@ -158,7 +158,8 @@ Output ONLY JSON: {ChoiceShape}
         string? thought;
         string intent;
         int choice;
-        if (judge.Enabled)
+        var weigh = judge.For(self.Id);
+        if (weigh.Enabled)
         {
             // System One weighs the Affordances; sampling keeps exploration alive (opponent processing,
             // not argmax). System Two only voices the one that won.
@@ -166,7 +167,7 @@ Output ONLY JSON: {ChoiceShape}
             var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
                 i => i.ToString(CultureInfo.InvariantCulture),
                 i => (string?)(i == 0 ? "Do nothing for now" : options[i - 1].Label));
-            var answers = await judge.AskAsync(state, new Dictionary<string, SystemOneQuestion>
+            var answers = await weigh.AskAsync(state, new Dictionary<string, SystemOneQuestion>
             {
                 ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
             }, ct);

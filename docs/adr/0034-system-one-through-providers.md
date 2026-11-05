@@ -17,14 +17,18 @@ judge meant a redeploy, and decisions never showed up in Control Panel or AI obs
    `[AlwaysInterleave]`. Without this, routing a decision waits on any generation in progress.
 5. **`Enabled` stays synchronous.** Beat-path callers read it in about 14 places, so `ProviderJudge` caches it, refreshes
    every 30 seconds, and answers before the World starts. Disabling the last Decisions provider takes up to 30 seconds.
-6. **The env chain seeds once.** `SYSTEM_ONE_LOCAL_URL`, `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` become Decisions
-   providers on first boot, in the old order. Worlds seeded earlier get this too, or Jev would silently stop. After that
-   Control Panel owns them, so a deleted one stays deleted and those variables are ignored.
+6. **Cloud judges seed once.** `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` become Decisions providers on first boot, in
+   the old order. Worlds seeded earlier get this too, or Jev would silently stop. After that Control Panel owns them, so
+   a deleted one stays deleted and those variables are ignored.
+7. **A local decision model has no wiring of its own.** It's a provider with Decisions ticked. `SYSTEM_ONE_LOCAL_URL` is
+   gone, and model discovery falls back to `/v1/models`, so any compatible server lists its models.
+8. **A Persona Route can carry decisions.** Persona Models has a Decisions row, like any other tier. Calls about one
+   Persona (`judge.For(persona)`) use it, then the pool if it's benched or fails. A Route to a Reserved model enables
+   System One for that Persona even when the pool has no decision model.
 
 ## What stays out
 
-- **Persona Routes.** Most System One calls have no Persona (ADR 0032), so Decisions isn't a Route tier.
-- **Reserved.** A Reserved Decisions provider is never used, because Routes are the only way to reach Reserved providers.
+- **Calls about a group or a place** use the pool: Thermostat, Lull capture, Moment appraisal, Places tone and naming.
 - **LLM emulation** stays the fallback when no Decisions provider exists (`SYSTEM_ONE_EMULATE`).
 - **The Bench's Reflex calibration probe** keeps calling Jev directly through `HttpSystemOneJudge`.
 

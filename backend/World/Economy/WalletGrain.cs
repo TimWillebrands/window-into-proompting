@@ -99,13 +99,13 @@ public sealed class WalletGrain(
 
     private async Task<string> MeansAsync(CastMember? who)
     {
-        if (who is null || who.DefaultDriver != DriverKind.LLM || !judge.Enabled) return Money.GettingBy;
+        if (who is null || who.DefaultDriver != DriverKind.LLM || !judge.For(who.Id).Enabled) return Money.GettingBy;
         var sheet = Self.LivedSheets.For(who.Id, who.SystemPrompt) ?? who.Bio;
         if (string.IsNullOrWhiteSpace(sheet)) return Money.GettingBy;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var answers = await judge.AskAsync(sheet, new Dictionary<string, SystemOneQuestion>
+            var answers = await judge.For(who.Id).AskAsync(sheet, new Dictionary<string, SystemOneQuestion>
             {
                 ["means"] = new ChoiceQuestion($"Money-wise, how is {who.Name} doing day to day?", new Dictionary<string, string?>
                 {

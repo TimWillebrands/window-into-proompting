@@ -52,14 +52,15 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
     /// <summary>One read a day of whether a Practice speaks to what's going on with them; null without a judge.</summary>
     private async Task<double?> FitAsync(LifeContext ctx, Guid practitionerId, string name, Occupation job, Practice practice, CancellationToken ct)
     {
-        if (!judge.Enabled) return null;
+        var weigh = judge.For(ctx.Self.Id);
+        if (!weigh.Enabled) return null;
         var book = grains.GetGrain<ISessionsGrain>(ctx.PartyId);
         var day = Shifts.DayKey(ctx.Now.ToLocalTime());
         if (await book.GetFitAsync(ctx.Self.Id, practitionerId, day) is { } known) return known;
         try
         {
             var presence = await grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetPresenceAsync(withDay: true);
-            var answers = await judge.AskAsync($"{WorldLlm.Identity(ctx.Self)}\n\n{presence}", new Dictionary<string, SystemOneQuestion>
+            var answers = await weigh.AskAsync($"{WorldLlm.Identity(ctx.Self)}\n\n{presence}", new Dictionary<string, SystemOneQuestion>
             {
                 ["fit"] = new NoulQuestion($"{ctx.Self.Name} has something going on right now that {name}, a {job.Title} ({practice.Field}), could really help with."),
             }, ct);

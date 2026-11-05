@@ -111,7 +111,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.AvailabilityTried = null;
             state.State.AvailabilityVersion = AvailabilityVersion;
         }
-        if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey || !judge.Enabled) return;
+        if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey || !judge.For(personaId).Enabled) return;
         state.State.AvailabilityTried = state.State.DayKey;
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
         if (self is null) return;
@@ -121,7 +121,7 @@ public sealed partial class PersonaSelfGrain(
             var questions = beats.Select((b, i) => (Key: $"b{i}", Q: (SystemOneQuestion)new NoulQuestion(
                     $"During \"{b.Text}\", {self.Name} could casually glance at their phone or computer and chat with friends.")))
                 .ToDictionary(x => x.Key, x => x.Q);
-            var answers = await judge.AskAsync($"{self.Name}: {self.Bio}\nTheir day:\n{string.Join("\n", beats.Select(b => b.Text))}", questions, cts.Token);
+            var answers = await judge.For(personaId).AskAsync($"{self.Name}: {self.Bio}\nTheir day:\n{string.Join("\n", beats.Select(b => b.Text))}", questions, cts.Token);
             var rated = SelfMath.Rescale(beats.Select((_, i) => answers.Noul($"b{i}", 1)).ToList());
             for (var i = 0; i < beats.Count; i++)
                 beats[i].Availability = Math.Round(rated[i], 2);

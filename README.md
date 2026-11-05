@@ -49,7 +49,9 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 
 **Local models:** in Control Panel → LLM providers, enable an Ollama entry (e.g. `lfm2.5:latest`) and disable the OpenRouter one. World calls send a JSON schema, so small local models stay structured. The voice is flatter, but the world keeps running offline.
 
-**Local models in production:** run a [Tailscale sidecar](docs/adr/0033-tailnet-sidecars.md) so the server can reach a GPU box at home. Create a tagged auth key, add `TS_AUTHKEY` to `.kamal/secrets`, then run `kamal accessory boot tailscale`. On the box, bind the server beyond localhost (`OLLAMA_HOST=0.0.0.0`, or `--host 0.0.0.0` for llama-server). In Control Panel → LLM providers, set the entry's Base URL to the box and "Connect via" to the Tailnet. To try it locally, export `TS_AUTHKEY` before starting the AppHost. If the box sleeps, the provider is benched and the rest of the pool takes over.
+**Local models in production:** run a [Tailscale sidecar](docs/adr/0033-tailnet-sidecars.md) so the server can reach a machine at home. Create an auth key for your own user, not a tagged one, because tagged machines can't reach shared devices. Add `TS_AUTHKEY` to `.kamal/secrets`, run `kamal accessory boot tailscale`, then disable key expiry on the new `proompting` machine. On the box, bind the server beyond localhost (`OLLAMA_HOST=0.0.0.0`, or `--host 0.0.0.0` for llama-server). In Control Panel → LLM providers, set the entry's Base URL to the box and "Connect via" to the Tailnet. To try it locally, export `TS_AUTHKEY` before starting the AppHost. If the box sleeps, the provider is benched and the rest of the pool takes over.
+
+**Someone else's machine:** they share it from their Tailscale admin console and send you the link. Accept it signed in as the user who owns the sidecar, then add it the same way, using its `100.x` address. An entry in the pool gets everyone's prompts, DMs included, so its owner can read them; mark it Reserved to keep it to the Personas you assign.
 
 **System One (decisions) vs System Two (words):** persona *choices* go to a decision model: what to do next, whether to interrupt, whether a moment is worth remembering. *Words* go to an LLM. The best split is a local GPU for decisions and stronger cloud models for words:
 
@@ -58,9 +60,9 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 tools/systemone/run-clef.sh                          # LLAMA_SERVER=/path/to/llama-server if not on PATH
 ```
 
-Decision models are providers like any other. In Control Panel → LLM providers, add an Ollama entry with Base URL `http://127.0.0.1:8091` and model `clef-flash`, and tick only **Decisions** under Handles. Give it a lower Priority than Jev to run it first. Keep decision models on their own entries: they can't generate text, and a failing entry is benched as a whole.
+Decision models are providers like any other, on any machine that serves `/v1/systemone`. In Control Panel → LLM providers, add a Local server entry with its Base URL, pick the model, and tick **Decisions** under Handles. Give it a lower Priority than Jev to run it first, or disable Jev. Keep decision models on their own entries unless they also generate text, because a failing entry is benched as a whole.
 
-Your `OPENROUTER_API_KEY` adds Jev on OpenRouter as a Decisions provider on first boot, so it does the deciding without a local server. `SYSTEM_ONE_LOCAL_URL` and `TYPESAFE_API_KEY` are read at that same first boot too; after that, Control Panel owns them. If every decision provider is down, callers fall back to the LLM as before. The voice runs on `anthropic/claude-haiku-5.5`; thinking and memory extraction run on `deepseek/deepseek-v4.1-flash`.
+Your `OPENROUTER_API_KEY` adds Jev on OpenRouter as a Decisions provider on first boot, so it does the deciding without a local server. If every decision provider is down, callers fall back to the LLM as before. The voice runs on `anthropic/claude-haiku-5.5`; thinking and memory extraction run on `deepseek/deepseek-v4.1-flash`.
 
 ## Hacking on it
 

@@ -1,3 +1,4 @@
+using PartyTown.Services.SystemOne;
 using System.Text;
 using PartyTown.World.Apps;
 using PartyTown.World.Places;
@@ -63,7 +64,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
             case "wear":
             {
                 var spare = wallet.Wardrobe.Where(k => !wearing.Contains(k)).Select(Catalog.Find).OfType<ShopItem>().ToList();
-                var item = Catalog.Match(text, spare) ?? await PickAsync(text, spare);
+                var item = Catalog.Match(text, spare) ?? await PickAsync(ctx.Self.Id, text, spare);
                 return item is null ? null : await WearAsync(ctx.PartyId, ctx.Self.Id, item);
             }
             case "buy-wanted":
@@ -74,13 +75,13 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
             case "buy":
             {
                 var item = Catalog.Match(text, shops) ?? Catalog.Match(text, Catalog.All.Where(i => !wallet.Wardrobe.Contains(i.Key)).ToList())
-                    ?? await PickAsync(text, shops.Where(i => i.Price <= wallet.Balance).ToList());
+                    ?? await PickAsync(ctx.Self.Id, text, shops.Where(i => i.Price <= wallet.Balance).ToList());
                 return item is null ? null : await BuyAsync(ctx.PartyId, ctx.Self.Id, item);
             }
             case "gift" when affordance.TargetId is { } to:
             {
                 var item = Catalog.Match(text, Catalog.All.Where(i => !Catalog.IsService(i)).ToList())
-                    ?? await PickAsync($"A present for {ctx.NameOf(to)}. {text}", shops.Where(i => !Catalog.IsService(i) && i.Price <= wallet.Balance).ToList());
+                    ?? await PickAsync(ctx.Self.Id, $"A present for {ctx.NameOf(to)}. {text}", shops.Where(i => !Catalog.IsService(i) && i.Price <= wallet.Balance).ToList());
                 return item is null ? null : await GiftAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, to, ctx.NameOf(to), item);
             }
         }
@@ -119,14 +120,15 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     }
 
     /// <summary>The option an intent that names no item most likely means (System One); null when there's nothing to pick.</summary>
-    private async Task<ShopItem?> PickAsync(string intent, IReadOnlyList<ShopItem> options)
+    private async Task<ShopItem?> PickAsync(Guid who, string intent, IReadOnlyList<ShopItem> options)
     {
-        if (options.Count <= 1 || !judge.Enabled) return options.FirstOrDefault();
+        var weigh = judge.For(who);
+        if (options.Count <= 1 || !weigh.Enabled) return options.FirstOrDefault();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             var labels = options.Select((o, i) => (Key: $"o{i}", o)).ToList();
-            var answers = await judge.AskAsync(intent, new Dictionary<string, Services.SystemOne.SystemOneQuestion>
+            var answers = await weigh.AskAsync(intent, new Dictionary<string, Services.SystemOne.SystemOneQuestion>
             {
                 ["pick"] = new Services.SystemOne.ChoiceQuestion("Which of these fits what they have in mind best?",
                     labels.ToDictionary(l => l.Key, l => (string?)l.o.Name)),

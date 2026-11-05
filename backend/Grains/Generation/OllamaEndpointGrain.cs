@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenAI;
@@ -169,40 +170,28 @@ public class OllamaEndpointGrain(
     {
         try
         {
-            logger.LogDebug("Fetching models from Ollama at {BaseUrl}", BaseUrl);
+            logger.LogDebug("Fetching models from {BaseUrl}", BaseUrl);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(3));
 
             var http = tailnets.ClientFor(_config?.Tailnet) ?? httpClientFactory.CreateClient();
-            var url = $"{BaseUrl.TrimEnd('/')}/api/tags";
-            var httpResponse = await http.GetAsync(url, cts.Token);
-            httpResponse.EnsureSuccessStatusCode();
-
-            var content = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                logger.LogWarning("Ollama at {BaseUrl} returned empty response for /api/tags", BaseUrl);
-                return Array.Empty<LlmModel>();
-            }
-
-            var response = JsonSerializer.Deserialize<OllamaTagsResponse>(content);
             var grainId = this.GetPrimaryKey();
             var complexity = _config?.SupportedComplexities ?? JobComplexity.General;
 
-            var list = (response?.Models ?? [])
-                .Select(item => new LlmModel
+            var list = (await ListModelNamesAsync(http, cts.Token))
+                .Select(name => new LlmModel
                 {
-                    Name = item.Name,
+                    Name = name,
                     EndpointProviderGrainId = grainId,
                     ProviderType = "ollama",
                     ProviderDescription = ProviderDescription,
-                    Description = $"Ollama model {item.Name}",
+                    Description = $"Local model {name}",
                     SupportedComplexities = complexity,
                 })
                 .ToList();
 
-            logger.LogDebug("Fetched {Count} models from Ollama", list.Count);
+            logger.LogDebug("Fetched {Count} models from {BaseUrl}", list.Count, BaseUrl);
             return list;
         }
         catch (Exception ex)
@@ -210,6 +199,35 @@ public class OllamaEndpointGrain(
             logger.LogError(ex, "OllamaEndpointGrain failed to list models from {BaseUrl}", BaseUrl);
             return Array.Empty<LlmModel>();
         }
+    }
+
+    /// <summary>Ollama's own list, else the OpenAI one that llama.cpp and other local servers serve.</summary>
+    private async Task<IReadOnlyList<string>> ListModelNamesAsync(HttpClient http, CancellationToken cancellationToken)
+    {
+        var root = BaseUrl.TrimEnd('/');
+        using var tags = await http.GetAsync($"{root}/api/tags", cancellationToken);
+        if (tags.IsSuccessStatusCode)
+        {
+            var response = await tags.Content.ReadFromJsonAsync<OllamaTagsResponse>(cancellationToken);
+            return response?.Models.Select(m => m.Name).ToList() ?? new List<string>();
+        }
+
+        using var models = await http.GetAsync($"{root}/v1/models", cancellationToken);
+        models.EnsureSuccessStatusCode();
+        var openAi = await models.Content.ReadFromJsonAsync<OpenAiModelsResponse>(cancellationToken);
+        return openAi?.Data.Select(m => m.Id).ToList() ?? new List<string>();
+    }
+
+    private sealed class OpenAiModelsResponse
+    {
+        [JsonPropertyName("data")]
+        public List<OpenAiModelEntry> Data { get; init; } = [];
+    }
+
+    private sealed class OpenAiModelEntry
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; init; } = string.Empty;
     }
 
     private sealed class OllamaTagsResponse

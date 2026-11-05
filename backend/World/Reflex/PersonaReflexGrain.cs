@@ -41,7 +41,7 @@ public sealed class PersonaReflexGrain(
     {
         var now = UtcNow;
         var ms = now.ToUnixTimeMilliseconds();
-        if (!judge.Enabled || !(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
+        if (!judge.For(Keys.Persona).Enabled || !(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
 
         // Already in this conversation: it holds the workspace, so no appraisal, just reading time.
         if (p.RoomId is { } room && InExchange(room, ms))
@@ -190,7 +190,7 @@ public sealed class PersonaReflexGrain(
         try
         {
             using var cts = new CancellationTokenSource(JudgeBudget);
-            var answers = await judge.AskAsync(ReflexWeighing.State(p, sense), ReflexWeighing.Ask(p, sense.Name), cts.Token);
+            var answers = await judge.For(Keys.Persona).AskAsync(ReflexWeighing.State(p, sense), ReflexWeighing.Ask(p, sense.Name), cts.Token);
             return answers.Choices.TryGetValue(ReflexWeighing.Key, out var dist) && dist.Count > 0 ? answers : null;
         }
         catch (Exception ex)

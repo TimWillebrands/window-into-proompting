@@ -4,12 +4,13 @@ import type { Persona } from '../../../api/model/persona';
 import type { PersonaRoute } from '../../../api/model/personaRoute';
 import {
     DECISIONS,
-    PERSONA_TIERS,
+    JOB_COMPLEXITIES,
     providerLabel,
     selectStyle,
 } from './constants';
 
 function TierSlot({
+    tier,
     label,
     hint,
     providerId,
@@ -17,6 +18,7 @@ function TierSlot({
     disabled,
     onChange,
 }: {
+    tier: number;
     label: string;
     hint: string;
     providerId: string | undefined;
@@ -30,7 +32,8 @@ function TierSlot({
     const options = providers.filter(
         (p) =>
             p.id === providerId ||
-            (p.isEnabled !== false && p.supportedComplexities !== DECISIONS),
+            (p.isEnabled !== false &&
+                (tier === DECISIONS || p.supportedComplexities !== DECISIONS)),
     );
     const reserved = options.filter((p) => p.reserved);
     const shared = options.filter((p) => !p.reserved);
@@ -222,9 +225,10 @@ export default function PersonaModelCard({
                     gap: 8,
                 }}
             >
-                {PERSONA_TIERS.map((c) => (
+                {JOB_COMPLEXITIES.map((c) => (
                     <TierSlot
                         key={c.value}
+                        tier={c.value}
                         label={c.label}
                         hint={c.hint}
                         providerId={

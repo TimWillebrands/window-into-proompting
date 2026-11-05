@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Orleans.Concurrency;
 using PartyTown.Configuration;
 
 namespace PartyTown.Grains.Generation;
@@ -92,7 +93,7 @@ public sealed class LlmProviderConfigGrain(
     }
 
     private static bool IsTier(JobComplexity tier)
-        => tier is JobComplexity.General or JobComplexity.CharacterVoice or JobComplexity.CharacterThoughts;
+        => tier is JobComplexity.General or JobComplexity.CharacterVoice or JobComplexity.CharacterThoughts or JobComplexity.Decisions;
 
     private async Task SeedFromOptionsAsync()
     {
@@ -150,6 +151,8 @@ public sealed class LlmProviderConfigGrain(
 [Alias("PartyTown.Grains.Generation.ILlmProviderConfigGrain")]
 public interface ILlmProviderConfigGrain : IGrainWithIntegerKey
 {
+    /// <summary>Interleaves because saving a provider activates its endpoint, which reads this list back.</summary>
+    [AlwaysInterleave]
     [Alias("GetProvidersAsync")]
     Task<List<LlmProviderEntry>> GetProvidersAsync();
 

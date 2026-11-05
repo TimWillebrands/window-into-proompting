@@ -82,7 +82,9 @@ export default function ProviderEditor({
                     onChange={(e) => handleTypeChange(e.target.value)}
                     style={selectStyle}
                 >
-                    <option value="ollama">Ollama (local)</option>
+                    <option value="ollama">
+                        Local server (Ollama, llama.cpp, …)
+                    </option>
                     <option value="openrouter">OpenRouter</option>
                 </select>
             </FormRow>

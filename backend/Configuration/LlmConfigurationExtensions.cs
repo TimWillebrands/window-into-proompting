@@ -72,8 +72,6 @@ public static class LlmConfigurationExtensions
             Priority = options.DecisionProviders.Count,
         });
 
-        if (config["SYSTEM_ONE_LOCAL_URL"] is { Length: > 0 } local)
-            Add("ollama", local, null, config["SYSTEM_ONE_LOCAL_MODEL"] ?? HttpSystemOneJudge.LocalModel);
         if (config["TYPESAFE_API_KEY"] is { Length: > 0 } typesafe)
             Add("openrouter", HttpSystemOneJudge.TypeSafeBaseUrl, typesafe, config["TYPESAFE_MODEL"] ?? HttpSystemOneJudge.TypeSafeModel);
         if (config["OPENROUTER_API_KEY"] is { Length: > 0 } openRouter && config.GetValue("SYSTEM_ONE_OPENROUTER", true))
