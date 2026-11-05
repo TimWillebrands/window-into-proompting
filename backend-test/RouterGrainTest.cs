@@ -114,6 +114,17 @@ public class RouterGrainTest : TestKitBase
     }
 
     [Fact]
+    public async Task RouteAsync_NeverWaitsOnAReservedProvider()
+    {
+        var (_, reserved) = SetupReserved(Guid.NewGuid());
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.RouteAsync(JobComplexity.General);
+
+        Mock.Get(reserved.Reference).Verify(g => g.PressureAsync(), Times.Never);
+    }
+
+    [Fact]
     public async Task AssignedEndpoint_ReturnsTheProviderForThatPersonaAndTierOnly()
     {
         var persona = Guid.NewGuid();

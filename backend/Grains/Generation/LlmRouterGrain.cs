@@ -79,14 +79,15 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         using var routeSpan = Tracing.Persona.StartActivity("llm.route", ActivityKind.Internal);
         routeSpan?.SetTag("job.complexity", jobComplexity.ToString());
 
-        var providers = await GetProvidersAsync(cancellationToken);
+        // Reserved first: endpoints aren't reentrant, so asking one for pressure queues behind its generation.
+        var providers = (await GetProvidersAsync(cancellationToken)).Where(p => !p.Entry.Reserved).ToList();
         routeSpan?.SetTag("candidates.total", providers.Count);
 
         // Tier support is a property of the provider entry, not of its model list — no
         // per-route network listing.
         var modelProviderTasks = providers.Select(async p =>
         {
-            var supports = !p.Entry.Reserved && p.Entry.SupportedComplexities.HasFlag(jobComplexity);
+            var supports = p.Entry.SupportedComplexities.HasFlag(jobComplexity);
             return new
             {
                 Grain = p.Grain,
