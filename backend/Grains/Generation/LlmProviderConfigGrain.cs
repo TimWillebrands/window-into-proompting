@@ -57,12 +57,37 @@ public sealed class LlmProviderConfigGrain(
         var removed = state.State.Providers.FirstOrDefault(p => p.Id == providerId)
             ?? throw new InvalidOperationException($"Provider {providerId} not found");
         state.State.Providers.Remove(removed);
+        state.State.PersonaRoutes.RemoveAll(r => r.ProviderId == providerId);
 
         await state.WriteStateAsync();
         await InvalidateRouter();
         await LlmEndpoints.Resolve(GrainFactory, removed.Type, providerId).ApplyConfigAsync(null);
         logger.LogInformation("Removed LLM provider {ProviderId}", providerId);
     }
+
+    public Task<List<PersonaRoute>> GetPersonaRoutesAsync()
+        => Task.FromResult(state.State.PersonaRoutes.ToList());
+
+    public async Task<List<PersonaRoute>> SetPersonaRoutesAsync(Guid personaId, List<PersonaRoute> routes)
+    {
+        if (routes.FirstOrDefault(r => !IsTier(r.Tier)) is { } badTier)
+            throw new ArgumentException($"Not a single tier: {badTier.Tier}");
+        if (routes.FirstOrDefault(r => state.State.Providers.All(p => p.Id != r.ProviderId)) is { } badProvider)
+            throw new ArgumentException($"Provider {badProvider.ProviderId} not found");
+
+        state.State.PersonaRoutes.RemoveAll(r => r.PersonaId == personaId);
+        // One provider per tier; the last one sent wins.
+        state.State.PersonaRoutes.AddRange(routes
+            .GroupBy(r => r.Tier)
+            .Select(g => g.Last() with { PersonaId = personaId }));
+        await state.WriteStateAsync();
+        await InvalidateRouter();
+        logger.LogInformation("Persona {PersonaId} now has {Count} model routes", personaId, routes.Count);
+        return state.State.PersonaRoutes.Where(r => r.PersonaId == personaId).ToList();
+    }
+
+    private static bool IsTier(JobComplexity tier)
+        => tier is JobComplexity.General or JobComplexity.CharacterVoice or JobComplexity.CharacterThoughts;
 
     private async Task SeedFromOptionsAsync()
     {
@@ -121,6 +146,13 @@ public interface ILlmProviderConfigGrain : IGrainWithIntegerKey
 
     [Alias("RemoveProviderAsync")]
     Task RemoveProviderAsync(Guid providerId);
+
+    [Alias("GetPersonaRoutesAsync")]
+    Task<List<PersonaRoute>> GetPersonaRoutesAsync();
+
+    /// <summary>Replaces all of this persona's routes; an empty list puts them back on the shared pool.</summary>
+    [Alias("SetPersonaRoutesAsync")]
+    Task<List<PersonaRoute>> SetPersonaRoutesAsync(Guid personaId, List<PersonaRoute> routes);
 }
 
 [GenerateSerializer]
@@ -129,6 +161,17 @@ public sealed class LlmProviderConfigState
 {
     [Id(0)] public List<LlmProviderEntry> Providers { get; set; } = [];
     [Id(1)] public bool SeededFromOptions { get; set; }
+    [Id(2)] public List<PersonaRoute> PersonaRoutes { get; set; } = new();
+}
+
+/// <summary>This persona's work at this tier goes to this provider instead of the shared pool.</summary>
+[GenerateSerializer]
+[Alias("PartyTown.Grains.Generation.PersonaRoute")]
+public sealed record class PersonaRoute
+{
+    [Id(0)] public Guid PersonaId { get; init; }
+    [Id(1)] public JobComplexity Tier { get; init; }
+    [Id(2)] public Guid ProviderId { get; init; }
 }
 
 [GenerateSerializer]
@@ -145,4 +188,6 @@ public sealed record class LlmProviderEntry
     [Id(7)] public bool IsEnabled { get; init; } = true;
     /// <summary>Lower routes first; equal priorities balance by load. Give a local fallback a higher number.</summary>
     [Id(8)] public int Priority { get; init; }
+    /// <summary>Kept out of the shared pool: only personas assigned to it use it.</summary>
+    [Id(9)] public bool Reserved { get; init; }
 }

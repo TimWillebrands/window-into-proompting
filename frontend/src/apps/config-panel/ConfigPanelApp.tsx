@@ -3,6 +3,7 @@ import { useNavHistoryStore } from '#lib/nav-history';
 import ControlPanelHome from './components/ControlPanelHome';
 import { SECTION_NAMES, SECTIONS } from './components/constants';
 import LlmProvidersSection from './components/LlmProvidersSection';
+import PersonaModelsSection from './components/PersonaModelsSection';
 
 export default function ConfigPanelApp() {
     const { stack, index } = useNavHistoryStore();
@@ -193,6 +194,10 @@ export default function ConfigPanelApp() {
                         <ControlPanelHome onNavigate={navigateTo} />
                     ) : section === 'llm-providers' ? (
                         <LlmProvidersSection />
+                    ) : section === 'persona-models' ? (
+                        <PersonaModelsSection
+                            onOpenProviders={() => navigateTo('llm-providers')}
+                        />
                     ) : (
                         <div style={{ color: '#fff' }}>
                             This section no longer exists. Go Back or pick a

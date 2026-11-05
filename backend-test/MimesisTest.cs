@@ -34,6 +34,7 @@ public class MimesisTest : IClassFixture<WorldLifeTest.Fixture>
     private Mimesis With(string kind, string want, string about)
     {
         var llm = new Mock<IWorldLlm>();
+        llm.Setup(l => l.For(It.IsAny<Guid>())).Returns(() => llm.Object);
         llm.Setup(l => l.CompleteJsonAsync(It.IsAny<JobComplexity>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<double?>(), It.IsAny<IReadOnlyList<string>?>()))
             .ReturnsAsync(new JsonObject { ["kind"] = kind, ["want"] = want, ["about"] = about });
         return new Mimesis(_fx.GrainFactory, llm.Object, NullLogger<Mimesis>.Instance);

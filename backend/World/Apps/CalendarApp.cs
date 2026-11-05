@@ -76,7 +76,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         var room = ctx.Threads.FirstOrDefault(t => t.Id == target);
         if (room is null && meetAt is null) return null;
         var whereText = meetAt is null ? $"in the chat room #{room!.Name}" : $"in person {meetAt.At} {meetAt.Name}";
-        var json = await llm.CompleteJsonAsync(JobComplexity.General,
+        var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together {whereText}. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and 240).\nOutput ONLY JSON: {PlanShape}",
             $"What you have in mind: {intent}", ct, 0.9, ["title", "minutesFromNow"]);
         var title = json?["title"]?.ToString();

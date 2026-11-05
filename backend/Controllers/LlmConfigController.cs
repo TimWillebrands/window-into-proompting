@@ -55,6 +55,27 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         return Ok(result);
     }
 
+    /// <summary>Which persona uses which provider for which tier; everything else uses the shared pool.</summary>
+    [HttpGet("persona-routes")]
+    public async Task<ActionResult<List<PersonaRoute>>> GetPersonaRoutes()
+        => Ok(await ConfigGrain.GetPersonaRoutesAsync());
+
+    /// <summary>Replaces one persona's routes; send an empty list to put them back on the shared pool.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+    [HttpPut("persona-routes/{personaId:guid}")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<List<PersonaRoute>>> SetPersonaRoutes(Guid personaId, [FromBody] List<PersonaRoute> routes)
+    {
+        try
+        {
+            return Ok(await ConfigGrain.SetPersonaRoutesAsync(personaId, routes));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     private static string? Mask(string? key)
         => string.IsNullOrEmpty(key) ? key : key.Length <= 8 ? MaskPrefix : $"{MaskPrefix}{key[^4..]}";
 

@@ -70,6 +70,7 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("persona.id", persona.Id);
         turnSpan?.SetTag("persona.name", persona.Name);
         turnSpan?.SetTag("chat_group.id", chatGroupId);
+        turnSpan?.AddBaggage("posthog.ai.session_id", $"chat-{chatGroupId}");
         turnSpan?.SetTag("triggered_by.message_id", triggeringMessage.MessageId);
         turnSpan?.SetTag("triggered_by.sender_id", triggeringMessage.SenderId);
 
@@ -428,6 +429,7 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("persona.id", persona.Id);
         turnSpan?.SetTag("persona.name", persona.Name);
         turnSpan?.SetTag("chat_group.id", chatGroupId);
+        turnSpan?.AddBaggage("posthog.ai.session_id", $"chat-{chatGroupId}");
 
         var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id);
         var newCts = new CancellationTokenSource();

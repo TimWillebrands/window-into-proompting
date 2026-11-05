@@ -1,9 +1,11 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
 using PartyTown.Services.ResponsePipeline;
+using PartyTown.World;
 
 namespace BackendTest;
 
@@ -39,6 +41,64 @@ public class LlmCallTest
         else
             ep.Setup(e => e.GetAttributionAsync()).ReturnsAsync(new ChatMessageMetadata { Provider = "p", ModelName = "m" });
         return ep;
+    }
+
+    [Fact]
+    public async Task Route_ForAPersona_PrefersTheirAssignedProvider()
+    {
+        var persona = Guid.NewGuid();
+        var assigned = Endpoint().Object;
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.AssignedEndpointAsync(persona, JobComplexity.CharacterVoice, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assigned);
+
+        var (endpoint, served) = await new LlmCall(router.Object, persona: persona).RouteAsync(LlmTiers.Voice, default);
+
+        Assert.Same(assigned, endpoint);
+        Assert.Equal(JobComplexity.CharacterVoice, served);
+        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task WorldLlm_For_RoutesAsThatPersona()
+    {
+        var persona = Guid.NewGuid();
+        var assigned = new Mock<ILlmEndpointGrain>();
+        assigned.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync("hi");
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.AssignedEndpointAsync(persona, JobComplexity.CharacterVoice, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assigned.Object);
+        var grains = new Mock<IGrainFactory>();
+        grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
+        var llm = new WorldLlm(grains.Object, NullLogger<WorldLlm>.Instance);
+
+        var text = await llm.For(persona).CompleteAsync(JobComplexity.CharacterVoice, "s", "u", default);
+
+        Assert.Equal("hi", text);
+        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Route_ForAPersonaWithoutAssignment_UsesThePool()
+    {
+        var pool = Endpoint().Object;
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<CancellationToken>())).ReturnsAsync(pool);
+
+        var (endpoint, _) = await new LlmCall(router.Object, persona: Guid.NewGuid()).RouteAsync(LlmTiers.Voice, default);
+
+        Assert.Same(pool, endpoint);
+    }
+
+    [Fact]
+    public async Task Route_WithoutAPersona_NeverAsksForAnAssignment()
+    {
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(Endpoint().Object);
+
+        await new LlmCall(router.Object).RouteAsync(LlmTiers.General, default);
+
+        router.Verify(r => r.AssignedEndpointAsync(It.IsAny<Guid>(), It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -71,3 +71,19 @@ export const NoModel: Story = {
         },
     },
 };
+
+export const ReservedForPersonas: Story = {
+    args: {
+        personaCount: 3,
+        provider: {
+            id: 'prov-3',
+            type: 'openrouter',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            apiKey: '••••ab12',
+            modelName: 'anthropic/claude-opus-5.5',
+            supportedComplexities: 1,
+            isEnabled: true,
+            reserved: true,
+        },
+    },
+};

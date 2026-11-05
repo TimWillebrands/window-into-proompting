@@ -34,7 +34,7 @@ public sealed class LivedSheetGrain(
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         try
         {
-            var text = await llm.CompleteAsync(JobComplexity.CharacterVoice, LivedSheets.DistillPrompt,
+            var text = await llm.For(this.GetPrimaryKey()).CompleteAsync(JobComplexity.CharacterVoice, LivedSheets.DistillPrompt,
                 $"Name: {name}\n\nTheir description:\n{source}", cts.Token, 0.5);
             text = text?.Trim();
             if (string.IsNullOrWhiteSpace(text) || text.Length < 200) return null;

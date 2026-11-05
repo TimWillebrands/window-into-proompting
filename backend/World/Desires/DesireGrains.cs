@@ -51,7 +51,7 @@ public sealed class IntrinsicDesiresGrain(
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         try
         {
-            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+            var json = await llm.For(this.GetPrimaryKey()).CompleteJsonAsync(JobComplexity.General,
                 $"""
                 You read who someone is and say what they want in life right now. Life-sized and concrete, no grand themes,
                 nothing poetic. Read it off who they are; don't invent a new life for them.

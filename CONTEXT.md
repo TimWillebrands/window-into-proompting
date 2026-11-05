@@ -70,6 +70,10 @@ _Avoid_: import file, backstory doc, prompt.
 The dry-run result of an **Arrival**: the newcomer's Events, Recollections and Stances, plus additions to existing **Participants**' **Nurture** where the corpus touches them. Revised by prompting; nothing reaches the memory graph until accepted.
 _Avoid_: preview, proposal, staging.
 
+**Persona Route**:
+A **Persona**'s work at one tier goes to one chosen provider instead of the shared pool. Admin-set in Control Panel → Persona Models. A provider marked **Reserved** stays out of the pool, so only Personas routed to it use it. See [ADR 0032](docs/adr/0032-persona-models.md).
+_Avoid_: model override, persona provider.
+
 ### Persona behaviour dials
 
 **Chattiness** (0..1):

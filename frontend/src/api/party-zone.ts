@@ -79,6 +79,7 @@ import type {
     PartyDetails,
     PartyInfo,
     Persona,
+    PersonaRoute,
     PlaceStyleRequest,
     PlacesSnapshot,
     PlanGatheringRequest,
@@ -5248,6 +5249,429 @@ export function useGetLlmConfigUsageSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export type getLlmConfigPersonaRoutesResponse200TextPlain = {
+    data: PersonaRoute[];
+    status: 200;
+};
+
+export type getLlmConfigPersonaRoutesResponse200ApplicationJson = {
+    data: PersonaRoute[];
+    status: 200;
+};
+
+export type getLlmConfigPersonaRoutesResponse200TextJson = {
+    data: PersonaRoute[];
+    status: 200;
+};
+
+export type getLlmConfigPersonaRoutesResponseSuccess = (
+    | getLlmConfigPersonaRoutesResponse200TextPlain
+    | getLlmConfigPersonaRoutesResponse200ApplicationJson
+    | getLlmConfigPersonaRoutesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigPersonaRoutesResponse =
+    getLlmConfigPersonaRoutesResponseSuccess;
+
+export const getGetLlmConfigPersonaRoutesUrl = () => {
+    return `/api/LlmConfig/persona-routes`;
+};
+
+export const getLlmConfigPersonaRoutes = async (
+    options?: RequestInit,
+): Promise<getLlmConfigPersonaRoutesResponse> => {
+    return customFetch<getLlmConfigPersonaRoutesResponse>(
+        getGetLlmConfigPersonaRoutesUrl(),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetLlmConfigPersonaRoutesQueryKey = () => {
+    return [`/api/LlmConfig/persona-routes`] as const;
+};
+
+export const getGetLlmConfigPersonaRoutesQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigPersonaRoutesQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+    > = ({ signal }) =>
+        getLlmConfigPersonaRoutes({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigPersonaRoutesQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+>;
+export type GetLlmConfigPersonaRoutesQueryError = unknown;
+
+export function useGetLlmConfigPersonaRoutes<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigPersonaRoutes<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigPersonaRoutes<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigPersonaRoutes<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigPersonaRoutesQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigPersonaRoutesSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigPersonaRoutesQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+    > = ({ signal }) =>
+        getLlmConfigPersonaRoutes({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigPersonaRoutesSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>
+>;
+export type GetLlmConfigPersonaRoutesSuspenseQueryError = unknown;
+
+export function useGetLlmConfigPersonaRoutesSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigPersonaRoutesSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigPersonaRoutesSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigPersonaRoutesSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigPersonaRoutes>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetLlmConfigPersonaRoutesSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type putLlmConfigPersonaRoutesPersonaIdResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putLlmConfigPersonaRoutesPersonaIdResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putLlmConfigPersonaRoutesPersonaIdResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+export type putLlmConfigPersonaRoutesPersonaIdResponseError = (
+    | putLlmConfigPersonaRoutesPersonaIdResponse400TextPlain
+    | putLlmConfigPersonaRoutesPersonaIdResponse400ApplicationJson
+    | putLlmConfigPersonaRoutesPersonaIdResponse400TextJson
+) & {
+    headers: Headers;
+};
+
+export type putLlmConfigPersonaRoutesPersonaIdResponse =
+    putLlmConfigPersonaRoutesPersonaIdResponseError;
+
+export const getPutLlmConfigPersonaRoutesPersonaIdUrl = (personaId: string) => {
+    return `/api/LlmConfig/persona-routes/${personaId}`;
+};
+
+export const putLlmConfigPersonaRoutesPersonaId = async (
+    personaId: string,
+    personaRoute: PersonaRoute[],
+    options?: RequestInit,
+): Promise<putLlmConfigPersonaRoutesPersonaIdResponse> => {
+    return customFetch<putLlmConfigPersonaRoutesPersonaIdResponse>(
+        getPutLlmConfigPersonaRoutesPersonaIdUrl(personaId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(personaRoute),
+        },
+    );
+};
+
+export const getPutLlmConfigPersonaRoutesPersonaIdMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>,
+        TError,
+        { personaId: string; data: PersonaRoute[] },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>,
+    TError,
+    { personaId: string; data: PersonaRoute[] },
+    TContext
+> => {
+    const mutationKey = ['putLlmConfigPersonaRoutesPersonaId'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>,
+        { personaId: string; data: PersonaRoute[] }
+    > = (props) => {
+        const { personaId, data } = props ?? {};
+
+        return putLlmConfigPersonaRoutesPersonaId(
+            personaId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutLlmConfigPersonaRoutesPersonaIdMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>
+>;
+export type PutLlmConfigPersonaRoutesPersonaIdMutationBody = PersonaRoute[];
+export type PutLlmConfigPersonaRoutesPersonaIdMutationError = ProblemDetails;
+
+export const usePutLlmConfigPersonaRoutesPersonaId = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>,
+            TError,
+            { personaId: string; data: PersonaRoute[] },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putLlmConfigPersonaRoutesPersonaId>>,
+    TError,
+    { personaId: string; data: PersonaRoute[] },
+    TContext
+> => {
+    return useMutation(
+        getPutLlmConfigPersonaRoutesPersonaIdMutationOptions(options),
+        queryClient,
+    );
+};
 
 export type getLlmConfigProvidersIdModelsResponse200TextPlain = {
     data: string[];

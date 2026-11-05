@@ -42,7 +42,7 @@ public sealed partial class PersonaSelfGrain
             var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
             if (self is null) return;
             var districts = await places.GetDistrictNamesAsync();
-            var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
+            var json = await llm.For(personaId).CompleteJsonAsync(Grains.Generation.JobComplexity.General,
                 $"{WorldLlm.Identity(self)}\n\nOutput ONLY JSON with one string field \"district\": the part of town (Amsterdam) {self.Name} lives in, from what you know of them. Reuse one of these names if it fits: {string.Join(", ", districts)}. If nothing says, answer \"the centre\".",
                 "Where do they live?", CancellationToken.None, 0.3, ["district"]);
             var district = json?["district"]?.ToString()?.Trim();

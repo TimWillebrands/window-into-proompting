@@ -144,7 +144,7 @@ public sealed class PersonaSalienceService(
         string content;
         try
         {
-            content = (await new LlmCall(router, logger).StreamAsync(job, LlmTiers.ThoughtsOnly, ct, span: span)).Content;
+            content = (await new LlmCall(router, logger, self.Id).StreamAsync(job, LlmTiers.ThoughtsOnly, ct, span: span)).Content;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -188,15 +188,15 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         if (affordance.Verb == "post")
         {
             var all = await board.GetThreadsAsync();
-            var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system,
+            var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
                 PostUser(intent, thought, OwnRecent(all, ctx.Self.Id, ctx.Now), OthersRecent(all, ctx.Self.Id)), ct, 0.9, ["post"]);
             if (json?["post"]?.ToString().Trim() is not { Length: > 0 } post) return null;
 
-            return (await PostAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, await FitAsync(post, ct), ViewsOf(ctx))).Outcome;
+            return (await PostAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, post, ct), ViewsOf(ctx))).Outcome;
         }
 
         if (affordance.TargetId is not { } threadId || await board.GetThreadAsync(threadId) is not { } target) return null;
-        var replyJson = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system,
+        var replyJson = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
             ReplyUser(Render(target, ctx.Self.Id), intent, thought), ct, 0.9, ["body", "respect"]);
         if (replyJson is null) return null;
 
@@ -207,7 +207,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 ? new ActOutcome("respect", $"gave {RespectTarget(target, ctx.Self.Id)!.Value.Name} Respect! on {PostLabel(target, ctx.Self.Id)}", target.Id)
                 : new ActOutcome("pass", $"read {PostLabel(target, ctx.Self.Id)} and let it be", target.Id);
 
-        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(replyBody, ct), ViewsOf(ctx)))?.Outcome;
+        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, replyBody, ct), ViewsOf(ctx)))?.Outcome;
     }
 
     /// <summary>System prompt for any Partyboard write: who you are, your day, and what a feed post is.</summary>
@@ -274,12 +274,12 @@ Output: {ReplyShape}
             .Select(t => $"{t.AuthorName}: {WorldStream.Clip(t.Body, 120)}").ToList();
 
     /// <summary>Under the cap: one rewrite by the voice model, then a clip at a sentence or word boundary.</summary>
-    private async Task<string> FitAsync(string text, CancellationToken ct)
+    private async Task<string> FitAsync(Guid persona, string text, CancellationToken ct)
     {
         if (text.Length <= MaxLength) return text;
         try
         {
-            if ((await llm.CompleteAsync(JobComplexity.CharacterVoice, Shorten, text, ct, 0.4))?.Trim() is { Length: > 0 and <= MaxLength } shorter)
+            if ((await llm.For(persona).CompleteAsync(JobComplexity.CharacterVoice, Shorten, text, ct, 0.4))?.Trim() is { Length: > 0 and <= MaxLength } shorter)
                 return shorter;
         }
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogDebug(ex, "Shortening a post failed"); }
@@ -435,7 +435,7 @@ Moments on your mind:
 Where you stand:
 {(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
 """;
-        var json = await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["mood", "entry"]);
+        var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["mood", "entry"]);
         var body = json?["entry"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(body)) return null;
         var mood = json?["mood"]?.GetValue<string>();

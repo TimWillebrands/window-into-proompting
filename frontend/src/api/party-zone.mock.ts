@@ -5,6 +5,7 @@ import type {
     LlmProviderEntry,
     MemoryGraphDto,
     Persona,
+    PersonaRoute,
     StanceRecord,
 } from './model';
 import { StanceTargetKind } from './model';
@@ -131,6 +132,21 @@ export const mockProviders: LlmProviderEntry[] = [
         supportedComplexities: 7,
         isEnabled: false,
     },
+    {
+        id: 'prov-3',
+        type: 'openrouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: 'sk-or-…',
+        modelName: 'anthropic/claude-opus-5.5',
+        supportedComplexities: 1,
+        isEnabled: true,
+        reserved: true,
+    },
+];
+
+export const mockPersonaRoutes: PersonaRoute[] = [
+    { personaId: mockPersonas[0].id, tier: 2, providerId: 'prov-3' },
+    { personaId: mockPersonas[0].id, tier: 4, providerId: 'prov-2' },
 ];
 
 export const mockProviderModels = [
@@ -254,6 +270,16 @@ export const usePostPartyIdChatGroups = fn(() => noopMutationResult());
 
 export const useGetLlmConfigProviders = fn(() =>
     queryResult({ data: mockProviders, status: 200, headers: new Headers() }),
+);
+export const useGetLlmConfigPersonaRoutes = fn(() =>
+    queryResult({
+        data: mockPersonaRoutes,
+        status: 200,
+        headers: new Headers(),
+    }),
+);
+export const usePutLlmConfigPersonaRoutesPersonaId = fn(() =>
+    noopMutationResult(),
 );
 export const usePostLlmConfigProviders = fn(() => noopMutationResult());
 export const usePutLlmConfigProvidersId = fn(() => noopMutationResult());

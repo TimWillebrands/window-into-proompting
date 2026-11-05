@@ -45,7 +45,7 @@ public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var json = await llm.CompleteJsonAsync(JobComplexity.General,
+            var json = await llm.For(hit.Who.Id).CompleteJsonAsync(JobComplexity.General,
                 $"You read a conversation and say plainly what {hit.Who.Name} came away wanting, caught from {hit.From.Name}: something {hit.From.Name} has, or something {hit.From.Name} wants. Life-sized and concrete, nothing poetic.\nOutput ONLY JSON: {Shape}",
                 transcript, cts.Token, 0.6, ["kind", "want", "about"]);
             var kind = json?["kind"]?.ToString()?.Contains("being", StringComparison.OrdinalIgnoreCase) == true ? DesireKind.Being : DesireKind.Having;

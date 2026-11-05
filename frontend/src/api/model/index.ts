@@ -81,6 +81,7 @@ export * from './partyInfo';
 export * from './partyParticipant';
 export * from './persona';
 export * from './personaMetadata';
+export * from './personaRoute';
 export * from './place';
 export * from './placeKnocks';
 export * from './placeStyleRequest';

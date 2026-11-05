@@ -13,19 +13,41 @@ public interface IWorldLlm
 
     /// <param name="fields">String fields the object must have; sent as a JSON schema so small/local models are constrained.</param>
     Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null);
+
+    /// <summary>Calls made on this persona's behalf: their assigned providers win over the shared pool.</summary>
+    IWorldLlm For(Guid personaId) => this;
 }
 
 /// <summary>One-shot LLM calls for World Apps: tier routing with General fallback + JSON repair.</summary>
 public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : IWorldLlm
 {
+    public IWorldLlm For(Guid personaId) => new Acting(this, personaId);
+
     public Task<string?> CompleteAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
-        => CompleteCoreAsync(preferred, system, user, ct, temperature, null);
+        => CompleteCoreAsync(null, preferred, system, user, ct, temperature, null);
+
+    public Task<JsonObject?> CompleteJsonAsync(
+        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+        => CompleteJsonCoreAsync(null, preferred, system, user, ct, temperature, fields);
+
+    private sealed class Acting(WorldLlm llm, Guid persona) : IWorldLlm
+    {
+        public IWorldLlm For(Guid personaId) => llm.For(personaId);
+
+        public Task<string?> CompleteAsync(
+            JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
+            => llm.CompleteCoreAsync(persona, preferred, system, user, ct, temperature, null);
+
+        public Task<JsonObject?> CompleteJsonAsync(
+            JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+            => llm.CompleteJsonCoreAsync(persona, preferred, system, user, ct, temperature, fields);
+    }
 
     private async Task<string?> CompleteCoreAsync(
-        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, string? responseFormat)
+        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, string? responseFormat)
     {
-        var (endpoint, complexity) = await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0))
+        var (endpoint, complexity) = await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), persona: persona)
             .RouteAsync(preferred == JobComplexity.General ? LlmTiers.General : new[] { preferred, JobComplexity.General }, ct);
 
         var job = new LlmGenerationJob
@@ -42,10 +64,10 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
         return await endpoint.CompleteOneShotAsync(job, ct);
     }
 
-    public async Task<JsonObject?> CompleteJsonAsync(
-        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+    private async Task<JsonObject?> CompleteJsonCoreAsync(
+        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, IReadOnlyList<string>? fields)
     {
-        var raw = await CompleteCoreAsync(preferred, system, user, ct, temperature, fields is null ? null : SchemaFor(fields));
+        var raw = await CompleteCoreAsync(persona, preferred, system, user, ct, temperature, fields is null ? null : SchemaFor(fields));
         var json = LlmJson.TryRepairObject(raw ?? string.Empty);
         if (json is null)
         {
