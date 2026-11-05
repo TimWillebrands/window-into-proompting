@@ -32,6 +32,7 @@ import {
 } from '#lib/realtime-store';
 import type { Persona } from '../../api/model';
 import { DriverKind } from '../../api/model';
+import Portrait from '../../components/Portrait';
 import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
@@ -951,8 +952,8 @@ function ParticipantsSidebar({
                                     : 'Click to add to chat'
                             }
                         >
-                            <img
-                                src={`https://robohash.org/${encodeURIComponent(id)}?size=32x32`}
+                            <Portrait
+                                who={id}
                                 alt={persona.name ?? id}
                                 style={{
                                     width: 24,
@@ -1021,8 +1022,8 @@ function ParticipantsSidebar({
                             }}
                         />
                         <div className="participant-row active">
-                            <img
-                                src={`https://robohash.org/${encodeURIComponent(userPersona.name ?? selectedPersonaId)}?size=32x32&set=set5`}
+                            <Portrait
+                                who={userPersona.name ?? selectedPersonaId}
                                 alt={userPersona.name ?? 'You'}
                                 style={{
                                     width: 24,
@@ -1196,8 +1197,8 @@ function ParticipantsSidebar({
                                     }}
                                 >
                                     <div className="flex items-center gap-1.5 mb-1">
-                                        <img
-                                            src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                                        <Portrait
+                                            who={personaId}
                                             alt={name}
                                             style={{
                                                 width: 14,
@@ -1310,8 +1311,8 @@ function ParticipantsSidebar({
                                     >
                                         <div className="flex items-center gap-1.5">
                                             {entry.personaId && (
-                                                <img
-                                                    src={`https://robohash.org/${encodeURIComponent(entry.personaId)}?size=32x32`}
+                                                <Portrait
+                                                    who={entry.personaId}
                                                     alt={entry.personaName}
                                                     style={{
                                                         width: 13,
@@ -1608,8 +1609,8 @@ function ChatBubble({
                             ⚖️
                         </span>
                     ) : (
-                        <img
-                            src={`https://robohash.org/${isUser ? encodeURIComponent(senderName) : message.senderId}?size=32x32${isUser ? '&set=set5' : ''}`}
+                        <Portrait
+                            who={isUser ? senderName : message.senderId}
                             alt={senderName}
                             style={{
                                 width: 22,
@@ -1911,8 +1912,8 @@ function StreamingIndicator({
                 }}
             >
                 <div className="flex items-center gap-2 mb-1">
-                    <img
-                        src={`https://robohash.org/${encodeURIComponent(personaId)}?size=32x32`}
+                    <Portrait
+                        who={personaId}
                         alt={resolvedName}
                         style={{
                             width: 22,

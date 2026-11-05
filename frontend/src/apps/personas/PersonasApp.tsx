@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useGetPersonaSuspense } from '#api/party-zone';
+import Portrait from '../../components/Portrait';
 import GeneratePersonaDialog from './components/GeneratePersonaDialog';
 import NewPersonaButton from './components/NewPersonaButton';
 import PersonaEditor from './components/PersonaEditor';
@@ -65,8 +66,8 @@ export default function PersonasApp() {
                                     setSelectedId(persona.id ?? null)
                                 }
                             >
-                                <img
-                                    src={`https://robohash.org/${persona.id}.png?size=24x24`}
+                                <Portrait
+                                    who={persona.id}
                                     alt=""
                                     style={{
                                         width: 24,

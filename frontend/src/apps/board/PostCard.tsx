@@ -1,14 +1,8 @@
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { BoardReply } from '../../api/model/boardReply';
 import type { BoardThread } from '../../api/model/boardThread';
-import {
-    avatarUrl,
-    bumpedBy,
-    fullDate,
-    isNewLine,
-    ms,
-    relativeTime,
-} from './board-lib';
+import Portrait from '../../components/Portrait';
+import { bumpedBy, fullDate, isNewLine, ms, relativeTime } from './board-lib';
 import Composer from './Composer';
 import RespectButton from './RespectButton';
 
@@ -221,9 +215,9 @@ function Line({
     const isPlayer = !!playerId && authorId === playerId;
     return (
         <div className="pb-line">
-            <img
+            <Portrait
                 className="pb-avatar"
-                src={avatarUrl(authorId, isPlayer, size)}
+                who={authorId}
                 alt=""
                 width={size}
                 height={size}

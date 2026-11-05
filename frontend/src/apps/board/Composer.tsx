@@ -1,5 +1,6 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
-import { avatarUrl, MAX_BODY, remaining } from './board-lib';
+import Portrait from '../../components/Portrait';
+import { MAX_BODY, remaining } from './board-lib';
 
 interface Props {
     playerId: string | null;
@@ -57,9 +58,9 @@ export default function Composer({
     return (
         <div className={`pb-composer ${compact ? 'pb-composer-compact' : ''}`}>
             {playerId && (
-                <img
+                <Portrait
                     className="pb-avatar"
-                    src={avatarUrl(playerId, true, compact ? 28 : 40)}
+                    who={playerId}
                     alt=""
                     width={compact ? 28 : 40}
                     height={compact ? 28 : 40}

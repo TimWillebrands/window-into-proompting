@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import {
     getGetWorldsPartyIdLivesQueryKey,
     getGetWorldsPartyIdMessengerQueryKey,
+    getGetWorldsPartyIdPlacesQueryKey,
     getGetWorldsPartyIdQueryKey,
     getWorldsPartyIdPlayer,
     postWorldsPartyIdPlayer,
@@ -11,8 +12,10 @@ import {
 import { useDesktopContext } from '#lib/desktop-context';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
 import type { BoardThread } from '../api/model/boardThread';
+import type { Body } from '../api/model/body';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
 import type { Gathering } from '../api/model/gathering';
+import type { PlacesSnapshot } from '../api/model/placesSnapshot';
 import type { WorldActivity } from '../api/model/worldActivity';
 import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
@@ -247,6 +250,44 @@ export function WorldRealtimeBridge() {
                     // A brand-new DM thread to the Player isn't in the cached list yet.
                     invalidatePrefix(worldPrefix('/messenger'));
                 }
+                break;
+            }
+            case 'body': {
+                // Moves are frequent, new looks rare: only a new look touches the cache.
+                const body = payload as Body;
+                const queryKey = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID);
+                const snapshot = queryClient.getQueryData<{
+                    data: PlacesSnapshot;
+                }>(queryKey);
+                const known = snapshot?.data.bodies?.find(
+                    (b) => b.participantId === body.participantId,
+                );
+                if (
+                    !snapshot ||
+                    !known ||
+                    !body.appearance ||
+                    JSON.stringify(known.appearance) ===
+                        JSON.stringify(body.appearance)
+                )
+                    break;
+                queryClient.setQueryData(
+                    queryKey,
+                    {
+                        ...snapshot,
+                        data: {
+                            ...snapshot.data,
+                            bodies: snapshot.data.bodies?.map((b) =>
+                                b === known
+                                    ? { ...b, appearance: body.appearance }
+                                    : b,
+                            ),
+                        },
+                    },
+                    {
+                        updatedAt:
+                            queryClient.getQueryState(queryKey)?.dataUpdatedAt,
+                    },
+                );
                 break;
             }
             case 'clock':

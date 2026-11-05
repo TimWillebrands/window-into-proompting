@@ -6,6 +6,7 @@ import {
     usePutPersonaId,
 } from '#api/party-zone';
 import type { DefaultPersonaTemplate } from '../../../api/model';
+import Portrait from '../../../components/Portrait';
 
 function TemplateDropdownContent({
     onSelect,
@@ -73,8 +74,8 @@ function TemplateDropdownContent({
                         }}
                         onClick={() => onSelect(t)}
                     >
-                        <img
-                            src={`https://robohash.org/${encodeURIComponent(t.name ?? '')}.png?size=20x20`}
+                        <Portrait
+                            who={t.name}
                             alt=""
                             style={{
                                 width: 20,

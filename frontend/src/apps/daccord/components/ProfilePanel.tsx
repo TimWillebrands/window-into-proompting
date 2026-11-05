@@ -1,3 +1,4 @@
+import Portrait from '../../../components/Portrait';
 import { NEW_MEMBERS, PROFILE_STUB, RECENT_ACTIVITY } from './stub-data';
 import WaveDecoration from './WaveDecoration';
 
@@ -23,9 +24,9 @@ export default function ProfilePanel() {
                             aria-hidden
                             className="absolute inset-0 -m-2 rounded-full bg-white/30 blur-xl"
                         />
-                        <img
+                        <Portrait
                             alt={PROFILE_STUB.name}
-                            src={`https://robohash.org/${PROFILE_STUB.avatarSeed}.png?size=160x160`}
+                            who={PROFILE_STUB.avatarSeed}
                             className="relative h-24 w-24 rounded-full ring-4 ring-white/90 dark:ring-slate-700 bg-white shadow-2xl"
                         />
                         <span
@@ -61,9 +62,9 @@ export default function ProfilePanel() {
                                     className="flex items-center gap-3 rounded-2xl bg-white/85 dark:bg-slate-800/60 p-2 shadow-[0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 dark:ring-slate-700"
                                 >
                                     <div className="relative shrink-0">
-                                        <img
+                                        <Portrait
                                             alt={m.name}
-                                            src={`https://robohash.org/${m.avatarSeed}.png?size=80x80`}
+                                            who={m.avatarSeed}
                                             className="h-10 w-10 rounded-full bg-white ring-1 ring-white"
                                         />
                                         <span
@@ -95,9 +96,9 @@ export default function ProfilePanel() {
                                     key={a.id}
                                     className="flex items-center gap-3 rounded-2xl bg-white/85 dark:bg-slate-800/60 p-2 shadow-[0_2px_6px_-2px_rgba(31,55,148,0.18)] ring-1 ring-white/80 dark:ring-slate-700"
                                 >
-                                    <img
+                                    <Portrait
                                         alt={a.name}
-                                        src={`https://robohash.org/${a.avatarSeed}.png?size=80x80`}
+                                        who={a.avatarSeed}
                                         className="h-10 w-10 shrink-0 rounded-full bg-white ring-1 ring-white"
                                     />
                                     <div className="min-w-0 flex-1">

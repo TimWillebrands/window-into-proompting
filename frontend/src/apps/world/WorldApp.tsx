@@ -26,6 +26,7 @@ import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { SelfSummary } from '../../api/model/selfSummary';
 import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
+import Portrait from '../../components/Portrait';
 import {
     useOpenDirectChat,
     usePlayerId,
@@ -690,8 +691,8 @@ function LifeRow({
                     }
                     onClick={onSelect}
                 >
-                    <img
-                        src={`https://robohash.org/${life.personaId}.png?size=24x24`}
+                    <Portrait
+                        who={life.personaId}
                         alt=""
                         style={{
                             width: 24,

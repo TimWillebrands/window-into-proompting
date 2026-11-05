@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Portrait from '../../../components/Portrait';
 import RoomListItem from './RoomListItem';
 import {
     NAV_CATEGORIES,
@@ -150,9 +151,9 @@ export default function DaccordSidebar({
                     className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-3xl bg-gradient-to-b from-white/55 to-transparent"
                 />
                 <div className="relative shrink-0">
-                    <img
+                    <Portrait
                         alt={PROFILE_STUB.name}
-                        src={`https://robohash.org/${PROFILE_STUB.avatarSeed}.png?size=80x80`}
+                        who={PROFILE_STUB.avatarSeed}
                         className="h-10 w-10 rounded-full ring-2 ring-white dark:ring-slate-700 bg-white shadow-sm"
                     />
                     <span

@@ -8,6 +8,7 @@ import {
 } from '#api/party-zone';
 import { personaWsStream } from '#lib/persona-ws-stream';
 import type { Persona } from '../../../api/model';
+import Portrait from '../../../components/Portrait';
 import { ROOT_PARTY_ID } from '../../../lib/chat-api';
 
 type PersonaGenerationDeltaData = { data: string };
@@ -133,8 +134,8 @@ export default function PersonaEditor({
             }}
         >
             <div className="flex items-center gap-2">
-                <img
-                    src={`https://robohash.org/${persona.id}.png?size=32x32`}
+                <Portrait
+                    who={persona.id}
                     alt=""
                     style={{
                         width: 32,
