@@ -10,6 +10,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import CSSIsolation from '../components/CssIsolator';
+import CookieBalloon from '../components/desktop/CookieBalloon';
 import styleCss from '../styles.css?url';
 
 export const Route = createRootRoute({
@@ -40,6 +41,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             </head>
             <body className="min-h-screen bg-slate-300">
                 <ClerkProvider>{children}</ClerkProvider>
+                <CookieBalloon />
                 <Scripts />
             </body>
         </html>

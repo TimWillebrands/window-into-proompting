@@ -65,6 +65,12 @@ var frontend = builder
     })
     .WithUrlForEndpoint("http", u => u.DisplayText = "Open Partytown");
 
+// One switch for both sides: the browser gets the token, its same-origin proxy the host.
+if (Environment.GetEnvironmentVariable("POSTHOG_PROJECT_TOKEN") is { Length: > 0 } posthogToken)
+    frontend.WithEnvironment("VITE_POSTHOG_PROJECT_TOKEN", posthogToken);
+if (Environment.GetEnvironmentVariable("POSTHOG_HOST") is { Length: > 0 } posthogHost)
+    frontend.WithEnvironment("POSTHOG_HOST", posthogHost);
+
 frontend.OnResourceReady((resource, evt, ct) =>
 {
     var url = frontend.GetEndpoint("http").Url;

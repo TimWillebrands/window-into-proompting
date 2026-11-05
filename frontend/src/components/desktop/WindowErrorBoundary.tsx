@@ -7,6 +7,7 @@ import {
     useState,
 } from 'react';
 import { ProblemDetailsError } from '../../api/custom-fetch';
+import { trackError } from '../../lib/analytics';
 import { redirectToSignIn } from '../../lib/clerk-session';
 
 interface InnerProps {
@@ -33,6 +34,10 @@ class ErrorBoundaryInner extends Component<InnerProps, InnerState> {
             error,
             info,
         );
+        // API failures are the backend's to report.
+        if (!(error instanceof ProblemDetailsError)) {
+            trackError(error, { window: this.props.windowTitle });
+        }
     }
 
     handleRetry = () => {

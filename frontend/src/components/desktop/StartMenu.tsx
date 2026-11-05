@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { analyticsAvailable, askConsent } from '../../lib/analytics';
 import { redirectToSignIn, signOut } from '../../lib/clerk-session';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
 import { useCanOpen, usePlayerName, usePlayerSession } from '../../lib/world';
@@ -108,6 +109,21 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
                 </section>
 
                 <section className="xp-startmenu-section--system py-1">
+                    {analyticsAvailable && (
+                        <button
+                            type="button"
+                            className="xp-startmenu-item"
+                            onClick={() => {
+                                askConsent();
+                                onClose();
+                            }}
+                        >
+                            <span className="text-lg" aria-hidden>
+                                🍪
+                            </span>
+                            <span>Cookies</span>
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="xp-startmenu-item"

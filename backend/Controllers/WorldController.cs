@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using PartyTown.Services.Memory;
 using PostHog;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Analytics;
 using PartyTown.Services.Auth;
 using PartyTown.Grains;
 using PartyTown.Model;
@@ -131,7 +132,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (AccessRules.CleanPlayerName(request.Name) is not { } name) return BadRequest($"A name, up to {AccessRules.MaxPlayerName} characters.");
         if (await Clock(partyId).ClaimPlayerAsync(User.ClerkUserId()!, name) is not { } id)
             return Conflict("Someone here already goes by that name.");
-        posthog.Capture(User.ClerkUserId()!, "player_created", new Dictionary<string, object> { ["party_id"] = partyId, ["player_id"] = id });
+        posthog.Track(HttpContext, "player_created", new Dictionary<string, object> { ["party_id"] = partyId, ["player_id"] = id });
         return Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)));
     }
 
@@ -164,7 +165,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
         var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId));
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, outcome);
-        posthog.Capture(User.ClerkUserId()!, "board_post_created", new Dictionary<string, object>
+        posthog.Track(HttpContext, "board_post_created", new Dictionary<string, object>
         {
             ["party_id"] = partyId, ["thread_id"] = thread.Id, ["length"] = request.Body.Trim().Length,
         });
@@ -180,7 +181,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (await BoardApp.ReplyAsync(partyId, threadId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId)) is not { } done)
             return NotFound();
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, done.Outcome);
-        posthog.Capture(User.ClerkUserId()!, "board_reply_created", new Dictionary<string, object>
+        posthog.Track(HttpContext, "board_reply_created", new Dictionary<string, object>
         {
             ["party_id"] = partyId, ["thread_id"] = threadId, ["length"] = request.Body.Trim().Length,
         });
@@ -194,7 +195,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     {
         var (giverId, giverName) = await AuthorAsync(partyId, request.AuthorId);
         if (await BoardApp.RespectAsync(partyId, threadId, request.ReplyId, giverId, giverName, request.Given) is not { } t) return NotFound();
-        posthog.Capture(User.ClerkUserId()!, "board_respect_changed", new Dictionary<string, object>
+        posthog.Track(HttpContext, "board_respect_changed", new Dictionary<string, object>
         {
             ["party_id"] = partyId, ["thread_id"] = threadId, ["on_reply"] = request.ReplyId is not null, ["given"] = request.Given,
         });
@@ -234,7 +235,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
         if (info.Participants.All(p => p.Id != request.WithPersonaId)) return NotFound();
         var chat = await grains.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(from, request.WithPersonaId);
-        posthog.Capture(User.ClerkUserId()!, "direct_chat_opened", new Dictionary<string, object> { ["party_id"] = partyId, ["room_id"] = chat.Id });
+        posthog.Track(HttpContext, "direct_chat_opened", new Dictionary<string, object> { ["party_id"] = partyId, ["room_id"] = chat.Id });
         return Ok(chat);
     }
 
@@ -271,7 +272,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
             (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
         }
         await RecordAsync(partyId, hostId, hostName, CalendarApp.Id, outcome);
-        posthog.Capture(User.ClerkUserId()!, "gathering_planned", new Dictionary<string, object>
+        posthog.Track(HttpContext, "gathering_planned", new Dictionary<string, object>
         {
             ["party_id"] = partyId, ["gathering_id"] = g.Id, ["at_place"] = request.PlaceId is not null,
         });
@@ -285,7 +286,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var (id, name) = await AuthorAsync(partyId, request.PersonaId);
         if (await CalendarApp.RsvpAsync(partyId, gatheringId, id, request.Going) is not { } done) return NotFound();
         await RecordAsync(partyId, id, name, CalendarApp.Id, done.Outcome);
-        posthog.Capture(User.ClerkUserId()!, "gathering_rsvped", new Dictionary<string, object>
+        posthog.Track(HttpContext, "gathering_rsvped", new Dictionary<string, object>
         {
             ["party_id"] = partyId, ["gathering_id"] = gatheringId, ["going"] = request.Going,
         });

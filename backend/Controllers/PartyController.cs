@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PartyTown.Services.Analytics;
 using PartyTown.Services.Auth;
 using Microsoft.Extensions.Caching.Memory;
 using PartyTown.Grains;
@@ -353,7 +354,7 @@ public sealed class PartyController(
         await grains.GetGrain<IChatGroupGrain>(request.ChatGroupId)
             .SendNewMessageAsync(senderId, request.Prompt);
 
-        posthog.Capture(User.ClerkUserId()!, "message_sent", new Dictionary<string, object>
+        posthog.Track(HttpContext, "message_sent", new Dictionary<string, object>
         {
             ["party_id"] = id, ["room_id"] = request.ChatGroupId, ["length"] = request.Prompt.Length,
         });
