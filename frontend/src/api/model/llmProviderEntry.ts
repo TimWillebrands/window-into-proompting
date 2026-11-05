@@ -25,4 +25,6 @@ export interface LlmProviderEntry {
     priority?: number | string;
     reserved?: boolean;
     disableThinking?: boolean;
+    /** @nullable */
+    tailnet?: string | null;
 }

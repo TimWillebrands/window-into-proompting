@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PartyTown.Services.Auth;
 using Microsoft.AspNetCore.OutputCaching;
+using PartyTown.Configuration;
 using PartyTown.Grains.Generation;
 
 namespace PartyTown.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpClientFactory) : ControllerBase
+public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpClientFactory, Tailnets tailnets) : ControllerBase
 {
     private const string MaskPrefix = "••••";
 
@@ -21,6 +22,10 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         var providers = await ConfigGrain.GetProvidersAsync();
         return Ok(providers.Select(p => p with { ApiKey = Mask(p.ApiKey) }).ToList());
     }
+
+    /// <summary>Tailnets this deployment has a sidecar for; a provider can go through one.</summary>
+    [HttpGet("tailnets")]
+    public ActionResult<List<string>> GetTailnets() => Ok(tailnets.Names.ToList());
 
     /// <summary>Spend per OpenRouter key (OpenRouter /key endpoint); other providers are free/local.</summary>
     [HttpGet("usage")]

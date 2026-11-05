@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
     useGetLlmConfigProvidersIdModels,
+    useGetLlmConfigTailnets,
     usePostLlmConfigProviders,
     usePutLlmConfigProvidersId,
 } from '#api/party-zone';
@@ -29,6 +30,15 @@ export default function ProviderEditor({
         query: { enabled: !!entry.id },
     });
 
+    const configuredTailnets = useGetLlmConfigTailnets().data?.data ?? [];
+    // A saved Tailnet stays listed if its config is gone, so saving won't silently drop it.
+    const tailnets = [
+        ...new Set([
+            ...configuredTailnets,
+            ...(form.tailnet ? [form.tailnet] : []),
+        ]),
+    ];
+
     const set = (patch: Partial<LlmProviderEntry>) =>
         setForm((prev) => ({ ...prev, ...patch }));
 
@@ -40,6 +50,7 @@ export default function ProviderEditor({
                     ? 'https://openrouter.ai/api/v1'
                     : 'http://localhost:11434',
             apiKey: type === 'openrouter' ? (form.apiKey ?? '') : null,
+            tailnet: type === 'openrouter' ? null : form.tailnet,
         });
     };
 
@@ -79,6 +90,25 @@ export default function ProviderEditor({
                     style={inputStyle}
                 />
             </FormRow>
+
+            {form.type === 'ollama' && tailnets.length > 0 && (
+                <FormRow label="Connect via">
+                    <select
+                        value={form.tailnet ?? ''}
+                        onChange={(e) =>
+                            set({ tailnet: e.target.value || null })
+                        }
+                        style={selectStyle}
+                    >
+                        <option value="">Direct</option>
+                        {tailnets.map((name) => (
+                            <option key={name} value={name}>
+                                Tailnet: {name}
+                            </option>
+                        ))}
+                    </select>
+                </FormRow>
+            )}
 
             {form.type === 'openrouter' && (
                 <FormRow label="API Key">

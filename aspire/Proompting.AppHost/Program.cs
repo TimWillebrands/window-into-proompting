@@ -37,6 +37,20 @@ foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "SYSTEM_ONE_E
         backend.WithEnvironment(name, value);
 }
 
+// Optional: production's Tailnet sidecar (ADR 0033), on when the shell has a key. Loopback only: SOCKS5 here has no auth.
+if (Environment.GetEnvironmentVariable("TS_AUTHKEY") is { Length: > 0 } tailscaleKey)
+{
+    builder.AddContainer("tailscale", "tailscale/tailscale", "v1.104.4")
+        .WithEnvironment("TS_AUTHKEY", tailscaleKey)
+        .WithEnvironment("TS_HOSTNAME", "proompting-dev")
+        .WithEnvironment("TS_STATE_DIR", "/var/lib/tailscale")
+        .WithEnvironment("TS_AUTH_ONCE", "true")
+        .WithEnvironment("TS_SOCKS5_SERVER", ":1055")
+        .WithVolume("partytown-tailscale", "/var/lib/tailscale")
+        .WithContainerRuntimeArgs("-p", "127.0.0.1:1055:1055");
+    backend.WithEnvironment("Tailnets__home", "socks5://127.0.0.1:1055");
+}
+
 var frontend = builder
     .AddViteApp("frontend", "../../frontend")
     .WithPnpm()

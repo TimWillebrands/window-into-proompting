@@ -49,6 +49,8 @@ Several humans can sign in under their own names (the XP welcome screen), and th
 
 **Local models:** in Control Panel → LLM providers, enable an Ollama entry (e.g. `lfm2.5:latest`) and disable the OpenRouter one. World calls send a JSON schema, so small local models stay structured. The voice is flatter, but the world keeps running offline.
 
+**Local models in production:** run a [Tailscale sidecar](docs/adr/0033-tailnet-sidecars.md) so the server can reach a GPU box at home. Create a tagged auth key, add `TS_AUTHKEY` to `.kamal/secrets`, then run `kamal accessory boot tailscale`. On the box, bind the server beyond localhost (`OLLAMA_HOST=0.0.0.0`, or `--host 0.0.0.0` for llama-server). In Control Panel → LLM providers, set the entry's Base URL to the box and "Connect via" to the Tailnet. To try it locally, export `TS_AUTHKEY` before starting the AppHost. If the box sleeps, the provider is benched and the rest of the pool takes over.
+
 **System One (decisions) vs System Two (words):** persona *choices* go to a decision model: what to do next, whether to interrupt, whether a moment is worth remembering. *Words* go to an LLM. The best split is a local GPU for decisions and stronger cloud models for words:
 
 ```bash

@@ -15,6 +15,7 @@ public static class LlmConfigurationExtensions
     /// </summary>
     public static IServiceCollection AddLlmProviderOptions(this IServiceCollection services)
     {
+        services.AddSingleton<Tailnets>();
         services.AddSingleton<IConfigureOptions<LlmOptions>>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();

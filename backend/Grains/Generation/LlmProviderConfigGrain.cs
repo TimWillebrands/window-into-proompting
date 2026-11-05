@@ -192,4 +192,6 @@ public sealed record class LlmProviderEntry
     [Id(9)] public bool Reserved { get; init; }
     /// <summary>Asks a local model to answer without reasoning first; much faster on thinking models.</summary>
     [Id(10)] public bool DisableThinking { get; init; }
+    /// <summary>Which configured Tailnet to reach this provider through; null connects directly.</summary>
+    [Id(11)] public string? Tailnet { get; init; }
 }

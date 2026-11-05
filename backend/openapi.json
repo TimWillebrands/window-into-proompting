@@ -1395,6 +1395,44 @@
         }
       }
     },
+    "/LlmConfig/tailnets": {
+      "get": {
+        "tags": [
+          "LlmConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/LlmConfig/usage": {
       "get": {
         "tags": [
@@ -8951,6 +8989,12 @@
           },
           "disableThinking": {
             "type": "boolean"
+          },
+          "tailnet": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

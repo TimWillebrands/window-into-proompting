@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenAI;
 using OpenAI.Chat;
+using PartyTown.Configuration;
 using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Observability;
@@ -14,6 +15,7 @@ namespace PartyTown.Grains.Generation;
 public class OllamaEndpointGrain(
     IHttpClientFactory httpClientFactory,
     IAiObservabilityCapture aiObservability,
+    Tailnets tailnets,
     ILogger<OllamaEndpointGrain> logger
 ) : Grain, IOllamaEndpointGrain
 {
@@ -58,6 +60,7 @@ public class OllamaEndpointGrain(
         {
             var options = new OpenAIClientOptions { Endpoint = new Uri($"{BaseUrl.TrimEnd('/')}/v1") };
             if (_config?.DisableThinking == true) options.AddPolicy(new NoThinkingPolicy(), PipelinePosition.PerCall);
+            if (tailnets.ClientFor(_config?.Tailnet) is { } http) options.Transport = new HttpClientPipelineTransport(http);
             return options;
         }
     }
@@ -144,7 +147,7 @@ public class OllamaEndpointGrain(
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(3));
 
-            var http = httpClientFactory.CreateClient();
+            var http = tailnets.ClientFor(_config?.Tailnet) ?? httpClientFactory.CreateClient();
             var url = $"{BaseUrl.TrimEnd('/')}/api/tags";
             var httpResponse = await http.GetAsync(url, cts.Token);
             httpResponse.EnsureSuccessStatusCode();

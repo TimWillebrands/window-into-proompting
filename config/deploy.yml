@@ -35,6 +35,7 @@ env:
     Clerk__AdminUserIds__0: user_2ticN4zG13HbJjZG4FC8SsDNfZK
     OTEL_EXPORTER_OTLP_ENDPOINT: http://proompting-dashboard:18889
     POSTHOG_HOST: https://eu.i.posthog.com
+    Tailnets__home: socks5://proompting-tailscale:1055
   secret:
     - POSTGRES_PASSWORD
     - OPENROUTER_API_KEY
@@ -60,6 +61,21 @@ accessories:
       - docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql:/docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql
       - docker-entrypoint-initdb.d/04-orleans-persistence.sql:/docker-entrypoint-initdb.d/04-orleans-persistence.sql
       - docker-entrypoint-initdb.d/05-age-setup.sql:/docker-entrypoint-initdb.d/05-age-setup.sql
+
+  # Reaches local LLM providers on the tailnet (ADR 0033). No published port: SOCKS5 here has no auth.
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    host: static.74.157.104.178.clients.your-server.de
+    env:
+      clear:
+        TS_HOSTNAME: proompting
+        TS_STATE_DIR: /var/lib/tailscale
+        TS_AUTH_ONCE: "true"
+        TS_SOCKS5_SERVER: ":1055"
+      secret:
+        - TS_AUTHKEY
+    volumes:
+      - /data/tailscale:/var/lib/tailscale
 
   dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:latest

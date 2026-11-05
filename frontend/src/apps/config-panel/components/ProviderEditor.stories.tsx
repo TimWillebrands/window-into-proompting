@@ -39,6 +39,21 @@ export const EditOllama: Story = {
     },
 };
 
+export const EditOllamaOnTailnet: Story = {
+    args: {
+        entry: {
+            id: 'prov-2',
+            type: 'ollama',
+            baseUrl: 'http://gpu-box:11434',
+            apiKey: null,
+            modelName: 'llama3.2',
+            supportedComplexities: 1,
+            isEnabled: true,
+            tailnet: 'home',
+        },
+    },
+};
+
 export const NewOpenRouter: Story = {
     args: {
         isNew: true,

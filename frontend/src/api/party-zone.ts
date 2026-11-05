@@ -4958,6 +4958,303 @@ export const usePostLlmConfigProviders = <TError = unknown, TContext = unknown>(
     );
 };
 
+export type getLlmConfigTailnetsResponse200TextPlain = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigTailnetsResponse200ApplicationJson = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigTailnetsResponse200TextJson = {
+    data: string[];
+    status: 200;
+};
+
+export type getLlmConfigTailnetsResponseSuccess = (
+    | getLlmConfigTailnetsResponse200TextPlain
+    | getLlmConfigTailnetsResponse200ApplicationJson
+    | getLlmConfigTailnetsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigTailnetsResponse = getLlmConfigTailnetsResponseSuccess;
+
+export const getGetLlmConfigTailnetsUrl = () => {
+    return `/api/LlmConfig/tailnets`;
+};
+
+export const getLlmConfigTailnets = async (
+    options?: RequestInit,
+): Promise<getLlmConfigTailnetsResponse> => {
+    return customFetch<getLlmConfigTailnetsResponse>(
+        getGetLlmConfigTailnetsUrl(),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetLlmConfigTailnetsQueryKey = () => {
+    return [`/api/LlmConfig/tailnets`] as const;
+};
+
+export const getGetLlmConfigTailnetsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigTailnetsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigTailnets>>
+    > = ({ signal }) => getLlmConfigTailnets({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigTailnetsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigTailnets>>
+>;
+export type GetLlmConfigTailnetsQueryError = unknown;
+
+export function useGetLlmConfigTailnets<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigTailnets>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigTailnets<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigTailnets>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigTailnets<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigTailnets<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigTailnetsQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigTailnetsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigTailnetsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigTailnets>>
+    > = ({ signal }) => getLlmConfigTailnets({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigTailnetsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigTailnets>>
+>;
+export type GetLlmConfigTailnetsSuspenseQueryError = unknown;
+
+export function useGetLlmConfigTailnetsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigTailnetsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigTailnetsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigTailnetsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigTailnets>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigTailnetsSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export type getLlmConfigUsageResponse200TextPlain = {
     data: ProviderUsage[];
     status: 200;

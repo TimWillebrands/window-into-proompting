@@ -74,6 +74,10 @@ _Avoid_: preview, proposal, staging.
 A **Persona**'s work at one tier goes to one chosen provider instead of the shared pool. Admin-set in Control Panel → Persona Models. A provider marked **Reserved** stays out of the pool, so only Personas routed to it use it. See [ADR 0032](docs/adr/0032-persona-models.md).
 _Avoid_: model override, persona provider.
 
+**Tailnet**:
+A private Tailscale network holding local LLM providers, such as a home GPU box. A provider set to one connects through that Tailnet's sidecar; otherwise it connects directly. Named in deploy config, chosen per provider in Control Panel. See [ADR 0033](docs/adr/0033-tailnet-sidecars.md).
+_Avoid_: VPN, tunnel, tailscale provider.
+
 ### Persona behaviour dials
 
 **Chattiness** (0..1):

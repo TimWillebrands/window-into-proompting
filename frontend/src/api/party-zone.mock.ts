@@ -291,6 +291,13 @@ export const useGetLlmConfigProvidersIdModels = fn(() =>
         headers: new Headers(),
     }),
 );
+export const useGetLlmConfigTailnets = fn(() =>
+    queryResult({
+        data: ['home', 'work'],
+        status: 200,
+        headers: new Headers(),
+    }),
+);
 
 // Chat-window hooks (GroupChatWindow consumers)
 export const useGetPartyIdSuspense = fn(() =>

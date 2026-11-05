@@ -128,6 +128,9 @@ export default function ProviderCard({
                             ? ['Reserved']
                             : complexityLabels),
                         ...(provider.disableThinking ? ['No thinking'] : []),
+                        ...(provider.tailnet
+                            ? [`Tailnet: ${provider.tailnet}`]
+                            : []),
                     ].map((label) => (
                         <span
                             key={label}
