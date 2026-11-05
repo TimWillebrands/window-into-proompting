@@ -10,8 +10,15 @@ namespace PartyTown.Grains.Generation;
 public static class LlmEndpointGrainUtils
 {
     /// <summary>Failures that won't fix themselves on retry: bad key, no credit, unknown model, host down.</summary>
-    public static bool IsHardFailure(Exception ex)
-        => ex is System.ClientModel.ClientResultException { Status: 401 or 402 or 403 or 404 } or HttpRequestException;
+    public static bool IsHardFailure(Exception ex) => ex switch
+    {
+        // The SDK's retry policy aggregates connection failures, each a status-less ClientResultException.
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsHardFailure),
+        System.ClientModel.ClientResultException { Status: 401 or 402 or 403 or 404 } => true,
+        System.ClientModel.ClientResultException { InnerException: HttpRequestException } => true,
+        HttpRequestException => true,
+        _ => false,
+    };
 
     /// <summary>Pass a stream through, telling the router when it dies of a hard failure.</summary>
     public static async IAsyncEnumerable<LlmGenerationEvent> ReportingHardFailures(
