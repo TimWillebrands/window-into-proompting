@@ -64,6 +64,8 @@ current behaviour:
 
 ## Schema lives in the init script (ADR 0008 is still unimplemented)
 
+> Since implemented: see [ADR 0008](0008-ef-migrations-for-memory-schema.md#as-built). This section records the state at the time of this ADR.
+
 [ADR 0008](0008-ef-migrations-for-memory-schema.md) decided the memory schema should live in
 EF migrations holding raw `Sql(...)` blocks. **That was never built** — there is no
 `backend/Data/Migrations/`; the actual DDL is `docker-entrypoint-initdb.d/06-memory-graph.sql`,
