@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { SelfSummary } from '../../api/model/selfSummary';
+import Portrait from '../../components/Portrait';
 
 export type BuddyStatus = 'online' | 'away' | 'busy' | 'offline';
 
@@ -85,14 +86,14 @@ export function BuddyIcon({
     );
 }
 
-export const personaAvatar = (personaId: string, px: number) =>
-    `https://robohash.org/${personaId}.png?size=${px}x${px}`;
-
-export const playerAvatar = (name: string, px: number) =>
-    `https://robohash.org/${encodeURIComponent(name)}.png?size=${px}x${px}&set=set5`;
-
 /** Display picture with the glossy MSN frame. */
-export function DisplayPicture({ src, size }: { src: string; size: number }) {
+export function DisplayPicture({
+    who,
+    size,
+}: {
+    who: string | null | undefined;
+    size: number;
+}) {
     return (
         <div
             style={{
@@ -107,9 +108,8 @@ export function DisplayPicture({ src, size }: { src: string; size: number }) {
                 flexShrink: 0,
             }}
         >
-            <img
-                src={src}
-                alt=""
+            <Portrait
+                who={who}
                 width={size}
                 height={size}
                 style={{

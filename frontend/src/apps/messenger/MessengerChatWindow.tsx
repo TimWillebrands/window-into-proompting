@@ -19,8 +19,6 @@ import {
     type BuddyStatus,
     DisplayPicture,
     MsnText,
-    personaAvatar,
-    playerAvatar,
     STATUS_LABEL,
     statusOf,
     useMessengerSeen,
@@ -397,19 +395,11 @@ function Conversation({
                 {/* Right: display pictures */}
                 <div className="flex flex-col justify-between">
                     <DisplayPicture
-                        src={
-                            (withId ?? spectators[0])
-                                ? personaAvatar(withId ?? spectators[0], 72)
-                                : playerAvatar(withName, 72)
-                        }
+                        who={withId ?? spectators[0] ?? withName}
                         size={72}
                     />
                     <DisplayPicture
-                        src={
-                            spectate && spectators[1]
-                                ? personaAvatar(spectators[1], 72)
-                                : playerAvatar(myName, 72)
-                        }
+                        who={spectate && spectators[1] ? spectators[1] : myName}
                         size={72}
                     />
                 </div>

@@ -10,6 +10,7 @@ import {
 import type { DirectChatSummary } from '../../api/model/directChatSummary';
 import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { SelfSummary } from '../../api/model/selfSummary';
+import Portrait from '../../components/Portrait';
 import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
 import {
     BuddyIcon,
@@ -18,8 +19,6 @@ import {
     DisplayPicture,
     GroupHeader,
     MsnText,
-    personaAvatar,
-    playerAvatar,
     STATUS_LABEL,
     shortTime,
     statusOf,
@@ -119,7 +118,7 @@ export default function MessengerApp() {
                 className="flex items-center gap-2 px-2 pt-2 pb-2"
                 style={{ borderBottom: '1px solid #b9cdea' }}
             >
-                <DisplayPicture src={playerAvatar(playerName, 40)} size={40} />
+                <DisplayPicture who={playerName} size={40} />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
                         <BuddyIcon status="online" size={14} />
@@ -351,8 +350,8 @@ function ConversationRow({
             title={`Open conversation with ${chat.withName}`}
             onClick={onOpen}
         >
-            <img
-                src={personaAvatar(chat.withId, 28)}
+            <Portrait
+                who={chat.withId}
                 alt=""
                 width={28}
                 height={28}

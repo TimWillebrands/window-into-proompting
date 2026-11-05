@@ -11,7 +11,6 @@ import { useDesktopStore } from '#lib/desktop-context';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { usePlayerId, usePlayerName, WORLD_ID } from '../../lib/world';
 import {
-    avatarUrl,
     involvesPlayer,
     ms,
     playerActivityAt,
@@ -23,6 +22,7 @@ import Composer from './Composer';
 import PostCard from './PostCard';
 import { useBoardActions } from './useBoardActions';
 import './board.css';
+import Portrait from '../../components/Portrait';
 
 /** Posts rendered before "show older posts". */
 const PAGE = 30;
@@ -157,9 +157,9 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
                     </span>
                     {playerId && (
                         <span className="pb-me ml-auto">
-                            <img
+                            <Portrait
                                 className="pb-avatar"
-                                src={avatarUrl(playerId, true, 24)}
+                                who={playerId}
                                 alt=""
                                 width={24}
                                 height={24}

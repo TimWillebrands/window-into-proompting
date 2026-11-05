@@ -341,6 +341,10 @@ _Avoid_: avatar, sprite, skin (as a whole).
 How a Body is drawn in 3D: a doll compiled from a document of numbers, names, colours, SVG and blobs. See [ADR 0028](docs/adr/0028-figures-as-documents.md).
 _Avoid_: avatar (fine for the React component), model, character.
 
+**Portrait**:
+A head-and-shoulders picture of a **Figure**, wherever someone shows up outside Places. Drawn in the browser from the same doc, so it changes with their clothes, and shelved per doc. Someone without a **Body** gets a stable look seeded from their name.
+_Avoid_: avatar (fine for the React component), profile picture.
+
 **Body type**:
 The shape of a **Figure**: straight, athletic, lanky, stocky, heavyset, pear or hourglass. A palette pick that sets its sliders; build then says how much of it there is. Not a gender.
 _Avoid_: gender, sex, build (that's the amount, not the shape).

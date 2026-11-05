@@ -2,7 +2,7 @@ import type { Appearance } from '../../../api/model/appearance';
 import type { FigureDoc } from '../figure/doc';
 
 /** Palette names (backend AppearanceRules) → pixel colours. */
-const SKIN: Record<string, string> = {
+export const SKIN: Record<string, string> = {
     light: '#f6d7bf',
     fair: '#f1c9a5',
     olive: '#d6a77a',
@@ -10,7 +10,7 @@ const SKIN: Record<string, string> = {
     brown: '#9a6440',
     dark: '#5e3b24',
 };
-const HAIR: Record<string, string> = {
+export const HAIR: Record<string, string> = {
     black: '#1f1b18',
     brown: '#5a3a22',
     blonde: '#e3c36b',
@@ -22,7 +22,7 @@ const HAIR: Record<string, string> = {
     green: '#3f9b5a',
     purple: '#7b4fc4',
 };
-const CLOTH: Record<string, string> = {
+export const CLOTH: Record<string, string> = {
     red: '#d9534f',
     orange: '#f0913a',
     yellow: '#f3d34a',
@@ -40,7 +40,7 @@ const CLOTH: Record<string, string> = {
     olive: '#6b7a3a',
     maroon: '#6e2233',
 };
-const EYES: Record<string, string> = {
+export const EYES: Record<string, string> = {
     dark: '#1d1d1d',
     brown: '#5a3415',
     blue: '#2f6fd1',

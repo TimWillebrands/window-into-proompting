@@ -11,10 +11,6 @@ export const MAX_BODY = 280;
 /** Unix-ms timestamp from the API's `number | string` long. */
 export const ms = (v: number | string | undefined) => Number(v ?? 0);
 
-/** Robohash avatar; the Player gets the human set like D'Accord's user. */
-export const avatarUrl = (authorId: string, isPlayer: boolean, size = 64) =>
-    `https://robohash.org/${encodeURIComponent(authorId)}.png?size=${size}x${size}${isPlayer ? '&set=set5' : ''}`;
-
 /** Re-render tick so relative times stay fresh. */
 export function useNow(intervalMs = 30_000) {
     const [now, setNow] = useState(() => Date.now());

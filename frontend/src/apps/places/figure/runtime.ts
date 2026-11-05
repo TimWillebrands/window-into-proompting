@@ -60,7 +60,7 @@ export function compiled(doc: FigureDoc, detail: Detail): Promise<Compiled> {
     return job;
 }
 
-const svgsOf = (doc: FigureDoc) =>
+export const svgsOf = (doc: FigureDoc) =>
     [doc.top, doc.outer, doc.under, doc.bottom]
         .flatMap((g) => g?.prints ?? [])
         .map((p) => p.svg)
