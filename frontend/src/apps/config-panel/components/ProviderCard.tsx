@@ -3,7 +3,7 @@ import {
     usePutLlmConfigProvidersId,
 } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
-import { JOB_COMPLEXITIES } from './constants';
+import { JOB_COMPLEXITIES, REASONING_EFFORTS } from './constants';
 
 export default function ProviderCard({
     provider,
@@ -28,6 +28,10 @@ export default function ProviderCard({
     const complexityLabels = JOB_COMPLEXITIES.filter(
         (c) => ((provider.supportedComplexities ?? 0) & c.value) !== 0,
     ).map((c) => c.label);
+
+    const reasoning = REASONING_EFFORTS.find(
+        (r) => r.value !== 0 && r.value === provider.reasoningEffort,
+    );
 
     const isOllama = provider.type === 'ollama';
     const isEnabled = provider.isEnabled !== false;
@@ -127,7 +131,7 @@ export default function ProviderCard({
                         ...(provider.reserved
                             ? ['Reserved']
                             : complexityLabels),
-                        ...(provider.disableThinking ? ['No thinking'] : []),
+                        ...(reasoning ? [`Reasoning: ${reasoning.label}`] : []),
                         ...(provider.tailnet
                             ? [`Tailnet: ${provider.tailnet}`]
                             : []),

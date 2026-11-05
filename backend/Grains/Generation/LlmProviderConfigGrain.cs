@@ -206,8 +206,8 @@ public sealed record class LlmProviderEntry
     [Id(8)] public int Priority { get; init; }
     /// <summary>Kept out of the shared pool: only personas assigned to it use it.</summary>
     [Id(9)] public bool Reserved { get; init; }
-    /// <summary>Asks a local model to answer without reasoning first; much faster on thinking models.</summary>
-    [Id(10)] public bool DisableThinking { get; init; }
     /// <summary>Which configured Tailnet to reach this provider through; null connects directly.</summary>
     [Id(11)] public string? Tailnet { get; init; }
+    /// <summary>How long a local model may reason; a thinking model can spend a minute on one reply.</summary>
+    [Id(12)] public ReasoningEffort ReasoningEffort { get; init; }
 }

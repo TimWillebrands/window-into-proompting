@@ -60,7 +60,7 @@ public class OllamaEndpointGrain(
         get
         {
             var options = new OpenAIClientOptions { Endpoint = new Uri($"{BaseUrl.TrimEnd('/')}/v1") };
-            if (_config?.DisableThinking == true) options.AddPolicy(new NoThinkingPolicy(), PipelinePosition.PerCall);
+            if (_config is { ReasoningEffort: not ReasoningEffort.Default } c) options.AddPolicy(new ReasoningPolicy(c.ReasoningEffort), PipelinePosition.PerCall);
             if (tailnets.ClientFor(_config?.Tailnet) is { } http) options.Transport = new HttpClientPipelineTransport(http);
             return options;
         }

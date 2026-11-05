@@ -6,7 +6,12 @@ import {
     usePutLlmConfigProvidersId,
 } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
-import { inputStyle, JOB_COMPLEXITIES, selectStyle } from './constants';
+import {
+    inputStyle,
+    JOB_COMPLEXITIES,
+    REASONING_EFFORTS,
+    selectStyle,
+} from './constants';
 import FormRow from './FormRow';
 
 export default function ProviderEditor({
@@ -151,27 +156,22 @@ export default function ProviderEditor({
             </FormRow>
 
             {form.type === 'ollama' && (
-                <FormRow label="Thinking">
-                    <label
-                        style={{
-                            color: '#000',
-                            fontSize: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            cursor: 'pointer',
-                        }}
-                        title="For llama.cpp models that reason before answering: replies come much faster, with less deliberation"
+                <FormRow label="Reasoning">
+                    <select
+                        aria-label="Reasoning"
+                        value={form.reasoningEffort ?? 0}
+                        onChange={(e) =>
+                            set({ reasoningEffort: Number(e.target.value) })
+                        }
+                        title="How long a llama.cpp model may think before answering. Less is faster, more is more deliberate."
+                        style={selectStyle}
                     >
-                        <input
-                            type="checkbox"
-                            checked={!!form.disableThinking}
-                            onChange={(e) =>
-                                set({ disableThinking: e.target.checked })
-                            }
-                        />
-                        Skip thinking for faster replies
-                    </label>
+                        {REASONING_EFFORTS.map((r) => (
+                            <option key={r.value} value={r.value}>
+                                {r.label} ({r.hint})
+                            </option>
+                        ))}
+                    </select>
                 </FormRow>
             )}
 

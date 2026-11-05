@@ -99,6 +99,7 @@ export * from './problemDetails';
 export * from './proceedRequest';
 export * from './promptRequest';
 export * from './providerUsage';
+export * from './reasoningEffort';
 export * from './repromptRequest';
 export * from './rsvpRequest';
 export * from './selfSummary';

@@ -21,6 +21,15 @@ export const JOB_COMPLEXITIES = [
     },
 ] as const;
 
+export const REASONING_EFFORTS = [
+    { value: 0, label: 'Default', hint: 'the model decides' },
+    { value: 1, label: 'Off', hint: 'answers straight away' },
+    { value: 2, label: 'Low', hint: 'up to 512 tokens' },
+    { value: 3, label: 'Medium', hint: 'up to 2,048 tokens' },
+    { value: 4, label: 'High', hint: 'up to 8,192 tokens' },
+    { value: 5, label: 'Max', hint: 'no limit, can take minutes' },
+] as const;
+
 export const providerLabel = (p: LlmProviderEntry) =>
     `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Ollama' : 'OpenRouter'}`;
 

@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { JobComplexity } from './jobComplexity';
+import type { ReasoningEffort } from './reasoningEffort';
 
 export interface LlmProviderEntry {
     id?: string;
@@ -24,7 +25,7 @@ export interface LlmProviderEntry {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     priority?: number | string;
     reserved?: boolean;
-    disableThinking?: boolean;
     /** @nullable */
     tailnet?: string | null;
+    reasoningEffort?: ReasoningEffort;
 }

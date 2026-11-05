@@ -12,8 +12,8 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>What actually goes over the wire when a provider skips thinking.</summary>
-public class LlmThinkingTest
+/// <summary>What actually goes over the wire for each reasoning level.</summary>
+public class LlmReasoningTest
 {
     private sealed class Capture : HttpMessageHandler
     {
@@ -31,7 +31,7 @@ public class LlmThinkingTest
         }
     }
 
-    private static async Task<JsonNode> SentBodyAsync(bool disableThinking)
+    private static async Task<JsonNode> SentBodyAsync(ReasoningEffort? effort)
     {
         var capture = new Capture();
         var options = new OpenAIClientOptions
@@ -39,7 +39,7 @@ public class LlmThinkingTest
             Endpoint = new Uri("http://llama/v1"),
             Transport = new HttpClientPipelineTransport(new HttpClient(capture)),
         };
-        if (disableThinking) options.AddPolicy(new NoThinkingPolicy(), PipelinePosition.PerCall);
+        if (effort is { } level) options.AddPolicy(new ReasoningPolicy(level), PipelinePosition.PerCall);
         var client = new ChatClient("m", new ApiKeyCredential("k"), options);
         var job = new LlmGenerationJob { Messages = new List<LlmChatMessage> { new() { Role = "user", Content = "hello" } } };
 
@@ -50,20 +50,44 @@ public class LlmThinkingTest
         return JsonNode.Parse(capture.Body)!;
     }
 
-    [Fact]
-    public async Task DisableThinking_SendsTheChatTemplateFlag()
+    [Theory]
+    [InlineData(ReasoningEffort.Off, 0)]
+    [InlineData(ReasoningEffort.Low, 512)]
+    [InlineData(ReasoningEffort.Medium, 2048)]
+    [InlineData(ReasoningEffort.High, 8192)]
+    public async Task CappedLevels_SendTheirTokenBudget(ReasoningEffort effort, int budget)
     {
-        var body = await SentBodyAsync(disableThinking: true);
+        var body = await SentBodyAsync(effort);
 
-        Assert.False(body["chat_template_kwargs"]!["enable_thinking"]!.GetValue<bool>());
+        Assert.Equal(budget, body["thinking_budget_tokens"]!.GetValue<int>());
+        Assert.True(body["reasoning_control"]!.GetValue<bool>());
         Assert.Equal("hello", body["messages"]![0]!["content"]!.ToString());
     }
 
     [Fact]
-    public async Task ByDefault_NoChatTemplateFlagIsSent()
+    public async Task Off_AlsoDisablesThinkingInTheTemplate()
     {
-        var body = await SentBodyAsync(disableThinking: false);
+        var body = await SentBodyAsync(ReasoningEffort.Off);
+
+        Assert.False(body["chat_template_kwargs"]!["enable_thinking"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Max_KeepsThinkingOnWithNoCap()
+    {
+        var body = await SentBodyAsync(ReasoningEffort.Max);
+
+        Assert.True(body["chat_template_kwargs"]!["enable_thinking"]!.GetValue<bool>());
+        Assert.Null(body["thinking_budget_tokens"]);
+    }
+
+    [Fact]
+    public async Task WithoutThePolicy_NothingExtraIsSent()
+    {
+        var body = await SentBodyAsync(null);
 
         Assert.Null(body["chat_template_kwargs"]);
+        Assert.Null(body["thinking_budget_tokens"]);
+        Assert.Null(body["reasoning_control"]);
     }
 }

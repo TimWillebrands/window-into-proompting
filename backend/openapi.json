@@ -8987,14 +8987,14 @@
           "reserved": {
             "type": "boolean"
           },
-          "disableThinking": {
-            "type": "boolean"
-          },
           "tailnet": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "reasoningEffort": {
+            "$ref": "#/components/schemas/ReasoningEffort"
           }
         }
       },
@@ -9994,6 +9994,9 @@
             "format": "double"
           }
         }
+      },
+      "ReasoningEffort": {
+        "type": "integer"
       },
       "RepromptRequest": {
         "type": "object",
