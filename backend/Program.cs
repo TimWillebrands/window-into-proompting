@@ -4,6 +4,8 @@ using Orleans.Configuration;
 using PartyTown.Configuration;
 using PartyTown.Data;
 using PartyTown.Logging;
+using PartyTown.Observability;
+using PartyTown.Services.Analytics;
 using PartyTown.Services.Auth;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
@@ -27,6 +29,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers(o => o.Filters.Add<PartyTown.Services.Auth.ForbiddenActorFilter>());
 builder.Services.AddClerkAuth(builder.Configuration);
 builder.Services.AddHttpClient();
+builder.AddPostHogAnalytics();
+builder.Services.AddSingleton<IAiObservabilityCapture, AiObservabilityCapture>();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();
 builder.Services.AddSingleton<RaceTrigger>();
 builder.Services.AddSingleton<ResponsePipeline>();
@@ -208,6 +212,7 @@ app.UseWebSockets();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UsePostHogAnalytics();
 // After auth: a cached response must not skip the sign-in check.
 app.UseOutputCache();
 

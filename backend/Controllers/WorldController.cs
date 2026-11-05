@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using PartyTown.Services.Memory;
+using PostHog;
 using Microsoft.AspNetCore.Mvc;
 using PartyTown.Services.Auth;
 using PartyTown.Grains;
@@ -15,7 +16,7 @@ namespace PartyTown.Controllers;
 /// </summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal) : ControllerBase
+public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal, IPostHogClient posthog) : ControllerBase
 {
     private BoardApp BoardApp => apps.OfType<BoardApp>().Single();
     private CalendarApp CalendarApp => apps.OfType<CalendarApp>().Single();
@@ -128,9 +129,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<PlayerResponse>> CreatePlayer(Guid partyId, [FromBody] CreatePlayerRequest request)
     {
         if (AccessRules.CleanPlayerName(request.Name) is not { } name) return BadRequest($"A name, up to {AccessRules.MaxPlayerName} characters.");
-        return await Clock(partyId).ClaimPlayerAsync(User.ClerkUserId()!, name) is { } id
-            ? Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)))
-            : Conflict("Someone here already goes by that name.");
+        if (await Clock(partyId).ClaimPlayerAsync(User.ClerkUserId()!, name) is not { } id)
+            return Conflict("Someone here already goes by that name.");
+        posthog.Capture(User.ClerkUserId()!, "player_created", new Dictionary<string, object> { ["party_id"] = partyId, ["player_id"] = id });
+        return Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)));
     }
 
     /// <summary>Remove a human Player and what's theirs. Personas keep their memories.</summary>
@@ -162,6 +164,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
         var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId));
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, outcome);
+        posthog.Capture(User.ClerkUserId()!, "board_post_created", new Dictionary<string, object>
+        {
+            ["party_id"] = partyId, ["thread_id"] = thread.Id, ["length"] = request.Body.Trim().Length,
+        });
         return Ok(thread);
     }
 
@@ -174,6 +180,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (await BoardApp.ReplyAsync(partyId, threadId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId)) is not { } done)
             return NotFound();
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, done.Outcome);
+        posthog.Capture(User.ClerkUserId()!, "board_reply_created", new Dictionary<string, object>
+        {
+            ["party_id"] = partyId, ["thread_id"] = threadId, ["length"] = request.Body.Trim().Length,
+        });
         return Ok(done.Thread);
     }
 
@@ -183,7 +193,12 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<BoardThread>> Respect(Guid partyId, Guid threadId, [FromBody] BoardRespectRequest request)
     {
         var (giverId, giverName) = await AuthorAsync(partyId, request.AuthorId);
-        return await BoardApp.RespectAsync(partyId, threadId, request.ReplyId, giverId, giverName, request.Given) is { } t ? Ok(t) : NotFound();
+        if (await BoardApp.RespectAsync(partyId, threadId, request.ReplyId, giverId, giverName, request.Given) is not { } t) return NotFound();
+        posthog.Capture(User.ClerkUserId()!, "board_respect_changed", new Dictionary<string, object>
+        {
+            ["party_id"] = partyId, ["thread_id"] = threadId, ["on_reply"] = request.ReplyId is not null, ["given"] = request.Given,
+        });
+        return Ok(t);
     }
 
     // ─── Messenger ────────────────────────────────────────────────────────────
@@ -218,7 +233,9 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (from == request.WithPersonaId) return BadRequest("Cannot DM yourself.");
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
         if (info.Participants.All(p => p.Id != request.WithPersonaId)) return NotFound();
-        return Ok(await grains.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(from, request.WithPersonaId));
+        var chat = await grains.GetGrain<IPartyGrain>(partyId).GetOrCreateDirectChatAsync(from, request.WithPersonaId);
+        posthog.Capture(User.ClerkUserId()!, "direct_chat_opened", new Dictionary<string, object> { ["party_id"] = partyId, ["room_id"] = chat.Id });
+        return Ok(chat);
     }
 
     // ─── Calendar ─────────────────────────────────────────────────────────────
@@ -254,6 +271,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
             (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
         }
         await RecordAsync(partyId, hostId, hostName, CalendarApp.Id, outcome);
+        posthog.Capture(User.ClerkUserId()!, "gathering_planned", new Dictionary<string, object>
+        {
+            ["party_id"] = partyId, ["gathering_id"] = g.Id, ["at_place"] = request.PlaceId is not null,
+        });
         return Ok(g);
     }
 
@@ -264,6 +285,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var (id, name) = await AuthorAsync(partyId, request.PersonaId);
         if (await CalendarApp.RsvpAsync(partyId, gatheringId, id, request.Going) is not { } done) return NotFound();
         await RecordAsync(partyId, id, name, CalendarApp.Id, done.Outcome);
+        posthog.Capture(User.ClerkUserId()!, "gathering_rsvped", new Dictionary<string, object>
+        {
+            ["party_id"] = partyId, ["gathering_id"] = gatheringId, ["going"] = request.Going,
+        });
         return Ok(done.Gathering);
     }
 

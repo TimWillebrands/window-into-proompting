@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using OpenAI.Chat;
+using PartyTown.Observability;
 
 namespace PartyTown.Grains.Generation;
 
@@ -40,6 +42,10 @@ public static class LlmEndpointGrainUtils
         LlmGenerationJob parameters,
         ChatClient chatClient,
         Action onFinished,
+        IAiObservabilityCapture aiObservability,
+        string provider,
+        string model,
+        string baseUrl,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
@@ -47,40 +53,55 @@ public static class LlmEndpointGrainUtils
         var messages = ToOpenAiChatMessages(parameters);
         var completionOptions = ToChatCompletionOptions(parameters);
         var chunkCount = 0;
+        var content = new StringBuilder();
+        var completed = false;
 
         try
         {
-          for (var attempt = 0; attempt < 2 && chunkCount == 0; attempt++)
-          {
-            if (attempt > 0) logger.LogWarning("LLM stream produced no content; retrying once");
-            await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
+            for (var attempt = 0; attempt < 2 && chunkCount == 0; attempt++)
             {
-                foreach (var part in update.ContentUpdate ?? [])
+                if (attempt > 0) logger.LogWarning("LLM stream produced no content; retrying once");
+                await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
                 {
-                    if (!string.IsNullOrEmpty(part.Text))
+                    foreach (var part in update.ContentUpdate ?? [])
                     {
-                        chunkCount++;
-                        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
+                        if (!string.IsNullOrEmpty(part.Text))
+                        {
+                            chunkCount++;
+                            content.Append(part.Text);
+                            yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
+                    {
+                        logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
+                        yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
+                    }
+
+                    if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
+                    {
+                        logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
+                        yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
+                        yield break;
                     }
                 }
-
-                if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
-                {
-                    logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
-                    yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
-                }
-
-                if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
-                {
-                    logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
-                    yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
-                    yield break;
-                }
             }
-          }
+
+            completed = true;
         }
         finally
         {
+            await aiObservability.CaptureGenerationAsync(
+                parameters.Messages,
+                content.ToString(),
+                provider,
+                model,
+                baseUrl,
+                parameters.ModelParameters?.Temperature,
+                streamed: true,
+                isError: !completed,
+                CancellationToken.None);
             onFinished();
             sw.Stop();
             logger.LogInformation("LLM API call completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
@@ -93,15 +114,20 @@ public static class LlmEndpointGrainUtils
         LlmGenerationJob parameters,
         ChatClient chatClient,
         Action onFinished,
+        IAiObservabilityCapture aiObservability,
+        string provider,
+        string model,
+        string baseUrl,
         CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         var messages = ToOpenAiChatMessages(parameters);
         var completionOptions = ToChatCompletionOptions(parameters);
+        var text = string.Empty;
+        var completed = false;
 
         try
         {
-            var text = string.Empty;
             // Cheap models occasionally return an empty completion; one retry recovers nearly all of them.
             for (var attempt = 0; attempt < 2 && string.IsNullOrWhiteSpace(text); attempt++)
             {
@@ -113,10 +139,21 @@ public static class LlmEndpointGrainUtils
                     logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
             }
 
+            completed = true;
             return text;
         }
         finally
         {
+            await aiObservability.CaptureGenerationAsync(
+                parameters.Messages,
+                text,
+                provider,
+                model,
+                baseUrl,
+                parameters.ModelParameters?.Temperature,
+                streamed: false,
+                isError: !completed,
+                CancellationToken.None);
             onFinished();
             sw.Stop();
             logger.LogInformation("LLM one-shot completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);

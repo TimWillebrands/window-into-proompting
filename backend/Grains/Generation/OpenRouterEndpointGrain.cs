@@ -5,11 +5,13 @@ using OpenAI;
 using OpenAI.Chat;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Observability;
 
 namespace PartyTown.Grains.Generation;
 
 public class OpenRouterEndpointGrain(
     IHttpClientFactory httpClientFactory,
+    IAiObservabilityCapture aiObservability,
     ILogger<OpenRouterEndpointGrain> logger
 ) : Grain, IOpenRouterEndpointGrain
 {
@@ -69,6 +71,10 @@ public class OpenRouterEndpointGrain(
                 parameters,
                 chatClient,
                 () => Interlocked.Decrement(ref _activeGenerations),
+                aiObservability,
+                ProviderDescription,
+                modelName,
+                BaseUrl,
                 cancellationToken),
             ReportFailureAsync,
             cancellationToken);
@@ -94,6 +100,10 @@ public class OpenRouterEndpointGrain(
             parameters,
             chatClient,
             () => Interlocked.Decrement(ref _activeGenerations),
+            aiObservability,
+            ProviderDescription,
+            modelName,
+            BaseUrl,
             cancellationToken));
     }
 
