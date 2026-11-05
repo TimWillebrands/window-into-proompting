@@ -123,22 +123,25 @@ export default function ProviderCard({
                             {provider.modelName}
                         </span>
                     )}
-                    {(provider.reserved ? ['Reserved'] : complexityLabels).map(
-                        (label) => (
-                            <span
-                                key={label}
-                                style={{
-                                    background: 'rgba(100,180,255,0.2)',
-                                    border: '1px solid rgba(100,180,255,0.4)',
-                                    color: '#adf',
-                                    fontSize: 10,
-                                    padding: '1px 6px',
-                                }}
-                            >
-                                {label}
-                            </span>
-                        ),
-                    )}
+                    {[
+                        ...(provider.reserved
+                            ? ['Reserved']
+                            : complexityLabels),
+                        ...(provider.disableThinking ? ['No thinking'] : []),
+                    ].map((label) => (
+                        <span
+                            key={label}
+                            style={{
+                                background: 'rgba(100,180,255,0.2)',
+                                border: '1px solid rgba(100,180,255,0.4)',
+                                color: '#adf',
+                                fontSize: 10,
+                                padding: '1px 6px',
+                            }}
+                        >
+                            {label}
+                        </span>
+                    ))}
                     {personaCount > 0 && (
                         <span
                             style={{

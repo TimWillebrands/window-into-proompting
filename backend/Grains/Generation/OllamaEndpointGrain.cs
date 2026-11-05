@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -51,10 +52,15 @@ public class OllamaEndpointGrain(
     private string ModelName => _config?.ModelName ?? string.Empty;
     private string ProviderDescription => $"ollama[{BaseUrl}]";
 
-    private OpenAIClientOptions OpenAiOptions => new()
+    private OpenAIClientOptions OpenAiOptions
     {
-        Endpoint = new Uri($"{BaseUrl.TrimEnd('/')}/v1")
-    };
+        get
+        {
+            var options = new OpenAIClientOptions { Endpoint = new Uri($"{BaseUrl.TrimEnd('/')}/v1") };
+            if (_config?.DisableThinking == true) options.AddPolicy(new NoThinkingPolicy(), PipelinePosition.PerCall);
+            return options;
+        }
+    }
 
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(
         LlmGenerationJob parameters,

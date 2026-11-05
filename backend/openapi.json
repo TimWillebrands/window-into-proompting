@@ -8948,6 +8948,9 @@
           },
           "reserved": {
             "type": "boolean"
+          },
+          "disableThinking": {
+            "type": "boolean"
           }
         }
       },

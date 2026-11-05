@@ -120,6 +120,31 @@ export default function ProviderEditor({
                 </div>
             </FormRow>
 
+            {form.type === 'ollama' && (
+                <FormRow label="Thinking">
+                    <label
+                        style={{
+                            color: '#000',
+                            fontSize: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            cursor: 'pointer',
+                        }}
+                        title="For llama.cpp models that reason before answering: replies come much faster, with less deliberation"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={!!form.disableThinking}
+                            onChange={(e) =>
+                                set({ disableThinking: e.target.checked })
+                            }
+                        />
+                        Skip thinking for faster replies
+                    </label>
+                </FormRow>
+            )}
+
             <FormRow label="Used by">
                 <div
                     style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
