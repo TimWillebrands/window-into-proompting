@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useEffect } from 'react';
 import { create } from 'zustand';
 import type { DesktopLayoutState } from '../types/desktop';
+import { track } from './analytics';
 import { useNavHistoryStore } from './nav-history';
 import type { DesktopWindowState, WindowDescriptor } from './types';
 import { WINDOW_PRESETS } from './window-presets';
@@ -167,6 +168,8 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                     props: options?.props ?? {},
                 };
 
+                track('window_opened', { app_id: appId });
+
                 return {
                     ...prev,
                     windows: { ...prev.windows, [runtimeId]: newWindow },
@@ -217,6 +220,8 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
                 if (!prev.windows[id]) {
                     return prev;
                 }
+
+                track('window_closed', { app_id: prev.windows[id].appId });
 
                 const { [id]: _omit, ...rest } = prev.windows;
                 const newOrder = prev.order.filter((entry) => entry !== id);

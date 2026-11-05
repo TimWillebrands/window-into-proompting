@@ -28,12 +28,14 @@ builder:
   context: frontend
   args:
     VITE_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ
+    VITE_POSTHOG_PROJECT_TOKEN: phc_f44OvBqb7P19kNmbDBXlNy4UH8pdoiJcUVKZJ1aN950
 
 env:
   clear:
     VITE_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsucHJvb21wdGluZy5wYXJ0eSQ
     VITE_CLERK_SIGN_IN_URL: /sign-in
     VITE_CLERK_SIGN_UP_URL: /sign-up
+    POSTHOG_HOST: https://eu.i.posthog.com
   secret:
     - CLERK_SECRET_KEY
 
