@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { ProblemDetailsError } from '../../api/custom-fetch';
 import { useCreatePlayer } from '../../lib/world';
 import { LoginShell } from './WelcomeScreen';
 
@@ -19,7 +20,11 @@ export default function CreateCharacterScreen() {
         try {
             await createPlayer(name.trim());
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'That did not work.');
+            setError(
+                err instanceof ProblemDetailsError && err.detail
+                    ? err.detail
+                    : 'That did not work. Try again?',
+            );
             setBusy(false);
         }
     };
@@ -42,7 +47,7 @@ export default function CreateCharacterScreen() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         maxLength={MAX_NAME}
-                        className="flex-1 text-black"
+                        className="flex-1 bg-white text-black"
                         autoComplete="off"
                     />
                     <button type="submit" disabled={busy || !name.trim()}>
