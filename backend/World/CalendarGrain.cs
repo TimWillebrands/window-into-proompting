@@ -35,6 +35,13 @@ public sealed class CalendarGrain(
         return gathering;
     }
 
+    public async Task<bool> CancelAsync(Guid gatheringId)
+    {
+        if (state.State.Gatherings.RemoveAll(g => g.Id == gatheringId) == 0) return false;
+        await state.WriteStateAsync();
+        return true;
+    }
+
     public async Task<Gathering?> RsvpAsync(Guid gatheringId, Guid personaId, bool going)
     {
         var g = state.State.Gatherings.FirstOrDefault(x => x.Id == gatheringId);
@@ -71,6 +78,8 @@ public interface ICalendarGrain : IGrainWithGuidKey
     [Alias("GetGatheringsAsync")] Task<List<Gathering>> GetGatheringsAsync();
     [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null);
     [Alias("RsvpAsync")] Task<Gathering?> RsvpAsync(Guid gatheringId, Guid personaId, bool going);
+    /// <summary>Author: it's off, and nobody owes anything for it.</summary>
+    [Alias("CancelAsync")] Task<bool> CancelAsync(Guid gatheringId);
     /// <summary>Flip every due Planned gathering to Started and return them.</summary>
     [Alias("StartDueAsync")] Task<List<Gathering>> StartDueAsync(long now);
 }

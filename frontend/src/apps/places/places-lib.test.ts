@@ -42,6 +42,31 @@ const sharedHome: Place = {
 };
 const vacated: Place = { ...myHome, vacated: true };
 
+const studio: Place = {
+    id: 's',
+    name: "Mara's studio",
+    kind: 'public',
+    private: true,
+    madeBy: 'mara',
+    guests: ['lena'],
+    spots: [],
+};
+
+describe('private Places', () => {
+    it('lets in only its owner and their guests', () => {
+        expect(mayEnter(studio, 'mara')).toBe(true);
+        expect(mayEnter(studio, 'lena')).toBe(true);
+        expect(mayEnter(studio, 'anne')).toBe(false);
+        expect(mayEnter({ ...studio, private: false }, 'anne')).toBe(true);
+    });
+
+    it('lets a keyholder in whoever is there', () => {
+        expect(mayEnter({ ...studio, keyholders: ['anne'] }, 'anne')).toBe(
+            true,
+        );
+    });
+});
+
 describe('shared Homes', () => {
     it('counts housemates as living there, not a moved-out owner', () => {
         expect(livesIn(sharedHome, 'me')).toBe(true);

@@ -59,6 +59,7 @@ import {
     bodySpotId,
     earshotRuns,
     furniIcon,
+    hosts,
     isLocale,
     livesIn,
     mayEnter,
@@ -462,11 +463,10 @@ function PlaceView({
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
     const canKnock =
         !!me &&
-        place.kind === 'home' &&
         !mayEnter(place, playerId) &&
         allBodies.some(
             (b) =>
-                livesIn(place, b.participantId ?? null) &&
+                hosts(place, b.participantId ?? null) &&
                 b.placeId === place.id &&
                 !b.destPlaceId &&
                 !b.asleep,

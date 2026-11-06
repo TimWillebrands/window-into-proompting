@@ -4,6 +4,7 @@ import {
     getGetWorldsPartyIdRelationsQueryKey,
     useDeleteWorldsPartyIdRelationsRelationId,
     useGetWorldsPartyIdLivesSuspense,
+    useGetWorldsPartyIdRelationsDoorsSuspense,
     useGetWorldsPartyIdRelationsSuspense,
     usePostWorldsPartyIdRelations,
     usePostWorldsPartyIdRelationsRelationIdEnd,
@@ -21,8 +22,47 @@ export default function RelationsApp() {
         <div className="app-surface" style={{ padding: 8, overflow: 'auto' }}>
             <Suspense fallback={null}>
                 <Book />
+                <Doors />
             </Suspense>
         </div>
+    );
+}
+
+/** Who's been at which door this week, who holds a key, and what's starting to be wanted. */
+function Doors() {
+    const doors =
+        useGetWorldsPartyIdRelationsDoorsSuspense(WORLD_ID).data.data ?? [];
+    if (doors.length === 0) return null;
+    return (
+        <fieldset className="border border-[#9db2c8] p-2 m-0 mt-2">
+            <legend className="text-xp-legend font-semibold text-[11px] px-1">
+                At the door
+            </legend>
+            <table style={{ width: '100%' }}>
+                <thead>
+                    <tr>
+                        <th align="left">Place</th>
+                        <th align="left">Who</th>
+                        <th align="left">This week</th>
+                        <th align="left">Wants</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {doors.map((d) => (
+                        <tr key={`${d.place}:${d.visitor}`}>
+                            <td>{d.place}</td>
+                            <td>{d.visitor}</td>
+                            <td>{d.hasKey ? 'has a key' : d.doorsteps}</td>
+                            <td>
+                                {[d.visitorWant, d.hostWant]
+                                    .filter(Boolean)
+                                    .join(' / ')}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </fieldset>
     );
 }
 

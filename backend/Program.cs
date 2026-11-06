@@ -82,6 +82,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Work.Responsibilities>();
     builder.Services.AddSingleton<PartyTown.World.Desires.DesireReview>();
     builder.Services.AddSingleton<PartyTown.World.Desires.Mimesis>();
+    builder.Services.AddSingleton<PartyTown.World.Relations.KeyWants>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.WorkApp>();
     builder.Services.AddHttpClient("markets", c => c.Timeout = TimeSpan.FromSeconds(10));
     builder.Services.AddSingleton<PartyTown.World.Work.Markets.IMarketFeed, PartyTown.World.Work.Markets.PolymarketFeed>();

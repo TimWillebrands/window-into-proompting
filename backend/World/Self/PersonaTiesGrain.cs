@@ -51,7 +51,7 @@ public sealed class PersonaTiesGrain(
         return Ties.Closest(state.State.Ties.Where(t => t.Key != personaId && t.Key != Narrator.PersonaId), DateTimeOffset.UtcNow);
     }
 
-    public async Task<string> RenderAsync(List<Guid> presentIds)
+    public async Task<string> RenderAsync(List<Guid> presentIds, bool here = true)
     {
         await EnsureSeededAsync();
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -60,7 +60,7 @@ public sealed class PersonaTiesGrain(
         var firstNames = cast.ToDictionary(c => c.Id, c => c.Name.Split(' ')[0]);
         var people = cast
             .Where(c => presentIds.Contains(c.Id) && c.Id != personaId && c.Id != Narrator.PersonaId)
-            .Select(c => RelationRules.Seen(book, personaId, c.Id, c.Name, state.State.Ties.GetValueOrDefault(c.Id), id => firstNames.GetValueOrDefault(id)))
+            .Select(c => RelationRules.Seen(book, personaId, c.Id, c.Name, state.State.Ties.GetValueOrDefault(c.Id), id => firstNames.GetValueOrDefault(id), here))
             .ToList();
         return Ties.Render(people, DateTimeOffset.UtcNow);
     }
@@ -190,7 +190,8 @@ public sealed record Acquaintance(string Name, Tie? Tie, string? Between = null,
 public interface IPersonaTiesGrain : IGrainWithStringKey
 {
     [Alias("NoteExchangeAsync")] Task NoteExchangeAsync(List<Guid> withIds, bool direct);
-    [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds);
+    /// <param name="here">These people are actually around; false when it's everyone in the World.</param>
+    [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds, bool here = true);
     /// <summary>How well this persona knows one other, and how warm it feels now.</summary>
     [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
     /// <summary>The one person this persona is closest to, or null.</summary>

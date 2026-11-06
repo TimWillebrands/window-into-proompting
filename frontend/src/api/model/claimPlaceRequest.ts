@@ -9,4 +9,5 @@ export interface ClaimPlaceRequest {
     madeBy: string;
     /** @nullable */
     name: string | null;
+    private?: boolean;
 }

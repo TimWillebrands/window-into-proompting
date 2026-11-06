@@ -29,6 +29,10 @@ export const livesIn = (place: Place, who: string | null) =>
     ((place.ownerId === who && !place.vacated) ||
         (place.housemates ?? []).includes(who));
 
+/** Who decides who comes in, for a Home or a private Place. */
+export const hosts = (place: Place, who: string | null) =>
+    livesIn(place, who) || (!!place.private && place.madeBy === who);
+
 export const placeLabel = (
     place: Place | undefined,
     viewerId: string | null,
@@ -43,8 +47,9 @@ export const placeLabel = (
 
 /** Others' Homes are private in phase 1. */
 export const mayEnter = (place: Place, viewerId: string | null) =>
-    place.kind !== 'home' ||
-    livesIn(place, viewerId) ||
+    (place.kind !== 'home' && !place.private) ||
+    hosts(place, viewerId) ||
+    (!!viewerId && (place.keyholders ?? []).includes(viewerId)) ||
     (!!viewerId && (place.guests ?? []).includes(viewerId));
 
 /** "arriving in 42s" while walking; null when settled. */

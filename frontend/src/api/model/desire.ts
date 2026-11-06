@@ -24,4 +24,6 @@ export interface Desire {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     touchedAt?: number | string;
     status?: DesireStatus;
+    /** @nullable */
+    placeId?: string | null;
 }

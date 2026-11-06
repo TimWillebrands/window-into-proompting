@@ -46,6 +46,12 @@ public sealed class Place
     [Id(22)] public List<Guid> Housemates { get; set; } = new();
     /// <summary>Home only: the owner lives elsewhere now; kept empty for if they come back.</summary>
     [Id(23)] public bool Vacated { get; set; }
+    /// <summary>Not a Home, but closed like one: its owner (<see cref="MadeBy"/>) lets people in or invites them.</summary>
+    [Id(24)] public bool Private { get; set; }
+    /// <summary>Closed Places: who holds a key and comes and goes, whoever's in (ADR 0036).</summary>
+    [Id(25)] public List<Guid> Keyholders { get; set; } = new();
+    /// <summary>Closed Places: when each person last had to deal with the door, newest last.</summary>
+    [Id(26)] public Dictionary<Guid, List<long>> Doorsteps { get; set; } = new();
 }
 
 /// <summary>Who lives in a Home (ADR 0035): the owner until they've moved out, plus anyone who moved in.</summary>
@@ -60,7 +66,29 @@ public static class Homes
 
     public static bool LivesIn(this Place place, Guid who) => place.Living().Contains(who);
 
+    /// <summary>You knock or get invited.</summary>
+    public static bool IsClosed(this Place place) => place.Kind == PlaceKinds.Home || place.Private;
+
+    /// <summary>Who decides who comes in.</summary>
+    public static IEnumerable<Guid> Hosts(this Place place)
+        => place.Kind == PlaceKinds.Home ? place.Living() : place.Private && place.MadeBy is { } owner ? new[] { owner } : Enumerable.Empty<Guid>();
+
     public static Place? HomeOf(this IEnumerable<Place> places, Guid who) => places.FirstOrDefault(p => p.LivesIn(who));
+
+    /// <summary>Someone had to deal with the door: knocked, got invited, found it locked.</summary>
+    public static void NoteDoorstep(this Place place, Guid who, long now)
+    {
+        var moments = place.Doorsteps.TryGetValue(who, out var known) ? known : place.Doorsteps[who] = new List<long>();
+        moments.Add(now);
+        if (moments.Count > MaxDoorsteps) moments.RemoveAt(0);
+    }
+
+    /// <summary>How often that's been lately.</summary>
+    public static int DoorstepsLately(this Place place, Guid who, long now)
+        => place.Doorsteps.GetValueOrDefault(who)?.Count(at => now - at < DoorstepsLast.TotalMilliseconds) ?? 0;
+
+    private const int MaxDoorsteps = 8;
+    private static readonly TimeSpan DoorstepsLast = TimeSpan.FromDays(7);
 
     /// <summary>"Mara's place", "Mara and Lena's place".</summary>
     public static string Named(IReadOnlyList<string> people)

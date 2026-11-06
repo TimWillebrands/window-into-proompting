@@ -261,7 +261,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (request.PlaceId is { } placeId)
         {
             var place = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places
-                .FirstOrDefault(p => p.Id == placeId && p.Kind == World.Places.PlaceKinds.Public);
+                .FirstOrDefault(p => p.Id == placeId && p.Kind == World.Places.PlaceKinds.Public && !p.Private);
             if (place is null) return BadRequest("Unknown public place.");
             (g, outcome) = await CalendarApp.PlanAtPlaceAsync(partyId, hostId, hostName, request.Title.Trim(), place, request.StartsAt, DateTimeOffset.UtcNow);
         }
@@ -279,6 +279,14 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         });
         return Ok(g);
     }
+
+    /// <summary>Author: call a Gathering off.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+    [HttpDelete("gatherings/{gatheringId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> CancelGathering(Guid partyId, Guid gatheringId)
+        => await grains.GetGrain<ICalendarGrain>(partyId).CancelAsync(gatheringId) ? NoContent() : NotFound();
 
     [HttpPost("gatherings/{gatheringId:guid}/rsvp")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -139,6 +139,21 @@ public class RelationsTest
     }
 
     [Fact]
+    public void AfarOff_YouOnlyKnowTheRelationsOfPeopleYouKnow()
+    {
+        Assert.Null(RelationRules.Seen(Example, Denise, Anne, "Anne", null, First, present: false).Known);
+        Assert.Null(RelationRules.Seen(Example, Denise, Anne, "Anne", new Tie { Exchanges = 9 }, First, present: false).Known);
+        Assert.Equal("married to Justin", RelationRules.Seen(Example, Denise, Anne, "Anne", new Tie { Exchanges = 10 }, First, present: false).Known);
+    }
+
+    [Fact]
+    public void InPerson_YouSeeIt_EvenWithAStranger() => Assert.Equal("married to Justin", RelationRules.Seen(Example, Denise, Anne, "Anne", null, First).Known);
+
+    [Fact]
+    public void WhatsBetweenThePair_NeverDependsOnBeingThere()
+        => Assert.Contains("you dated in high school", RelationRules.Seen(Example, Denise, Justin, "Justin", null, First, present: false).Between);
+
+    [Fact]
     public void Spouses_NeverReadAsStrangers()
     {
         var text = Seen(Justin, Anne, "Anne");

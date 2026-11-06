@@ -58,12 +58,12 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
         return place is null ? Conflict("Not a Locale, or the world has opened enough for now.") : Ok(place);
     }
 
-    /// <summary>Author: a Place or Locale is someone's now, under a new name if given.</summary>
+    /// <summary>Author: a Place or Locale is someone's now, under a new name if given. <c>Private</c> sends everyone else home.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("claim/{placeId:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Place>> Claim(Guid partyId, Guid placeId, [FromBody] ClaimPlaceRequest request)
-        => await grains.GetGrain<IPlacesGrain>(partyId).ClaimAsync(placeId, request.MadeBy, request.Name) is { } place ? Ok(place) : NotFound();
+        => await grains.GetGrain<IPlacesGrain>(partyId).ClaimAsync(placeId, request.MadeBy, request.Name, request.Private) is { } place ? Ok(place) : NotFound();
 
     /// <summary>Author veto: an opened Place goes back offscreen.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
@@ -94,4 +94,4 @@ public sealed record GrowthReport(bool Auto, double OpenAt, List<GrowthRow> Rows
 
 public sealed record GrowthAutoRequest(bool On);
 
-public sealed record ClaimPlaceRequest(Guid MadeBy, string? Name);
+public sealed record ClaimPlaceRequest(Guid MadeBy, string? Name, bool Private = false);

@@ -322,6 +322,14 @@ _Avoid_: resident (that's someone who lives in the World), roommate, tenant.
 **Vacated**:
 A **Home** whose owner lives elsewhere now: kept as it was, closed, and not offered to anyone.
 
+**Key**:
+Lets someone come and go at a closed **Place**, whoever's in. The host's to give, no yes needed; the holder can hand it back. Only the two of them know. It outlasts a break-up until someone deals with it.
+_Avoid_: access, permission, guest (that's one visit).
+
+**Doorstep**:
+A time someone had to deal with a closed door: knocked, needed inviting, found it locked. A couple in a week is what makes wanting a **Key** come up.
+_Avoid_: friction (that's Ties), visit.
+
 **Built Home**:
 A **Home** designed for a couple from a description ("een statig herenhuis"). It replaces the Homes they had and keeps the name it was given.
 
@@ -404,7 +412,7 @@ Something someone holds a Persona to. Always has a holder (a Participant, a Plac
 _Avoid_: task, duty, chore, quest, obligation.
 
 **Studio**:
-A **Place** where art gets made, with an easel and finished work on show. Whoever works there finishes **Pieces** on shift; visitors see them.
+A **Place** where art gets made, with an easel and finished work on show. Whoever works there finishes **Pieces** on shift; visitors see them. May be private to its owner.
 _Avoid_: atelier, gallery, workshop.
 
 **Piece**:
@@ -416,7 +424,7 @@ Something a Persona wants, either *having* (a thing, money, someone's attention)
 _Avoid_: goal, need, drive (collides with **Driver**), motivation, objective.
 
 **Relation**:
-What two Participants are or were to each other, as a fact they share: together, married, family, friends, or something only their own words say ("you dated in high school"). Current or past, and a pair can have several. Current ones are public; past ones stay between the two. A **Tie** is how one of them feels; a Relation is what's true. See [ADR 0035](docs/adr/0035-relations.md).
+What two Participants are or were to each other, as a fact they share: together, married, family, friends, or something only their own words say ("you dated in high school"). Current or past, and a pair can have several. Current ones are known to whoever's with them or knows them; past ones stay between the two. A **Tie** is how one of them feels; a Relation is what's true. See [ADR 0035](docs/adr/0035-relations.md).
 _Avoid_: relationship (fine in prose), bond (that's Reflex's read of a Tie), connection.
 
 **Ask**:
@@ -584,6 +592,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Homework** comes from one **Session**, belongs to its **Client** and is held by its **Practitioner**.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
 - A **Piece** is made by one **Participant** at one **Studio**.
+- A closed **Place** has zero or more **Key** holders; a **Key** is given by a host and held by one **Participant**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue

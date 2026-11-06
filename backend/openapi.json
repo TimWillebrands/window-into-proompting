@@ -5593,6 +5593,55 @@
         }
       }
     },
+    "/worlds/{partyId}/relations/doors": {
+      "get": {
+        "tags": [
+          "Relations"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DoorRow"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DoorRow"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DoorRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/relations/{relationId}/end": {
       "post": {
         "tags": [
@@ -7289,6 +7338,58 @@
         }
       }
     },
+    "/worlds/{partyId}/gatherings/{gatheringId}": {
+      "delete": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "gatheringId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/gatherings/{gatheringId}/rsvp": {
       "post": {
         "tags": [
@@ -7997,6 +8098,10 @@
               "null",
               "string"
             ]
+          },
+          "private": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -8389,6 +8494,13 @@
           },
           "status": {
             "$ref": "#/components/schemas/DesireStatus"
+          },
+          "placeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -8556,6 +8668,52 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "DoorRow": {
+        "required": [
+          "place",
+          "host",
+          "visitor",
+          "doorsteps",
+          "hasKey",
+          "visitorWant",
+          "hostWant"
+        ],
+        "type": "object",
+        "properties": {
+          "place": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "visitor": {
+            "type": "string"
+          },
+          "doorsteps": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hasKey": {
+            "type": "boolean"
+          },
+          "visitorWant": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hostWant": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -10047,6 +10205,30 @@
           },
           "vacated": {
             "type": "boolean"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "keyholders": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "doorsteps": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ],
+                "format": "int64"
+              }
+            }
           }
         }
       },

@@ -380,6 +380,19 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task TheWholeCastList_LeavesOutRelationsOfPeopleYouDontKnow()
+    {
+        var (partyId, denise, pieter, _) = await CoupleAsync();
+        var hana = Guid.NewGuid();
+        await _fx.GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(new Persona(hana, "Hana", "You are Hana.", "A baker."));
+        await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).AddParticipantsAsync(new List<PartyParticipant> { new() { Id = hana, Name = "Hana", Driver = DriverKind.LLM } });
+        var ties = _fx.GrainFactory.GetGrain<PartyTown.World.Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, hana));
+
+        Assert.DoesNotContain("married", await ties.RenderAsync(new List<Guid> { denise, pieter }, here: false));
+        Assert.Contains("married to Pieter", await ties.RenderAsync(new List<Guid> { denise, pieter }));
+    }
+
+    [Fact]
     public async Task Forgetting_ALiveTogetherRelation_SplitsTheHome()
     {
         var (partyId, denise, pieter, couple) = await CoupleAsync();

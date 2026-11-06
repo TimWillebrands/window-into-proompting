@@ -39,6 +39,47 @@ public sealed partial class PlacesGrain
         return home;
     }
 
+    public async Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId)
+    {
+        if (Find(placeId) is not { } place || !place.IsClosed() || !place.Hosts().Contains(hostId) || place.Hosts().Contains(toId)) return false;
+        if (!state.State.Bodies.ContainsKey(toId) || place.Keyholders.Contains(toId)) return false;
+        place.Keyholders.Add(toId);
+        place.Doorsteps.Remove(toId);
+        await SaveAsync();
+        await PublishPlaceAsync(place);
+        return true;
+    }
+
+    public async Task<bool> DropKeyAsync(Guid holderId, Guid placeId)
+    {
+        if (Find(placeId) is not { } place || !place.Keyholders.Remove(holderId)) return false;
+        await SaveAsync();
+        await PublishPlaceAsync(place);
+        return true;
+    }
+
+    public Task<string> GetKeyLinesAsync(Guid who)
+    {
+        var lines = new List<string>();
+        foreach (var place in state.State.Places.Where(p => p.Keyholders.Count > 0))
+        {
+            if (place.Keyholders.Contains(who)) lines.Add($"You have a key to {place.Name}.");
+            if (!place.Hosts().Contains(who)) continue;
+            foreach (var holder in place.Keyholders)
+                lines.Add($"{state.State.Bodies.GetValueOrDefault(holder)?.Name.Split(' ')[0] ?? "Someone"} has a key to {WhereName(place, who)}.");
+        }
+        return Task.FromResult(lines.Count == 0 ? string.Empty : $"# Keys\n{string.Join("\n", lines.Select(l => $"- {l}"))}\n");
+    }
+
+    /// <summary>Having to deal with the door is when wanting a key comes up.</summary>
+    private void NoteDoorstep(Place place, Guid visitor)
+    {
+        var now = Now();
+        place.NoteDoorstep(visitor, now);
+        if (keyWants is not null && place.Hosts().FirstOrDefault() is var host && host != Guid.Empty)
+            _ = keyWants.ConsiderAsync(PartyId, new Relations.Door(place.Id, place.Name, host, visitor, place.DoorstepsLately(visitor, now)));
+    }
+
     private static string? MissingHomeSpots(IReadOnlyList<Spot> spots)
         => HomeSpots.Except(spots.Select(s => s.Id)).ToList() is { Count: > 0 } missing ? $"spots must include: {string.Join(", ", missing)}" : null;
 

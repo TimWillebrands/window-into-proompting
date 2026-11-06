@@ -21,7 +21,9 @@ things have gone sour. Asking is private (the feed says "has a quiet word"); onl
 **Personas don't ask humans**, like intimate poses. Authors can declare any Relation, humans included.
 
 **Current Relations are public, past ones stay between the pair**, so Anne can find out about Denise
-through talk, as a Recollection, rather than being told by the prompt.
+through talk, as a Recollection, rather than being told by the prompt. Public means you see it when they're
+in front of you, or when you know them (10+ exchanges). Life lists the whole cast, and listing everyone's
+Relations to everyone made people comment on couples they had nothing to do with.
 
 **Sharing a Home:** the mover becomes a Housemate of the host's Home, and their own Home is kept
 empty (Vacated). After a split it comes back as it was, decor included. Everyone who lives in a Home
@@ -31,6 +33,10 @@ after a split.
 **A built Home replaces what they had.** An author can have a couple's Home designed from a description
 ("een statig herenhuis"), with the Place designer. The Homes they had are removed, not Vacated: that's the
 point of building one. It keeps its given name, and whoever leaves after a split gets a plain Home.
+
+**A Place can be private.** Its owner lets people in or invites them, as with a Home; nobody else sees it
+offered. An author's Opening makes no Happening: one reaches every Persona's memory, which is right for a
+Place the World grew and wrong for one someone set up.
 
 ## Why not put it on the Tie
 

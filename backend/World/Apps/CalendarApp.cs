@@ -44,7 +44,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             // Meeting in person: a public Place (spec .scratch/places phase 7).
             var placesGrain = grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId);
             var snapshot = await placesGrain.GetSnapshotAsync();
-            var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant).ToList();
+            var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant && !p.Private).ToList();
             if (publicPlaces.Count > 0)
             {
                 var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];

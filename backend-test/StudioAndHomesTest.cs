@@ -282,6 +282,115 @@ public partial class PlacesTest
         Assert.DoesNotContain((await app.PerceiveAsync(life, default))!.Affordances, a => a.Verb == "make");
     }
 
+    private async Task<(Guid PartyId, Guid Denise, Guid Pieter, Place Studio)> ClosedStudioAsync()
+    {
+        var (partyId, denise, pieter, studio) = await StudioAsync();
+        await _fx.Places(partyId).ClaimAsync(studio.Id, denise, null, closed: true);
+        return (partyId, denise, pieter, studio);
+    }
+
+    [Fact]
+    public async Task ClosingAPlace_SendsEveryoneElseHome_AndKeepsThemOut()
+    {
+        var (partyId, denise, pieter, studio) = await StudioAsync();
+        var places = _fx.Places(partyId);
+        await places.MoveAsync(pieter, studio.Id, null);
+        await BodyOf(partyId, pieter);
+
+        await places.ClaimAsync(studio.Id, denise, null, closed: true);
+
+        Assert.Equal((await HomeOwnedBy(partyId, pieter)).Id, (await BodyOf(partyId, pieter)).PlaceId);
+        Assert.Equal(studio.Id, (await BodyOf(partyId, denise)).PlaceId);
+        Assert.Null(await places.MoveAsync(pieter, studio.Id, null));
+    }
+
+    [Fact]
+    public async Task AnInvitation_FromAClosedPlace_IsToThatPlace_NotYourHome()
+    {
+        var (partyId, denise, pieter, studio) = await ClosedStudioAsync();
+        var places = _fx.Places(partyId);
+
+        Assert.True(await places.LetInAsync(denise, pieter));
+
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.Contains(pieter, snapshot.Places.Single(p => p.Id == studio.Id).Guests);
+        Assert.Empty((await HomeOwnedBy(partyId, denise)).Guests);
+        Assert.NotNull(await places.MoveAsync(pieter, studio.Id, null));
+    }
+
+    [Fact]
+    public async Task AKnock_ReachesTheOwnerOnlyWhileTheyreIn()
+    {
+        var (partyId, denise, pieter, studio) = await ClosedStudioAsync();
+        var places = _fx.Places(partyId);
+
+        Assert.True(await places.KnockAsync(pieter, studio.Id));
+        Assert.Contains(pieter, await places.GetKnocksAsync(denise));
+
+        await places.MoveAsync(denise, (await HomeOwnedBy(partyId, denise)).Id, null);
+        await BodyOf(partyId, denise);
+        Assert.False(await places.KnockAsync(pieter, studio.Id));
+    }
+
+    [Fact]
+    public async Task GuestsAreForgotten_WhenTheOwnerLeaves()
+    {
+        var (partyId, denise, pieter, studio) = await ClosedStudioAsync();
+        var places = _fx.Places(partyId);
+        await places.LetInAsync(denise, pieter);
+
+        await places.MoveAsync(denise, (await HomeOwnedBy(partyId, denise)).Id, null);
+
+        Assert.Empty((await places.GetSnapshotAsync()).Places.Single(p => p.Id == studio.Id).Guests);
+    }
+
+    [Fact]
+    public async Task AnOpenPlace_StillLetsAnyoneIn()
+    {
+        var (partyId, _, pieter, studio) = await StudioAsync();
+        Assert.NotNull(await _fx.Places(partyId).MoveAsync(pieter, studio.Id, null));
+    }
+
+    [Fact]
+    public async Task AClosedPlace_IsNotOfferedToStrangers_ButIsToWhoeverWasInvited()
+    {
+        var (partyId, denise, pieter, _) = await ClosedStudioAsync();
+        var places = _fx.Places(partyId);
+        var app = new PlacesApp(_fx.GrainFactory);
+        LifeContext Him() => Life(partyId, pieter, (denise, "Denise"), (pieter, "Pieter"));
+
+        var stranger = (await app.PerceiveAsync(Him(), default))!;
+        Assert.DoesNotContain(stranger.Affordances, a => a.Verb == "go" && a.Label.Contains("studio"));
+        Assert.DoesNotContain("studio", stranger.Block);
+
+        await places.LetInAsync(denise, pieter);
+
+        Assert.Contains((await app.PerceiveAsync(Him(), default))!.Affordances, a => a.Label == "Go over to Denise's studio (they invited you)");
+    }
+
+    [Fact]
+    public async Task TheOwner_CanInvitePeople_ButNotDecorateAsIfTheyLivedThere()
+    {
+        var (partyId, denise, pieter, _) = await ClosedStudioAsync();
+        var seen = await new PlacesApp(_fx.GrainFactory).PerceiveAsync(Life(partyId, denise, (denise, "Denise"), (pieter, "Pieter")), default);
+
+        Assert.Contains(seen!.Affordances, a => a.Verb == "invite" && a.Label == "Invite Pieter over to Denise's studio");
+        Assert.DoesNotContain(seen.Affordances, a => a.Verb == "decorate");
+    }
+
+    [Fact]
+    public async Task AGathering_CanBeCalledOff()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var calendar = _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId);
+        var gathering = await calendar.PlanAsync(denise, "Denise", "Drinks", Guid.NewGuid(), "#kitchen", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds());
+
+        Assert.True(await calendar.CancelAsync(gathering.Id));
+
+        Assert.Empty(await calendar.GetGatheringsAsync());
+        Assert.False(await calendar.CancelAsync(gathering.Id));
+    }
+
     [Theory]
     [InlineData("I'll paint a charcoal study of the canal. It's for Lena.", "a charcoal study of the canal")]
     [InlineData("I'm going to finally finish the red nude", "the red nude")]

@@ -44,6 +44,9 @@ public sealed class RelationAsk
     /// <summary>Null until answered.</summary>
     [Id(5)] public bool? Yes { get; set; }
     [Id(6)] public long? AnsweredAt { get; set; }
+    /// <summary>Keys: which Place, and what it's called.</summary>
+    [Id(7)] public Guid? PlaceId { get; set; }
+    [Id(8)] public string? About { get; set; }
 }
 
 [GenerateSerializer]
@@ -53,6 +56,7 @@ public enum AskKind
     GoOut = 0,
     MoveIn = 1,
     Marry = 2,
+    Key = 3,
 }
 
 /// <summary>Every Relation in one Party, past ones included, and the Asks still in play.</summary>
@@ -72,6 +76,8 @@ public static class RelationRules
     public static readonly TimeSpan MarryAfter = TimeSpan.FromDays(14);
     public const double WarmEnough = 0.2;
     public const double Strained = -0.2;
+    /// <summary>Exchanges before someone's Relations are yours to know without them being around.</summary>
+    public const double KnownAfter = 10;
     private const int MaxLines = 3;
 
     public static bool Involves(this Relation r, Guid id) => r.AId == id || r.BId == id;
@@ -144,22 +150,26 @@ public static class RelationRules
         _ => "asked you to marry them",
     };
 
-    public static string Asked(RelationAsk ask, string name) => $"{name} {Asking(ask.Kind)}, and you haven't answered yet.";
+    public static string Asked(RelationAsk ask, string name)
+        => $"{name} {(ask.Kind == AskKind.Key ? $"asked you for a key to {ask.About}" : Asking(ask.Kind))}, and you haven't answered yet.";
 
     public static string Answered(RelationAsk ask, string name) => (ask.Kind, ask.Yes) switch
     {
         (AskKind.GoOut, true) => $"{name} said yes when you asked them out.",
         (AskKind.MoveIn, true) => $"{name} said yes to moving in with you.",
         (AskKind.Marry, true) => $"{name} said yes when you asked them to marry you.",
+        (AskKind.Key, true) => $"{name} gave you a key to {ask.About}.",
+        (AskKind.Key, _) => $"{name} said no when you asked for a key to {ask.About}.",
         (AskKind.GoOut, _) => $"{name} said no when you asked them out.",
         (AskKind.MoveIn, _) => $"{name} said no to moving in with you.",
         _ => $"{name} said no when you asked them to marry you.",
     };
 
     /// <summary>The public side of a yes, for the activity feed.</summary>
-    public static string Done(AskKind kind, string name) => kind switch
+    public static string Done(AskKind kind, string name, string? about = null) => kind switch
     {
         AskKind.GoOut => $"is now with {name}",
+        AskKind.Key => $"gives {name} a key to {about}",
         AskKind.MoveIn => $"is moving in with {name}",
         _ => $"is marrying {name}",
     };
@@ -200,11 +210,13 @@ public static class RelationRules
         return lines.Count == 0 ? null : string.Join("; ", lines);
     }
 
-    /// <summary>One person as <paramref name="viewer"/> sees them: what's between the two, and what anyone could know.</summary>
-    public static Acquaintance Seen(RelationBook book, Guid viewer, Guid other, string name, Tie? tie, Func<Guid, string?> firstNameOf)
+    /// <summary>One person as <paramref name="viewer"/> sees them: what's between the two, and what they'd know of the rest.</summary>
+    /// <param name="present">They're here in person; otherwise only people you know well come with their Relations.</param>
+    public static Acquaintance Seen(RelationBook book, Guid viewer, Guid other, string name, Tie? tie, Func<Guid, string?> firstNameOf, bool present = true)
     {
+        var aware = present || tie?.Exchanges >= KnownAfter;
         var known = book.Relations
-            .Where(r => r.Involves(other) && !r.Involves(viewer))
+            .Where(r => aware && r.Involves(other) && !r.Involves(viewer))
             .Select(r => firstNameOf(r.Other(other)) is { } partner ? Known(r, partner) : null)
             .OfType<string>().ToList();
         return new Acquaintance(name, tie, Standing(book, viewer, other), book.CurrentBetween(viewer, other) is not null,

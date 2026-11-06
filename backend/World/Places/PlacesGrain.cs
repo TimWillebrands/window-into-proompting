@@ -19,7 +19,8 @@ public sealed partial class PlacesGrain(
     ISystemOneJudge judge,
     WorldMemory memory,
     IWorldLlm llm,
-    ILogger<PlacesGrain> logger)
+    ILogger<PlacesGrain> logger,
+    Relations.KeyWants? keyWants = null)
     : Grain, IPlacesGrain
 {
     private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(3);
@@ -121,10 +122,15 @@ public sealed partial class PlacesGrain(
     {
         await SettleAsync();
         var home = Find(homeId);
-        if (home is not { Kind: PlaceKinds.Home } || home.LivesIn(visitorId)) return false;
-        var hosts = home.Living().Select(id => state.State.Bodies.GetValueOrDefault(id))
+        if (home is null || !home.IsClosed() || home.Hosts().Contains(visitorId)) return false;
+        var hosts = home.Hosts().Select(id => state.State.Bodies.GetValueOrDefault(id))
             .OfType<Body>().Where(b => !b.IsWalking && b.PlaceId == homeId && !b.Asleep).ToList();
-        if (hosts.Count == 0) return false;
+        NoteDoorstep(home, visitorId);
+        if (hosts.Count == 0)
+        {
+            await SaveAsync();
+            return false;
+        }
         home.Knocks[visitorId] = Now();
         await SaveAsync();
         await PublishPlaceAsync(home);
@@ -136,10 +142,11 @@ public sealed partial class PlacesGrain(
 
     public async Task<bool> LetInAsync(Guid ownerId, Guid visitorId)
     {
-        var home = state.State.Places.HomeOf(ownerId);
+        var home = HostedBy(ownerId);
         if (home is null) return false;
         var knocked = home.Knocks.Remove(visitorId);
         if (!home.Guests.Contains(visitorId)) home.Guests.Add(visitorId);
+        if (!knocked && !home.Keyholders.Contains(visitorId)) NoteDoorstep(home, visitorId);
         await SaveAsync();
         // Someone at the door walks straight in; an invitation waits for them to come over.
         if (knocked) await MoveAsync(visitorId, home.Id, home.Spots.FirstOrDefault()?.Id);
@@ -149,7 +156,7 @@ public sealed partial class PlacesGrain(
 
     public Task<List<Guid>> GetKnocksAsync(Guid ownerId)
     {
-        var home = state.State.Places.HomeOf(ownerId);
+        var home = HostedBy(ownerId);
         var now = Now();
         return Task.FromResult(home?.Knocks.Where(k => now - k.Value < KnockWaits.TotalMilliseconds).Select(k => k.Key).ToList()
             ?? new List<Guid>());
@@ -531,7 +538,7 @@ public sealed partial class PlacesGrain(
 
         if (leaving is { } left && left != placeId)
         {
-            if (Find(left) is { Kind: PlaceKinds.Home } oldHome && oldHome.LivesIn(participantId) && !Occupants(left).Any(b => oldHome.LivesIn(b.ParticipantId)))
+            if (Find(left) is { } oldHome && oldHome.Hosts().Contains(participantId) && !Occupants(left).Any(b => oldHome.Hosts().Contains(b.ParticipantId)))
             {
                 oldHome.Guests.Clear();
                 oldHome.Knocks.Clear();
@@ -549,6 +556,12 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(otherId, out var other)) return null;
+        // Going to someone behind a closed door means knocking: "on my way" shouldn't just fizzle.
+        if (Find(other.DestPlaceId ?? other.PlaceId) is { } behind && !MayEnter(behind, participantId))
+        {
+            await KnockAsync(participantId, behind.Id);
+            return null;
+        }
         var human = state.State.Bodies.TryGetValue(participantId, out var visitor) && visitor.IsHuman;
         if (Find(other.DestPlaceId ?? other.PlaceId) is { Kind: PlaceKinds.Locale } locale && !await OpenForVisitAsync(locale, human)) return null;
         return await MoveAsync(participantId, other.DestPlaceId ?? other.PlaceId, other.DestSpotId ?? other.SpotId);
@@ -736,6 +749,7 @@ public sealed partial class PlacesGrain(
         var gone = state.State.Bodies.Keys.Where(id => present.All(c => c.Id != id)).ToList();
         foreach (var id in gone) state.State.Bodies.Remove(id);
         changed |= ReleaseHousemates(state.State.Bodies.Keys.ToHashSet());
+        foreach (var place in state.State.Places) changed |= place.Keyholders.RemoveAll(id => !state.State.Bodies.ContainsKey(id)) > 0;
         // A Home goes with its owner once nobody's in it.
         state.State.Places.RemoveAll(p => p.Kind == PlaceKinds.Home && p.OwnerId is { } owner
             && present.All(c => c.Id != owner) && !Occupants(p.Id).Any());
@@ -839,7 +853,13 @@ public sealed partial class PlacesGrain(
         => state.State.Bodies.Values.Where(b => b.PlaceId == placeId && (b.DestPlaceId is null || b.DestPlaceId == placeId));
 
     private static bool MayEnter(Place place, Guid participantId)
-        => place.Kind != PlaceKinds.Home || place.LivesIn(participantId) || place.Guests.Contains(participantId);
+        => !place.IsClosed() || place.Hosts().Contains(participantId) || place.Guests.Contains(participantId) || place.Keyholders.Contains(participantId);
+
+    /// <summary>The closed Place they're at and host, else their Home: where a knock or an invitation means.</summary>
+    private Place? HostedBy(Guid host)
+        => state.State.Bodies.TryGetValue(host, out var body) && Find(body.DestPlaceId ?? body.PlaceId) is { Private: true } here && here.Hosts().Contains(host)
+            ? here
+            : state.State.Places.HomeOf(host);
 
     private Spot? PickSpot(Place place, string? spotId, Guid participantId)
     {
@@ -1059,11 +1079,21 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Concept tags from a captured moment: footfall for each speaker on Locales they name; wakes quiet opened Places.</summary>
     [Alias("NoteTopicsAsync")] Task NoteTopicsAsync(List<string> topics, List<Guid> speakers);
 
+    /// <summary>A host hands someone a key (ADR 0036); false unless it's theirs to give.</summary>
+    [Alias("GiveKeyAsync")] Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId);
+
+    /// <summary>A key is gone, given back or taken back; false when they held none.</summary>
+    [Alias("DropKeyAsync")] Task<bool> DropKeyAsync(Guid holderId, Guid placeId);
+
+    /// <summary>"# Keys": what this person holds and who holds theirs. Only the two involved see it.</summary>
+    [AlwaysInterleave, Alias("GetKeyLinesAsync")] Task<string> GetKeyLinesAsync(Guid who);
+
     /// <summary>Finish a Piece at the easel here; it joins the work on show. Null without an easel, or past today's allowance.</summary>
     [Alias("MakeArtAsync")] Task<string?> MakeArtAsync(Guid participantId, string description);
 
     /// <summary>Author: this Place or Locale is someone's now, under a new name if given. Null for Homes.</summary>
-    [Alias("ClaimAsync")] Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name);
+    /// <param name="closed">Theirs alone: guests by invitation, and anyone else there goes home.</param>
+    [Alias("ClaimAsync")] Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name, bool closed = false);
 
     /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
     [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);

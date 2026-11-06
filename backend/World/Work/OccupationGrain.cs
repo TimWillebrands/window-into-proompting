@@ -161,7 +161,7 @@ public sealed class OccupationGrain(
                 return;
             }
             var places = (await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places
-                .Where(p => p.Kind == Places.PlaceKinds.Public).ToList();
+                .Where(p => p.Kind == Places.PlaceKinds.Public && !p.Private).ToList();
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             var json = await llm.For(participantId).CompleteJsonAsync(JobComplexity.General,
                 $"""

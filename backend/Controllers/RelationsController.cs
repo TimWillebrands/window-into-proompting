@@ -4,6 +4,9 @@ using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.Analytics;
 using PartyTown.Services.Auth;
+using PartyTown.World;
+using PartyTown.World.Desires;
+using PartyTown.World.Places;
 using PartyTown.World.Relations;
 using PostHog;
 
@@ -20,6 +23,27 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
     [HttpGet]
     public async Task<ActionResult<List<Relation>>> GetRelations(Guid partyId)
         => Ok((await Relations(partyId).GetAsync()).Relations);
+
+    /// <summary>Closed Places and who's been at their doors: moments this week, keys, and what each side wants.</summary>
+    [HttpGet("doors")]
+    public async Task<ActionResult<List<DoorRow>>> GetDoors(Guid partyId)
+    {
+        var snapshot = await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        string Name(Guid id) => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == id)?.Name ?? "Someone";
+        async Task<string?> WantAsync(Guid who, Guid placeId)
+            => (await grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, who)).GetAsync()).Acquired
+                .FirstOrDefault(d => d.PlaceId == placeId && d.Status == DesireStatus.Active)?.Text;
+        var rows = new List<DoorRow>();
+        foreach (var place in snapshot.Places.Where(p => p.IsClosed()))
+        {
+            var host = place.Hosts().FirstOrDefault();
+            foreach (var visitor in place.Doorsteps.Keys.Union(place.Keyholders).Where(v => !place.Hosts().Contains(v)))
+                rows.Add(new DoorRow(place.Name, Name(host), Name(visitor), place.DoorstepsLately(visitor, now), place.Keyholders.Contains(visitor),
+                    await WantAsync(visitor, place.Id), await WantAsync(host, place.Id)));
+        }
+        return Ok(rows.OrderByDescending(r => r.HasKey).ThenByDescending(r => r.Doorsteps).ToList());
+    }
 
     /// <summary>State what two people are, or with <c>Past</c> what they were.</summary>
     [HttpPost]
@@ -70,3 +94,5 @@ public sealed record DeclareRelationRequest(Guid AId, Guid BId, RelationKind Kin
 public sealed record RelationHomeRequest(Guid? HostId);
 
 public sealed record NewHomeRequest(Guid HostId, string Description);
+
+public sealed record DoorRow(string Place, string Host, string Visitor, int Doorsteps, bool HasKey, string? VisitorWant, string? HostWant);

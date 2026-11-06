@@ -93,12 +93,37 @@ public sealed class RelationsGrain(
         return true;
     }
 
-    public async Task<bool> AskAsync(Guid fromId, Guid toId, AskKind kind)
+    public async Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId)
+    {
+        if (!await Places.GiveKeyAsync(hostId, toId, placeId)) return false;
+        await SettleWantsAsync(hostId, placeId);
+        await SettleWantsAsync(toId, placeId);
+        await ShiftAsync(hostId, toId, Closer);
+        await ShiftAsync(toId, hostId, Closer);
+        return true;
+    }
+
+    public async Task<bool> DropKeyAsync(Guid holderId, Guid hostId, Guid placeId, bool taken)
+    {
+        if (!await Places.DropKeyAsync(holderId, placeId)) return false;
+        if (taken) await ShiftAsync(holderId, hostId, Hurt);
+        return true;
+    }
+
+    /// <summary>Got what they wanted: nothing left to want about that door.</summary>
+    private async Task SettleWantsAsync(Guid who, Guid placeId)
+    {
+        var desires = GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(this.GetPrimaryKey(), who));
+        foreach (var want in (await desires.GetAsync()).Acquired.Where(d => d.PlaceId == placeId && d.Status == Desires.DesireStatus.Active))
+            await desires.MarkAsync(want.Id, Desires.DesireStatus.Fulfilled);
+    }
+
+    public async Task<bool> AskAsync(Guid fromId, Guid toId, AskKind kind, Guid? placeId = null, string? about = null)
     {
         var now = Now();
         if (!Book.MayAsk(fromId, toId, kind, now)) return false;
         Book.Asks.RemoveAll(a => now - a.At > RelationRules.AskAgainAfter.TotalMilliseconds);
-        Book.Asks.Add(new RelationAsk { FromId = fromId, ToId = toId, Kind = kind, At = now });
+        Book.Asks.Add(new RelationAsk { FromId = fromId, ToId = toId, Kind = kind, At = now, PlaceId = placeId, About = about });
         await state.WriteStateAsync();
         return true;
     }
@@ -143,6 +168,8 @@ public sealed class RelationsGrain(
                 if (between?.IsRomantic() != true || between.LiveTogether || !await Places.MoveInAsync(ask.ToId, ask.FromId)) return false;
                 between.LiveTogether = true;
                 return true;
+            case AskKind.Key:
+                return ask.PlaceId is { } place && await GiveKeyAsync(ask.ToId, ask.FromId, place);
             default:
                 if (between is not { Kind: RelationKind.Together }) return false;
                 between.Kind = RelationKind.Married;
@@ -185,7 +212,11 @@ public interface IRelationsGrain : IGrainWithGuidKey
     [Alias("SetHomeAsync")] Task<bool> SetHomeAsync(Guid relationId, Guid? hostId);
     /// <summary>Author: a Home designed from <paramref name="description"/>, owned by the host; the Homes they had are removed.</summary>
     [Alias("NewHomeAsync")] Task<bool> NewHomeAsync(Guid relationId, Guid hostId, string description);
-    [Alias("AskAsync")] Task<bool> AskAsync(Guid fromId, Guid toId, AskKind kind);
+    [Alias("AskAsync")] Task<bool> AskAsync(Guid fromId, Guid toId, AskKind kind, Guid? placeId = null, string? about = null);
+    /// <summary>It's the host's to give: no yes needed, and what both wanted about that door is settled.</summary>
+    [Alias("GiveKeyAsync")] Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId);
+    /// <summary>Given back, or with <paramref name="taken"/> taken back, which stings.</summary>
+    [Alias("DropKeyAsync")] Task<bool> DropKeyAsync(Guid holderId, Guid hostId, Guid placeId, bool taken);
     /// <summary>The Ask as it stands after answering; null when none is open.</summary>
     [Alias("AnswerAsync")] Task<RelationAsk?> AnswerAsync(Guid fromId, Guid toId, bool yes);
     /// <summary>Someone left the World: what they were part of is over.</summary>
