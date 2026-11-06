@@ -89,6 +89,9 @@ public sealed class ForbiddenActorException(string message) : Exception(message)
 /// <summary>Signed in, but hasn't made a character in this World yet.</summary>
 public sealed class NoPlayerException() : Exception("Create your character first.");
 
+/// <summary>The caller's Player is on auto, so the agent acts for them.</summary>
+public sealed class OnAutoException() : Exception("Your character is on auto.");
+
 /// <summary>Turns an identity refusal from deep in an action into a 403 or 409.</summary>
 public sealed class ForbiddenActorFilter : IExceptionFilter
 {
@@ -97,7 +100,7 @@ public sealed class ForbiddenActorFilter : IExceptionFilter
         int? status = context.Exception switch
         {
             ForbiddenActorException => StatusCodes.Status403Forbidden,
-            NoPlayerException => StatusCodes.Status409Conflict,
+            NoPlayerException or OnAutoException => StatusCodes.Status409Conflict,
             _ => null,
         };
         if (status is null) return;

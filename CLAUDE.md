@@ -22,7 +22,7 @@ dotnet run --project aspire/Proompting.AppHost   # start everything; dashboard U
 
 Prereqs: .NET 10 runtime + .NET 11 preview SDK (AppHost targets `net10.0`, backend `net11.0`), Node 22+ with pnpm, Docker.
 
-Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars. That includes `clerk-secret-key`; the backend won't start without it. Frontend Clerk keys live in `frontend/.env.local`. PostHog is off unless `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` are exported in the AppHost's shell; that one switch covers backend and browser.
+Secrets: `.env` at repo root (`POSTGRES_PASSWORD`, `OPENROUTER_API_KEY`). The AppHost reads parameters from `dotnet user-secrets` (set inside `aspire/Proompting.AppHost`) or `PARAMETERS__*` env vars. That includes `clerk-secret-key`; the backend won't start without it. Frontend Clerk keys live in `frontend/.env.local`. PostHog is off unless `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` are in the AppHost's user-secrets or shell; that one switch covers backend and browser. Dev shares the production project, tagged `environment=development`.
 
 URLs: frontend http://localhost:5173 · backend http://localhost:5072 (Swagger at `/swagger`) · Postgres via `psql -h localhost -p 5455 -U partytown -d partytown`.
 
@@ -44,6 +44,7 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 - Vite listens on `[::1]:8080` only. Browser tools that resolve `localhost` to IPv4 may get stale or cached pages; use `http://[::1]:8080`.
 - Realtime is a custom raw-WebSocket hub (`PartyRealtimeHub`), not SignalR.
 - **Auth is closed by default** (ADR 0029): new endpoints need sign-in unless marked `[AllowAnonymous]`, and only GETs may be. Take the acting Participant from `Actors`, never from the request. New realtime payloads naming a Room must implement `IRoomFrame`.
+- **Players on auto** (ADR 0037) are `DriverKind.LLM`. For "is this a real person's", use `AccessRules.Humans`, not the Driver.
 - **PostHog:** one person per Clerk id on both sides. API-reaching actions are captured by the backend (`posthog.Track`), UI-only ones by `frontend/src/lib/analytics.ts`; never both. Without the `analytics_consent=1` cookie the browser loads no PostHog and the backend only sends anonymized counts: random id, personless, no ids but `party_id`, so new `*_id` properties get dropped for free. The browser reaches PostHog through `/party-line` (`frontend/src/lib/posthog-proxy.ts`).
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
 

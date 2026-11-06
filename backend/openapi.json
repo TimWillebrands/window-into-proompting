@@ -6773,6 +6773,66 @@
         }
       }
     },
+    "/worlds/{partyId}/player/auto": {
+      "put": {
+        "tags": [
+          "World"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutoRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutoRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/players/{playerId}": {
       "delete": {
         "tags": [
@@ -7596,6 +7656,9 @@
           },
           "bodyType": {
             "type": "string"
+          },
+          "kept": {
+            "type": "boolean"
           }
         }
       },
@@ -8537,7 +8600,8 @@
           "Authored",
           "Sheet",
           "Play",
-          "Mimesis"
+          "Mimesis",
+          "Mission"
         ]
       },
       "DesireStatus": {
@@ -10366,6 +10430,16 @@
           },
           "isAdmin": {
             "type": "boolean"
+          },
+          "auto": {
+            "type": "boolean",
+            "default": false
+          },
+          "mission": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -10959,6 +11033,24 @@
             "type": [
               "null",
               "boolean"
+            ]
+          }
+        }
+      },
+      "SetAutoRequest": {
+        "required": [
+          "on",
+          "mission"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "mission": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

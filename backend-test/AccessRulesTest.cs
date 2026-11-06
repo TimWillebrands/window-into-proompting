@@ -49,6 +49,22 @@ public class AccessRulesTest
     }
 
     [Fact]
+    public void PlayerOnAuto_IsStillHuman_SoTheirDmStaysPrivate()
+    {
+        var cast = new List<PartyParticipant>
+        {
+            new() { Id = Me, Driver = DriverKind.LLM },
+            new() { Id = Other, Driver = DriverKind.User },
+            new() { Id = PersonaA, Driver = DriverKind.LLM },
+        };
+
+        var humans = AccessRules.Humans(cast, new[] { Me });
+
+        Assert.Equal(new HashSet<Guid> { Me, Other }, humans);
+        Assert.NotNull(AccessRules.PrivateMembers(Dm(Me, PersonaA), humans));
+    }
+
+    [Fact]
     public void PersonaOnlyDm_AndRooms_ArePublic()
     {
         Assert.Null(AccessRules.PrivateMembers(Dm(PersonaA, PersonaB), Humans));

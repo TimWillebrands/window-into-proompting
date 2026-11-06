@@ -18,6 +18,9 @@ public static class LlmEndpointGrainUtils
         System.ClientModel.ClientResultException { Status: 401 or 402 or 403 or 404 } => true,
         System.ClientModel.ClientResultException { InnerException: HttpRequestException } => true,
         HttpRequestException => true,
+        Anthropic.Exceptions.AnthropicUnauthorizedException or Anthropic.Exceptions.AnthropicForbiddenException or Anthropic.Exceptions.AnthropicIOException => true,
+        // Claude reports an empty balance as a 400, not a 402.
+        Anthropic.Exceptions.AnthropicBadRequestException { ApiMessage: { } message } => message.Contains("credit balance", StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 

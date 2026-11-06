@@ -11,4 +11,7 @@ export interface PlayerResponse {
     /** @nullable */
     name: string | null;
     isAdmin: boolean;
+    auto?: boolean;
+    /** @nullable */
+    mission?: string | null;
 }

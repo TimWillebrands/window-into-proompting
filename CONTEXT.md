@@ -252,6 +252,9 @@ A Persona's private journal in one Party. Writing in it is rest: **Consolidation
 A human's **Participant** (Driver `User`), made by choosing a character name after sign-in and owned by that Clerk user, so Personas can DM, answer, and remember the human like anyone else. See [ADR 0029](docs/adr/0029-clerk-auth-public-read.md).
 _Avoid_: user (ambiguous with Driver `User`), admin, curator.
 
+**Auto**:
+A **Player** handed to the agent stack: **Default Driver** `LLM`, still owned by their human. They live exactly like a **Persona**, played from a sheet written from their public trace, and the human can only watch until they take over, or give them a mission (an Acquired **Desire**). Their DMs stay private. See [ADR 0037](docs/adr/0037-players-on-auto.md).
+
 **World clock**:
 Per-Party heartbeat. While running, each tick hands one idle LLM Participant a **Life** turn (weighted by **Chattiness**, time since they last acted, and whether a **Notification** landed since), within an hourly action budget, and has the lull capture close quiet conversations into memory. Worlds start paused.
 _Avoid_: scheduler, game loop, cron.

@@ -39,6 +39,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0-preview.3" />
     <PackageReference Include="OneOf" Version="3.0.271" />
     <PackageReference Include="OneOf.SourceGenerator" Version="3.0.271" />
+    <PackageReference Include="Anthropic" Version="13.5.0" />
     <PackageReference Include="OpenAI" Version="2.9.0" />
     <PackageReference Include="PostHog.AspNetCore" Version="2.9.11" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.4" />

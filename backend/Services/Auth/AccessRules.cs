@@ -22,6 +22,10 @@ public static class AccessRules
     public static bool MaySpeakAs(Guid claimed, Guid own, bool isAdmin, bool ownedByHuman)
         => MayActAs(claimed, own, isAdmin) || !ownedByHuman;
 
+    /// <summary>Humans for privacy: ownership outlasts the Driver, so a Player on auto stays one (ADR 0037).</summary>
+    public static IReadOnlySet<Guid> Humans(IEnumerable<PartyParticipant> cast, IEnumerable<Guid> claimed)
+        => cast.Where(p => p.Driver == DriverKind.User).Select(p => p.Id).Concat(claimed).ToHashSet();
+
     /// <summary>Members of a DM with a human in it; null for anything public, Persona-only DMs included.</summary>
     public static IReadOnlyCollection<Guid>? PrivateMembers(ChatGroupInfo group, IReadOnlySet<Guid> humans)
         => group.Kind == ChatGroupKinds.Direct && group.MemberIds is { } members && members.Any(humans.Contains) ? members : null;

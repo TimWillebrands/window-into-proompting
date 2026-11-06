@@ -1,10 +1,13 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient } from '@tanstack/react-query';
 import { createRouter, ErrorComponent } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
+import { toastOnAuto } from './lib/world';
 import { routeTree } from './routeTree.gen';
 
 export function getRouter() {
-    const queryClient = new QueryClient();
+    const queryClient = new QueryClient({
+        mutationCache: new MutationCache({ onError: toastOnAuto }),
+    });
 
     const router = createRouter({
         routeTree,

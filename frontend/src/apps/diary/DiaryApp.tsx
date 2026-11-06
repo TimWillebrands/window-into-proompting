@@ -23,7 +23,7 @@ const formatDate = (ts: number | string | undefined) =>
 export default function DiaryApp({ personaId }: { personaId?: string }) {
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
     const personas = (livesQuery.data.data ?? []).filter(
-        (l) => !l.isPlayer && l.driver === 'LLM',
+        (l) => l.driver === 'LLM',
     );
     const { setWindowProps } = useDesktopContext();
     const { windowId } = useWindowInstance();

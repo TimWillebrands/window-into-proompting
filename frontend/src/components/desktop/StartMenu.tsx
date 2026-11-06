@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 import { analyticsAvailable, askConsent } from '../../lib/analytics';
 import { redirectToSignIn, signOut } from '../../lib/clerk-session';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
-import { useCanOpen, usePlayerName, usePlayerSession } from '../../lib/world';
+import {
+    useCanOpen,
+    usePlayerName,
+    usePlayerOnAuto,
+    usePlayerSession,
+} from '../../lib/world';
 
 interface StartMenuProps {
     onLaunch: (windowId: string) => void;
@@ -12,6 +17,7 @@ interface StartMenuProps {
 export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
     const rootRef = useRef<HTMLDivElement | null>(null);
     const playerName = usePlayerName();
+    const onAuto = usePlayerOnAuto();
     const signedIn = usePlayerSession((s) => !!s.userId);
     const canOpen = useCanOpen();
 
@@ -109,6 +115,21 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
                 </section>
 
                 <section className="xp-startmenu-section--system py-1">
+                    {playerName && (
+                        <button
+                            type="button"
+                            className="xp-startmenu-item"
+                            onClick={() => {
+                                onLaunch('auto');
+                                onClose();
+                            }}
+                        >
+                            <span className="text-lg" aria-hidden>
+                                🤖
+                            </span>
+                            <span>Auto Mode{onAuto ? ' (on)' : ''}</span>
+                        </button>
+                    )}
                     {analyticsAvailable && (
                         <button
                             type="button"

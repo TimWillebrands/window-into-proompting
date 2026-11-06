@@ -30,8 +30,7 @@ var backend = builder
 
 // Optional dev knobs passed through from the shell (System One / model overrides, ADR 0019).
 foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "SYSTEM_ONE_EMULATE", "OPENROUTER_MODEL",
-             "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL",
-             "POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST" })
+             "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL" })
 {
     if (Environment.GetEnvironmentVariable(name) is { Length: > 0 } value)
         backend.WithEnvironment(name, value);
@@ -65,11 +64,13 @@ var frontend = builder
     })
     .WithUrlForEndpoint("http", u => u.DisplayText = "Open Partytown");
 
-// One switch for both sides: the browser gets the token, its same-origin proxy the host.
-if (Environment.GetEnvironmentVariable("POSTHOG_PROJECT_TOKEN") is { Length: > 0 } posthogToken)
-    frontend.WithEnvironment("VITE_POSTHOG_PROJECT_TOKEN", posthogToken);
-if (Environment.GetEnvironmentVariable("POSTHOG_HOST") is { Length: > 0 } posthogHost)
-    frontend.WithEnvironment("POSTHOG_HOST", posthogHost);
+// One switch for both sides, from user-secrets or the shell: the browser gets the token, its same-origin proxy the host.
+if (builder.Configuration["POSTHOG_PROJECT_TOKEN"] is { Length: > 0 } posthogToken
+    && builder.Configuration["POSTHOG_HOST"] is { Length: > 0 } posthogHost)
+{
+    backend.WithEnvironment("POSTHOG_PROJECT_TOKEN", posthogToken).WithEnvironment("POSTHOG_HOST", posthogHost);
+    frontend.WithEnvironment("VITE_POSTHOG_PROJECT_TOKEN", posthogToken).WithEnvironment("POSTHOG_HOST", posthogHost);
+}
 
 frontend.OnResourceReady((resource, evt, ct) =>
 {

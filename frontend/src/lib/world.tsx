@@ -8,9 +8,11 @@ import {
     getGetWorldsPartyIdQueryKey,
     getWorldsPartyIdPlayer,
     postWorldsPartyIdPlayer,
+    putWorldsPartyIdPlayerAuto,
 } from '#api/party-zone';
 import { useDesktopContext } from '#lib/desktop-context';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
+import { ProblemDetailsError } from '../api/custom-fetch';
 import type { BoardThread } from '../api/model/boardThread';
 import type { Body } from '../api/model/body';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
@@ -76,6 +78,24 @@ export function useCreatePlayer() {
     };
 }
 
+/** Hands the character to the agent, or takes it back. */
+export function useSetAuto() {
+    const queryClient = useQueryClient();
+    const userId = usePlayerSession((s) => s.userId);
+    return async (on: boolean, mission: string) => {
+        const res = await putWorldsPartyIdPlayerAuto(WORLD_ID, { on, mission });
+        queryClient.setQueryData(playerKey(userId), res.data);
+        void queryClient.invalidateQueries({
+            queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
+        });
+    };
+}
+
+/** The agent is playing this human's character, so their own actions are refused. */
+export function usePlayerOnAuto(): boolean {
+    return usePlayerAccount().account?.auto ?? false;
+}
+
 /** The signed-in human's Participant id in this World. */
 export function usePlayerId(): string | null {
     return (usePlayerAccount().account?.playerId as string | null) ?? null;
@@ -126,6 +146,20 @@ export const useWorldToasts = create<ToastStore>((set) => ({
     dismiss: (id) =>
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
+
+/** Any refused action says why, so no App needs its own on-auto handling. */
+export function toastOnAuto(error: unknown) {
+    if (
+        !(error instanceof ProblemDetailsError) ||
+        error.title !== 'Your character is on auto.'
+    )
+        return;
+    useWorldToasts.getState().push({
+        title: 'Your character is on auto',
+        body: 'Take over from the Start menu to act yourself.',
+        icon: '🤖',
+    });
+}
 
 /** Respect! keys already toasted, so a re-published post doesn't toast twice. */
 const toastedRespect = new Set<string>();

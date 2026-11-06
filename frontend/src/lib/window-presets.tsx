@@ -1,3 +1,4 @@
+import AutoApp from '../apps/auto/AutoApp';
 import BoardApp from '../apps/board/BoardApp';
 import CalendarApp from '../apps/calendar/CalendarApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
@@ -71,6 +72,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: DiaryApp,
         initialPosition: { x: 300, y: 160 },
         initialSize: { width: 640, height: 500 },
+    },
+    {
+        id: 'auto',
+        title: 'Auto Mode',
+        icon: '🤖',
+        component: AutoApp,
+        initialPosition: { x: 340, y: 150 },
+        initialSize: { width: 420, height: 280 },
     },
     {
         id: 'wardrobe',

@@ -26,6 +26,8 @@ public sealed class Appearance
     /// <summary>One plain line of what you'd notice; gone once a pick outdates it.</summary>
     [Id(17)] public string? Summary { get; set; }
     [Id(18)] public string BodyType { get; set; } = "straight";
+    /// <summary>A Player's own look: going on auto doesn't get them dressed from their bio.</summary>
+    [Id(19)] public bool Kept { get; set; }
 }
 
 /// <summary>One choosable part of a look, for editors and prompts.</summary>
@@ -141,6 +143,7 @@ public static class AppearanceRules
             ShoeStyle = Pick("shoeStyle"),
             Legwear = Pick("legwear"),
             FromBio = fromBio || fallback.FromBio,
+            Kept = fallback.Kept,
         };
         var changed = Fields.Select(f => f.Key).Where(k => Get(merged, k) != Get(fallback, k)).ToList();
         merged.Design = FigureDesign.Without(fallback.Design, changed);

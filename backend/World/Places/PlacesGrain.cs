@@ -307,6 +307,17 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
     }
 
+    /// <summary>A Player goes on auto: their look stays theirs, and nobody's left dozing at the screen.</summary>
+    public async Task HandOverAsync(Guid participantId)
+    {
+        await SyncCastAsync();
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
+        if (body.Appearance is not null) body.Appearance.Kept = true;
+        if (body.Activity == Dozing) body.Activity = null;
+        await SaveAsync();
+        await PublishAsync(body);
+    }
+
     public async Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
@@ -742,7 +753,7 @@ public sealed partial class PlacesGrain(
                 changed = true;
             }
             // No Design yet is a look from before Figures: same person, drawn anew.
-            if ((!body.Appearance.FromBio || body.Appearance.Design is null) && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
+            if ((!body.Appearance.FromBio || body.Appearance.Design is null) && !body.Appearance.Kept && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
                 _dressQueue.Enqueue(c);
         }
         if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();
@@ -986,6 +997,7 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);
 
     /// <summary>Choose a look by hand (a Player for themselves, or the author for anyone). Off-palette choices are ignored.</summary>
+    [Alias("HandOverAsync")] Task HandOverAsync(Guid participantId);
     [Alias("SetAppearanceAsync")] Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked);
 
     /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
