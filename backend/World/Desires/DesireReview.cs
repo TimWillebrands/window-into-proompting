@@ -27,7 +27,7 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
             for (var i = 0; i < active.Count; i++)
             {
                 // Things are got by buying or being given them; only becoming is judged.
-                if (active[i].ItemKey is null) questions[$"done{i}"] = new NoulQuestion($"{self.Name} has got what they wanted: {active[i].Text}");
+                if (active[i].ItemKey is null && active[i].PlaceId is null) questions[$"done{i}"] = new NoulQuestion($"{self.Name} has got what they wanted: {active[i].Text}");
                 questions[$"closer{i}"] = new NoulQuestion($"Lately {self.Name} has moved closer to what they want: {active[i].Text}");
             }
             var answers = await weigh.AskAsync(state, questions, ct);

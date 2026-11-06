@@ -20,7 +20,7 @@ public static class Roles
 
     public static PlaceRole Of(Place place, Guid who, Occupation? job, IReadOnlyDictionary<Guid, int> visitDays)
     {
-        if (place.OwnerId == who || place.MadeBy == who) return PlaceRole.Owner;
+        if (place.LivesIn(who) || place.MadeBy == who) return PlaceRole.Owner;
         if (job is not null && (job.PlaceId ?? job.LocaleId) == place.Id) return PlaceRole.Staff;
         return visitDays.GetValueOrDefault(place.Id) >= RegularDays ? PlaceRole.Regular : PlaceRole.Newcomer;
     }

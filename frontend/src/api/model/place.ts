@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Furni } from './furni';
+import type { PlaceDoorsteps } from './placeDoorsteps';
 import type { PlaceKnocks } from './placeKnocks';
 import type { Spot } from './spot';
 
@@ -49,4 +50,9 @@ export interface Place {
      */
     mentionedAt?: number | string | null;
     dormant?: boolean;
+    housemates?: string[];
+    vacated?: boolean;
+    private?: boolean;
+    keyholders?: string[];
+    doorsteps?: PlaceDoorsteps;
 }

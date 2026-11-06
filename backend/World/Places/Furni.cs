@@ -43,6 +43,7 @@ public static class FurniKinds
     public const string Laptop = "laptop";
     public const string Bed = "bed";
     public const string Decor = "decor";
+    public const string Easel = "easel";
 }
 
 /// <summary>Making a Home yours (spec phase 8): what someone puts up, from their own words.</summary>
@@ -213,6 +214,13 @@ public static class FurniRules
                 F("cups", FurniKinds.Cups, "the dishes", "kitchen"),
                 F("laptop", FurniKinds.Laptop, "the laptop", "desk"),
                 F("bed", FurniKinds.Bed, "the bed", "bed"),
+            };
+        if (place.Archetype == Art.Studio)
+            return new List<Furni>
+            {
+                F("easel", FurniKinds.Easel, "the easel", "easel"),
+                F("cups", FurniKinds.Cups, "the paint-stained mugs", "workbench"),
+                F("plant", FurniKinds.Plant, "the spider plant on the windowsill", "sofa"),
             };
         return place.Name switch
         {

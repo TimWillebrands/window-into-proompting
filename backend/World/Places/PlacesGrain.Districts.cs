@@ -27,7 +27,7 @@ public sealed partial class PlacesGrain
     public async Task<bool> SetHomeDistrictAsync(Guid ownerId, string district)
     {
         await SyncCastAsync();
-        if (state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId) is not { } home) return false;
+        if (state.State.Places.HomeOf(ownerId) is not { } home) return false;
         var id = await DistrictAsync(district);
         if (home.DistrictId == id) return true;
         home.DistrictId = id;

@@ -5,7 +5,7 @@ namespace PartyTown.World.Reflex;
 /// <summary>What a Persona has to go on in the moment; all of it is cheap to read.</summary>
 /// <param name="Between">What's between them and whoever this is, as remembered.</param>
 public sealed record Sense(
-    string Name, string? Bio, string? Doing, string? Mood, double Load, double Battery, Bond Bond, IReadOnlyList<string> Between);
+    string Name, string? Bio, string? Doing, string? Mood, double Load, double Battery, Bond Bond, IReadOnlyList<string> Between, string? Standing = null);
 
 /// <summary>The System One half of Reflex (ADR 0031): a Percept and a Sense in, a question over what to do out.</summary>
 public static class ReflexWeighing
@@ -112,10 +112,11 @@ public static class ReflexWeighing
     private static string Relation(Percept p, Sense s)
     {
         var from = First(p.FromName);
-        if (s.Bond.Exchanges <= 0) return $"{s.Name} doesn't really know {from}.";
+        if (s.Bond.Exchanges <= 0) return s.Standing is { } only ? $"{s.Name} and {from}: {only}." : $"{s.Name} doesn't really know {from}.";
         var lately = Self.Ties.Lately(s.Bond.Warmth) is { } l ? $"; {l}" : string.Empty;
         var last = s.Bond.HoursApart is { } h ? $"; last talked {(h < 1 ? "within the hour" : h < 24 ? $"{(int)h} h ago" : $"{(int)(h / 24)} days ago")}" : string.Empty;
-        return $"{s.Name} and {from}: {Self.Ties.Closeness(s.Bond.Exchanges)}{last}{lately}.";
+        var standing = s.Standing is { } line ? $"{line}; " : string.Empty;
+        return $"{s.Name} and {from}: {standing}{Self.Ties.Closeness(s.Bond.Exchanges)}{last}{lately}.";
     }
 
     public static IReadOnlyDictionary<string, SystemOneQuestion> Ask(Percept p, string name)

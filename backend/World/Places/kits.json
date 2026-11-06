@@ -378,6 +378,46 @@
   ]
  },
  {
+  "archetype": "studio",
+  "purpose": "where art gets made",
+  "description": "a working studio, paint on the floor and canvases against the walls",
+  "at": "at",
+  "keywords": [
+   "studio",
+   "atelier",
+   "workshop",
+   "gallery"
+  ],
+  "spots": [
+   {
+    "id": "easel",
+    "name": "the easel",
+    "capacity": 2,
+    "at": "at",
+    "staff": true
+   },
+   {
+    "id": "workbench",
+    "name": "the workbench",
+    "capacity": 2,
+    "at": "at"
+   },
+   {
+    "id": "wall",
+    "name": "the finished work",
+    "capacity": 3,
+    "at": "by"
+   },
+   {
+    "id": "sofa",
+    "name": "the paint-stained sofa",
+    "capacity": 3,
+    "at": "on",
+    "seat": true
+   }
+  ]
+ },
+ {
   "archetype": "place",
   "purpose": "where people come and go",
   "description": "a plain room with a few places to sit",

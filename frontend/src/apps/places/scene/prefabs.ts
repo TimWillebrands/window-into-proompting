@@ -345,6 +345,21 @@ const painting = (v: PrefabVariant): Part[] => {
     ];
 };
 
+const easel = (v: PrefabVariant): Part[] => {
+    const r = rng(v.seed);
+    const stroke = pick(r, ['#c8553d', '#2a6f97', '#e9c46a', '#6a4c93']);
+    const wash = pick(r, ['#f6f1e7', '#eadfce', '#dfe7ea']);
+    return [
+        box(0.05, 1.5, 0.05, -0.28, 0, 0.12, C.wood),
+        box(0.05, 1.5, 0.05, 0.28, 0, 0.12, C.wood),
+        box(0.05, 1.5, 0.05, 0, 0, -0.22, C.wood),
+        box(0.66, 0.05, 0.06, 0, 0.62, 0.14, C.wood),
+        box(0.62, 0.74, 0.03, 0, 0.67, 0.16, wash),
+        box(0.34, 0.16, 0.01, -0.06, 1.02, 0.18, stroke),
+        box(0.16, 0.26, 0.01, 0.14, 0.8, 0.18, stroke),
+    ];
+};
+
 const books = (v: PrefabVariant): Part[] => {
     const r = rng(v.seed);
     const parts: Part[] = [
@@ -854,6 +869,7 @@ export const PREFABS: Record<string, Prefab> = {
     // Decor (Homes, in the owner's words)
     poster: { wall: true, solid: false, parts: poster },
     painting: { wall: true, solid: false, parts: painting },
+    easel: { parts: easel },
     photo: {
         wall: true,
         solid: false,
@@ -1593,6 +1609,7 @@ export const FURNI_PREFAB: Record<string, string> = {
     bed: 'bed',
     poster: 'poster',
     painting: 'painting',
+    easel: 'easel',
     photo: 'photo',
     rug: 'rug',
     books: 'books',

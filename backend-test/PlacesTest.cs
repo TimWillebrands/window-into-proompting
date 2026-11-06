@@ -410,13 +410,29 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
                 siloBuilder.ConfigureServices(services =>
                 {
                     services.AddSingleton<TimeProvider>(ManualTime.Instance);
-                    services.AddSingleton(Moq.Mock.Of<PartyTown.Services.SystemOne.ISystemOneJudge>(j => j.Enabled == false));
+                    services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(ScriptedJudge.Instance);
+                    services.AddSingleton<PartyTown.World.Relations.KeyWants>();
                     services.AddSingleton(Moq.Mock.Of<PartyTown.Services.Memory.IStanceConsolidator>());
                     services.AddSingleton<PartyTown.Services.Memory.ConsolidationService>();
                     services.AddSingleton<PartyTown.World.WorldMemory>();
                     services.AddSingleton<PartyTown.World.IWorldLlm>(ScriptedLlm.Instance);
                 });
             }
+        }
+    }
+
+    /// <summary>System One a test scripts by question; off unless a test turns it on.</summary>
+    public sealed class ScriptedJudge : PartyTown.Services.SystemOne.ISystemOneJudge
+    {
+        public static readonly ScriptedJudge Instance = new();
+        public bool Enabled { get; set; }
+        public Func<string, double> Noul { get; set; } = _ => 0;
+
+        public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
+        {
+            var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            foreach (var (key, question) in questions) answers.Nouls[key] = Noul(question.Instructions);
+            return Task.FromResult(answers);
         }
     }
 

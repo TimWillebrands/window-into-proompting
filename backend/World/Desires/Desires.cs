@@ -19,6 +19,8 @@ public sealed class Desire
     [Id(7)] public long Since { get; set; }
     [Id(8)] public long TouchedAt { get; set; }
     [Id(9)] public DesireStatus Status { get; set; }
+    /// <summary>The closed Place it's about, so Relations can foreground the key (ADR 0036).</summary>
+    [Id(10)] public Guid? PlaceId { get; set; }
 }
 
 [GenerateSerializer]

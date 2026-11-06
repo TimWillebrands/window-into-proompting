@@ -59,7 +59,9 @@ import {
     bodySpotId,
     earshotRuns,
     furniIcon,
+    hosts,
     isLocale,
+    livesIn,
     mayEnter,
     navigatorPlaces,
     occupancy,
@@ -274,7 +276,7 @@ function Navigator({
                 (p) => p.kind !== 'home' && !!p.customScene && !p.dormant,
             ),
         ],
-        ['Homes', places.filter((p) => p.kind === 'home')],
+        ['Homes', places.filter((p) => p.kind === 'home' && !p.vacated)],
         ['Quiet lately', places.filter((p) => p.kind !== 'home' && p.dormant)],
     ];
     return (
@@ -445,7 +447,7 @@ function PlaceView({
         playerId ?? '',
         { query: { enabled: !!playerId } },
     ).data?.data.situation;
-    const ownHome = place.kind === 'home' && place.ownerId === playerId;
+    const ownHome = livesIn(place, playerId);
     const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
     const [profileId, setProfileId] = useState<string | null>(null);
     const profiled = allBodies.find((b) => b.participantId === profileId);
@@ -459,19 +461,17 @@ function PlaceView({
     const travelling =
         !!me && !!me.destPlaceId && me.destPlaceId !== me.placeId;
     const canGo = !!me && mayEnter(place, playerId) && !amHere && !heading;
-    const owner = allBodies.find((b) => b.participantId === place.ownerId);
     const canKnock =
         !!me &&
-        place.kind === 'home' &&
         !mayEnter(place, playerId) &&
-        !!owner &&
-        owner.placeId === place.id &&
-        !owner.destPlaceId &&
-        !owner.asleep;
-    const knockers =
-        place.ownerId && place.ownerId === playerId
-            ? Object.keys(place.knocks ?? {})
-            : [];
+        allBodies.some(
+            (b) =>
+                hosts(place, b.participantId ?? null) &&
+                b.placeId === place.id &&
+                !b.destPlaceId &&
+                !b.asleep,
+        );
+    const knockers = ownHome ? Object.keys(place.knocks ?? {}) : [];
     const knock = usePostWorldsPartyIdPlacesKnock();
     const letIn = usePostWorldsPartyIdPlacesLetIn();
     const arrangeThing = usePostWorldsPartyIdPlacesThingsArrange();

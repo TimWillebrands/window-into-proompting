@@ -31,6 +31,8 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
             if (atWork)
             {
                 affordances.Add(new Affordance(Id, $"Get on with work ({job.Title})", 2, job.PlaceId, "work"));
+                if (job.PlaceId is { } studio && await MayMakeAsync(ctx, studio))
+                    affordances.Add(new Affordance(Id, "Finish a piece at the easel (say in a few words what it is)", 3, studio, "make"));
                 // Staff are the centre of a Place (ADR 0026): someone who just came in is theirs to greet.
                 if (job.PlaceId is { } placeId && await GreetAsync(ctx, placeId) is { } greet) affordances.Add(greet);
             }
@@ -51,6 +53,10 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
             case "work":
                 await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).SetActivityAsync(ctx.Self.Id, job.Onscreen ? "working" : "at work", null);
                 return new ActOutcome("work", $"is busy at work ({job.Title}, {job.Workplace})", job.PlaceId);
+            case "make":
+                return await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).MakeArtAsync(ctx.Self.Id, intent) is { } made
+                    ? new ActOutcome("make", made, job.PlaceId)
+                    : null;
             case "return":
                 await workplaces.GoAsync(ctx.PartyId, ctx.Self.Id, job);
                 return new ActOutcome("return", $"is heading back to work at {job.Workplace}", job.PlaceId);
@@ -65,6 +71,13 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
                 return new ActOutcome("leave", $"left work at {job.Workplace} early (+{pay} credits)", job.PlaceId);
         }
         return null;
+    }
+
+    private async Task<bool> MayMakeAsync(LifeContext ctx, Guid placeId)
+    {
+        var place = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == placeId);
+        var local = ctx.Now.ToLocalTime();
+        return Places.Art.CanMake(place, ctx.Self.Id, ctx.Now.ToUnixTimeMilliseconds(), new DateTimeOffset(local.Date, local.Offset).ToUnixTimeMilliseconds());
     }
 
     private async Task<Affordance?> GreetAsync(LifeContext ctx, Guid placeId)

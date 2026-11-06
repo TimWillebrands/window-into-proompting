@@ -104,7 +104,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
         var restless = stayed > Restless && !awayHere;
         if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
-        else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.OwnerId == ctx.Self.Id ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
+        else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.LivesIn(ctx.Self.Id) == true ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         // A Gathering at a Place you said you'd come to (spec phase 7): be there, then talk.
         var nowMsG = ctx.Now.ToUnixTimeMilliseconds();
         foreach (var g in (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
@@ -138,21 +138,31 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var further = new List<(Place Place, List<string> There)>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
-            if (place.Kind == PlaceKinds.Locale || place.Dormant) continue;
-            var mine = place.OwnerId == ctx.Self.Id;
-            if (place.Kind == PlaceKinds.Home && !mine)
+            if (place.Kind == PlaceKinds.Locale || place.Dormant || place.Vacated) continue;
+            var mine = place.LivesIn(ctx.Self.Id);
+            var keyed = place.Keyholders.Contains(ctx.Self.Id);
+            if (place.IsClosed() && !place.Hosts().Contains(ctx.Self.Id) && !keyed)
             {
-                // Someone else's Home: go if invited, else knock when they're in and awake.
-                var owner = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == place.OwnerId);
+                // Someone else's Home or private Place: go if invited, else knock when they're in and awake.
+                var hosts = snapshot.Bodies.Where(b => place.Hosts().Contains(b.ParticipantId)).ToList();
+                var owner = hosts.FirstOrDefault(b => b is { IsWalking: false, Asleep: false } && b.PlaceId == place.Id) ?? hosts.FirstOrDefault();
                 var ownerName = owner?.Name.Split(' ')[0] ?? "someone";
                 if (place.Guests.Contains(ctx.Self.Id))
                 {
-                    sb.AppendLine($"{ownerName} invited you over to their place.");
-                    affordances.Add(new Affordance(Id, $"Go over to {ownerName}'s place (they invited you)", 2, place.Id, "go"));
+                    var theirs = place.Kind == PlaceKinds.Home ? $"{ownerName}'s place" : place.Name;
+                    sb.AppendLine($"{ownerName} invited you over to {(place.Kind == PlaceKinds.Home ? "their place" : place.Name)}.");
+                    affordances.Add(new Affordance(Id, $"Go over to {theirs} (they invited you)", 2, place.Id, "go"));
                 }
                 else if (owner is { IsWalking: false, Asleep: false } && owner.PlaceId == place.Id && !self.IsWalking)
                 {
-                    affordances.Add(new Affordance(Id, $"Knock on {ownerName}'s door (they're home)", 0, place.Id, "knock"));
+                    affordances.Add(new Affordance(Id, $"Knock on {ownerName}'s door (they're {(place.Kind == PlaceKinds.Home ? "home" : "in")})", 0, place.Id, "knock"));
+                }
+                else if (!self.IsWalking && owner is not null && owner.PlaceId != place.Id && await CloseToAsync(ctx, owner.ParticipantId))
+                {
+                    // People close to the host feel the door even when it's shut; strangers never knew it was there.
+                    var door = place.Kind == PlaceKinds.Home ? $"{ownerName}'s place" : place.Name;
+                    sb.AppendLine($"{door} is locked; {ownerName} is out.");
+                    affordances.Add(new Affordance(Id, $"Go by {door} anyway (it's locked)", 0, place.Id, "knock"));
                 }
                 continue;
             }
@@ -165,6 +175,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
             var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
+            if (keyed) label += " (you have a key)";
             // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
             var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
@@ -177,7 +188,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
         // At home: who's at the door, and who you could have over.
-        if (!self.IsWalking && here?.OwnerId == ctx.Self.Id)
+        if (!self.IsWalking && here?.Hosts().Contains(ctx.Self.Id) == true)
         {
             foreach (var visitor in await places.GetKnocksAsync(ctx.Self.Id))
             {
@@ -185,19 +196,39 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 affordances.Add(new Affordance(Id, $"Let {ctx.NameOf(visitor)} in", 3, visitor, "letin"));
             }
             // Making it yours: stances and interests end up on the walls (the intent is what goes up).
-            var decor = here.Furni.Where(f => f.Kind == FurniKinds.Decor).ToList();
-            if (decor.Count > 0) sb.AppendLine($"Your place has: {string.Join("; ", decor.OrderByDescending(f => f.TendedAt).Take(4).Select(f => f.Name))}.");
-            affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
+            if (here.LivesIn(ctx.Self.Id))
+            {
+                var decor = here.Furni.Where(f => f.Kind == FurniKinds.Decor).ToList();
+                if (decor.Count > 0) sb.AppendLine($"Your place has: {string.Join("; ", decor.OrderByDescending(f => f.TendedAt).Take(4).Select(f => f.Name))}.");
+                affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
+            }
 
-            var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId)).ToList();
+            var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId) && !here.Hosts().Contains(b.ParticipantId)).ToList();
             if (away.Count > 0)
             {
-                var friend = away[Random.Shared.Next(away.Count)];
-                affordances.Add(new Affordance(Id, $"Invite {friend.Name} over to your place", 0, friend.ParticipantId, "invite"));
+                var friend = await WhoToInviteAsync(ctx, away);
+                affordances.Add(new Affordance(Id, $"Invite {friend.Name} over to {PlacesGrain.WhereName(here, ctx.Self.Id)}", 0, friend.ParticipantId, "invite"));
             }
         }
 
         return new AppPerception(Id, "Places (where your body is)", sb.ToString().TrimEnd(), affordances);
+    }
+
+    /// <summary>A partner first, then whoever you're closest to; otherwise anyone.</summary>
+    private async Task<Body> WhoToInviteAsync(LifeContext ctx, List<Body> away)
+    {
+        var book = await grains.GetGrain<Relations.IRelationsGrain>(ctx.PartyId).GetAsync();
+        if (away.FirstOrDefault(b => Relations.RelationRules.Partners(book, ctx.Self.Id, b.ParticipantId)) is { } partner) return partner;
+        var closest = await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetClosestAsync();
+        return away.FirstOrDefault(b => b.ParticipantId == closest) ?? away[Random.Shared.Next(away.Count)];
+    }
+
+    private async Task<bool> CloseToAsync(LifeContext ctx, Guid other)
+    {
+        var book = await grains.GetGrain<Relations.IRelationsGrain>(ctx.PartyId).GetAsync();
+        var mine = await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetTieAsync(other);
+        var theirs = await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, other)).GetTieAsync(ctx.Self.Id);
+        return Relations.KeyRules.Close(book, ctx.Self.Id, other, mine, theirs);
     }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
@@ -234,9 +265,10 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             }
             case "knock":
             {
-                if (!await places.KnockAsync(ctx.Self.Id, target)) return null;
-                var owner = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target)?.OwnerId;
-                return new ActOutcome("knock", $"knocks on {ctx.NameOf(owner ?? Guid.Empty)}'s door", null);
+                var door = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
+                var host = door?.Hosts().FirstOrDefault() ?? Guid.Empty;
+                if (await places.KnockAsync(ctx.Self.Id, target)) return new ActOutcome("knock", $"knocks on {ctx.NameOf(host)}'s door", null);
+                return door?.IsClosed() == true ? new ActOutcome("knock", $"goes by {door.Name} and finds it locked", null) : null;
             }
             case "letin" or "invite":
                 return await places.LetInAsync(ctx.Self.Id, target)
@@ -251,7 +283,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 var body = await places.MoveAsync(ctx.Self.Id, target, null);
                 if (body is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
-                return new ActOutcome("walk", place?.OwnerId == ctx.Self.Id ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
+                return new ActOutcome("walk", place?.LivesIn(ctx.Self.Id) == true ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
             }
             case { } verb when verb.StartsWith("care:", StringComparison.Ordinal) || verb.StartsWith("use:", StringComparison.Ordinal):
             {

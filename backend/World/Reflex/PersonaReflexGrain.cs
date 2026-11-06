@@ -139,6 +139,7 @@ public sealed class PersonaReflexGrain(
         var tieTask = GrainFactory.GetGrain<IPersonaTiesGrain>(key).GetTieAsync(p.FromId);
         var betweenTask = BetweenAsync(p, now);
         var loadTask = LoadAsync(p, now);
+        var bookTask = GrainFactory.GetGrain<Relations.IRelationsGrain>(Keys.Party).GetAsync();
         var body = await Places.GetBodyAsync(Keys.Persona);
         // Sleep has its own rule (ADR 0020): only a human wakes them, and that path is unchanged.
         if (body is { Asleep: true }) return null;
@@ -151,7 +152,7 @@ public sealed class PersonaReflexGrain(
         double? apart = tie.LastAt > 0 ? (now.ToUnixTimeMilliseconds() - tie.LastAt) / 3_600_000.0 : null;
         var bio = (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived ? LivedSheets.Bio(lived) : null) ?? self.Bio ?? self.SystemPrompt;
         return new Sense(self.Name, bio, doing, s.Mood, await loadTask, SelfMath.Battery(s, local),
-            new Bond(tie.Exchanges, tie.Warmth, apart), await betweenTask);
+            new Bond(tie.Exchanges, tie.Warmth, apart), await betweenTask, Relations.RelationRules.Standing(await bookTask, self.Id, p.FromId));
     }
 
     /// <summary>How much of them is spoken for, as seen from the channel <paramref name="p"/> came in on; null asks in general.</summary>

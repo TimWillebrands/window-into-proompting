@@ -638,6 +638,7 @@ public sealed class ResponsePipeline(
             if (string.IsNullOrWhiteSpace(scenario))
             {
                 presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
+                presence += await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetKeyLinesAsync(self.Id);
                 if (responsibilities is not null)
                     presence += await responsibilities.RoleAsync(partyId, self.Id) + await responsibilities.RenderAsync(partyId, self.Id, DateTimeOffset.UtcNow);
             }

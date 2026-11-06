@@ -1,5 +1,6 @@
 using PartyTown.Grains;
 using PartyTown.Model;
+using PartyTown.World.Relations;
 
 namespace PartyTown.World.Self;
 
@@ -50,14 +51,16 @@ public sealed class PersonaTiesGrain(
         return Ties.Closest(state.State.Ties.Where(t => t.Key != personaId && t.Key != Narrator.PersonaId), DateTimeOffset.UtcNow);
     }
 
-    public async Task<string> RenderAsync(List<Guid> presentIds)
+    public async Task<string> RenderAsync(List<Guid> presentIds, bool here = true)
     {
         await EnsureSeededAsync();
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var cast = await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
+        var book = await GrainFactory.GetGrain<IRelationsGrain>(partyId).GetAsync();
+        var firstNames = cast.ToDictionary(c => c.Id, c => c.Name.Split(' ')[0]);
         var people = cast
             .Where(c => presentIds.Contains(c.Id) && c.Id != personaId && c.Id != Narrator.PersonaId)
-            .Select(c => (c.Name, Tie: state.State.Ties.GetValueOrDefault(c.Id)))
+            .Select(c => RelationRules.Seen(book, personaId, c.Id, c.Name, state.State.Ties.GetValueOrDefault(c.Id), id => firstNames.GetValueOrDefault(id), here))
             .ToList();
         return Ties.Render(people, DateTimeOffset.UtcNow);
     }
@@ -148,20 +151,47 @@ public static class Ties
     };
 
     public static string Render(IReadOnlyList<(string Name, Tie? Tie)> people, DateTimeOffset now)
+        => Render(people.Select(p => new Acquaintance(p.Name, p.Tie)).ToList(), now);
+
+    private static IEnumerable<string> Facts(Acquaintance p, DateTimeOffset now)
+    {
+        if (p.Between is { } between) yield return between;
+        if (p.Known is { } known) yield return known;
+        if (Distance(p) is { } distance) yield return distance;
+        if (p.Tie is not { Exchanges: > 0 } tie) yield break;
+        yield return $"last talked {WorldStream.Ago(tie.LastAt, now)}";
+        if (Lately(Warmth(tie, now)) is { } lately) yield return lately;
+    }
+
+    /// <summary>Past history with barely a word since reads as that, not as strangers.</summary>
+    private static string? Distance(Acquaintance p)
+    {
+        if (p.Current) return null;
+        var exchanges = p.Tie?.Exchanges ?? 0;
+        if (p.Between is not null && exchanges < 2) return "you've barely spoken since";
+        return exchanges <= 0 ? "you've never really talked" : Closeness(exchanges);
+    }
+
+    public static string Render(IReadOnlyList<Acquaintance> people, DateTimeOffset now)
     {
         if (people.Count == 0) return string.Empty;
-        var lines = people.Select(p => p.Tie is null || p.Tie.Exchanges <= 0
-            ? $"- {p.Name}: you've never really talked"
-            : $"- {p.Name}: {Closeness(p.Tie.Exchanges)}; last talked {WorldStream.Ago(p.Tie.LastAt, now)}{(Lately(Warmth(p.Tie, now)) is { } lately ? $"; {lately}" : "")}");
+        var lines = people.Select(p => $"- {p.Name}: {string.Join("; ", Facts(p, now))}");
         return $"# Who these people are to you\n{string.Join("\n", lines)}\nHow close you are shapes what you share. With people you barely know you keep it light; personal things are for people you know well, and even then not all the time.\n";
     }
 }
+
+/// <summary>Someone as one Persona sees them: the Tie, plus what Relations add (ADR 0035).</summary>
+/// <param name="Between">What the two of them are or were.</param>
+/// <param name="Current">They're something to each other now, so how much they've talked says nothing about distance.</param>
+/// <param name="Known">What anyone could know about them and others.</param>
+public sealed record Acquaintance(string Name, Tie? Tie, string? Between = null, bool Current = false, string? Known = null);
 
 [Alias("PartyTown.World.Self.IPersonaTiesGrain")]
 public interface IPersonaTiesGrain : IGrainWithStringKey
 {
     [Alias("NoteExchangeAsync")] Task NoteExchangeAsync(List<Guid> withIds, bool direct);
-    [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds);
+    /// <param name="here">These people are actually around; false when it's everyone in the World.</param>
+    [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds, bool here = true);
     /// <summary>How well this persona knows one other, and how warm it feels now.</summary>
     [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
     /// <summary>The one person this persona is closest to, or null.</summary>

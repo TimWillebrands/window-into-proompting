@@ -107,10 +107,11 @@ public sealed class PersonaLifeGrain(
         var presence = await PresenceAsync(partyId, personaId);
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
+        presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
         presence += await DesiresAsync(partyId, personaId);
         if (reflex is not null) presence += await reflex.MindAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
-            .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList());
+            .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList(), here: false);
 
         var system = $"""
 {WorldLlm.Identity(self)}

@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { useGetPersonaSuspense } from '#api/party-zone';
 import Portrait from '../../components/Portrait';
 import GeneratePersonaDialog from './components/GeneratePersonaDialog';
+import MoveInDialog from './components/MoveInDialog';
 import NewPersonaButton from './components/NewPersonaButton';
 import PersonaEditor from './components/PersonaEditor';
 import TemplateButton from './components/TemplateButton';
+import { useResidents } from './residence';
 
 export default function PersonasApp() {
     const personasQuery = useGetPersonaSuspense();
@@ -14,11 +16,20 @@ export default function PersonasApp() {
     }, [personasQuery.data]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+    const residents = useResidents();
+    const [askingId, setAskingId] = useState<string | null>(null);
+    // A blank Persona has no name or bio to arrive with yet: ask after its first save.
+    const [askOnSaveId, setAskOnSaveId] = useState<string | null>(null);
 
     const selectedPersona = useMemo(
         () => personas.find((p) => p.id === selectedId) ?? null,
         [personas, selectedId],
     );
+    const asking = personas.find((p) => p.id === askingId);
+    const createdComplete = (id: string) => {
+        setSelectedId(id);
+        setAskingId(id);
+    };
 
     return (
         <div
@@ -90,6 +101,16 @@ export default function PersonasApp() {
                                     >
                                         {persona.name}
                                     </div>
+                                    {residents.has(persona.id ?? '') ? (
+                                        <div
+                                            style={{
+                                                color: '#666',
+                                                fontSize: 10,
+                                            }}
+                                        >
+                                            In the World
+                                        </div>
+                                    ) : null}
                                 </div>
                             </button>
                         );
@@ -117,8 +138,13 @@ export default function PersonasApp() {
                     >
                         Create a persona
                     </div>
-                    <NewPersonaButton onCreated={(id) => setSelectedId(id)} />
-                    <TemplateButton onCreated={(id) => setSelectedId(id)} />
+                    <NewPersonaButton
+                        onCreated={(id) => {
+                            setSelectedId(id);
+                            setAskOnSaveId(id);
+                        }}
+                    />
+                    <TemplateButton onCreated={createdComplete} />
                     <button
                         type="button"
                         className="w-full"
@@ -137,6 +163,11 @@ export default function PersonasApp() {
                         key={selectedPersona.id}
                         persona={selectedPersona}
                         onDeleted={() => setSelectedId(null)}
+                        onSaved={() => {
+                            if (askOnSaveId !== selectedPersona.id) return;
+                            setAskOnSaveId(null);
+                            setAskingId(askOnSaveId);
+                        }}
                     />
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center">
@@ -175,9 +206,15 @@ export default function PersonasApp() {
                 <GeneratePersonaDialog
                     onClose={() => setShowGenerateDialog(false)}
                     onCreated={(id) => {
-                        setSelectedId(id);
+                        createdComplete(id);
                         setShowGenerateDialog(false);
                     }}
+                />
+            )}
+            {asking && (
+                <MoveInDialog
+                    persona={asking}
+                    onClose={() => setAskingId(null)}
                 />
             )}
         </div>

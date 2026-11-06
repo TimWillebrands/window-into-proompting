@@ -9,6 +9,7 @@ import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
 import PersonasApp from '../apps/personas/PersonasApp';
 import PlacesApp from '../apps/places/PlacesApp';
+import RelationsApp from '../apps/relations/RelationsApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import WardrobeApp from '../apps/wardrobe/WardrobeApp';
 import WorldApp from '../apps/world/WorldApp';
@@ -125,6 +126,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         initialPosition: { x: 340, y: 200 },
         initialSize: { width: 760, height: 520 },
     },
+    {
+        id: 'relations',
+        title: 'Relations',
+        icon: '💞',
+        component: RelationsApp,
+        initialPosition: { x: 360, y: 220 },
+        initialSize: { width: 720, height: 460 },
+    },
 ];
 
 interface DesktopIconEntry {
@@ -218,6 +227,13 @@ export const DESKTOP_ICONS: DesktopIconEntry[] = [
         label: 'Stance Floor',
         icon: '/img/icons/stance-floor.ico',
         windowId: 'stance-floor',
+        access: 'admin',
+    },
+    {
+        id: 'relations',
+        label: 'Relations',
+        icon: '/img/icons/personas.ico',
+        windowId: 'relations',
         access: 'admin',
     },
 ];

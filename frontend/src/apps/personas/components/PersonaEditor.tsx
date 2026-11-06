@@ -10,6 +10,7 @@ import { personaWsStream } from '#lib/persona-ws-stream';
 import type { Persona } from '../../../api/model';
 import Portrait from '../../../components/Portrait';
 import { ROOT_PARTY_ID } from '../../../lib/chat-api';
+import Residence from './Residence';
 
 type PersonaGenerationDeltaData = { data: string };
 type PersonaGenerationCompletedData = {
@@ -22,9 +23,11 @@ type PersonaGenerationErrorData = { message: string };
 export default function PersonaEditor({
     persona,
     onDeleted,
+    onSaved,
 }: {
     persona: Persona;
     onDeleted: () => void;
+    onSaved?: () => void;
 }) {
     const queryClient = useQueryClient();
     const nameId = useId();
@@ -61,6 +64,7 @@ export default function PersonaEditor({
                             getGetWorldsPartyIdLivesQueryKey(ROOT_PARTY_ID),
                     }),
                 ]);
+                onSaved?.();
             },
         },
     });
@@ -266,6 +270,13 @@ export default function PersonaEditor({
                     />
                 </div>
             </fieldset>
+
+            <Residence
+                persona={persona}
+                unsaved={
+                    name !== (persona.name ?? '') || bio !== (persona.bio ?? '')
+                }
+            />
 
             {saveMutation.isError ? (
                 <p style={{ color: '#c00' }}>

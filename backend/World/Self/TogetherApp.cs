@@ -1,6 +1,7 @@
 using System.Text;
 using PartyTown.World.Apps;
 using PartyTown.World.Places;
+using PartyTown.World.Relations;
 
 namespace PartyTown.World.Self;
 
@@ -26,6 +27,7 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
         if (company.Count == 0) return null;
 
         var allowed = Poses.Allowed(spot, company: true).Where(Poses.Pair.Contains).ToList();
+        var book = await grains.GetGrain<IRelationsGrain>(ctx.PartyId).GetAsync();
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
         if (me.Pose is { } pose && Poses.Pair.Contains(pose) && me.PoseWith is { } with)
@@ -41,7 +43,7 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
             var theirs = await theirTies.GetTieAsync(ctx.Self.Id);
             var mutual = await myTies.GetClosestAsync() == other.ParticipantId && await theirTies.GetClosestAsync() == ctx.Self.Id;
             var name = ctx.NameOf(other.ParticipantId);
-            foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId), mutual))
+            foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId), mutual, book.Partners(ctx.Self.Id, other.ParticipantId)))
                 affordances.Add(new Affordance(Id, Touch.Label(p, name), 0, other.ParticipantId, p));
         }
         if (affordances.Count == 0) return null;
@@ -66,9 +68,13 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
 /// <summary>Pure: which pair poses a Tie allows, both ways.</summary>
 public static class Touch
 {
-    /// <summary>Pair poses both Ties allow; intimate ones only between mutual closest people, never initiated toward a human.</summary>
-    public static List<string> Offered(IReadOnlyCollection<string> allowed, TieRead mine, TieRead theirs, bool otherIsHuman, bool mutualClosest)
-        => allowed.Where(p => Allows(p, mine) && Allows(p, theirs) && !(Intimate(p) && (otherIsHuman || !mutualClosest))).ToList();
+    /// <summary>Pair poses both Ties allow; intimate ones only between mutual closest people or partners, never initiated toward a human.</summary>
+    /// <param name="partners">A current couple skips the closeness earned by talking; only strain holds them back.</param>
+    public static List<string> Offered(IReadOnlyCollection<string> allowed, TieRead mine, TieRead theirs, bool otherIsHuman, bool mutualClosest, bool partners = false)
+        => allowed.Where(p => (partners ? !Strained(mine) && !Strained(theirs) : Allows(p, mine) && Allows(p, theirs))
+            && !(Intimate(p) && (otherIsHuman || !(mutualClosest || partners)))).ToList();
+
+    private static bool Strained(TieRead tie) => tie.Warmth <= RelationRules.Strained;
 
     public static bool Intimate(string pose) => pose is Poses.HoldHands or Poses.SlowDance;
 

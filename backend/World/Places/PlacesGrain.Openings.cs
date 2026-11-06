@@ -38,9 +38,24 @@ public sealed partial class PlacesGrain
         foreach (var body in Occupants(place.Id)) await PublishAsync(body);
         await SyncTalkRoomAsync(place.Id);
         var where = place.DistrictId == Districts.Centre ? string.Empty : $" in {DistrictName(place.DistrictId)}";
-        _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync($"{Capital(place.Name)}{where} is on the map now.");
+        // Footfall opening a Place is news; an author setting one up isn't, and a Happening reaches everyone's memory.
+        if (reason != "author") _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync($"{Capital(place.Name)}{where} is on the map now.");
         logger.LogInformation("Opened {Place} as {Archetype} ({Reason})", place.Name, kit.Archetype, reason);
         await EnsureStreetsAsync(place.DistrictId);
+        return place;
+    }
+
+    public async Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name, bool closed = false)
+    {
+        if (Find(placeId) is not { } place || place.Kind == PlaceKinds.Home) return null;
+        await SettleAsync();
+        place.MadeBy = madeBy;
+        place.Private = closed;
+        if (!string.IsNullOrWhiteSpace(name)) place.Name = WorldStream.Clip(name.Trim(), 60);
+        await SaveAsync();
+        await PublishPlaceAsync(place);
+        foreach (var body in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == place.Id && !MayEnter(place, b.ParticipantId)).ToList())
+            if (state.State.Places.HomeOf(body.ParticipantId) is { } home) await MoveAsync(body.ParticipantId, home.Id, null);
         return place;
     }
 
@@ -79,7 +94,7 @@ public sealed partial class PlacesGrain
             .Where(p => p.DistrictId == districtId && p.Kind == PlaceKinds.Public && p.OpenedAt is not null && !IsStreets(p))
             .OrderBy(p => p.OpenedAt).ToList();
         var streets = state.State.Places.FirstOrDefault(p => p.DistrictId == districtId && IsStreets(p));
-        var residents = state.State.Places.Count(p => p.Kind == PlaceKinds.Home && p.DistrictId == districtId);
+        var residents = state.State.Places.Where(p => p.DistrictId == districtId).Sum(p => p.Living().Count());
         if (streets is null && venues.Count < DistrictScene.MinVenues && residents < DistrictScene.MinResidents) return;
         var scene = DistrictScene.Build(districtId, venues);
         if (streets is null)

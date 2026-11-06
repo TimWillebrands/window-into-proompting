@@ -78,7 +78,7 @@ public sealed partial class PlacesGrain
         var visitors = state.State.Visits.SelectMany(kv => kv.Value.Select(v => (Who: kv.Key, SplitVisit(v).Place)))
             .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Who).Distinct().Count());
         var locales = state.State.Places.Where(p => p.Kind == PlaceKinds.Locale && !Unnamed(p.Name)).ToList();
-        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && p.DistrictId == district && !p.Dormant)
+        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && !p.Private && p.DistrictId == district && !p.Dormant)
             .OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(5)
             .Concat(locales.Where(p => mine.Contains(p.Id)).Take(3))
             .Concat(locales.OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(3))
@@ -95,7 +95,7 @@ public sealed partial class PlacesGrain
         if (Find(body.DestPlaceId ?? body.PlaceId) is not { Kind: PlaceKinds.Locale }) return body;
         var back = body.CameFrom is { } c && Find(c) is { Kind: not PlaceKinds.Locale } p && MayEnter(p, participantId)
             ? p
-            : state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == participantId);
+            : state.State.Places.HomeOf(participantId);
         return back is null ? null : await MoveAsync(participantId, back.Id, null);
     }
 
