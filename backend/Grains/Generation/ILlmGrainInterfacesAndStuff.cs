@@ -47,12 +47,16 @@ public static class LlmEndpoints
     {
         "ollama" => grains.GetGrain<IOllamaEndpointGrain>(id),
         "openrouter" => grains.GetGrain<IOpenRouterEndpointGrain>(id),
+        "anthropic" => grains.GetGrain<IAnthropicEndpointGrain>(id),
         _ => throw new InvalidOperationException($"Unsupported provider type: {type}"),
     };
 }
 
 [Alias("PartyTown.Grains.Generation.IOllamaEndpointGrain")]
 public interface IOllamaEndpointGrain : ILlmEndpointGrain { }
+
+[Alias("PartyTown.Grains.Generation.IAnthropicEndpointGrain")]
+public interface IAnthropicEndpointGrain : ILlmEndpointGrain { }
 
 [Alias("PartyTown.Grains.Generation.IOpenRouterEndpointGrain")]
 public interface IOpenRouterEndpointGrain : ILlmEndpointGrain { }
