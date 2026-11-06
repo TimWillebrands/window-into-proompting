@@ -8,6 +8,7 @@ using PartyTown.Logging;
 using PartyTown.Model;
 using PartyTown.Services.Auth;
 using PartyTown.Services.Streaming;
+using PartyTown.World;
 
 namespace PartyTown.Services.Realtime;
 
@@ -77,9 +78,7 @@ public sealed class PartyRealtimeHub(
         return roomMembers.TryGetValue(chatGroupId, out var found) ? found : Nobody;
     }
 
-    private async Task<IReadOnlySet<Guid>> HumansAsync(Guid partyId)
-        => (await grainFactory.GetGrain<IPartyGrain>(partyId).GetParty()).Participants
-            .Where(p => p.Driver == DriverKind.User).Select(p => p.Id).ToHashSet();
+    private Task<IReadOnlySet<Guid>> HumansAsync(Guid partyId) => grainFactory.HumansAsync(partyId);
 }
 
 internal sealed class RealtimeClientConnection(WebSocket socket, Viewer viewer, JsonSerializerOptions jsonOptions)

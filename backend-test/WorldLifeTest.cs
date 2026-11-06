@@ -124,6 +124,101 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task PlayerOnAuto_LivesLikeAPersona_AndComesBackUnchanged()
+    {
+        var (partyId, _) = await _fx.CreateWorldAsync();
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var places = _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlacesGrain>(partyId);
+        var player = (await clock.ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+        var auto = _fx.Auto;
+        await places.GetSnapshotAsync();
+        await places.SetAppearanceAsync(player, new Dictionary<string, string?> { ["hair"] = "red" });
+        await places.SetIdleAsync(player, true);
+        Assert.Null(await auto.SheetAsync(player));
+
+        await auto.SetAsync(partyId, player, true, "make Denise laugh");
+
+        Assert.True(await _fx.GrainFactory.IsOnAutoAsync(partyId, player));
+        Assert.Equal(player, await clock.FindPlayerAsync("user_a"));
+        var sheet = await auto.SheetAsync(player);
+        Assert.Contains("Sparky", sheet);
+        Assert.Equal("make Denise laugh", await auto.MissionAsync(partyId, player));
+        Assert.Contains(player, await _fx.GrainFactory.HumansAsync(partyId));
+        var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == player);
+        Assert.False(body.IsHuman);
+        Assert.Null(body.Activity);
+        Assert.Equal("red", body.Appearance!.Hair);
+        Assert.True(body.Appearance.Kept);
+        Assert.False((await _fx.GrainFactory.GetGrain<PartyTown.World.Work.IOccupationGrain>(WorldKeys.Life(partyId, player)).GetAsync()).Seeded);
+
+        ScriptedLlm.ChooseOptionContaining = "Write a new post";
+        var turn = await _fx.GrainFactory.GetGrain<IPersonaLifeGrain>(WorldKeys.Life(partyId, player)).LiveAsync(null);
+        Assert.Equal("post", turn.Action);
+        Assert.Equal(player, Assert.Single(await _fx.GrainFactory.GetGrain<IBoardGrain>(partyId).GetThreadsAsync()).AuthorId);
+        Assert.Contains(ScriptedLlm.Prompts, p => p.Contains("Make Denise laugh."));
+
+        await auto.SetAsync(partyId, player, false, null);
+
+        Assert.False(await _fx.GrainFactory.IsOnAutoAsync(partyId, player));
+        Assert.Equal(DriverKind.User, (await party.GetParty()).Participants.Single(p => p.Id == player).Driver);
+        Assert.True((await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == player).IsHuman);
+        Assert.Equal(sheet, await auto.SheetAsync(player));
+        Assert.Null(await auto.MissionAsync(partyId, player));
+    }
+
+    [Fact]
+    public async Task PlayerOnAuto_SheetComesFromPublicTrace_NotDms()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var player = (await clock.ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+        await _fx.GrainFactory.GetGrain<IBoardGrain>(partyId).CreateThreadAsync(player, "Sparky", "I love sourdough");
+        var dm = await party.GetOrCreateDirectChatAsync(player, denise);
+        await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).SendNewMessageAsync(player, "my secret", null, null);
+
+        var evidence = await _fx.Auto.EvidenceAsync(partyId, player, "Sparky");
+        await _fx.Auto.SetAsync(partyId, player, true, null);
+
+        Assert.Contains("sourdough", evidence);
+        Assert.DoesNotContain("my secret", evidence);
+        Assert.Contains("Sparky", await _fx.Auto.SheetAsync(player));
+    }
+
+    [Fact]
+    public async Task Mission_NewOneReplacesTheOld_BlankClearsIt()
+    {
+        var (partyId, _) = await _fx.CreateWorldAsync();
+        var player = (await _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId).ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+
+        await _fx.Auto.SetAsync(partyId, player, true, "find a job");
+        await _fx.Auto.SetAsync(partyId, player, true, "find a job");
+        await _fx.Auto.SetAsync(partyId, player, true, "learn to bake");
+
+        Assert.Equal("learn to bake", await _fx.Auto.MissionAsync(partyId, player));
+        var acquired = (await _fx.GrainFactory.GetGrain<PartyTown.World.Desires.IDesiresGrain>(WorldKeys.Life(partyId, player)).GetAsync()).Acquired;
+        Assert.Equal(2, acquired.Count);
+
+        await _fx.Auto.SetAsync(partyId, player, true, " ");
+
+        Assert.Null(await _fx.Auto.MissionAsync(partyId, player));
+    }
+
+    [Fact]
+    public async Task PlayerOnAuto_CanStillBeRemoved()
+    {
+        var (partyId, _) = await _fx.CreateWorldAsync();
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var player = (await clock.ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+        await _fx.Auto.SetAsync(partyId, player, true, null);
+
+        Assert.True(await new PlayerRemoval(_fx.GrainFactory).RemoveAsync(partyId, player));
+
+        Assert.Null(await clock.FindPlayerAsync("user_a"));
+    }
+
+    [Fact]
     public async Task RemovedPlayer_TakesTheirTraceAndCanMakeANewCharacter()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();
@@ -202,6 +297,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     {
         public TestCluster Cluster { get; private set; } = null!;
         public IGrainFactory GrainFactory => Cluster.GrainFactory;
+        public PlayerAuto Auto => new(GrainFactory, new ScriptedLlm(), Microsoft.Extensions.Logging.Abstractions.NullLogger<PlayerAuto>.Instance);
 
         public Task InitializeAsync()
         {

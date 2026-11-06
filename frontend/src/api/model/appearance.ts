@@ -27,4 +27,5 @@ export interface Appearance {
     /** @nullable */
     summary?: string | null;
     bodyType?: string;
+    kept?: boolean;
 }

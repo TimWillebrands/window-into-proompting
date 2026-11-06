@@ -40,6 +40,14 @@ public sealed class OccupationGrain(
         return View();
     }
 
+    public async Task ReseedAsync()
+    {
+        if (state.State.Job is not null) return;
+        state.State.Seeded = false;
+        state.State.SeedAttemptAt = 0;
+        await state.WriteStateAsync();
+    }
+
     public async Task<ShiftChange> StepAsync(DateTimeOffset local, bool asleep)
     {
         KickSeed();
@@ -226,6 +234,8 @@ public interface IOccupationGrain : IGrainWithStringKey
     /// <summary>Author edit; null = no job. Ends a running shift.</summary>
     [Alias("SetAsync")] Task<OccupationView> SetAsync(Occupation? job);
     /// <summary>One clock step: start, end or miss today's shift when due. Pure state; the caller walks and pays.</summary>
+    /// <summary>Jobless, and now LLM-driven: a job may be read off their sheet after all.</summary>
+    [Alias("ReseedAsync")] Task ReseedAsync();
     [Alias("StepAsync")] Task<ShiftChange> StepAsync(DateTimeOffset local, bool asleep);
     /// <summary>Walking out mid-shift; null when not on shift.</summary>
     [Alias("LeaveEarlyAsync")] Task<ShiftRecord?> LeaveEarlyAsync(DateTimeOffset local);

@@ -23,7 +23,9 @@ public sealed class Actors(IGrainFactory grains)
     {
         var own = await PlayerAsync(user, partyId);
         var who = claimed ?? own;
-        return AccessRules.MayActAs(who, own, IsAdmin(user)) ? who : throw new ForbiddenActorException("That's not your Player.");
+        if (!AccessRules.MayActAs(who, own, IsAdmin(user))) throw new ForbiddenActorException("That's not your Player.");
+        if (who == own) await RefuseOnAutoAsync(partyId, own);
+        return who;
     }
 
     /// <summary>The sender for a Room message, checked against the party the Room really belongs to.</summary>
@@ -33,7 +35,9 @@ public sealed class Actors(IGrainFactory grains)
         var own = await PlayerAsync(user, partyId);
         var who = claimed ?? own;
         var owned = who != own && await grains.GetGrain<IWorldClockGrain>(partyId).IsClaimedAsync(who);
-        return AccessRules.MaySpeakAs(who, own, IsAdmin(user), owned) ? who : throw new ForbiddenActorException("Someone else is that Player.");
+        if (!AccessRules.MaySpeakAs(who, own, IsAdmin(user), owned)) throw new ForbiddenActorException("Someone else is that Player.");
+        if (who == own) await RefuseOnAutoAsync(partyId, own);
+        return who;
     }
 
     /// <summary>Refuses a private DM to non-members; the route's party id is client input, the Room's isn't.</summary>
@@ -49,9 +53,13 @@ public sealed class Actors(IGrainFactory grains)
             : throw new ForbiddenActorException("That conversation is private.");
     }
 
-    public async Task<IReadOnlySet<Guid>> HumansAsync(Guid partyId)
-        => (await grains.GetGrain<IPartyGrain>(partyId).GetParty()).Participants
-            .Where(p => p.Driver == DriverKind.User).Select(p => p.Id).ToHashSet();
+    public Task<IReadOnlySet<Guid>> HumansAsync(Guid partyId) => grains.HumansAsync(partyId);
+
+    /// <summary>The agent is playing them: a human's own hand would talk over it.</summary>
+    private async Task RefuseOnAutoAsync(Guid partyId, Guid player)
+    {
+        if (await grains.IsOnAutoAsync(partyId, player)) throw new OnAutoException();
+    }
 
     public static bool IsAdmin(ClaimsPrincipal user) => user.IsInRole(ClerkAuth.AdminRole);
 }

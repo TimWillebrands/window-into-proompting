@@ -11,8 +11,7 @@ public sealed class PlayerRemoval(IGrainFactory grains)
     public async Task<bool> RemoveAsync(Guid partyId, Guid playerId)
     {
         var party = grains.GetGrain<IPartyGrain>(partyId);
-        var info = await party.GetParty();
-        if (info.Participants.All(p => p.Id != playerId || p.Driver != DriverKind.User)) return false;
+        if (!(await grains.HumansAsync(partyId)).Contains(playerId)) return false;
 
         foreach (var group in await party.GetChatGroups())
         {

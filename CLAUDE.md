@@ -44,6 +44,7 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 - Vite listens on `[::1]:8080` only. Browser tools that resolve `localhost` to IPv4 may get stale or cached pages; use `http://[::1]:8080`.
 - Realtime is a custom raw-WebSocket hub (`PartyRealtimeHub`), not SignalR.
 - **Auth is closed by default** (ADR 0029): new endpoints need sign-in unless marked `[AllowAnonymous]`, and only GETs may be. Take the acting Participant from `Actors`, never from the request. New realtime payloads naming a Room must implement `IRoomFrame`.
+- **Players on auto** (ADR 0037) are `DriverKind.LLM`. For "is this a real person's", use `AccessRules.Humans`, not the Driver.
 - **PostHog:** one person per Clerk id on both sides. API-reaching actions are captured by the backend (`posthog.Track`), UI-only ones by `frontend/src/lib/analytics.ts`; never both. Without the `analytics_consent=1` cookie the browser loads no PostHog and the backend only sends anonymized counts: random id, personless, no ids but `party_id`, so new `*_id` properties get dropped for free. The browser reaches PostHog through `/party-line` (`frontend/src/lib/posthog-proxy.ts`).
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
 

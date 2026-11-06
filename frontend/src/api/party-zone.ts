@@ -103,6 +103,7 @@ import type {
     RsvpRequest,
     SelfSummary,
     SessionSummary,
+    SetAutoRequest,
     ShopItem,
     SituationResponse,
     StanceRecord,
@@ -24962,6 +24963,124 @@ export const usePostWorldsPartyIdPlayer = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlayerMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putWorldsPartyIdPlayerAutoResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type putWorldsPartyIdPlayerAutoResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type putWorldsPartyIdPlayerAutoResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type putWorldsPartyIdPlayerAutoResponseError = (
+    | putWorldsPartyIdPlayerAutoResponse409TextPlain
+    | putWorldsPartyIdPlayerAutoResponse409ApplicationJson
+    | putWorldsPartyIdPlayerAutoResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type putWorldsPartyIdPlayerAutoResponse =
+    putWorldsPartyIdPlayerAutoResponseError;
+
+export const getPutWorldsPartyIdPlayerAutoUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/player/auto`;
+};
+
+export const putWorldsPartyIdPlayerAuto = async (
+    partyId: string,
+    setAutoRequest: SetAutoRequest,
+    options?: RequestInit,
+): Promise<putWorldsPartyIdPlayerAutoResponse> => {
+    return customFetch<putWorldsPartyIdPlayerAutoResponse>(
+        getPutWorldsPartyIdPlayerAutoUrl(partyId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(setAutoRequest),
+        },
+    );
+};
+
+export const getPutWorldsPartyIdPlayerAutoMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>,
+        TError,
+        { partyId: string; data: SetAutoRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>,
+    TError,
+    { partyId: string; data: SetAutoRequest },
+    TContext
+> => {
+    const mutationKey = ['putWorldsPartyIdPlayerAuto'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>,
+        { partyId: string; data: SetAutoRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return putWorldsPartyIdPlayerAuto(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutWorldsPartyIdPlayerAutoMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>
+>;
+export type PutWorldsPartyIdPlayerAutoMutationBody = SetAutoRequest;
+export type PutWorldsPartyIdPlayerAutoMutationError = ProblemDetails;
+
+export const usePutWorldsPartyIdPlayerAuto = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>,
+            TError,
+            { partyId: string; data: SetAutoRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAuto>>,
+    TError,
+    { partyId: string; data: SetAutoRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutWorldsPartyIdPlayerAutoMutationOptions(options),
         queryClient,
     );
 };

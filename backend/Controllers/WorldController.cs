@@ -17,7 +17,7 @@ namespace PartyTown.Controllers;
 /// </summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
-public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal, IPostHogClient posthog) : ControllerBase
+public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal, PlayerAuto auto, IPostHogClient posthog) : ControllerBase
 {
     private BoardApp BoardApp => apps.OfType<BoardApp>().Single();
     private CalendarApp CalendarApp => apps.OfType<CalendarApp>().Single();
@@ -103,6 +103,9 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     [HttpDelete("residents/{personaId:guid}")]
     public async Task<ActionResult> Evict(Guid partyId, Guid personaId)
     {
+        // A Player on auto looks like a Persona here, but leaving takes what's theirs and frees their Clerk id.
+        if (await Clock(partyId).IsClaimedAsync(personaId))
+            return await removal.RemoveAsync(partyId, personaId) ? NoContent() : NotFound();
         var party = grains.GetGrain<IPartyGrain>(partyId);
         var info = await party.GetParty();
         if (info.Participants.All(p => p.Id != personaId || p.Driver != DriverKind.LLM)) return NotFound();
@@ -121,7 +124,19 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     {
         var id = await actors.FindPlayerAsync(User, partyId);
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
-        return Ok(new PlayerResponse(id, info.Participants.FirstOrDefault(p => p.Id == id)?.Name, Actors.IsAdmin(User)));
+        var link = info.Participants.FirstOrDefault(p => p.Id == id);
+        return Ok(new PlayerResponse(id, link?.Name, Actors.IsAdmin(User), link?.Driver == DriverKind.LLM, id is { } own && link?.Driver == DriverKind.LLM ? await auto.MissionAsync(partyId, own) : null));
+    }
+
+    /// <summary>Hand the caller's character to the agent, or take it back, optionally with a mission for them to go after.</summary>
+    [HttpPut("player/auto")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PlayerResponse>> SetAuto(Guid partyId, [FromBody] SetAutoRequest request)
+    {
+        var id = await actors.PlayerAsync(User, partyId);
+        await auto.SetAsync(partyId, id, request.On, request.Mission);
+        posthog.Track(HttpContext, "player_auto_set", new Dictionary<string, object> { ["party_id"] = partyId, ["player_id"] = id, ["on"] = request.On });
+        return await GetPlayer(partyId);
     }
 
     /// <summary>Make the caller's character. 409 when the name is taken.</summary>
@@ -352,8 +367,9 @@ public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
 public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
-public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin);
+public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, bool Auto = false, string? Mission = null);
 public sealed record CreatePlayerRequest(string Name);
+public sealed record SetAutoRequest(bool On, string? Mission);
 public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
 public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);

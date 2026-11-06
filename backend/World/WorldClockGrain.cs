@@ -177,6 +177,8 @@ public sealed class WorldClockGrain(
     public Task<bool> IsClaimedAsync(Guid participantId)
         => Task.FromResult(state.State.PlayersByClerkId.ContainsValue(participantId));
 
+    public Task<List<Guid>> GetClaimedAsync() => Task.FromResult(state.State.PlayersByClerkId.Values.ToList());
+
     /// <summary>Makes this Clerk user's character; null when someone in the cast already has that name.</summary>
     public async Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name)
     {
@@ -189,11 +191,11 @@ public sealed class WorldClockGrain(
         var humans = info.Participants.Where(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId).ToList();
         var id = Guid.NewGuid();
         await GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(
-            new Persona(id, name, "A human visiting this world.", "A real person, not a character."));
+            new Persona(id, name, PlayerAuto.HumanSheet, "A real person, not a character."));
         await party.AddParticipantsAsync(new List<PartyParticipant> { new() { Id = id, Name = name, Driver = DriverKind.User } });
 
         state.State.PlayersByClerkId[clerkUserId] = id;
-        if (state.State.PlayerId is null || humans.All(h => h.Id != state.State.PlayerId)) state.State.PlayerId = id;
+        if (state.State.PlayerId is not { } current || (humans.All(h => h.Id != current) && !state.State.PlayersByClerkId.ContainsValue(current))) state.State.PlayerId = id;
         await state.WriteStateAsync();
         return id;
     }
@@ -421,6 +423,8 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("FindPlayerAsync")] Task<Guid?> FindPlayerAsync(string clerkUserId);
     [Alias("ClaimPlayerAsync")] Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name);
     [Alias("IsClaimedAsync")] Task<bool> IsClaimedAsync(Guid participantId);
+    /// <summary>Every Participant a human owns, on auto or not.</summary>
+    [AlwaysInterleave, Alias("GetClaimedAsync")] Task<List<Guid>> GetClaimedAsync();
     [Alias("ForgetPlayerAsync")] Task ForgetPlayerAsync(Guid participantId);
     /// <summary>Author-announced Happening: logged, perceived by every Life, remembered by everyone.</summary>
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);

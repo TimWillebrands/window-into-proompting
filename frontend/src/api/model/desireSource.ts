@@ -12,4 +12,5 @@ export const DesireSource = {
     Sheet: 'Sheet',
     Play: 'Play',
     Mimesis: 'Mimesis',
+    Mission: 'Mission',
 } as const;

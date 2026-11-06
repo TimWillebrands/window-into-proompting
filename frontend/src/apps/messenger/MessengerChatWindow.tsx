@@ -13,7 +13,7 @@ import {
     typingState,
 } from '../../lib/room-conversation';
 import { useRoomConversation } from '../../lib/use-room-conversation';
-import { usePlayerId, WORLD_ID } from '../../lib/world';
+import { usePlayerId, usePlayerOnAuto, WORLD_ID } from '../../lib/world';
 import {
     BuddyIcon,
     type BuddyStatus,
@@ -161,11 +161,13 @@ function Conversation({
     useEffect(() => inputRef.current?.focus(), []);
 
     const prompt = usePostPartyIdPrompt();
-    const canSend = !!playerId && !!draft.trim() && !prompt.isPending;
+    const onAuto = usePlayerOnAuto();
+    const canSend =
+        !!playerId && !onAuto && !!draft.trim() && !prompt.isPending;
 
     const send = async () => {
         const text = draft.trim();
-        if (!text || !playerId || prompt.isPending) return;
+        if (!text || !playerId || onAuto || prompt.isPending) return;
         setDraft('');
         nearBottom.current = true;
         try {
@@ -187,6 +189,7 @@ function Conversation({
 
     const statusLine = (() => {
         if (connection !== 'connected') return 'Connecting to the server…';
+        if (onAuto) return 'Your character is on auto and answers for you.';
         if (isTyping) return `${withName} is typing a message.`;
         if (isReading) return `${withName} is reading your message…`;
         if (withId && heldBy(withId, messages, declined))

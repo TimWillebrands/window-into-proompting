@@ -39,6 +39,8 @@ public enum DesireSource
     Sheet = 1,
     Play = 2,
     Mimesis = 3,
+    /// <summary>Given by a Player to their character on auto (ADR 0037).</summary>
+    Mission = 4,
 }
 
 [GenerateSerializer]
