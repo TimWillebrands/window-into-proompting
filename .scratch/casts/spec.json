@@ -1,0 +1,63 @@
+{
+  "depot": {
+    "workplace": "the tram depot in Amsterdam-West",
+    "people": [
+      {"key": "ria", "seed": "Ria, a tram driver in her late fifties, thirty-one years on the job, born in the Jordaan, shop steward at the tram depot in Amsterdam-West. Bilal and Gerrit work at the same depot.",
+       "job": {"title": "tram driver", "days": "Mon-Fri", "hours": "06:00-14:00"}},
+      {"key": "bilal", "seed": "Bilal, a junior tram dispatcher in his late twenties at the tram depot in Amsterdam-West, Moroccan-Dutch, from Slotervaart, still lives close to his parents. Ria and Gerrit work at the same depot.",
+       "job": {"title": "tram dispatcher", "days": "Tue-Sat", "hours": "10:00-18:00"}},
+      {"key": "gerrit", "seed": "Gerrit, a rolling-stock mechanic in his early sixties at the tram depot in Amsterdam-West, counting the months to his pension. Ria and Bilal work at the same depot.",
+       "job": {"title": "rolling-stock mechanic", "days": "Mon-Fri", "hours": "07:00-15:30"}}
+    ],
+    "relations": [
+      ["ria", "gerrit", "Friends", "you've worked out of the same depot for over twenty years"],
+      ["ria", "bilal", "Other", "you work at the same tram depot; you've known each other about two years"],
+      ["bilal", "gerrit", "Other", "you work at the same tram depot; you've known each other about two years"]
+    ]
+  },
+  "roti": {
+    "workplace": "Roti Ramdin in Amsterdam-Zuidoost",
+    "people": [
+      {"key": "sharda", "seed": "Sharda Ramdin, sixty-three, Hindustani-Surinamese, came to the Netherlands as a teenager, owns and runs Roti Ramdin, a small takeaway in Amsterdam-Zuidoost. Her son Dinesh works there with her, and Kwame helps at the counter.",
+       "job": {"title": "owner and cook", "days": "Tue-Sun", "hours": "10:00-20:00"}},
+      {"key": "dinesh", "seed": "Dinesh Ramdin, thirty-six, Sharda's son, came back to work in her takeaway Roti Ramdin in Amsterdam-Zuidoost after a logistics job ended. Divorced, sees his daughter on fixed days.",
+       "job": {"title": "takeaway manager", "days": "Wed-Sun", "hours": "11:00-20:00"}},
+      {"key": "kwame", "seed": "Kwame, nineteen, Ghanaian-Dutch, grew up in the Bijlmer, works the counter at Roti Ramdin in Amsterdam-Zuidoost while he saves money and works out what comes next. Sharda and Dinesh are his bosses.",
+       "job": {"title": "counter assistant", "days": "Thu-Sun", "hours": "12:00-20:00"}}
+    ],
+    "relations": [
+      ["sharda", "dinesh", "Family", "you're mother and son, and you run the takeaway together"],
+      ["sharda", "kwame", "Other", "you work together at the takeaway; you've known each other a year"],
+      ["dinesh", "kwame", "Other", "you work together at the takeaway; you've known each other a year"]
+    ]
+  },
+  "house": {
+    "people": [
+      {"key": "ines", "seed": "Ines, twenty-one, from Porto, studies Japanese Studies in Amsterdam and shares a student house in Watergraafsmeer with Mees and Tobias. She helps out at a small Shinto shrine on Saturdays, for her thesis. She doesn't know anyone there well yet.",
+       "job": {"title": "shrine volunteer", "workplace": "a Shinto shrine", "days": "Sat", "hours": "10:00-15:00"}},
+      {"key": "mees", "seed": "Mees, twenty, dropped out of a law degree and works as a bike courier all over Amsterdam, shares a student house in Watergraafsmeer with Ines and Tobias.",
+       "job": {"title": "bike courier", "workplace": "the courier hub in Amsterdam-Oost", "days": "Mon-Fri", "hours": "11:00-19:00"}},
+      {"key": "tobias", "seed": "Tobias, twenty-four, German, a medical student in Amsterdam on clinical rotations, shares a student house in Watergraafsmeer with Ines and Mees.",
+       "job": {"title": "medical intern", "workplace": "the teaching hospital in Amsterdam-Oost", "days": "Mon-Fri", "hours": "08:00-17:00"}}
+    ],
+    "relations": [
+      ["ines", "mees", "Friends", "you share a student house"],
+      ["ines", "tobias", "Friends", "you share a student house"],
+      ["mees", "tobias", "Friends", "you share a student house"]
+    ]
+  },
+  "vlinderhof": {
+    "workplace": "De Vlinderhof in Amsterdam-Noord",
+    "people": [
+      {"key": "hiske", "seed": "Hiske, forty-seven, Frisian, a care aide at De Vlinderhof, a care home in Amsterdam-Noord. Cor and Annie are residents she looks after.",
+       "job": {"title": "care aide", "days": "Mon-Fri", "hours": "07:30-16:00"}},
+      {"key": "cor", "seed": "Cor, eighty-four, retired shipyard welder from Noord, widower, lives in a room at De Vlinderhof care home in Amsterdam-Noord. Annie lives down the corridor, Hiske is one of the aides."},
+      {"key": "annie", "seed": "Annie, eighty-one, retired primary-school teacher, widow, lives in a room at De Vlinderhof care home in Amsterdam-Noord. Cor lives down the corridor, Hiske is one of the aides."}
+    ],
+    "relations": [
+      ["hiske", "cor", "Other", "you know each other from the care home, where she's an aide and he lives"],
+      ["hiske", "annie", "Other", "you know each other from the care home, where she's an aide and she lives"],
+      ["cor", "annie", "Other", "you live down the corridor from each other at the care home"]
+    ]
+  }
+}

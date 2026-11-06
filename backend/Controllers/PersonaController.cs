@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -11,8 +12,13 @@ using PartyTown.Grains.Generation;
 using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Realtime;
+using PartyTown.Services.ResponsePipeline;
+using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
+
+/// <summary>What the generator wrote: the sheet, plus the Card's fields when it filled them in.</summary>
+internal sealed record GeneratedPersona(string Name, string SystemPrompt, string Bio, double? Chattiness, double? Impulsivity);
 
 public sealed record DefaultPersonaTemplate
 {
@@ -56,10 +62,15 @@ public class PersonaController(
     ILogger<PersonaController> logger) : ControllerBase
 {
     private const string BioGenerationSystemPrompt =
-        "You are a concise biography writer for AI chat personas. Given a character's full system prompt, " +
-        "write a compelling 2-3 sentence bio that captures their personality, role, and key defining traits. " +
-        "The bio should read like a character description card — vivid but brief. " +
-        "Output ONLY the bio text with no formatting, headers, or extra commentary.";
+        "You write a person's bio from their full description. Other systems read it as plain fact, and their figure is drawn from it alone. " +
+        "Third person, plain, 2-3 sentences on one line. " +
+        "The first sentence gives first name, age, what they do and where they're from; others often see only its first 140 characters. " +
+        "Then how they look in one clause (hair, build, what they wear), always: if the description doesn't say, choose what fits. " +
+        "Then how they come across, from what they do. " +
+        "Apart from looks, invent nothing: a missing age or origin stays out. " +
+        "Only what stays true: nothing about today, lately or what's going on for them. " +
+        "No epithets, archetype labels, themes or metaphors, even if the description has them. " +
+        "Output ONLY the bio: one line, no formatting, headings or commentary.";
 
     /// <summary>
     /// Returns all personas currently registered.
@@ -195,7 +206,7 @@ public class PersonaController(
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
             var dir = Path.Combine(env.ContentRootPath,
-                "Services", "Generation", "Prompts", "DefaultCharacters");
+                "Services", "ResponsePipeline", "Prompts", "DefaultCharacters");
 
             if (!Directory.Exists(dir))
             {
@@ -342,11 +353,11 @@ public class PersonaController(
                         break;
                     }
 
-                    var generated = await StreamToSocketAsync(generatorPrompt, prompt, 0.85);
+                    var generated = await StreamToSocketAsync(generatorPrompt, await BriefAsync(prompt), 0.85);
                     if (generated is null) break;
-                    var (name, systemPrompt, bio) = ParseGeneratedPersona(generated);
+                    var persona = ParseGeneratedPersona(generated);
                     await SendWsEnvelopeAsync(socket, "persona.generation.completed",
-                        new PersonaGenerationCompletedData(name, systemPrompt, bio), ct);
+                        new PersonaGenerationCompletedData(persona.Name, persona.SystemPrompt, persona.Bio, persona.Chattiness, persona.Impulsivity), ct);
                     break;
                 }
 
@@ -417,22 +428,35 @@ public class PersonaController(
         return text.Length > 300 ? text[..300].TrimEnd() + "..." : text;
     }
 
-    /// <summary>Name from "# Full Name" (lived format) or "# System Prompt: Name (The Epithet)" (legacy).</summary>
-    internal static (string Name, string SystemPrompt, string Bio) ParseGeneratedPersona(string raw)
+    /// <summary>The seed plus who and what the newcomer lands among, in the default Party.</summary>
+    private async Task<string> BriefAsync(string seed)
     {
-        var systemPrompt = raw.Trim();
+        var cast = await grains.GetGrain<IPartyGrain>(Guid.Empty).GetCastAsync();
+        var places = (await grains.GetGrain<IPlacesGrain>(Guid.Empty).GetSnapshotAsync()).Places
+            .Where(p => p.Kind == PlaceKinds.Public && !p.Private).Select(p => p.Name).ToList();
+        var residents = cast.Where(c => c.Id != Narrator.PersonaId).Select(c => (c.Name, c.Bio)).ToList();
+        return PersonaBrief.Compose(seed, Random.Shared, places, residents);
+    }
 
-        var heading = Regex.Match(raw, @"^#(?!#)\s*(.+?)\s*$", RegexOptions.Multiline);
+    /// <summary>Name from "# Full Name" (lived format) or "# System Prompt: Name (The Epithet)" (legacy); "## Card" feeds the fields and stays out of the sheet.</summary>
+    internal static GeneratedPersona ParseGeneratedPersona(string raw)
+    {
+        var card = Regex.Match(raw, @"^##\s*Card\s*$(.*)\z", RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
+        var sheet = card.Success ? raw[..card.Index] : raw;
+        string? Field(string key) => Regex.Match(card.Groups[1].Value, $@"^\s*{key}\s*:\s*(.+?)\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase) is { Success: true } m ? m.Groups[1].Value : null;
+        double? Dial(string key) => double.TryParse(Field(key), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? Math.Clamp(v, 0, 1) : null;
+
+        var heading = Regex.Match(sheet, @"^#(?!#)\s*(.+?)\s*$", RegexOptions.Multiline);
         var name = heading.Success
             ? Regex.Replace(Regex.Replace(heading.Groups[1].Value, @"^System Prompt:\s*", "", RegexOptions.IgnoreCase), @"\s*\(.*\)\s*$", "").Trim()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(name)) name = "Generated Persona";
 
-        var bio = ExtractBioFromMarkdown(raw);
+        var bio = Field("bio") ?? ExtractBioFromMarkdown(sheet);
         if (string.IsNullOrWhiteSpace(bio))
             bio = $"A unique AI persona named {name}.";
 
-        return (name, systemPrompt, bio);
+        return new GeneratedPersona(name, sheet.Trim(), bio, Dial("chattiness"), Dial("impulsivity"));
     }
 
     // ─── Intrinsic Stances (ADR 0016, issue #91) ──────────────────────────────────────────

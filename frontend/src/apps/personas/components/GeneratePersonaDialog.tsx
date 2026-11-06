@@ -8,6 +8,8 @@ type PersonaGenerationCompletedData = {
     name?: string;
     systemPrompt?: string;
     bio?: string;
+    chattiness?: number;
+    impulsivity?: number;
 };
 type PersonaGenerationErrorData = { message: string };
 
@@ -86,6 +88,8 @@ export default function GeneratePersonaDialog({
                             name: completed.name ?? 'Generated Persona',
                             systemPrompt: completed.systemPrompt ?? '',
                             bio: completed.bio ?? null,
+                            chattiness: completed.chattiness,
+                            impulsivity: completed.impulsivity,
                         },
                     });
                 } else if (envelope.type === 'persona.generation.error') {

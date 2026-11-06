@@ -86,7 +86,7 @@ public sealed record class PartyUnknownEventData(Guid PartyId, Guid ChatGroupId,
 public sealed record class PersonaGenerationDeltaData(string Data) : IPartyRealtimeData;
 
 /// <summary>Payload for the "persona.generation.completed" event: generation finished with optional parsed fields.</summary>
-public sealed record class PersonaGenerationCompletedData(string? Name, string? SystemPrompt, string? Bio) : IPartyRealtimeData;
+public sealed record class PersonaGenerationCompletedData(string? Name, string? SystemPrompt, string? Bio, double? Chattiness = null, double? Impulsivity = null) : IPartyRealtimeData;
 
 /// <summary>Payload for the "persona.generation.error" event.</summary>
 public sealed record class PersonaGenerationErrorData(string Message) : IPartyRealtimeData;

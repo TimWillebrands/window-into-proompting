@@ -19,8 +19,9 @@ public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<Play
 
     private const string SheetPrompt = """
         You describe a character in a small online world from what they've left behind, so someone else can carry on
-        living as them. Third person, plain prose, 80-200 words: who they seem to be, what they care about, how they
-        write. Stay close to the evidence and keep it ordinary where it's thin. No quotes, no contact details.
+        living as them. Third person, plain prose, 80-200 words: who they are, what they care about, how they write.
+        State it as fact about the person, as if you knew them. Never mention posts, records, evidence, or what's
+        unknown; just leave out what you can't tell. Looks get one short clause at most. No quotes, no contact details.
         Output only the description.
         """;
 
