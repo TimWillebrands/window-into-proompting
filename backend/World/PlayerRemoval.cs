@@ -26,9 +26,21 @@ public sealed class PlayerRemoval(IGrainFactory grains)
         await grains.GetGrain<IPlacesGrain>(partyId).RemoveParticipantAsync(playerId);
         await grains.GetGrain<Relations.IRelationsGrain>(partyId).LeaveAsync(playerId);
         await grains.GetGrain<IBoardGrain>(partyId).RemoveParticipantAsync(playerId);
+        await LeaveGatheringsAsync(partyId, playerId);
         await grains.GetGrain<IWorldClockGrain>(partyId).ForgetPlayerAsync(playerId);
         await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).RemovePersona(playerId);
         return true;
+    }
+
+    /// <summary>What they planned is called off; elsewhere they just stop coming.</summary>
+    private async Task LeaveGatheringsAsync(Guid partyId, Guid playerId)
+    {
+        var calendar = grains.GetGrain<ICalendarGrain>(partyId);
+        foreach (var gathering in await calendar.GetGatheringsAsync())
+        {
+            if (gathering.HostId == playerId) await calendar.CancelAsync(gathering.Id);
+            else if (gathering.AttendeeIds.Contains(playerId)) await calendar.RsvpAsync(gathering.Id, playerId, false);
+        }
     }
 
     private async Task RemoveMessagesAsync(Guid chatGroupId, Guid playerId)

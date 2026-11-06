@@ -206,6 +206,24 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task RemovedPlayer_LeavesNoGatheringBehind()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var calendar = _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId);
+        var player = (await _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId).ClaimPlayerAsync("user_a", "Sparky"))!.Value;
+        var at = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds();
+        await calendar.PlanAsync(player, "Sparky", "Mine", Guid.NewGuid(), "x", at);
+        var hers = await calendar.PlanAsync(denise, "Denise", "Hers", Guid.NewGuid(), "x", at);
+        await calendar.RsvpAsync(hers.Id, player, true);
+
+        Assert.True(await new PlayerRemoval(_fx.GrainFactory).RemoveAsync(partyId, player));
+
+        var left = Assert.Single(await calendar.GetGatheringsAsync());
+        Assert.Equal(hers.Id, left.Id);
+        Assert.DoesNotContain(player, left.AttendeeIds);
+    }
+
+    [Fact]
     public async Task PlayerOnAuto_CanStillBeRemoved()
     {
         var (partyId, _) = await _fx.CreateWorldAsync();

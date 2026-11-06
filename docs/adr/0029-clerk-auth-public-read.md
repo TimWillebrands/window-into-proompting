@@ -26,7 +26,7 @@ Admins are Clerk user ids in `Clerk:AdminUserIds`.
 
 **Players.** A signed-in human with no Player makes one by choosing a character name, unique in the cast, recorded against their Clerk id on `WorldClockGrain`. Real names from Clerk are never used. `Actors` resolves who a request acts as; client-sent ids are claims it checks, not facts. Acting without a Player is a 409.
 
-**Removal.** `PlayerRemoval` takes a Player's DMs, messages, Board posts, replies and Respect, activity lines, Body, Home and library entry. Personas keep their memories.
+**Removal.** `PlayerRemoval` takes a Player's DMs, messages, Board posts, replies and Respect, Gatherings, activity lines, Body, Home and library entry. Personas keep their memories.
 
 **Speaking.** World actions are your own Player only. In Rooms you may also speak as any Persona no human owns, which keeps Driver overrides working.
 
