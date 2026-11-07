@@ -45,14 +45,14 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     }
 
     /// <summary>Says something to the CDU for a Cytheurgist; null when it couldn't be reached.</summary>
-    public async Task<CduExchange?> SayAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, CancellationToken ct)
+    public async Task<CduExchange?> SayAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model, CancellationToken ct)
     {
         try
         {
-            var turn = await cdu.TalkAsync(new CduSpeaker(speaker.Id.ToString(), speaker.Name), text, kind, ct);
+            var turn = await cdu.TalkAsync(new CduSpeaker(speaker.Id.ToString(), speaker.Name), text, kind, model, ct);
             var exchange = new CduExchange
             {
-                TurnId = turn.Id, CompanyId = company.Id, SpeakerId = speaker.Id, SpeakerName = speaker.Name, Kind = kind, Text = turn.Text,
+                TurnId = turn.Id, CompanyId = company.Id, SpeakerId = speaker.Id, SpeakerName = speaker.Name, Kind = kind, Text = turn.Text, Model = model,
                 At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
             await Grain(partyId).SpokeAsync(exchange);

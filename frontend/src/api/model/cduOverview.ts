@@ -7,6 +7,7 @@
 import type { CduAllowanceSummary } from './cduAllowanceSummary';
 import type { CduCommitSummary } from './cduCommitSummary';
 import type { CduExchangeSummary } from './cduExchangeSummary';
+import type { CduModelSummary } from './cduModelSummary';
 import type { CduPrSummary } from './cduPrSummary';
 
 export interface CduOverview {
@@ -21,4 +22,5 @@ export interface CduOverview {
     pr: null | CduPrSummary;
     allowance: null | CduAllowanceSummary;
     exchanges: CduExchangeSummary[];
+    models: CduModelSummary[];
 }

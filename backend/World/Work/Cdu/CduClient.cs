@@ -14,6 +14,9 @@ public sealed record CduPr(int Number, string Url, string Title, string State, s
 
 public sealed record CduAllowance(double Usd, double CapUsd);
 
+/// <summary>A mind the CDU can be woken with. Tier is free, small or capable; prices are USD per million tokens.</summary>
+public sealed record CduModel(string Id, string Label, string? Tier, double In, double Out);
+
 public sealed record CduTrunk(string? Head, List<CduCommit> Ahead);
 
 public sealed record CduTurn(
@@ -22,7 +25,7 @@ public sealed record CduTurn(
 
 public sealed record CduStatus(
     bool Awake, string? Hearing, int Queued, string Model, CduTrunk? Trunk, CduPr? Pr, CduAllowance? Allowance,
-    long Lines, long News, CduTurn? Last);
+    long Lines, long News, CduTurn? Last, List<CduModel>? Models = null);
 
 /// <summary>A transcript line or a piece of news, numbered for reading by cursor.</summary>
 public sealed record CduEntry(long N, long At, string Kind, string Text, JsonElement? Data)
@@ -45,7 +48,8 @@ public interface ICdu
 {
     bool Enabled { get; }
     Task<CduStatus> StatusAsync(CancellationToken ct);
-    Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, CancellationToken ct);
+    /// <summary>Model is the mind the speaker chose; null wakes the cheapest.</summary>
+    Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, string? model, CancellationToken ct);
     Task<List<CduEntry>> LinesAsync(long after, CancellationToken ct);
     Task<List<CduEntry>> NewsAsync(long after, CancellationToken ct);
     Task TideInAsync(CancellationToken ct);
@@ -67,8 +71,8 @@ public sealed class HttpCdu(IConfiguration config, Tailnets tailnets) : ICdu
 
     public Task<CduStatus> StatusAsync(CancellationToken ct) => SendAsync<CduStatus>(HttpMethod.Get, "/status", null, ct);
 
-    public Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, CancellationToken ct)
-        => SendAsync<CduTurn>(HttpMethod.Post, "/talk", new { from, text, kind }, ct);
+    public Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, string? model, CancellationToken ct)
+        => SendAsync<CduTurn>(HttpMethod.Post, "/talk", new { from, text, kind, model }, ct);
 
     public Task<List<CduEntry>> LinesAsync(long after, CancellationToken ct) => SendAsync<List<CduEntry>>(HttpMethod.Get, $"/lines?after={after}", null, ct);
 

@@ -26,7 +26,7 @@ public static partial class CduScreen
     private const int ReplyShown = 700;
     private const int ExchangesShown = 4;
 
-    public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>"}""";
+    public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>", "mind": "<the id of the mind you wake it with, from the list>"}""";
 
     /// <summary>The fiction staff work inside, and only staff on shift: it's in no sheet and nobody else's prompt.</summary>
     public static string Frame(Company company) => $"""
@@ -34,6 +34,7 @@ You work at {company.Name} as a Cytheurgist, and you know what almost nobody her
 At your desk is the CDU, the Central Demiurge Unit: it shapes the Forms, remembers, and has a will of its own, but it moves only when a Cytheurgist works on it. You tell it what you want for this world; it decides what to build. Everything it builds waits on its trunk.
 At the end of a shift the tide takes the trunk to the Agora, where the One judges it. Only when the One merges does his light reach the world, and the change becomes real. Nobody here has met him and nobody can ask him anything.
 What the CDU tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
+You choose the mind you wake it with, and its allowance has to last. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
 """;
 
     public static WorldHealth Health(IEnumerable<WorldActivity> activities, DateTimeOffset now)
@@ -63,9 +64,11 @@ What the CDU tells you is what it says. What it did is on the trunk and in the A
             return sb.ToString().TrimEnd();
         }
         sb.AppendLine(cdu.Awake ? $"The CDU is awake, working on what {cdu.Hearing ?? "someone"} said." : "The CDU sleeps until someone speaks to it.");
-        if (cdu.Allowance is { } a) sb.AppendLine($"Its allowance today: {Money(Math.Max(0, a.CapUsd - a.Usd))} of {Money(a.CapUsd)} left.");
+        if (cdu.Allowance is { } a)
+            sb.AppendLine(Spent(cdu) ? "It has spent today's allowance: it can't think again until tomorrow." : $"Its allowance today: {Money(Math.Max(0, a.CapUsd - a.Usd))} of {Money(a.CapUsd)} left.");
         var said = desk.State.Exchanges.TakeLast(ExchangesShown).ToList();
         if (said.Count > 0) sb.AppendLine($"Lately:\n{string.Join("\n", said.Select(e => Exchange(e, desk.Self)))}");
+        if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
         sb.AppendLine(Trunk(cdu));
         if (cdu.Pr is { } pr) sb.AppendLine($"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.");
@@ -77,7 +80,7 @@ What the CDU tells you is what it says. What it did is on the trunk and in the A
         var list = new List<Affordance>();
         if (desk.Cdu is null) return list;
         var company = desk.Company.Id;
-        if (CduRules.Pending(desk.State.Exchanges, desk.Self) is null)
+        if (CduRules.Pending(desk.State.Exchanges, desk.Self) is null && !Spent(desk.Cdu))
         {
             if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q)
                 list.Add(new(AppId, $"Answer the CDU's question to {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)}", 3, company, VerbAnswer));
@@ -86,6 +89,9 @@ What the CDU tells you is what it says. What it did is on the trunk and in the A
         list.Add(new(AppId, "Look at what the CDU actually did: the trunk and the Agora", 1, company, VerbLook));
         return list;
     }
+
+    /// <summary>Out of allowance for today: words to it would only fail.</summary>
+    public static bool Spent(CduStatus cdu) => cdu.Allowance is { } a && a.Usd >= a.CapUsd;
 
     /// <summary>What a look takes in: facts from git and GitHub, never its claims.</summary>
     public static string Look(CduStatus? cdu)
@@ -109,7 +115,8 @@ What the CDU tells you is what it says. What it did is on the trunk and in the A
     private static string Exchange(CduExchange e, Guid self)
     {
         var who = e.SpeakerId == self ? "You" : e.SpeakerName;
-        var said = $"- {who} {(e.Kind == CduRules.Answer ? "answered" : "said")}: {WorldStream.Clip(e.Text, 160)}";
+        var woke = e.Model is null ? string.Empty : $" (woke it with {e.Model})";
+        var said = $"- {who} {(e.Kind == CduRules.Answer ? "answered" : "said")}{woke}: {WorldStream.Clip(e.Text, 160)}";
         return e.Status switch
         {
             CduRules.Queued => $"{said} (no answer yet)",
@@ -141,6 +148,19 @@ What the CDU tells you is what it says. What it did is on the trunk and in the A
     {
         var text = json?["message"]?.ToString().Trim();
         return string.IsNullOrWhiteSpace(text) || text.Equals("none", StringComparison.OrdinalIgnoreCase) ? null : WorldStream.Clip(text, MessageMax);
+    }
+
+    /// <summary>The mind they chose, held to the list; anything else wakes the cheapest.</summary>
+    public static string? ReadMind(JsonObject? json, IReadOnlyList<CduModel>? models)
+    {
+        var said = json?["mind"]?.ToString().Trim();
+        return models?.FirstOrDefault(m => string.Equals(m.Id, said, StringComparison.OrdinalIgnoreCase))?.Id ?? models?.FirstOrDefault()?.Id;
+    }
+
+    private static string Mind(CduModel m)
+    {
+        var price = m.In == 0 && m.Out == 0 ? "free" : $"{Money(m.In)} in, {Money(m.Out)} out per million tokens";
+        return $"- {m.Id} ({m.Tier ?? "?"}): {m.Label}, {price}";
     }
 
     [GeneratedRegex(@"[0-9a-fA-F-]{8,}")]

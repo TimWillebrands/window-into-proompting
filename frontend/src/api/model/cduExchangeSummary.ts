@@ -25,4 +25,6 @@ export interface CduExchangeSummary {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     doneAt: number | string | null;
+    /** @nullable */
+    model: string | null;
 }

@@ -41,9 +41,10 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
             : "Put what you've decided into words for the CDU, as yourself. Say what you want to be different for people here and what you saw that makes it worth it. It decides how; you bring the why.";
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(ctx.Self)}\n\n{CduScreen.Frame(company)}\n{ask}\nOutput ONLY JSON: {CduScreen.MessageShape}",
-            $"{CduScreen.Render(desk)}\n\nWhat you've decided: {intent}", ct, 0.4, new[] { "message" });
+            $"{CduScreen.Render(desk)}\n\nWhat you've decided: {intent}", ct, 0.4, new[] { "message", "mind" });
         if (CduScreen.ReadMessage(json) is not { } message) return new ActOutcome("hold", $"sat with the CDU at {company.Name} and said nothing", company.Id);
-        var said = await site.SayAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, ct);
+        var mind = CduScreen.ReadMind(json, desk.Cdu.Models);
+        var said = await site.SayAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind, ct);
         if (said is null) return new ActOutcome("hold", $"couldn't reach the CDU at {company.Name}", company.Id);
         return new ActOutcome(kind, kind == CduRules.Answer ? $"answered the CDU at {company.Name}" : $"spoke to the CDU at {company.Name}", company.Id);
     }

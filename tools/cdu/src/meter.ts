@@ -61,12 +61,13 @@ export function roll(tab: Tab, day: string) {
     Object.assign(tab, { usd: 0, tokens: 0, calls: 0, day });
 }
 
-/** Declared tabs keep their caps from config and their tallies from the last run. */
+/** Declared tabs keep their caps from config and their tallies from the last run; a daily tab no longer declared is gone, so rotating its token retires it. */
 export function restore(declared: Tab[], kept: Tab[]): Map<string, Tab> {
-    const tabs = new Map(kept.map((t) => [t.token, t]));
+    const tabs = new Map(kept.filter((t) => !t.daily).map((t) => [t.token, t]));
+    const before = new Map(kept.map((t) => [t.token, t]));
     for (const tab of declared) {
-        const before = tabs.get(tab.token);
-        tabs.set(tab.token, { ...tab, ...(before && { usd: before.usd, tokens: before.tokens, calls: before.calls, day: before.day }) });
+        const was = before.get(tab.token);
+        tabs.set(tab.token, { ...tab, ...(was && { usd: was.usd, tokens: was.tokens, calls: was.calls, day: was.day }) });
     }
     return tabs;
 }

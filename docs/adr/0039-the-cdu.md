@@ -20,8 +20,9 @@ The first version ("the Works") ran opencode per job in a throwaway sandbox and 
 10. **Two registers.** Forms-talk to Cytheurgists; plain engineering in code, commits and PRs.
 11. **The database is read-write**, and the CDU knows its physics as a fact: grain state in `orleansstorage` is held in memory by Orleans, so writing it is futile (overwritten, or version checks break); the AGE memory graph is read straight from Postgres, so writing it takes effect at once. It touches minds directly, matter only through the Forms, and only once the One merges.
 12. **The system of record reports outcomes (ADR 0030, rule 1).** Spend comes from the Meter, what changed from git, checks from CI. The CDU's reply is shown as what it says. A weak model in the Works claimed work the diff didn't show.
-13. **The Meter holds the key.** The CDU spends its own OpenRouter key through the Meter, in a separate container, on a daily allowance it can read but not raise.
-14. **GitHub is the fence.** `master` takes no direct pushes; the token reaches this repo only, contents and pull requests, never workflows, so the CDU can't change its own checks.
+13. **The Meter holds the key.** The CDU spends its own model key (OpenCode Go) through the Meter, in a separate container, on a daily allowance it can read but not raise.
+14. **Cytheurgists choose the mind, frugally.** Each time they speak to the CDU they pick the model that wakes it, from a ladder priced on the desk: a free preview for small things, a small model for ordinary work, a capable one only when the work needs it. Frugality is in their frame and in the soul, not in a fixed default; the Meter's allowance is the backstop.
+15. **GitHub is the fence.** `master` takes no direct pushes; the token reaches this repo only, contents and pull requests, never workflows, so the CDU can't change its own checks.
 
 ## Considered
 

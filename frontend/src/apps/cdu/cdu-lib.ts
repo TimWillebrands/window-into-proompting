@@ -2,6 +2,7 @@ import type {
     CduAllowanceSummary,
     CduExchangeSummary,
     CduLineSummary,
+    CduModelSummary,
     CduPrSummary,
 } from '../../api/model';
 
@@ -61,3 +62,9 @@ export function exchangeWord(e: CduExchangeSummary): string {
 }
 
 export const shortSha = (sha: string) => sha.slice(0, 7);
+
+/** A mind on the ladder: its tier and what it costs per million tokens. */
+export const mindLine = (m: CduModelSummary) =>
+    Number(m.in) === 0 && Number(m.out) === 0
+        ? `${m.id} · ${m.tier ?? '?'} · free`
+        : `${m.id} · ${m.tier ?? '?'} · ${money(m.in)}/${money(m.out)}`;

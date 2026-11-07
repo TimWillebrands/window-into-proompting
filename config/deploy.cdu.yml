@@ -51,7 +51,7 @@ accessories:
     env:
       clear:
         METER_UPSTREAM_URL: https://opencode.ai/inference/go/openai/v1
-        METER_TAB_DAILY_USD: "5"
+        METER_TAB_DAILY_USD: "1"
         METER_STATE: /data/tabs.json
       secret:
         - METER_UPSTREAM_KEY:CDU_OPENCODE_GO_KEY

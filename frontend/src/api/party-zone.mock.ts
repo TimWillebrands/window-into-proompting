@@ -412,6 +412,7 @@ const cduExchanges: CduExchangeSummary[] = [
         commits: 0,
         at: 2,
         doneAt: null,
+        model: 'beam-free',
     },
     {
         turnId: 't1',
@@ -426,6 +427,7 @@ const cduExchanges: CduExchangeSummary[] = [
         commits: 2,
         at: 1,
         doneAt: 1,
+        model: 'kimi-k2.7-code',
     },
 ];
 
@@ -437,7 +439,7 @@ export const useGetWorldsPartyIdCdu = fn(() =>
             up: true,
             awake: true,
             hearing: 'Justin de Castelnaudary Ruysch',
-            model: 'anthropic/claude-sonnet-5.5',
+            model: 'beam-free',
             trunk: [
                 {
                     sha: '9f92336abc',
@@ -458,8 +460,31 @@ export const useGetWorldsPartyIdCdu = fn(() =>
                 state: 'OPEN',
                 checks: 'pending',
             },
-            allowance: { usd: 1.2734, capUsd: 5 },
+            allowance: { usd: 0.2734, capUsd: 1 },
             exchanges: cduExchanges,
+            models: [
+                {
+                    id: 'beam-free',
+                    label: 'free preview',
+                    tier: 'free',
+                    in: 0,
+                    out: 0,
+                },
+                {
+                    id: 'deepseek-v4.1-flash',
+                    label: 'quick, cheap',
+                    tier: 'small',
+                    in: 0.15,
+                    out: 0.6,
+                },
+                {
+                    id: 'kimi-k2.7-code',
+                    label: 'the best coder, dear',
+                    tier: 'capable',
+                    in: 0.95,
+                    out: 4,
+                },
+            ],
         },
     }),
 );

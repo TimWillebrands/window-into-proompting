@@ -24,6 +24,8 @@ public sealed class CduExchange
     [Id(10)] public int Commits { get; set; }
     [Id(11)] public long At { get; set; }
     [Id(12)] public long? DoneAt { get; set; }
+    /// <summary>The mind it was woken with, as the speaker chose.</summary>
+    [Id(13)] public string? Model { get; set; }
 }
 
 /// <summary>A piece of the CDU's news, flattened so it can cross into a grain.</summary>
