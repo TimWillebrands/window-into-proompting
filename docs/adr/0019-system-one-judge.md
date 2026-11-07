@@ -84,3 +84,10 @@ System One now weighs three RR instances:
 | Initiative | `choice` over Affordances | sampled at temperature 0.8 |
 | Interruption | `noul` "finishing now would look out of touch" + `choice` kind | the stop-signal race salience |
 | Capture | `noul` "remembered in a week" | gate below 0.35 |
+
+## Amendment (2026-11): System Two can decline
+
+Voicing the winner could already disagree with it: Pieter's intent was "stay home on the sofa" while the move to an
+office went ahead. Now the voicing call has a `decline` field. When System Two, in character, wouldn't do what System
+One picked, the turn becomes a rest ("thought better of it") instead. Sampling keeps proposing; System Two keeps the
+last word.

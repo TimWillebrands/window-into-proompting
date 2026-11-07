@@ -86,6 +86,7 @@ import type {
     PartyInfo,
     Persona,
     PersonaRoute,
+    PlaceAccessRequest,
     PlaceStyleRequest,
     PlacesSnapshot,
     PlanGatheringRequest,
@@ -19744,6 +19745,152 @@ export const usePostWorldsPartyIdPlacesCreate = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlacesCreateMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+export type putWorldsPartyIdPlacesPlaceIdAccessResponseError = (
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse400TextPlain
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse400ApplicationJson
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse400TextJson
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse404TextPlain
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse404ApplicationJson
+    | putWorldsPartyIdPlacesPlaceIdAccessResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type putWorldsPartyIdPlacesPlaceIdAccessResponse =
+    putWorldsPartyIdPlacesPlaceIdAccessResponseError;
+
+export const getPutWorldsPartyIdPlacesPlaceIdAccessUrl = (
+    partyId: string,
+    placeId: string,
+) => {
+    return `/api/worlds/${partyId}/places/${placeId}/access`;
+};
+
+export const putWorldsPartyIdPlacesPlaceIdAccess = async (
+    partyId: string,
+    placeId: string,
+    placeAccessRequest: PlaceAccessRequest,
+    options?: RequestInit,
+): Promise<putWorldsPartyIdPlacesPlaceIdAccessResponse> => {
+    return customFetch<putWorldsPartyIdPlacesPlaceIdAccessResponse>(
+        getPutWorldsPartyIdPlacesPlaceIdAccessUrl(partyId, placeId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(placeAccessRequest),
+        },
+    );
+};
+
+export const getPutWorldsPartyIdPlacesPlaceIdAccessMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>,
+        TError,
+        { partyId: string; placeId: string; data: PlaceAccessRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>,
+    TError,
+    { partyId: string; placeId: string; data: PlaceAccessRequest },
+    TContext
+> => {
+    const mutationKey = ['putWorldsPartyIdPlacesPlaceIdAccess'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>,
+        { partyId: string; placeId: string; data: PlaceAccessRequest }
+    > = (props) => {
+        const { partyId, placeId, data } = props ?? {};
+
+        return putWorldsPartyIdPlacesPlaceIdAccess(
+            partyId,
+            placeId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutWorldsPartyIdPlacesPlaceIdAccessMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>
+>;
+export type PutWorldsPartyIdPlacesPlaceIdAccessMutationBody =
+    PlaceAccessRequest;
+export type PutWorldsPartyIdPlacesPlaceIdAccessMutationError = ProblemDetails;
+
+export const usePutWorldsPartyIdPlacesPlaceIdAccess = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>,
+            TError,
+            { partyId: string; placeId: string; data: PlaceAccessRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlacesPlaceIdAccess>>,
+    TError,
+    { partyId: string; placeId: string; data: PlaceAccessRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutWorldsPartyIdPlacesPlaceIdAccessMutationOptions(options),
         queryClient,
     );
 };

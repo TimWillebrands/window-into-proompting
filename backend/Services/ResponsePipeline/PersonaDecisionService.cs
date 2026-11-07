@@ -55,7 +55,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         bool isDirect = false,
         string? presence = null,
         bool windingDown = false,
-        bool deliberate = false)
+        bool deliberate = false,
+        bool inPerson = false)
     {
         var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup, directlyAddressed: isDirect);
         var recentSelfMessageCount = UrgeMath.CountRecentSelfMessages(history, self.Id);
@@ -88,7 +89,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances, presence) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances, presence, inPerson) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -209,7 +210,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         RepairHint? repairHint,
         IReadOnlyList<string>? recollections,
         IReadOnlyList<string>? stances,
-        string? presence = null)
+        string? presence = null,
+        bool inPerson = false)
     {
         // The trailing grounding line counters small-model scene drift: gut reactions were
         // observed inventing a different time/place than the setting states ("another
@@ -248,17 +250,11 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
 {{scenarioBlock}}
 # Other people in the room
-{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => p.Driver switch
-{
-    DriverKind.User => $"- {p.Name} (human)",
-    DriverKind.System => $"- {p.Name} (narrator)",
-    _ => $"- {p.Name} (persona)",
-}))}}
+{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => Roster.Line(p, inPerson)))}}
 {{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
 {{(string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n")}}
 # What you're doing
-You're hanging out in a casual group chat. Someone just spoke. Read it
-the way YOU would — as {{self.Name}}, with your tastes, hangups, and mood.
+{{(inPerson ? InPersonScene(self.Name) : $"You're hanging out in a casual group chat. Someone just spoke. Read it\nthe way YOU would — as {self.Name}, with your tastes, hangups, and mood.")}}
 
 First: what's your honest gut reaction? A quick thought, feeling, eye-roll,
 laugh, disagreement, "huh, interesting" — whatever actually surfaces.
@@ -288,15 +284,21 @@ is worse than letting the room breathe. Use judgement.
   callback is worse than none, but ignoring what you plainly remember is
   worse than both. When set, that memory travels with you into the
   speaking phase and shapes what you actually type.
-- wouldSay: what you'd actually type into the chat right now, OR ""
-  (empty string) if you'd let it pass. This becomes your message verbatim
-  if you speak — write it as the chat message itself, not as a description
-  of what you'd say. Do NOT wrap the text in extra quotes; it is a chat
-  message, not a quotation. Don't open it with someone's name, and don't
+- wouldSay: {{(inPerson ? "the words you'd actually say out loud right now" : "what you'd actually type into the chat right now")}}, OR ""
+  (empty string) if you'd let it pass. This becomes {{(inPerson ? "what you say" : "your message")}} verbatim
+  if you speak — write the words themselves, not a description
+  of what you'd say. Do NOT wrap the text in extra quotes; it is {{(inPerson ? "speech" : "a chat\n  message")}}, not a quotation. Don't open it with someone's name, and don't
   repeat anything you already said (see "What you said lately").
 - respond: true iff wouldSay is non-empty.
 """;
     }
+
+    /// <summary>Place talk (ADR 0041): the moment is somewhere real, so where and who belong in the reaction.</summary>
+    private static string InPersonScene(string name) => $"""
+        You're here in person with the people around you, and someone just said something
+        out loud. Take it in the way YOU would — as {name}, with your tastes, hangups, and
+        mood, and with where you are: who's here, whether they belong, what hour it is.
+        """;
 
     private static string ShouldRespondUserPrompt(
         IEnumerable<ChatMessageWithSenderName> messages,

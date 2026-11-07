@@ -52,6 +52,38 @@ public sealed class Place
     [Id(25)] public List<Guid> Keyholders { get; set; } = new();
     /// <summary>Closed Places: when each person last had to deal with the door, newest last.</summary>
     [Id(26)] public Dictionary<Guid, List<long>> Doorsteps { get; set; } = new();
+    /// <summary>A workplace's door (ADR 0041), one of <see cref="PlaceAccess"/>; null = open, until its staff settle it.</summary>
+    [Id(27)] public string? Access { get; set; }
+    /// <summary>Who works here, from their Occupations; they host its door.</summary>
+    [Id(28)] public List<Guid> Staff { get; set; } = new();
+    /// <summary>The author's access list: people who aren't staff but come and go anyway.</summary>
+    [Id(29)] public List<Guid> Allowed { get; set; } = new();
+}
+
+/// <summary>Who a workplace lets in (ADR 0041).</summary>
+public static class PlaceAccess
+{
+    public const string Open = "open";
+    /// <summary>Staff, the access list, and whoever has a Session or a Gathering there.</summary>
+    public const string Appointment = "appointment";
+    /// <summary>Staff and the access list; anyone else knocks.</summary>
+    public const string Staff = "staff";
+
+    public static readonly string[] All = { Open, Appointment, Staff };
+
+    public static bool IsKnown(string? access) => access is Open or Appointment or Staff;
+
+    /// <summary>A workplace behind a door: staffed, and not open.</summary>
+    public static bool Shut(Place place)
+        => place.Kind == PlaceKinds.Public && (place.Access is Appointment or Staff) && place.Staff.Count > 0;
+
+    /// <summary>"staff only", "by appointment", for prompts and the author.</summary>
+    public static string Words(string? access) => access switch
+    {
+        Staff => "staff only",
+        Appointment => "by appointment",
+        _ => "open to anyone",
+    };
 }
 
 /// <summary>Who lives in a Home (ADR 0035): the owner until they've moved out, plus anyone who moved in.</summary>
@@ -67,11 +99,20 @@ public static class Homes
     public static bool LivesIn(this Place place, Guid who) => place.Living().Contains(who);
 
     /// <summary>You knock or get invited.</summary>
-    public static bool IsClosed(this Place place) => place.Kind == PlaceKinds.Home || place.Private;
+    public static bool IsClosed(this Place place) => place.Kind == PlaceKinds.Home || place.Private || PlaceAccess.Shut(place);
+
+    /// <summary>Closed the way a Home is: its hosts can hand out Keys (ADR 0036). A workplace's door is the author's.</summary>
+    public static bool Keyed(this Place place) => place.Kind == PlaceKinds.Home || place.Private;
+
+    /// <summary>A workplace behind a door, which its staff answer.</summary>
+    public static bool IsWorkplaceDoor(this Place place) => !place.Keyed() && PlaceAccess.Shut(place);
 
     /// <summary>Who decides who comes in.</summary>
     public static IEnumerable<Guid> Hosts(this Place place)
-        => place.Kind == PlaceKinds.Home ? place.Living() : place.Private && place.MadeBy is { } owner ? new[] { owner } : Enumerable.Empty<Guid>();
+        => place.Kind == PlaceKinds.Home ? place.Living()
+            : place.Private && place.MadeBy is { } owner ? new[] { owner }
+            : PlaceAccess.Shut(place) ? place.Staff
+            : Enumerable.Empty<Guid>();
 
     public static Place? HomeOf(this IEnumerable<Place> places, Guid who) => places.FirstOrDefault(p => p.LivesIn(who));
 

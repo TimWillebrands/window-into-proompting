@@ -77,7 +77,7 @@ public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = nul
         var acquired = (await grains.GetGrain<IDesiresGrain>(WorldKeys.Life(ctx.PartyId, self)).GetAsync()).Acquired;
         var ties = grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(ctx.PartyId, self));
         var here = snapshot.Bodies.Where(b => b.ParticipantId != self && b.PlaceId == me.PlaceId && !b.IsWalking && !b.Asleep && !ctx.IsHuman(b.ParticipantId)).Select(b => b.ParticipantId).ToHashSet();
-        var closed = snapshot.Places.Where(p => p.IsClosed()).ToList();
+        var closed = snapshot.Places.Where(p => p.Keyed()).ToList();
 
         foreach (var place in closed.Where(p => p.Keyholders.Contains(self)))
         {

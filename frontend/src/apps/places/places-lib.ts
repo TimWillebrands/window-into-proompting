@@ -29,9 +29,18 @@ export const livesIn = (place: Place, who: string | null) =>
     ((place.ownerId === who && !place.vacated) ||
         (place.housemates ?? []).includes(who));
 
-/** Who decides who comes in, for a Home or a private Place. */
+/** A workplace behind a door (ADR 0041): staffed, staff only or by appointment. */
+export const workplaceDoor = (place: Place) =>
+    place.kind === 'public' &&
+    !place.private &&
+    (place.access === 'staff' || place.access === 'appointment') &&
+    (place.staff ?? []).length > 0;
+
+/** Who decides who comes in: who lives there, a private Place's maker, a workplace's staff. */
 export const hosts = (place: Place, who: string | null) =>
-    livesIn(place, who) || (!!place.private && place.madeBy === who);
+    livesIn(place, who) ||
+    (!!place.private && place.madeBy === who) ||
+    (!!who && workplaceDoor(place) && (place.staff ?? []).includes(who));
 
 export const placeLabel = (
     place: Place | undefined,
@@ -45,12 +54,13 @@ export const placeLabel = (
                 .replace(/^the /, '')
                 .replace(/^./, (c) => c.toUpperCase());
 
-/** Others' Homes are private in phase 1. */
+/** Others' Homes, private Places and workplace doors: hosts, keys, guests and the access list. */
 export const mayEnter = (place: Place, viewerId: string | null) =>
-    (place.kind !== 'home' && !place.private) ||
+    (place.kind !== 'home' && !place.private && !workplaceDoor(place)) ||
     hosts(place, viewerId) ||
     (!!viewerId && (place.keyholders ?? []).includes(viewerId)) ||
-    (!!viewerId && (place.guests ?? []).includes(viewerId));
+    (!!viewerId && (place.guests ?? []).includes(viewerId)) ||
+    (!!viewerId && (place.allowed ?? []).includes(viewerId));
 
 /** "arriving in 42s" while walking; null when settled. */
 export function walkingText(b: Body, now: number): string | null {
@@ -227,6 +237,7 @@ export function placeIcon(place: Place, viewerId: string | null): string {
         lobby: '🛎️',
         centre: '🌳',
     };
+    if (workplaceDoor(place) && !mayEnter(place, viewerId)) return '🔒';
     if (place.scene && scene[place.scene]) return scene[place.scene];
     const name = (place.name ?? '').toLowerCase();
     const cues: [RegExp, string][] = [

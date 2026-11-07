@@ -68,7 +68,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<List<Overheard>>> GetOverheard(Guid partyId, Guid participantId)
         => Ok(await Places(partyId).GetOverheardAsync(participantId));
 
-    /// <summary>Knock on someone's Home (default: as the Player). 409 when they're out or asleep.</summary>
+    /// <summary>Knock on someone's Home or a closed workplace (default: as the Player). 409 when nobody's in to answer.</summary>
     [HttpPost("knock")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Knock(Guid partyId, [FromBody] KnockRequest request)
@@ -194,6 +194,17 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
             ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
     }
 
+    /// <summary>Author: a workplace's door (open, appointment or staff) and who else may come in (ADR 0041). Anyone no longer allowed goes home.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+    [HttpPut("{placeId:guid}/access")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Place>> SetAccess(Guid partyId, Guid placeId, [FromBody] PlaceAccessRequest request)
+    {
+        if (!PlaceAccess.IsKnown(request.Access)) return BadRequest($"Access is one of: {string.Join(", ", PlaceAccess.All)}.");
+        return await Places(partyId).SetAccessAsync(placeId, request.Access, request.Allowed ?? new List<Guid>()) is { } place ? Ok(place) : NotFound();
+    }
+
     /// <summary>Author: remove a generated Place; anyone there goes home.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("{placeId:guid}")]
@@ -230,5 +241,6 @@ public sealed record CreatePlaceRequest(string Text, bool Outdoor, Guid? MadeBy)
 public sealed record IdleRequest(bool Idle, Guid? ParticipantId);
 public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);
+public sealed record PlaceAccessRequest(string Access, List<Guid>? Allowed);
 public sealed record LetInRequest(Guid VisitorId, Guid? OwnerId);
 public sealed record VoiceRequest(string Volume, Guid? To, Guid? ParticipantId);

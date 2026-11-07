@@ -4,6 +4,7 @@
   "purpose": "where people work at desks and grab coffee between meetings",
   "description": "an open-plan office with rows of desks",
   "at": "at",
+  "access": "staff",
   "keywords": [
    "office",
    "work",
@@ -351,6 +352,7 @@
   "purpose": "where people go to see a doctor",
   "description": "a clinic with a reception desk and a waiting room",
   "at": "at",
+  "access": "appointment",
   "keywords": [
    "clinic",
    "hospital",
@@ -358,7 +360,11 @@
    "dentist",
    "gp",
    "pharmacy",
-   "physio"
+   "physio",
+   "practice",
+   "praktijk",
+   "surgery",
+   "therapist"
   ],
   "spots": [
    {
@@ -382,6 +388,7 @@
   "purpose": "where art gets made",
   "description": "a working studio, paint on the floor and canvases against the walls",
   "at": "at",
+  "access": "staff",
   "keywords": [
    "studio",
    "atelier",

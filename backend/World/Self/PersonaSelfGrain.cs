@@ -497,16 +497,18 @@ public static class SelfRender
             var earlier = past.SkipLast(1).TakeLast(3).ToList();
             var next = day.Beats.FirstOrDefault(b => b.Minute > minute);
             lines.Insert(0, $"It's {now.ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
-            lines.Add(current is null ? "You're not really up yet." : $"Off-screen right now: {current.Text}");
+            // Somewhere real wins over the plan: the beat is what the day had in mind, not where the body is.
+            lines.Add(current is null ? "You're not really up yet."
+                : string.IsNullOrWhiteSpace(situation) ? $"Off-screen right now: {current.Text}" : $"What your day had for now: {current.Text}");
             if (current?.Availability is { } free && free < 0.6)
                 lines.Add(free < 0.35
-                    ? "You're tied up with that. You'd only glance at the chat now and then, and keep it to a line."
+                    ? "You're tied up with that. You'd only half follow the conversation, and keep it to a line."
                     : "You're half-busy. Replies come in between other things.");
             if (earlier.Count > 0) lines.Add($"Earlier today: {string.Join("; ", earlier.Select(Beat))}");
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
             if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
-            if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this chat): {day.Preoccupation}");
+            if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this conversation): {day.Preoccupation}");
             if (day.Threads.Count > 0) lines.Add($"Going on in your life lately: {string.Join("; ", day.Threads)}");
             if (day.Resolved.Count > 0) lines.Add($"Finally settled: {string.Join("; ", day.Resolved)}");
             if (day.Openers.Count > 0) lines.Add($"Things you might bring up if there's a lull (or not at all): {string.Join("; ", day.Openers)}");
@@ -522,7 +524,7 @@ public static class SelfRender
         var block = lines.Count == 0
             ? string.Empty
             : $"# Right now\n{string.Join("\n", lines)}\n" + (day is { Beats.Count: > 0 }
-                ? "This is your life outside the chat. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it."
+                ? "This is your life outside this conversation. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it."
                   + (string.IsNullOrWhiteSpace(situation) ? "\n" : " Where you are is the 'Where you are' line; the day is what's going on in your life around it.\n")
                 : string.Empty);
         if (wear.Count > 0)

@@ -603,4 +603,35 @@ public class SpeakingSessionTest
         Assert.DoesNotContain(messages, m => m.Role == "assistant" && string.IsNullOrWhiteSpace(m.Content));
         Assert.Single(messages, m => m.Role == "user");
     }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_InPerson_TalksOutLoud_AndPeopleAreJustPeople()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var stranger = new ParticipantView(Guid.NewGuid(), "Medevortius", DriverKind.User);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(persona), stranger });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None, inPerson: true);
+
+        var system = getJob()!.Messages[0].Content;
+        Assert.Contains("You're here in person, talking out loud", system);
+        Assert.DoesNotContain("chat app", system);
+        Assert.Contains("- Medevortius\n", system);
+        Assert.DoesNotContain("(human)", system);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_InAChat_StillTypes()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(persona), new ParticipantView(Guid.NewGuid(), "Tim", DriverKind.User) });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        var system = getJob()!.Messages[0].Content;
+        Assert.Contains("typing in a chat app", system);
+        Assert.Contains("- Tim (human)", system);
+    }
 }

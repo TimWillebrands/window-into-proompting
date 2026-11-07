@@ -322,6 +322,7 @@ public sealed class WorldClockGrain(
         var places = GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId);
         // Planned somewhere offscreen: the get-together is what puts it on the map (ADR 0027).
         await places.OpenAsync(placeId, null, "gathering");
+        await places.ExpectAsync(placeId, g.HostId, g.AttendeeIds.ToList());
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
         var asleep = (await places.GetAsleepAsync()).ToHashSet();
         var going = ClockPolicy.WalkToGathering(g.AttendeeIds, cast, asleep);

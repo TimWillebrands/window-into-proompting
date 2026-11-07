@@ -31,7 +31,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         IReadOnlyList<string>? stances = null,
         string? gutReaction = null,
         string? presence = null,
-        IReadOnlyList<string>? avoidWords = null)
+        IReadOnlyList<string>? avoidWords = null,
+        bool inPerson = false)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         // Build sender-name lookup once. ParticipantView is a struct, so
@@ -43,7 +44,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances, presence),
+                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances, presence, inPerson),
                 Name = persona.Id.ToString()
             }
         };
@@ -156,19 +157,14 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
     };
 
-    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null, bool inPerson = false)
     {
         // Names only. Bios used to live here but leaked theme/style across personas:
         // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
         // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
-            : string.Join("\n", others.Select(p => p.Driver switch
-            {
-                DriverKind.User => $"- {p.Name} (human)",
-                DriverKind.System => $"- {p.Name} (narrator)",
-                _ => $"- {p.Name} (persona)",
-            }));
+            : string.Join("\n", others.Select(p => Roster.Line(p, inPerson)));
 
         // Scenario sits between identity and the participant roster: persona-self comes first
         // (primacy), the in-fiction setting establishes context, then who else is there.
@@ -224,7 +220,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 {stanceSection}
 {presenceSection}
 # Style
-{LivedSelf.ChatStyle}
+{(inPerson ? LivedSelf.InPersonStyle : LivedSelf.ChatStyle)}
 {memorySection}
 """;
     }

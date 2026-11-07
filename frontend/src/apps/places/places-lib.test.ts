@@ -17,6 +17,7 @@ import {
     serverNow,
     setServerClock,
     walkingText,
+    workplaceDoor,
 } from './places-lib';
 
 const cafe: Place = { id: 'c', name: 'the Café', kind: 'public', spots: [] };
@@ -64,6 +65,38 @@ describe('private Places', () => {
         expect(mayEnter({ ...studio, keyholders: ['anne'] }, 'anne')).toBe(
             true,
         );
+    });
+});
+
+const office: Place = {
+    id: 'o',
+    name: 'The Works',
+    kind: 'public',
+    access: 'staff',
+    staff: ['justin'],
+    allowed: ['tim'],
+    guests: ['pieter'],
+    spots: [],
+};
+
+describe('workplace doors', () => {
+    it('lets in staff, the access list and guests, nobody else', () => {
+        expect(workplaceDoor(office)).toBe(true);
+        expect(mayEnter(office, 'justin')).toBe(true);
+        expect(mayEnter(office, 'tim')).toBe(true);
+        expect(mayEnter(office, 'pieter')).toBe(true);
+        expect(mayEnter(office, 'medevortius')).toBe(false);
+        expect(placeIcon(office, 'medevortius')).toBe('🔒');
+    });
+
+    it('stays open when nobody works there, or its door is open', () => {
+        expect(mayEnter({ ...office, staff: [] }, 'medevortius')).toBe(true);
+        expect(mayEnter({ ...office, access: 'open' }, 'medevortius')).toBe(
+            true,
+        );
+        expect(
+            mayEnter({ ...office, access: 'appointment' }, 'medevortius'),
+        ).toBe(false);
     });
 });
 

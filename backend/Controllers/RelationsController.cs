@@ -35,7 +35,7 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
             => (await grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, who)).GetAsync()).Acquired
                 .FirstOrDefault(d => d.PlaceId == placeId && d.Status == DesireStatus.Active)?.Text;
         var rows = new List<DoorRow>();
-        foreach (var place in snapshot.Places.Where(p => p.IsClosed()))
+        foreach (var place in snapshot.Places.Where(p => p.Keyed()))
         {
             var host = place.Hosts().FirstOrDefault();
             foreach (var visitor in place.Doorsteps.Keys.Union(place.Keyholders).Where(v => !place.Hosts().Contains(v)))
