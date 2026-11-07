@@ -80,11 +80,15 @@ internal static class StanceProjection
         for (var i = 0; i + needle.Count <= haystack.Count; i++)
         {
             var j = 0;
-            while (j < needle.Count && haystack[i + j] == needle[j]) j++;
+            while (j < needle.Count && SameWord(haystack[i + j], needle[j])) j++;
             if (j == needle.Count) return true;
         }
         return false;
     }
+
+    /// <summary>Whole word, or its plural: "cytheurgists" cues "cytheurgist", "lisping" still doesn't cue "lisp".</summary>
+    private static bool SameWord(string heard, string concept)
+        => heard == concept || heard.Length == concept.Length + 1 && heard[^1] == 's' && heard.StartsWith(concept, StringComparison.Ordinal);
 
     /// <summary>
     /// The earlier edge that most sharply contradicts the current one (sign flip or |Δ| ≥ 1),

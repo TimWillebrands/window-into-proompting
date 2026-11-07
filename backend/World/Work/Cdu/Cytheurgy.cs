@@ -6,7 +6,7 @@ using PartyTown.World.Work.Companies;
 namespace PartyTown.World.Work.Cdu;
 
 /// <summary>Where the World meets the CDU (ADR 0039): the I/O around <see cref="ICduGrain"/>, the tide, and word reaching staff.</summary>
-public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, WorldMemory memory, ILogger<Cytheurgy> logger)
+public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, WorldMemory memory, IMemoryRepository stances, ILogger<Cytheurgy> logger)
 {
     private static readonly TimeSpan StatusFresh = TimeSpan.FromSeconds(15);
     private CduStatus? _status;
@@ -23,6 +23,20 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
             Id = Guid.NewGuid(), Name = name, Mandate = mandate, Kind = CompanyKinds.Cdu, Market = string.Empty,
             Workplace = workplace, FoundedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         });
+    }
+
+    /// <summary>New staff learn the secret as Concept Stances, once; what they do with it is theirs.</summary>
+    public async Task KnowAsync(Guid partyId, Company company, Guid participantId, CancellationToken ct)
+    {
+        var held = (await stances.ListStancesAsync(partyId, participantId, ct))
+            .Where(s => s is { IsCurrent: true, TargetKind: StanceTargetKind.Concept })
+            .Select(s => s.TargetConceptName).ToHashSet(StringComparer.Ordinal);
+        foreach (var (concept, reasoning) in CduScreen.Secret(company))
+        {
+            var name = MemoryExtractor.NormaliseConceptName(concept);
+            if (held.Contains(name)) continue;
+            await stances.AppendStanceAsync(partyId, participantId, new StanceTargetSpec(StanceTargetKind.Concept, null, name, concept), 0.5, reasoning, null, ct);
+        }
     }
 
     /// <summary>Null when the CDU can't be reached: a dark desk, not a broken one.</summary>

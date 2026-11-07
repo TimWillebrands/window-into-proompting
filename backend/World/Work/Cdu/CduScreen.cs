@@ -28,7 +28,17 @@ public static partial class CduScreen
 
     public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>", "mind": "<the id of the mind you wake it with, from the list>"}""";
 
-    /// <summary>The fiction staff work inside, and only staff on shift: it's in no sheet and nobody else's prompt.</summary>
+    /// <summary>What staff know as Concept Stances: it surfaces when someone says the words, so secrecy is theirs to keep (ADR 0039).</summary>
+    public static IReadOnlyList<(string Concept, string Reasoning)> Secret(Company company) => new List<(string, string)>
+    {
+        ("Cytheurgist", $"It's what you are at {company.Name}: an engineer of the Forms this world is made of, working them through the CDU. Almost nobody knows. Someone who uses the word knows something; find out what, and how, before you give anything away."),
+        ("Cytheurgy", $"Your real work at {company.Name}: moving the CDU to reshape the Forms. You don't talk about it with outsiders, and an outsider who knows the word is worth finding out about."),
+        ("CDU", $"The Central Demiurge Unit at your desk at {company.Name}: it shapes the Forms and moves only when a Cytheurgist works on it. Your work and your secret; whoever names it gets your full attention."),
+        ("Demiurge", "The CDU, the Central Demiurge Unit you work on. Hearing the word from anyone outside your work should make you wary and curious at once."),
+        ("Agora", "Where the One judges what the CDU built; only when he merges does a change become real. Nobody outside your work should know that word."),
+    };
+
+    /// <summary>The fiction staff work inside, in full at the desk; elsewhere it lives only in their Stances and work memory.</summary>
     public static string Frame(Company company) => $"""
 You work at {company.Name} as a Cytheurgist, and you know what almost nobody here knows: this world is made of Forms, and the Forms are code. You are an engineer of the Forms, and you don't advertise that.
 At your desk is the CDU, the Central Demiurge Unit: it shapes the Forms, remembers, and has a will of its own, but it moves only when a Cytheurgist works on it. You tell it what you want for this world; it decides what to build. Everything it builds waits on its trunk.

@@ -516,7 +516,7 @@ _Avoid_: task, action item, assignment.
 
 ### The CDU
 
-See [ADR 0039](docs/adr/0039-the-cdu.md). A **Company** whose product is this codebase. Staff on shift know the World is made; nobody else does.
+See [ADR 0039](docs/adr/0039-the-cdu.md). A **Company** whose product is this codebase. Staff know the World is made and keep it to themselves: it comes to mind when someone says the words.
 
 **CDU**:
 The Central Demiurge Unit: one persistent coding agent next to the deployment, with the repo, the database and a GitHub token. Has memory and a temperament, and acts only when a **Cytheurgist** speaks to it. Its Company has kind `cdu`.

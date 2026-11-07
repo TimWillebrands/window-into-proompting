@@ -67,6 +67,18 @@ public class MemoryProjectionTest
     }
 
     [Fact]
+    public void Project_ConceptCuedByPlural_NotByLongerWord()
+    {
+        var rows = NewestFirst(
+            Edge(0.5, "your secret", 1, concept: "cytheurgist"),
+            Edge(0.5, "lisp is elegant", 2, concept: "lisp"));
+
+        var lines = StanceProjection.Project(rows, new HashSet<Guid> { Self }, "I teach cytheurgists. Stop lisping.", limit: 5);
+
+        Assert.Equal(new[] { "your secret" }, lines.Select(l => l.Reasoning));
+    }
+
+    [Fact]
     public void Project_RetractMasks_AbsentParticipantsDrop_AmbivalenceCappedAtTwo()
     {
         var a = Guid.NewGuid();
