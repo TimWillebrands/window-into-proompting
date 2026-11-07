@@ -37,8 +37,44 @@ export const PROVIDER_STATES = [
 export const BENCHED = 1;
 export const OFFLINE = 2;
 
+/** Backend provider types (`LlmEndpoints.Resolve`); a key means the editor asks for one. */
+export const PROVIDER_TYPES = {
+    ollama: {
+        label: 'Local server',
+        option: 'Local server (Ollama, llama.cpp, …)',
+        short: 'Local',
+        icon: '🦙',
+        baseUrl: 'http://localhost:11434',
+        keyHint: null,
+        modelHint: 'e.g. llama3.2',
+    },
+    openrouter: {
+        label: 'OpenRouter',
+        option: 'OpenRouter',
+        short: 'OpenRouter',
+        icon: '🌐',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        keyHint: 'sk-or-...',
+        modelHint: 'e.g. nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
+    },
+    anthropic: {
+        label: 'Claude',
+        option: 'Claude (Anthropic API)',
+        short: 'Claude',
+        icon: '✳️',
+        baseUrl: 'https://api.anthropic.com',
+        keyHint: 'sk-ant-...',
+        modelHint: 'e.g. claude-haiku-5-5',
+    },
+} as const;
+
+export type ProviderType = keyof typeof PROVIDER_TYPES;
+
+export const providerType = (type?: string | null) =>
+    PROVIDER_TYPES[(type as ProviderType) ?? 'ollama'] ?? PROVIDER_TYPES.ollama;
+
 export const providerLabel = (p: LlmProviderEntry) =>
-    `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Local' : 'OpenRouter'}`;
+    `${p.modelName ?? 'No model'} · ${providerType(p.type).short}`;
 
 export const EMPTY_ENTRY: LlmProviderEntry = {
     type: 'ollama',

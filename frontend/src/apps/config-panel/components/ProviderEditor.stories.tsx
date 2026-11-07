@@ -67,3 +67,18 @@ export const NewOpenRouter: Story = {
         },
     },
 };
+
+export const AddClaude: Story = {
+    args: {
+        isNew: true,
+        entry: {
+            type: 'anthropic',
+            baseUrl: 'https://api.anthropic.com',
+            apiKey: '',
+            modelName: 'claude-haiku-5-5',
+            supportedComplexities: 7,
+            isEnabled: true,
+            priority: -1,
+        },
+    },
+};
