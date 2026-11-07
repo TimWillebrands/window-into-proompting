@@ -50,7 +50,7 @@ Bearer `CDU_TOKEN`. `GET /status`, `POST /talk {from: {id, name}, text, kind: ta
 ## Run
 
 - Dev: set `CDU_UPSTREAM_URL` (and `CDU_UPSTREAM_KEY`, `CDU_GITHUB_TOKEN`) in the AppHost's user-secrets; the AppHost then builds and starts the CDU, the Meter and a scratch Postgres, and points the backend at it.
-- Production: `kamal deploy -c config/deploy.cdu.yml` and, once, `kamal accessory boot all -c config/deploy.cdu.yml`. Secrets: `CDU_TOKEN`, `CDU_METER_TAB`, `CDU_METER_SECRET`, `CDU_OPENROUTER_KEY`, `CDU_GITHUB_TOKEN`, `CDU_DATABASE_URL`. The backend gets `Cdu__Url=http://proompting-cdu:8790` and `Cdu__Token`.
+- Production: `kamal deploy -c config/deploy.cdu.yml` and, once, `kamal accessory boot all -c config/deploy.cdu.yml`. Secrets: `CDU_TOKEN`, `CDU_METER_TAB`, `CDU_METER_SECRET`, `CDU_OPENROUTER_KEY`, `CDU_GITHUB_TOKEN`, `CDU_DATABASE_URL`. `config/deploy.yml` gives the backend `Cdu__Url` and `Cdu__Token` (from `CDU_TOKEN`).
 - The image bakes NuGet and pnpm caches. Build with `--pull`: a stale local SDK tag is an older preview than CI's.
 
 ## Tests

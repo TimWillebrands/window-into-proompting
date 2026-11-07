@@ -10,10 +10,11 @@ servers:
     hosts:
       - static.74.157.104.178.clients.your-server.de
     proxy: false
+    # The box has 4 cores and 7 GB beside the World: room for a build, not for the full suite at full tilt.
     options:
       network-alias: proompting-cdu
-      cpus: 6
-      memory: 12g
+      cpus: 2
+      memory: 3g
 
 ssh:
   user: root
