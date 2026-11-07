@@ -1,5 +1,6 @@
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 
+export const GENERAL = 1;
 export const DECISIONS = 8;
 
 export const JOB_COMPLEXITIES = [
@@ -25,6 +26,16 @@ export const REASONING_EFFORTS = [
     { value: 4, label: 'High', hint: 'up to 8,192 tokens' },
     { value: 5, label: 'Max', hint: 'no limit, can take minutes' },
 ] as const;
+
+/** Router states from `ProviderState` (ADR 0040), indexed by its number. */
+export const PROVIDER_STATES = [
+    { label: 'Ready', color: '#afa', border: 'rgba(60,180,60,0.5)' },
+    { label: 'Benched', color: '#fd8', border: 'rgba(255,190,60,0.55)' },
+    { label: 'Offline', color: '#faa', border: 'rgba(220,60,60,0.55)' },
+] as const;
+
+export const BENCHED = 1;
+export const OFFLINE = 2;
 
 export const providerLabel = (p: LlmProviderEntry) =>
     `${p.modelName ?? 'No model'} · ${p.type === 'ollama' ? 'Local' : 'OpenRouter'}`;

@@ -168,6 +168,7 @@ if (!openApiBuild)
     builder.Services.AddHostedService<NarratorSeederHostedService>();
     // After the silo, before the World: beats read the judge's Enabled synchronously.
     builder.Services.AddHostedService(sp => sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
+    builder.Services.AddHostedService<PartyTown.Grains.Generation.ProviderAvailabilityService>();
     builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();
     builder.Services.AddHostedService<PartyTown.World.Work.Cdu.CduWatch>();
 }

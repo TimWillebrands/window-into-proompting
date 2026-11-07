@@ -311,6 +311,22 @@ export const useGetLlmConfigProvidersIdModels = fn(() =>
         headers: new Headers(),
     }),
 );
+export const useGetLlmConfigProvidersAvailability = fn(() =>
+    queryResult({
+        data: [
+            {
+                providerId: 'prov-1',
+                state: 2,
+                reason: 'Connection refused',
+                until: null,
+            },
+            { providerId: 'prov-2', state: 0, reason: null, until: null },
+            { providerId: 'prov-3', state: 0, reason: null, until: null },
+        ],
+        status: 200,
+        headers: new Headers(),
+    }),
+);
 export const useGetLlmConfigTailnets = fn(() =>
     queryResult({
         data: ['home', 'work'],

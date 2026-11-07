@@ -10,15 +10,69 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
     private IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>? _cachedProviders;
     private Dictionary<(Guid Persona, JobComplexity Tier), Guid>? _cachedRoutes;
 
-    private readonly Dictionary<Guid, DateTimeOffset> _benchedUntil = new();
+    private readonly Dictionary<Guid, (DateTimeOffset Until, string Reason)> _benched = new();
+    private readonly Dictionary<Guid, string> _offline = new();
     private static readonly TimeSpan BenchFor = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(5);
 
     public Task ReportFailureAsync(Guid providerId, string reason)
     {
-        _benchedUntil[providerId] = DateTimeOffset.UtcNow + BenchFor;
+        _benched[providerId] = (DateTimeOffset.UtcNow + BenchFor, reason);
         logger.LogWarning("Provider {ProviderId} benched for {Minutes} min: {Reason}", providerId, BenchFor.TotalMinutes, reason);
         return Task.CompletedTask;
     }
+
+    public Task ReportOfflineAsync(Guid providerId, string reason)
+    {
+        if (_offline.TryAdd(providerId, reason))
+            logger.LogWarning("Provider {ProviderId} offline: {Reason}", providerId, reason);
+        return Task.CompletedTask;
+    }
+
+    public async Task CheckAvailabilityAsync(CancellationToken cancellationToken = default)
+    {
+        var providers = await GetProvidersAsync(cancellationToken);
+        var pings = await Task.WhenAll(providers.Select(async p => (p.Entry.Id, Problem: await PingAsync(p.Grain, cancellationToken))));
+        foreach (var (id, problem) in pings)
+        {
+            if (problem is not null)
+            {
+                await ReportOfflineAsync(id, problem);
+                continue;
+            }
+            if (!_offline.Remove(id)) continue;
+            // Whatever benched it while it was down no longer says anything about it.
+            _benched.Remove(id);
+            logger.LogInformation("Provider {ProviderId} is back online", id);
+        }
+    }
+
+    private static async Task<string?> PingAsync(ILlmEndpointGrain grain, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(PingTimeout);
+        try
+        {
+            return await grain.PingAsync(deadline.Token).WaitAsync(deadline.Token);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ex is OperationCanceledException ? $"no answer within {PingTimeout.TotalSeconds:0}s" : ex.Message;
+        }
+    }
+
+    public async Task<List<ProviderAvailability>> GetAvailabilityAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return (await GetProvidersAsync(CancellationToken.None)).Select(p => p.Entry.Id).Select(id =>
+            _offline.TryGetValue(id, out var why) ? new ProviderAvailability(id, ProviderState.Offline, why, null)
+            : _benched.TryGetValue(id, out var bench) && bench.Until > now ? new ProviderAvailability(id, ProviderState.Benched, bench.Reason, bench.Until)
+            : new ProviderAvailability(id, ProviderState.Ready, null, null)).ToList();
+    }
+
+    private bool IsOffline(Guid id) => _offline.ContainsKey(id);
+
+    private bool IsBenched(Guid id) => _benched.TryGetValue(id, out var bench) && bench.Until > DateTimeOffset.UtcNow;
 
     public Task InvalidateCacheAsync()
     {
@@ -55,9 +109,9 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             .ToDictionary(r => (r.PersonaId, r.Tier), r => r.ProviderId);
         if (!routes.TryGetValue((personaId, tier), out var providerId)) return null;
 
-        // Disabled or benched: the persona falls back to the pool rather than going mute.
-        var benched = _benchedUntil.TryGetValue(providerId, out var until) && until > DateTimeOffset.UtcNow;
-        var assigned = benched ? null : (await GetProvidersAsync(cancellationToken))
+        // Disabled, benched or offline: the persona falls back to the pool rather than going mute.
+        var unusable = IsBenched(providerId) || IsOffline(providerId);
+        var assigned = unusable ? null : (await GetProvidersAsync(cancellationToken))
             .Where(p => p.Entry.Id == providerId).Select(p => p.Grain).FirstOrDefault();
 
         using var span = Tracing.Persona.StartActivity("llm.route.assigned", ActivityKind.Internal);
@@ -80,7 +134,9 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         routeSpan?.SetTag("job.complexity", jobComplexity.ToString());
 
         // Reserved first: endpoints aren't reentrant, so asking one for pressure queues behind its generation.
-        var providers = (await GetProvidersAsync(cancellationToken)).Where(p => !p.Entry.Reserved).ToList();
+        // Offline is known unreachable, so it's left out entirely; the caller's next tier beats a dead box.
+        var providers = (await GetProvidersAsync(cancellationToken))
+            .Where(p => !p.Entry.Reserved && !IsOffline(p.Entry.Id)).ToList();
         routeSpan?.SetTag("candidates.total", providers.Count);
 
         // Tier support is a property of the provider entry, not of its model list — no
@@ -92,7 +148,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             {
                 Grain = p.Grain,
                 Priority = p.Entry.Priority,
-                Benched = _benchedUntil.TryGetValue(p.Entry.Id, out var until) && until > DateTimeOffset.UtcNow,
+                Benched = IsBenched(p.Entry.Id),
                 Pressure = await p.Grain.PressureAsync(),
                 CompatibleModels = supports ? new List<string> { p.Entry.ModelName } : new List<string>(),
                 Failed = false,

@@ -211,8 +211,8 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         while (true)
         {
             // A failing endpoint benches itself, so the next route finds another; the same one again means none is left.
-            endpoint ??= _hasProviders ? await router.RouteAsync(JobComplexity.Decisions, ct) : throw last!;
-            if (!tried.Add(endpoint)) throw last!;
+            endpoint ??= _hasProviders ? await TryRouteAsync(router, ct) : null;
+            if (endpoint is null || !tried.Add(endpoint)) break;
             try
             {
                 return HttpSystemOneJudge.ParseResponse(await endpoint.JudgeAsync(state, questionsJson, ct));
@@ -223,6 +223,16 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
                 endpoint = null;
             }
         }
+
+        // Every decision model failed: a General-tier LLM still beats a failed beat (ADR 0040).
+        logger.LogWarning(last, "No decision model answered; emulating System One with an LLM");
+        return await emulation.AskAsync(state, questions, ct);
+    }
+
+    private static async Task<ILlmEndpointGrain?> TryRouteAsync(ILlmRouterGrain router, CancellationToken ct)
+    {
+        try { return await router.RouteAsync(JobComplexity.Decisions, ct); }
+        catch (InvalidOperationException) { return null; }
     }
 }
 

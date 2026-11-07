@@ -42,6 +42,9 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger) : Gr
     public Task<ChatMessageMetadata> GetAttributionAsync()
         => Task.FromResult(new ChatMessageMetadata { Provider = ProviderType, ModelName = Model });
 
+    /// <summary>Cloud providers aren't pinged; a failed call benches them instead.</summary>
+    public Task<string?> PingAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+
     public Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Claude is not a System One judge.");
 

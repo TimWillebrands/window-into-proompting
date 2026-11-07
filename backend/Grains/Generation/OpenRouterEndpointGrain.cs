@@ -108,6 +108,9 @@ public class OpenRouterEndpointGrain(
             cancellationToken));
     }
 
+    /// <summary>Cloud providers aren't pinged; a failed call benches them instead.</summary>
+    public Task<string?> PingAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+
     public async Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref _activeGenerations);

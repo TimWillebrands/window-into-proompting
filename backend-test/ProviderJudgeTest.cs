@@ -92,16 +92,50 @@ public class ProviderJudgeTest
         Assert.Equal(0.8, answers.Noul("x", 0));
     }
 
+    /// <summary>The General tier answers like the emulated judge would: plain JSON probabilities.</summary>
+    private Mock<ILlmEndpointGrain> EmulationAnswers(string json = """{"x":0.3}""")
+    {
+        var llm = new Mock<ILlmEndpointGrain>();
+        llm.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(json);
+        _router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(llm.Object);
+        return llm;
+    }
+
     [Fact]
-    public async Task Ask_GivesUpWhenTheRouterHasNothingNewLeft()
+    public async Task Ask_EmulatesWithAnLlm_WhenTheRouterHasNothingNewLeft()
+    {
+        var judge = await JudgeWithProvidersAsync(Provider());
+        var only = Endpoint(failure: new HttpRequestException("402 Payment Required"));
+        Routes(only, only);
+        EmulationAnswers();
+
+        var answers = await judge.AskAsync("state", Questions, CancellationToken.None);
+
+        Assert.Equal(0.3, answers.Noul("x", 0));
+        only.Verify(e => e.JudgeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Ask_EmulatesWithAnLlm_WhenEveryDecisionModelIsOffline()
+    {
+        var judge = await JudgeWithProvidersAsync(Provider());
+        _router.Setup(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("No model-providers available for job complexity Decisions"));
+        EmulationAnswers();
+
+        Assert.Equal(0.3, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
+    }
+
+    [Fact]
+    public async Task Ask_SurfacesTheEmulationsFailure_WhenThatFailsToo()
     {
         var judge = await JudgeWithProvidersAsync(Provider());
         var only = Endpoint(failure: new HttpRequestException("down"));
         Routes(only, only);
+        EmulationAnswers().Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("haiku too"));
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => judge.AskAsync("state", Questions, CancellationToken.None));
-
-        only.Verify(e => e.JudgeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        await Assert.ThrowsAsync<TimeoutException>(() => judge.AskAsync("state", Questions, CancellationToken.None));
     }
 
     [Fact]
@@ -184,12 +218,14 @@ public class ProviderJudgeTest
     }
 
     [Fact]
-    public async Task For_AReservedModelAlone_ReportsItsOwnFailure_WithNoPoolToFallBackTo()
+    public async Task For_AReservedModelAlone_EmulatesWhenItFails_WithNoPoolToFallBackTo()
     {
         AssignVlad(Endpoint(failure: new HttpRequestException("down")));
         var judge = await JudgeWithProvidersAsync(Provider(reserved: true));
+        EmulationAnswers();
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None));
+        Assert.Equal(0.3, (await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

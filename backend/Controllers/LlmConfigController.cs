@@ -23,6 +23,11 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
         return Ok(providers.Select(p => p with { ApiKey = Mask(p.ApiKey) }).ToList());
     }
 
+    /// <summary>Whether the router can use each enabled provider now: Ready, Benched or Offline (ADR 0040).</summary>
+    [HttpGet("providers/availability")]
+    public async Task<ActionResult<List<ProviderAvailability>>> GetAvailability()
+        => Ok(await grains.GetGrain<ILlmRouterGrain>(0).GetAvailabilityAsync());
+
     /// <summary>Tailnets this deployment has a sidecar for; a provider can go through one.</summary>
     [HttpGet("tailnets")]
     public ActionResult<List<string>> GetTailnets() => Ok(tailnets.Names.ToList());

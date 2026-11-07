@@ -110,6 +110,8 @@ export * from './practiceSummary';
 export * from './problemDetails';
 export * from './proceedRequest';
 export * from './promptRequest';
+export * from './providerAvailability';
+export * from './providerState';
 export * from './providerUsage';
 export * from './reasoningEffort';
 export * from './relation';

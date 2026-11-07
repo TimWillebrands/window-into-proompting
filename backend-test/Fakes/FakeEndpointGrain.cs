@@ -79,6 +79,9 @@ public sealed class FakeEndpointGrain
     /// <summary>Yields <paramref name="n"/> chunks then throws mid-stream.</summary>
     public FakeEndpointGrain FailAfterChunks(int n) { _failAfterChunks = n; return this; }
 
+    /// <summary>What a ping answers: null when reachable, else why not. Settable between pings.</summary>
+    public string? Unreachable { get; set; }
+
     // ── grain interface ───────────────────────────────────────────────────────
 
     public Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken _)
@@ -144,6 +147,8 @@ public sealed class FakeEndpointGrain
             .Returns(() => PressureAsync());
         mock.Setup(g => g.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
             .Returns((LlmGenerationJob j, CancellationToken ct) => GenerateAsync(j, ct));
+        mock.Setup(g => g.PingAsync(It.IsAny<CancellationToken>()))
+            .Returns(() => Task.FromResult(Unreachable));
         Reference = mock.Object;
         return Reference;
     }

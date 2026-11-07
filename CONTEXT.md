@@ -78,6 +78,10 @@ _Avoid_: model override, persona provider.
 A private Tailscale network holding local LLM providers, such as a home GPU box. A provider set to one connects through that Tailnet's sidecar; otherwise it connects directly. Named in deploy config, chosen per provider in Control Panel. See [ADR 0033](docs/adr/0033-tailnet-sidecars.md).
 _Avoid_: VPN, tunnel, tailscale provider.
 
+**Provider Availability**:
+Whether the router can use a provider now. **Ready**; **Benched** when it refused a call (bad key, no credit, missing model): skipped for 10 minutes unless nothing else is left; **Offline** when it can't be reached: skipped until a ping every 30 seconds reaches it again. Lower Priority goes first, so a local model ahead of OpenRouter means "use it when it's up". See [ADR 0040](docs/adr/0040-provider-availability.md).
+_Avoid_: health, down, probe (a Probe is a Bench run).
+
 ### Persona behaviour dials
 
 **Chattiness** (0..1):

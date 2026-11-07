@@ -139,6 +139,100 @@ public class LlmCallTest
         Assert.Null(result.Attribution);
     }
 
+    private static async IAsyncEnumerable<LlmGenerationEvent> Broken(
+        int afterChunks, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        for (var i = 0; i < afterChunks; i++)
+        {
+            await Task.Yield();
+            yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "Hel");
+        }
+        await Task.Yield();
+        throw new HttpRequestException("connection refused");
+    }
+
+    private static Mock<ILlmEndpointGrain> BrokenEndpoint(int afterChunks = 0)
+    {
+        var ep = new Mock<ILlmEndpointGrain>();
+        ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => Broken(afterChunks, ct));
+        return ep;
+    }
+
+    [Fact]
+    public async Task Stream_ThatDiesBeforeItsFirstChunk_MovesOnToTheNextProvider()
+    {
+        var dead = BrokenEndpoint();
+        var router = new Mock<ILlmRouterGrain>();
+        router.SetupSequence(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dead.Object)
+            .ReturnsAsync(Endpoint().Object);
+        var chunks = new List<string>();
+
+        var result = await new LlmCall(router.Object).StreamAsync(
+            new LlmGenerationJob(), LlmTiers.General, CancellationToken.None,
+            c => { chunks.Add(c.Data); return Task.CompletedTask; });
+
+        Assert.Equal("Hello", result.Content);
+        Assert.Equal(new[] { "hm", "Hel", "lo" }, chunks);
+    }
+
+    [Fact]
+    public async Task Stream_ThatDiesBeforeItsFirstChunk_FallsToTheNextTier_WhenItsTierHasNoOneElse()
+    {
+        var dead = BrokenEndpoint();
+        var router = new Mock<ILlmRouterGrain>();
+        // A benched provider alone in its tier still routes, so the call has to step past it itself.
+        router.Setup(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<CancellationToken>())).ReturnsAsync(dead.Object);
+        router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(Endpoint().Object);
+
+        var result = await new LlmCall(router.Object).StreamAsync(new LlmGenerationJob(), LlmTiers.Voice, CancellationToken.None);
+
+        Assert.Equal(("Hello", JobComplexity.General), (result.Content, result.Served));
+    }
+
+    [Fact]
+    public async Task Stream_WithNoOneLeft_SurfacesTheProvidersOwnFailure()
+    {
+        var dead = BrokenEndpoint();
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(dead.Object);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            new LlmCall(router.Object).StreamAsync(new LlmGenerationJob(), LlmTiers.General, CancellationToken.None));
+
+        dead.Verify(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Stream_ThatDiesMidway_IsNotRetried_SinceTheCallerAlreadySawChunks()
+    {
+        var router = new Mock<ILlmRouterGrain>();
+        router.SetupSequence(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BrokenEndpoint(afterChunks: 1).Object)
+            .ReturnsAsync(Endpoint().Object);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            new LlmCall(router.Object).StreamAsync(new LlmGenerationJob(), LlmTiers.General, CancellationToken.None));
+
+        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Stream_ForAPersona_StepsFromTheirDeadModelToThePool()
+    {
+        var persona = Guid.NewGuid();
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.AssignedEndpointAsync(persona, JobComplexity.General, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BrokenEndpoint().Object);
+        router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(Endpoint().Object);
+
+        var result = await new LlmCall(router.Object, persona: persona)
+            .StreamAsync(new LlmGenerationJob(), LlmTiers.General, CancellationToken.None);
+
+        Assert.Equal("Hello", result.Content);
+    }
+
     private sealed record Pick(string? Name, int Score);
 
     [Theory]

@@ -87,3 +87,67 @@ export const ReservedForPersonas: Story = {
         },
     },
 };
+
+export const TailnetReady: Story = {
+    args: {
+        provider: {
+            id: 'prov-4',
+            type: 'ollama',
+            baseUrl: 'http://100.91.200.46:11434',
+            apiKey: null,
+            modelName: 'd1:3b',
+            supportedComplexities: 8,
+            isEnabled: true,
+            priority: -1,
+            tailnet: 'home',
+        },
+        availability: {
+            providerId: 'prov-4',
+            state: 0,
+            reason: null,
+            until: null,
+        },
+    },
+};
+
+export const TailnetOffline: Story = {
+    args: {
+        provider: {
+            id: 'prov-5',
+            type: 'ollama',
+            baseUrl: 'http://100.91.200.46:11434',
+            apiKey: null,
+            modelName: 'd1:3b',
+            supportedComplexities: 8,
+            isEnabled: true,
+            priority: -1,
+            tailnet: 'home',
+        },
+        availability: {
+            providerId: 'prov-5',
+            state: 2,
+            reason: 'Connection refused (100.91.200.46:11434)',
+            until: null,
+        },
+    },
+};
+
+export const BenchedOutOfCredit: Story = {
+    args: {
+        provider: {
+            id: 'prov-6',
+            type: 'openrouter',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            apiKey: '••••ab12',
+            modelName: '~typesafe/jev-latest',
+            supportedComplexities: 8,
+            isEnabled: true,
+        },
+        availability: {
+            providerId: 'prov-6',
+            state: 1,
+            reason: 'Response status code does not indicate success: 402 (Payment Required).',
+            until: '2026-11-07T14:32:00Z',
+        },
+    },
+};
