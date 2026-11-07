@@ -6,6 +6,7 @@ using Anthropic.Exceptions;
 using Anthropic.Models.Beta.Messages;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Observability;
 
 namespace PartyTown.Grains.Generation;
 
@@ -13,7 +14,8 @@ namespace PartyTown.Grains.Generation;
 public sealed class LlmRefusalException(string? category) : Exception($"Claude declined this request ({category ?? "no category"})");
 
 /// <summary>Claude over the official SDK. One grain per provider entry.</summary>
-public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger) : Grain, IAnthropicEndpointGrain
+public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiObservabilityCapture aiObservability)
+    : Grain, IAnthropicEndpointGrain
 {
     private const string ProviderType = "anthropic";
 
@@ -61,7 +63,7 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger) : Gr
     private AnthropicClient Client => _client ??= new AnthropicClient
     {
         ApiKey = _config?.ApiKey ?? string.Empty,
-        BaseUrl = _config?.BaseUrl ?? AnthropicRequest.DefaultBaseUrl,
+        BaseUrl = BaseUrl,
     };
 
     public IAsyncEnumerable<LlmGenerationEvent> GenerateAsync(LlmGenerationJob parameters, CancellationToken cancellationToken = default)
@@ -71,36 +73,87 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger) : Gr
         Interlocked.Increment(ref _activeGenerations);
 
         using var _ = logger.BeginGenerationScope(model, ProviderType);
-        return LlmEndpointGrainUtils.ReportingHardFailures(StreamAsync(request, cancellationToken), ReportFailureAsync, cancellationToken);
+        return LlmEndpointGrainUtils.ReportingHardFailures(StreamAsync(parameters, request, cancellationToken), ReportFailureAsync, cancellationToken);
     }
 
     private async IAsyncEnumerable<LlmGenerationEvent> StreamAsync(
-        MessageCreateParams request, [EnumeratorCancellation] CancellationToken cancellationToken)
+        LlmGenerationJob job, MessageCreateParams request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
+        var content = new StringBuilder();
+        var model = Model;
+        TimeSpan? firstToken = null;
+        LlmUsage? usage = null;
+        Exception? failure = null;
+        string? stopProblem = null;
+        var completed = false;
         try
         {
-            await foreach (var streamEvent in Client.Beta.Messages.CreateStreaming(request, cancellationToken))
+            await using var events = Client.Beta.Messages.CreateStreaming(request, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            while (true)
             {
-                if (streamEvent.TryPickContentBlockDelta(out var block) && block.Delta.TryPickText(out var text))
+                // A catch can't wrap a yield, so failures are caught around the read alone.
+                try
+                {
+                    if (!await events.MoveNextAsync()) break;
+                }
+                catch (Exception ex)
+                {
+                    failure = Readable(ex);
+                    throw;
+                }
+                var streamEvent = events.Current;
+                if (streamEvent.TryPickStart(out var start))
+                {
+                    // A server-side fallback can answer with another model than the one asked for.
+                    model = start.Message.Model.Raw() ?? model;
+                    usage = UsageOf(start.Message.Usage);
+                }
+                else if (streamEvent.TryPickContentBlockDelta(out var block) && block.Delta.TryPickText(out var text))
                 {
                     if (!string.IsNullOrEmpty(text.Text))
+                    {
+                        firstToken ??= sw.Elapsed;
+                        content.Append(text.Text);
                         yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, text.Text);
+                    }
                 }
-                else if (streamEvent.TryPickDelta(out var delta) && StopProblem(delta.Delta.StopReason?.Raw()) is { } problem)
+                else if (streamEvent.TryPickDelta(out var delta))
                 {
-                    logger.LogWarning("Claude stopped early: {Reason}", problem);
-                    yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, problem);
-                    yield break;
+                    usage = (usage ?? new LlmUsage(null, null)) with { Output = delta.Usage.OutputTokens };
+                    if (StopProblem(delta.Delta.StopReason?.Raw()) is { } problem)
+                    {
+                        logger.LogWarning("Claude stopped early: {Reason}", problem);
+                        stopProblem = problem;
+                        yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, problem);
+                        yield break;
+                    }
                 }
             }
+            completed = true;
         }
         finally
         {
             Interlocked.Decrement(ref _activeGenerations);
             logger.LogInformation("LLM API call completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
+            var generation = new LlmGeneration(job.Messages, content.ToString(), ProviderType, model, BaseUrl, Streamed: true)
+            {
+                Tier = job.JobComplexity.ToString(),
+                Latency = sw.Elapsed,
+                TimeToFirstToken = firstToken,
+                Usage = usage,
+            };
+            generation = stopProblem is not null
+                ? generation with { Error = $"stop reason: {stopProblem}" }
+                : generation.Ended(failure, completed, cancellationToken);
+            await aiObservability.CaptureGenerationAsync(generation, CancellationToken.None);
         }
     }
+
+    private string BaseUrl => _config?.BaseUrl ?? AnthropicRequest.DefaultBaseUrl;
+
+    private static LlmUsage UsageOf(BetaUsage usage) => new(
+        usage.InputTokens, usage.OutputTokens, usage.CacheReadInputTokens, usage.CacheCreationInputTokens);
 
     public async Task<string> CompleteOneShotAsync(LlmGenerationJob parameters, CancellationToken cancellationToken = default)
     {
@@ -110,32 +163,48 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger) : Gr
 
         using var _ = logger.BeginGenerationScope(model, ProviderType);
         var sw = Stopwatch.StartNew();
+        var text = new StringBuilder();
+        LlmUsage? usage = null;
+        Exception? failure = null;
+        var completed = false;
         try
         {
             var response = await Client.Beta.Messages.Create(request, cancellationToken);
+            model = response.Model.Raw() ?? model;
+            usage = UsageOf(response.Usage);
             if (response.StopReason?.Raw() == "refusal")
                 throw new LlmRefusalException(response.StopDetails?.Category?.Raw());
             if (StopProblem(response.StopReason?.Raw()) is { } problem)
                 logger.LogWarning("Claude one-shot stopped early: {Reason}", problem);
 
-            var text = new StringBuilder();
             foreach (var block in response.Content)
                 if (block.TryPickText(out var part)) text.Append(part.Text);
+            completed = true;
             return text.ToString();
         }
         catch (Exception ex) when (LlmEndpointGrainUtils.IsHardFailure(ex))
         {
+            failure = Readable(ex);
             await ReportFailureAsync(ex);
-            throw Readable(ex);
+            throw failure;
         }
-        catch (AnthropicServiceException ex)
+        catch (Exception ex)
         {
-            throw Readable(ex);
+            failure = Readable(ex);
+            if (ex is AnthropicServiceException) throw failure;
+            throw;
         }
         finally
         {
             Interlocked.Decrement(ref _activeGenerations);
             logger.LogInformation("LLM one-shot completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
+            var generation = new LlmGeneration(parameters.Messages, text.ToString(), ProviderType, model, BaseUrl, Streamed: false)
+            {
+                Tier = parameters.JobComplexity.ToString(),
+                Latency = sw.Elapsed,
+                Usage = usage,
+            };
+            await aiObservability.CaptureGenerationAsync(generation.Ended(failure, completed, cancellationToken), CancellationToken.None);
         }
     }
 

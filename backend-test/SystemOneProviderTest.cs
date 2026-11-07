@@ -166,8 +166,10 @@ public class SystemOneProviderTest : TestKitBase
         await grain.JudgeAsync("state", Questions);
 
         _capture.Verify(c => c.CaptureGenerationAsync(
-            It.Is<IReadOnlyList<LlmChatMessage>>(m => m.Any(x => x.Content == "state")),
-            Answer, "ollama", "clef", "http://gpu-box:8091", null, false, false, It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<LlmGeneration>(g => g.Input.Any(x => x.Content == "state") && g.Output == Answer && g.Provider == "ollama"
+                && g.Model == "clef" && g.BaseUrl == "http://gpu-box:8091" && !g.Streamed && g.Error == null
+                && g.Tier == "Decisions" && g.Latency != null),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 

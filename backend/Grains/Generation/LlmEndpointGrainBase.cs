@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using OpenAI.Chat;
 using PartyTown.Observability;
@@ -54,8 +55,10 @@ public static class LlmEndpointGrainUtils
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(JudgeTimeout);
+        var sw = Stopwatch.StartNew();
         var response = string.Empty;
         var completed = false;
+        Exception? failure = null;
 
         try
         {
@@ -64,6 +67,11 @@ public static class LlmEndpointGrainUtils
             completed = true;
             return response;
         }
+        catch (Exception ex)
+        {
+            failure = ex;
+            throw;
+        }
         finally
         {
             var input = new List<LlmChatMessage>
@@ -71,9 +79,30 @@ public static class LlmEndpointGrainUtils
                 new() { Role = "system", Content = questionsJson },
                 new() { Role = "user", Content = state },
             };
-            await aiObservability.CaptureGenerationAsync(
-                input, response, provider, model, baseUrl, null, streamed: false, isError: !completed, CancellationToken.None);
+            var generation = new LlmGeneration(input, response, provider, model, baseUrl, Streamed: false)
+            {
+                Tier = nameof(JobComplexity.Decisions),
+                Latency = sw.Elapsed,
+                Usage = completed ? JudgeUsage(response) : null,
+            };
+            await aiObservability.CaptureGenerationAsync(generation.Ended(failure, completed, cancellationToken), CancellationToken.None);
             onFinished();
+        }
+    }
+
+    /// <summary>The <c>/systemone</c> answer's own token count; null when it has none.</summary>
+    public static LlmUsage? JudgeUsage(string response)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(response);
+            if (!doc.RootElement.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object) return null;
+            long? Count(string name) => usage.TryGetProperty(name, out var n) && n.TryGetInt64(out var v) ? v : null;
+            return new LlmUsage(Count("input_tokens"), Count("output_tokens"));
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 
@@ -119,19 +148,40 @@ public static class LlmEndpointGrainUtils
         var chunkCount = 0;
         var content = new StringBuilder();
         var completed = false;
+        TimeSpan? firstToken = null;
+        LlmUsage? usage = null;
+        Exception? failure = null;
+        string? stopProblem = null;
 
         try
         {
             for (var attempt = 0; attempt < 2 && chunkCount == 0; attempt++)
             {
                 if (attempt > 0) logger.LogWarning("LLM stream produced no content; retrying once");
-                await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken))
+                await using var updates = chatClient
+                    .CompleteChatStreamingAsync(messages, completionOptions, cancellationToken)
+                    .GetAsyncEnumerator(cancellationToken);
+                while (true)
                 {
+                    // A catch can't wrap a yield, so failures are caught around the read alone.
+                    try
+                    {
+                        if (!await updates.MoveNextAsync()) break;
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                        throw;
+                    }
+                    var update = updates.Current;
+                    if (update.Usage is { } tokens) usage = UsageOf(tokens);
+
                     foreach (var part in update.ContentUpdate ?? [])
                     {
                         if (!string.IsNullOrEmpty(part.Text))
                         {
                             chunkCount++;
+                            firstToken ??= sw.Elapsed;
                             content.Append(part.Text);
                             yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, part.Text);
                         }
@@ -140,32 +190,36 @@ public static class LlmEndpointGrainUtils
                     if (!string.IsNullOrWhiteSpace(update.RefusalUpdate))
                     {
                         logger.LogWarning("LLM refused request: {Refusal}", update.RefusalUpdate);
+                        stopProblem = $"refusal: {update.RefusalUpdate}";
                         yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, update.RefusalUpdate);
                     }
 
                     if (update.FinishReason is { } finishReason && finishReason != ChatFinishReason.Stop)
                     {
                         logger.LogWarning("LLM finished with non-stop reason: {Reason}", finishReason);
+                        stopProblem = $"finish reason: {finishReason}";
                         yield return new LlmGenerationEvent(LlmGenerationEvent.GenerationError, finishReason.ToString());
                         yield break;
                     }
                 }
             }
 
-            completed = true;
+            completed = stopProblem is null;
         }
         finally
         {
-            await aiObservability.CaptureGenerationAsync(
-                parameters.Messages,
-                content.ToString(),
-                provider,
-                model,
-                baseUrl,
-                parameters.ModelParameters?.Temperature,
-                streamed: true,
-                isError: !completed,
-                CancellationToken.None);
+            var generation = new LlmGeneration(parameters.Messages, content.ToString(), provider, model, baseUrl, Streamed: true)
+            {
+                Temperature = parameters.ModelParameters?.Temperature,
+                Tier = parameters.JobComplexity.ToString(),
+                Latency = sw.Elapsed,
+                TimeToFirstToken = firstToken,
+                Usage = usage,
+            };
+            generation = stopProblem is not null
+                ? generation with { Error = stopProblem }
+                : generation.Ended(failure, completed, cancellationToken);
+            await aiObservability.CaptureGenerationAsync(generation, CancellationToken.None);
             onFinished();
             sw.Stop();
             logger.LogInformation("LLM API call completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
@@ -189,6 +243,8 @@ public static class LlmEndpointGrainUtils
         var completionOptions = ToChatCompletionOptions(parameters);
         var text = string.Empty;
         var completed = false;
+        LlmUsage? usage = null;
+        Exception? failure = null;
 
         try
         {
@@ -198,6 +254,7 @@ public static class LlmEndpointGrainUtils
                 if (attempt > 0) logger.LogWarning("LLM one-shot returned empty content; retrying once");
                 var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
                 text = string.Concat(completion.Value.Content.Select(part => part.Text ?? string.Empty));
+                if (completion.Value.Usage is { } tokens) usage = UsageOf(tokens);
 
                 if (completion.Value.FinishReason != ChatFinishReason.Stop)
                     logger.LogWarning("LLM one-shot finished with non-stop reason: {Reason}", completion.Value.FinishReason);
@@ -206,23 +263,32 @@ public static class LlmEndpointGrainUtils
             completed = true;
             return text;
         }
+        catch (Exception ex)
+        {
+            failure = ex;
+            throw;
+        }
         finally
         {
-            await aiObservability.CaptureGenerationAsync(
-                parameters.Messages,
-                text,
-                provider,
-                model,
-                baseUrl,
-                parameters.ModelParameters?.Temperature,
-                streamed: false,
-                isError: !completed,
-                CancellationToken.None);
+            var generation = new LlmGeneration(parameters.Messages, text, provider, model, baseUrl, Streamed: false)
+            {
+                Temperature = parameters.ModelParameters?.Temperature,
+                Tier = parameters.JobComplexity.ToString(),
+                Latency = sw.Elapsed,
+                Usage = usage,
+            };
+            await aiObservability.CaptureGenerationAsync(generation.Ended(failure, completed, cancellationToken), CancellationToken.None);
             onFinished();
             sw.Stop();
             logger.LogInformation("LLM one-shot completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
         }
     }
+
+    private static LlmUsage UsageOf(ChatTokenUsage usage) => new(
+        usage.InputTokenCount,
+        usage.OutputTokenCount,
+        CacheRead: usage.InputTokenDetails?.CachedTokenCount,
+        Reasoning: usage.OutputTokenDetails?.ReasoningTokenCount);
 
     private static IEnumerable<ChatMessage> ToOpenAiChatMessages(LlmGenerationJob parameters)
     {
