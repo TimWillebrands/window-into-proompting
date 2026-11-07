@@ -23,17 +23,21 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
 
         var sb = new StringBuilder();
         var affordances = new List<Affordance>();
+        var (bed, wake) = await SleepWindowAsync(ctx);
         foreach (var g in upcoming)
         {
             var going = g.AttendeeIds.Contains(ctx.Self.Id);
             var who = string.Join(", ", g.AttendeeIds.Where(id => id != ctx.Self.Id).Select(ctx.NameOf).Take(4));
             sb.AppendLine($"- {When(g.StartsAt, ctx.Now)}: \"{g.Title}\" {g.Where}, hosted by {(g.HostId == ctx.Self.Id ? "you" : g.HostName)}"
                 + $"{(who.Length > 0 ? $" — {who} going" : "")}{(going ? " (you're going)" : "")}");
-            if (!going)
+            // Something that starts after your bedtime isn't yours to say yes to.
+            if (!going && !Places.Sleep.IsNight(LocalMinute(DateTimeOffset.FromUnixTimeMilliseconds(g.StartsAt)), bed, wake))
                 affordances.Add(new Affordance(Id, $"Say you'll come to \"{g.Title}\" ({When(g.StartsAt, ctx.Now)})", 1, g.Id, "rsvp"));
         }
 
-        if (upcoming.Count < MaxUpcoming)
+        // One get-together at a time, and only with an evening left: you don't plan a second one on the way to the first.
+        var goingSoon = upcoming.Any(g => g.AttendeeIds.Contains(ctx.Self.Id) && g.StartsAt - nowMs < TimeSpan.FromHours(2).TotalMilliseconds);
+        if (upcoming.Count < MaxUpcoming && !goingSoon && GatheringRules.MayPlan(LocalMinute(ctx.Now), bed, wake))
         {
             var myRooms = new List<ChatGroupInfo>();
             foreach (var room in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Room))
@@ -44,7 +48,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             // Meeting in person: a public Place (spec .scratch/places phase 7).
             var placesGrain = grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId);
             var snapshot = await placesGrain.GetSnapshotAsync();
-            var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant && !p.Private).ToList();
+            var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant && !p.Private && upcoming.All(g => g.PlaceId != p.Id)).ToList();
             if (publicPlaces.Count > 0)
             {
                 var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];
@@ -76,13 +80,15 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         var room = ctx.Threads.FirstOrDefault(t => t.Id == target);
         if (room is null && meetAt is null) return null;
         var whereText = meetAt is null ? $"in the chat room #{room!.Name}" : $"in person {meetAt.At} {meetAt.Name}";
+        var (bed, wake) = await SleepWindowAsync(ctx);
+        var latest = GatheringRules.StartIn(240, LocalMinute(ctx.Now), bed, wake);
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.General,
-            $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together {whereText}. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and 240).\nOutput ONLY JSON: {PlanShape}",
+            $"{WorldLlm.Identity(ctx.Self)}\n\nYou're planning a small get-together {whereText}. It's {ctx.Now.ToLocalTime():HH:mm} now. Give it a short, inviting title in your own voice, and say how many minutes from now it starts (between 15 and {latest}).\nOutput ONLY JSON: {PlanShape}",
             $"What you have in mind: {intent}", ct, 0.9, ["title", "minutesFromNow"]);
         var title = json?["title"]?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return null;
         var minutes = int.TryParse(json?["minutesFromNow"]?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : 60;
-        var startsAt = ctx.Now.AddMinutes(Math.Clamp(minutes, 15, 240)).ToUnixTimeMilliseconds();
+        var startsAt = ctx.Now.AddMinutes(GatheringRules.StartIn(minutes, LocalMinute(ctx.Now), bed, wake)).ToUnixTimeMilliseconds();
 
         return meetAt is null
             ? (await PlanAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, room!, startsAt, ctx.Now)).Outcome
@@ -112,6 +118,26 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         if (g is null) return null;
         var summary = going ? $"will come to \"{g.Title}\" {g.Where}" : $"won't make it to \"{g.Title}\" {g.Where}";
         return (g, new ActOutcome("rsvp", summary, g.PlaceId is null ? g.RoomId : null));
+    }
+
+    private static int LocalMinute(DateTimeOffset at)
+    {
+        var local = at.ToLocalTime();
+        return local.Hour * 60 + local.Minute;
+    }
+
+    /// <summary>The persona's bed and wake minute, as Places keeps them (ADR 0020).</summary>
+    private async Task<(int Bed, int Wake)> SleepWindowAsync(LifeContext ctx)
+    {
+        try
+        {
+            var day = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetDayWindowAsync();
+            return Places.Sleep.Window(ctx.Self.Id, day.FirstBeatMinute, day.LastBeatMinute);
+        }
+        catch (Exception)
+        {
+            return Places.Sleep.Window(ctx.Self.Id);
+        }
     }
 
     private const string PlanShape = """{"title": "<short title>", "minutesFromNow": "<number>"}""";

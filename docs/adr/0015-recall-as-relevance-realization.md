@@ -41,6 +41,20 @@ Decisions inside that formula:
   emotional memory is simply high `weight`. The extractor judging per-persona valence
   without knowing the persona's existing orientations would be noise anyway.
 
+## The now first (2026-11-07)
+
+People live forward. A memory is something that may come to mind, not a scrapbook to carry around.
+Ties, Relations, Stances, threads and the sheet hold what lasts, so recall holds less:
+
+- **Horizon.** Only memories from the last 3 days come to mind (`RecallRanking.Horizon`). Before
+  this, 30-day-old storylines kept resurfacing in a World whose people had since been rewritten.
+- **Fewer.** Life's `# On your mind` shows 3 memories, down from 6, fetched from 4.
+- **Optional.** A picked memory goes into a reply only if it fits what's being said now. Initiative
+  presses none in (ADR 0018).
+- **A rewrite starts clean.** When a persona's sheet or bio changes (ADR 0021 `SheetKey`), their
+  recollections and consolidated Stances in that Party from before the change are dropped
+  (`ForgetBeforeAsync`). Events stay for whoever else remembers them.
+
 ## Selection by index, not by copy
 
 The Decision prompt numbers the surfaced recollections; the decision schema's

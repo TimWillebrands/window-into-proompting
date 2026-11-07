@@ -120,9 +120,15 @@ never forces it.
     ways (0.3).
 - **Desires live in `backend/World/Desires/`.**
   - `IntrinsicDesiresGrain` (key: persona id) distils one having-desire and one being-desire from the lived sheet, in the background. Authoring them stops the sheet from overriding.
+    The distil prompt names no example things. Its old example, "a proper winter coat", came back as 7 of 14 having-wants. Wants are read in the terms of the persona's own life, and `DistillVersion` re-distils the non-authored ones after a prompt change.
   - `DesiresGrain` (key: party:participant) holds Acquired Desires, at most 3 active; the oldest fades. It also holds per-Party marks on intrinsic ones, so getting what you wanted in one Party leaves the Persona wanting it elsewhere.
   - Acquired Desires fade after 14 days untouched. Intrinsic ones never fade.
 - **Wanting steers doing, not talking.** "# What you want lately" goes into the Initiative prompt only. Both the choice judge and the voicing see it there, so no extra noul per turn is needed. That replaces decision 5's per-option noul, which was more machinery for the same pull. Speaking prompts never see desires, so personas don't perform them (ADR 0021).
+- **Wanting needs a handle.** Two lines in a long Initiative prompt moved nobody. In a live day none of 14 authored wants showed in what anyone did. A want is propositional; the chooser picks among affordances. So a want has to show up where the choice is made.
+  - `DesireRules.People` finds who a want on the mind is about: its target, or a cast name in its text.
+  - An option aimed at that person pulls 1 more and reads "(toward what you want: …)".
+  - Messenger offers a private message to a wanted person before random contacts.
+  - Wants without a person reach the Day prompt instead, and one ordinary beat may edge toward them. That's ordinary time, not feast time: a call or an errand, no breakthroughs.
 - **Having meets the Wardrobe.** A having-desire that names a catalog item gets its own buy option (priority 2) when you can afford it. Until then, buying anything else pulls 1 less ("saving up"). Buying the item, or being given it, fulfils the desire.
 - **Being is reviewed in rest.** Writing the Diary runs `DesireReview` at most every 12 h. It recalls memories against the active desires and asks System One "got it" (≥ 0.7: fulfilled) and "closer" (≥ 0.6: touched).
 - **Mimesis rides the Moment appraisal's existing System One call.** It adds one noul per pair that clears the caps, and the LLM only voices a hit. Caps:

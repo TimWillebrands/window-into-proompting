@@ -11,4 +11,6 @@ export type GatheringStatus =
 export const GatheringStatus = {
     Planned: 'Planned',
     Started: 'Started',
+    Over: 'Over',
+    Missed: 'Missed',
 } as const;

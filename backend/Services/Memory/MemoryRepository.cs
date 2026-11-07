@@ -230,7 +230,7 @@ public sealed class MemoryRepository(
                     edgeId, snippet, weight, recallCount, lastRecalled, capturedAt, salience), relevant));
             }
 
-            return RecallRanking.QuotaUnion(RecallRanking.Dedup(rows), limit);
+            return RecallRanking.QuotaUnion(RecallRanking.Dedup(RecallRanking.Fresh(rows, now)), limit);
         }
         finally
         {
@@ -901,6 +901,35 @@ public sealed class MemoryRepository(
     // bounded on a huge backlog. The watermark advances only to the last *walked* edge, so
     // the remainder is picked up by the next run (gauge or button) — never silently skipped.
     private const int MaxRecollectionsPerRun = 50;
+
+    public async Task ForgetBeforeAsync(Guid partyId, Guid personaId, DateTimeOffset before, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await db.Database.OpenConnectionAsync(ct);
+        try
+        {
+            var conn = (NpgsqlConnection)db.Database.GetDbConnection();
+            // Same "o"-with-offset shape the writes use, so the textual < is an instant comparison.
+            var cutoff = before.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+            foreach (var edge in new[] { "RECOLLECTS", "STANCE" })
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $$"""
+                    SELECT * FROM cypher('memory', $cy$
+                      MATCH (part:Participant {persona_id: '{{personaId}}', party_id: '{{partyId}}'})-[r:{{edge}}]->()
+                      WHERE r.ts < '{{cutoff}}'
+                      DELETE r
+                      RETURN 1
+                    $cy$) AS (n agtype)
+                    """;
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
 
     public async Task<ConsolidationBatch> GetUnconsolidatedRecollectionsAsync(
         Guid partyId,

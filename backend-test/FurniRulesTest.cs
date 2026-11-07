@@ -10,19 +10,19 @@ public class FurniRulesTest
     private static Furni Plant(long tendedAt) => new() { Id = "plant", Kind = FurniKinds.Plant, Name = "the plant", TendedAt = tendedAt };
 
     [Fact]
-    public void Plant_DriesOverADay_AndOnlyThenAsksForWater()
+    public void Plant_DriesOverDays_AndOnlyThenAsksForWater()
     {
         var plant = Plant(0);
 
-        Assert.Null(FurniRules.CareFor(plant, 2 * Hour));
-        Assert.Null(FurniRules.Notable(plant, 2 * Hour));
-        Assert.Equal(1, FurniRules.CareFor(plant, 10 * Hour)!.Priority);
-        Assert.Equal("the plant looks a bit dry", FurniRules.Notable(plant, 10 * Hour));
-        Assert.Equal(2, FurniRules.CareFor(plant, 20 * Hour)!.Priority);
-        Assert.Equal("the plant is wilting", FurniRules.Notable(plant, 20 * Hour));
+        Assert.Null(FurniRules.CareFor(plant, 24 * Hour));
+        Assert.Null(FurniRules.Notable(plant, 24 * Hour));
+        Assert.Equal(0, FurniRules.CareFor(plant, 60 * Hour)!.Priority);
+        Assert.Equal("the plant looks a bit dry", FurniRules.Notable(plant, 60 * Hour));
+        Assert.Equal(1, FurniRules.CareFor(plant, 84 * Hour)!.Priority);
+        Assert.Equal("the plant is wilting", FurniRules.Notable(plant, 84 * Hour));
 
-        FurniRules.Tend(plant, 20 * Hour);
-        Assert.Null(FurniRules.CareFor(plant, 21 * Hour));
+        FurniRules.Tend(plant, 84 * Hour);
+        Assert.Null(FurniRules.CareFor(plant, 85 * Hour));
     }
 
     [Fact]
@@ -69,5 +69,19 @@ public class FurniRulesTest
     {
         Assert.Equal(style, Decor.StyleOf(said));
         Assert.Equal(label, Decor.Label(said));
+    }
+}
+
+/// <summary>Waking means getting up: the body leaves the bed for the kitchen, else another free spot.</summary>
+public class GetUpTest
+{
+    private static Place Home(params string[] spots) => new() { Kind = PlaceKinds.Home, Spots = spots.Select(s => new Spot { Id = s, Name = s, Capacity = 1 }).ToList() };
+
+    [Fact]
+    public void GetUp_PrefersTheKitchen_ThenWhatIsFree()
+    {
+        Assert.Equal("kitchen", Sleep.GetUpSpot(Home("bed", "sofa", "kitchen"), _ => 0));
+        Assert.Equal("sofa", Sleep.GetUpSpot(Home("bed", "sofa", "kitchen"), s => s == "kitchen" ? 1 : 0));
+        Assert.Null(Sleep.GetUpSpot(Home("bed"), _ => 0));
     }
 }

@@ -14,6 +14,13 @@ internal static class RecallRanking
     /// <summary>How many newest edges the recency arm ranks.</summary>
     public const int CandidatePool = 50;
 
+    /// <summary>How far back recall reaches: the now is what matters; Ties, Relations and Stances carry what lasts.</summary>
+    public static readonly TimeSpan Horizon = TimeSpan.FromDays(3);
+
+    /// <summary>Only memories inside the <see cref="Horizon"/> come to mind.</summary>
+    public static List<RecallCandidate> Fresh(IEnumerable<RecallCandidate> rows, DateTimeOffset now)
+        => rows.Where(r => now - r.Memory.CapturedAt < Horizon).ToList();
+
     /// <summary>Same edge from several legs → one candidate; relevance wins.</summary>
     public static List<RecallCandidate> Dedup(IEnumerable<RecallCandidate> rows)
     {

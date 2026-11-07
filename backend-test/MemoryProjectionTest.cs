@@ -19,6 +19,14 @@ public class MemoryProjectionTest
     }
 
     [Fact]
+    public void Fresh_RecallReachesBackOnlyAFewDays()
+    {
+        var rows = new[] { Cand("today", 0.5, 60, true), Cand("lastweek", 0.9, 7 * 24 * 60, true), Cand("edge", 0.5, 3 * 24 * 60 - 1, false) };
+
+        Assert.Equal(new[] { "today", "edge" }, RecallRanking.Fresh(rows, T0).Select(r => r.Key));
+    }
+
+    [Fact]
     public void QuotaUnion_RelevantCappedAtFive_RecencyFills_MergedBySalience()
     {
         var relevant = Enumerable.Range(0, 7).Select(i => Cand($"r{i}", 0.9 - i * 0.01, 500 + i, true));

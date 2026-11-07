@@ -133,7 +133,7 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
         Assert.Contains(home.Furni, f => f.Kind == FurniKinds.Plant);
 
-        _fx.Time.Advance(TimeSpan.FromHours(9));
+        _fx.Time.Advance(TimeSpan.FromHours(57));
 
         Assert.Contains("Around you: the plant on the windowsill looks a bit dry", await places.GetSituationAsync(denise));
         var done = await places.ActOnFurniAsync(denise, home.Id, "plant", care: true, intent: null);
@@ -204,6 +204,7 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         _fx.Time.Advance(UntilLocal(wake + 5));
         Assert.DoesNotContain(denise, await places.GetAsleepAsync());
         Assert.Contains("just got up", await places.GetSituationAsync(denise));
+        Assert.Equal("kitchen", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).SpotId);
     }
 
     /// <summary>How far to push the clock to reach a local minute-of-day next.</summary>

@@ -213,4 +213,7 @@ public interface IMemoryRepository
         Guid sourcePersonaId,
         Guid stanceId,
         CancellationToken ct);
+
+    /// <summary>Drops what <paramref name="personaId"/> remembered and concluded in this Party before <paramref name="before"/>: a rewritten sheet starts from the now.</summary>
+    Task ForgetBeforeAsync(Guid partyId, Guid personaId, DateTimeOffset before, CancellationToken ct);
 }

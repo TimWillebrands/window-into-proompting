@@ -58,7 +58,10 @@ shapes the landscape: which Affordances exist, what is foregrounded, who gets th
   event-sourced: posts are content, not conversational turn history (ADR 0002's test).
 - Initiating in a Room/DM reuses the Speaking phase with the chosen intent as the turn
   instruction; the reply fans out normally, so others react through the existing
-  pipeline.
+  pipeline. Initiative presses no memory into the line. Life formed the intent with its memories
+  in view. A second, separately recalled memory in the recency slot outranked the intent: two
+  figures, one line. A warm "eaten?" grew shop talk, and a DM to Pieter picked up someone else's
+  scooter story. Stances still come along.
 
 ## Consequences
 

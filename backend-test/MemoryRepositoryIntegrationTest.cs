@@ -448,24 +448,19 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal(heavySnippet, ranked[0].Snippet);
         Assert.Equal(lightSnippet, ranked[1].Snippet);
 
-        // Backdate the heavy memory by 30 days (4+ half-lives): 0.9 × 0.5^(30/7) ≈ 0.05,
-        // so the fresh light memory (0.2) now wins — an old high-weight memory ranks below
-        // a fresh one.
+        // Backdated 30 days it's past the recall horizon (RecallRanking.Horizon): it doesn't come to mind at all.
         var heavyEdgeId = ranked[0].EdgeId;
-        var backdatedIso = DateTimeOffset.UtcNow.AddDays(-30).ToString("o");
-        await ExecuteCypherAsync($$"""
-            SELECT * FROM cypher('memory', $cy$
-              MATCH (:Participant)-[r:RECOLLECTS {id: '{{heavyEdgeId}}'}]->(:Event)
-              SET r.ts = '{{backdatedIso}}'
-              RETURN r.id
-            $cy$) AS (id ag_catalog.agtype);
-            """);
+        await BackdateAsync(heavyEdgeId, DateTimeOffset.UtcNow.AddDays(-30));
+        var gone = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        Assert.Equal(lightSnippet, Assert.Single(gone).Snippet);
 
+        // Inside the horizon it decays but still outranks the light one: 0.9 × 0.5^(2.5/7) ≈ 0.70 > 0.2.
+        await BackdateAsync(heavyEdgeId, DateTimeOffset.UtcNow.AddDays(-2.5));
         var afterDecay = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
-        Assert.Equal(lightSnippet, afterDecay[0].Snippet);
-        Assert.Equal(heavySnippet, afterDecay[1].Snippet);
+        Assert.Equal(heavySnippet, afterDecay[0].Snippet);
+        Assert.Equal(lightSnippet, afterDecay[1].Snippet);
 
-        // Strengthen the decayed memory (several picks).
+        // Strengthen it (several picks).
         for (var i = 0; i < 5; i++)
         {
             await repo.StrengthenRecollectionAsync(heavyEdgeId, CancellationToken.None);
@@ -473,7 +468,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         // Just picked: the refractory damping (ADR 0021) keeps a just-told story down for a few hours.
         var justPicked = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
-        Assert.Equal(lightSnippet, justPicked[0].Snippet);
+        Assert.True(justPicked.Single(m => m.Snippet == heavySnippet).Salience < afterDecay[0].Salience * 0.5);
 
         // Once the refractory window has passed, the use bonus lifts it back above the fresh light one.
         var pastRefractoryIso = DateTimeOffset.UtcNow.AddHours(-(SalienceMath.RefractoryHours + 1)).ToString("o");
@@ -490,6 +485,36 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.True(afterStrengthening[0].RecallCount == 5);
         Assert.NotNull(afterStrengthening[0].LastRecalled);
     }
+
+    [Fact]
+    public async Task ForgetBefore_DropsOnlyWhatCameBeforeTheRewrite()
+    {
+        RequireDevStack();
+
+        var partyId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
+        var repo = MakeRepo();
+        var oldSnippet = $"old-life-{Guid.NewGuid():N}";
+        var newSnippet = $"new-life-{Guid.NewGuid():N}";
+        await CaptureForAsync(repo, partyId, roomId, hana, oldSnippet, weight: 0.9);
+        await CaptureForAsync(repo, partyId, roomId, hana, newSnippet, weight: 0.5);
+        var old = (await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None)).Single(m => m.Snippet == oldSnippet);
+        await BackdateAsync(old.EdgeId, DateTimeOffset.UtcNow.AddHours(-2));
+
+        await repo.ForgetBeforeAsync(partyId, hana.Id, DateTimeOffset.UtcNow.AddHours(-1), CancellationToken.None);
+
+        var left = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
+        Assert.Equal(newSnippet, Assert.Single(left).Snippet);
+    }
+
+    private Task BackdateAsync(Guid edgeId, DateTimeOffset at) => ExecuteCypherAsync($$"""
+        SELECT * FROM cypher('memory', $cy$
+          MATCH (:Participant)-[r:RECOLLECTS {id: '{{edgeId}}'}]->(:Event)
+          SET r.ts = '{{at.ToString("o")}}'
+          RETURN r.id
+        $cy$) AS (id ag_catalog.agtype);
+        """);
 
     [Fact]
     public async Task Strengthen_UpdatesPickedEdgeOnly()

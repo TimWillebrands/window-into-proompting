@@ -69,6 +69,7 @@ public sealed class PersonaLifeGrain(
             return (Activity(personaId, "?", "life", "error", "is not an LLM-driven participant here"), false);
 
         var clock = GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var wants = await WantsAsync(partyId, personaId);
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
@@ -76,7 +77,8 @@ public sealed class PersonaLifeGrain(
             (await clock.GetActivitiesAsync(12, personaId))
                 .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
             DateTimeOffset.UtcNow,
-            await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync());
+            await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
+            Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name))));
 
         var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
             .Where(a => a.Action == "happening" && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromHours(12))
@@ -90,7 +92,9 @@ public sealed class PersonaLifeGrain(
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
         var onShift = await OnShiftAsync(partyId, personaId);
-        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk) - Work.Shifts.Damping(a.AppId, onShift);
+        // Wanting gets a handle (ADR 0026): an option about someone you want something from pulls one more.
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk) - Work.Shifts.Damping(a.AppId, onShift)
+            + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -108,7 +112,7 @@ public sealed class PersonaLifeGrain(
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
-        presence += await DesiresAsync(partyId, personaId);
+        presence += Desires.DesireRules.Render(wants);
         if (reflex is not null) presence += await reflex.MindAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
             .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList(), here: false);
@@ -136,7 +140,8 @@ Output ONLY JSON: {ChoiceShape}
         }
         sb.AppendLine();
         sb.AppendLine("# On your mind");
-        sb.AppendLine(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(6).Select(m => $"- {m.Snippet}")));
+        // The now first (ADR 0021): a few recent things on the mind, not a scrapbook.
+        sb.AppendLine(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(3).Select(m => $"- {m.Snippet}")));
         if (!string.IsNullOrWhiteSpace(ties)) sb.AppendLine($"\n{ties.Trim()}");
         if (stances.Count > 0)
         {
@@ -152,8 +157,9 @@ Output ONLY JSON: {ChoiceShape}
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
         var world = sb.ToString();
         sb.AppendLine("# Options");
+        string Read(Affordance a) => Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId));
         for (var i = 0; i < options.Count; i++)
-            sb.AppendLine($"{i + 1}. {options[i].Label}");
+            sb.AppendLine($"{i + 1}. {Read(options[i])}");
         sb.AppendLine("0. Do nothing for now");
 
         string? thought;
@@ -167,7 +173,7 @@ Output ONLY JSON: {ChoiceShape}
             var state = $"{WorldLlm.Identity(self)}\n\n{sb}";
             var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
                 i => i.ToString(CultureInfo.InvariantCulture),
-                i => (string?)(i == 0 ? "Do nothing for now" : options[i - 1].Label));
+                i => (string?)(i == 0 ? "Do nothing for now" : Read(options[i - 1])));
             var answers = await weigh.AskAsync(state, new Dictionary<string, SystemOneQuestion>
             {
                 ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
@@ -223,14 +229,14 @@ Output ONLY JSON: {ChoiceShape}
         }
     }
 
-    /// <summary>"# What you want lately" (ADR 0026): Initiative only, so wanting steers what they do, not what they talk about.</summary>
-    private async Task<string> DesiresAsync(Guid partyId, Guid personaId)
+    /// <summary>Their wants (ADR 0026), Initiative only, so wanting steers what they do, not what they talk about.</summary>
+    private async Task<List<Desires.Desire>> WantsAsync(Guid partyId, Guid personaId)
     {
-        try { return Desires.DesireRules.Render((await GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).All); }
+        try { return (await GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).All.ToList(); }
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Desires failed for {Persona}", personaId);
-            return string.Empty;
+            return new List<Desires.Desire>();
         }
     }
 

@@ -52,4 +52,35 @@ public class DesiresTest
     [InlineData(0.3, 0.4, null)]
     public void Reviewed_GotItOrCloserOrNothing(double done, double closer, DesireStatus? expected)
         => Assert.Equal(expected, DesireReview.Reviewed(done, closer));
+
+    [Fact]
+    public void People_FindsWhoAWantIsAbout_ByTargetOrName()
+    {
+        var (anne, justin, pieter, other) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var cast = new[] { (anne, "Anne de Castelnaudary"), (justin, "Justin"), (pieter, "Pieter Voss") };
+        var wants = new[]
+        {
+            D("say to Anne and Justin's faces what you never said", daysAgo: 1),
+            new Desire { Text = "a quiet word", Kind = DesireKind.Being, TargetId = other, Since = Now.ToUnixTimeMilliseconds() },
+            D("Pieter Voss's trust", DesireKind.Having, daysAgo: 3),
+        };
+        var people = DesireRules.People(wants, cast);
+        Assert.Equal(new HashSet<Guid> { anne, justin, other }, people.Keys.ToHashSet());
+        Assert.Equal("say to Anne and Justin's faces what you never said", people[justin]);
+    }
+
+    [Fact]
+    public void People_IgnoresNamesInsideOtherWords()
+    {
+        var ann = Guid.NewGuid();
+        Assert.Empty(DesireRules.People(new[] { D("a new annex for the shed") }, new[] { (ann, "Ann") }));
+    }
+
+    [Fact]
+    public void Toward_NotesTheWantOnAnOptionAboutThatPerson()
+    {
+        Assert.Equal("Send Pieter Voss a private message (toward what you want: Pieter Voss's trust)",
+            DesireRules.Toward("Send Pieter Voss a private message", "Pieter Voss's trust"));
+        Assert.Equal("Rest", DesireRules.Toward("Rest", null));
+    }
 }

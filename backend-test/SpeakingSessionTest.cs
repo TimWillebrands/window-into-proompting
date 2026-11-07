@@ -580,4 +580,27 @@ public class SpeakingSessionTest
             session.GenerateResponseOnlyAsync(
                 persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_DropsEmptyMessages_SoNoPhantomSenderReachesTheModel()
+    {
+        // A declined turn leaves an empty message; once its sender left the room it rendered as an empty "Unknown".
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Denise");
+        var anne = MakeParticipant("Anne");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(persona), AsView(anne) });
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = Guid.NewGuid(), SenderType = "persona", Content = "" },
+            new() { MessageId = 2, SenderId = anne.Id, SenderType = "persona", Content = "Lentils at mine later?" },
+            new() { MessageId = 3, SenderId = persona.Id, SenderType = "persona", Content = "   " },
+        };
+
+        await session.GenerateResponseOnlyAsync(persona, history, (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        var messages = getJob()!.Messages;
+        Assert.DoesNotContain(messages, m => m.Content.Contains("sender=\"Unknown\""));
+        Assert.DoesNotContain(messages, m => m.Role == "assistant" && string.IsNullOrWhiteSpace(m.Content));
+        Assert.Single(messages, m => m.Role == "user");
+    }
 }

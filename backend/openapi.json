@@ -9133,7 +9133,9 @@
       "GatheringStatus": {
         "enum": [
           "Planned",
-          "Started"
+          "Started",
+          "Over",
+          "Missed"
         ]
       },
       "GiftSummary": {
