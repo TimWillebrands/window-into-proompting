@@ -506,49 +506,49 @@ _Avoid_: price, rate, invoice.
 One concrete thing a **Session** leaves a **Client** owing, held by the **Practitioner**. A **Responsibility**.
 _Avoid_: task, action item, assignment.
 
-### The Works
+### The CDU
 
-See [ADR 0039](docs/adr/0039-the-works.md). A **Company** whose product is this codebase. Staff know the World is made; nobody else does.
+See [ADR 0039](docs/adr/0039-the-cdu.md). A **Company** whose product is this codebase. Staff on shift know the World is made; nobody else does.
 
-**Works**:
-A **Company** of kind `works`: instead of a **Book** it has a bench, where **Architects** order changes to the World's own code.
-_Avoid_: dev team, engineering, studio.
+**CDU**:
+The Central Demiurge Unit: one persistent coding agent next to the deployment, with the repo, the database and a GitHub token. Has memory and a temperament, and acts only when a **Cytheurgist** speaks to it. Its Company has kind `cdu`.
+_Avoid_: builder, bot, assistant, AI, harness.
 
-**Architect**:
-A **Participant** on a **Works**' staff. Decides what's worth changing and drives the **Builder**, one move per **Life** turn. Doesn't code.
-_Avoid_: engineer, developer, programmer.
+**Cytheurgist**:
+A **Participant** on the CDU Company's staff, whose work moves the **CDU** to act: one move per on-shift **Life** turn (talk, answer, look). Supplies intent and taste; doesn't code.
+_Avoid_: architect, developer, operator, prompter.
 
-**Builder**:
-The coding agent working on an Architect's behalf, inside the sandbox. Which model it runs on is the Architect's pick.
-_Avoid_: harness, bot, assistant.
+**The One**:
+Whoever merges. A merge is his light reaching the World; nobody in it can ask him anything.
+_Avoid_: world-spirits, admin, reviewer, god.
 
-**Commission**:
-One unit of work ordered from the **Builder**: a title, why, brief, builder and budget. Only one change is open at a time.
-_Avoid_: ticket, task, job, run.
+**Agora**:
+The CDU's open pull request on GitHub, where the One judges its work. Public.
+_Avoid_: proposition, merge request.
 
-**Survey**:
-A read-only **Commission**: a question about how the World really works, answered into the Architect's memory.
-_Avoid_: research, query.
+**Trunk**:
+The CDU's local line of small, green commits, authored by the Cytheurgist who asked. Resets to `master` on every verdict.
+_Avoid_: branch, queue, backlog.
 
-**Proposition**:
-A finished change waiting on the **World-spirits**, as a branch with its checks attached. New work stacks on the newest open one.
-_Avoid_: pull request, PR, merge request.
+**Tide**:
+How the **Trunk** meets `master`: in at shift start (rebase), out at shift end (push as the one **Agora** PR).
+_Avoid_: sync, deploy, release.
 
-**World-spirits**:
-Whoever decides what merges. Nobody in the World has met them or can ask them anything.
-_Avoid_: reviewers, admins, gods.
+**Drowned idea**:
+Work the One turned down, kept as a tag so the CDU can remember it.
+_Avoid_: rejected branch, dead PR.
 
-**Reserve**:
-The money left for everyone's thinking, the **Builder** included. At zero, everyone stops.
-_Avoid_: credits (that's the **Wallet**), balance, budget.
+**Book of the CDU**:
+The CDU's memory: plain files in a git store (journal, one file per person, open promises), committed after every turn.
+_Avoid_: Book alone (that's a Company's ledger), notes, memory bank.
 
-**Runner**:
-The service next to the sandbox that owns the agent. The World's only door to it.
-_Avoid_: harness, worker, agent server.
+**Soul**:
+The CDU's own instructions, appended to its harness prompt. Lives in the repo, so a change to it rides the **Agora**.
+_Avoid_: system prompt, persona (that's a **Persona**).
 
 **Meter**:
-The proxy that is the sandbox's only way out: holds the real key, allows listed models, stops a **Commission** at its budget.
-_Avoid_: gateway, firewall.
+The proxy that holds the CDU's model key and its daily allowance. The CDU can read its tab, never raise it.
+_Avoid_: gateway, firewall, budget.
 
 ### World growth
 
@@ -635,6 +635,8 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Responsibility** belongs to one **Participant** and has exactly one holder.
 - A **Company** has one **Mandate**, one **Book** and zero or more staff; an **Occupation** belongs to at most one **Company** or one **Practice**, never both.
 - A **Book** has zero or more **Positions**; a **Position** is of exactly one **Instrument**, from the **Company**'s **Market**.
+- A deployment has at most one **CDU**; it has one **Trunk**, one **Book of the CDU**, one **Soul** and at most one open **Agora** PR.
+- A **Cytheurgist** is staff of exactly one CDU **Company**; every commit on the **Trunk** is authored by one Cytheurgist.
 - A **Session** has exactly one **Practitioner** and one **Client**, either of whom may be driven by a human or an LLM.
 - A **Homework** comes from one **Session**, belongs to its **Client** and is held by its **Practitioner**.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
