@@ -2,9 +2,11 @@ import { useState } from 'react';
 import {
     useGetLlmConfigPersonaRoutes,
     useGetLlmConfigProviders,
+    useGetLlmConfigProvidersAvailability,
 } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 import { EMPTY_ENTRY } from './constants';
+import FallbackOrder from './FallbackOrder';
 import ProviderCard from './ProviderCard';
 import ProviderEditor from './ProviderEditor';
 import ProviderModal from './ProviderModal';
@@ -13,6 +15,11 @@ export default function LlmProvidersSection() {
     const { data, refetch } = useGetLlmConfigProviders();
     const providers: LlmProviderEntry[] = data?.data ?? [];
     const routes = useGetLlmConfigPersonaRoutes().data?.data ?? [];
+    // The router pings every 30s; polling a bit faster shows a box coming back soon after.
+    const availability =
+        useGetLlmConfigProvidersAvailability({
+            query: { refetchInterval: 15_000 },
+        }).data?.data ?? [];
     const personaCount = (providerId?: string) =>
         new Set(
             routes
@@ -116,6 +123,9 @@ export default function LlmProvidersSection() {
                     <ProviderCard
                         key={p.id}
                         provider={p}
+                        availability={availability.find(
+                            (a) => a.providerId === p.id,
+                        )}
                         personaCount={personaCount(p.id)}
                         onEdit={() => openEdit(p)}
                         onDeleted={refetch}
@@ -123,6 +133,13 @@ export default function LlmProvidersSection() {
                     />
                 ))}
             </div>
+
+            {providers.length > 0 && (
+                <FallbackOrder
+                    providers={providers}
+                    availability={availability}
+                />
+            )}
 
             {editing && (
                 <ProviderModal

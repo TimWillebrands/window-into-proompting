@@ -163,8 +163,29 @@ public class OllamaEndpointGrain(
         }
     }
 
+    // Pinged every 30s, so an unreachable box can be Offline instead of benched for 10 minutes.
     private Task ReportFailureAsync(Exception ex)
-        => GrainFactory.GetGrain<ILlmRouterGrain>(0).ReportFailureAsync(this.GetPrimaryKey(), ex.Message);
+    {
+        var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
+        return LlmEndpointGrainUtils.IsUnreachable(ex)
+            ? router.ReportOfflineAsync(this.GetPrimaryKey(), ex.Message)
+            : router.ReportFailureAsync(this.GetPrimaryKey(), ex.Message);
+    }
+
+    /// <summary>Reachable when it lists its models; checks the server, not that the model is there.</summary>
+    public async Task<string?> PingAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var http = tailnets.ClientFor(_config?.Tailnet) ?? httpClientFactory.CreateClient();
+            await ListModelNamesAsync(http, cancellationToken);
+            return null;
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ex.Message;
+        }
+    }
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {

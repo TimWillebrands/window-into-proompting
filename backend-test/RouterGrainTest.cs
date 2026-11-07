@@ -205,6 +205,92 @@ public class RouterGrainTest : TestKitBase
     }
 
     [Fact]
+    public async Task RouteAsync_LeavesOfflineOut_EvenWhenItsAllThereIs()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.ReportOfflineAsync(endpoints[0].Id, "connection refused");
+        await router.ReportFailureAsync(endpoints[1].Id, "402 out of credit");
+
+        // Benched still beats nothing; Offline never routes, so the caller can try its next tier.
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+        await router.ReportOfflineAsync(endpoints[1].Id, "connection refused");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task CheckAvailability_MarksAnUnreachableProviderOffline()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        endpoints[0].Unreachable = "Connection refused (cachyos:11434)";
+
+        await router.CheckAvailabilityAsync();
+
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+        var offline = Assert.Single(await router.GetAvailabilityAsync(), a => a.ProviderId == endpoints[0].Id);
+        Assert.Equal((ProviderState.Offline, "Connection refused (cachyos:11434)"), (offline.State, offline.Reason));
+    }
+
+    [Fact]
+    public async Task CheckAvailability_TakesAProviderBackAsSoonAsItAnswers_BenchIncluded()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        await router.ReportFailureAsync(endpoints[0].Id, "timed out mid-call");
+        endpoints[0].Unreachable = "down";
+        await router.CheckAvailabilityAsync();
+
+        endpoints[0].Unreachable = null;
+        await router.CheckAvailabilityAsync();
+
+        Assert.Same(endpoints[0].Reference, await router.RouteAsync(JobComplexity.General));
+        Assert.All(await router.GetAvailabilityAsync(), a => Assert.Equal(ProviderState.Ready, a.State));
+    }
+
+    [Fact]
+    public async Task CheckAvailability_KeepsABenchOnAProviderThatNeverWentAway()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        await router.ReportFailureAsync(endpoints[0].Id, "404 model not found");
+
+        await router.CheckAvailabilityAsync();
+
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+        var benched = Assert.Single(await router.GetAvailabilityAsync(), a => a.ProviderId == endpoints[0].Id);
+        Assert.Equal((ProviderState.Benched, "404 model not found"), (benched.State, benched.Reason));
+        Assert.NotNull(benched.Until);
+    }
+
+    [Fact]
+    public async Task CheckAvailability_TreatsAPingThatThrowsAsOffline()
+    {
+        var endpoints = SetupEndpoints(1);
+        Mock.Get(endpoints[0].Reference)
+            .Setup(g => g.PingAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("silo said no"));
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.CheckAvailabilityAsync();
+
+        Assert.Equal(ProviderState.Offline, Assert.Single(await router.GetAvailabilityAsync()).State);
+    }
+
+    [Fact]
+    public async Task AssignedEndpoint_FallsBackToThePoolWhileOffline()
+    {
+        var persona = Guid.NewGuid();
+        var (_, reserved) = SetupReserved(persona);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.ReportOfflineAsync(reserved.Id, "asleep");
+
+        Assert.Null(await router.AssignedEndpointAsync(persona, JobComplexity.General));
+    }
+
+    [Fact]
     public async Task GenerateAsync_ConcurrentCalls_IncrementsPressure()
     {
         var endpoints = SetupEndpoints(1);

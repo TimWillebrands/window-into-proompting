@@ -98,6 +98,7 @@ import type {
     ProblemDetails,
     ProceedRequest,
     PromptRequest,
+    ProviderAvailability,
     ProviderUsage,
     Relation,
     RelationHomeRequest,
@@ -5741,6 +5742,318 @@ export const usePostLlmConfigProviders = <TError = unknown, TContext = unknown>(
         queryClient,
     );
 };
+
+export type getLlmConfigProvidersAvailabilityResponse200TextPlain = {
+    data: ProviderAvailability[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersAvailabilityResponse200ApplicationJson = {
+    data: ProviderAvailability[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersAvailabilityResponse200TextJson = {
+    data: ProviderAvailability[];
+    status: 200;
+};
+
+export type getLlmConfigProvidersAvailabilityResponseSuccess = (
+    | getLlmConfigProvidersAvailabilityResponse200TextPlain
+    | getLlmConfigProvidersAvailabilityResponse200ApplicationJson
+    | getLlmConfigProvidersAvailabilityResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigProvidersAvailabilityResponse =
+    getLlmConfigProvidersAvailabilityResponseSuccess;
+
+export const getGetLlmConfigProvidersAvailabilityUrl = () => {
+    return `/api/LlmConfig/providers/availability`;
+};
+
+export const getLlmConfigProvidersAvailability = async (
+    options?: RequestInit,
+): Promise<getLlmConfigProvidersAvailabilityResponse> => {
+    return customFetch<getLlmConfigProvidersAvailabilityResponse>(
+        getGetLlmConfigProvidersAvailabilityUrl(),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetLlmConfigProvidersAvailabilityQueryKey = () => {
+    return [`/api/LlmConfig/providers/availability`] as const;
+};
+
+export const getGetLlmConfigProvidersAvailabilityQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetLlmConfigProvidersAvailabilityQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>
+    > = ({ signal }) =>
+        getLlmConfigProvidersAvailability({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersAvailabilityQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>
+>;
+export type GetLlmConfigProvidersAvailabilityQueryError = unknown;
+
+export function useGetLlmConfigProvidersAvailability<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<typeof getLlmConfigProvidersAvailability>
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<typeof getLlmConfigProvidersAvailability>
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersAvailability<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<typeof getLlmConfigProvidersAvailability>
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<typeof getLlmConfigProvidersAvailability>
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersAvailability<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProvidersAvailability<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetLlmConfigProvidersAvailabilityQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigProvidersAvailabilitySuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetLlmConfigProvidersAvailabilityQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>
+    > = ({ signal }) =>
+        getLlmConfigProvidersAvailability({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigProvidersAvailabilitySuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>
+>;
+export type GetLlmConfigProvidersAvailabilitySuspenseQueryError = unknown;
+
+export function useGetLlmConfigProvidersAvailabilitySuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersAvailabilitySuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigProvidersAvailabilitySuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigProvidersAvailabilitySuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigProvidersAvailability>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetLlmConfigProvidersAvailabilitySuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export type getLlmConfigTailnetsResponse200TextPlain = {
     data: string[];

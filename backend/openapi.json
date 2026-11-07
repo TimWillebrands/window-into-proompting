@@ -1553,6 +1553,44 @@
         }
       }
     },
+    "/LlmConfig/providers/availability": {
+      "get": {
+        "tags": [
+          "LlmConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderAvailability"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderAvailability"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderAvailability"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/LlmConfig/tailnets": {
       "get": {
         "tags": [
@@ -11111,6 +11149,40 @@
             "format": "uuid"
           }
         }
+      },
+      "ProviderAvailability": {
+        "required": [
+          "providerId",
+          "state",
+          "reason",
+          "until"
+        ],
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProviderState"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ProviderState": {
+        "type": "integer"
       },
       "ProviderUsage": {
         "required": [

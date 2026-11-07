@@ -3,16 +3,58 @@ import {
     usePutLlmConfigProvidersId,
 } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
-import { JOB_COMPLEXITIES, REASONING_EFFORTS } from './constants';
+import type { ProviderAvailability } from '../../../api/model/providerAvailability';
+import {
+    BENCHED,
+    JOB_COMPLEXITIES,
+    PROVIDER_STATES,
+    REASONING_EFFORTS,
+} from './constants';
+
+const time = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+/** Ready, Benched until a time, or Offline; the reason sits under the card. */
+function AvailabilityBadge({
+    availability,
+}: {
+    availability: ProviderAvailability;
+}) {
+    const state = PROVIDER_STATES[availability.state] ?? PROVIDER_STATES[0];
+    const label =
+        availability.state === BENCHED && availability.until
+            ? `${state.label} until ${time(availability.until)}`
+            : state.label;
+    return (
+        <span
+            title={availability.reason ?? undefined}
+            style={{
+                fontSize: 10,
+                fontWeight: 400,
+                border: `1px solid ${state.border}`,
+                color: state.color,
+                padding: '0px 5px',
+            }}
+        >
+            ● {label}
+        </span>
+    );
+}
 
 export default function ProviderCard({
     provider,
+    availability,
     personaCount = 0,
     onEdit,
     onDeleted,
     onToggled,
 }: {
     provider: LlmProviderEntry;
+    /** The router's view; omitted while unknown or when the provider is disabled. */
+    availability?: ProviderAvailability;
     personaCount?: number;
     onEdit: () => void;
     onDeleted: () => void;
@@ -94,6 +136,9 @@ export default function ProviderCard({
                             disabled
                         </span>
                     )}
+                    {isEnabled && availability && (
+                        <AvailabilityBadge availability={availability} />
+                    )}
                     <span
                         style={{
                             marginLeft: 2,
@@ -164,6 +209,21 @@ export default function ProviderCard({
                         </span>
                     )}
                 </div>
+                {isEnabled && availability?.reason && (
+                    <div
+                        style={{
+                            marginTop: 4,
+                            color: 'rgba(255,255,255,0.7)',
+                            fontSize: 10,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}
+                        title={availability.reason}
+                    >
+                        {availability.reason}
+                    </div>
+                )}
             </div>
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                 <button

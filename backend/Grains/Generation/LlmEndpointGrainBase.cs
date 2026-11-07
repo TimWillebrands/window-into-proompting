@@ -24,6 +24,17 @@ public static class LlmEndpointGrainUtils
         _ => false,
     };
 
+    /// <summary>Never reached the server: a down box or a dead Tailnet path, not a refusal.</summary>
+    public static bool IsUnreachable(Exception ex) => ex switch
+    {
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsUnreachable),
+        System.ClientModel.ClientResultException { Status: 0 } => true,
+        System.ClientModel.ClientResultException { InnerException: HttpRequestException inner } => IsUnreachable(inner),
+        HttpRequestException { StatusCode: null } => true,
+        Anthropic.Exceptions.AnthropicIOException => true,
+        _ => false,
+    };
+
     private static readonly TimeSpan JudgeTimeout = TimeSpan.FromSeconds(20);
 
     /// <summary>One System One call, captured like a generation; decisions sit on the beat path, so it gets a short deadline.</summary>

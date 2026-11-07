@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using PartyTown.Model;
 
@@ -14,18 +15,22 @@ public sealed record LlmCallResult(string Content, string Reasoning, ChatMessage
 /// </summary>
 public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid? persona = null)
 {
-    /// <summary>Route to the first tier with a provider; <paramref name="tiers"/> is preference order.
+    /// <summary>Route to the first tier with a provider not in <paramref name="exclude"/>; <paramref name="tiers"/> is preference order.
     /// Throws the last tier's <see cref="InvalidOperationException"/> when none has one.</summary>
     public async Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(
-        IReadOnlyList<JobComplexity> tiers, CancellationToken ct)
+        IReadOnlyList<JobComplexity> tiers, CancellationToken ct, IReadOnlySet<ILlmEndpointGrain>? exclude = null)
     {
         for (var i = 0; ; i++)
         {
             try
             {
-                if (persona is { } id && await router.AssignedEndpointAsync(id, tiers[i], ct) is { } assigned)
+                if (persona is { } id && await router.AssignedEndpointAsync(id, tiers[i], ct) is { } assigned
+                    && exclude?.Contains(assigned) != true)
                     return (assigned, tiers[i]);
-                return (await router.RouteAsync(tiers[i], ct), tiers[i]);
+                var pooled = await router.RouteAsync(tiers[i], ct);
+                if (exclude?.Contains(pooled) == true)
+                    throw new InvalidOperationException($"Every provider for {tiers[i]} already failed this call");
+                return (pooled, tiers[i]);
             }
             catch (InvalidOperationException) when (i < tiers.Count - 1)
             {
@@ -35,7 +40,8 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
     }
 
     /// <summary>Route, stream and accumulate. <paramref name="onChunk"/> sees every raw chunk;
-    /// the job is re-tagged with the tier that served it; provider/model land on <paramref name="span"/>.</summary>
+    /// the job is re-tagged with the tier that served it; provider/model land on <paramref name="span"/>.
+    /// A provider that fails before its first chunk is skipped for the next one, so the caller never sees it.</summary>
     public async Task<LlmCallResult> StreamAsync(
         LlmGenerationJob job,
         IReadOnlyList<JobComplexity> tiers,
@@ -43,19 +49,46 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
         Func<LlmGenerationEvent, Task>? onChunk = null,
         Activity? span = null)
     {
-        var (endpoint, served) = await RouteAsync(tiers, ct);
-        if (served != tiers[0]) span?.SetTag("llm.tier_fallback", true);
-        var attribution = await AttributionAsync(endpoint, span);
-
-        var content = new StringBuilder();
-        var reasoning = new StringBuilder();
-        await foreach (var chunk in endpoint.GenerateAsync(job with { JobComplexity = served }, ct))
+        var failed = new HashSet<ILlmEndpointGrain>();
+        Exception? failure = null;
+        while (true)
         {
-            if (chunk.Type == LlmGenerationEvent.ContentChunk) content.Append(chunk.Data);
-            else if (chunk.Type == LlmGenerationEvent.ReasoningChunk) reasoning.Append(chunk.Data);
-            if (onChunk is not null) await onChunk(chunk);
+            ILlmEndpointGrain endpoint;
+            JobComplexity served;
+            try
+            {
+                (endpoint, served) = await RouteAsync(tiers, ct, failed);
+            }
+            catch (InvalidOperationException) when (failure is not null)
+            {
+                ExceptionDispatchInfo.Throw(failure);
+                throw;
+            }
+            if (served != tiers[0]) span?.SetTag("llm.tier_fallback", true);
+            var attribution = await AttributionAsync(endpoint, span);
+
+            var content = new StringBuilder();
+            var reasoning = new StringBuilder();
+            var started = false;
+            try
+            {
+                await foreach (var chunk in endpoint.GenerateAsync(job with { JobComplexity = served }, ct))
+                {
+                    started = true;
+                    if (chunk.Type == LlmGenerationEvent.ContentChunk) content.Append(chunk.Data);
+                    else if (chunk.Type == LlmGenerationEvent.ReasoningChunk) reasoning.Append(chunk.Data);
+                    if (onChunk is not null) await onChunk(chunk);
+                }
+                return new LlmCallResult(content.ToString(), reasoning.ToString(), attribution, served);
+            }
+            catch (Exception ex) when (!started && !ct.IsCancellationRequested)
+            {
+                logger?.LogWarning(ex, "LLM stream failed before its first chunk; trying the next provider");
+                span?.SetTag("llm.provider_fallback", true);
+                failed.Add(endpoint);
+                failure = ex;
+            }
         }
-        return new LlmCallResult(content.ToString(), reasoning.ToString(), attribution, served);
     }
 
     /// <summary>

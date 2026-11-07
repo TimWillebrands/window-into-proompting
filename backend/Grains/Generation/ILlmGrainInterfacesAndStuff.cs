@@ -30,6 +30,11 @@ public interface ILlmEndpointGrain : IGrainWithGuidKey
     [Alias("JudgeAsync")]
     Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default);
 
+    /// <summary>Why this provider can't be reached right now; null when it can (ADR 0040).</summary>
+    [AlwaysInterleave]
+    [Alias("PingAsync")]
+    Task<string?> PingAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Provider/model identity used for the next generation. Routed-to-and-recorded
     /// alongside the resulting <see cref="ChatMessage"/> as its papertrail metadata.</summary>
     [Alias("GetAttributionAsync")]
@@ -85,7 +90,37 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
     /// <summary>An endpoint hit a hard failure (auth, quota, missing model); route around it for a while.</summary>
     [Alias("ReportFailureAsync")]
     Task ReportFailureAsync(Guid providerId, string reason);
+
+    /// <summary>An endpoint couldn't connect; skip it until a ping reaches it again.</summary>
+    [Alias("ReportOfflineAsync")]
+    Task ReportOfflineAsync(Guid providerId, string reason);
+
+    /// <summary>Ping every enabled provider and mark who's Offline or back (ADR 0040).</summary>
+    [Alias("CheckAvailabilityAsync")]
+    Task CheckAvailabilityAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Whether each enabled provider is Ready, Benched or Offline, for Control Panel.</summary>
+    [Alias("GetAvailabilityAsync")]
+    Task<List<ProviderAvailability>> GetAvailabilityAsync();
 }
+
+[GenerateSerializer]
+[Alias("PartyTown.Grains.Generation.ProviderState")]
+public enum ProviderState
+{
+    Ready = 0,
+    Benched = 1,
+    Offline = 2,
+}
+
+/// <summary>A provider's routing state; Until is set while Benched.</summary>
+[GenerateSerializer]
+[Alias("PartyTown.Grains.Generation.ProviderAvailability")]
+public sealed record ProviderAvailability(
+    [property: Id(0)] Guid ProviderId,
+    [property: Id(1)] ProviderState State,
+    [property: Id(2)] string? Reason,
+    [property: Id(3)] DateTimeOffset? Until);
 
 [GenerateSerializer]
 [Alias("PartyTown.Grains.Generation.LlmGenerationEvent")]

@@ -98,7 +98,7 @@ public class SystemOneProviderTest : TestKitBase
     }
 
     [Fact]
-    public async Task Failure_BenchesTheProvider_AndStillRethrows()
+    public async Task Unreachable_MarksTheProviderOffline_AndStillRethrows()
     {
         var entry = Entry("ollama", "http://gpu-box:8091", "work");
         var router = Arrange(entry);
@@ -106,7 +106,27 @@ public class SystemOneProviderTest : TestKitBase
 
         await Assert.ThrowsAnyAsync<HttpRequestException>(() => grain.JudgeAsync("state", Questions));
 
-        router.Verify(r => r.ReportFailureAsync(entry.Id, It.Is<string>(m => m.Contains("'work'"))), Times.Once);
+        router.Verify(r => r.ReportOfflineAsync(entry.Id, It.Is<string>(m => m.Contains("'work'"))), Times.Once);
+        router.Verify(r => r.ReportFailureAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+    }
+
+    private sealed class Refuses : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("not a decision model") });
+    }
+
+    [Fact]
+    public async Task Refusal_BenchesTheProvider_AndStillRethrows()
+    {
+        var entry = Entry("ollama", "http://localhost:11434");
+        var router = Arrange(entry, direct: new Refuses());
+        var grain = await Silo.CreateGrainAsync<OllamaEndpointGrain>(entry.Id);
+
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => grain.JudgeAsync("state", Questions));
+
+        router.Verify(r => r.ReportFailureAsync(entry.Id, It.Is<string>(m => m.Contains("400"))), Times.Once);
+        router.Verify(r => r.ReportOfflineAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -121,6 +141,7 @@ public class SystemOneProviderTest : TestKitBase
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => grain.JudgeAsync("state", Questions, cts.Token));
 
         router.Verify(r => r.ReportFailureAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+        router.Verify(r => r.ReportOfflineAsync(It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
