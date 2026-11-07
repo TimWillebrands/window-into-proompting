@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import WindowFrame from '../../components/desktop/WindowFrame';
-import WorksApp from './WorksApp';
+import CduApp from './CduApp';
 
 const meta = {
-    title: 'Apps/WorksApp',
-    component: WorksApp,
+    title: 'Apps/CduApp',
+    component: CduApp,
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
@@ -19,9 +19,9 @@ const meta = {
             >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
-                    id="works"
-                    title="C:\WORKS\cmd.exe"
-                    icon="🏗️"
+                    id="cdu"
+                    title="C:\CDU\"
+                    icon="🜂"
                     width={840}
                     height={560}
                     zIndex={1}
@@ -34,8 +34,8 @@ const meta = {
             </div>
         ),
     ],
-} satisfies Meta<typeof WorksApp>;
+} satisfies Meta<typeof CduApp>;
 
 export default meta;
 
-export const Working: StoryObj<typeof meta> = {};
+export const Awake: StoryObj<typeof meta> = {};

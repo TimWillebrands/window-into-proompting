@@ -1,6 +1,6 @@
 # The CDU: a Demiurge whose product is this codebase
 
-Status: ready-for-agent
+Status: implemented on branch `feat/cdu` (Phases 0a to 3); Phase 0b needs Tim
 
 Design source: `handoff.md` in this folder (Tim's decisions, final). Replaces the Works' Runner, sandbox and Propositions (ADR 0039, reworked).
 
@@ -127,7 +127,7 @@ One process, one Pi `AgentSession`, persisted under a Pi agent dir on a volume. 
 - **`CduScreen`** (rework of `WorksScreen`): desk facts, world health (kept), allowance, the frame text for Cytheurgists, and readers for voiced moves. Pure, tested without a cluster.
 - **`CduGrain`** (shrinks `CommissionsGrain`), per Party: recent exchanges (who said what, the reply, whether it asked), event and news cursors, and who was on shift at the last beat. Pure state; I/O stays in the site service.
 - **`Cytheurgy`** (rework of `Worksite`): the I/O around the grain. Tells staff as work memory only, never the wider World.
-- **`CduWatch`** (rework of `WorksWatch`): polls `/events` and `/news`; derives shift start and end from staff Occupations, beat to beat, and calls `tide/in` and `tide/out`. This keeps the tide out of Life and shift steps.
+- **`CduWatch`** (rework of `WorksWatch`): polls `/lines` and `/news`; derives shift start and end from staff Occupations, beat to beat, and calls `tide/in` and `tide/out`. This keeps the tide out of Life and shift steps.
 - **River feedback**: `replied` reaches the speaker; `merged`, `closed` and failing `checks` reach all staff as work memory, verdicts with a mood (merge lifts, rejection sinks), as the Works did.
 - **API**: `GET /worlds/{party}/cdu` (overview) and `GET /worlds/{party}/cdu/lines` for spectators, anonymous GETs. No reject endpoint: the One rejects on GitHub.
 - **Frontend**: `C:\CDU\` window (rework of `C:\WORKS\cmd.exe`): live transcript, exchanges, trunk and PR link; Storybook story and mocks updated.

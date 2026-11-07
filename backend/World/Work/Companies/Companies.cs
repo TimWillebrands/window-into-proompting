@@ -2,11 +2,15 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
-/// <summary>What a Company does all day: trades a Book (ADR 0030) or works on the code of the world (ADR 0039).</summary>
+/// <summary>What a Company does all day: trades a Book (ADR 0030) or keeps the CDU (ADR 0039).</summary>
 public static class CompanyKinds
 {
     public const string Trading = "trading";
-    public const string Works = "works";
+    public const string Cdu = "cdu";
+    /// <summary>What a CDU Company was called before the CDU.</summary>
+    public const string LegacyWorks = "works";
+
+    public static bool IsCdu(string? kind) => kind is Cdu or LegacyWorks;
 }
 
 /// <summary>An outfit in one Party with a workplace, staff and a Mandate (ADR 0030). Staff are Occupations that name it.</summary>

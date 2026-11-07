@@ -5,11 +5,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface WorksModel {
-    id: string;
-    label: string;
+export interface CduAllowanceSummary {
     /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
-    in: number | string;
+    usd: number | string;
     /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
-    out: number | string;
+    capUsd: number | string;
 }

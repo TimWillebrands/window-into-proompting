@@ -286,8 +286,8 @@ export function WorldRealtimeBridge() {
                 }
                 break;
             }
-            case 'works':
-                invalidatePrefix(worldPrefix('/works'));
+            case 'cdu':
+                invalidatePrefix(worldPrefix('/cdu'));
                 break;
             case 'body': {
                 // Moves are frequent, new looks rare: only a new look touches the cache.

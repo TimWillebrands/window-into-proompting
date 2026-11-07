@@ -1,6 +1,6 @@
 # Phase 2: the Cytheurgists' desk and the tide
 
-Status: ready-for-agent
+Status: resolved
 
 Spec: `../spec.md` (the World side).
 
@@ -23,3 +23,7 @@ Spec: `../spec.md` (the World side).
 ## Blocked by
 
 - `03-cdu-container.md` (the HTTP contract)
+
+## Comments
+
+Done on `feat/cdu`. `CduApp`, `CduScreen`, `CduGrain` with pure `CduRules`, `Cytheurgy`, `CduWatch`, `CduController`; `works` Companies read as `cdu`. `CduWorldTest` (fake CDU in a test cluster) covers talk, a reply reaching only the speaker, answering an open question, look, shift start and end calling the tide, a dark CDU getting the edge again, and the secret. The tide is driven from the watch, reading staff Occupations: Life and shift steps are untouched. `C:\CDU\` window, story `Apps/CduApp` (checked rendering in the Storybook dev server; `storybook build` segfaults on Node 26, on master too) and mocks. Full backend suite: 1112 passed on a fresh AGE database.

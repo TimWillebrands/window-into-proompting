@@ -5,7 +5,8 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface RejectRequest {
-    /** @nullable */
-    note: string | null;
+export interface CduCommitSummary {
+    sha: string;
+    subject: string;
+    author: string;
 }

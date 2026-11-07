@@ -1,6 +1,7 @@
 import AutoApp from '../apps/auto/AutoApp';
 import BoardApp from '../apps/board/BoardApp';
 import CalendarApp from '../apps/calendar/CalendarApp';
+import CduApp from '../apps/cdu/CduApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
 import DaccordApp from '../apps/daccord/DaccordApp';
 import DiaryApp from '../apps/diary/DiaryApp';
@@ -13,7 +14,6 @@ import PlacesApp from '../apps/places/PlacesApp';
 import RelationsApp from '../apps/relations/RelationsApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import WardrobeApp from '../apps/wardrobe/WardrobeApp';
-import WorksApp from '../apps/works/WorksApp';
 import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
 
@@ -99,10 +99,10 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         initialSize: { width: 780, height: 540 },
     },
     {
-        id: 'works',
-        title: 'C:\\WORKS\\cmd.exe',
-        icon: '🏗️',
-        component: WorksApp,
+        id: 'cdu',
+        title: 'C:\\CDU\\',
+        icon: '🜂',
+        component: CduApp,
         initialPosition: { x: 260, y: 90 },
         initialSize: { width: 820, height: 560 },
     },
@@ -215,10 +215,10 @@ export const DESKTOP_ICONS: DesktopIconEntry[] = [
         windowId: 'jobs',
     },
     {
-        id: 'works',
-        label: 'The Works',
+        id: 'cdu',
+        label: 'The CDU',
         icon: '/img/icons/jobs.ico',
-        windowId: 'works',
+        windowId: 'cdu',
     },
     {
         id: 'personas',

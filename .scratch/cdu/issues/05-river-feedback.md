@@ -1,6 +1,6 @@
 # Phase 3: river feedback
 
-Status: ready-for-agent
+Status: resolved
 
 Spec: `../spec.md` (river feedback, the tide).
 
@@ -19,3 +19,7 @@ Spec: `../spec.md` (river feedback, the tide).
 ## Blocked by
 
 - `04-cytheurgists-desk.md`
+
+## Comments
+
+Done with `03` and `04` on `feat/cdu`. The CDU's watch (every `CDU_WATCH_SECONDS`) reads its PR through `gh`: a verdict resets the trunk, tags closed work `drowned/<day>-pr<n>`, writes a UTC line to the journal and becomes news once; checks become news once per head commit and state. The World tells verdicts to all staff with a mood, and failing or passing checks as work memory. Covered by `tide.test.ts`, `cdu.test.ts`, `CduScreenTest` and `CduWorldTest`. Not yet seen live: that needs the token from `02`.

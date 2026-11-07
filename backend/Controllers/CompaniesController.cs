@@ -6,7 +6,7 @@ using PartyTown.Services.Auth;
 using PartyTown.World;
 using PartyTown.World.Work;
 using PartyTown.World.Work.Companies;
-using PartyTown.World.Work.Works;
+using PartyTown.World.Work.Cdu;
 using PartyTown.World.Work.Markets;
 
 namespace PartyTown.Controllers;
@@ -14,7 +14,7 @@ namespace PartyTown.Controllers;
 /// <summary>Companies (ADR 0030): found one, staff it, read its Book, and trade as anyone on the staff.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/companies")]
-public sealed class CompaniesController(IGrainFactory grains, Desks desks, Worksite site, Actors actors) : ControllerBase
+public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cytheurgy site, Actors actors) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
@@ -35,10 +35,10 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Works
     public async Task<ActionResult<CompanySummary>> Found(Guid partyId, [FromBody] FoundCompanyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Mandate)) return BadRequest("A Company needs a name and a mandate.");
-        if (request.Kind == CompanyKinds.Works)
+        if (CompanyKinds.IsCdu(request.Kind))
         {
-            var works = await site.FoundAsync(partyId, request.Name.Trim(), request.Mandate.Trim());
-            return works is null ? Conflict("That name is taken.") : Ok(Summary(works, new List<ParticipantView>()));
+            var cdu = await site.FoundAsync(partyId, request.Name.Trim(), request.Mandate.Trim());
+            return cdu is null ? Conflict("That name is taken.") : Ok(Summary(cdu, new List<ParticipantView>()));
         }
         if (!MarketKinds.All.Contains(request.Market)) return BadRequest($"Market is one of: {string.Join(", ", MarketKinds.All)}.");
         if (request.Market == MarketKinds.Stocks && string.IsNullOrWhiteSpace(request.Focus)) return BadRequest("Stocks need a focus to search for.");
@@ -102,7 +102,7 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Works
             : NotFound();
 
     private static CompanySummary Summary(Company c, List<ParticipantView> staff) => new(
-        c.Id, c.Name, c.Kind, c.Mandate, c.Market, c.Focus, c.Workplace,
+        c.Id, c.Name, CompanyKinds.IsCdu(c.Kind) ? CompanyKinds.Cdu : c.Kind, c.Mandate, c.Market, c.Focus, c.Workplace,
         c.Book.Capital, c.Book.Cash, c.Book.Value, BookRules.ScoreOf(c.Book, null), c.MarkedAt,
         staff.Select(s => new StaffSummary(s.Id, s.Name, BookRules.ScoreOf(c.Book, s.Id))).ToList(),
         c.Book.Positions.Select(p => new PositionSummary(p.InstrumentId, p.Title, p.Units, p.Cost, p.Mark, p.Value, p.Fresh)).ToList(),

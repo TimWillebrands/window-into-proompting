@@ -128,11 +128,11 @@ function FoundForm() {
                             onChange={(e) => setKind(e.currentTarget.value)}
                         >
                             <option value="trading">trading</option>
-                            <option value="works">works on the world</option>
+                            <option value="cdu">keeps the CDU</option>
                         </select>
                     </Field>
                 </div>
-                <div className="wk-fields" hidden={kind === 'works'}>
+                <div className="wk-fields" hidden={kind === 'cdu'}>
                     <Field label="Market">
                         <select
                             value={market}
@@ -174,11 +174,11 @@ function FoundForm() {
     );
 }
 
-/** No Book here: the work happens on the bench, in The Works window. */
-function WorksPage({ company }: { company: CompanySummary }) {
+/** No Book here: the work happens with the CDU, in its window. */
+function CduPage({ company }: { company: CompanySummary }) {
     return (
         <>
-            <PageHead icon="🏗️" title={company.name} sub={company.mandate} />
+            <PageHead icon="🜂" title={company.name} sub={company.mandate} />
             <div className="wk-page">
                 <Staff company={company} />
             </div>
@@ -187,7 +187,7 @@ function WorksPage({ company }: { company: CompanySummary }) {
 }
 
 export function CompanyPage({ company }: { company: CompanySummary }) {
-    if (company.kind === 'works') return <WorksPage company={company} />;
+    if (company.kind === 'cdu') return <CduPage company={company} />;
     const change = bookReturn(company);
     const market = company.focus
         ? `${company.market}: ${company.focus}`

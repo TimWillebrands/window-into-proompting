@@ -5,7 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface WorksLineSummary {
+export interface CduLineSummary {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     n: number | string;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */

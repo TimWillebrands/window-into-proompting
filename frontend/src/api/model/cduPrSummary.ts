@@ -5,10 +5,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CommissionCheckSummary {
-    name: string;
-    passed: boolean;
+export interface CduPrSummary {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
-    seconds: number | string;
-    detail: string;
+    number: number | string;
+    url: string;
+    title: string;
+    state: string;
+    checks: string;
 }
