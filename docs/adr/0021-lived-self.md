@@ -77,6 +77,11 @@ background.
     memory.
 17. **The Board stays alive.** The post affordance is seeded with one of your day's openers and pulls
     harder if you haven't posted in 12 h. A thread with 25 replies has run its course.
+    *Amended 2026-11:* only the Board carried a story, and System One picks from labels, so 40% of Life went to
+    it. Now every channel's options carry the persona's own material (`Hooks`): telling the person next to you,
+    messaging someone, the diary (what's nagging at you), even resting (what the day has you doing). Someone right
+    next to you pulls hardest: pick up what they said, tell them something, or ask what they're up to. An opener
+    told on any channel is told. No caps: the other options got as good as the Board's.
 18. **Sleep** (with ADR 0020). An asleep Body has availability 0.02 and shows as Asleep. It sleeps through
     persona talk; humans still wake it.
 19. **Stale recall** (`StaleRecall`). Memories and Stances containing currently stale words (world-worn

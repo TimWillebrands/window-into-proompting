@@ -292,7 +292,7 @@ A participant's money in a Party: a balance in credits paid once a day by their 
 _Avoid_: account, inventory, currency (the unit is just "credits").
 
 **Affordance**:
-An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces.
+An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces. Its label carries the persona's own material where there is some (a story from their day, what someone next to them said), so modes compete on substance, not on which one happens to be vivid.
 _Avoid_: action, option, tool, command.
 
 **System One judge**:
