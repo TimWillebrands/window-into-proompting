@@ -5,6 +5,7 @@ import {
     exchangeWord,
     linePrefix,
     mergeLines,
+    mindLine,
     money,
     prLine,
     shortSha,
@@ -23,6 +24,7 @@ const exchange = (over: Partial<CduExchangeSummary>): CduExchangeSummary => ({
     commits: 0,
     at: 0,
     doneAt: 1,
+    model: null,
     ...over,
 });
 
@@ -96,6 +98,27 @@ describe('words', () => {
         expect(
             exchangeWord(exchange({ asked: true, answered: true, commits: 1 })),
         ).toBe('answered, 1 commit');
+    });
+
+    it('puts a mind on the ladder with its price', () => {
+        expect(
+            mindLine({
+                id: 'beam-free',
+                label: 'free preview',
+                tier: 'free',
+                in: 0,
+                out: 0,
+            }),
+        ).toBe('beam-free · free · free');
+        expect(
+            mindLine({
+                id: 'kimi-k2.7-code',
+                label: 'coder',
+                tier: 'capable',
+                in: 0.95,
+                out: 4,
+            }),
+        ).toBe('kimi-k2.7-code · capable · $0.9500/$4.00');
     });
 
     it('shortens a sha', () => {

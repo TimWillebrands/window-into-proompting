@@ -19,5 +19,10 @@ test("a built-in provider's models are redirected to the Meter, not redefined", 
         ],
     });
     assert.deepEqual(Object.keys(providers), ['opencode-go']);
-    assert.deepEqual(providers['opencode-go'], { baseUrl: 'http://cdu-meter:8788/v1', apiKey: '$CDU_METER_TAB', compat: { maxTokensField: 'max_tokens' } });
+    assert.deepEqual(providers['opencode-go'], {
+        baseUrl: 'http://cdu-meter:8788/v1',
+        apiKey: '$CDU_METER_TAB',
+        compat: { maxTokensField: 'max_tokens' },
+        modelOverrides: { 'kimi-k2.7-code': { contextWindow: 262144, maxTokens: 131072 }, 'glm-5.3': { contextWindow: 1000000, maxTokens: 131072 } },
+    });
 });

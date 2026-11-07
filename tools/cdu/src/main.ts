@@ -75,6 +75,7 @@ const cdu = new Cdu({
     lines: new Feed(path.join(config.state, 'lines.jsonl'), 5000),
     news: new Feed(path.join(config.state, 'news.jsonl'), 1000),
     allowance,
+    models: models.map((m) => ({ id: m.id, label: m.label, tier: m.tier, in: m.in, out: m.out })),
     soulPath: config.soulPath,
 });
 

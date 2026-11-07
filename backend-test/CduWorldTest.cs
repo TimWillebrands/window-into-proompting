@@ -77,9 +77,9 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
 
         Assert.Equal(("cdu", "talk"), (activity.App, activity.Action));
         var talk = Assert.Single(Cdu.Talks, t => t.From.Id == denise.ToString());
-        Assert.Equal(("Denise", "Keep the doors shut", "talk"), (talk.From.Name, talk.Text, talk.Kind));
+        Assert.Equal(("Denise", "Keep the doors shut", "talk", "big-one"), (talk.From.Name, talk.Text, talk.Kind, talk.Model));
         var said = Assert.Single((await Grain(partyId).GetAsync()).Exchanges);
-        Assert.Equal((CduRules.Queued, denise), (said.Status, said.SpeakerId));
+        Assert.Equal((CduRules.Queued, denise, "big-one"), (said.Status, said.SpeakerId, said.Model));
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
 
     public sealed class FakeCdu : ICdu
     {
-        public sealed record Talked(string Id, CduSpeaker From, string Text, string Kind);
+        public sealed record Talked(string Id, CduSpeaker From, string Text, string Kind, string? Model);
 
         public readonly ConcurrentQueue<Talked> Talks = new();
         private readonly List<CduEntry> _news = new();
@@ -297,13 +297,14 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public Task<CduStatus> StatusAsync(CancellationToken ct)
         {
             Reachable();
-            return Task.FromResult(new CduStatus(false, null, 0, "careful", new CduTrunk("h", Ahead), Pr, new CduAllowance(0.5, 5), 0, _news.Count, null));
+            return Task.FromResult(new CduStatus(false, null, 0, "careful", new CduTrunk("h", Ahead), Pr, new CduAllowance(0.5, 5), 0, _news.Count, null,
+                new List<CduModel> { new("free-one", "free preview", "free", 0, 0), new("big-one", "capable", "capable", 1, 4) }));
         }
 
-        public Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, CancellationToken ct)
+        public Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, string? model, CancellationToken ct)
         {
             Reachable();
-            var turn = new Talked($"t{Guid.NewGuid():N}", from, text, kind);
+            var turn = new Talked($"t{Guid.NewGuid():N}", from, text, kind, model);
             Talks.Enqueue(turn);
             return Task.FromResult(new CduTurn(turn.Id, from, text, kind, "queued", 1, null, null, null, new List<CduCommit>(), null, null));
         }
@@ -340,6 +341,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
     {
         public static volatile string? Choose;
         public static volatile string Message = "Keep the doors shut";
+        public static volatile string Mind = "big-one";
 
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
@@ -353,7 +355,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
                 var number = line is null ? "0" : Regex.Match(line, @"^(\d+)\.").Groups[1].Value;
                 return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["choice"] = number, ["intent"] = "get on with it" });
             }
-            return Task.FromResult<JsonObject?>(new JsonObject { ["message"] = Message });
+            return Task.FromResult<JsonObject?>(new JsonObject { ["message"] = Message, ["mind"] = Mind });
         }
 
         public IWorldLlm For(Guid personaId) => this;

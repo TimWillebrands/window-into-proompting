@@ -36,10 +36,10 @@ test('wants the token', async () => {
 test('talk queues a turn, and the turn and its news can be read back', async () => {
     const bad = await call('/talk', { method: 'POST', body: JSON.stringify({ text: 'hi' }) });
     assert.equal(bad.status, 400);
-    const answer = await call('/talk', { method: 'POST', body: JSON.stringify({ from: { id: 'p1', name: 'Denise' }, text: 'hi', kind: 'answer' }) });
+    const answer = await call('/talk', { method: 'POST', body: JSON.stringify({ from: { id: 'p1', name: 'Denise' }, text: 'hi', kind: 'answer', model: 'any-mind' }) });
     assert.equal(answer.status, 202);
     const turn = await answer.json();
-    assert.equal(turn.kind, 'answer');
+    assert.deepEqual([turn.kind, turn.model], ['answer', 'any-mind']);
     await cdu.idle();
     const read = await (await call(`/turns/${turn.id}`)).json();
     assert.deepEqual([read.status, read.reply, read.asked], ['done', 'Heard you.\n\nWhat next?', true]);

@@ -13,6 +13,7 @@ import {
     exchangeWord,
     linePrefix,
     mergeLines,
+    mindLine,
     prLine,
     shortSha,
 } from './cdu-lib';
@@ -91,6 +92,19 @@ function State({ cdu }: { cdu: CduOverview }) {
                     ))}
                 </ul>
             )}
+            {cdu.models.length > 0 ? (
+                <>
+                    <h3 className="cd-section">Minds, cheapest first</h3>
+                    <ul className="cd-commits">
+                        {cdu.models.map((m) => (
+                            <li key={m.id}>
+                                {mindLine(m)}
+                                <span className="cd-sub">{m.label}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            ) : null}
             <h3 className="cd-section">Agora</h3>
             {cdu.pr ? (
                 <p className="cd-state">
@@ -119,7 +133,10 @@ function Said({ cdu }: { cdu: CduOverview }) {
                         {e.kind === 'answer' ? 'answered' : 'said'}
                     </span>
                     {e.text}
-                    <span className="cd-sub">{exchangeWord(e)}</span>
+                    <span className="cd-sub">
+                        {exchangeWord(e)}
+                        {e.model ? ' · woke ' + e.model : ''}
+                    </span>
                     {e.reply ? (
                         <span className="cd-reply">{e.reply}</span>
                     ) : null}

@@ -12,7 +12,7 @@ import type { Mind } from './cdu.ts';
 import type { Model } from './meter.ts';
 
 /** With a provider, the model is Pi's own from that built-in provider, reached through the Meter. */
-export type MeterModel = Model & { reasoning?: boolean; provider?: string };
+export type MeterModel = Model & { reasoning?: boolean; provider?: string; tier?: 'free' | 'small' | 'capable' };
 
 export interface PiOptions {
     repo: string;
@@ -49,8 +49,10 @@ export function piModels(options: Pick<PiOptions, 'meterUrl' | 'tabEnv' | 'model
             })),
         };
     }
+    // The Meter's context and output figures override the built-in ones: a small window makes Pi compact early, which keeps every call cheap.
     for (const id of new Set(options.models.flatMap((m) => (m.provider ? [m.provider] : [])))) {
-        providers[id] = { baseUrl: options.meterUrl, apiKey, compat: { maxTokensField: 'max_tokens' } };
+        const overrides = Object.fromEntries(options.models.filter((m) => m.provider === id).map((m) => [m.id, { contextWindow: m.context, maxTokens: m.output }]));
+        providers[id] = { baseUrl: options.meterUrl, apiKey, compat: { maxTokensField: 'max_tokens' }, modelOverrides: overrides };
     }
     return { providers };
 }
@@ -106,9 +108,22 @@ export async function createPiMind(options: PiOptions): Promise<Mind> {
     });
     await session.bindExtensions({});
 
+    // Whoever wakes it picks the mind; a turn without a pick wakes the first, the cheapest on the list.
+    const wake = async (id?: string) => {
+        const pick = options.models.find((m) => m.id === id) ?? chosen;
+        if (session.model?.id === pick.id) return;
+        const next = modelRuntime.getModel(pick.provider ?? 'meter', pick.id);
+        if (next) await session.setModel(next);
+    };
+
     return {
-        model: model.id,
-        think: (text, onEvent) => think(session, text, onEvent),
+        get model() {
+            return session.model?.id ?? chosen.id;
+        },
+        think: async (text, onEvent, id) => {
+            await wake(id);
+            return think(session, text, onEvent);
+        },
         async resoul(next) {
             soul = next;
             await session.reload();

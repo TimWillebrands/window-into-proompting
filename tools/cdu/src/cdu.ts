@@ -17,6 +17,8 @@ export interface Turn {
     from: Speaker;
     text: string;
     kind: TurnKind;
+    /** The mind whoever spoke chose to wake it with; unset wakes the cheapest. */
+    model?: string;
     status: 'queued' | 'working' | 'done' | 'failed';
     at: number;
     doneAt?: number;
@@ -33,9 +35,18 @@ export interface Turn {
 /** The agent behind the CDU: Pi in production, a fake in tests. */
 export interface Mind {
     readonly model: string;
-    think(text: string, onEvent: (event: Record<string, unknown>) => void): Promise<string>;
+    think(text: string, onEvent: (event: Record<string, unknown>) => void, model?: string): Promise<string>;
     /** Master's soul changed; it applies from the next waking. */
     resoul?(soul: string): Promise<void>;
+}
+
+/** A mind it can be woken with: free previews, small models, capable ones. */
+export interface MindChoice {
+    id: string;
+    label: string;
+    tier?: 'free' | 'small' | 'capable';
+    in: number;
+    out: number;
 }
 
 export interface Allowance {
@@ -101,6 +112,8 @@ export interface CduOptions {
     news: Feed;
     store: Store;
     allowance?: () => Promise<Allowance | null>;
+    /** The minds it can be woken with, cheapest first, as the Meter lists them. */
+    models?: MindChoice[];
     /** Where the soul lives in the repo. */
     soulPath?: string;
     now?: () => number;
@@ -115,6 +128,7 @@ export class Cdu {
     private readonly book: Book;
     private readonly store: Store;
     private readonly allowance: () => Promise<Allowance | null>;
+    private readonly models: MindChoice[];
     private readonly soulPath: string;
     private readonly now: () => number;
     private chain: Promise<unknown> = Promise.resolve();
@@ -130,6 +144,7 @@ export class Cdu {
         this.news = options.news;
         this.store = options.store;
         this.allowance = options.allowance ?? (async () => null);
+        this.models = options.models ?? [];
         this.soulPath = options.soulPath ?? 'tools/cdu/soul/APPEND_SYSTEM.md';
         this.now = options.now ?? Date.now;
         // A turn cut off by a crash or restart is over: it won't finish now.
@@ -154,8 +169,9 @@ export class Cdu {
         return this.chain.then(() => {});
     }
 
-    talk(from: Speaker, text: string, kind: TurnKind = 'talk'): Turn {
-        const turn: Turn = { id: randomUUID(), from, text: clip(text.trim(), MaxText), kind, status: 'queued', at: this.now(), commits: [] };
+    talk(from: Speaker, text: string, kind: TurnKind = 'talk', model?: string): Turn {
+        const known = this.models.length === 0 || this.models.some((m) => m.id === model);
+        const turn: Turn = { id: randomUUID(), from, text: clip(text.trim(), MaxText), kind, status: 'queued', at: this.now(), commits: [], ...(model && known && { model }) };
         this.state.turns.push(turn);
         if (this.state.turns.length > KeptTurns) this.state.turns.splice(0, this.state.turns.length - KeptTurns);
         this.store.save();
@@ -179,7 +195,7 @@ export class Cdu {
         const line = (l: { kind: string; text: string }) => this.lines.push(l.kind, l.text, { turn: turn.id });
         try {
             await this.tide.author(turn.from.name, emailOf(turn.from));
-            const reply = await this.mind.think(compose(turn, notes), (event) => transcript.feed(event).forEach(line));
+            const reply = await this.mind.think(compose(turn, notes), (event) => transcript.feed(event).forEach(line), turn.model);
             transcript.flush().forEach(line);
             turn.reply = spoken(reply);
             turn.asked = asks(turn.reply);
@@ -289,6 +305,7 @@ export class Cdu {
             hearing: this.current ? this.current.from.name : null,
             queued: Math.max(0, this.waiting - (this.current ? 1 : 0)),
             model: this.mind.model,
+            models: this.models,
             trunk: ahead && { head: await this.tide.head().catch(() => null), ahead },
             pr: this.state.seen,
             allowance: await this.allowance().catch(() => null),

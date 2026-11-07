@@ -16,12 +16,14 @@ public class CduContractTest
          "trunk":{"head":"9f92336","ahead":[{"sha":"9f92336","subject":"docs: a first note","author":"Denise"}]},
          "pr":{"number":3,"url":"https://github.com/x/y/pull/3","title":"docs: a first note","state":"OPEN","head":"9f92336","checks":"pending"},
          "allowance":{"usd":0.12,"capUsd":1},"lines":5,"news":2,
-         "last":{"id":"c986a759","from":{"id":"p-denise","name":"Denise"},"text":"hi","kind":"talk","status":"done","at":1,"commits":[],"reply":"Done.","asked":false,"usd":0,"doneAt":2}}
+         "last":{"id":"c986a759","from":{"id":"p-denise","name":"Denise"},"text":"hi","kind":"talk","status":"done","at":1,"commits":[],"reply":"Done.","asked":false,"usd":0,"doneAt":2,"model":"beam-free"},
+         "models":[{"id":"beam-free","label":"free preview","tier":"free","in":0,"out":0},{"id":"kimi-k2.7-code","label":"coder","tier":"capable","in":0.95,"out":4}]}
         """;
         var status = JsonSerializer.Deserialize<CduStatus>(json, Web)!;
 
         Assert.Equal(("Denise", 3, "pending", 5L), (status.Trunk!.Ahead[0].Author, status.Pr!.Number, status.Pr.Checks, status.Lines));
         Assert.Equal(("Denise", "Done."), (status.Last!.From.Name, status.Last.Reply));
+        Assert.Equal(("free", 4d), (status.Models![0].Tier, status.Models[1].Out));
     }
 
     [Fact]

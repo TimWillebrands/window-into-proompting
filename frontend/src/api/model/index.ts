@@ -23,6 +23,7 @@ export * from './cduAllowanceSummary';
 export * from './cduCommitSummary';
 export * from './cduExchangeSummary';
 export * from './cduLineSummary';
+export * from './cduModelSummary';
 export * from './cduOverview';
 export * from './cduPrSummary';
 export * from './chatGroupInfo';

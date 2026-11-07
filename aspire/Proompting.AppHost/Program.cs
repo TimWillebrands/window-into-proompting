@@ -64,7 +64,7 @@ if (builder.Configuration["CDU_UPSTREAM_URL"] is { Length: > 0 } cduUpstream)
         .WithEnvironment("METER_UPSTREAM_KEY", builder.Configuration["CDU_UPSTREAM_KEY"] ?? string.Empty)
         .WithEnvironment("METER_SECRET", builder.Configuration["CDU_METER_SECRET"] ?? "cdu-dev-meter")
         .WithEnvironment("METER_TAB_TOKEN", cduTab)
-        .WithEnvironment("METER_TAB_DAILY_USD", builder.Configuration["CDU_DAILY_USD"] ?? "2")
+        .WithEnvironment("METER_TAB_DAILY_USD", builder.Configuration["CDU_DAILY_USD"] ?? "0.5")
         .WithEnvironment("METER_STATE", "/data/tabs.json")
         .WithContainerRuntimeArgs("--add-host", "host.docker.internal:host-gateway");
     var cduDb = builder.AddContainer("cdu-db", "apache/age", "release_PG16_1.6.0")

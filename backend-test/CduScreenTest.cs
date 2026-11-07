@@ -16,7 +16,9 @@ public class CduScreenTest
     private static CduStatus Up(int ahead = 0, CduPr? pr = null, bool awake = false) => new(
         awake, awake ? "Justin" : null, 0, "careful",
         new CduTrunk("abc", Enumerable.Range(1, ahead).Select(i => new CduCommit($"s{i}", $"fix: thing {i}", "Denise")).ToList()),
-        pr, new CduAllowance(1.25, 5), 10, 3, null);
+        pr, new CduAllowance(1.25, 5), 10, 3, null, Minds);
+
+    private static readonly List<CduModel> Minds = new() { new("beam-free", "free preview", "free", 0, 0), new("kimi-k2.7-code", "the best coder", "capable", 0.95, 4) };
 
     private static CduExchange Said(Guid who, string status = CduRules.Done, bool asked = false, string kind = CduRules.Talk, string turn = "t1") => new()
     {
@@ -31,6 +33,14 @@ public class CduScreenTest
     [Fact]
     public void Affordances_Quiet_OffersTalkAndLook()
         => Assert.Equal("talk,look", Verbs(Desk(Up())));
+
+    [Fact]
+    public void Affordances_AllowanceSpent_OnlyLook()
+    {
+        var spent = Up() with { Allowance = new CduAllowance(1.02, 1) };
+        Assert.Equal("look", Verbs(Desk(spent, Said(Justin, asked: true))));
+        Assert.Contains("spent today's allowance", CduScreen.Render(Desk(spent)));
+    }
 
     [Fact]
     public void Affordances_Dark_OffersNothing()
@@ -86,6 +96,23 @@ public class CduScreenTest
         Assert.Contains("\"fix: thing 1\" for Denise", seen);
         Assert.Contains("PR #3 \"fix: thing 1\" is open, its checks pass", seen);
         Assert.Contains("dark", CduScreen.Look(null));
+    }
+
+    [Fact]
+    public void ReadMind_HeldToTheList_ElseTheCheapest()
+    {
+        Assert.Equal("kimi-k2.7-code", CduScreen.ReadMind(new JsonObject { ["mind"] = "KIMI-K2.7-code" }, Minds));
+        Assert.Equal("beam-free", CduScreen.ReadMind(new JsonObject { ["mind"] = "gpt-9" }, Minds));
+        Assert.Null(CduScreen.ReadMind(new JsonObject { ["mind"] = "x" }, null));
+    }
+
+    [Fact]
+    public void Render_ListsTheMindsCheapestFirst_AndTheFrameAsksForFrugality()
+    {
+        var text = CduScreen.Render(Desk(Up()));
+        Assert.Contains("- beam-free (free): free preview, free", text);
+        Assert.Contains("- kimi-k2.7-code (capable): the best coder, $0.95 in, $4.00 out per million tokens", text);
+        Assert.Contains("a free preview for small things", CduScreen.Frame(Shop));
     }
 
     [Fact]

@@ -13,13 +13,15 @@ import { FakeGitHub, git, world } from './fixture.ts';
 class FakeMind implements Mind {
     readonly model = 'fake';
     heard: string[] = [];
+    minds: (string | undefined)[] = [];
     souls: string[] = [];
     next: (repo: string, book: string) => Promise<string> = async () => 'Done.';
     repo = '';
     book = '';
 
-    async think(text: string, onEvent: (e: Record<string, unknown>) => void) {
+    async think(text: string, onEvent: (e: Record<string, unknown>) => void, model?: string) {
         this.heard.push(text);
+        this.minds.push(model);
         onEvent({ type: 'tool_execution_start', toolName: 'bash', args: { command: 'dotnet build' } });
         return this.next(this.repo, this.book);
     }
@@ -43,6 +45,10 @@ async function setup(statePath?: string) {
     const make = (store = new Store(statePath)) => new Cdu({
         mind, tide, book, store, lines: new Feed(), news: new Feed(),
         allowance: async () => ({ usd: spent, capUsd: 5 }),
+        models: [
+            { id: 'free-one', label: 'free preview', tier: 'free', in: 0, out: 0 },
+            { id: 'big-one', label: 'capable', tier: 'capable', in: 1, out: 4 },
+        ],
     });
     return { ...w, github, tide, book, mind, cdu: make(), make, spend: (usd: number) => (spent += usd) };
 }
@@ -187,6 +193,15 @@ test('state survives a restart; a turn cut off by it is failed, not lost', async
     const again = s.make(new Store(statePath));
     assert.equal(again.turn('t1')?.status, 'failed');
     assert.equal(new Store(statePath).state.pr, 7);
+});
+
+test('the mind whoever spoke chose is the one that wakes; an unknown one wakes the cheapest', async () => {
+    const s = await setup();
+    await done(s.cdu, s.cdu.talk(denise, 'small thing', 'talk', 'free-one'));
+    await done(s.cdu, s.cdu.talk(denise, 'hard thing', 'talk', 'big-one'));
+    await done(s.cdu, s.cdu.talk(denise, 'odd thing', 'talk', 'nonsense'));
+    assert.deepEqual(s.mind.minds, ['free-one', 'big-one', undefined]);
+    assert.deepEqual((await s.cdu.status()).models.map((m) => m.tier), ['free', 'capable']);
 });
 
 test('a question is in the last paragraph', () => {

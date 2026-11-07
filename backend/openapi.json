@@ -8252,7 +8252,8 @@
           "answered",
           "commits",
           "at",
-          "doneAt"
+          "doneAt",
+          "model"
         ],
         "type": "object",
         "properties": {
@@ -8311,6 +8312,12 @@
               "string"
             ],
             "format": "int64"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8347,6 +8354,46 @@
           }
         }
       },
+      "CduModelSummary": {
+        "required": [
+          "id",
+          "label",
+          "tier",
+          "in",
+          "out"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "tier": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "in": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "out": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "CduOverview": {
         "required": [
           "enabled",
@@ -8357,7 +8404,8 @@
           "trunk",
           "pr",
           "allowance",
-          "exchanges"
+          "exchanges",
+          "models"
         ],
         "type": "object",
         "properties": {
@@ -8412,6 +8460,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CduExchangeSummary"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CduModelSummary"
             }
           }
         }

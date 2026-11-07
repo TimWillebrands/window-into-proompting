@@ -150,11 +150,17 @@ test('a daily tab starts the next day from nothing', () => {
     assert.equal(plain.usd, 1);
 });
 
+test('a rotated daily tab is retired; tabs opened by hand stay', () => {
+    const kept = [tabOf({ token: 'old', daily: true, usd: 0.4 }), tabOf({ token: 'job' })];
+    const tabs = restore([tabOf({ token: 'new', daily: true })], kept);
+    assert.deepEqual([...tabs.keys()].sort(), ['job', 'new']);
+});
+
 test('declared tabs take caps from config and tallies from the last run', () => {
-    const kept = [tabOf({ token: 'cdu', capUsd: 1, usd: 0.7, daily: true, day: '2026-11-07' }), tabOf({ token: 'old' })];
+    const kept = [tabOf({ token: 'cdu', capUsd: 1, usd: 0.7, daily: true, day: '2026-11-07' }), tabOf({ token: 'job' })];
     const tabs = restore([tabOf({ token: 'cdu', capUsd: 5, daily: true })], kept);
     assert.deepEqual([tabs.get('cdu')?.capUsd, tabs.get('cdu')?.usd, tabs.get('cdu')?.day], [5, 0.7, '2026-11-07']);
-    assert.ok(tabs.has('old'));
+    assert.ok(tabs.has('job'));
 });
 
 test('an allowance survives a restart and refills at midnight', async () => {
