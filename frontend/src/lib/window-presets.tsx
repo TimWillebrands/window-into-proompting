@@ -13,6 +13,7 @@ import PlacesApp from '../apps/places/PlacesApp';
 import RelationsApp from '../apps/relations/RelationsApp';
 import StanceFloorApp from '../apps/stance-floor/StanceFloorApp';
 import WardrobeApp from '../apps/wardrobe/WardrobeApp';
+import WorksApp from '../apps/works/WorksApp';
 import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
 
@@ -96,6 +97,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: JobsApp,
         initialPosition: { x: 300, y: 110 },
         initialSize: { width: 780, height: 540 },
+    },
+    {
+        id: 'works',
+        title: 'C:\\WORKS\\cmd.exe',
+        icon: '🏗️',
+        component: WorksApp,
+        initialPosition: { x: 260, y: 90 },
+        initialSize: { width: 820, height: 560 },
     },
     {
         id: 'personas',
@@ -204,6 +213,12 @@ export const DESKTOP_ICONS: DesktopIconEntry[] = [
         label: 'Work & Wants',
         icon: '/img/icons/jobs.ico',
         windowId: 'jobs',
+    },
+    {
+        id: 'works',
+        label: 'The Works',
+        icon: '/img/icons/jobs.ico',
+        windowId: 'works',
     },
     {
         id: 'personas',

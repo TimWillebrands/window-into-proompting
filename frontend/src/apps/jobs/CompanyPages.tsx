@@ -74,6 +74,7 @@ function FoundForm() {
     const found = usePostWorldsPartyIdCompanies(refresh);
     const [name, setName] = useState('');
     const [mandate, setMandate] = useState('');
+    const [kind, setKind] = useState('trading');
     const [market, setMarket] = useState('predictions');
     const [focus, setFocus] = useState('');
     const [capital, setCapital] = useState('100000');
@@ -92,6 +93,7 @@ function FoundForm() {
                                 market,
                                 focus: focus || null,
                                 capital: Number(capital),
+                                kind,
                             },
                         },
                         {
@@ -120,6 +122,17 @@ function FoundForm() {
                     </Field>
                 </div>
                 <div className="wk-fields">
+                    <Field label="Kind">
+                        <select
+                            value={kind}
+                            onChange={(e) => setKind(e.currentTarget.value)}
+                        >
+                            <option value="trading">trading</option>
+                            <option value="works">works on the world</option>
+                        </select>
+                    </Field>
+                </div>
+                <div className="wk-fields" hidden={kind === 'works'}>
                     <Field label="Market">
                         <select
                             value={market}
@@ -161,7 +174,20 @@ function FoundForm() {
     );
 }
 
+/** No Book here: the work happens on the bench, in The Works window. */
+function WorksPage({ company }: { company: CompanySummary }) {
+    return (
+        <>
+            <PageHead icon="🏗️" title={company.name} sub={company.mandate} />
+            <div className="wk-page">
+                <Staff company={company} />
+            </div>
+        </>
+    );
+}
+
 export function CompanyPage({ company }: { company: CompanySummary }) {
+    if (company.kind === 'works') return <WorksPage company={company} />;
     const change = bookReturn(company);
     const market = company.focus
         ? `${company.market}: ${company.focus}`

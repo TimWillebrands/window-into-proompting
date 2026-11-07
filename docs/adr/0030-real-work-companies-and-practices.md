@@ -13,7 +13,7 @@ that trades in X", "this Persona is a career coach for logistics".
 1. **The system of record reports outcomes, never the Persona.** Agents fabricate results when they narrate their
    own work. Prices, fills, Settlements and Fees come from code; a Persona can brag in chat and the Book still decides.
 2. **No agent loop.** Both capabilities are `IWorldApp`s: one choice, one structured call. Trading needs no tools, and
-   a tool loop belongs with the repo idea, which is parked.
+   a tool loop belongs with the repo idea (ADR 0039).
 3. **No human/persona distinction.** Staff, Practitioners and Clients are Participants. Every act is one grain command,
    called by Life or by HTTP alike, and the Effective Driver decides who types in a Session. This is a research
    project, so Sessions carry no human safeguards.

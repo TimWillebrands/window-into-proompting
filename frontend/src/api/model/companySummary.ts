@@ -12,6 +12,7 @@ import type { WatchSummary } from './watchSummary';
 export interface CompanySummary {
     id: string;
     name: string;
+    kind: string;
     mandate: string;
     market: string;
     /** @nullable */

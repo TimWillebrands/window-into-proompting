@@ -1,0 +1,10 @@
+{
+    "name": "works-runner",
+    "private": true,
+    "type": "module",
+    "engines": { "node": ">=22.18" },
+    "scripts": {
+        "start": "node src/main.ts",
+        "test": "node --test test/*.test.ts"
+    }
+}

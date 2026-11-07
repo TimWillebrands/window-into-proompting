@@ -286,6 +286,9 @@ export function WorldRealtimeBridge() {
                 }
                 break;
             }
+            case 'works':
+                invalidatePrefix(worldPrefix('/works'));
+                break;
             case 'body': {
                 // Moves are frequent, new looks rare: only a new look touches the cache.
                 const body = payload as Body;

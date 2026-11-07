@@ -1,6 +1,7 @@
 import { fn } from 'storybook/test';
 import type {
     ChatGroupInfo,
+    CommissionSummary,
     DefaultPersonaTemplate,
     LlmProviderEntry,
     MemoryGraphDto,
@@ -394,5 +395,132 @@ export const useGetPartiesPartyIdMemoryParticipantsPersonaIdStances = fn(() =>
     queryResult({ data: mockStances, status: 200, headers: new Headers() }),
 );
 export const usePostPartiesPartyIdMemoryParticipantsPersonaIdStances = fn(() =>
+    noopMutationResult(),
+);
+
+const worksCommissions: CommissionSummary[] = [
+    {
+        id: 'c-working',
+        architectId: 'p1',
+        architectName: 'Denise',
+        kind: 'Change',
+        title: 'Stop Life turns dying on the three-minute wall',
+        why: 'A quarter of what people do here fails, most of it the same timeout.',
+        brief: 'A slow model call should end as a fizzle before the grain times out.',
+        model: 'deepseek-v4.1-flash-free',
+        budgetUsd: 2,
+        status: 'Working',
+        report: null,
+        spentUsd: 0.2134,
+        tokens: 182_000,
+        files: 0,
+        added: 0,
+        removed: 0,
+        paths: [],
+        stop: null,
+        error: null,
+        proposition: null,
+        checks: [],
+        note: null,
+        filedAt: 0,
+        updatedAt: 0,
+    },
+    {
+        id: 'c-proposed',
+        architectId: 'p2',
+        architectName: 'Justin de Castelnaudary Ruysch',
+        kind: 'Change',
+        title: 'Let rooms keep their light after dark',
+        why: 'Every place goes grey at once, and nobody here lives like that.',
+        brief: 'Lit places should stay lit while someone is in them.',
+        model: 'glm-5.3-flash-free',
+        budgetUsd: 3,
+        status: 'Proposed',
+        report: 'Rooms now stay lit while occupied.',
+        spentUsd: 1.82,
+        tokens: 910_000,
+        files: 4,
+        added: 61,
+        removed: 12,
+        paths: ['backend/World/Places/Sleep.cs'],
+        stop: null,
+        error: null,
+        proposition: 3,
+        checks: [
+            { name: 'backend-build', passed: true, seconds: 20, detail: '' },
+            {
+                name: 'backend-tests',
+                passed: false,
+                seconds: 46,
+                detail: 'Failed: 1, Passed: 1128',
+            },
+            {
+                name: 'frontend-tests',
+                passed: true,
+                seconds: 25,
+                detail: 'Tests 224 passed',
+            },
+        ],
+        note: null,
+        filedAt: 0,
+        updatedAt: 0,
+    },
+];
+
+export const useGetWorldsPartyIdWorks = fn(() =>
+    queryResult({
+        status: 200,
+        data: {
+            enabled: true,
+            builderUp: true,
+            builderBusy: true,
+            reserveUsd: 41.2,
+            models: [],
+            commissions: worksCommissions,
+        },
+    }),
+);
+
+export const useGetWorldsPartyIdWorksCommissionsCommissionIdLines = fn(() =>
+    queryResult({
+        status: 200,
+        data: [
+            {
+                n: 1,
+                at: 1,
+                kind: 'thought',
+                text: 'CLAUDE.md first, then the Life grain.',
+            },
+            {
+                n: 2,
+                at: 2,
+                kind: 'tool',
+                text: 'read backend/World/PersonaLifeGrain.cs',
+            },
+            {
+                n: 3,
+                at: 3,
+                kind: 'say',
+                text: 'The turn budget is 150 seconds but recall runs before it.',
+            },
+            {
+                n: 4,
+                at: 4,
+                kind: 'tool',
+                text: 'bash dotnet test backend-test/backend-test.csproj',
+            },
+            {
+                n: 5,
+                at: 5,
+                kind: 'failed',
+                text: 'bash dotnet test backend-test/backend-test.csproj',
+            },
+            { n: 6, at: 6, kind: 'status', text: 'turn ended: end_turn' },
+            { n: 7, at: 7, kind: 'check', text: 'backend-build pass 20' },
+        ],
+    }),
+);
+
+export const usePostWorldsPartyIdWorksCommissionsCommissionIdReject = fn(() =>
     noopMutationResult(),
 );

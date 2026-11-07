@@ -2,6 +2,13 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
+/// <summary>What a Company does all day: trades a Book (ADR 0030) or works on the code of the world (ADR 0039).</summary>
+public static class CompanyKinds
+{
+    public const string Trading = "trading";
+    public const string Works = "works";
+}
+
 /// <summary>An outfit in one Party with a workplace, staff and a Mandate (ADR 0030). Staff are Occupations that name it.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.Company")]
 public sealed class Company
@@ -20,6 +27,8 @@ public sealed class Company
     [Id(8)] public long? MarkedAt { get; set; }
     [Id(9)] public long? WatchedAt { get; set; }
     [Id(10)] public long FoundedAt { get; set; }
+    /// <summary>One of <see cref="CompanyKinds"/>.</summary>
+    [Id(11)] public string Kind { get; set; } = CompanyKinds.Trading;
 }
 
 /// <summary>The Party's Companies (key = Party id). Pure state: reading Markets happens in <see cref="Desks"/>, outside the grain.</summary>
