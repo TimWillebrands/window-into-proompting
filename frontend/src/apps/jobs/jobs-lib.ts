@@ -2,6 +2,7 @@ import type {
     CompanySummary,
     Desire,
     JobSummary,
+    Place,
     PositionSummary,
     PracticeSummary,
     ProblemDetails,
@@ -19,12 +20,14 @@ export type WorkPlace =
     | { page: 'person'; id: string }
     | { page: 'companies' }
     | { page: 'company'; id: string }
-    | { page: 'practices' };
+    | { page: 'practices' }
+    | { page: 'doors' };
 
 /** Anything else that turns up in the URL means the front page. */
 export function placeFrom(page?: string, id?: string): WorkPlace {
     if ((page === 'person' || page === 'company') && id) return { page, id };
-    if (page === 'companies' || page === 'practices') return { page };
+    if (page === 'companies' || page === 'practices' || page === 'doors')
+        return { page };
     return { page: 'people' };
 }
 
@@ -194,3 +197,18 @@ export const whenLabel = (at: number | string) =>
         hour: '2-digit',
         minute: '2-digit',
     });
+
+/** A workplace's door (ADR 0041), in the author's words. */
+export const DOORS = [
+    { value: 'open', label: 'Open to anyone' },
+    { value: 'appointment', label: 'By appointment' },
+    { value: 'staff', label: 'Staff only' },
+] as const;
+
+export const doorOf = (place: Place) => place.access ?? 'open';
+
+/** Drawn Places someone works at: the ones with a door to keep. */
+export const workplacesOf = (places: Place[]) =>
+    places
+        .filter((p) => p.kind === 'public' && (p.staff ?? []).length > 0)
+        .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));

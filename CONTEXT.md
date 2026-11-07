@@ -329,6 +329,10 @@ _Avoid_: resident (that's someone who lives in the World), roommate, tenant.
 **Vacated**:
 A **Home** whose owner lives elsewhere now: kept as it was, closed, and not offered to anyone.
 
+**Door**:
+Who a workplace lets in: open to anyone, by appointment, or staff only. Staff come and go and answer it; so does anyone on the author's access list; a Session or Gathering lets its people in as guests; everyone else knocks. Its kit sets the first one (offices staff only, clinics by appointment, the rest open). See [ADR 0041](docs/adr/0041-workplace-doors.md).
+_Avoid_: lock, permission, Key (that's personal, between people close to a host).
+
 **Key**:
 Lets someone come and go at a closed **Place**, whoever's in. The host's to give, no yes needed; the holder can hand it back. Only the two of them know. It outlasts a break-up until someone deals with it.
 _Avoid_: access, permission, guest (that's one visit).
@@ -646,6 +650,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
 - A **Piece** is made by one **Participant** at one **Studio**.
 - A closed **Place** has zero or more **Key** holders; a **Key** is given by a host and held by one **Participant**.
+- A workplace **Place** has one **Door**, its staff (from **Occupations**) and an access list; a workplace has no **Keys**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
 ## Example dialogue

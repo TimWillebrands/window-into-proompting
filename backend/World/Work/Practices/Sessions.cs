@@ -75,6 +75,7 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
             return;
         }
         await places.OpenAsync(where, null, "gathering");
+        await places.ExpectAsync(where, session.PractitionerId, new List<Guid> { session.ClientId });
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
         // Humans come themselves, as with Gatherings; a Persona's post is where a shift would put them.
         bool Llm(Guid id) => cast.FirstOrDefault(c => c.Id == id)?.DefaultDriver == DriverKind.LLM;

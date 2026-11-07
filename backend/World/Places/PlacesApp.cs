@@ -141,7 +141,7 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             if (place.Kind == PlaceKinds.Locale || place.Dormant || place.Vacated) continue;
             var mine = place.LivesIn(ctx.Self.Id);
             var keyed = place.Keyholders.Contains(ctx.Self.Id);
-            if (place.IsClosed() && !place.Hosts().Contains(ctx.Self.Id) && !keyed)
+            if (place.IsClosed() && !place.Hosts().Contains(ctx.Self.Id) && !keyed && !place.Allowed.Contains(ctx.Self.Id))
             {
                 // Someone else's Home or private Place: go if invited, else knock when they're in and awake.
                 var hosts = snapshot.Bodies.Where(b => place.Hosts().Contains(b.ParticipantId)).ToList();
@@ -155,7 +155,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 }
                 else if (owner is { IsWalking: false, Asleep: false } && owner.PlaceId == place.Id && !self.IsWalking)
                 {
-                    affordances.Add(new Affordance(Id, $"Knock on {ownerName}'s door (they're {(place.Kind == PlaceKinds.Home ? "home" : "in")})", 0, place.Id, "knock"));
+                    affordances.Add(new Affordance(Id, place.IsWorkplaceDoor()
+                        ? $"Knock at {place.Name}, {PlaceAccess.Words(place.Access)} ({ownerName}'s in)"
+                        : $"Knock on {ownerName}'s door (they're {(place.Kind == PlaceKinds.Home ? "home" : "in")})", 0, place.Id, "knock"));
                 }
                 else if (!self.IsWalking && owner is not null && owner.PlaceId != place.Id && await CloseToAsync(ctx, owner.ParticipantId))
                 {
@@ -187,12 +189,14 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         var offscreen = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.AwayAs is not null && !b.IsWalking).Select(b => $"{b.Name} ({b.AwayAs})").ToList();
         if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
-        // At home: who's at the door, and who you could have over.
+        // Hosting a closed Place: who's at the door, and (at your own place) who you could have over.
         if (!self.IsWalking && here?.Hosts().Contains(ctx.Self.Id) == true)
         {
             foreach (var visitor in await places.GetKnocksAsync(ctx.Self.Id))
             {
-                sb.AppendLine($"{ctx.NameOf(visitor)} is knocking at your door.");
+                sb.AppendLine(here.IsWorkplaceDoor()
+                    ? $"{ctx.NameOf(visitor)} is at the door of {here.Name}, wanting in ({PlaceAccess.Words(here.Access)})."
+                    : $"{ctx.NameOf(visitor)} is knocking at your door.");
                 affordances.Add(new Affordance(Id, $"Let {ctx.NameOf(visitor)} in", 3, visitor, "letin"));
             }
             // Making it yours: stances and interests end up on the walls (the intent is what goes up).
@@ -203,8 +207,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
             }
 
+            // Having people over is for your own place; a workplace's door is the author's (ADR 0041).
             var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId) && !here.Hosts().Contains(b.ParticipantId)).ToList();
-            if (away.Count > 0)
+            if (away.Count > 0 && here.Keyed())
             {
                 var friend = await WhoToInviteAsync(ctx, away);
                 affordances.Add(new Affordance(Id, $"Invite {friend.Name} over to {PlacesGrain.WhereName(here, ctx.Self.Id)}", 0, friend.ParticipantId, "invite"));

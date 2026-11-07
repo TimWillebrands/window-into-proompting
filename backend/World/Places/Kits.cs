@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.World.Places;
 
-/// <summary>An archetype a Locale opens as (ADR 0027): spots, purpose and a description, chosen not designed.</summary>
-public sealed record Kit(string Archetype, string Purpose, string Description, string At, string[] Keywords, Spot[] Spots);
+/// <summary>An archetype a Locale opens as (ADR 0027), chosen not designed; <c>Access</c> is its staff's default door (ADR 0041).</summary>
+public sealed record Kit(string Archetype, string Purpose, string Description, string At, string[] Keywords, Spot[] Spots, string? Access = null);
 
 /// <summary>The kits in kits.json (shared with the client, whose kit scenes pin these spots; a frontend test checks).</summary>
 public static class Kits

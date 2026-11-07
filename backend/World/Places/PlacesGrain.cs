@@ -876,11 +876,13 @@ public sealed partial class PlacesGrain(
         => state.State.Bodies.Values.Where(b => b.PlaceId == placeId && (b.DestPlaceId is null || b.DestPlaceId == placeId));
 
     private static bool MayEnter(Place place, Guid participantId)
-        => !place.IsClosed() || place.Hosts().Contains(participantId) || place.Guests.Contains(participantId) || place.Keyholders.Contains(participantId);
+        => !place.IsClosed() || place.Hosts().Contains(participantId) || place.Guests.Contains(participantId) || place.Keyholders.Contains(participantId)
+            || place.Allowed.Contains(participantId);
 
     /// <summary>The closed Place they're at and host, else their Home: where a knock or an invitation means.</summary>
     private Place? HostedBy(Guid host)
-        => state.State.Bodies.TryGetValue(host, out var body) && Find(body.DestPlaceId ?? body.PlaceId) is { Private: true } here && here.Hosts().Contains(host)
+        => state.State.Bodies.TryGetValue(host, out var body) && Find(body.DestPlaceId ?? body.PlaceId) is { Kind: not PlaceKinds.Home } here
+            && here.IsClosed() && here.Hosts().Contains(host)
             ? here
             : state.State.Places.HomeOf(host);
 
@@ -928,6 +930,7 @@ public sealed partial class PlacesGrain(
             if (shown.Count > 0) sb.Append(" On display: ").Append(string.Join("; ", shown)).Append('.');
         }
         if (place is { Kind: PlaceKinds.Public, Purpose.Length: > 0 }) sb.Append($" {Capital(place.Name)} is {place.Purpose}.");
+        if (place is not null && DoorLine(place, body.ParticipantId, others) is { } door) sb.Append(' ').Append(door);
         return sb.ToString();
     }
 
@@ -1118,6 +1121,15 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Author: this Place or Locale is someone's now, under a new name if given. Null for Homes.</summary>
     /// <param name="closed">Theirs alone: guests by invitation, and anyone else there goes home.</param>
     [Alias("ClaimAsync")] Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name, bool closed = false);
+
+    /// <summary>Someone's Occupation is at this Place now (null = nowhere); they host its door (ADR 0041).</summary>
+    [Alias("WorkAtAsync")] Task WorkAtAsync(Guid participantId, Guid? placeId);
+
+    /// <summary>Author: a workplace's door and its access list; whoever may no longer be there heads home. Null for Homes.</summary>
+    [Alias("SetAccessAsync")] Task<Place?> SetAccessAsync(Guid placeId, string access, List<Guid> allowed);
+
+    /// <summary>A Session or Gathering at a workplace lets its people in as guests (until the last staffer leaves), if its host may enter.</summary>
+    [Alias("ExpectAsync")] Task ExpectAsync(Guid placeId, Guid hostId, List<Guid> participantIds);
 
     /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
     [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);

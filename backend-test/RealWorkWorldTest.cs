@@ -247,6 +247,8 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         Assert.Equal(ChatGroupKinds.Place, room.Kind);
 
         var coach = (await Places(partyId).GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter);
+        // An office has a door (ADR 0041): the one overhearing is someone it lets in.
+        await Places(partyId).SetAccessAsync(coach.PlaceId, PartyTown.World.Places.PlaceAccess.Staff, new List<Guid> { denise });
         if (atTheirSpot) await Places(partyId).JoinAsync(denise, pieter);
         else await Places(partyId).MoveAsync(denise, coach.PlaceId, "window");
         Noon.Advance(TimeSpan.FromMinutes(2));

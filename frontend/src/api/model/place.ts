@@ -55,4 +55,8 @@ export interface Place {
     private?: boolean;
     keyholders?: string[];
     doorsteps?: PlaceDoorsteps;
+    /** @nullable */
+    access?: string | null;
+    staff?: string[];
+    allowed?: string[];
 }

@@ -32,7 +32,7 @@ public sealed class PersonaLifeGrain(
     private const double ChoiceTemperature = 0.8;
     /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
     public const string LookAction = "look";
-    private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
+    private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>", "decline": <true if you wouldn't actually do this after all, else false>}""";
     private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -190,10 +190,16 @@ Output ONLY JSON: {ChoiceShape}
             var decided = options[choice - 1];
             var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
             var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
-                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\nOutput ONLY JSON: {IntentShape}",
+                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\n{LifeChoice.DeclineCue}\nOutput ONLY JSON: {IntentShape}",
                 $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
             thought = voiced?["thought"]?.ToString();
             intent = voiced?["intent"]?.ToString() ?? string.Empty;
+            // System Two has the last word (ADR 0034): a pick it wouldn't make in character doesn't happen.
+            if (LifeChoice.Declined(voiced))
+            {
+                logger.LogInformation("Life {Persona} ✗ {Label} | {Thought}", self.Name, decided.Label, thought);
+                return (Activity(personaId, self.Name, "life", "rest", $"thought better of it ({decided.Label})", thought), false);
+            }
         }
         else
         {
@@ -293,6 +299,15 @@ public interface IPersonaLifeGrain : IGrainWithStringKey
     /// <summary>One Initiative turn. <paramref name="nudge"/> is an optional author hint folded into perception.</summary>
     [Alias("LiveAsync")]
     Task<WorldActivity> LiveAsync(string? nudge);
+}
+
+/// <summary>System Two voicing System One's pick (ADR 0034), with the say to decline it.</summary>
+public static class LifeChoice
+{
+    public const string DeclineCue = "If, being who you are right now, you wouldn't actually do this after all, set decline to true and say why in thought.";
+
+    public static bool Declined(System.Text.Json.Nodes.JsonObject? voiced)
+        => string.Equals(voiced?["decline"]?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>People settle where they've just arrived (ADR 0021): walking on again soon needs a real reason.</summary>

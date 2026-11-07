@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type {
     CompanySummary,
     JobSummary,
+    Place,
     PositionSummary,
     PracticeSummary,
     SessionSummary,
@@ -14,6 +15,7 @@ import {
     credits,
     dayMove,
     desireLabel,
+    doorOf,
     employmentOf,
     homeworkLabel,
     jobLine,
@@ -27,6 +29,7 @@ import {
     signedPercent,
     toneOf,
     tradeLabel,
+    workplacesOf,
 } from './jobs-lib';
 
 const now = new Date(2026, 9, 22, 12, 0);
@@ -286,6 +289,7 @@ describe('placeFrom', () => {
         expect(placeFrom('person', 'a')).toEqual({ page: 'person', id: 'a' });
         expect(placeFrom('company', 'a')).toEqual({ page: 'company', id: 'a' });
         expect(placeFrom('practices')).toEqual({ page: 'practices' });
+        expect(placeFrom('doors')).toEqual({ page: 'doors' });
     });
 
     it('falls back to the front page', () => {
@@ -354,5 +358,34 @@ describe('sessionsInOrder', () => {
             'recent',
             'old',
         ]);
+    });
+});
+
+describe('doors', () => {
+    const place = (over: Partial<Place>): Place => ({
+        id: 'p',
+        name: 'p',
+        kind: 'public',
+        spots: [],
+        ...over,
+    });
+
+    it('lists drawn workplaces by name, not empty rooms, homes or locales', () => {
+        const works = place({ id: 'w', name: 'The Works', staff: ['j'] });
+        const clinic = place({ id: 'c', name: 'a clinic', staff: ['l'] });
+        expect(
+            workplacesOf([
+                works,
+                place({ id: 'e', name: 'empty' }),
+                place({ id: 'h', kind: 'home', staff: ['x'] }),
+                place({ id: 'l', kind: 'locale', staff: ['x'] }),
+                clinic,
+            ]).map((p) => p.id),
+        ).toEqual(['c', 'w']);
+    });
+
+    it('reads an unsettled door as open', () => {
+        expect(doorOf(place({}))).toBe('open');
+        expect(doorOf(place({ access: 'staff' }))).toBe('staff');
     });
 });

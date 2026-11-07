@@ -41,7 +41,7 @@ public sealed partial class PlacesGrain
 
     public async Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId)
     {
-        if (Find(placeId) is not { } place || !place.IsClosed() || !place.Hosts().Contains(hostId) || place.Hosts().Contains(toId)) return false;
+        if (Find(placeId) is not { } place || !place.Keyed() || !place.Hosts().Contains(hostId) || place.Hosts().Contains(toId)) return false;
         if (!state.State.Bodies.ContainsKey(toId) || place.Keyholders.Contains(toId)) return false;
         place.Keyholders.Add(toId);
         place.Doorsteps.Remove(toId);
@@ -76,7 +76,7 @@ public sealed partial class PlacesGrain
     {
         var now = Now();
         place.NoteDoorstep(visitor, now);
-        if (keyWants is not null && place.Hosts().FirstOrDefault() is var host && host != Guid.Empty)
+        if (keyWants is not null && place.Keyed() && place.Hosts().FirstOrDefault() is var host && host != Guid.Empty)
             _ = keyWants.ConsiderAsync(PartyId, new Relations.Door(place.Id, place.Name, host, visitor, place.DoorstepsLately(visitor, now)));
     }
 

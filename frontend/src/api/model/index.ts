@@ -94,6 +94,7 @@ export * from './persona';
 export * from './personaMetadata';
 export * from './personaRoute';
 export * from './place';
+export * from './placeAccessRequest';
 export * from './placeDoorsteps';
 export * from './placeKnocks';
 export * from './placeStyleRequest';

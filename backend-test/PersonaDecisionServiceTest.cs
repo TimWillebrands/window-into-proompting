@@ -752,4 +752,23 @@ public class PersonaDecisionServiceTest
         var user = jobs.Single().Messages.Single(m => m.Role == "user").Content;
         Assert.DoesNotContain("(They said your name.)", user);
     }
+
+    [Fact]
+    public async Task ShouldRespondAsync_InPerson_ReadsTheRoom_AndSaysItOutLoud()
+    {
+        var self = MakeParticipant("Justin");
+        var senderId = Guid.NewGuid();
+        var participants = new List<ParticipantView> { AsView(self), UserPv(senderId, "Medevortius") };
+        var history = new List<ChatMessage> { UserMessage(senderId, "I understand the secrets of this place.") };
+        var (endpoint, capturedJobs) = EndpointCapturingJobs("""{"gutReaction":"who is this?","memoryToReference":null,"wouldSay":"Who let you in?","respond":true}""");
+
+        await MakeService(endpoint).ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None, inPerson: true);
+
+        var system = Assert.Single(capturedJobs).Messages.First(m => m.Role == "system").Content;
+        Assert.Contains("You're here in person", system);
+        Assert.Contains("whether they belong", system);
+        Assert.Contains("the words you'd actually say out loud", system);
+        Assert.DoesNotContain("group chat", system);
+        Assert.DoesNotContain("(human)", system);
+    }
 }

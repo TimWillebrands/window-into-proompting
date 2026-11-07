@@ -28,6 +28,7 @@ public sealed partial class PlacesGrain
         place.Scene = "sketch";
         place.DistrictId ??= Districts.Centre;
         place.OpenedAt = Now();
+        SettleDoor(place);
         if (budgeted) state.State.LastOpenedDay = DayKey(0);
         if (kit.Archetype == "office" && place.Name.EndsWith(WorkSuffix, StringComparison.Ordinal))
             place.Name = place.Name.Replace(WorkSuffix, "'s office", StringComparison.Ordinal);
@@ -54,8 +55,7 @@ public sealed partial class PlacesGrain
         if (!string.IsNullOrWhiteSpace(name)) place.Name = WorldStream.Clip(name.Trim(), 60);
         await SaveAsync();
         await PublishPlaceAsync(place);
-        foreach (var body in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == place.Id && !MayEnter(place, b.ParticipantId)).ToList())
-            if (state.State.Places.HomeOf(body.ParticipantId) is { } home) await MoveAsync(body.ParticipantId, home.Id, null);
+        await ShowOutAsync(place);
         return place;
     }
 

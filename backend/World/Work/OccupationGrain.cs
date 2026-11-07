@@ -37,6 +37,7 @@ public sealed class OccupationGrain(
         if (job is null && state.State.History.LastOrDefault() is { Status: ShiftStatus.On } on) on.Status = ShiftStatus.LeftEarly;
         await state.WriteStateAsync();
         await EmployAsync();
+        await StaffAsync();
         return View();
     }
 
@@ -51,6 +52,7 @@ public sealed class OccupationGrain(
     public async Task<ShiftChange> StepAsync(DateTimeOffset local, bool asleep)
     {
         KickSeed();
+        await StaffAsync();
         if (state.State.Job is not { } job) return ShiftChange.Nothing;
         var today = state.State.History.LastOrDefault();
         var step = Shifts.Step(job, today, local, asleep);
@@ -133,6 +135,21 @@ public sealed class OccupationGrain(
         catch (Exception ex) { logger.LogDebug(ex, "Workplace sync failed"); }
     }
 
+    /// <summary>Places hosts a workplace's door from its staff (ADR 0041): tell it whenever the job's Place changes.</summary>
+    private async Task StaffAsync()
+    {
+        var where = state.State.Job is { } job ? job.PlaceId ?? job.LocaleId : null;
+        if (state.State.StaffAt == where) return;
+        try
+        {
+            var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+            await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).WorkAtAsync(participantId, where);
+            state.State.StaffAt = where;
+            await state.WriteStateAsync();
+        }
+        catch (Exception ex) { logger.LogDebug(ex, "Staffing the workplace failed"); }
+    }
+
     /// <summary>Tells the Wallet whether pay comes per shift or daily.</summary>
     private Task EmployAsync()
         => GrainFactory.GetGrain<Economy.IWalletGrain>(this.GetPrimaryKeyString()).SetEmployedAsync(state.State.Job is not null);
@@ -192,6 +209,7 @@ public sealed class OccupationGrain(
             state.State.Seeded = json is not null;
             await state.WriteStateAsync();
             if (state.State.Seeded) await EmployAsync();
+            await StaffAsync();
             logger.LogInformation("Occupation for {Name}: {Job}", who.Name, state.State.Job is { } j ? Shifts.Describe(j) : "none");
         }
         catch (Exception ex)
@@ -271,4 +289,6 @@ public sealed class OccupationState
     [Id(3)] public List<ShiftRecord> History { get; set; } = new();
     /// <summary>Day the clock last saw a shift in progress without it starting (asleep): a miss is earned only then.</summary>
     [Id(4)] public string? SawShiftDay { get; set; }
+    /// <summary>The Place Places last heard this person works at.</summary>
+    [Id(5)] public Guid? StaffAt { get; set; }
 }

@@ -2,6 +2,7 @@ import { Suspense, useCallback } from 'react';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { useDesktopContext } from '../../lib/desktop-context';
 import { CompaniesPage, CompanyPage } from './CompanyPages';
+import { DoorsPage } from './DoorsPage';
 import './jobs.css';
 import {
     bookReturn,
@@ -56,10 +57,11 @@ function Page({ here }: { here: WorkPlace }) {
     }
     if (here.page === 'companies') return <CompaniesPage />;
     if (here.page === 'practices') return <PracticesPage />;
+    if (here.page === 'doors') return <DoorsPage />;
     return <PeoplePage />;
 }
 
-/** The XP Explorer task pane: three groups, each heading a page of its own. */
+/** The XP Explorer task pane: a group per page, and the workplaces' doors. */
 function TaskPane({ here }: { here: WorkPlace }) {
     const { people, companies, practices, go } = useWork();
     const at = (page: WorkPlace['page'], id?: string) =>
@@ -162,6 +164,16 @@ function TaskPane({ here }: { here: WorkPlace }) {
                         <li className="wk-pane-hint">None yet</li>
                     ) : null}
                 </ul>
+            </section>
+            <section className="wk-group">
+                <button
+                    type="button"
+                    className="xp-bare wk-group-head"
+                    aria-current={at('doors')}
+                    onClick={() => go({ page: 'doors' })}
+                >
+                    🚪 Doors
+                </button>
             </section>
         </nav>
     );

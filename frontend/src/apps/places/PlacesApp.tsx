@@ -74,6 +74,7 @@ import {
     toMs,
     volumeOf,
     walkingText,
+    workplaceDoor,
 } from './places-lib';
 
 const panel = {
@@ -471,7 +472,8 @@ function PlaceView({
                 !b.destPlaceId &&
                 !b.asleep,
         );
-    const knockers = ownHome ? Object.keys(place.knocks ?? {}) : [];
+    const answersDoor = ownHome || (amHere && hosts(place, playerId));
+    const knockers = answersDoor ? Object.keys(place.knocks ?? {}) : [];
     const knock = usePostWorldsPartyIdPlacesKnock();
     const letIn = usePostWorldsPartyIdPlacesLetIn();
     const arrangeThing = usePostWorldsPartyIdPlacesThingsArrange();
@@ -552,7 +554,9 @@ function PlaceView({
                             {allBodies.find((b) => b.participantId === id)
                                 ?.name ?? 'Someone'}
                         </strong>{' '}
-                        is knocking at your door.
+                        {workplaceDoor(place)
+                            ? 'is at the door.'
+                            : 'is knocking at your door.'}
                         <button
                             type="button"
                             className="pl-btn pl-btn--go pl-btn--small"

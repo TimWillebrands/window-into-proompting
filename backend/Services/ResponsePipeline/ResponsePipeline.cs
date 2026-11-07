@@ -196,7 +196,7 @@ public sealed class ResponsePipeline(
             var decision = await RunDecisionPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
-                repairHint, stanceLines, deliberate);
+                repairHint, stanceLines, deliberate, roomCast.Kind == ChatGroupKinds.Place);
 
             // Resolve the index pick (1-based into the numbered block; decision service
             // already range-clamped) back to the recalled memory: snippet → speaking phase,
@@ -296,7 +296,8 @@ public sealed class ResponsePipeline(
             // alongside so speaking refines a felt moment rather than re-deciding cold.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Instruction, decision.Reason, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt);
+                decision.Instruction, decision.Reason, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
+                roomCast.Kind == ChatGroupKinds.Place);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -463,7 +464,8 @@ public sealed class ResponsePipeline(
             inFlight.MarkGenerationStarted(feeling, intent);
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt);
+                intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt,
+                roomCast.Kind == ChatGroupKinds.Place);
 
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
@@ -552,7 +554,8 @@ public sealed class ResponsePipeline(
         IReadOnlyList<string> stances,
         string personaName,
         InFlightGeneration inFlight,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool inPerson = false)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
@@ -595,7 +598,8 @@ public sealed class ResponsePipeline(
                     stances,
                     gutReaction,
                     presence,
-                    avoidWords);
+                    avoidWords,
+                    inPerson);
                 break;
             }
             catch (OperationCanceledException)
@@ -768,7 +772,8 @@ public sealed class ResponsePipeline(
         CancellationToken ct,
         RepairHint? repairHint = null,
         IReadOnlyList<string>? stances = null,
-        bool deliberate = false)
+        bool deliberate = false,
+        bool inPerson = false)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
@@ -797,7 +802,8 @@ public sealed class ResponsePipeline(
             isDirect: isDirect,
             presence: presence,
             windingDown: windingDown,
-            deliberate: deliberate);
+            deliberate: deliberate,
+            inPerson: inPerson);
     }
 
     private static Task NotifyStreamAsync(
