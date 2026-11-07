@@ -1,0 +1,15 @@
+#!/bin/bash
+# Keeps the CDU up: Pi can crash its process (pi #10585), and its session and Book are on the volume.
+git config --global user.name CDU
+git config --global user.email cdu@proompting.party
+git config --global --add safe.directory '*'
+[ -n "$GH_TOKEN" ] && gh auth setup-git >/dev/null 2>&1
+child=0
+trap 'kill -TERM "$child" 2>/dev/null; wait "$child"; exit 0' TERM INT
+while true; do
+    node /app/src/main.ts &
+    child=$!
+    wait "$child"
+    echo "cdu exited with $?, waking again in 5s" >&2
+    sleep 5
+done

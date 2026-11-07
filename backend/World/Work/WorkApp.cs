@@ -30,7 +30,9 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
         {
             if (atWork)
             {
-                affordances.Add(new Affordance(Id, $"Get on with work ({job.Title})", 2, job.PlaceId, "work"));
+                // At a CDU Company the work is the CDU desk's moves (ADR 0039); a bare "work" would swallow them.
+                if (!await KeepsTheCduAsync(ctx, job))
+                    affordances.Add(new Affordance(Id, $"Get on with work ({job.Title})", 2, job.PlaceId, "work"));
                 if (job.PlaceId is { } studio && await MayMakeAsync(ctx, studio))
                     affordances.Add(new Affordance(Id, "Finish a piece at the easel (say in a few words what it is)", 3, studio, "make"));
                 // Staff are the centre of a Place (ADR 0026): someone who just came in is theirs to greet.
@@ -72,6 +74,9 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
         }
         return null;
     }
+
+    private async Task<bool> KeepsTheCduAsync(LifeContext ctx, Occupation job)
+        => job.CompanyId is { } id && Companies.CompanyKinds.IsCdu((await grains.GetGrain<Companies.ICompaniesGrain>(ctx.PartyId).GetAsync(id))?.Kind);
 
     private async Task<bool> MayMakeAsync(LifeContext ctx, Guid placeId)
     {

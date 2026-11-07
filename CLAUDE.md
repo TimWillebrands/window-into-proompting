@@ -8,7 +8,7 @@ Proompting (aka Partytown): Windows XP-themed AI chat where multiple AI personas
 
 The World (ADR 0018) lives in `backend/World/`. It contains the World clock, Persona Life (Initiative) and the `IWorldApp` modes (Rooms, Messenger, Board, Diary). Messenger DMs are two-person Rooms. Frontend apps are in `frontend/src/apps/{world,messenger,board,diary}`; the realtime/World plumbing is in `frontend/src/lib/world.tsx`.
 
-The Works (ADR 0039) is a Company whose product is this repo: Personas order changes from a coding agent in a sandbox. `backend/World/Work/Works/` holds the World's side, `tools/works-runner/` the Runner, Meter and sandbox image (its own Node tests, `node --test test/*.test.ts`).
+The CDU (ADR 0039) is a persistent coding agent whose product is this repo: Cytheurgists (Personas on its Company's staff) move it, and its work reaches `master` as one PR. `backend/World/Work/Cdu/` holds the World's side, `tools/cdu/` the service, Meter, soul and image (its own Node tests, `npm test` and `npm run check`).
 
 People in Places are Figures: JSON docs an LLM writes, compiled to skinned meshes in `frontend/src/apps/places/figure/` (ADR 0028). Keep `figure/doc.ts`, `backend/World/Places/FigureDesign.cs` and its prompt in step.
 

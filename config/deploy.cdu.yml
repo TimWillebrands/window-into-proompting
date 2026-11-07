@@ -1,0 +1,83 @@
+# The CDU (ADR 0039): `kamal deploy -c config/deploy.cdu.yml`, then `kamal accessory boot all -c config/deploy.cdu.yml` once.
+# Its own service so its image builds here; the backend reaches it at http://proompting-cdu:8790 on the kamal network.
+service: proompting-cdu
+image: proompting-cdu
+deploy_timeout: 300
+primary_role: cdu
+
+servers:
+  cdu:
+    hosts:
+      - static.74.157.104.178.clients.your-server.de
+    proxy: false
+    # The box has 4 cores and 7 GB beside the World: room for a build, not for the full suite at full tilt.
+    options:
+      network-alias: proompting-cdu
+      cpus: 2
+      memory: 3g
+
+ssh:
+  user: root
+  keys:
+    - ~/.ssh/hetzner_ed25519
+
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+  dockerfile: tools/cdu/Dockerfile
+
+volumes:
+  - /data/cdu:/cdu
+
+env:
+  clear:
+    CDU_METER_URL: http://proompting-cdu-meter:8788/v1
+    CDU_GITHUB_REPO: TimWillebrands/window-into-proompting
+    PARTYTOWN_TEST_CONN: Host=proompting-cdu-db;Port=5432;Database=partytown;Username=partytown;Password=postgresPW
+  secret:
+    - CDU_TOKEN
+    - CDU_METER_TAB
+    - CDU_DATABASE_URL
+    - GH_TOKEN:CDU_GITHUB_TOKEN
+
+accessories:
+  # Holds the CDU's OpenRouter key and its daily allowance; the CDU only ever sees its tab.
+  meter:
+    image: node:24-alpine
+    host: static.74.157.104.178.clients.your-server.de
+    cmd: node /app/src/meter-main.ts
+    env:
+      clear:
+        METER_UPSTREAM_URL: https://openrouter.ai/api/v1
+        METER_BALANCE_URL: https://openrouter.ai/api/v1/key
+        METER_TAB_DAILY_USD: "5"
+        METER_STATE: /data/tabs.json
+      secret:
+        - METER_UPSTREAM_KEY:CDU_OPENROUTER_KEY
+        - METER_SECRET:CDU_METER_SECRET
+        - METER_TAB_TOKEN:CDU_METER_TAB
+    files:
+      - tools/cdu/src/meter.ts:/app/src/meter.ts
+      - tools/cdu/src/meter-main.ts:/app/src/meter-main.ts
+      - tools/cdu/models.json:/app/models.json
+    volumes:
+      - /data/cdu-meter:/data
+
+  # Scratch Postgres+AGE for the CDU's test runs; never the live one. Thrown away with the container.
+  db:
+    image: apache/age:release_PG16_1.6.0
+    host: static.74.157.104.178.clients.your-server.de
+    env:
+      clear:
+        POSTGRES_USER: partytown
+        POSTGRES_PASSWORD: postgresPW
+        POSTGRES_DB: partytown
+    files:
+      - docker-entrypoint-initdb.d/01-orleans-main.sql:/docker-entrypoint-initdb.d/01-orleans-main.sql
+      - docker-entrypoint-initdb.d/02-orleans-clustering.sql:/docker-entrypoint-initdb.d/02-orleans-clustering.sql
+      - docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql:/docker-entrypoint-initdb.d/03-orleans-clustering-3.7.0.sql
+      - docker-entrypoint-initdb.d/04-orleans-persistence.sql:/docker-entrypoint-initdb.d/04-orleans-persistence.sql
+      - docker-entrypoint-initdb.d/05-age-setup.sql:/docker-entrypoint-initdb.d/05-age-setup.sql
+      - docker-entrypoint-initdb.d/06-memory-graph.sql:/docker-entrypoint-initdb.d/06-memory-graph.sql

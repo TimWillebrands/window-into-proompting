@@ -36,12 +36,14 @@ env:
     OTEL_EXPORTER_OTLP_ENDPOINT: http://proompting-dashboard:18889
     POSTHOG_HOST: https://eu.i.posthog.com
     Tailnets__home: socks5://proompting-tailscale:1055
+    Cdu__Url: http://proompting-cdu:8790
   secret:
     - POSTGRES_PASSWORD
     - OPENROUTER_API_KEY
     - CLERK_SECRET_KEY
     - ConnectionStrings__Default
     - POSTHOG_PROJECT_TOKEN
+    - Cdu__Token:CDU_TOKEN
 
 accessories:
   age-db:

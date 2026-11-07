@@ -1,0 +1,169 @@
+/* The CDU: its state and what was said on the left, its transcript on the right. Classes are cd-*. */
+
+.cd-app {
+    --cd-ink: #1b2a4a;
+    --cd-muted: #5f6f8f;
+    --cd-line: #c9d6ee;
+    --cd-paper: #fff;
+    --cd-picked: #316ac5;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    color: var(--cd-ink);
+    background: var(--cd-paper);
+}
+
+.dark .cd-app {
+    --cd-ink: #dde5f5;
+    --cd-muted: #9aa9c6;
+    --cd-line: #33415f;
+    --cd-paper: #1c2436;
+}
+
+.cd-empty {
+    align-items: center;
+    justify-content: center;
+    color: var(--cd-muted);
+}
+
+.cd-list {
+    flex: 0 0 280px;
+    overflow-y: auto;
+    padding: 6px;
+    border-right: 1px solid var(--cd-line);
+}
+
+.cd-state {
+    margin: 2px 4px 6px;
+    color: var(--cd-muted);
+    font-size: 11px;
+}
+
+.cd-item {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    margin-bottom: 2px;
+    padding: 4px 6px;
+    border: 0;
+    box-shadow: none;
+    color: inherit;
+    text-align: left;
+    background: none;
+}
+
+.cd-item.cd-picked {
+    color: #fff;
+    background: var(--cd-picked);
+}
+
+.cd-title {
+    display: block;
+    font-weight: 600;
+}
+
+.cd-sub {
+    display: block;
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.cd-detail {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 8px;
+    gap: 6px;
+}
+
+.cd-head h2 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.cd-head p,
+.cd-why {
+    margin: 2px 0 0;
+    color: var(--cd-muted);
+    font-size: 11px;
+}
+
+.cd-term {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    padding: 6px 8px;
+    color: #c0c0c0;
+    font-family: "Lucida Console", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    background: #000;
+}
+
+.cd-line {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.cd-prompt {
+    color: #808080;
+}
+
+.cd-tool {
+    color: #55ff55;
+}
+
+.cd-thought,
+.cd-muted,
+.cd-status {
+    color: #808080;
+}
+
+.cd-failed {
+    color: #ff5555;
+}
+
+.cd-heard {
+    color: #55ffff;
+}
+
+.cd-ok {
+    color: #17803a;
+}
+
+.cd-bad {
+    color: #bf2a1f;
+}
+
+.cd-section {
+    margin: 8px 4px 2px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.cd-commits,
+.cd-said {
+    margin: 0;
+    padding: 0 4px;
+    list-style: none;
+    font-size: 11px;
+}
+
+.cd-commits li,
+.cd-said li {
+    margin-bottom: 4px;
+    overflow-wrap: anywhere;
+}
+
+.cd-sha {
+    font-family: "Lucida Console", "Courier New", monospace;
+    color: var(--cd-muted);
+}
+
+.cd-reply {
+    display: block;
+    color: var(--cd-muted);
+    white-space: pre-wrap;
+}
