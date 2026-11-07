@@ -22,6 +22,7 @@ export function describe(tool: string, args: Args, root = ''): string {
 export class Transcript {
     private buffer = '';
     private bufferKind: LineKind = 'say';
+    private thinking = false;
     private readonly root: string;
 
     constructor(root = '') {
@@ -57,13 +58,32 @@ export class Transcript {
     private drain(): Line[] {
         const parts = this.buffer.split('\n');
         this.buffer = parts.pop() ?? '';
-        return parts.filter((p) => p.trim()).map((p) => ({ kind: this.bufferKind, text: clip(p) }));
+        return parts.flatMap((p) => this.line(p));
+    }
+
+    /** Some models think inline, between think tags: those lines are thoughts, not speech. */
+    private line(raw: string): Line[] {
+        let text = raw;
+        let kind = this.thinking ? 'thought' : this.bufferKind;
+        if (text.includes('<think>')) {
+            this.thinking = true;
+            kind = 'thought';
+            text = text.replace('<think>', '');
+        }
+        if (text.includes('</think>')) {
+            this.thinking = false;
+            text = text.replace('</think>', '');
+        }
+        return text.trim() ? [{ kind: kind as LineKind, text: clip(text.trim()) }] : [];
     }
 
     /** Whatever is still mid-line, as a line of its own. */
     flush(): Line[] {
-        const text = this.buffer.trim();
+        const text = this.buffer;
         this.buffer = '';
-        return text ? [{ kind: this.bufferKind, text: clip(text) }] : [];
+        return this.line(text);
     }
 }
+
+/** What it said, without any inline thinking a model left in it. */
+export const spoken = (reply: string) => reply.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim();

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import type { Book } from './book.ts';
 import type { Feed } from './feed.ts';
 import type { Checks, Commit, Pr, Tide } from './tide.ts';
-import { Transcript } from './transcript.ts';
+import { spoken, Transcript } from './transcript.ts';
 
 export interface Speaker {
     id: string;
@@ -181,7 +181,7 @@ export class Cdu {
             await this.tide.author(turn.from.name, emailOf(turn.from));
             const reply = await this.mind.think(compose(turn, notes), (event) => transcript.feed(event).forEach(line));
             transcript.flush().forEach(line);
-            turn.reply = reply.trim();
+            turn.reply = spoken(reply);
             turn.asked = asks(turn.reply);
             turn.status = 'done';
         } catch (error) {

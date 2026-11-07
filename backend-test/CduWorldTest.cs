@@ -237,6 +237,23 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
     }
 
     [Fact]
+    public async Task Perceive_ACytheurgistAtWork_GetsTheDeskNotABareGetOnWithIt()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var company = await HireAsync(partyId, denise);
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var cast = await party.GetCastAsync();
+        var ctx = new LifeContext(partyId, cast.First(c => c.Id == denise), cast, new HashSet<Guid>(), new List<ChatGroupInfo>(), new List<WorldActivity>(),
+            new Noon().GetUtcNow(), new Dictionary<Guid, PartyTown.World.Self.AttentionLook>());
+
+        var work = await _fx.Service<IEnumerable<IWorldApp>>().OfType<WorkApp>().Single().PerceiveAsync(ctx, CancellationToken.None);
+
+        Assert.DoesNotContain(work!.Affordances, a => a.Verb == "work");
+        Assert.Contains(work.Affordances, a => a.Verb == "leave");
+        Assert.Contains((await PerceiveAsync(partyId, denise))!.Affordances, a => a.Verb == CduScreen.VerbTalk && a.TargetId == company.Id);
+    }
+
+    [Fact]
     public async Task Perceive_ACytheurgist_GetsNoTradingScreen()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
@@ -404,6 +421,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
                     services.AddSingleton<Cytheurgy>();
                     services.AddSingleton<IWorldApp, CduApp>();
                     services.AddSingleton<IWorldApp, DeskApp>();
+                    services.AddSingleton<IWorldApp, WorkApp>();
                 });
             }
         }
