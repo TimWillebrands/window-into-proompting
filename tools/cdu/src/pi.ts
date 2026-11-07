@@ -11,40 +11,48 @@ import {
 import type { Mind } from './cdu.ts';
 import type { Model } from './meter.ts';
 
+/** With a provider, the model is Pi's own from that built-in provider, reached through the Meter. */
+export type MeterModel = Model & { reasoning?: boolean; provider?: string };
+
 export interface PiOptions {
     repo: string;
     agentDir: string;
     meterUrl: string;
     /** The env var holding the tab token, so it's never written to disk. */
     tabEnv: string;
-    models: (Model & { reasoning?: boolean })[];
+    models: MeterModel[];
     model?: string;
     thinking?: 'off' | 'low' | 'medium' | 'high';
     databaseUrlEnv?: string;
     soul: string;
 }
 
-/** Pi's models.json: one provider, the Meter, with the tab as its key. */
+/** Pi's models.json: every model goes through the Meter with the tab as its key; built-in providers keep their quirks. */
 export function piModels(options: Pick<PiOptions, 'meterUrl' | 'tabEnv' | 'models'>) {
-    return {
-        providers: {
-            meter: {
-                name: 'Meter',
-                baseUrl: options.meterUrl,
-                api: 'openai-completions',
-                apiKey: `$${options.tabEnv}`,
-                compat: { supportsDeveloperRole: false, supportsStore: false },
-                models: options.models.map((m) => ({
-                    id: m.id,
-                    name: m.label,
-                    reasoning: m.reasoning ?? false,
-                    cost: { input: m.in, output: m.out, cacheRead: 0, cacheWrite: 0 },
-                    contextWindow: m.context,
-                    maxTokens: m.output,
-                })),
-            },
-        },
-    };
+    const apiKey = `$${options.tabEnv}`;
+    const providers: Record<string, unknown> = {};
+    const own = options.models.filter((m) => !m.provider);
+    if (own.length > 0) {
+        providers.meter = {
+            name: 'Meter',
+            baseUrl: options.meterUrl,
+            api: 'openai-completions',
+            apiKey,
+            compat: { supportsDeveloperRole: false, supportsStore: false },
+            models: own.map((m) => ({
+                id: m.id,
+                name: m.label,
+                reasoning: m.reasoning ?? false,
+                cost: { input: m.in, output: m.out, cacheRead: 0, cacheWrite: 0 },
+                contextWindow: m.context,
+                maxTokens: m.output,
+            })),
+        };
+    }
+    for (const id of new Set(options.models.flatMap((m) => (m.provider ? [m.provider] : [])))) {
+        providers[id] = { baseUrl: options.meterUrl, apiKey, compat: { maxTokensField: 'max_tokens' } };
+    }
+    return { providers };
 }
 
 /** Pi's mcp.json: the live database over stdio, its tools declared directly. */
@@ -75,8 +83,9 @@ export async function createPiMind(options: PiOptions): Promise<Mind> {
         modelsPath: path.join(options.agentDir, 'models.json'),
         refreshOnCreate: false,
     });
-    const model = modelRuntime.getModel('meter', options.model ?? options.models[0].id) ?? modelRuntime.getModel('meter', options.models[0].id);
-    if (!model) throw new Error(`no model ${options.model} behind the Meter`);
+    const chosen = options.models.find((m) => m.id === options.model) ?? options.models[0];
+    const model = modelRuntime.getModel(chosen.provider ?? 'meter', chosen.id);
+    if (!model) throw new Error(`no model ${chosen.provider ?? 'meter'}/${chosen.id} behind the Meter`);
 
     const resourceLoader = new DefaultResourceLoader({
         cwd: options.repo,

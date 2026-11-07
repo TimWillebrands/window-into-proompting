@@ -3,7 +3,7 @@
 The Central Demiurge Unit (ADR 0039): Pi, through its SDK, in a small Node service, with this repo, `gh`, the database and a daily allowance.
 
 ```
-World (backend) --HTTP--> CDU (Pi session, trunk, Book) --> Meter --> OpenRouter
+World (backend) --HTTP--> CDU (Pi session, trunk, Book) --> Meter --> OpenCode Go (or OpenRouter)
                             |  gh, git push         |  postgres-mcp (stdio)
                             v                       v
                           GitHub (the Agora)      live Postgres (role cdu)
@@ -45,12 +45,12 @@ Bearer `CDU_TOKEN`. `GET /status`, `POST /talk {from: {id, name}, text, kind: ta
 | `METER_SECRET` | Admin port; the CDU never has it |
 | `METER_TAB_TOKEN`, `METER_TAB_DAILY_USD` | The CDU's daily allowance |
 | `METER_STATE` | Where tallies are kept across restarts |
-| `METER_MODELS` | Default `/app/models.json`: allowed models with prices (`models.json` here; check ids and prices) |
+| `METER_MODELS` | Default `/app/models.json`: allowed models with prices. `models.json` is OpenCode Go (`provider: opencode-go` makes Pi use its built-in provider through the Meter); `models.openrouter.json` is the OpenRouter set |
 
 ## Run
 
 - Dev: set `CDU_UPSTREAM_URL` (and `CDU_UPSTREAM_KEY`, `CDU_GITHUB_TOKEN`) in the AppHost's user-secrets; the AppHost then builds and starts the CDU, the Meter and a scratch Postgres, and points the backend at it.
-- Production: `kamal deploy -c config/deploy.cdu.yml` and, once, `kamal accessory boot all -c config/deploy.cdu.yml`. Secrets: `CDU_TOKEN`, `CDU_METER_TAB`, `CDU_METER_SECRET`, `CDU_OPENROUTER_KEY`, `CDU_GITHUB_TOKEN`, `CDU_DATABASE_URL`. `config/deploy.yml` gives the backend `Cdu__Url` and `Cdu__Token` (from `CDU_TOKEN`).
+- Production: `kamal deploy -c config/deploy.cdu.yml` and, once, `kamal accessory boot all -c config/deploy.cdu.yml`. Secrets: `CDU_TOKEN`, `CDU_METER_TAB`, `CDU_METER_SECRET`, `CDU_OPENCODE_GO_KEY`, `CDU_GITHUB_TOKEN`, `CDU_DATABASE_URL`. `config/deploy.yml` gives the backend `Cdu__Url` and `Cdu__Token` (from `CDU_TOKEN`).
 - The image bakes NuGet and pnpm caches. Build with `--pull`: a stale local SDK tag is an older preview than CI's.
 
 ## Tests

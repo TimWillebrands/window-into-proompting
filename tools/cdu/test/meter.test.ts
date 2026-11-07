@@ -9,12 +9,13 @@ import { costOf, createMeter, dayOf, type Model, outputCap, restore, roll, type 
 
 const model: Model = { id: 'cheap', label: 'cheap', in: 1, out: 2, context: 1000, output: 100 };
 const port = (server: http.Server) => (server.address() as AddressInfo).port;
-const seen: { auth?: string; body?: Record<string, unknown> } = {};
+const seen: { auth?: string; session?: string; body?: Record<string, unknown> } = {};
 
 const upstream = http.createServer(async (req, res) => {
     let raw = '';
     for await (const chunk of req) raw += chunk;
     seen.auth = req.headers.authorization;
+    seen.session = req.headers['x-opencode-session'] as string | undefined;
     seen.body = JSON.parse(raw);
     if (seen.body?.stream) {
         res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -188,4 +189,15 @@ test('a tab holder reads its own tab and the models, nothing more', async () => 
 
 test('the day is the UTC date', () => {
     assert.equal(dayOf(Date.parse('2026-11-07T23:59:59Z')), '2026-11-07');
+});
+
+test('passes the OpenCode session header, and adds no OpenRouter-only fields elsewhere', async () => {
+    await open('t-headers', 1);
+    await fetch(`http://127.0.0.1:${port(meter.proxy)}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer t-headers', 'content-type': 'application/json', 'x-opencode-session': 'ses-1', 'x-other': 'no' },
+        body: JSON.stringify({ model: 'cheap' }),
+    });
+    assert.equal(seen.session, 'ses-1');
+    assert.equal(seen.body?.usage, undefined);
 });

@@ -43,19 +43,18 @@ env:
     - GH_TOKEN:CDU_GITHUB_TOKEN
 
 accessories:
-  # Holds the CDU's OpenRouter key and its daily allowance; the CDU only ever sees its tab.
+  # Holds the CDU's model key (OpenCode Go) and its daily allowance; the CDU only ever sees its tab.
   meter:
     image: node:24-alpine
     host: static.74.157.104.178.clients.your-server.de
     cmd: node /app/src/meter-main.ts
     env:
       clear:
-        METER_UPSTREAM_URL: https://openrouter.ai/api/v1
-        METER_BALANCE_URL: https://openrouter.ai/api/v1/key
+        METER_UPSTREAM_URL: https://opencode.ai/inference/go/openai/v1
         METER_TAB_DAILY_USD: "5"
         METER_STATE: /data/tabs.json
       secret:
-        - METER_UPSTREAM_KEY:CDU_OPENROUTER_KEY
+        - METER_UPSTREAM_KEY:CDU_OPENCODE_GO_KEY
         - METER_SECRET:CDU_METER_SECRET
         - METER_TAB_TOKEN:CDU_METER_TAB
     files:
