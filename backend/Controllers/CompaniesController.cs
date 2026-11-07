@@ -58,6 +58,8 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         if (string.IsNullOrWhiteSpace(request.Title)) return BadRequest("A job needs a title.");
         if (Shifts.ParseHours(request.Hours) is not var (start, end)) return BadRequest("Hours like 09:00-17:00, within one day.");
         if (await desks.HireAsync(partyId, companyId, participantId, request.Title.Trim(), Shifts.ParseDays(request.Days), start, end) is null) return NotFound();
+        if (await grains.GetGrain<ICompaniesGrain>(partyId).GetAsync(companyId) is { } company && CompanyKinds.IsCdu(company.Kind))
+            await site.KnowAsync(partyId, company, participantId, HttpContext.RequestAborted);
         return await OneAsync(partyId, companyId);
     }
 
