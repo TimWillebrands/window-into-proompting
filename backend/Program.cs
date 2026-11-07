@@ -91,6 +91,9 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Work.Markets.IMarketFeed, PartyTown.World.Work.Markets.YahooFeed>();
     builder.Services.AddSingleton<PartyTown.World.Work.Markets.MarketFeeds>();
     builder.Services.AddSingleton<PartyTown.World.Work.Companies.Desks>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Works.IRunner, PartyTown.World.Work.Works.HttpRunner>();
+    builder.Services.AddSingleton<PartyTown.World.Work.Works.Worksite>();
+    builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.Works.WorksApp>();
     builder.Services.AddSingleton<PartyTown.World.Work.Practices.Sessions>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.Companies.DeskApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.Practices.PracticeApp>();
@@ -166,6 +169,7 @@ if (!openApiBuild)
     // After the silo, before the World: beats read the judge's Enabled synchronously.
     builder.Services.AddHostedService(sp => sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
     builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();
+    builder.Services.AddHostedService<PartyTown.World.Work.Works.WorksWatch>();
 }
 
 builder.Logging.AddSimpleConsole(options =>

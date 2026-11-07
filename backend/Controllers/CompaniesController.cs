@@ -6,6 +6,7 @@ using PartyTown.Services.Auth;
 using PartyTown.World;
 using PartyTown.World.Work;
 using PartyTown.World.Work.Companies;
+using PartyTown.World.Work.Works;
 using PartyTown.World.Work.Markets;
 
 namespace PartyTown.Controllers;
@@ -13,7 +14,7 @@ namespace PartyTown.Controllers;
 /// <summary>Companies (ADR 0030): found one, staff it, read its Book, and trade as anyone on the staff.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/companies")]
-public sealed class CompaniesController(IGrainFactory grains, Desks desks, Actors actors) : ControllerBase
+public sealed class CompaniesController(IGrainFactory grains, Desks desks, Worksite site, Actors actors) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
@@ -34,6 +35,11 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Actor
     public async Task<ActionResult<CompanySummary>> Found(Guid partyId, [FromBody] FoundCompanyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Mandate)) return BadRequest("A Company needs a name and a mandate.");
+        if (request.Kind == CompanyKinds.Works)
+        {
+            var works = await site.FoundAsync(partyId, request.Name.Trim(), request.Mandate.Trim());
+            return works is null ? Conflict("That name is taken.") : Ok(Summary(works, new List<ParticipantView>()));
+        }
         if (!MarketKinds.All.Contains(request.Market)) return BadRequest($"Market is one of: {string.Join(", ", MarketKinds.All)}.");
         if (request.Market == MarketKinds.Stocks && string.IsNullOrWhiteSpace(request.Focus)) return BadRequest("Stocks need a focus to search for.");
         var company = await desks.FoundAsync(partyId, request.Name.Trim(), request.Mandate.Trim(), request.Market, request.Focus?.Trim(), request.Capital);
@@ -96,7 +102,7 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Actor
             : NotFound();
 
     private static CompanySummary Summary(Company c, List<ParticipantView> staff) => new(
-        c.Id, c.Name, c.Mandate, c.Market, c.Focus, c.Workplace,
+        c.Id, c.Name, c.Kind, c.Mandate, c.Market, c.Focus, c.Workplace,
         c.Book.Capital, c.Book.Cash, c.Book.Value, BookRules.ScoreOf(c.Book, null), c.MarkedAt,
         staff.Select(s => new StaffSummary(s.Id, s.Name, BookRules.ScoreOf(c.Book, s.Id))).ToList(),
         c.Book.Positions.Select(p => new PositionSummary(p.InstrumentId, p.Title, p.Units, p.Cost, p.Mark, p.Value, p.Fresh)).ToList(),
@@ -109,7 +115,7 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Actor
 
 /// <param name="Market">predictions, crypto or stocks.</param>
 /// <param name="Focus">Search term or coins/tickers; optional except for stocks.</param>
-public sealed record FoundCompanyRequest(string Name, string Mandate, string Market, string? Focus, double? Capital);
+public sealed record FoundCompanyRequest(string Name, string Mandate, string Market, string? Focus, double? Capital, string? Kind = null);
 
 public sealed record HireRequest(string Title, string? Days, string Hours);
 
@@ -128,6 +134,6 @@ public sealed record TradeSummary(
     double Units, double Price, double Fee, double? Realized, string? Thesis, double? Forecast, double? Brier);
 
 public sealed record CompanySummary(
-    Guid Id, string Name, string Mandate, string Market, string? Focus, string Workplace,
+    Guid Id, string Name, string Kind, string Mandate, string Market, string? Focus, string Workplace,
     double Capital, double Cash, double Value, double? Brier, long? MarkedAt,
     List<StaffSummary> Staff, List<PositionSummary> Positions, List<WatchSummary> Watchlist, List<TradeSummary> Trades);

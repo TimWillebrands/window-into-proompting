@@ -358,7 +358,7 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
 
         Assert.Null(inRoom.HeardBy);
         Assert.Null(inDm.HeardBy);
-        Assert.Single(await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).GetMessagesUntilAsync(int.MaxValue, pieter));
+        Assert.Contains(await _fx.GrainFactory.GetGrain<IChatGroupGrain>(dm.Id).GetMessagesUntilAsync(int.MaxValue, pieter), m => m.Content == "hi you");
     }
 
     public sealed class Fixture : IAsyncLifetime

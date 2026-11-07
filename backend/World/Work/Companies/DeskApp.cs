@@ -93,7 +93,7 @@ public sealed class DeskApp(IGrainFactory grains, IWorldLlm llm, Desks desks) : 
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
     {
         var view = await grains.GetGrain<IOccupationGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetAsync();
-        if (view.Job?.CompanyId is not { } companyId || await Companies(ctx).GetAsync(companyId) is not { } company) return null;
+        if (view.Job?.CompanyId is not { } companyId || await Companies(ctx).GetAsync(companyId) is not { Kind: CompanyKinds.Trading } company) return null;
         // Off shift the book is one line on your mind, not a screen you can work.
         if (!view.OnShift) return new AppPerception(Id, "Work: the book", DeskScreen.Glance(company), new List<Affordance>());
         var lines = DeskScreen.Lines(company);

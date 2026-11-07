@@ -47,19 +47,26 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
     public async Task<Company?> FoundAsync(Guid partyId, string name, string mandate, string market, string? focus, double? capital)
     {
         if (feeds.For(market) is null) return null;
-        var places = grains.GetGrain<IPlacesGrain>(partyId);
-        var localeId = await places.LocaleAsync(name, null);
-        // Authors aren't held to the Opening budget; a full map leaves the office offscreen.
-        var opened = await places.OpenAsync(localeId, "office", "author");
+        var workplace = await OfficeAsync(partyId, name);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var company = await Companies(partyId).FoundAsync(new Company
         {
             Id = Guid.NewGuid(), Name = name, Mandate = mandate, Market = market, Focus = focus, FoundedAt = now,
-            Workplace = opened?.Name ?? name,
+            Workplace = workplace,
             Book = BookRules.Open(Math.Clamp(capital ?? DeskRules.DefaultCapital, DeskRules.MinCapital, DeskRules.MaxCapital)),
         });
         if (company is not null) await RefreshCompanyAsync(partyId, company, DateTimeOffset.UtcNow);
         return company is null ? null : await Companies(partyId).GetAsync(company.Id);
+    }
+
+    /// <summary>An office for a new Company, under its own name.</summary>
+    public async Task<string> OfficeAsync(Guid partyId, string name)
+    {
+        var places = grains.GetGrain<IPlacesGrain>(partyId);
+        var localeId = await places.LocaleAsync(name, null);
+        // Authors aren't held to the Opening budget; a full map leaves the office offscreen.
+        var opened = await places.OpenAsync(localeId, "office", "author");
+        return opened?.Name ?? name;
     }
 
     /// <summary>Puts someone on the staff; the job's hours are theirs, the workplace is the Company's.</summary>

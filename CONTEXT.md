@@ -506,6 +506,50 @@ _Avoid_: price, rate, invoice.
 One concrete thing a **Session** leaves a **Client** owing, held by the **Practitioner**. A **Responsibility**.
 _Avoid_: task, action item, assignment.
 
+### The Works
+
+See [ADR 0039](docs/adr/0039-the-works.md). A **Company** whose product is this codebase. Staff know the World is made; nobody else does.
+
+**Works**:
+A **Company** of kind `works`: instead of a **Book** it has a bench, where **Architects** order changes to the World's own code.
+_Avoid_: dev team, engineering, studio.
+
+**Architect**:
+A **Participant** on a **Works**' staff. Decides what's worth changing and drives the **Builder**, one move per **Life** turn. Doesn't code.
+_Avoid_: engineer, developer, programmer.
+
+**Builder**:
+The coding agent working on an Architect's behalf, inside the sandbox. Which model it runs on is the Architect's pick.
+_Avoid_: harness, bot, assistant.
+
+**Commission**:
+One unit of work ordered from the **Builder**: a title, why, brief, builder and budget. Only one change is open at a time.
+_Avoid_: ticket, task, job, run.
+
+**Survey**:
+A read-only **Commission**: a question about how the World really works, answered into the Architect's memory.
+_Avoid_: research, query.
+
+**Proposition**:
+A finished change waiting on the **World-spirits**, as a branch with its checks attached. New work stacks on the newest open one.
+_Avoid_: pull request, PR, merge request.
+
+**World-spirits**:
+Whoever decides what merges. Nobody in the World has met them or can ask them anything.
+_Avoid_: reviewers, admins, gods.
+
+**Reserve**:
+The money left for everyone's thinking, the **Builder** included. At zero, everyone stops.
+_Avoid_: credits (that's the **Wallet**), balance, budget.
+
+**Runner**:
+The service next to the sandbox that owns the agent. The World's only door to it.
+_Avoid_: harness, worker, agent server.
+
+**Meter**:
+The proxy that is the sandbox's only way out: holds the real key, allows listed models, stops a **Commission** at its budget.
+_Avoid_: gateway, firewall.
+
 ### World growth
 
 See [ADR 0027](docs/adr/0027-world-growth-districts-locales-openings.md) (proposed). Rule: fidelity follows use; draw where people meet, not where people are mentioned.

@@ -16,4 +16,6 @@ export interface FoundCompanyRequest {
      * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
      */
     capital: number | string | null;
+    /** @nullable */
+    kind?: string | null;
 }
