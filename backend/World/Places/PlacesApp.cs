@@ -44,10 +44,9 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             var last = fresh.LastOrDefault();
             if (nearby.Count > 0 && last?.SenderId != ctx.Self.Id)
             {
-                var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
-                // Talk out loud pulls like any other mode; being named is what makes it urgent.
-                var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 3 : 0);
-                affordances.Add(new Affordance(Id, $"Say something to {who}, right here", priority, talkRoomId, "say"));
+                // Someone right next to you outpulls a screen (ADR 0021); being named is what makes it urgent.
+                var priority = 2 + (last is not null && ctx.Mentions(last.Content) ? 3 : 0);
+                affordances.Add(new Affordance(Id, await TalkLabelAsync(ctx, nearby, last), priority, talkRoomId, "say"));
                 var confidant = nearby[Random.Shared.Next(nearby.Count)];
                 affordances.Add(new Affordance(Id, $"Whisper something to {confidant.Name} only", 0, confidant.ParticipantId, "whisper"));
             }
@@ -74,7 +73,8 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             if (!JustWalked(ctx))
             {
                 if (others.Where(o => o.SpotId != self.SpotId && !o.IsWalking).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } o)
-                    affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}", nearby.Count == 0 ? 1 : 0, o.ParticipantId, "join"));
+                    affordances.Add(new Affordance(Id, $"Go over to {o.Name} at {SpotName(here, o.SpotId)}{(o.Activity is { Length: > 0 } doing ? $" ({doing})" : string.Empty)}",
+                        nearby.Count == 0 ? 2 : 0, o.ParticipantId, "join"));
                 if (nearby.Count == 0 && here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
                     affordances.Add(new Affordance(Id, $"Move over to {spot.Name}{PoseHint(spot)}", 0, here.Id, $"spot:{spot.Id}"));
             }
@@ -217,6 +217,18 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
         }
 
         return new AppPerception(Id, "Places (where your body is)", sb.ToString().TrimEnd(), affordances);
+    }
+
+    /// <summary>What there is to say to someone next to you: what they said, a story of yours, or what they're up to.</summary>
+    private async Task<string> TalkLabelAsync(LifeContext ctx, List<Body> nearby, PartyTown.Model.ChatMessage? last)
+    {
+        if (last is { Content.Length: > 0 }) return Self.Hooks.PickUp(ctx.NameOf(last.SenderId), last.Content);
+        var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
+        var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
+        if (Self.Hooks.Pick(openers) is { } story) return Self.Hooks.Tell(who, story);
+        return nearby.FirstOrDefault(o => o.Activity is { Length: > 0 }) is { } busy
+            ? Self.Hooks.Ask(busy.Name, busy.Activity)
+            : Self.Hooks.Ask(who, null);
     }
 
     /// <summary>A partner first, then whoever you're closest to; otherwise anyone.</summary>

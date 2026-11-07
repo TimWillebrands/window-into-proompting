@@ -167,10 +167,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     /// <summary>A new post seeded by something from your own day; it pulls harder when you haven't posted lately.</summary>
     public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately)
     {
-        var opener = openers.Count == 0 ? null : openers[Random.Shared.Next(openers.Count)];
-        return opener is null
-            ? new Affordance(Id, "Write a new post on Partyboard", 1, null, "post")
-            : new Affordance(Id, $"Post on Partyboard about something from your own day (like: {WorldStream.Clip(opener, 90)})", postedLately ? 1 : 2, null, "post");
+        var opener = Self.Hooks.Pick(openers);
+        return new Affordance(Id, Self.Hooks.Post(opener), opener is null || postedLately ? 1 : 2, null, "post");
     }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
@@ -405,8 +403,10 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             ? "You haven't written in your diary yet."
             : $"Your last diary entry ({WorldStream.Ago(last.CreatedAt, ctx.Now)}): {WorldStream.Clip(last.Body, 140)}";
         var priority = sinceLast >= 4 ? 2 : 0;
+        var day = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync();
+        var onYourMind = string.IsNullOrWhiteSpace(day.Preoccupation) ? Self.Hooks.Pick(day.Threads) : day.Preoccupation;
         return new AppPerception(Id, "Your diary (private)", block,
-            new[] { new Affordance(Id, "Write in your diary and take some time to reflect", priority, null, "write") });
+            new[] { new Affordance(Id, Self.Hooks.Diary(onYourMind), priority, null, "write") });
     }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)

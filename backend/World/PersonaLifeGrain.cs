@@ -109,6 +109,7 @@ public sealed class PersonaLifeGrain(
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
         var presence = await PresenceAsync(partyId, personaId);
+        var rest = Hooks.Rest(await BeatAsync(partyId, personaId));
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
@@ -160,7 +161,7 @@ Output ONLY JSON: {ChoiceShape}
         string Read(Affordance a) => Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId));
         for (var i = 0; i < options.Count; i++)
             sb.AppendLine($"{i + 1}. {Read(options[i])}");
-        sb.AppendLine("0. Do nothing for now");
+        sb.AppendLine($"0. {rest}");
 
         string? thought;
         string intent;
@@ -173,7 +174,7 @@ Output ONLY JSON: {ChoiceShape}
             var state = $"{WorldLlm.Identity(self)}\n\n{sb}";
             var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
                 i => i.ToString(CultureInfo.InvariantCulture),
-                i => (string?)(i == 0 ? "Do nothing for now" : Read(options[i - 1])));
+                i => (string?)(i == 0 ? rest : Read(options[i - 1])));
             var answers = await weigh.AskAsync(state, new Dictionary<string, SystemOneQuestion>
             {
                 ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
@@ -224,6 +225,7 @@ Output ONLY JSON: {ChoiceShape}
         try
         {
             var outcome = await app.ActAsync(ctx, picked, string.IsNullOrWhiteSpace(intent) ? picked.Label : intent, thought, ct);
+            if (outcome is not null) await TellAsync(ctx.PartyId, personaId, picked.Label);
             return outcome is null
                 ? (Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought), false)
                 : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId), outcome.Looked);
@@ -262,6 +264,23 @@ Output ONLY JSON: {ChoiceShape}
             logger.LogDebug(ex, "Shift lookup failed for {Persona}", personaId);
             return false;
         }
+    }
+
+    /// <summary>What the day has them doing now, for the option of doing nothing in particular.</summary>
+    private async Task<string?> BeatAsync(Guid partyId, Guid personaId)
+    {
+        try { return SelfRender.Beat(await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).GetStateAsync(), DateTimeOffset.Now); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Day beat failed for {Persona}", personaId);
+            return null;
+        }
+    }
+
+    private async Task TellAsync(Guid partyId, Guid personaId, string label)
+    {
+        try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).TellAsync(label); }
+        catch (Exception ex) { logger.LogDebug(ex, "Telling an opener failed for {Persona}", personaId); }
     }
 
     private async Task<string?> PresenceAsync(Guid partyId, Guid personaId)

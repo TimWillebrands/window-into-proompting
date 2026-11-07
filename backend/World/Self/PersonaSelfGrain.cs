@@ -76,6 +76,14 @@ public sealed partial class PersonaSelfGrain(
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
 
+    public async Task TellAsync(string label)
+    {
+        var told = Hooks.Told(label, state.State.Openers);
+        if (told.Count == 0) return;
+        state.State.Openers.RemoveAll(told.Contains);
+        await state.WriteStateAsync();
+    }
+
     public async Task ShiftValenceAsync(double better, string where)
     {
         var now = DateTimeOffset.Now;
@@ -485,6 +493,10 @@ public static partial class SelfMath
 /// <summary>Renders the <c># Right now</c> block.</summary>
 public static class SelfRender
 {
+    /// <summary>What the day has them doing right now; null before the day starts or without one.</summary>
+    public static string? Beat(SelfState? day, DateTimeOffset now)
+        => day?.Beats.LastOrDefault(b => b.Minute <= now.Hour * 60 + now.Minute)?.Text;
+
     public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear, string? situation = null)
     {
         var lines = new List<string>();
@@ -557,6 +569,9 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("SetMoodAsync")] Task SetMoodAsync(string mood);
     [Alias("RechargeAsync")] Task RechargeAsync(double amount);
     [Alias("GetStateAsync")] Task<SelfState> GetStateAsync();
+
+    /// <summary>An option was acted on: any of today's openers it carried has been told now, on whatever channel.</summary>
+    [Alias("TellAsync")] Task TellAsync(string label);
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();

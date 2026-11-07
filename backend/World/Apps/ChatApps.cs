@@ -203,8 +203,9 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);
+        var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         foreach (var c in newContacts)
-            affordances.Add(new Affordance(Id, $"Send {c.Name} a private message", ctx.IsHuman(c.Id) ? 2 : 1, c.Id, "open"));
+            affordances.Add(new Affordance(Id, Self.Hooks.Message(c.Name, Self.Hooks.Pick(openers)), ctx.IsHuman(c.Id) ? 2 : 1, c.Id, "open"));
 
         if (sb.Length == 0) sb.Append("No private conversations going on.");
         return new AppPerception(Id, "Messenger (private 1:1 chats)", sb.ToString().TrimEnd(), affordances);
