@@ -97,7 +97,7 @@ One process, one Pi `AgentSession`, persisted under a Pi agent dir on a volume. 
 | `GET /status` | awake/working, queue length, model, trunk (head, commits ahead of `master`), the open PR (number, url, state, checks), allowance (spent, daily), news cursor |
 | `POST /talk` `{from: {id, name}, text, kind: talk\|answer}` | queues a turn and returns its id; turns run one at a time |
 | `GET /turns/{id}` | status, what the CDU said back, whether it asked something, commits it made |
-| `GET /events?after=N` | transcript lines by cursor (`heard`, `say`, `thought`, `tool`, `failed`, `status`) |
+| `GET /lines?after=N` | transcript lines by cursor (`heard`, `say`, `thought`, `tool`, `failed`, `status`) |
 | `GET /news?after=N` | facts for the World: `replied`, `committed`, `pr-opened`, `merged`, `closed`, `checks`, `rebased`, `conflict` |
 | `POST /tide/in` | shift start: fetch, reset if a verdict came, else rebase the trunk on `origin/master` |
 | `POST /tide/out` | shift end: if the trunk is ahead, push to the tide branch and open or update the one PR |

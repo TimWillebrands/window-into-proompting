@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/bin
+**/obj
+.env
+.env.*
+frontend/.env.local
+.kamal
+.scratch

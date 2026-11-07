@@ -1,8 +1,0 @@
-#!/bin/sh
-# stdout is the ACP pipe: everything else stays off it.
-cd /work || exit 1
-git config --global --add safe.directory /work
-git config --global user.name builder
-git config --global user.email builder@works.proompting.party
-( cd frontend && pnpm install --offline --frozen-lockfile ) >/tmp/frontend-install.log 2>&1 &
-exec opencode acp

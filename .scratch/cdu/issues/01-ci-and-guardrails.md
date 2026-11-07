@@ -1,6 +1,6 @@
 # Phase 0a: CI, the CDU's database role and a daily allowance
 
-Status: ready-for-agent
+Status: resolved
 
 Spec: `../spec.md` (Phase 0). The agent's half of Phase 0; Tim's half is `02-github-and-keys.md`.
 
@@ -23,3 +23,7 @@ Spec: `../spec.md` (Phase 0). The agent's half of Phase 0; Tim's half is `02-git
 ## Blocked by
 
 None.
+
+## Comments
+
+Done on `feat/cdu`: `.github/workflows/ci.yml` (backend with an `apache/age` service and the init scripts, frontend check/tsc/test/build, CDU check/test), `tools/cdu/sql/cdu-role.sql` (checked against a throwaway AGE container: idempotent, `cdu` writes `orleansstorage` rows and Cypher on `memory`), Meter daily tabs with tests. The workflow hasn't run on GitHub yet: it will on the first PR.

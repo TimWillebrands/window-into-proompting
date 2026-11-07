@@ -1,0 +1,4 @@
+[
+    { "id": "anthropic/claude-sonnet-5.5", "label": "careful", "in": 3, "out": 15, "context": 200000, "output": 32000, "reasoning": true },
+    { "id": "deepseek/deepseek-v4.1-flash", "label": "quick and cheap", "in": 0.3, "out": 1.2, "context": 128000, "output": 16000 }
+]

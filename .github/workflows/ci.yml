@@ -1,0 +1,83 @@
+# Every PR to master, the CDU's included (ADR 0039): the One reads red or green before the diff.
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      age-db:
+        image: apache/age:release_PG16_1.6.0
+        env:
+          POSTGRES_USER: partytown
+          POSTGRES_PASSWORD: postgresPW
+          POSTGRES_DB: partytown
+        ports:
+          - 5455:5432
+        options: >-
+          --health-cmd "pg_isready -U partytown -d partytown"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      # Service containers start before checkout, so the init scripts go in by hand.
+      - name: Init the database
+        run: |
+          for f in docker-entrypoint-initdb.d/*.sql; do
+            docker exec -i ${{ job.services.age-db.id }} psql -v ON_ERROR_STOP=1 -U partytown -d partytown < "$f"
+          done
+      - run: dotnet build backend-test/backend-test.csproj
+      - run: dotnet test backend-test/backend-test.csproj --no-build --logger "console;verbosity=normal"
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install -g pnpm@10.8.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test
+      - run: pnpm build
+
+  cdu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/cdu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tools/cdu/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test

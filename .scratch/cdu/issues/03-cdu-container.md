@@ -1,6 +1,6 @@
 # Phase 1: the CDU container
 
-Status: ready-for-agent
+Status: resolved
 
 Spec: `../spec.md` (the CDU service, the Meter).
 
@@ -24,3 +24,7 @@ Spec: `../spec.md` (the CDU service, the Meter).
 
 - `01-ci-and-guardrails.md` (the Meter's daily tabs)
 - Live checks only: `02-github-and-keys.md`
+
+## Comments
+
+Done on `feat/cdu`. Smoke test by hand (local Ollama `lfm2:24b` behind the Meter, a local bare origin): Pi woke, used its `write` tool, replied; the turn reported `commits: []` because the weak model didn't commit, which is the point of reading git. A commit by Denise showed as `Denise / CDU`; `tide/out` pushed `cdu/tide` to the origin and `gh` refused without a token, reported as news. After `docker restart`: same Pi session, turns, cursors and Book. Opening a real PR waits on the token from `02`.
