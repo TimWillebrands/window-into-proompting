@@ -56,6 +56,11 @@ const open = (token: string, capUsd: number) =>
         body: JSON.stringify({ token, run: 'r', capUsd, capTokens: 1e9 }),
     });
 
+test('a Go subscription costs nothing by its bill, so its allowance figure counts', () => {
+    assert.equal(costOf({ cost: 0, opencode: { allowance: 0.0002, list_cost: 0.0003 } }, model), 0.0002);
+    assert.equal(costOf({ cost: 0, opencode: { list_cost: 0.0003 } }, model), 0.0003);
+});
+
 test('prefers the upstream cost, falls back to list price', () => {
     assert.equal(costOf({ cost: 0.25, prompt_tokens: 1e6 }, model), 0.25);
     assert.equal(costOf({ prompt_tokens: 1e6, completion_tokens: 1e6 }, model), 3);
@@ -178,7 +183,7 @@ test('a tab holder reads its own tab and the models, nothing more', async () => 
     await open('t-self', 2);
     await call('t-self', { model: 'cheap' });
     const read = await fetch(`http://127.0.0.1:${port(meter.proxy)}/v1/tab`, { headers: { authorization: 'Bearer t-self' } });
-    assert.deepEqual(await read.json().then((t) => [t.usd, t.capUsd]), [0.5, 2]);
+    assert.deepEqual(await read.json().then((t) => [t.usd, t.capUsd, t.token]), [0.5, 2, undefined]);
     const models = await fetch(`http://127.0.0.1:${port(meter.proxy)}/v1/models`, { headers: { authorization: 'Bearer t-self' } });
     assert.equal((await models.json()).data[0].id, 'cheap');
     assert.equal((await fetch(`http://127.0.0.1:${port(meter.proxy)}/v1/tab`)).status, 401);

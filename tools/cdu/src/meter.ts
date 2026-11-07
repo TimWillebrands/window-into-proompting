@@ -31,6 +31,8 @@ interface Usage {
     completion_tokens?: number;
     total_tokens?: number;
     cost?: number;
+    /** OpenCode's own figures: a Go subscription bills cost 0 and counts its allowance here. */
+    opencode?: { allowance?: number; list_cost?: number };
 }
 
 export interface MeterOptions {
@@ -69,8 +71,10 @@ export function restore(declared: Tab[], kept: Tab[]): Map<string, Tab> {
     return tabs;
 }
 
-/** The upstream's own figure when it gives one, otherwise tokens at list price. */
+/** What a call used up: OpenCode's allowance figure, else the upstream's cost, else tokens at list price. */
 export function costOf(usage: Usage, model: Model): number {
+    const opencode = usage.opencode?.allowance ?? usage.opencode?.list_cost;
+    if (typeof opencode === 'number') return opencode;
     if (typeof usage.cost === 'number') return usage.cost;
     return ((usage.prompt_tokens ?? 0) * model.in + (usage.completion_tokens ?? 0) * model.out) / 1_000_000;
 }
@@ -205,7 +209,7 @@ export function createMeter(options: MeterOptions) {
         if (req.method === 'GET' && (req.url === '/v1/tab' || req.url === '/v1/models')) {
             const tab = tabFor(req);
             if (!tab) return refuse(res, 401, 'unknown run');
-            return send(res, 200, req.url === '/v1/tab' ? tab : { data: options.models });
+            return send(res, 200, req.url === '/v1/tab' ? { ...tab, token: undefined } : { data: options.models });
         }
         if (req.method !== 'POST' || req.url !== '/v1/chat/completions') return refuse(res, 404, 'nothing else here');
         forward(req, res).catch((error) => {
