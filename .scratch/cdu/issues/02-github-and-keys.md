@@ -21,3 +21,11 @@ Spec: `../spec.md` (Phase 0). Needs Tim: these are account settings and secrets.
 ## Blocked by
 
 - `01-ci-and-guardrails.md` (for the CI checks and the role script)
+
+## Comments
+
+2026-11-07, deployed (`master` a35db50, prod DB dumped first to `/data/backups/partytown-20261107-165548-pre-cdu.dump` on the server):
+
+- Done: steps 4 and 5. The `cdu` role exists in prod and logs in from the CDU container. `CDU_TOKEN`, `CDU_METER_TAB`, `CDU_METER_SECRET`, `CDU_DB_PASSWORD` and `CDU_DATABASE_URL` are generated in `.kamal/secrets`. Backend, frontend and `proompting-cdu` (with `-meter` and `-db`) run in prod; the backend sees the CDU up.
+- Left: steps 1 to 3. `CDU_OPENROUTER_KEY=` and `CDU_GITHUB_TOKEN=` are empty in `.kamal/secrets`, so the Meter gets a 401 upstream and the CDU can't push. Fill them in, then `kamal accessory reboot meter -c config/deploy.cdu.yml` and `kamal app boot -c config/deploy.cdu.yml`.
+- Prod has no CDU Company yet, and its World is paused with two placeholder residents.
