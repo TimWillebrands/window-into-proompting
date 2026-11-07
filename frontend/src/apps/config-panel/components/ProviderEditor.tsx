@@ -7,11 +7,20 @@ import {
 } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 import {
+    DECISIONS,
     inputStyle,
     JOB_COMPLEXITIES,
+    PROVIDER_TYPES,
+    providerType,
     REASONING_EFFORTS,
     selectStyle,
 } from './constants';
+
+/** Claude takes effort low/medium/high; the token budgets are llama.cpp's. */
+const CLAUDE_EFFORTS = REASONING_EFFORTS.filter((r) =>
+    [0, 2, 3, 4].includes(r.value),
+);
+
 import FormRow from './FormRow';
 
 export default function ProviderEditor({
@@ -47,15 +56,26 @@ export default function ProviderEditor({
     const set = (patch: Partial<LlmProviderEntry>) =>
         setForm((prev) => ({ ...prev, ...patch }));
 
+    const kind = providerType(form.type);
+    const isClaude = form.type === 'anthropic';
+
     const handleTypeChange = (type: string) => {
+        const next = providerType(type);
         set({
             type,
-            baseUrl:
-                type === 'openrouter'
-                    ? 'https://openrouter.ai/api/v1'
-                    : 'http://localhost:11434',
-            apiKey: type === 'openrouter' ? (form.apiKey ?? '') : null,
-            tailnet: type === 'openrouter' ? null : form.tailnet,
+            baseUrl: next.baseUrl,
+            apiKey: next.keyHint ? (form.apiKey ?? '') : null,
+            tailnet: type === 'ollama' ? form.tailnet : null,
+            reasoningEffort:
+                type === 'anthropic' &&
+                !CLAUDE_EFFORTS.some((r) => r.value === form.reasoningEffort)
+                    ? 0
+                    : form.reasoningEffort,
+            // Claude can't serve /systemone, so it never keeps Decisions.
+            supportedComplexities:
+                type === 'anthropic'
+                    ? (form.supportedComplexities ?? 1) & ~DECISIONS || 1
+                    : form.supportedComplexities,
         });
     };
 
@@ -82,10 +102,11 @@ export default function ProviderEditor({
                     onChange={(e) => handleTypeChange(e.target.value)}
                     style={selectStyle}
                 >
-                    <option value="ollama">
-                        Local server (Ollama, llama.cpp, …)
-                    </option>
-                    <option value="openrouter">OpenRouter</option>
+                    {Object.entries(PROVIDER_TYPES).map(([value, t]) => (
+                        <option key={value} value={value}>
+                            {t.option}
+                        </option>
+                    ))}
                 </select>
             </FormRow>
 
@@ -117,7 +138,7 @@ export default function ProviderEditor({
                 </FormRow>
             )}
 
-            {form.type === 'openrouter' && (
+            {kind.keyHint && (
                 <FormRow label="API Key">
                     <input
                         type="password"
@@ -125,7 +146,7 @@ export default function ProviderEditor({
                         onChange={(e) =>
                             set({ apiKey: e.target.value || null })
                         }
-                        placeholder="sk-or-..."
+                        placeholder={kind.keyHint}
                         style={inputStyle}
                     />
                 </FormRow>
@@ -140,11 +161,7 @@ export default function ProviderEditor({
                         onChange={(e) =>
                             set({ modelName: e.target.value || null })
                         }
-                        placeholder={
-                            form.type === 'ollama'
-                                ? 'e.g. llama3.2'
-                                : 'e.g. nvidia/llama-3.1-nemotron-ultra-253b-v1:free'
-                        }
+                        placeholder={kind.modelHint}
                         style={inputStyle}
                     />
                     {entry.id && (
@@ -157,7 +174,7 @@ export default function ProviderEditor({
                 </div>
             </FormRow>
 
-            {form.type === 'ollama' && (
+            {(form.type === 'ollama' || isClaude) && (
                 <FormRow label="Reasoning">
                     <select
                         aria-label="Reasoning"
@@ -165,14 +182,22 @@ export default function ProviderEditor({
                         onChange={(e) =>
                             set({ reasoningEffort: Number(e.target.value) })
                         }
-                        title="How long a llama.cpp model may think before answering. Less is faster, more is more deliberate."
+                        title={
+                            isClaude
+                                ? "Claude's effort: how much it thinks before answering."
+                                : 'How long a llama.cpp model may think before answering. Less is faster, more is more deliberate.'
+                        }
                         style={selectStyle}
                     >
-                        {REASONING_EFFORTS.map((r) => (
-                            <option key={r.value} value={r.value}>
-                                {r.label} ({r.hint})
-                            </option>
-                        ))}
+                        {(isClaude ? CLAUDE_EFFORTS : REASONING_EFFORTS).map(
+                            (r) => (
+                                <option key={r.value} value={r.value}>
+                                    {isClaude
+                                        ? r.label
+                                        : `${r.label} (${r.hint})`}
+                                </option>
+                            ),
+                        )}
                     </select>
                 </FormRow>
             )}
@@ -222,7 +247,9 @@ export default function ProviderEditor({
                         }}
                         title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
                     >
-                        {JOB_COMPLEXITIES.map((c) => (
+                        {JOB_COMPLEXITIES.filter(
+                            (c) => !isClaude || c.value !== DECISIONS,
+                        ).map((c) => (
                             <label
                                 key={c.value}
                                 title={c.hint}

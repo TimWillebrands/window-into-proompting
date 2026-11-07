@@ -151,3 +151,24 @@ export const BenchedOutOfCredit: Story = {
         },
     },
 };
+
+export const Claude: Story = {
+    args: {
+        provider: {
+            id: 'prov-7',
+            type: 'anthropic',
+            baseUrl: 'https://api.anthropic.com',
+            apiKey: '••••ef56',
+            modelName: 'claude-haiku-5-5',
+            supportedComplexities: 7,
+            isEnabled: true,
+            priority: -1,
+        },
+        availability: {
+            providerId: 'prov-7',
+            state: 0,
+            reason: null,
+            until: null,
+        },
+    },
+};

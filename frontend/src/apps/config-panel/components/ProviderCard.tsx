@@ -8,6 +8,7 @@ import {
     BENCHED,
     JOB_COMPLEXITIES,
     PROVIDER_STATES,
+    providerType,
     REASONING_EFFORTS,
 } from './constants';
 
@@ -75,7 +76,7 @@ export default function ProviderCard({
         (r) => r.value !== 0 && r.value === provider.reasoningEffort,
     );
 
-    const isOllama = provider.type === 'ollama';
+    const type = providerType(provider.type);
     const isEnabled = provider.isEnabled !== false;
 
     const handleToggle = () => {
@@ -106,9 +107,7 @@ export default function ProviderCard({
                 opacity: isEnabled ? 1 : 0.55,
             }}
         >
-            <span style={{ fontSize: 24, flexShrink: 0 }}>
-                {isOllama ? '🦙' : '🌐'}
-            </span>
+            <span style={{ fontSize: 24, flexShrink: 0 }}>{type.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                     style={{
@@ -121,7 +120,7 @@ export default function ProviderCard({
                         gap: 6,
                     }}
                 >
-                    {isOllama ? 'Local server' : 'OpenRouter'}
+                    {type.label}
                     {!isEnabled && (
                         <span
                             style={{
