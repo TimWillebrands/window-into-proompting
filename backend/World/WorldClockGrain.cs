@@ -246,7 +246,8 @@ public sealed class WorldClockGrain(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Life turn failed for persona {PersonaId}", personaId);
+            // Players see this as an error in Activity, so it is one.
+            logger.LogError(ex, "Life turn failed for persona {PersonaId}", personaId);
             var info = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetParty();
             activity = new WorldActivity
             {

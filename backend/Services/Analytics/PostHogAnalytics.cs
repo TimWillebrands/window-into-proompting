@@ -1,6 +1,7 @@
 using PostHog;
 using PostHog.AspNetCore;
 using PostHog.Config;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using PartyTown.Services.Auth;
 
 namespace PartyTown.Services.Analytics;
@@ -10,6 +11,7 @@ public static class PostHogAnalytics
 {
     private const string SessionHeader = "X-POSTHOG-SESSION-ID";
     private const string ConsentCookie = "analytics_consent";
+    private const string TrackedKey = "posthog.tracked";
 
     public static void AddPostHogAnalytics(this WebApplicationBuilder builder)
     {
@@ -29,13 +31,35 @@ public static class PostHogAnalytics
 
         // A disabled client warns on every call.
         if (!enabled) builder.Logging.AddFilter("PostHog", LogLevel.Error);
+        else builder.Services.AddSingleton<ILoggerProvider, PostHogErrorLoggerProvider>();
     }
 
     /// <summary>A signed-in action: with consent the person is the verified Clerk id, without it only an unlinkable count.</summary>
     public static void Track(this IPostHogClient posthog, HttpContext context, string name, Dictionary<string, object> properties)
     {
-        if (Consented(context)) posthog.Capture(context.User.ClerkUserId()!, name, WithSession(context, properties));
+        context.Items[TrackedKey] = true;
+        if (Consented(context) && context.User.ClerkUserId() is { } userId) posthog.Capture(userId, name, WithSession(context, properties));
         else posthog.Capture(name, Anonymized(properties));
+    }
+
+    /// <summary>Every API write an action didn't already name itself becomes one <c>api_action</c>.</summary>
+    private static void TrackApiAction(IPostHogClient posthog, HttpContext context, TimeSpan elapsed)
+    {
+        if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)
+            || HttpMethods.IsOptions(context.Request.Method)) return;
+        if (context.Items.ContainsKey(TrackedKey) || context.User.Identity?.IsAuthenticated != true) return;
+        if (context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>() is not { } action) return;
+
+        var properties = new Dictionary<string, object>
+        {
+            ["endpoint"] = $"{action.ControllerName}.{action.ActionName}",
+            ["route"] = (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? action.AttributeRouteInfo?.Template ?? "",
+            ["method"] = context.Request.Method,
+            ["status_code"] = context.Response.StatusCode,
+            ["duration_ms"] = (int)elapsed.TotalMilliseconds,
+        };
+        if (context.Request.RouteValues["partyId"] is { } partyId) properties["party_id"] = partyId.ToString()!;
+        posthog.Track(context, "api_action", properties);
     }
 
     /// <summary>After auth, so a consenting user's exceptions carry their Clerk id; anyone else's stay personless.</summary>
@@ -44,11 +68,13 @@ public static class PostHogAnalytics
         var posthog = app.Services.GetRequiredService<IPostHogClient>();
         app.Use(async (context, next) =>
         {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
             try
             {
                 await next(context);
+                TrackApiAction(posthog, context, System.Diagnostics.Stopwatch.GetElapsedTime(started));
             }
-            catch (Exception ex) when (!context.RequestAborted.IsCancellationRequested)
+            catch (Exception ex) when (!context.RequestAborted.IsCancellationRequested && PostHogExceptions.Claim(ex))
             {
                 var properties = new Dictionary<string, object>
                 {
