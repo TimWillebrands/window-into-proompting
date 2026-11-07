@@ -46,6 +46,11 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     {
         var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
         ScriptedLlm.ChooseOptionContaining = "Plan a get-together";
+        // Real clock: within 90 min of her bedtime nobody plans (GatheringRules.MayPlan).
+        var day = await _fx.GrainFactory.GetGrain<PartyTown.World.Self.IPersonaSelfGrain>(WorldKeys.Life(partyId, denise)).GetDayWindowAsync();
+        var (bed, wake) = PartyTown.World.Places.Sleep.Window(denise, day.FirstBeatMinute, day.LastBeatMinute);
+        var local = DateTimeOffset.Now;
+        if (!GatheringRules.MayPlan(local.Hour * 60 + local.Minute, bed, wake)) return;
 
         var activity = await _fx.GrainFactory
             .GetGrain<IPersonaLifeGrain>(WorldKeys.Life(partyId, denise)).LiveAsync(null);

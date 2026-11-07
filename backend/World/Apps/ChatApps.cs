@@ -200,6 +200,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var newContacts = ctx.Others
             .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
+            .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);
         foreach (var c in newContacts)

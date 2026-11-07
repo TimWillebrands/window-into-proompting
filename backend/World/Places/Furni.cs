@@ -92,7 +92,8 @@ public sealed record FurniAction(string Label, int Priority, bool Care);
 /// <summary>Furni behaviour as pure functions: condition, how it reads, what it affords, what acting does.</summary>
 public static class FurniRules
 {
-    public static readonly TimeSpan PlantDriesIn = TimeSpan.FromHours(24);
+    /// <summary>A houseplant goes days between waterings; at a day, every home's plant asked for water every morning.</summary>
+    public static readonly TimeSpan PlantDriesIn = TimeSpan.FromDays(4);
     public static readonly TimeSpan SongLasts = TimeSpan.FromMinutes(20);
     public const int CupsPileUpAt = 3;
 
@@ -113,8 +114,8 @@ public static class FurniRules
         var c = Condition(f, now);
         return f.Kind switch
         {
-            FurniKinds.Plant when c < 0.35 => $"{f.Name} is wilting",
-            FurniKinds.Plant when c < 0.65 => $"{f.Name} looks a bit dry",
+            FurniKinds.Plant when c < 0.25 => $"{f.Name} is wilting",
+            FurniKinds.Plant when c < 0.5 => $"{f.Name} looks a bit dry",
             FurniKinds.Cups when f.Dirty >= CupsPileUpAt => $"dirty {(f.Name.Contains("dishes") ? "dishes are" : "cups are")} piling up",
             FurniKinds.Coffee when f.Broken => $"{f.Name} is broken",
             FurniKinds.Lamp when f.Broken => $"{f.Name} keeps flickering",
@@ -129,7 +130,7 @@ public static class FurniRules
         var c = Condition(f, now);
         return f.Kind switch
         {
-            FurniKinds.Plant when c < 0.65 => new FurniAction($"Water {f.Name}", c < 0.35 ? 2 : 1, true),
+            FurniKinds.Plant when c < 0.5 => new FurniAction($"Water {f.Name}", c < 0.25 ? 1 : 0, true),
             FurniKinds.Cups when f.Dirty >= CupsPileUpAt => new FurniAction($"Wash up {f.Name}", f.Dirty >= 5 ? 2 : 1, true),
             FurniKinds.Coffee or FurniKinds.Lamp when f.Broken => new FurniAction($"Try to fix {f.Name}", 1, true),
             _ => null,

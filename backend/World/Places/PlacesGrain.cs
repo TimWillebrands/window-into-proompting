@@ -217,7 +217,11 @@ public sealed partial class PlacesGrain(
             var night = Sleep.IsNight(minute, bed, wake);
             if (body.Asleep)
             {
-                if (!night) await WakeAsync(body, "just got up", TimeSpan.FromMinutes(20));
+                if (!night)
+                {
+                    GetUp(body);
+                    await WakeAsync(body, "just got up", TimeSpan.FromMinutes(20));
+                }
                 continue;
             }
             if (!night || body.WokenUntil > now) continue;
@@ -261,6 +265,14 @@ public sealed partial class PlacesGrain(
             _sleepWindows[id] = (Sleep.Window(id).Bed, Sleep.Window(id).Wake, Now());
             logger.LogDebug(ex, "Day window unavailable for {Persona}; using chronotype", id);
         }
+    }
+
+    /// <summary>A morning wake leaves the bed (else everyone spends the day "on the bed").</summary>
+    private void GetUp(Body body)
+    {
+        if (body.SpotId != "bed" || state.State.Places.HomeOf(body.ParticipantId) is not { } home || body.PlaceId != home.Id) return;
+        var spot = Sleep.GetUpSpot(home, id => state.State.Bodies.Values.Count(b => b.PlaceId == home.Id && b.SpotId == id));
+        if (spot is not null) body.SpotId = spot;
     }
 
     private async Task WakeAsync(Body body, string how, TimeSpan showFor)

@@ -83,7 +83,10 @@ export default function CalendarApp() {
                             style={{ padding: '3px 8px', color: '#555' }}
                         >
                             {time(g.startsAt)} — “{g.title}” {whereOf(g)} (
-                            {g.attendeeIds?.length ?? 0} said they'd come)
+                            {g.status === 'Missed'
+                                ? 'missed, the world was asleep'
+                                : `${g.attendeeIds?.length ?? 0} said they'd come`}
+                            )
                         </div>
                     ))}
                 </div>

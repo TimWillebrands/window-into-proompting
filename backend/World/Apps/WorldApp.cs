@@ -11,8 +11,12 @@ public sealed record LifeContext(
     IReadOnlyList<ChatGroupInfo> Threads,
     IReadOnlyList<WorldActivity> RecentOwn,
     DateTimeOffset Now,
-    IReadOnlyDictionary<Guid, PartyTown.World.Self.AttentionLook> Looks)
+    IReadOnlyDictionary<Guid, PartyTown.World.Self.AttentionLook> Looks,
+    IReadOnlyDictionary<Guid, string>? Wanted = null)
 {
+    /// <summary>The want on their mind that's about <paramref name="id"/>, if any (ADR 0026).</summary>
+    public string? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;
+
     /// <summary>Looked at <paramref name="target"/> recently enough that it's still in mind.</summary>
     public bool InMind(Guid target)
         => Looks.TryGetValue(target, out var look) && Now.ToUnixTimeMilliseconds() - look.At < (long)PartyTown.World.Self.ChatAttention.InMind.TotalMilliseconds;

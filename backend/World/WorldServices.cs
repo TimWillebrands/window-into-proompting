@@ -207,7 +207,7 @@ public sealed class WorldMemory(
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Place lookup failed for {PersonaId}", personaId); }
 
         var beat = await repository.RecallBeatAsync(
-            new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 8, stanceLimit: 6, logger, ct);
+            new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 4, stanceLimit: 6, logger, ct);
         try
         {
             var names = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();

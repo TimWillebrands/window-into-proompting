@@ -84,6 +84,14 @@ background.
     replace, a supplier to call back, a wedding RSVP. Each day's generation carries them over, lets the beats
     move at least one along, and marks settled ones `done: …`. They render as "Going on in your life lately"
     and "Finally settled". Arcs now span days instead of resetting every morning.
+    - **Threads end.** Carrying threads over with no counter-pull made a loop (thread → day → thread). Errands
+      ran for weeks and outlived a rewritten sheet. Each thread now has an age: a reworded thread keeps its
+      age (word overlap), from 4 days it's flagged as dragging on (done today or dropped), and at 8 days it's
+      let go. What lasts longer belongs to desires and the sheet.
+    - **The sheet is the centre.** `SheetKey` fingerprints sheet and bio. When either changes, today's day is
+      written again. Carried threads stay only if they fit who the persona is now, yesterday's mood isn't
+      carried over, and the home district is read again. Battery and mood drift reset only on a new day.
+      A missing key is stamped silently, so a deploy changes no one's day.
 21. **Lived sheets** (`LivedSheetGrain`, key = persona id). Each authored sheet is distilled once, on the
     voice tier, into lived background with the generator's headings. Modes, scripted lines, catchphrases,
     style instructions and epithets are dropped. Facts are kept, and ordinary specifics (named offscreen

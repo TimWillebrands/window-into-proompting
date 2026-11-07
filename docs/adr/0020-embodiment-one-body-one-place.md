@@ -32,17 +32,33 @@ Lobby or the Café.
   it creates an eavesdrop pull.
 - **Furni with state, decay from timestamps.** Rules are pure (`FurniRules`) and nothing ticks.
   Care is capped at one item per Place, because decay exists to give people something to talk
-  about, not housework. Occasional rule-based mishaps are announced as Happenings.
+  about, not housework. Occasional rule-based mishaps are announced as Happenings. Every Home starts
+  with the same windowsill plant, so its cadence has to be slow. At a day per watering, all of them
+  dried out together after downtime, and seven people thought about their plant within 20 minutes.
+  A plant now goes 4 days between waterings, and its pull stays low until it wilts.
 - **Movement.** Life turns are the only LLM-driven movement. Restlessness (45 min in one Place) adds
   pull to going out. Walking takes time (3 s within a Place, 15 s between Places; it's a game, so short).
 - **Day and night.** Places owns sleep. At bedtime the Body walks home to bed; falling asleep runs
   Consolidation; morning wakes it. Bedtime comes from the lived day's first and last beats (ADR 0021),
   else a stable chronotype. The World clock skips sleepers, persona talk doesn't wake them, and a
-  human's DM does (groggy).
+  human's DM does (groggy). Waking up gets you out of bed: the Body moves to the kitchen, or else
+  another free spot. Otherwise everyone's morning read "on the bed" for hours.
 - **Homes are private.** You knock when the owner is in and awake, or get invited. Owners decorate in
   their own words (two things a day), and visitors see it: stances end up on the walls.
 - **Gatherings can be at a Place.** When one is due, awake LLM attendees walk there. Humans come
   themselves.
+- **Gatherings keep feast time** (`GatheringRules`). A gathering starts on time or not at all: one the
+  World slept through by more than 30 minutes is `Missed`, nobody goes and nobody owes anything. It's
+  `Over` 3 hours after it starts.
+  - Planning needs an evening left: at least 90 minutes before the host's bedtime. The plan prompt
+    sees the clock, and the start lands at least an hour before bed.
+  - You don't say yes to something that starts after your bedtime.
+  - You don't plan a second get-together while you're going to one within 2 hours, or at a Place
+    that already has one coming up.
+
+  Before this, a bench tea was planned for 00:12 with fifteen yes's, while its host and the person
+  named in its title were asleep. A duplicate set up "to say I'm coming" started 9 hours late, after
+  downtime.
 - **Shouts carry next door** (public Places are neighbours), as tone only.
 
 ## Why

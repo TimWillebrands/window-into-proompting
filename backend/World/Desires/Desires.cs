@@ -78,6 +78,32 @@ public static class DesireRules
         return lines.Count == 0 ? string.Empty : $"# What you want lately\n{string.Join("\n", lines)}\n";
     }
 
+    /// <summary>People a want on their mind is about (its target, or a cast name in its text) → that want's text.</summary>
+    public static Dictionary<Guid, string> People(IEnumerable<Desire> desires, IEnumerable<(Guid Id, string Name)> cast)
+    {
+        var people = new Dictionary<Guid, string>();
+        var named = cast.ToList();
+        foreach (var d in OnMind(desires))
+        {
+            if (d.TargetId is { } target) people.TryAdd(target, d.Text);
+            foreach (var (id, name) in named)
+                if (Names(name).Any(n => System.Text.RegularExpressions.Regex.IsMatch(d.Text, $@"\b{System.Text.RegularExpressions.Regex.Escape(n)}\b")))
+                    people.TryAdd(id, d.Text);
+        }
+        return people;
+    }
+
+    private static IEnumerable<string> Names(string name)
+    {
+        yield return name;
+        var first = name.Split(' ')[0];
+        if (first.Length >= 3 && first != name) yield return first;
+    }
+
+    /// <summary>An option as the chooser reads it: one about someone you want something from says so.</summary>
+    public static string Toward(string label, string? want)
+        => want is null ? label : $"{label} (toward what you want: {WorldStream.Clip(want, 80)})";
+
     /// <summary>The having-desire the shops can answer: active, naming a catalog item you don't own yet.</summary>
     public static Desire? Shopping(IEnumerable<Desire> desires, IReadOnlyCollection<string> owned)
         => OnMind(desires).FirstOrDefault(d => d.Kind == DesireKind.Having && d.ItemKey is { } key && !owned.Contains(key));

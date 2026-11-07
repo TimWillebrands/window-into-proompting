@@ -5,6 +5,15 @@ public static class Sleep
 {
     private const int Day = 1440;
 
+    private static readonly string[] GetUpOrder = { "kitchen", "sofa", "desk" };
+
+    /// <summary>Where waking up takes the body: the kitchen, else a free spot that isn't the bed; null when there's none.</summary>
+    public static string? GetUpSpot(Place home, Func<string, int> occupied)
+    {
+        var free = home.Spots.Where(s => s.Id != "bed" && occupied(s.Id) < s.Capacity).ToList();
+        return GetUpOrder.FirstOrDefault(id => free.Any(s => s.Id == id)) ?? free.FirstOrDefault()?.Id;
+    }
+
     /// <summary>Bed and wake minute: the day's first beat wakes them when known, else a stable chronotype from the id.</summary>
     public static (int Bed, int Wake) Window(Guid id, int? firstBeat = null, int? lastBeat = null)
     {

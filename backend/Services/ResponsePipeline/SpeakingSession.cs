@@ -48,7 +48,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             }
         };
 
-        messages.AddRange(history.Select(message => new LlmChatMessage
+        // A declined or failed turn leaves an empty message: nothing was said, so the speaker doesn't see one.
+        messages.AddRange(history.Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(message => new LlmChatMessage
         {
             Role = message.SenderId == persona.Id ? "assistant" : "user",
             Content = message.SenderId == persona.Id
@@ -77,7 +78,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             var addressCue = subjects.Count == 0
                 ? string.Empty
                 : $" {JoinNames(subjects)} {(subjects.Count == 1 ? "is" : "are")} right here in the room — say it to {(subjects.Count == 1 ? subjects[0] : "them")} directly, not about them.";
-            guidanceParts.Add($"The memory on your mind — \"{memoryToReference.Trim()}\" — belongs in this reply. Work a specific from it in naturally.{addressCue}");
+            guidanceParts.Add($"A memory that may be on your mind: \"{memoryToReference.Trim()}\". Only if it fits what's being said now, work a specific from it in; otherwise leave it.{addressCue}");
         }
         var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
         // Stale words (ADR 0021) restated at the recency slot: the history full of them outweighs the system block.
@@ -199,10 +200,10 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 # A memory surfacing for you
                 {memoryToReference.Trim()}
 
-                This is on your mind right now. Bring it into your reply the way a callback
-                drops into real conversation — naturally, in passing, maybe just an aside.
-                Don't recite it word-for-word, but keep its specifics — names, places,
-                plans — those are what make the callback land.{addressLine}
+                It may be on your mind. Only if it fits what's being said right now, let it drop in
+                the way a callback does in real conversation: in passing, with its own specifics
+                (names, places, plans), never recited. The conversation in front of you comes first;
+                if it doesn't fit, leave it.{addressLine}
                 """;
 
         // ADR 0016: ambient Stance block — identity-adjacent orientation toward who's present

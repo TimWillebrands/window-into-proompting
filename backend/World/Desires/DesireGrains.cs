@@ -16,13 +16,15 @@ public sealed class IntrinsicDesiresGrain(
     : Grain, IIntrinsicDesiresGrain
 {
     private static readonly TimeSpan Retry = TimeSpan.FromMinutes(30);
+    /// <summary>Bump to redo every distilled (never authored) desire after a prompt change.</summary>
+    private const int DistillVersion = 2;
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
 
     public Task<List<Desire>> GetAsync() => Task.FromResult(state.State.Desires.ToList());
 
     public Task EnsureAsync(string name, string sheet)
     {
-        var hash = Self.LivedSheets.Hash(sheet);
+        var hash = Self.LivedSheets.Hash($"desires v{DistillVersion}\n{sheet}");
         if (state.State.Authored || state.State.SourceHash == hash || DateTimeOffset.UtcNow - _lastAttempt < Retry) return Task.CompletedTask;
         _lastAttempt = DateTimeOffset.UtcNow;
         // Detached: callers never wait on the LLM.
@@ -54,11 +56,12 @@ public sealed class IntrinsicDesiresGrain(
             var json = await llm.For(this.GetPrimaryKey()).CompleteJsonAsync(JobComplexity.General,
                 $"""
                 You read who someone is and say what they want in life right now. Life-sized and concrete, no grand themes,
-                nothing poetic. Read it off who they are; don't invent a new life for them.
+                nothing poetic. Read it off who they are, in the terms of their own life: their trade, home, people and money.
+                Don't invent a new life for them, and skip anything anybody at all might want.
                 Output ONLY JSON with string fields:
                 - having: one thing they want to get or have: a specific object, money for something, someone's attention. Or "none".
                 - being: one way they want to change or grow: get better at something, patch things up with someone, finish something. Or "none".
-                Each one short plain sentence in second person ("a proper winter coat", "get your sourdough right").
+                Each one a short plain phrase in second person that names the thing itself.
                 """,
                 $"Name: {name}\n\nWho they are:\n{sheet}", cts.Token, 0.6, ["having", "being"]);
             if (json is null) return;

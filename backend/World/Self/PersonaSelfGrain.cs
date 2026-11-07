@@ -17,7 +17,8 @@ public sealed partial class PersonaSelfGrain(
     IPersistentState<SelfState> state,
     IWorldLlm llm,
     ISystemOneJudge judge,
-    ILogger<PersonaSelfGrain> logger)
+    ILogger<PersonaSelfGrain> logger,
+    Services.Memory.IMemoryRepository? memory = null)
     : Grain, IPersonaSelfGrain
 {
     private const int AvailabilityVersion = 1;
@@ -136,7 +137,7 @@ public sealed partial class PersonaSelfGrain(
 
     private const string OpenersSpec = "3 lines, one per line: small things from their own life they might bring up in conversation today (a show or game, a work gripe, a funny or annoying thing from the last few days, an opinion on something ordinary, a question they'd ask others). Concrete, light, not about feelings. Only things that already happened before today or are ongoing, never something from later today.";
 
-    private const string ThreadsSpec = "2-4 lines, one per line: what's ongoing in their life across days (a project, a worry, a plan, an errand they keep putting off, something they look forward to). Life-sized and concrete, not themes. Carry over the ongoing ones you're given unless today settles them; write a settled one as \"done: …\".";
+    private const string ThreadsSpec = "2-4 lines, one per line: what's ongoing in their life across days (a project, a worry, a plan, an errand they keep putting off, something they look forward to). Life-sized and concrete, not themes. Carry over the ongoing ones you're given that fit who they are, unless today settles them; write a settled one as \"done: …\". One marked as dragging on gets done today or quietly dropped.";
 
     /// <summary>Life threads for a day generated before threads existed: one small call.</summary>
     private async Task EnsureThreadsAsync(Guid partyId, Guid personaId, string key)
@@ -182,6 +183,27 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
+    private async Task ForgetAsync(Guid partyId, Guid personaId, DateTimeOffset before)
+    {
+        try { await memory!.ForgetBeforeAsync(partyId, personaId, before, CancellationToken.None); }
+        catch (Exception ex) { logger.LogWarning(ex, "Forgetting the old life failed for {Persona}", personaId); }
+    }
+
+    /// <summary>What they want for good (ADR 0026), so an ordinary day can edge toward it; empty without wants.</summary>
+    private async Task<string> WantsAsync(Guid partyId, Guid personaId)
+    {
+        try
+        {
+            var onMind = Desires.DesireRules.OnMind((await GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).All);
+            return onMind.Count == 0 ? string.Empty : $"\nWhat they want, lasting: {string.Join("; ", onMind.Select(d => d.Text))}.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Wants lookup failed for the day of {Persona}", personaId);
+            return string.Empty;
+        }
+    }
+
     /// <summary>Today's shift (ADR 0026) as a beat the day must keep; empty on a day off or without a job.</summary>
     private async Task<string> FixedTodayAsync(Guid partyId, Guid personaId, DateTimeOffset now)
     {
@@ -197,10 +219,27 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
+    private static readonly TimeSpan SheetCheck = TimeSpan.FromMinutes(10);
+    private long _sheetCheckedAt;
+
+    /// <summary>True once their sheet or bio changed after today's life was written; checked every 10 min, a missing key is stamped silently.</summary>
+    private async Task<bool> SheetRewrittenAsync(Guid partyId, Guid personaId, DateTimeOffset now)
+    {
+        if (now.ToUnixTimeMilliseconds() - _sheetCheckedAt < SheetCheck.TotalMilliseconds) return false;
+        _sheetCheckedAt = now.ToUnixTimeMilliseconds();
+        var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
+        if (self is null) return false;
+        var sheetKey = SelfMath.SheetKey(self.SystemPrompt, self.Bio);
+        if (state.State.SheetKey is not null) return state.State.SheetKey != sheetKey;
+        state.State.SheetKey = sheetKey;
+        await state.WriteStateAsync();
+        return false;
+    }
+
     private async Task EnsureDayAsync(Guid partyId, Guid personaId, DateTimeOffset now)
     {
         var key = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        if (state.State.DayKey == key)
+        if (state.State.DayKey == key && !await SheetRewrittenAsync(partyId, personaId, now))
         {
             if (state.State.Neighbourhood is null) _ = SettleHomeAsync(partyId, personaId);
             if (state.State.Openers.Count == 0 && !state.State.OpenersTried) await EnsureOpenersAsync(partyId, personaId);
@@ -213,12 +252,24 @@ public sealed partial class PersonaSelfGrain(
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
         if (self is null) return;
 
+        var sheetKey = SelfMath.SheetKey(self.SystemPrompt, self.Bio);
+        // A rewritten sheet is a new centre: yesterday's mood and errands were lived by someone else.
+        var rewritten = state.State.DayKey is not null && state.State.SheetKey is not null && state.State.SheetKey != sheetKey;
+        var newDay = state.State.DayKey != key;
+        var carried = SelfMath.CarriedThreads(state.State.Threads, state.State.ThreadAges);
+        var ongoing = carried.Count == 0 ? "(nothing recorded)" : string.Join("; ", carried);
+
         using var cts = new CancellationTokenSource(DayBudget);
         try
         {
             var yesterday = state.State.DayKey is null
                 ? "(no record)"
-                : $"Mood: {state.State.Mood}. On your mind: {state.State.Preoccupation}. Last thing you did: {state.State.Beats.LastOrDefault()?.Text}";
+                : rewritten
+                    ? "(who they are has been rewritten since; go by who they are now)"
+                    : $"Mood: {state.State.Mood}. On your mind: {state.State.Preoccupation}. Last thing you did: {state.State.Beats.LastOrDefault()?.Text}";
+            var ongoingLine = rewritten
+                ? $"Ongoing from before who they are was rewritten (keep only what fits who they are now, drop the rest without a done: line): {ongoing}"
+                : $"Ongoing in their life: {ongoing}";
             var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"""
                 {WorldLlm.Identity(self)}
@@ -239,8 +290,9 @@ public sealed partial class PersonaSelfGrain(
                 - threads: {ThreadsSpec}
                 - whereabouts: {WhereaboutsSpec}
                 Let today's beats move at least one ongoing thread a little.
+                If they want something lasting, one ordinary beat may edge toward it (a call, an errand, an hour on it); no breakthroughs.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\nOngoing in their life: {(state.State.Threads.Count == 0 ? "(nothing recorded)" : string.Join("; ", state.State.Threads))}{await FixedTodayAsync(partyId, personaId, now)}",
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}",
                 cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
@@ -257,20 +309,34 @@ public sealed partial class PersonaSelfGrain(
             state.State.Whereabouts = SelfMath.ParseWhereabouts(json?["whereabouts"]?.ToString());
             var (open, done) = SelfMath.ParseThreads(json?["threads"]?.ToString());
             state.State.Resolved = done;
-            if (open.Count > 0)
+            if (open.Count > 0 || rewritten)
             {
-                state.State.Threads = open;
+                var ages = SelfMath.AgeThreads(state.State.Threads, state.State.ThreadAges, open);
+                var kept = open.Select((t, i) => (t, age: ages[i])).Where(x => x.age < SelfMath.ThreadDays).ToList();
+                state.State.Threads = kept.Select(x => x.t).ToList();
+                state.State.ThreadAges = kept.Select(x => x.age).ToList();
                 state.State.ThreadsKey = key;
             }
-            // A night's sleep recharges and resets the mood drift.
-            state.State.Battery = 1;
-            state.State.Valence = 0;
-            state.State.ValenceSource = null;
-            state.State.BatteryAt = now.ToUnixTimeMilliseconds();
+            state.State.SheetKey = sheetKey;
+            if (rewritten)
+            {
+                state.State.Neighbourhood = null;
+                state.State.AvailabilityTried = null;
+                // What they remembered and concluded belonged to who they were; the now starts clean.
+                if (memory is not null) _ = ForgetAsync(partyId, personaId, now);
+            }
+            if (newDay)
+            {
+                // A night's sleep recharges and resets the mood drift.
+                state.State.Battery = 1;
+                state.State.Valence = 0;
+                state.State.ValenceSource = null;
+                state.State.BatteryAt = now.ToUnixTimeMilliseconds();
+            }
             await state.WriteStateAsync();
             if (state.State.Whereabouts.Count > 0) _ = ApplyWhereaboutsAsync(partyId, personaId);
             if (state.State.Neighbourhood is null) _ = SettleHomeAsync(partyId, personaId);
-            logger.LogInformation("Self day for {Persona}: {Mood}, {Energy}, {Beats} beats", self.Name, state.State.Mood, state.State.Energy, beats.Count);
+            logger.LogInformation("Self day for {Persona}: {Mood}, {Energy}, {Beats} beats{Rewritten}", self.Name, state.State.Mood, state.State.Energy, beats.Count, rewritten ? " (sheet rewritten)" : "");
         }
         catch (Exception ex)
         {
@@ -298,6 +364,52 @@ public static partial class SelfMath
         var hours = Math.Max(0, (now.ToUnixTimeMilliseconds() - s.BatteryAt) / 3_600_000.0);
         return Math.Clamp(s.Battery + hours * RechargePerHour, 0, 1);
     }
+
+    /// <summary>From this many days on, a thread is flagged as dragging on.</summary>
+    public const int DraggingDays = 4;
+
+    /// <summary>A thread this many days old is let go: errands end, the world owns what lasts longer.</summary>
+    public const int ThreadDays = 8;
+
+    private static readonly HashSet<string> ThreadStop = new(StringComparer.Ordinal)
+    {
+        "the", "and", "for", "with", "but", "not", "still", "now", "from", "that", "this", "has", "have", "been", "about",
+        "into", "they", "their", "them", "was", "are", "his", "her", "she", "you", "your", "its", "get", "got", "one",
+        "out", "off", "again", "just", "yet", "all", "who", "what", "when", "will",
+    };
+
+    private static HashSet<string> ThreadWords(string text)
+        => Regex.Matches(text.ToLowerInvariant(), @"\p{L}+").Select(m => m.Value)
+            .Where(w => w.Length >= 3 && !ThreadStop.Contains(w)).ToHashSet();
+
+    /// <summary>Days each of today's threads has run: a reworded one (2+ shared words, 60% of the smaller) keeps its age, a new one is 1.</summary>
+    public static List<int> AgeThreads(IReadOnlyList<string> before, IReadOnlyList<int> ages, IReadOnlyList<string> now)
+    {
+        var old = before.Select(ThreadWords).ToList();
+        return now.Select(t =>
+        {
+            var words = ThreadWords(t);
+            var best = 0;
+            for (var i = 0; i < old.Count; i++)
+            {
+                var shared = old[i].Count(words.Contains);
+                if (shared >= 2 && shared >= 0.6 * Math.Min(old[i].Count, words.Count))
+                    best = Math.Max(best, i < ages.Count ? ages[i] : 1);
+            }
+            return best + 1;
+        }).ToList();
+    }
+
+    /// <summary>Threads as the next day sees them: ones dragging on are flagged, ones past <see cref="ThreadDays"/> let go.</summary>
+    public static List<string> CarriedThreads(IReadOnlyList<string> threads, IReadOnlyList<int> ages)
+        => threads.Select((t, i) => (t, age: i < ages.Count ? ages[i] : 1))
+            .Where(x => x.age < ThreadDays)
+            .Select(x => x.age >= DraggingDays ? $"{x.t} (dragging on for {x.age} days: today it gets done, or they let it go)" : x.t)
+            .ToList();
+
+    /// <summary>Fingerprint of who they are (sheet + bio); a new one means today's life was written for someone else.</summary>
+    public static string SheetKey(string? sheet, string? bio)
+        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{sheet}\n\0{bio}")))[..16];
 
     /// <summary>Life threads: open lines, plus "done: …" lines settled today.</summary>
     public static (List<string> Open, List<string> Done) ParseThreads(string? raw)
@@ -483,6 +595,10 @@ public sealed class SelfState
     [Id(18)] public List<Whereabout> Whereabouts { get; set; } = new();
     /// <summary>The part of town they live in, read once from who they are (ADR 0027); "" when it couldn't be read.</summary>
     [Id(19)] public string? Neighbourhood { get; set; }
+    /// <summary>Days each of <see cref="Threads"/> has run, same order; missing entries count as 1.</summary>
+    [Id(20)] public List<int> ThreadAges { get; set; } = new();
+    /// <summary><see cref="SelfMath.SheetKey"/> of the sheet today's life was written for; null before it was tracked.</summary>
+    [Id(21)] public string? SheetKey { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

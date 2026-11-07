@@ -386,6 +386,39 @@ public class LifeThreadsTest
         Assert.Contains("Going on in your life lately: lease renewal due Friday", text);
         Assert.Contains("Finally settled: bike light fixed", text);
     }
+
+    [Fact]
+    public void AgeThreads_CarriesAgeAcrossRewording_AndStartsNewOnesAtOne()
+    {
+        var before = new List<string> { "Ministry contract: the two-page note on scoring weights is due Monday", "bike needs a new rear light" };
+        var now = new List<string> { "the ministry note on how the scoring weights get set, due Monday, outline started", "call the repayment office about the startup debt" };
+        Assert.Equal(new[] { 4, 1 }, SelfMath.AgeThreads(before, new List<int> { 3, 1 }, now));
+    }
+
+    [Fact]
+    public void AgeThreads_NeedsTwoSharedWords_AndTreatsUnagedThreadsAsOneDayOld()
+    {
+        var before = new List<string> { "Anne's parents arrive Sunday", "lease renewal due Friday" };
+        var now = new List<string> { "Anne wants to swim on Sunday", "lease renewal due Friday, landlord still silent" };
+        Assert.Equal(new[] { 1, 2 }, SelfMath.AgeThreads(before, new List<int>(), now));
+    }
+
+    [Fact]
+    public void Carried_FlagsThreadsThatDragOn_AndLetsTheOldestGo()
+    {
+        var carried = SelfMath.CarriedThreads(new List<string> { "fresh", "stuck", "ancient" }, new List<int> { 1, SelfMath.DraggingDays, SelfMath.ThreadDays });
+        Assert.Equal(2, carried.Count);
+        Assert.Equal("fresh", carried[0]);
+        Assert.StartsWith("stuck (dragging on for 4 days", carried[1]);
+    }
+
+    [Fact]
+    public void SheetKey_ChangesWithSheetOrBio_AndIsStable()
+    {
+        Assert.Equal(SelfMath.SheetKey("sheet", "bio"), SelfMath.SheetKey("sheet", "bio"));
+        Assert.NotEqual(SelfMath.SheetKey("sheet", "bio"), SelfMath.SheetKey("sheet!", "bio"));
+        Assert.NotEqual(SelfMath.SheetKey("sheet", "bio"), SelfMath.SheetKey("sheet", "bio!"));
+    }
 }
 
 public class LivedSheetsTest

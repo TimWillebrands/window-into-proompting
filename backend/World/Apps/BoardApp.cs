@@ -247,7 +247,7 @@ The post and replies you're answering:
 What you want to say: {intent}
 {(thought is null ? "" : $"How it hits you: {thought}")}
 
-Only reply if it adds something: new information, a real disagreement, a question, a joke, your own take. Agreeing, liking it, re-confirming plans, repeating what you or others already said, or saying you're off: that's not a reply. Leave the body empty then; if you liked it, give Respect! instead.
+Only reply if it adds something from you: new information, a real disagreement, a question, a joke, your own take, from what your own life, trade or know-how gives you. Agreeing, liking it, re-confirming plans, repeating what you or others already said, saying you're off, or talking shop in someone else's trade: that's not a reply. Leave the body empty then; if you liked it, give Respect! instead.
 Output: {ReplyShape}
 """;
 

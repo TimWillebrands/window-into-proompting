@@ -455,12 +455,9 @@ public sealed class ResponsePipeline(
             var beat = await memoryRepository.RecallBeatAsync(
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
-            beat = await FreshenAsync(beat, partyId, persona.Id);
-            // Not a story told in the last few hours; carrying it counts as telling it (refractory, ADR 0021).
-            var carried = beat.Memories.FirstOrDefault(r => r.Arm == RecallArm.Relevant
-                && (r.LastRecalled is not { } at || (DateTimeOffset.UtcNow - at).TotalHours >= SalienceMath.RefractoryHours));
-            var memory = carried?.Snippet;
-            if (carried is { EdgeId: var edge } && edge != Guid.Empty) _ = StrengthenPickedMemoryAsync(edge, persona.Name);
+            // No memory pressed into the line: Life formed the intent with its memories in view, and a second,
+            // separately recalled one at the recency slot outranked the intent (Anne's "eaten?" grew a planner tail).
+            string? memory = null;
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
             inFlight.MarkGenerationStarted(feeling, intent);
