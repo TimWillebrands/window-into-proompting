@@ -64,4 +64,7 @@ test('the tide is queued, and what came of it is news', async () => {
     assert.equal((await call('/tide/in', { method: 'POST' })).status, 202);
     await cdu.idle();
     assert.ok((await (await call('/news?after=0')).json()).some((n: { kind: string }) => n.kind === 'rebased'));
+    const said = (await (await call('/lines?after=0')).json()).map((l: { text: string }) => l.text);
+    assert.ok(said.includes('the tide went out with nothing on the trunk'));
+    assert.ok(said.includes('the tide came in: 0 commits on the trunk'));
 });

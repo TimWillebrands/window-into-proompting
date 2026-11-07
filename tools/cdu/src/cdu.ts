@@ -214,6 +214,7 @@ export class Cdu {
             } else {
                 this.news.push('rebased', `${result.ahead} commits ahead of master`, { ahead: result.ahead });
             }
+            this.lines.push('status', result.kind === 'conflict' ? 'the tide came in; the trunk would not rebase' : `the tide came in: ${result.ahead} commits on the trunk`);
             await this.resoul();
             this.store.save();
             return result;
@@ -224,6 +225,7 @@ export class Cdu {
     tideOut() {
         return this.enqueue(async () => {
             const result = await this.tide.out();
+            this.lines.push('status', result.kind === 'calm' ? 'the tide went out with nothing on the trunk' : `the tide went out: PR #${result.pr.number}`);
             if (result.kind !== 'calm') {
                 this.state.seen = result.pr;
                 this.state.notes.push(`Your trunk went out with the tide: PR #${result.pr.number}, ${result.commits.length} commits.`);
