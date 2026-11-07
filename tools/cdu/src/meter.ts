@@ -98,6 +98,12 @@ export function usageIn(line: string): Usage | null {
     }
 }
 
+/** Headers an upstream needs from the caller, such as OpenCode's per-conversation routing. */
+const Passed = ['x-opencode-session'];
+
+const passed = (req: http.IncomingMessage) =>
+    Object.fromEntries(Passed.flatMap((h) => (typeof req.headers[h] === 'string' ? [[h, req.headers[h] as string]] : [])));
+
 function load(path?: string): Tab[] {
     if (!path) return [];
     try {
@@ -156,7 +162,8 @@ export function createMeter(options: MeterOptions) {
         const model = models.get(String(body.model));
         if (!model) return refuse(res, 403, `model not allowed: ${body.model}`);
         if (body.stream) body.stream_options = { include_usage: true };
-        body.usage = { include: true };
+        // OpenRouter's own field for reporting cost; other upstreams may reject what they don't know.
+        if (options.upstream.includes('openrouter.ai')) body.usage = { include: true };
         const cap = outputCap(tab, model);
         for (const field of ['max_tokens', 'max_completion_tokens']) {
             if (typeof body[field] === 'number') body[field] = Math.min(body[field] as number, cap);
@@ -165,7 +172,7 @@ export function createMeter(options: MeterOptions) {
 
         const upstream = await fetch(`${options.upstream}/chat/completions`, {
             method: 'POST',
-            headers: { 'content-type': 'application/json', authorization: `Bearer ${options.key}` },
+            headers: { ...passed(req), 'content-type': 'application/json', authorization: `Bearer ${options.key}` },
             body: JSON.stringify(body),
         });
         res.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/json' });

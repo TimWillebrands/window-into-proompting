@@ -1,4 +1,6 @@
 [
-    { "id": "anthropic/claude-sonnet-5.5", "label": "careful", "in": 3, "out": 15, "context": 200000, "output": 32000, "reasoning": true },
-    { "id": "deepseek/deepseek-v4.1-flash", "label": "quick and cheap", "in": 0.3, "out": 1.2, "context": 128000, "output": 16000 }
+    { "id": "kimi-k2.7-code", "label": "coder", "provider": "opencode-go", "reasoning": true, "in": 0.95, "out": 4, "context": 262144, "output": 131072 },
+    { "id": "glm-5.3", "label": "careful", "provider": "opencode-go", "reasoning": true, "in": 1.4, "out": 4.4, "context": 1000000, "output": 131072 },
+    { "id": "deepseek-v4-pro", "label": "thorough, cheap", "provider": "opencode-go", "reasoning": true, "in": 0.66, "out": 1.98, "context": 1000000, "output": 131072 },
+    { "id": "deepseek-v4.1-flash", "label": "quick", "provider": "opencode-go", "reasoning": true, "in": 0.15, "out": 0.6, "context": 1000000, "output": 131072 }
 ]

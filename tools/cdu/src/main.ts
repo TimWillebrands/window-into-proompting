@@ -5,8 +5,7 @@ import { Book } from './book.ts';
 import { type Allowance, Cdu, Store } from './cdu.ts';
 import { loadConfig } from './config.ts';
 import { Feed } from './feed.ts';
-import type { Model } from './meter.ts';
-import { createPiMind } from './pi.ts';
+import { createPiMind, type MeterModel } from './pi.ts';
 import { GhCli, Tide } from './tide.ts';
 
 // Pi can crash the process from a tool (pi #10585): die loudly and let the container restart us.
@@ -55,7 +54,7 @@ await tide.ensure();
 await book.ensure();
 const soul = (await tide.show(config.soulPath)) ?? readFileSync(path.join(here, '..', 'soul', 'APPEND_SYSTEM.md'), 'utf8');
 store.state.soul = soul;
-const models = ((await tab('models')) as { data: Model[] }).data;
+const models = ((await tab('models')) as { data: MeterModel[] }).data;
 const mind = await createPiMind({
     repo: config.repo,
     agentDir: config.agentDir,
