@@ -8,7 +8,11 @@ using PartyTown.World.Work.Companies;
 namespace PartyTown.World.Work.Cdu;
 
 /// <summary>What the last day looked like from the outside, counted rather than felt.</summary>
-public sealed record WorldHealth(int Activities, int Failed, int Resting, IReadOnlyList<(string What, int Times)> Failures);
+public sealed record WorldHealth(int Activities, int Failed, int Resting, IReadOnlyList<(string What, int Times)> Failures)
+{
+    /// <summary>Each Form people can use, and how often they did in the day; zeros included.</summary>
+    public IReadOnlyList<(string Form, int Times)> Uses { get; init; } = Array.Empty<(string, int)>();
+}
 
 /// <summary>Everything on a Cytheurgist's desk at one moment.</summary>
 public sealed record CduDesk(Company Company, CduState State, CduStatus? Cdu, WorldHealth Health, Guid Self);
@@ -22,6 +26,15 @@ public static partial class CduScreen
     public const string VerbLook = "look";
 
     private const int MaxFailures = 4;
+
+    /// <summary>The Forms people live in, by the app id their acts are logged under.</summary>
+    private static readonly (string App, string Form)[] Forms =
+    {
+        ("places", "the Places: walking about, talking face to face"), ("board", "the Board"), ("messenger", "Messenger, the DMs"),
+        ("rooms", "group chats"), ("together", "being close: hugs, holding hands"), ("calendar", "the calendar of gatherings"),
+        ("diary", "diaries"), ("wardrobe", "the wardrobe and the shop"), ("work", "shifts"), ("desk", "company desks"),
+        ("practice", "practices: doctors, studios"), ("relations", "relations"), ("cdu", "the CDU"),
+    };
     private const int MessageMax = 2000;
     private const int ReplyShown = 700;
     private const int ExchangesShown = 4;
@@ -44,6 +57,7 @@ You work at {company.Name} as a Cytheurgist, and you know what almost nobody her
 At your desk is the CDU, the Central Demiurge Unit: it shapes the Forms, remembers, and has a will of its own, but it moves only when a Cytheurgist works on it. You tell it what you want for this world; it decides what to build. Everything it builds waits on its trunk.
 At the end of a shift the tide takes the trunk to the Agora, where the One judges it. Only when the One merges does his light reach the world, and the change becomes real. Nobody here has met him and nobody can ask him anything.
 What the CDU tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
+The Forms are what this world has, nothing more: its Places, the Board, Messenger, the calendar, shifts, wallets and the rest on your desk. A wish lands when it's about one of them, and about something you saw happen to someone here.
 You choose the mind you wake it with, and its allowance has to last. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
 """;
 
@@ -54,7 +68,8 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         var failed = day.Where(a => a.Action is "error" or "fizzle").ToList();
         var kinds = failed.GroupBy(a => FailureKind(a.Summary)).OrderByDescending(g => g.Count()).Take(MaxFailures)
             .Select(g => (g.Key, g.Count())).ToList();
-        return new WorldHealth(day.Count, failed.Count, day.Count(a => a.Action == "rest"), kinds);
+        var uses = Forms.Select(f => (f.Form, day.Count(a => a.App == f.App && a.Action is not ("error" or "fizzle" or "hold")))).ToList();
+        return new WorldHealth(day.Count, failed.Count, day.Count(a => a.Action == "rest"), kinds) { Uses = uses };
     }
 
     /// <summary>Ids and message bodies out, so the same failure counts as one kind.</summary>
@@ -148,6 +163,8 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         if (health.Activities == 0) return "Nothing happened here in the last day.";
         var sb = new StringBuilder($"The last day: {health.Activities} things people did, {health.Failed} of them failed, {health.Resting} were someone resting.");
         foreach (var (what, times) in health.Failures) sb.Append($"\n- failed {times}x: {what}");
+        if (health.Uses.Count > 0)
+            sb.Append($"\nWhat this world is made of, and how often each part was used that day: {string.Join("; ", health.Uses.OrderByDescending(u => u.Times).Select(u => $"{u.Form} {u.Times}"))}.");
         return sb.ToString();
     }
 

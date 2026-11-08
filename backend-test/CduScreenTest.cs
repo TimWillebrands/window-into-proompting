@@ -77,6 +77,21 @@ public class CduScreenTest
     }
 
     [Fact]
+    public void Health_CountsEveryForm_ZerosToo_SoUnusedPartsShow()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var acts = new[] { new WorldActivity { App = "board", Action = "post", Ts = now.ToUnixTimeMilliseconds() }, new WorldActivity { App = "board", Action = "error", Summary = "x", Ts = now.ToUnixTimeMilliseconds() } };
+        var health = CduScreen.Health(acts, now);
+        Assert.Contains(("the Board", 1), health.Uses);
+        Assert.Contains(("the calendar of gatherings", 0), health.Uses);
+        Assert.Contains("the calendar of gatherings 0", CduScreen.Render(new CduDesk(Shop, new CduState(), Up(), health, Denise)));
+    }
+
+    [Fact]
+    public void Frame_GroundsWishesInThisWorldsForms()
+        => Assert.Contains("A wish lands when it's about one of them", CduScreen.Frame(Shop));
+
+    [Fact]
     public void Render_Dark_SaysSoAndNothingElse()
         => Assert.Contains("The CDU is dark", CduScreen.Render(Desk(null)));
 
