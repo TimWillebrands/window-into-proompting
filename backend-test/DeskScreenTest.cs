@@ -116,6 +116,7 @@ public class DeskScreenTest
     [InlineData(WorkApp.AppId, 0)]
     [InlineData(DeskApp.AppId, 0)]
     [InlineData(PracticeApp.AppId, 0)]
+    [InlineData(PartyTown.World.Work.Cdu.CduScreen.AppId, 0)]
     [InlineData("board", 1)]
     public void Damping_SpareTheAppsThatAreTheJob(string app, int damping) => Assert.Equal(damping, Shifts.Damping(app, onShift: true));
 }

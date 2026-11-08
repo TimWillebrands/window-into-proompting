@@ -41,7 +41,7 @@ public class CduScreenTest
     [Fact]
     public void Affordances_AllowanceSpent_OnlyLook()
     {
-        var spent = Up() with { Allowance = new CduAllowance(1.02, 1) };
+        var spent = Up(ahead: 1) with { Allowance = new CduAllowance(1.02, 1) };
         Assert.Equal("look", Verbs(Desk(spent, Said(Justin, asked: true))));
         Assert.Contains("spent today's allowance", CduScreen.Render(Desk(spent)));
     }
@@ -52,11 +52,11 @@ public class CduScreenTest
 
     [Fact]
     public void Affordances_AQuestionOpen_OffersAnAnswerFirst()
-        => Assert.Equal("answer,talk,look", Verbs(Desk(Up(), Said(Justin, asked: true))));
+        => Assert.Equal("answer,talk", Verbs(Desk(Up(), Said(Justin, asked: true))));
 
     [Fact]
     public void Affordances_TheirWordsUnanswered_OnlyLook()
-        => Assert.Equal("look", Verbs(Desk(Up(), Said(Justin, asked: true), Said(Denise, CduRules.Queued, turn: "t2"))));
+        => Assert.Equal("look", Verbs(Desk(Up(ahead: 1), Said(Justin, asked: true), Said(Denise, CduRules.Queued, turn: "t2"))));
 
     [Fact]
     public void Affordances_AQuestionAlreadyAnswered_IsNotOfferedAgain()
@@ -64,7 +64,7 @@ public class CduScreenTest
         var state = new CduState();
         CduRules.Spoke(state, Said(Justin, asked: true));
         CduRules.Spoke(state, Said(Justin, CduRules.Queued, kind: CduRules.Answer, turn: "t2"));
-        Assert.Equal("talk,look", Verbs(new CduDesk(Shop, state, Up(), Quiet, Denise)));
+        Assert.Equal("talk", Verbs(new CduDesk(Shop, state, Up(), Quiet, Denise)));
     }
 
     [Fact]

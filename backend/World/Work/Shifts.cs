@@ -94,7 +94,7 @@ public static class Shifts
     public static int Damping(string appId, bool onShift) => onShift && !IsWork(appId) ? 1 : 0;
 
     /// <summary>The Apps that are the job itself, so a shift doesn't damp them.</summary>
-    public static bool IsWork(string appId) => appId is WorkApp.AppId or Companies.DeskApp.AppId or Practices.PracticeApp.AppId;
+    public static bool IsWork(string appId) => appId is WorkApp.AppId or Companies.DeskApp.AppId or Practices.PracticeApp.AppId or Cdu.CduScreen.AppId;
 
     /// <summary>Hourly rate so five 8-hour shifts pay what a week of flat daily pay did (ADR 0024).</summary>
     public static double HourlyRate(string? means) => Money.DailyPay(means) * 7 / 40.0;

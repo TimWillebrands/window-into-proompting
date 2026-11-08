@@ -117,7 +117,7 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
 
     /// <summary>Nothing said, nothing built: a look only finds an empty trunk, and staff kept choosing it over talking.</summary>
     private static bool SomethingToSee(CduDesk desk)
-        => desk.State.Exchanges.Count > 0 || desk.Cdu?.Pr is not null || desk.Cdu?.Trunk is { Ahead.Count: > 0 };
+        => desk.Cdu?.Pr is not null || desk.Cdu?.Trunk is { Ahead.Count: > 0 };
 
     /// <summary>Out of allowance for today: words to it would only fail.</summary>
     public static bool Spent(CduStatus cdu) => cdu.Allowance is { } a && a.Usd >= a.CapUsd;
