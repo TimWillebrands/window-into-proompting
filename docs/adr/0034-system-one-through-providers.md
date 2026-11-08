@@ -17,6 +17,8 @@ judge meant a redeploy, and decisions never showed up in Control Panel or AI obs
    `[AlwaysInterleave]`. Without this, routing a decision waits on any generation in progress.
 5. **`Enabled` stays synchronous.** Beat-path callers read it in about 14 places, so `ProviderJudge` caches it, refreshes
    every 30 seconds, and answers before the World starts. Disabling the last Decisions provider takes up to 30 seconds.
+
+   *Superseded by ADR 0044:* `Enabled` is gone. `ProviderJudge` still refreshes whether it has a pool every 30 seconds.
 6. **Cloud judges seed once.** `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` become Decisions providers on first boot, in
    the old order. Worlds seeded earlier get this too, or Jev would silently stop. After that Control Panel owns them, so
    a deleted one stays deleted and those variables are ignored.
@@ -30,6 +32,8 @@ judge meant a redeploy, and decisions never showed up in Control Panel or AI obs
 
 - **Calls about a group or a place** use the pool: Thermostat, Lull capture, Moment appraisal, Places tone and naming.
 - **LLM emulation** stays the fallback when no Decisions provider exists (`SYSTEM_ONE_EMULATE`).
+
+  *Amended by ADR 0044:* emulation is always the floor; `SYSTEM_ONE_EMULATE` is gone.
 - **The Bench's Reflex calibration probe** keeps calling Jev directly through `HttpSystemOneJudge`.
 
 ## Cost

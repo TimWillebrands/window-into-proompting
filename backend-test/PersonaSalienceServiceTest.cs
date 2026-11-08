@@ -1,31 +1,12 @@
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using PartyTown.Grains.Generation;
 using PartyTown.Model;
 using PartyTown.Services.ResponsePipeline;
+using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="PersonaSalienceService"/> — the stop-signal salience classifier
-/// used by <c>PersonaGrain</c>'s race trigger to decide whether a new message warrants
-/// interrupting an in-flight generation.
-///
-/// Coverage:
-///   • Well-formed JSON parses to the expected (Salience, Kind) tuple.
-///   • Salience values outside [0, 1] are clamped (cheap models occasionally emit
-///     2.0 or -0.3 despite the strict schema).
-///   • Markdown-fenced JSON ( ```json … ``` ) is unwrapped via the shared cleanup helper.
-///   • Routing failure → <see cref="SalienceScore.LetItRide"/> (no cancel, no repair) —
-///     the race code MUST NOT cancel an in-flight gen because the cheap model is missing.
-///   • Generation exception (post-routing) → also <see cref="SalienceScore.LetItRide"/>.
-///   • Unparseable JSON → <see cref="SalienceScore.LetItRide"/>.
-///   • Routing requests <see cref="JobComplexity.CharacterThoughts"/> (the cheap-model lane).
-///
-/// Strategy mirrors PersonaDecisionServiceTest: mock the router + endpoint, script JSON
-/// chunks via a single-yield IAsyncEnumerable, NullLogger.
-/// </summary>
+/// <summary>Stop-signal salience through System One: the score, the clamp, and "let it ride" on any failure.</summary>
 public class PersonaSalienceServiceTest
 {
     private static SelfView MakeSelf() =>
@@ -39,190 +20,54 @@ public class PersonaSalienceServiceTest
         Content = content,
     };
 
-    private static async IAsyncEnumerable<LlmGenerationEvent> SingleChunk(
-        string data,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    private static PersonaSalienceService Service(Func<SystemOneAnswers> answer)
     {
-        ct.ThrowIfCancellationRequested();
-        await Task.Yield();
-        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, data);
+        var judge = new Mock<ISystemOneJudge>();
+        judge.Setup(j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(answer);
+        return new PersonaSalienceService(judge.Object, NullLogger.Instance);
     }
 
-    private static (Mock<ILlmRouterGrain> router, Mock<ILlmEndpointGrain> endpoint) MakeRouter(string json)
+    private static SystemOneAnswers Answers(double? interrupt, string? kind = null)
     {
-        var endpoint = new Mock<ILlmEndpointGrain>();
-        endpoint
-            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
-            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => SingleChunk(json, ct));
-        endpoint
-            .Setup(e => e.GetAttributionAsync())
-            .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "lfm2-test" });
-
-        var router = new Mock<ILlmRouterGrain>();
-        router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(endpoint.Object);
-        return (router, endpoint);
+        var answers = new SystemOneAnswers();
+        if (interrupt is { } p) answers.Nouls["interrupt"] = p;
+        if (kind is not null) answers.Choices["kind"] = new Dictionary<string, double> { [kind] = 0.7, ["tangent"] = 0.3 };
+        return answers;
     }
 
-    private static PersonaSalienceService MakeService(string json)
-    {
-        var (router, _) = MakeRouter(json);
-        return new PersonaSalienceService(router.Object, NullLogger.Instance);
-    }
+    private static Task<SalienceScore> ScoreAsync(PersonaSalienceService service) => service.ScoreAsync(
+        MakeSelf(), "I was about to defend it.", "Defend it.", "I think it's actua",
+        NewMessage("forget that, it's been deprecated"), "Mira", CancellationToken.None);
 
     [Fact]
-    public async Task ScoreAsync_WellFormedJson_ParsesValueAndKind()
+    public async Task Answer_GivesValueAndMostLikelyKind()
     {
-        var service = MakeService("""{"salience":0.82,"kind":"redirect"}""");
-        var result = await service.ScoreAsync(
-            MakeSelf(), "I was about to defend it.", "Defend it.", "I think it's actua",
-            NewMessage("forget that — it's been deprecated"), "Mira",
-            CancellationToken.None);
+        var result = await ScoreAsync(Service(() => Answers(0.82, "redirect")));
 
         Assert.Equal(0.82, result.Value, precision: 3);
         Assert.Equal("redirect", result.Kind);
     }
 
-    [Fact]
-    public async Task ScoreAsync_SalienceAbove1_IsClampedTo1()
-    {
-        // Cheap models occasionally hallucinate magnitudes (2.0, "high", etc.) despite the
-        // strict schema. The race math depends on a clean unit interval — clamp on the way out.
-        var service = MakeService("""{"salience":2.4,"kind":"contradict"}""");
-        var result = await service.ScoreAsync(
-            MakeSelf(), "go", "go", "",
-            NewMessage("don't"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(1.0, result.Value);
-    }
+    [Theory]
+    [InlineData(2.4, 1.0)]
+    [InlineData(-0.5, 0.0)]
+    public async Task Value_IsClampedToUnitInterval(double raw, double expected)
+        => Assert.Equal(expected, (await ScoreAsync(Service(() => Answers(raw, "contradict")))).Value);
 
     [Fact]
-    public async Task ScoreAsync_SalienceBelow0_IsClampedTo0()
-    {
-        var service = MakeService("""{"salience":-0.5,"kind":"irrelevant"}""");
-        var result = await service.ScoreAsync(
-            MakeSelf(), "go", "go", "",
-            NewMessage("unrelated"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(0.0, result.Value);
-    }
+    public async Task NoKind_DefaultsToTangent()
+        => Assert.Equal("tangent", (await ScoreAsync(Service(() => Answers(0.4)))).Kind);
 
     [Fact]
-    public async Task ScoreAsync_MarkdownFencedJson_ParsesViaCleanupHelper()
-    {
-        // Cheap models still wrap structured output in ```json … ``` despite the schema.
-        // The shared LlmJsonParsing.ExtractJsonPayload strips the fence before parsing.
-        var service = MakeService("```json\n{\"salience\":0.4,\"kind\":\"tangent\"}\n```");
-        var result = await service.ScoreAsync(
-            MakeSelf(), "g", "g", "",
-            NewMessage("anyway"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(0.4, result.Value, precision: 3);
-        Assert.Equal("tangent", result.Kind);
-    }
+    public async Task NoAnswer_LetsItRide()
+        => Assert.Equal(SalienceScore.LetItRide, await ScoreAsync(Service(() => Answers(null))));
 
     [Fact]
-    public async Task ScoreAsync_UnparseableJson_ReturnsLetItRide()
-    {
-        // Garbage from the model must NOT cancel an in-flight generation. Defaulting
-        // to LetItRide preserves current behavior rather than introducing a new failure.
-        var service = MakeService("<<error: provider returned 503>>");
-        var result = await service.ScoreAsync(
-            MakeSelf(), "g", "g", "",
-            NewMessage("hi"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(SalienceScore.LetItRide, result);
-    }
+    public async Task JudgeFailure_LetsItRide()
+        => Assert.Equal(SalienceScore.LetItRide, await ScoreAsync(Service(() => throw new InvalidOperationException("judge down"))));
 
     [Fact]
-    public async Task ScoreAsync_RoutingFailure_ReturnsLetItRide()
-    {
-        // No CharacterThoughts-capable provider configured → router throws.
-        // Race code MUST treat this as "let it ride" so an unconfigured cheap model
-        // doesn't spuriously cancel every in-flight generation.
-        var router = new Mock<ILlmRouterGrain>();
-        router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("no provider supports CharacterThoughts"));
-
-        var service = new PersonaSalienceService(router.Object, NullLogger.Instance);
-        var result = await service.ScoreAsync(
-            MakeSelf(), "g", "g", "",
-            NewMessage("hi"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(SalienceScore.LetItRide, result);
-    }
-
-    [Fact]
-    public async Task ScoreAsync_GenerationException_ReturnsLetItRide()
-    {
-        // Routing succeeded but the LLM call itself blew up (network, parse error inside
-        // the endpoint, etc.). Same conservative fallback.
-        var endpoint = new Mock<ILlmEndpointGrain>();
-        endpoint
-            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
-            .Returns<LlmGenerationJob, CancellationToken>((_, _) => ThrowingEnumerable());
-        endpoint
-            .Setup(e => e.GetAttributionAsync())
-            .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "lfm2-test" });
-
-        var router = new Mock<ILlmRouterGrain>();
-        router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(endpoint.Object);
-
-        var service = new PersonaSalienceService(router.Object, NullLogger.Instance);
-        var result = await service.ScoreAsync(
-            MakeSelf(), "g", "g", "",
-            NewMessage("hi"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(SalienceScore.LetItRide, result);
-
-        static async IAsyncEnumerable<LlmGenerationEvent> ThrowingEnumerable()
-        {
-            await Task.Yield();
-            throw new InvalidOperationException("upstream broke");
-#pragma warning disable CS0162 // Unreachable code — required to make the method an iterator.
-            yield break;
-#pragma warning restore CS0162
-        }
-    }
-
-    [Fact]
-    public async Task ScoreAsync_RoutesViaCharacterThoughtsComplexity()
-    {
-        // Contract: salience scoring MUST request the cheap-model lane via
-        // JobComplexity.CharacterThoughts. If this changes, provider configuration
-        // (LlmProviderEntry.SupportedComplexities) and the deployment guidance break.
-        JobComplexity? requested = null;
-        var endpoint = new Mock<ILlmEndpointGrain>();
-        endpoint
-            .Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
-            .Returns<LlmGenerationJob, CancellationToken>((_, ct) =>
-                SingleChunk("""{"salience":0.1,"kind":"tangent"}""", ct));
-        endpoint
-            .Setup(e => e.GetAttributionAsync())
-            .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "lfm2-test" });
-
-        var router = new Mock<ILlmRouterGrain>();
-        router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .Callback<JobComplexity, CancellationToken>((c, _) => requested = c)
-            .ReturnsAsync(endpoint.Object);
-
-        var service = new PersonaSalienceService(router.Object, NullLogger.Instance);
-        await service.ScoreAsync(
-            MakeSelf(), "g", "g", "",
-            NewMessage("hi"), "Mira",
-            CancellationToken.None);
-
-        Assert.Equal(JobComplexity.CharacterThoughts, requested);
-    }
+    public async Task Cancellation_Propagates()
+        => await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ScoreAsync(Service(() => throw new OperationCanceledException())));
 }

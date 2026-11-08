@@ -123,7 +123,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     private async Task<ShopItem?> PickAsync(Guid who, string intent, IReadOnlyList<ShopItem> options)
     {
         var weigh = judge.For(who);
-        if (options.Count <= 1 || !weigh.Enabled) return options.FirstOrDefault();
+        if (options.Count <= 1) return options.FirstOrDefault();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));

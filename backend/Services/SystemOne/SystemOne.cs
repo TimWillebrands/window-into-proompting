@@ -15,9 +15,6 @@ namespace PartyTown.Services.SystemOne;
 /// </summary>
 public interface ISystemOneJudge
 {
-    /// <summary>Whether beat-path weighing should go through this judge (Jev: always; LLM emulation: opt-in).</summary>
-    bool Enabled { get; }
-
     Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct);
 }
 
@@ -72,7 +69,6 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
     public const string OpenRouterUrl = "https://openrouter.ai/api/v1/systemone";
     public const string OpenRouterModel = "~typesafe/jev-latest";
 
-    public bool Enabled => true;
 
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
         => ParseResponse(await PostAsync(http, url, apiKey, BuildRequest(model, state, questions), name, logger, ct));
@@ -148,22 +144,16 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
 {
     private static readonly TimeSpan RefreshEvery = TimeSpan.FromSeconds(30);
     private volatile bool _hasProviders;
-    private volatile IReadOnlySet<Guid> _routed = new HashSet<Guid>();
-
-    public bool Enabled => _hasProviders || emulation.Enabled;
 
     public ISystemOneJudge ForPersona(Guid persona) => new PersonaJudge(this, persona);
 
     private sealed class PersonaJudge(ProviderJudge judge, Guid persona) : ISystemOneJudge
     {
-        // A Route to a Reserved model counts even when the pool has no decision model.
-        public bool Enabled => judge.Enabled || judge._routed.Contains(persona);
-
         public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
             => judge.AskAsync(persona, state, questions, ct);
     }
 
-    /// <summary>Callers read <see cref="Enabled"/> synchronously, so it's answered before the world starts.</summary>
+    /// <summary>Knows its providers before the world starts, so the first beat routes right.</summary>
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         await RefreshAsync();
@@ -186,9 +176,7 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         {
             var config = grains.GetGrain<ILlmProviderConfigGrain>(0);
             var providers = await config.GetProvidersAsync();
-            var routes = await config.GetPersonaRoutesAsync();
             _hasProviders = providers.Any(p => p.IsEnabled && !p.Reserved && p.SupportedComplexities.HasFlag(JobComplexity.Decisions));
-            _routed = routes.Where(r => r.Tier == JobComplexity.Decisions).Select(r => r.PersonaId).ToHashSet();
         }
         catch (Exception ex)
         {
@@ -237,10 +225,8 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
 }
 
 /// <summary>System One emulated by one General-tier LLM call asking for probabilities. Less calibrated, same contract.</summary>
-public sealed class LlmJudge(IGrainFactory grains, IConfiguration config, ILogger<LlmJudge> logger) : ISystemOneJudge
+public sealed class LlmJudge(IGrainFactory grains, ILogger<LlmJudge> logger) : ISystemOneJudge
 {
-    public bool Enabled => config.GetValue<bool>("SYSTEM_ONE_EMULATE");
-
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
     {
         var sb = new StringBuilder();

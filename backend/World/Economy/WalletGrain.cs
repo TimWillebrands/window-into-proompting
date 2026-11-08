@@ -99,7 +99,7 @@ public sealed class WalletGrain(
 
     private async Task<string> MeansAsync(CastMember? who)
     {
-        if (who is null || who.DefaultDriver != DriverKind.LLM || !judge.For(who.Id).Enabled) return Money.GettingBy;
+        if (who is null || who.DefaultDriver != DriverKind.LLM) return Money.GettingBy;
         var sheet = Self.LivedSheets.For(who.Id, who.SystemPrompt) ?? who.Bio;
         if (string.IsNullOrWhiteSpace(sheet)) return Money.GettingBy;
         try

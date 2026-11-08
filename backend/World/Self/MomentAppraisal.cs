@@ -38,7 +38,6 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
     /// <param name="who">Personas who took a recollection away from it.</param>
     public async Task AppraiseAsync(Moment moment, IReadOnlySet<Guid> who)
     {
-        if (!judge.Enabled) return;
         var personas = moment.Present.Where(p => p.Driver == DriverKind.LLM && who.Contains(p.Id)).ToList();
         if (personas.Count == 0) return;
         // Only what's new since this thread's last appraisal: a Board thread re-captures on every reply.

@@ -290,7 +290,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         Assert.Contains((await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetParty()).Participants, p => p.Id == denise);
     }
 
-    /// <summary>Answers the Initiative call by picking the menu line matching <see cref="ChooseOptionContaining"/>.</summary>
+    /// <summary>Voices the Initiative pick; <see cref="MenuJudge"/> picks the option matching <see cref="ChooseOptionContaining"/>.</summary>
     public sealed class ScriptedLlm : IWorldLlm
     {
         public static volatile string? ChooseOptionContaining;
@@ -302,16 +302,8 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
         {
             Prompts.Enqueue(user);
-            if (user.Contains("# Options"))
-            {
-                var wanted = ChooseOptionContaining;
-                var line = wanted is null ? null : user.Split('\n').FirstOrDefault(l => l.Contains(wanted));
-                var number = line is null ? "0" : Regex.Match(line, @"^(\d+)\.").Groups[1].Value;
-                return Task.FromResult<JsonObject?>(new JsonObject
-                {
-                    ["thought"] = "scripted thought", ["choice"] = number, ["intent"] = "say hello to everyone",
-                });
-            }
+            if (user.Contains("# What you've decided"))
+                return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted thought", ["intent"] = "say hello to everyone" });
             return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["post"] = "Scripted post", ["body"] = "Scripted body", ["respect"] = "no" });
         }
     }
@@ -365,7 +357,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     services.AddSingleton(Mock.Of<IStanceConsolidator>());
                     services.AddSingleton<ConsolidationService>();
                     services.AddSingleton<WorldMemory>();
-                    services.AddSingleton(Mock.Of<ISystemOneJudge>(j => j.Enabled == false));
+                    services.AddSingleton<ISystemOneJudge>(new MenuJudge(() => ScriptedLlm.ChooseOptionContaining));
                     services.AddSingleton<IWorldApp, RoomsApp>();
                     services.AddSingleton<IWorldApp, MessengerApp>();
                     services.AddSingleton<IWorldApp, BoardApp>();

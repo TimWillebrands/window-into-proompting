@@ -464,7 +464,7 @@ public sealed partial class PlacesGrain(
         };
         _overheard.Add(record);
         if (_overheard.Count > 40) _overheard.RemoveAt(0);
-        if (judge.Enabled) _ = ReadToneAsync(record, m.Content ?? string.Empty, listeners);
+        _ = ReadToneAsync(record, m.Content ?? string.Empty, listeners);
     }
 
     private async Task ReadToneAsync(Overheard record, string content, List<Body> listeners)

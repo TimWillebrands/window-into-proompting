@@ -40,6 +40,8 @@ When the judge is `Enabled`:
 When it is not enabled, Initiative stays the single combined LLM call and Capture is
 ungated. That is cheaper than emulating System One with an extra LLM call.
 
+> Superseded by [ADR 0044](0044-system-one-required.md): the judge is required, so there is no "not enabled" mode.
+
 ## Why a port, not a direct dependency
 
 - Jev is closed-weight and in early access. The world must keep living without it.

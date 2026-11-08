@@ -49,11 +49,10 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
         return new ActOutcome("book", $"booked a session with {session.PractitionerName} for {at}", null, practitionerId);
     }
 
-    /// <summary>One read a day of whether a Practice speaks to what's going on with them; null without a judge.</summary>
+    /// <summary>One read a day of whether a Practice speaks to what's going on with them.</summary>
     private async Task<double?> FitAsync(LifeContext ctx, Guid practitionerId, string name, Occupation job, Practice practice, CancellationToken ct)
     {
         var weigh = judge.For(ctx.Self.Id);
-        if (!weigh.Enabled) return null;
         var book = grains.GetGrain<ISessionsGrain>(ctx.PartyId);
         var day = Shifts.DayKey(ctx.Now.ToLocalTime());
         if (await book.GetFitAsync(ctx.Self.Id, practitionerId, day) is { } known) return known;
@@ -64,7 +63,7 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
             {
                 ["fit"] = new NoulQuestion($"{ctx.Self.Name} has something going on right now that {name}, a {job.Title} ({practice.Field}), could really help with."),
             }, ct);
-            var fit = answers.Noul("fit", 0);
+            if (!answers.Nouls.TryGetValue("fit", out var fit)) return null;
             await book.SetFitAsync(ctx.Self.Id, practitionerId, day, fit);
             return fit;
         }

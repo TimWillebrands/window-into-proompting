@@ -378,8 +378,6 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
 
         public static IReadOnlyCollection<string> Seen => States;
 
-        public bool Enabled => true;
-
         public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
         {
             var answers = new SystemOneAnswers();

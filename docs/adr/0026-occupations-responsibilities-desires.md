@@ -148,5 +148,7 @@ never forces it.
 - Means as flat pay shrinks to the fallback case.
 - Each Initiative turn with a being-desire costs one extra noul (System One only; skipped when no judge
   is enabled).
+
+  *Amended by ADR 0044:* the judge is required.
 - Mimesis can reconverge the world. Track mimetic-desire count and rivalry rate in the lifelikeness bench
   next to stale words.

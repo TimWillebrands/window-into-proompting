@@ -1,10 +1,10 @@
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 using PartyTown.Model;
 using PartyTown.Services.ResponsePipeline;
+using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
@@ -20,8 +20,7 @@ namespace BackendTest;
 ///
 /// Strategy: real <see cref="InFlightStore"/>, mock <see cref="IChatGroupGrain"/> probe
 /// for participants + papertrail capture, mock <see cref="IGrainFactory"/> + mock
-/// <see cref="ILlmRouterGrain"/> for the salience-service path (only exercised by the
-/// pre-PNR outcomes).
+/// <see cref="ISystemOneJudge"/> for salience (only exercised by the pre-PNR outcomes).
 /// </summary>
 public class RaceTriggerTest
 {
@@ -80,12 +79,8 @@ public class RaceTriggerTest
         return mock;
     }
 
-    /// <summary>
-    /// Build a fake grain factory whose <c>GetGrain&lt;ILlmRouterGrain&gt;(0, null)</c> returns
-    /// the supplied router mock and whose <c>GetGrain&lt;IPartyGrain&gt;(PartyId, null)</c>
-    /// returns a party grain mock with the test cast (used for sender-name resolution).
-    /// </summary>
-    private static Mock<IGrainFactory> MakeGrainFactory(Mock<ILlmRouterGrain> router, Guid otherParticipantId, string otherParticipantName)
+    /// <summary>Grain factory whose party grain returns the test cast (used for sender-name resolution).</summary>
+    private static Mock<IGrainFactory> MakeGrainFactory(Guid otherParticipantId, string otherParticipantName)
     {
         var partyGrain = new Mock<IPartyGrain>();
         partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
@@ -98,37 +93,24 @@ public class RaceTriggerTest
                 persona: null),
         });
         var factory = new Mock<IGrainFactory>();
-        factory.Setup(f => f.GetGrain<ILlmRouterGrain>(0L, null)).Returns(router.Object);
         factory.Setup(f => f.GetGrain<IPartyGrain>(PartyId, null)).Returns(partyGrain.Object);
         return factory;
     }
 
-    /// <summary>Router that responds to RouteAsync with an endpoint streaming the given JSON salience response.</summary>
-    private static Mock<ILlmRouterGrain> MakeRouterWithSalience(string salienceJson)
+    /// <summary>System One answering the interrupt noul with <paramref name="salience"/>.</summary>
+    private static Mock<ISystemOneJudge> MakeJudge(double salience, string kind)
     {
-        var endpoint = new Mock<ILlmEndpointGrain>();
-        endpoint.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
-            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => SingleChunk(salienceJson, ct));
-        endpoint.Setup(e => e.GetAttributionAsync())
-            .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "lfm2-test" });
-
-        var router = new Mock<ILlmRouterGrain>();
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(endpoint.Object);
-        return router;
+        var answers = new SystemOneAnswers();
+        answers.Nouls["interrupt"] = salience;
+        answers.Choices["kind"] = new Dictionary<string, double> { [kind] = 1.0 };
+        var judge = new Mock<ISystemOneJudge>();
+        judge.Setup(j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(answers);
+        return judge;
     }
 
-    private static async IAsyncEnumerable<LlmGenerationEvent> SingleChunk(
-        string data,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        await Task.Yield();
-        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, data);
-    }
-
-    private static RaceTrigger MakeTrigger(Mock<IGrainFactory> factory) =>
-        new(factory.Object, NullLoggerFactory.Instance);
+    private static RaceTrigger MakeTrigger(Mock<IGrainFactory> factory, Mock<ISystemOneJudge> judge) =>
+        new(factory.Object, NullLoggerFactory.Instance, judge.Object);
 
     // ── outcomes ──────────────────────────────────────────────────────────────
 
@@ -145,9 +127,9 @@ public class RaceTriggerTest
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
         var chatGroup = MakeChatGroup(outcomes);
-        var router = MakeRouterWithSalience("""{"salience":0.0,"kind":"irrelevant"}""");
-        var factory = MakeGrainFactory(router, senderId, "Mira");
-        var trigger = MakeTrigger(factory);
+        var judge = MakeJudge(0.0, "irrelevant");
+        var factory = MakeGrainFactory(senderId, "Mira");
+        var trigger = MakeTrigger(factory, judge);
 
         // Act
         await trigger.EvaluateAsync(
@@ -161,8 +143,8 @@ public class RaceTriggerTest
         Assert.Single(outcomes);
         Assert.Equal("cancel-decision", outcomes[0].Item1);
         // Salience never consulted on decision-phase cancel.
-        router.Verify(
-            r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()),
+        judge.Verify(
+            j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -180,9 +162,9 @@ public class RaceTriggerTest
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
         var chatGroup = MakeChatGroup(outcomes);
-        var router = MakeRouterWithSalience("""{"salience":1.0,"kind":"contradict"}""");
-        var factory = MakeGrainFactory(router, senderId, "Mira");
-        var trigger = MakeTrigger(factory);
+        var judge = MakeJudge(1.0, "contradict");
+        var factory = MakeGrainFactory(senderId, "Mira");
+        var trigger = MakeTrigger(factory, judge);
 
         // Act
         await trigger.EvaluateAsync(
@@ -197,8 +179,8 @@ public class RaceTriggerTest
         Assert.Equal(99, hint!.Value.MissedMessageId);
         Assert.Single(outcomes);
         Assert.Equal("past-pnr", outcomes[0].Item1);
-        router.Verify(
-            r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()),
+        judge.Verify(
+            j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -216,9 +198,9 @@ public class RaceTriggerTest
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
         var chatGroup = MakeChatGroup(outcomes);
-        var router = MakeRouterWithSalience("""{"salience":0.95,"kind":"contradict"}""");
-        var factory = MakeGrainFactory(router, senderId, "Mira");
-        var trigger = MakeTrigger(factory);
+        var judge = MakeJudge(0.95, "contradict");
+        var factory = MakeGrainFactory(senderId, "Mira");
+        var trigger = MakeTrigger(factory, judge);
 
         // Act
         await trigger.EvaluateAsync(
@@ -249,9 +231,9 @@ public class RaceTriggerTest
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
         var chatGroup = MakeChatGroup(outcomes);
-        var router = MakeRouterWithSalience("""{"salience":0.1,"kind":"tangent"}""");
-        var factory = MakeGrainFactory(router, senderId, "Mira");
-        var trigger = MakeTrigger(factory);
+        var judge = MakeJudge(0.1, "tangent");
+        var factory = MakeGrainFactory(senderId, "Mira");
+        var trigger = MakeTrigger(factory, judge);
 
         // Act
         await trigger.EvaluateAsync(
@@ -271,10 +253,7 @@ public class RaceTriggerTest
     [Fact]
     public async Task EvaluateAsync_SpeakingPrePnr_SalienceThrows_LetsItRide()
     {
-        // Arrange: salience routing throws → service returns SalienceScore.LetItRide internally,
-        // cancelScore math collapses to 0, never crosses the threshold. The in-flight gen
-        // survives untouched — this is the conservative fallback that preserves current
-        // behavior when the cheap salience model is unavailable.
+        // Arrange: the judge throws → SalienceScore.LetItRide, cancelScore 0, the draft survives.
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
@@ -285,11 +264,11 @@ public class RaceTriggerTest
         var outcomes = new List<(string, double?, double?)>();
         var chatGroup = MakeChatGroup(outcomes);
 
-        var router = new Mock<ILlmRouterGrain>();
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("no CharacterThoughts provider"));
-        var factory = MakeGrainFactory(router, senderId, "Mira");
-        var trigger = MakeTrigger(factory);
+        var judge = new Mock<ISystemOneJudge>();
+        judge.Setup(j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("judge down"));
+        var factory = MakeGrainFactory(senderId, "Mira");
+        var trigger = MakeTrigger(factory, judge);
 
         // Act
         await trigger.EvaluateAsync(

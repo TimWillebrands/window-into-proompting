@@ -25,6 +25,8 @@ Add **Reflex**, a stimulus-driven instance of Relevance Realization at the secon
 
 Reflex only runs in a running World with an enabled judge and no scenario. A paused World, a scenario Room or a dead judge leaves the old path exactly as it was. So does a judge past its 1.2 s budget: Reflex fails towards replying.
 
+> Amended by [ADR 0044](0044-system-one-required.md): the judge is required, so only a paused World or a scenario Room leaves the old path.
+
 ## A human is never left on read
 
 Personas may leave each other unanswered, and an Intention nobody is owed can slip their mind after six hours. A human is different. `leave` has no weight for them, and what's put off is owed within 12 minutes, busy or not. Messenger says so: "saw this and will get back to you". Silence from a character can't be told apart from a broken app, and only one of those is lifelike.

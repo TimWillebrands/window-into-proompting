@@ -55,7 +55,7 @@ if (!openApiBuild)
 
     // World (ADR 0018): Apps are modes of engagement; Life picks among their Affordances.
     builder.Services.AddSingleton<PartyTown.World.IWorldLlm, PartyTown.World.WorldLlm>();
-    // System One (ADR 0034): the Decisions provider tier; with none, LLM emulation if opted in.
+    // System One (ADR 0034): the Decisions provider tier; with none answering, LLM emulation (ADR 0040).
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.LlmJudge>();
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.ProviderJudge>();
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(sp =>
@@ -166,7 +166,7 @@ if (!openApiBuild)
     builder.Services.Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
 
     builder.Services.AddHostedService<NarratorSeederHostedService>();
-    // After the silo, before the World: beats read the judge's Enabled synchronously.
+    // After the silo, before the World: the judge knows its providers before the first beat.
     builder.Services.AddHostedService(sp => sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
     builder.Services.AddHostedService<PartyTown.Grains.Generation.ProviderAvailabilityService>();
     builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();

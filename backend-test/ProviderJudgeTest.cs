@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using PartyTown.Grains.Generation;
@@ -25,17 +24,12 @@ public class ProviderJudgeTest
             .ReturnsAsync(endpoint?.Object);
     }
 
-    private ProviderJudge Judge(bool emulate = false)
+    private ProviderJudge Judge()
     {
         var grains = new Mock<IGrainFactory>();
         grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(_router.Object);
         grains.Setup(g => g.GetGrain<ILlmProviderConfigGrain>(0, null)).Returns(_config.Object);
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["SYSTEM_ONE_EMULATE"] = emulate.ToString() })
-            .Build();
-        return new ProviderJudge(grains.Object,
-            new LlmJudge(grains.Object, config, NullLogger<LlmJudge>.Instance),
-            NullLogger<ProviderJudge>.Instance);
+        return new ProviderJudge(grains.Object, new LlmJudge(grains.Object, NullLogger<LlmJudge>.Instance), NullLogger<ProviderJudge>.Instance);
     }
 
     private async Task<ProviderJudge> JudgeWithProvidersAsync(params LlmProviderEntry[] providers)
@@ -207,13 +201,11 @@ public class ProviderJudgeTest
     }
 
     [Fact]
-    public async Task For_AReservedModelAlone_EnablesThatPersonaOnly()
+    public async Task For_AReservedModelAlone_AnswersForThatPersona()
     {
         AssignVlad(Endpoint(Answer));
         var judge = await JudgeWithProvidersAsync(Provider(reserved: true));
 
-        Assert.True(judge.For(Vlad).Enabled);
-        Assert.False(judge.For(Guid.NewGuid()).Enabled);
         Assert.Equal(0.8, (await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
     }
 
@@ -237,44 +229,38 @@ public class ProviderJudgeTest
     }
 
     [Fact]
-    public async Task Enabled_WithAnEnabledDecisionsProvider()
-        => Assert.True((await JudgeWithProvidersAsync(Provider(), Provider(JobComplexity.General))).Enabled);
+    public async Task Ask_EmulatesWithoutAPoolDecisionsProvider()
+    {
+        foreach (var provider in new[] { Provider(JobComplexity.General), Provider(enabled: false), Provider(reserved: true) })
+        {
+            var judge = await JudgeWithProvidersAsync(provider);
+            EmulationAnswers();
+
+            Assert.Equal(0.3, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
+        }
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
-    public async Task Enabled_NotWithoutOne()
-        => Assert.False((await JudgeWithProvidersAsync(Provider(JobComplexity.General))).Enabled);
-
-    [Fact]
-    public async Task Enabled_NotWhenTheOnlyOneIsDisabled()
-        => Assert.False((await JudgeWithProvidersAsync(Provider(enabled: false))).Enabled);
-
-    [Fact]
-    public async Task Enabled_NotWhenTheOnlyOneIsReserved_SinceThePoolCantReachIt()
-        => Assert.False((await JudgeWithProvidersAsync(Provider(reserved: true))).Enabled);
-
-    [Fact]
-    public async Task Enabled_FollowsConfigChanges()
+    public async Task Ask_FollowsConfigChanges()
     {
         var judge = await JudgeWithProvidersAsync(Provider());
-
         _config.Setup(c => c.GetProvidersAsync()).ReturnsAsync(new List<LlmProviderEntry>());
         await judge.RefreshAsync();
+        EmulationAnswers();
 
-        Assert.False(judge.Enabled);
+        Assert.Equal(0.3, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task Enabled_KeepsTheLastAnswerWhenConfigCantBeRead()
+    public async Task Ask_KeepsTheLastProvidersWhenConfigCantBeRead()
     {
         var judge = await JudgeWithProvidersAsync(Provider());
-
         _config.Setup(c => c.GetProvidersAsync()).ThrowsAsync(new TimeoutException());
         await judge.RefreshAsync();
+        Routes(Endpoint(Answer));
 
-        Assert.True(judge.Enabled);
+        Assert.Equal(0.8, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
     }
-
-    [Fact]
-    public void Enabled_WithEmulationAlone()
-        => Assert.True(Judge(emulate: true).Enabled);
 }
