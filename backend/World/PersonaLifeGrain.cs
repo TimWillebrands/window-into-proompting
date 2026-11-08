@@ -116,10 +116,11 @@ public sealed class PersonaLifeGrain(
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
         var presence = await PresenceAsync(partyId, personaId);
-        var rest = Hooks.Rest(await BeatAsync(partyId, personaId));
+        var rest = onShift ? Hooks.RestOnShift : Hooks.Rest(await BeatAsync(partyId, personaId));
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
+        if (onShift) presence += "\n" + Hooks.ShiftWins;
         presence += Desires.DesireRules.Render(wants);
         if (reflex is not null) presence += await reflex.MindAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))

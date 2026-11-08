@@ -39,4 +39,10 @@ public static class Hooks
     /// <summary>Doing nothing in particular is doing what the day has you doing.</summary>
     public static string Rest(string? beat)
         => beat is null ? "Do nothing for now" : $"Do nothing in particular, just carry on with your day ({Like(beat)})";
+
+    /// <summary>On shift, doing nothing is idling at work, not the evening the day had planned.</summary>
+    public const string RestOnShift = "Do nothing in particular for a moment; you're still on shift";
+
+    /// <summary>A shift outranks the day's plan, which may predate it.</summary>
+    public const string ShiftWins = "You're on shift right now: that wins over whatever your day had planned for this hour.";
 }
