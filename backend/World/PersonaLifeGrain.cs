@@ -69,19 +69,30 @@ public sealed class PersonaLifeGrain(
 
         var clock = GrainFactory.GetGrain<IWorldClockGrain>(partyId);
         var wants = await WantsAsync(partyId, personaId);
+        var threads = await party.GetChatGroups();
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = await SnapshotAsync(partyId);
+        var me = snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == personaId);
+        // What they said they'd do, due now, gets a handle: an option toward that person, their chat or where they are (ADR 0043).
+        var promised = PromiseRules.Handles(await PromisesAsync(partyId, personaId),
+            other => threads.FirstOrDefault(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(other) == true && t.MemberIds.Contains(personaId))?.Id,
+            other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId,
+            now.ToUnixTimeMilliseconds());
+        var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
+            .Where(a => a.Action == "happening" && now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < HappeningRules.Lingers)
+            .Select(a => HappeningRules.Relate(a, me, snapshot?.Places ?? new List<Places.Place>(), personaId))
+            .ToList();
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
-            await party.GetChatGroups(),
+            threads,
             (await clock.GetActivitiesAsync(12, personaId))
                 .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
-            DateTimeOffset.UtcNow,
+            now,
             await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
-            Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name))));
-
-        var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
-            .Where(a => a.Action == "happening" && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromHours(12))
-            .ToList();
+            Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name))),
+            promised,
+            happenings);
 
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
@@ -91,9 +102,9 @@ public sealed class PersonaLifeGrain(
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
         var onShift = await OnShiftAsync(partyId, personaId);
-        // Wanting gets a handle (ADR 0026): an option about someone you want something from pulls one more.
-        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk) - Work.Shifts.Damping(a.AppId, onShift)
-            + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
+        // Wanting and owing get a handle (ADR 0026, 0043): an option toward that person pulls one more; a promise also outlasts Settling.
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.PromiseAbout(a.TargetId) is not null)
+            - Work.Shifts.Damping(a.AppId, onShift) + (ctx.Drawn(a.TargetId) ? 1 : 0);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -126,7 +137,7 @@ public sealed class PersonaLifeGrain(
         if (happenings.Count > 0)
         {
             sb.AppendLine("\n# Lately in the world");
-            sb.AppendLine(string.Join("\n", happenings.Select(h => $"- {WorldStream.Ago(h.Ts, ctx.Now)}: {h.Summary}")));
+            sb.AppendLine(string.Join("\n", happenings.Select(h => HappeningRules.Line(h, ctx.Now))));
         }
         sb.AppendLine();
         sb.AppendLine("# On your mind");
@@ -147,7 +158,7 @@ public sealed class PersonaLifeGrain(
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
         var world = sb.ToString();
         sb.AppendLine("# Options");
-        string Read(Affordance a) => Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId));
+        string Read(Affordance a) => ctx.Read(a);
         for (var i = 0; i < options.Count; i++)
             sb.AppendLine($"{i + 1}. {Read(options[i])}");
         sb.AppendLine($"0. {rest}");
@@ -216,6 +227,27 @@ public sealed class PersonaLifeGrain(
         {
             logger.LogDebug(ex, "Desires failed for {Persona}", personaId);
             return new List<Desires.Desire>();
+        }
+    }
+
+    /// <summary>Promises both ways on their Ties (ADR 0043); none when the grain can't be read.</summary>
+    private async Task<List<PromiseView>> PromisesAsync(Guid partyId, Guid personaId)
+    {
+        try { return await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId)).GetPromisesAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Promises failed for {Persona}", personaId);
+            return new List<PromiseView>();
+        }
+    }
+
+    private async Task<Places.PlacesSnapshot?> SnapshotAsync(Guid partyId)
+    {
+        try { return await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSnapshotAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Places snapshot failed for Life in {Party}", partyId);
+            return null;
         }
     }
 
@@ -305,10 +337,10 @@ public static class Settling
 {
     public static readonly TimeSpan Window = TimeSpan.FromMinutes(10);
 
-    /// <summary>Pull taken off a movement option this soon after a walk; strong pulls (a promise, your name) are exempt.</summary>
-    public static int Penalty(Affordance a, TimeSpan? sinceWalk)
+    /// <summary>Pull taken off a movement option this soon after a walk; strong pulls (a Gathering, your name) and a promise due are exempt.</summary>
+    public static int Penalty(Affordance a, TimeSpan? sinceWalk, bool promised = false)
     {
-        if (a.AppId != "places" || sinceWalk is not { } since || since >= Window || a.Priority >= 3) return 0;
+        if (a.AppId != "places" || sinceWalk is not { } since || since >= Window || a.Priority >= 3 || promised) return 0;
         return a.Verb switch
         {
             "go" => 2,

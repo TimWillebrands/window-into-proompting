@@ -25,6 +25,11 @@ public static class Hooks
 
     public static string Tell(string who, string story) => $"Tell {who}, right here, about something from your own day (like: {Like(story)})";
 
+    /// <summary>Something that just happened where they both are: shared news, not one person's story.</summary>
+    public static string Saw(string who, string what) => $"Say something to {who} about what just happened here ({Like(what)})";
+
+    public static string PostAbout(string where, string what) => $"Post on Partyboard about what just happened {where} (you saw it: {Like(what)})";
+
     public static string Ask(string who, string? theyreDoing)
         => theyreDoing is null ? $"Talk to {who}, right here" : $"Ask {who} what they're up to, right here ({theyreDoing})";
 

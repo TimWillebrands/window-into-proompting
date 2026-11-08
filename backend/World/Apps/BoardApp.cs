@@ -36,9 +36,9 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var threads = all.Take(6).ToList();
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         var postedLately = all.Any(t => t.AuthorId == ctx.Self.Id && ctx.Now.ToUnixTimeMilliseconds() - t.CreatedAt < TimeSpan.FromHours(12).TotalMilliseconds);
-        var affordances = new List<Affordance> { PostAffordance(openers, postedLately) };
+        var affordances = new List<Affordance> { PostAffordance(openers, postedLately, Witnessed(ctx)) };
         if (!ctx.InMind(AttentionKey))
-            return Glance(ctx, all, affordances);
+            return await GlanceAsync(ctx, all, affordances);
         if (threads.Count == 0)
             return new AppPerception(Id, Title, "Partyboard is empty: nobody has posted yet.", affordances);
 
@@ -65,16 +65,35 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 sb.AppendLine("    (you read the latest here and let it be)");
                 continue;
             }
+            var done = await RanItsCourseAsync(ctx, t);
+            if (done) sb.AppendLine(RanItsCourseNote);
             var priority = 1 + (answeredYou ? 1 : 0) + (AddressedSinceYou(t, ctx) ? 2 : 0)
-                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id);
+                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id) - (done ? 2 : 0);
             affordances.Add(new Affordance(Id, $"Reply to {PostLabel(t, ctx.Self.Id)}", priority, t.Id, "reply"));
         }
 
         return new AppPerception(Id, Title, sb.ToString().TrimEnd(), affordances);
     }
 
+    private const string RanItsCourseNote = "    (this exchange has run its course: only agreeing or saying it again)";
+
+    /// <summary>The Rooms' thermostat over a Board thread (ADR 0043): a reply chain that only re-confirms pulls less, like a circling Room.</summary>
+    private async Task<bool> RanItsCourseAsync(LifeContext ctx, BoardThread t)
+    {
+        if (t.Replies.Count < 3) return false;
+        try { return Self.Thermostat.RunItsCourse(await grains.GetGrain<Self.IConversationThermostatGrain>(t.Id).GetThreadReadAsync(ctx.PartyId)); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Thread thermostat failed for {Thread}", t.Id);
+            return false;
+        }
+    }
+
+    /// <summary>A fresh Happening they saw themselves, the one thing from the world worth a post (ADR 0043).</summary>
+    private Happening? Witnessed(LifeContext ctx) => HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "post", ctx.Now);
+
     /// <summary>Partyboard closed: what's new since you last looked, and notifications for what concerns you.</summary>
-    private AppPerception Glance(LifeContext ctx, List<BoardThread> all, List<Affordance> affordances)
+    private async Task<AppPerception> GlanceAsync(LifeContext ctx, List<BoardThread> all, List<Affordance> affordances)
     {
         var seenAt = ctx.Looks.TryGetValue(AttentionKey, out var look) ? look.At : 0L;
         var (threads, replies) = NewSince(all, ctx.Self.Id, seenAt);
@@ -91,8 +110,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         {
             sb.AppendLine($"Notification: {line.AuthorName} {how} on {PostLabel(t, ctx.Self.Id)}: {WorldStream.Clip(line.Body, 100)}");
             if (RunItsCourse(t.Replies.Count) || PassedOn(ctx.RecentOwn, t)) continue;
+            var done = await RanItsCourseAsync(ctx, t);
+            if (done) sb.AppendLine(RanItsCourseNote);
             var priority = 1 + (how == "replied to you" ? 1 : 0) + (AddressedSinceYou(t, ctx) ? 2 : 0)
-                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id);
+                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id) - (done ? 2 : 0);
             affordances.Add(new Affordance(Id, $"Reply to {PostLabel(t, ctx.Self.Id)}", priority, t.Id, "reply"));
         }
         if (all.Count > 0)
@@ -164,9 +185,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     public static bool RunItsCourse(int replies) => replies >= MaxReplies;
 
-    /// <summary>A new post seeded by something from your own day; it pulls harder when you haven't posted lately.</summary>
-    public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately)
+    /// <summary>A new post seeded by something from your own day, or by what you just saw happen; it pulls harder when you haven't posted lately.</summary>
+    public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately, Happening? saw = null)
     {
+        if (saw is { Where: { } where }) return new Affordance(Id, Self.Hooks.PostAbout(where, saw.Text), postedLately ? 1 : 2, null, "post");
         var opener = Self.Hooks.Pick(openers);
         return new Affordance(Id, Self.Hooks.Post(opener), opener is null || postedLately ? 1 : 2, null, "post");
     }
@@ -403,7 +425,7 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     {
         var entries = await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetEntriesAsync();
         var last = entries.FirstOrDefault();
-        var sinceLast = last is null ? ctx.RecentOwn.Count : ctx.RecentOwn.Count(a => a.Ts > last.CreatedAt);
+        var sinceLast = Lived(ctx.RecentOwn, last?.CreatedAt);
         var block = last is null
             ? "You haven't written in your diary yet."
             : $"Your last diary entry ({WorldStream.Ago(last.CreatedAt, ctx.Now)}): {WorldStream.Clip(last.Body, 140)}";
@@ -413,6 +435,10 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         return new AppPerception(Id, "Your diary (private)", block,
             new[] { new Affordance(Id, Self.Hooks.Diary(onYourMind), priority, null, "write") });
     }
+
+    /// <summary>Things done since the last entry: resting and looking are nothing to write about, so a quiet night doesn't fill the diary.</summary>
+    public static int Lived(IEnumerable<WorldActivity> recentOwn, long? lastEntryAt)
+        => recentOwn.Count(a => a.Action is not ("rest" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {

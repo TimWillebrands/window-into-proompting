@@ -40,6 +40,9 @@ public static class ReflexMath
     /// <summary>A pause this long ends an exchange: the next line is a fresh Percept.</summary>
     public static readonly TimeSpan ExchangeHolds = TimeSpan.FromMinutes(3);
 
+    /// <summary>Weighed past the caller's deadline: the caller already replied, so the verdict mustn't act.</summary>
+    public static bool Late(Percept p, long now) => p.Deadline is { } deadline && now > deadline;
+
     /// <summary>Independent demands combine like noisy-or: each eats into what's left free.</summary>
     public static double Load(double availability, bool onShift, bool away, bool occupied, bool talkingElsewhere)
     {
@@ -160,10 +163,10 @@ public static class Intentions
         return load > ReflexMath.BreakpointLoad ? IntentionStep.Postpone : IntentionStep.Surface;
     }
 
-    /// <summary>A follow-up in a held chat refreshes the gist and comes to mind sooner.</summary>
+    /// <summary>A follow-up in a held chat brings it to mind sooner; what they meant to answer stays the first thing, not "fine, take the night".</summary>
     public static void Renew(Intention i, string gist, long now)
     {
-        if (!string.IsNullOrWhiteSpace(gist)) i.Gist = gist;
+        if (string.IsNullOrWhiteSpace(i.Gist) && !string.IsNullOrWhiteSpace(gist)) i.Gist = gist;
         i.DueAt = Math.Max(now, now + (i.DueAt - now) / 2);
     }
 

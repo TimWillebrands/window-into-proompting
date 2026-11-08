@@ -75,6 +75,8 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
             if (glance.MoreAbove && ctx.ReadFrom(room.Id) is null && last is not null) scrollable.Add((room, glance.Unread > 0));
 
             if (last?.SenderId == ctx.Self.Id || happeningNow.ContainsKey(room.Id)) continue;
+            // A reply of theirs already on its way here: the line isn't waiting on them.
+            if (await grains.GetGrain<IChatGroupGrain>(room.Id).IsAnsweringAsync(ctx.Self.Id)) continue;
             // A circling or fizzling room (thermostat, ADR 0021) pulls less: people drift elsewhere.
             var stale = last is not null && (await grains.GetGrain<Self.IConversationThermostatGrain>(room.Id).GetReadAsync()).Stale;
             if (stale) sb.AppendLine("  (this conversation has run its course: going round in circles or just re-confirming)");
@@ -129,6 +131,9 @@ public static class MessengerManners
     public static readonly TimeSpan FollowUpAfter = TimeSpan.FromHours(3);
 
     public static bool MayFollowUp(int unanswered, TimeSpan since) => unanswered == 1 && since >= FollowUpAfter;
+
+    /// <summary>A chat that ended settled or fizzling has nothing to chase, unless you owe them something.</summary>
+    public static bool Chase(bool settled, bool owed) => owed || !settled;
 }
 
 public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
@@ -173,7 +178,9 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
 
             // A waiting human pulls hard; persona threads already get live replies from the pipeline.
             // Someone in the same Place gets talked to out loud, not texted (Places co-presence rule).
-            if (last.SenderId != ctx.Self.Id)
+            if (last.SenderId != ctx.Self.Id && await grains.GetGrain<IChatGroupGrain>(dm.Id).IsAnsweringAsync(ctx.Self.Id))
+                sb.AppendLine($"  (you're already answering {other})");
+            else if (last.SenderId != ctx.Self.Id)
             {
                 // A persona chat that has run its course doesn't need the last word (ADR 0021).
                 var done = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
@@ -188,7 +195,14 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 var unanswered = recent.AsEnumerable().Reverse().TakeWhile(m => m.SenderId == ctx.Self.Id).Count();
                 sb.AppendLine($"  (you're waiting on {other}{(unanswered >= 2 ? "; you've already followed up, so leave it with them" : "")})");
                 if (MessengerManners.MayFollowUp(unanswered, ctx.Now - lastAt) && !nearby.Contains(otherId))
-                    affordances.Add(new Affordance(Id, $"Follow up with {other} (no answer to your message from {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})", 0, otherId, "open"));
+                {
+                    // The thermostat reads this path too (ADR 0043): a chat that ended on settled plans isn't chased again.
+                    var settled = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
+                    if (MessengerManners.Chase(settled, ctx.PromiseAbout(otherId) is not null))
+                        affordances.Add(new Affordance(Id, $"Follow up with {other} (no answer to your message from {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})", 0, otherId, "open"));
+                    else
+                        sb.AppendLine($"  (it ended on a settled note; there's nothing to chase {other} about)");
+                }
             }
         }
 
@@ -200,7 +214,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var newContacts = ctx.Others
             .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
-            .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
+            .ThenByDescending(c => ctx.Drawn(c.Id))
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;

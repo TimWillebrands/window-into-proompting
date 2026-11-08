@@ -21,6 +21,7 @@ public enum PerceptKind
 /// <summary>One thing that reached a Persona (ADR 0031), whatever the modality.</summary>
 /// <param name="Named">Their name is in it: the one signal that gets through nearly any load.</param>
 /// <param name="Near">Right next to them, rather than across the room or next door.</param>
+/// <param name="Deadline">Past this the caller has stopped waiting and replied its own way: a verdict then must not act.</param>
 [GenerateSerializer, Alias("PartyTown.World.Reflex.Percept")]
 public sealed record Percept(
     [property: Id(0)] PerceptKind Kind,
@@ -34,7 +35,8 @@ public sealed record Percept(
     [property: Id(8)] Guid? PlaceId = null,
     [property: Id(9)] string? SpotId = null,
     [property: Id(10)] string? RoomName = null,
-    [property: Id(11)] IReadOnlyList<string>? Context = null);
+    [property: Id(11)] IReadOnlyList<string>? Context = null,
+    [property: Id(12)] long? Deadline = null);
 
 /// <summary>What the caller does next: run its normal reply, or leave it to Reflex.</summary>
 /// <param name="Proceed">Reply through the normal path; false means Reflex dealt with it.</param>
