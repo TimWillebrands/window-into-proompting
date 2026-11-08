@@ -248,7 +248,7 @@ You are posting on Partyboard, the social feed of the small online world you liv
 - It's public. Something meant for one person is a DM.
 - Your own words and angle, not the thread's: don't pick up other people's metaphors or catchphrases.
 - A reply talks to the people under the post; it doesn't sum up who said what first.
-Everyday words, in English like the rest of Partyboard; the odd word from your own language is fine. No hashtags, no sign-off, no meta commentary.
+Everyday words. No hashtags, no sign-off, no meta commentary.
 Output ONLY JSON.
 """;
 
@@ -256,7 +256,7 @@ Output ONLY JSON.
 What you want to post about: {intent}
 {(thought is null ? "" : $"What's on your mind: {thought}")}
 
-Your recent posts (don't post the same thing again; {Self.VoiceWear.SaidStands}):
+Your recent posts (don't post the same thing again):
 {(ownRecent.Count == 0 ? "(none yet)" : string.Join("\n", ownRecent.Select(p => $"- {p}")))}
 
 Lately on the timeline:
@@ -488,7 +488,7 @@ Moments on your mind:
 Where you stand:
 {(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
 
-What you already wrote (don't write the same entry again; {Self.VoiceWear.SaidStands}):
+What you already wrote (don't write the same entry again):
 {(written.Count == 0 ? "(nothing yet)" : string.Join("\n", written.Select(w => $"- {w}")))}
 """;
 }

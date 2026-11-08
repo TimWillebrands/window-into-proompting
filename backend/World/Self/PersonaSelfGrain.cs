@@ -227,17 +227,6 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
-    /// <summary>Words worn across the world right now (ADR 0021 #3); empty when unavailable.</summary>
-    private async Task<IReadOnlyList<string>> WornAsync(Guid partyId)
-    {
-        try { return (await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync()).WornWords; }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Worn words unavailable for the Day prompt");
-            return Array.Empty<string>();
-        }
-    }
-
     private static readonly TimeSpan SheetCheck = TimeSpan.FromMinutes(10);
     private long _sheetCheckedAt;
 
@@ -296,7 +285,7 @@ public sealed partial class PersonaSelfGrain(
                 Write {self.Name}'s ordinary day today, the offscreen life they live away from their computer.
                 Real days are mostly mundane: work tasks and their friction, commuting, errands, meals, chores, weather,
                 the body (sleep, aches, hunger), a call or message from family or an old friend, something they're
-                watching or reading, one small annoyance, one small good thing.
+                watching or reading, one small annoyance and one small good thing (see Small things today).
                 No epiphanies, no symbolism, no metaphors, nothing poetic. Plain, specific, a little boring.
                 Keep their job, home and circumstances consistent with who they are. Don't mention any online chat or its people.
                 If a "Fixed today" is given, it happens: put it in the beats at those times.
@@ -311,7 +300,7 @@ public sealed partial class PersonaSelfGrain(
                 Let today's beats move at least one ongoing thread a little.
                 If they want something lasting, one ordinary beat may edge toward it (a call, an errand, an hour on it); no breakthroughs.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}{SelfMath.Elsewhere(await WornAsync(partyId), carried)}",
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}{SelfMath.SmallThings(personaId, now)}",
                 cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
@@ -426,13 +415,22 @@ public static partial class SelfMath
             .Select(x => x.age >= DraggingDays ? $"{x.t} (dragging on for {x.age} days: today it gets done, or they let it go)" : x.t)
             .ToList();
 
-    /// <summary>The world's worn words that aren't one of their own ongoing things, as an expectation for the Day (ADR 0042); empty when none.</summary>
-    public static string Elsewhere(IReadOnlyList<string> worn, IEnumerable<string> ongoing)
+    /// <summary>Where the day's small things come from, drawn in code so independent Days don't all land on the season's default.</summary>
+    public static readonly string[] SmallDomains =
     {
-        var own = ongoing.SelectMany(ThreadWords).ToHashSet();
-        var others = worn.Where(w => !own.Contains(w.ToLowerInvariant())).ToList();
-        return others.Count == 0 ? string.Empty
-            : $"\nLately everyone around them is on about: {string.Join(", ", others)}. That's other people's; their own day has its own small things.";
+        "work or a colleague", "a neighbour", "money or a bill", "food or cooking", "their phone or a gadget",
+        "transport or getting somewhere", "the weather", "a shop or a queue", "family", "an old friend",
+        "their body or sleep", "something they're reading or watching", "a hobby", "an errand", "post or paperwork", "a stranger",
+    };
+
+    /// <summary>Two different domains per persona per day: one for the annoyance, one for the good thing.</summary>
+    public static string SmallThings(Guid personaId, DateTimeOffset day)
+    {
+        var seed = BitConverter.ToInt32(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{personaId:N}{day:yyyy-MM-dd}")), 0) & int.MaxValue;
+        var bad = SmallDomains[seed % SmallDomains.Length];
+        var good = SmallDomains[(seed / SmallDomains.Length % (SmallDomains.Length - 1) + seed % SmallDomains.Length + 1) % SmallDomains.Length];
+        return $"\nSmall things today: the annoyance has to do with {bad}; the good thing with {good}.";
     }
 
     /// <summary>Fingerprint of who they are (sheet + bio); a new one means today's life was written for someone else.</summary>

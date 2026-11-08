@@ -40,8 +40,18 @@ public static partial class SpeechCleanup
     private static int NoteScore(string paragraph)
         => 2 * StrongNote().Matches(paragraph).Count + WeakNote().Matches(paragraph).Count;
 
+    /// <summary>Raised with (before, after) whenever a note is cut, so prod shows how often the heuristic fires.</summary>
+    public static event Action<string, string>? NoteDropped;
+
     /// <summary>"Reply short, under 12 words…\n\nthe line" → "the line"; all note → empty. The model thinking aloud before speaking.</summary>
     public static string DropPlanningNote(string text)
+    {
+        var cut = CutPlanningNote(text);
+        if (!ReferenceEquals(cut, text) && cut != text) NoteDropped?.Invoke(text, cut);
+        return cut;
+    }
+
+    private static string CutPlanningNote(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
         var paragraphs = ParagraphBreak().Split(text.Trim()).Select(p => p.Trim()).Where(p => p.Length > 0).ToList();

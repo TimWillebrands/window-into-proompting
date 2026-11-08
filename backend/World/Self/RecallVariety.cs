@@ -18,8 +18,13 @@ public static partial class RecallVariety
         "told", "tell", "tells", "heard", "said", "says", "asked", "asks", "mentioned", "talked", "called", "once",
     };
 
-    public static RecallBeat Apply(RecallBeat beat, IReadOnlyCollection<string> names)
-        => beat.Memories.Count == 0 ? beat : new RecallBeat(Collapse(beat.Memories, m => m.Snippet, names, m => m.CapturedAt).Select(Annotate).ToList(), beat.Stances);
+    public static RecallBeat Apply(RecallBeat beat, IReadOnlyCollection<string> names, DateTimeOffset? now = null)
+        => beat.Memories.Count == 0 ? beat : new RecallBeat(Collapse(beat.Memories, m => m.Snippet, names, m => m.CapturedAt)
+            .Select(Annotate).Select(m => Aged(m, now ?? DateTimeOffset.UtcNow)).ToList(), beat.Stances);
+
+    /// <summary>"(2 h ago) …": the model sees which telling is latest and reconciles them itself.</summary>
+    public static RecalledMemory Aged(RecalledMemory memory, DateTimeOffset now)
+        => memory with { Snippet = $"({WorldStream.Ago(memory.CapturedAt.ToUnixTimeMilliseconds(), now)}) {memory.Snippet}" };
 
     /// <summary>Near-duplicates share one slot at the first one's place; with <paramref name="at"/>, the slot holds the latest telling (latest wins, as for Stances).</summary>
     public static List<T> Collapse<T>(IReadOnlyList<T> items, Func<T, string> text, IReadOnlyCollection<string> names, Func<T, DateTimeOffset>? at = null)

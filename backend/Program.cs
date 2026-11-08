@@ -186,6 +186,11 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
+// The planning-note cut is a heuristic: log each firing to see whether the prompt fix made it redundant.
+var noteLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("PartyTown.SpeechCleanup");
+PartyTown.Services.ResponsePipeline.SpeechCleanup.NoteDropped += (before, after) =>
+    noteLog.LogInformation("Planning note cut: {Before} → {After}", PartyTown.World.WorldStream.Clip(before, 240), PartyTown.World.WorldStream.Clip(after, 120));
+
 app.Logger.LogInformation("App starting...");
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 

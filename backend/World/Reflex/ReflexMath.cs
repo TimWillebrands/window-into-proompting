@@ -163,12 +163,17 @@ public static class Intentions
         return load > ReflexMath.BreakpointLoad ? IntentionStep.Postpone : IntentionStep.Surface;
     }
 
-    /// <summary>A follow-up in a held chat brings it to mind sooner; what they meant to answer stays the first thing, not "fine, take the night".</summary>
+    /// <summary>A follow-up in a held chat brings it to mind sooner; both what they first said and their latest stay in view.</summary>
     public static void Renew(Intention i, string gist, long now)
     {
-        if (string.IsNullOrWhiteSpace(i.Gist) && !string.IsNullOrWhiteSpace(gist)) i.Gist = gist;
+        if (string.IsNullOrWhiteSpace(i.Gist)) i.Gist = gist;
+        else if (!string.IsNullOrWhiteSpace(gist) && gist != i.Gist) i.Latest = gist;
         i.DueAt = Math.Max(now, now + (i.DueAt - now) / 2);
     }
+
+    /// <summary>"\"first\"" or "\"first\", then later \"latest\"": the model sees what's owed and decides.</summary>
+    public static string Said(Intention i)
+        => i.Latest is { } latest ? $"\"{i.Gist}\", then later \"{latest}\"" : $"\"{i.Gist}\"";
 
     /// <summary>When the next look at these is due, or null.</summary>
     public static long? NextLook(IEnumerable<Intention> held)
@@ -186,5 +191,5 @@ public static class Intentions
     public static string Render(IReadOnlyList<Intention> held)
         => held.Count == 0
             ? string.Empty
-            : "# Still on your mind\n" + string.Join("\n", held.Take(3).Select(i => $"- You meant to get back to {i.FromName} (they said: \"{i.Gist}\").")) + "\n";
+            : "# Still on your mind\n" + string.Join("\n", held.Take(3).Select(i => $"- You meant to get back to {i.FromName} (they said: {Said(i)}).")) + "\n";
 }

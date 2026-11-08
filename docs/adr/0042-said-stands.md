@@ -16,9 +16,11 @@ inventions reached Life through the diary's perception line and went on to the B
 
 ## Decision
 
-1. **What you said stands.** Novelty ⇄ consistency, written once (`VoiceWear.SaidStands`) and shown wherever your own
-   words are: *What you said lately* (every prompt through the presence), your recent Board posts and your recent diary
-   entries. Don't repeat it, don't contradict it, and don't invent news to make it new.
+1. **Your own words are in view, with their age.** *What you said lately*, your recent Board posts and diary entries
+   are shown wherever you speak or write, and every recalled memory carries how long ago it was (`RecallVariety.Aged`).
+   No rule says what to do with them: the model sees what it said and what happened since, and reconciles them. The Board
+   no longer asks for "something genuinely new". (Amended: an earlier "what you said stands" instruction was dropped;
+   it would have locked in whatever was said first, invented or not.)
 2. **The diary reads what it wrote.** The writer sees its last 3 entries, as the Board writer sees its last 5 posts.
    What happened is the day so far, what you did and what you remember. What's still coming up hasn't happened.
 3. **One story, one slot, latest telling.** Near-duplicate memories still share one slot at the strongest one's place,
@@ -36,15 +38,17 @@ inventions reached Life through the diary's perception line and went on to the B
    | Room initiative line (uses only its Stances) | 5 | 5 / 0 | 3 / 2 | 50 → 6 |
    | Life, Diary, Reflex, DesireReview | 4 | 4 / 0 | 2 / 2 | 50 → 6 |
 
-5. **The Day knows what everyone is on about.** Day generation sees the world's worn words (ADR 0021 #3), except
-   those in the persona's own ongoing threads. Independent calls can't see each other's dice (ADR 0038), so without
-   this every Day in November Amsterdam had a radiator.
+5. **The Day draws its own small things.** Independent calls can't see each other's dice (ADR 0038), so every Day in
+   November Amsterdam had a radiator. Code draws where today's small annoyance and small good thing come from
+   (`SelfMath.SmallThings`, stable per persona and date). Variance comes from the draw, not from naming the motifs to
+   avoid, which would prime them. (Amended: replaces an earlier "everyone is on about…" line.)
 
 ## Why tuning, not a new path
 
-Each change sits on a process that already exists. The counter-pull rides the existing own-words blocks, and recall's
-two arms come back by fixing a quota, not by adding a stage. Latest-wins is the Stance rule applied to the story slot,
-and the Day reads the stale-word signal every voicing already reads. No new state, grain, LLM call or Recall path.
+Each change sits on a process that already exists, and instructions stay few: the model gets the facts (its words,
+their age) and decides. Recall's two arms come back by fixing a quota, not by adding a stage. Latest-wins is the Stance
+rule applied to the story slot. The Day's variance is a code-side draw, the simplest counter-pull to convergence. No new
+state, grain, LLM call or Recall path.
 
 ## Consequences
 

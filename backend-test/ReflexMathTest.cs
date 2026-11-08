@@ -191,6 +191,8 @@ public class ReflexMathTest
 
         Assert.Equal(600, i.DueAt);
         Assert.Equal(asked, i.Gist);
+        Assert.Equal("Fine. Take the night.", i.Latest);
+        Assert.Equal($"\"{asked}\", then later \"Fine. Take the night.\"", Intentions.Said(i));
     }
 
     [Fact]

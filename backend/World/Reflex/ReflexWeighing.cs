@@ -133,6 +133,6 @@ public static class ReflexVoice
 
     public static string CallOver(string first) => $"You just heard {first} say your name across the room. Call over to them.";
 
-    public static string GetBack(string first, string gist, string doing)
-        => $"Get back to {first}, a while after they wrote: \"{gist}\". You were {doing} then. Answer what they said; only say why you took a while if it comes up naturally.";
+    public static string GetBack(string first, string said, string doing)
+        => $"Get back to {first}, a while after they wrote: {said}. You were {doing} then. Answer what they said; only say why you took a while if it comes up naturally.";
 }

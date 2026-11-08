@@ -315,7 +315,7 @@ public sealed class PersonaReflexGrain(
         var first = ReflexWeighing.First(i.FromName);
         try
         {
-            await Persona.InitiateAsync(i.RoomId, ReflexVoice.GetBack(first, i.Gist, i.Doing), null);
+            await Persona.InitiateAsync(i.RoomId, ReflexVoice.GetBack(first, Intentions.Said(i), i.Doing), null);
         }
         catch (Exception ex) when (i.OwedBy is not null && i.Tries + 1 < ReflexMath.MaxTries)
         {

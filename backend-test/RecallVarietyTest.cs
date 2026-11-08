@@ -48,12 +48,12 @@ public class RecallVarietyTest
             M("You posted that the radiator finally has a landlord visit booked.", 0.5, 5),
         }, Array.Empty<StanceLine>());
 
-        var kept = RecallVariety.Apply(beat, Names).Memories.Select(m => m.Snippet).ToList();
+        var kept = RecallVariety.Apply(beat, Names, now).Memories.Select(m => m.Snippet).ToList();
 
         Assert.Equal(new[]
         {
-            "You posted that the radiator finally has a landlord visit booked.",
-            "Pieter is holding the Thursday token team for you.",
+            "(5 min ago) You posted that the radiator finally has a landlord visit booked.",
+            "(20 min ago) Pieter is holding the Thursday token team for you.",
         }, kept);
     }
 
@@ -69,5 +69,19 @@ public class RecallVarietyTest
     {
         var memory = new RecalledMemory(Guid.NewGuid(), "You told Denise about the radiator.", 0.8, 0, null, DateTimeOffset.UtcNow, 0.8);
         Assert.Equal("You told Denise about the radiator. (Denise already heard this from you)", RecallVariety.Annotate(memory).Snippet);
+    }
+
+    [Fact]
+    public void Apply_ShowsEachMemorysAge_SoTheLatestTellingIsVisible()
+    {
+        var now = new DateTimeOffset(2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+        var beat = new RecallBeat(new List<RecalledMemory>
+        {
+            new(Guid.NewGuid(), "The landlord said he'd come later this week.", 0.8, 0, null, now.AddHours(-2), 0.8),
+        }, Array.Empty<StanceLine>());
+
+        var snippet = RecallVariety.Apply(beat, Names, now).Memories.Single().Snippet;
+
+        Assert.Equal($"({PartyTown.World.WorldStream.Ago(now.AddHours(-2).ToUnixTimeMilliseconds(), now)}) The landlord said he'd come later this week.", snippet);
     }
 }

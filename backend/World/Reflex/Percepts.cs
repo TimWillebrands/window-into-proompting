@@ -101,6 +101,8 @@ public sealed class Intention
     [Id(9)] public bool Acking { get; set; }
     /// <summary>Attempts at getting back that failed before anything was said.</summary>
     [Id(10)] public int Tries { get; set; }
+    /// <summary>Their latest follow-up, when it isn't the first thing they said.</summary>
+    [Id(11)] public string? Latest { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Reflex.ReflexState")]

@@ -198,20 +198,18 @@ public class OwnRecentTest
         }, now);
         Assert.Contains("- 3 min ago, DM Denise & Lena: \"That tin is still on his shelf.\"", text);
         Assert.Contains("Don't say the same thing again", text);
-        Assert.Contains("What you said stands: don't contradict it", text);
         Assert.Equal(string.Empty, VoiceWear.RenderOwnRecent(Array.Empty<VoiceLine>(), now));
     }
 }
 
-/// <summary>Coherence (ADR 0042): what a persona already said or wrote stands, and their Day knows what the world is on about.</summary>
+/// <summary>Coherence (ADR 0042): a persona sees what they already said or wrote, and each Day draws its own small things.</summary>
 public class SaidStandsTest
 {
     [Fact]
-    public void BoardPost_ShowsOwnPostsAsStanding_NotAsTopicsToMakeNew()
+    public void BoardPost_ShowsOwnPosts_WithoutAskingForNews()
     {
         var text = PartyTown.World.Apps.BoardApp.PostUser("the radiator", null, new[] { "1 h ago: radiator finally has a landlord visit booked" }, Array.Empty<string>());
-        Assert.Contains("What you said stands", text);
-        Assert.Contains("don't invent news", text);
+        Assert.Contains("radiator finally has a landlord visit booked", text);
         Assert.DoesNotContain("genuinely new about it", text);
     }
 
@@ -232,7 +230,7 @@ public class SaidStandsTest
 
         Assert.Equal(3, written.Count);
         Assert.StartsWith("4 min ago: amira's train lands at 2.", written[0]);
-        Assert.Contains("What you already wrote (don't write the same entry again; What you said stands", user);
+        Assert.Contains("What you already wrote (don't write the same entry again):", user);
         Assert.Contains("- 4 min ago: amira's train lands at 2.", user);
         Assert.DoesNotContain("oldest", user);
     }
@@ -242,13 +240,20 @@ public class SaidStandsTest
         => Assert.Contains("anything still coming up hasn't happened yet", PartyTown.World.Apps.DiaryApp.WriterRules);
 
     [Fact]
-    public void Elsewhere_TellsTheDayWhatEveryoneIsOnAbout_ButNotTheirOwnThings()
+    public void SmallThings_DrawsTwoDifferentDomains_StablePerPersonaAndDay()
     {
-        var line = SelfMath.Elsewhere(new[] { "radiator", "bread", "polka" }, new[] { "get the landlord to fix the radiator before Amira visits" });
-        Assert.Contains("on about: bread, polka.", line);
-        Assert.DoesNotContain("radiator", line);
-        Assert.Equal(string.Empty, SelfMath.Elsewhere(new[] { "radiator" }, new[] { "the radiator" }));
-        Assert.Equal(string.Empty, SelfMath.Elsewhere(Array.Empty<string>(), Array.Empty<string>()));
+        var day = new DateTimeOffset(2026, 11, 8, 6, 0, 0, TimeSpan.Zero);
+        var people = Enumerable.Range(0, 40).Select(_ => Guid.NewGuid()).ToList();
+        foreach (var id in people)
+        {
+            var line = SelfMath.SmallThings(id, day);
+            Assert.Equal(line, SelfMath.SmallThings(id, day));
+            var m = System.Text.RegularExpressions.Regex.Match(line, @"annoyance has to do with (.+); the good thing with (.+)\.$");
+            Assert.True(m.Success, line);
+            Assert.NotEqual(m.Groups[1].Value, m.Groups[2].Value);
+        }
+        // Independent Days spread over the domains instead of converging on one default.
+        Assert.True(people.Select(id => SelfMath.SmallThings(id, day)).Distinct().Count() > 20);
     }
 }
 
