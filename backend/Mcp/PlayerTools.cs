@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -18,6 +20,7 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
 {
     private Guid World => mcp.Value.World;
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
+    private const string Where = "Admins: a Place id from list_places, acted on as its author. Default: their Home.";
 
     private IPlacesGrain Places => grains.GetGrain<IPlacesGrain>(World);
 
@@ -42,13 +45,29 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
     public Task<string> GetSituationAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
         await Places.GetSituationAsync(await ReadAsync(user, participantId)));
 
+    [McpServerTool(Name = "list_places", ReadOnly = true), Description("Every Home and public Place: ids for get_place, what it's for, who lives or works there.")]
+    public Task<List<PlaceRow>> ListPlacesAsync() => Guard(async () =>
+    {
+        var snapshot = await Places.GetSnapshotAsync();
+        return snapshot.Places.Where(p => p.Kind is PlaceKinds.Home or PlaceKinds.Public)
+            .Select(p => new PlaceRow(p.Id, p.Name, p.Kind, p.Purpose, p.Living().Concat(p.Staff).Distinct().Select(id => NameOf(snapshot, id)).ToList()))
+            .ToList();
+    });
+
+    [McpServerTool(Name = "get_place", ReadOnly = true), Description("A Place by id: spots, things (with ids and tiles for arranging), colours and the tile map.")]
+    public Task<PlaceView> GetPlaceAsync([Description("Place id from list_places.")] Guid placeId) => Guard(async () =>
+    {
+        var snapshot = await Places.GetSnapshotAsync();
+        return PlaceView.Of(snapshot.Places.FirstOrDefault(p => p.Id == placeId) ?? throw new McpException("No such Place."), snapshot);
+    });
+
     [McpServerTool(Name = "get_home", ReadOnly = true), Description("Their Home: name, spots, things (with ids and tiles for arranging), colours and the tile map.")]
-    public Task<HomeView> GetHomeAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    public Task<PlaceView> GetHomeAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
         var who = await ReadAsync(user, participantId);
         var snapshot = await Places.GetSnapshotAsync();
         var home = snapshot.Places.HomeOf(who) ?? throw new McpException("They have no Home.");
-        return HomeView.Of(home, snapshot);
+        return PlaceView.Of(home, snapshot);
     });
 
     [McpServerTool(Name = "get_look", ReadOnly = true), Description("Their look: the appearance fields as picked now.")]
@@ -70,14 +89,6 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
             w.Wardrobe.Select(Catalog.Find).OfType<ShopItem>().Select(i => i.Name).ToList(), w.Ledger.TakeLast(10).ToList());
     });
 
-    [McpServerTool(Name = "restyle"), Description("Change their look from words, e.g. 'dye my hair pink, add a raven staff'. Takes a few seconds.")]
-    public Task<RestyleResult> RestyleAsync(ClaimsPrincipal user, [Description("What to change, under 300 characters.")] string text, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
-    {
-        if (string.IsNullOrWhiteSpace(text) || text.Length > 300) throw new McpException("Say what to change, under 300 characters.");
-        var who = await actors.ActAsync(user, World, participantId);
-        return await Places.RestyleAsync(who, text) ?? throw new McpException("Couldn't restyle right now.");
-    });
-
     [McpServerTool(Name = "set_appearance"), Description("Set look fields by hand, keys and values from get_look_options. Unknown ones keep the current choice.")]
     public Task<Appearance> SetAppearanceAsync(ClaimsPrincipal user, [Description("Field key to picked value.")] Dictionary<string, string?> picked, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
@@ -85,28 +96,76 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return await Places.SetAppearanceAsync(who, picked) ?? throw new McpException("They have no Body yet.");
     });
 
-    [McpServerTool(Name = "redesign_home"), Description("Design their Home anew from a description: layout, furniture, colours. Same people, keys and things. Takes up to a minute.")]
-    public Task<HomeView> RedesignHomeAsync(
+    [McpServerTool(Name = "get_design_guide", ReadOnly = true), Description("How to design a place, a look or a thing yourself: the schema, the building blocks, the rules, and for a look the current one. Design, then pass the JSON to design_place, dress or add_thing.")]
+    public Task<string> GetDesignGuideAsync(
         ClaimsPrincipal user,
-        [Description("What it should be like, under 1500 characters.")] string description,
-        [Description("A new name, e.g. 'the herenhuis on the Herengracht'. Default: keep it.")] string? name = null,
-        [Description("An outdoor camp: no walls, open sky.")] bool outdoor = false,
-        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+        [Description("place, look or thing.")] string kind,
+        [Description("Place only: outdoors, no walls (a camp, a square).")] bool outdoor = false,
+        [Description(Whom)] Guid? participantId = null,
+        [Description(Where)] Guid? placeId = null) => Guard(async () =>
     {
-        if (string.IsNullOrWhiteSpace(description) || description.Length > 1500) throw new McpException("Describe it in under 1500 characters.");
-        var home = await OwnHomeAsync(user, participantId);
-        _ = await PlaceMaking.RedesignHomeAsync(grains, World, home.Id, description, name, outdoor) ?? throw new McpException("Couldn't design that one; try again or describe it differently.");
         var snapshot = await Places.GetSnapshotAsync();
-        return HomeView.Of(snapshot.Places.Single(p => p.Id == home.Id), snapshot);
+        var who = await ReadAsync(user, participantId);
+        switch (kind)
+        {
+            case "place":
+                var place = placeId is { } id ? snapshot.Places.FirstOrDefault(p => p.Id == id) : snapshot.Places.HomeOf(who);
+                var rules = place is { Kind: PlaceKinds.Home } ? PlaceDesign.HomeRules(Math.Max(1, place.Living().Count())) : "It's a public place.";
+                return $"{PlaceDesign.Prompt(outdoor)}\n{rules}\nPass the whole JSON as design_place's design. Errors come back as a list; fix them and send it again.";
+            case "look":
+                return LookGuide(snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Appearance ?? AppearanceRules.Default(who));
+            case "thing":
+                return $"{ThingModel.Prompt}\nPass the JSON as add_thing's model.";
+            default:
+                throw new McpException("kind is place, look or thing.");
+        }
     });
 
-    [McpServerTool(Name = "add_thing"), Description("Put a new thing in their Home, e.g. 'a brass orrery'. Its 3D model is made shortly after.")]
-    public Task<FurniView> AddThingAsync(ClaimsPrincipal user, [Description("The thing, under 200 characters.")] string description, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    [McpServerTool(Name = "design_place"), Description("Give their Home (or, for admins, a public Place) a design you made, see get_design_guide place. Same people, keys and things; it's checked, and what's wrong comes back to fix.")]
+    public Task<PlaceView> DesignPlaceAsync(
+        ClaimsPrincipal user,
+        [Description("The design JSON: name, description, spots, scene (and things, for a Home).")] JsonElement design,
+        [Description("A new name. Default: keep it.")] string? name = null,
+        [Description("Outdoors: no walls, open sky.")] bool outdoor = false,
+        [Description(Whom)] Guid? participantId = null,
+        [Description(Where)] Guid? placeId = null) => Guard(async () =>
+    {
+        var (_, place) = await ActInAsync(user, participantId, placeId);
+        if (place.Kind is not (PlaceKinds.Home or PlaceKinds.Public)) throw new McpException("Only Homes and public Places have designs.");
+        Func<IReadOnlyList<Spot>, string?>? rule = place.Kind == PlaceKinds.Home ? PlaceDesign.MissingHomeSpots : null;
+        var (draft, errors) = PlaceDesign.Validate(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, rule);
+        if (draft is null) throw new McpException($"The design doesn't work yet:\n- {string.Join("\n- ", errors.Take(12))}");
+        _ = await Places.RedesignPlaceAsync(place.Id, draft, name) ?? throw new McpException("Couldn't apply it.");
+        var snapshot = await Places.GetSnapshotAsync();
+        return PlaceView.Of(snapshot.Places.Single(p => p.Id == place.Id), snapshot);
+    });
+
+    [McpServerTool(Name = "dress"), Description("Put a look you designed on them (see get_design_guide look): palette picks, a summary, and the design slots that change.")]
+    public Task<RestyleResult> DressAsync(
+        ClaimsPrincipal user,
+        [Description("{\"picks\": {...}, \"summary\": \"...\", \"design\": {...}}")] JsonElement look,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        if (look.ValueKind != JsonValueKind.Object) throw new McpException("The look is a JSON object: picks, summary, design.");
+        if (look.TryGetProperty("design", out var design) && design.ValueKind == JsonValueKind.Object
+            && FigureDesign.Clean(JsonNode.Parse(design.GetRawText())) is null)
+            throw new McpException("Nothing in design survived cleaning; check it against the schema in get_design_guide look.");
+        var who = await actors.ActAsync(user, World, participantId);
+        return await Places.DressAsync(who, look.GetRawText()) ?? throw new McpException("They have no Body yet.");
+    });
+
+    [McpServerTool(Name = "add_thing"), Description("Put a thing you modelled in their Home (see get_design_guide thing); place it with arrange_thing.")]
+    public Task<FurniView> AddThingAsync(
+        ClaimsPrincipal user,
+        [Description("What it is, e.g. 'a brass orrery'; under 200 characters.")] string description,
+        [Description("The model JSON: {\"wall\": false, \"parts\": [...]}.")] JsonElement model,
+        [Description(Whom)] Guid? participantId = null,
+        [Description(Where)] Guid? placeId = null) => Guard(async () =>
     {
         if (string.IsNullOrWhiteSpace(description) || description.Length > 200) throw new McpException("Describe it in under 200 characters.");
-        var who = await actors.ActAsync(user, World, participantId);
-        var home = (await Places.GetSnapshotAsync()).Places.HomeOf(who) ?? throw new McpException("They have no Home.");
-        return await Places.AddThingAsync(home.Id, who, description) ?? throw new McpException("Couldn't add that.");
+        var made = ThingModel.Clean(JsonNode.Parse(model.GetRawText())) ?? throw new McpException("No parts survived cleaning; check the model against get_design_guide thing.");
+        var (who, place) = await ActInAsync(user, participantId, placeId);
+        return await Places.AddMadeThingAsync(place.Id, who == Guid.Empty ? null : who, description, made) ?? throw new McpException("Couldn't add that.");
     });
 
     [McpServerTool(Name = "arrange_thing"), Description("Move or turn a thing in their Home (ids and tiles from get_home). No tile hands it back to the scene.")]
@@ -116,16 +175,17 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         [Description("Tile column.")] int? x = null,
         [Description("Tile row.")] int? z = null,
         [Description("Quarter turns, 0-3.")] int rot = 0,
-        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+        [Description(Whom)] Guid? participantId = null,
+        [Description(Where)] Guid? placeId = null) => Guard(async () =>
     {
-        var (who, home) = await ActInHomeAsync(user, participantId);
+        var (who, home) = await ActInAsync(user, participantId, placeId);
         return await Places.ArrangeAsync(who, home.Id, furniId, x, z, rot) ? "Moved." : throw new McpException("Not theirs to move, or no such thing.");
     });
 
     [McpServerTool(Name = "remove_thing", Destructive = true), Description("Take a thing out of their Home.")]
-    public Task<string> RemoveThingAsync(ClaimsPrincipal user, [Description("Thing id from get_home.")] string furniId, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    public Task<string> RemoveThingAsync(ClaimsPrincipal user, [Description("Thing id from get_home.")] string furniId, [Description(Whom)] Guid? participantId = null, [Description(Where)] Guid? placeId = null) => Guard(async () =>
     {
-        var (who, home) = await ActInHomeAsync(user, participantId);
+        var (who, home) = await ActInAsync(user, participantId, placeId);
         return await Places.RemoveThingAsync(who, home.Id, furniId) ? "Removed." : throw new McpException("Not theirs to take down, or no such thing.");
     });
 
@@ -144,9 +204,9 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
     });
 
     [McpServerTool(Name = "set_home_colours"), Description("Wall and floor colours of their Home, as #rrggbb; leave one out to give it back to the design.")]
-    public Task<string> SetHomeColoursAsync(ClaimsPrincipal user, string? wall = null, string? floor = null, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    public Task<string> SetHomeColoursAsync(ClaimsPrincipal user, string? wall = null, string? floor = null, [Description(Whom)] Guid? participantId = null, [Description(Where)] Guid? placeId = null) => Guard(async () =>
     {
-        var (who, home) = await ActInHomeAsync(user, participantId);
+        var (who, home) = await ActInAsync(user, participantId, placeId);
         return await Places.SetPlaceStyleAsync(who, home.Id, wall, floor) ? "Painted." : throw new McpException("Not theirs to restyle.");
     });
 
@@ -160,7 +220,30 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return (who, (await Places.GetSnapshotAsync()).Places.HomeOf(who) ?? throw new McpException("They have no Home."));
     }
 
-    private async Task<Place> OwnHomeAsync(ClaimsPrincipal user, Guid? participantId) => (await ActInHomeAsync(user, participantId)).Home;
+    private static string LookGuide(Appearance now) => $"""
+        {FigureDesign.RestylePrompt}
+
+        Their look now: {AppearanceRules.Describe(now)}
+        Drawn as: {now.Design ?? "(palette only)"}
+
+        Prints: put the drawing inline as "svg" on the print instead of a brief; a print without svg is left off.
+        {FigureDesign.PrintPrompt}
+        Pass the JSON as dress's look.
+        """;
+
+    /// <summary>Their Home, or for an admin naming a Place, that Place with the author (<see cref="Guid.Empty"/>) acting.</summary>
+    private async Task<(Guid Who, Place Place)> ActInAsync(ClaimsPrincipal user, Guid? participantId, Guid? placeId)
+    {
+        if (placeId is null) return await ActInHomeAsync(user, participantId);
+        RequireAdmin(user);
+        var place = (await Places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == placeId) ?? throw new McpException("No such Place.");
+        return (Guid.Empty, place);
+    }
+
+    private static void RequireAdmin(ClaimsPrincipal user)
+    {
+        if (!Actors.IsAdmin(user)) throw new McpException("Only admins may act on Places other than a Home.");
+    }
 
     private static string NameOf(PlacesSnapshot snapshot, Guid who) => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Name ?? "?";
 
@@ -186,11 +269,14 @@ public sealed record WalletRead(int Balance, string Means, int DailyPay, bool Pa
 
 public sealed record HomeThing(string Id, string Kind, string Name, string SpotId, int? TileX, int? TileZ, int Rot);
 
-public sealed record HomeView(Guid Id, string Name, string Description, List<string> LivingHere, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map)
+public sealed record PlaceRow(Guid Id, string Name, string Kind, string? Purpose, List<string> People);
+
+public sealed record PlaceView(Guid Id, string Name, string Kind, string Description, string? Purpose, List<string> LivingHere, List<string> Staff, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map)
 {
-    public static HomeView Of(Place home, PlacesSnapshot snapshot) => new(
-        home.Id, home.Name, home.Description,
+    public static PlaceView Of(Place home, PlacesSnapshot snapshot) => new(
+        home.Id, home.Name, home.Kind, home.Description, home.Purpose,
         home.Living().Select(id => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == id)?.Name ?? "?").ToList(),
+        home.Staff.Select(id => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == id)?.Name ?? "?").ToList(),
         home.Spots,
         snapshot.Furni.Where(f => f.PlaceId == home.Id).Select(f => new HomeThing(f.FurniId, f.Kind, f.Name, f.SpotId, f.TileX, f.TileZ, f.Rot)).ToList(),
         home.WallColour, home.FloorColour,

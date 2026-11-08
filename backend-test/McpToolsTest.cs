@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
@@ -75,29 +76,66 @@ public partial class WorldLifeTest
     }
 
     [Fact]
-    public async Task AnAgent_RedesignsItsPlayersHome()
+    public async Task OnlyAnAdminsAgent_FurnishesAPublicPlace()
     {
         var (_, _, _, tools) = await PlayerWorldAsync();
-        ScriptedLlm.Json = system => !system.Contains("You design one new place") ? null : JsonNode.Parse("""
-            {"name": "the loft", "description": "a loft with a long workbench",
-             "spots": [{"id": "sofa", "name": "the sofa", "at": "on", "capacity": 1, "seat": true},
-                       {"id": "desk", "name": "the workbench", "at": "at", "capacity": 1},
-                       {"id": "kitchen", "name": "the kitchenette", "at": "in", "capacity": 1},
-                       {"id": "bed", "name": "the bed", "at": "on", "capacity": 1, "seat": true}],
-             "scene": {"map": ["#ww#####", "#......#", "#......#", "D......#", "########"],
-                       "spots": {"sofa": {"at": [1, 1]}, "desk": {"at": [5, 1]}, "kitchen": {"at": [5, 3]}, "bed": {"at": [3, 2]}}}}
-            """)!.AsObject();
-        try
-        {
-            var home = await tools.RedesignHomeAsync(Agent(), "a loft", "Sparky's loft");
+        var works = (await tools.ListPlacesAsync()).First(p => p.Kind == PlaceKinds.Public);
 
-            Assert.Equal(("Sparky's loft", "a loft with a long workbench"), (home.Name, home.Description));
-            Assert.Equal("D......#", home.Map[3]);
-            Assert.Contains(home.Spots, s => s.Name == "the workbench");
-        }
-        finally
-        {
-            ScriptedLlm.Json = null;
-        }
+        await Assert.ThrowsAsync<McpException>(() => tools.AddThingAsync(Agent(), "a brass orrery", Model, placeId: works.Id));
+        await Assert.ThrowsAsync<McpException>(() => tools.DesignPlaceAsync(Agent(), Loft(), placeId: works.Id));
+
+        var orrery = await tools.AddThingAsync(Agent(admin: true), "a brass orrery", Model, placeId: works.Id);
+        Assert.Equal("Moved.", await tools.ArrangeThingAsync(Agent(admin: true), orrery.FurniId, 2, 2, 1, placeId: works.Id));
+        Assert.Equal("Painted.", await tools.SetHomeColoursAsync(Agent(admin: true), wall: "#223344", placeId: works.Id));
+        var place = await tools.GetPlaceAsync(works.Id);
+        Assert.Equal("#223344", place.WallColour);
+        Assert.Contains(place.Things, t => t.Id == orrery.FurniId && t.TileX == 2);
+        Assert.Equal("Removed.", await tools.RemoveThingAsync(Agent(admin: true), orrery.FurniId, placeId: works.Id));
+    }
+
+    private static readonly JsonElement Model = JsonDocument.Parse("""
+        {"wall": false, "parts": [{"cyl": [0.2, 0.3], "at": [0, 0, 0], "c": "#b08d57"}, {"ball": 0.12, "at": [0, 0.45, 0], "c": "#e8c547"}]}
+        """).RootElement;
+
+    private static JsonElement Loft(string door = "D") => JsonDocument.Parse("""
+        {"name": "the loft", "description": "a loft with a long workbench",
+         "spots": [{"id": "sofa", "name": "the sofa", "at": "on", "capacity": 1, "seat": true},
+                   {"id": "desk", "name": "the workbench", "at": "at", "capacity": 1},
+                   {"id": "kitchen", "name": "the kitchenette", "at": "in", "capacity": 1},
+                   {"id": "bed", "name": "the bed", "at": "on", "capacity": 1, "seat": true}],
+         "scene": {"map": ["#ww#####", "#......#", "#......#", "DOOR......#", "########"],
+                   "spots": {"sofa": {"at": [1, 1]}, "desk": {"at": [5, 1]}, "kitchen": {"at": [5, 3]}, "bed": {"at": [3, 2]}}}}
+        """.Replace("DOOR", door)).RootElement;
+
+    [Fact]
+    public async Task AnAgent_DesignsItsPlayersHome_AndHearsWhatsWrong()
+    {
+        var (_, _, _, tools) = await PlayerWorldAsync();
+        var guide = await tools.GetDesignGuideAsync(Agent(), "place");
+        Assert.Contains("Spots must include these ids", guide);
+
+        var wrong = await Assert.ThrowsAsync<McpException>(() => tools.DesignPlaceAsync(Agent(), Loft(door: "#")));
+        Assert.Contains("no way in", wrong.Message);
+
+        var home = await tools.DesignPlaceAsync(Agent(), Loft(), "Sparky's loft");
+        Assert.Equal(("Sparky's loft", "a loft with a long workbench"), (home.Name, home.Description));
+        Assert.Equal("D......#", home.Map[3]);
+        Assert.Contains(home.Spots, s => s.Name == "the workbench");
+    }
+
+    [Fact]
+    public async Task AnAgent_DressesItsPlayer_AndFurnishesWithItsOwnModels()
+    {
+        var (partyId, player, _, tools) = await PlayerWorldAsync();
+        Assert.Contains("Their look now", await tools.GetDesignGuideAsync(Agent(), "look"));
+
+        var worn = await tools.DressAsync(Agent(), JsonDocument.Parse("""{"picks": {"hair": "pink"}, "summary": "pink hair, all business"}""").RootElement);
+        var orrery = await tools.AddThingAsync(Agent(), "a brass orrery", Model);
+        await Assert.ThrowsAsync<McpException>(() => tools.AddThingAsync(Agent(), "nothing", JsonDocument.Parse("""{"parts": []}""").RootElement));
+
+        Assert.Equal("pink", worn.Look.Hair);
+        var snapshot = await PlacesOf(partyId).GetSnapshotAsync();
+        Assert.Equal("pink", snapshot.Bodies.Single(b => b.ParticipantId == player).Appearance!.Hair);
+        Assert.NotNull(snapshot.Furni.Single(f => f.FurniId == orrery.FurniId).Model);
     }
 }

@@ -401,10 +401,11 @@ export function MakerTools({
                     Make
                 </button>
             </form>
-            {place.kind === 'home' && place.id ? (
-                <HomeRedesign
+            {(place.kind === 'home' || place.kind === 'public') && place.id ? (
+                <Redesign
                     placeId={place.id}
-                    name={place.name ?? 'this Home'}
+                    name={place.name ?? 'this Place'}
+                    home={place.kind === 'home'}
                 />
             ) : null}
             {place.customScene && place.id && place.kind === 'public' ? (
@@ -432,8 +433,16 @@ export function MakerTools({
     );
 }
 
-/** Author: design a Home anew from a description, outdoors for a camp; same people, keys and things. */
-function HomeRedesign({ placeId, name }: { placeId: string; name: string }) {
+/** Author: design a Home or public Place anew, outdoors for a camp; same people, keys and things. */
+function Redesign({
+    placeId,
+    name,
+    home,
+}: {
+    placeId: string;
+    name: string;
+    home: boolean;
+}) {
     const redesign = usePostWorldsPartyIdPlacesPlaceIdRedesign();
     const [text, setText] = useState('');
     const [rename, setRename] = useState('');
@@ -470,7 +479,9 @@ function HomeRedesign({ placeId, name }: { placeId: string; name: string }) {
                 );
             }}
         >
-            <strong className="pl-card-title">🏚️ Redesign this Home:</strong>
+            <strong className="pl-card-title">
+                🏚️ Redesign this {home ? 'Home' : 'Place'}:
+            </strong>
             <textarea
                 value={text}
                 rows={3}

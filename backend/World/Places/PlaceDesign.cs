@@ -181,19 +181,23 @@ public static class PlaceDesign
                 logger.LogDebug(ex, "Designing a Place failed");
                 return null;
             }
-            if (json?["scene"] is not JsonObject scene) { user += "\n\nYour last answer had no \"scene\" object. Try again."; continue; }
-            var spots = SpotsOf(json["spots"] as JsonArray);
-            var errors = spots.Count < 2 ? new List<string> { "give 2 to 5 spots" } : Check(scene, spots);
-            if (rule?.Invoke(spots) is { } broken) errors.Add(broken);
-            if (errors.Count > 0)
-            {
-                user += $"\n\nYour last design didn't work:\n- {string.Join("\n- ", errors.Take(8))}\nFix these and output the whole JSON again.";
-                continue;
-            }
-            if (outdoor) scene["outdoor"] = true;
-            return new PlaceDraft(json.ToJsonString(), Store(scene), spots);
+            var (draft, errors) = Validate(json, outdoor, rule);
+            if (draft is not null) return draft;
+            user += $"\n\nYour last design didn't work:\n- {string.Join("\n- ", errors.Take(8))}\nFix these and output the whole JSON again.";
         }
         return null;
+    }
+
+    /// <summary>A design as a draft, or what's wrong with it; the same check whoever designed it.</summary>
+    public static (PlaceDraft? Draft, List<string> Errors) Validate(JsonObject? json, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
+    {
+        if (json?["scene"] is not JsonObject scene) return (null, new List<string> { "there's no \"scene\" object" });
+        var spots = SpotsOf(json["spots"] as JsonArray);
+        var errors = spots.Count < 2 ? new List<string> { "give 2 to 5 spots" } : Check(scene, spots);
+        if (rule?.Invoke(spots) is { } broken) errors.Add(broken);
+        if (errors.Count > 0) return (null, errors);
+        if (outdoor) scene["outdoor"] = true;
+        return (new PlaceDraft(json.ToJsonString(), Store(scene), spots), errors);
     }
 
     /// <summary>The scene as stored: map rows joined, the rest as the model gave it.</summary>

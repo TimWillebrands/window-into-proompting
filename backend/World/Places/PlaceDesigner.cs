@@ -36,15 +36,18 @@ public static class PlaceMaking
         return draft is null ? null : await places.CreatePlaceAsync(madeBy, text, draft);
     }
 
-    /// <summary>Null when it isn't a Home or the design never checked out.</summary>
-    public static async Task<Place?> RedesignHomeAsync(IGrainFactory grains, Guid partyId, Guid placeId, string text, string? name, bool outdoor)
+    /// <summary>A Home or public Place anew; null for a Locale or when the design never checked out.</summary>
+    public static async Task<Place?> RedesignAsync(IGrainFactory grains, Guid partyId, Guid placeId, string text, string? name, bool outdoor)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);
         var snapshot = await places.GetSnapshotAsync();
-        if (snapshot.Places.FirstOrDefault(p => p.Id == placeId) is not { Kind: PlaceKinds.Home } home) return null;
-        var brief = $"{WorldStream.Clip(text, 1500)}\n{PlaceDesign.HomeRules(Math.Max(1, home.Living().Count()))}";
-        var draft = await Designer(grains).DesignAsync(brief, outdoor, PublicNames(snapshot), home: true);
-        return draft is null ? null : await places.RedesignHomeAsync(placeId, draft, name);
+        if (snapshot.Places.FirstOrDefault(p => p.Id == placeId) is not { Kind: PlaceKinds.Home or PlaceKinds.Public } place) return null;
+        var home = place.Kind == PlaceKinds.Home;
+        var rules = home ? PlaceDesign.HomeRules(Math.Max(1, place.Living().Count()))
+            : place.Purpose is { Length: > 0 } purpose ? $"It stays {place.Name}: {purpose}." : $"It stays {place.Name}.";
+        var others = PublicNames(snapshot).Where(n => n != place.Name).ToList();
+        var draft = await Designer(grains).DesignAsync($"{WorldStream.Clip(text, 1500)}\n{rules}", outdoor, others, home);
+        return draft is null ? null : await places.RedesignPlaceAsync(placeId, draft, name);
     }
 
     private static IPlaceDesignerGrain Designer(IGrainFactory grains) => grains.GetGrain<IPlaceDesignerGrain>(0);

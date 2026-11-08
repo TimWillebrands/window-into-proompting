@@ -90,8 +90,20 @@ public sealed partial class PlacesGrain
             $"Current look: {AppearanceRules.Describe(before)}\nDrawn as: {WorldStream.Clip(before.Design ?? "(palette only)", 5000)}\nWhat they want: {WorldStream.Clip(intent, 300)}",
             CancellationToken.None, 0.5);
         if (json is null) return null;
-        var design = await DrawPrintsAsync(FigureDesign.Clean(json["design"]));
-        if (!state.State.Bodies.TryGetValue(participantId, out body)) return null;
+        return await WearAsync(participantId, json, await DrawPrintsAsync(FigureDesign.Clean(json["design"])));
+    }
+
+    /// <summary>A look someone designed elsewhere (picks, summary, design), cleaned; prints come drawn, as inline SVG.</summary>
+    public async Task<RestyleResult?> DressAsync(Guid participantId, string look)
+    {
+        if (System.Text.Json.Nodes.JsonNode.Parse(look) is not System.Text.Json.Nodes.JsonObject json) return null;
+        return await WearAsync(participantId, json, FigureDesign.Clean(json["design"]));
+    }
+
+    private async Task<RestyleResult?> WearAsync(Guid participantId, System.Text.Json.Nodes.JsonObject json, string? design)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
+        var before = body.Appearance ?? AppearanceRules.Default(participantId);
         var after = Dressed(before, json, design);
         var changes = AppearanceRules.Changes(before, after);
         if (changes.Length == 0 && after.Design == before.Design) return new RestyleResult(before, "looks in the mirror and keeps their look");
@@ -106,7 +118,13 @@ public sealed partial class PlacesGrain
 
     // ---- Things ----
 
-    public async Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description)
+    public Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description) => PutThingAsync(placeId, ownerId, description, null);
+
+    /// <summary>A thing with its model already made (<see cref="ThingModel.Clean"/>): no catalogue, no LLM.</summary>
+    public Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model)
+        => PutThingAsync(placeId, ownerId, description, model);
+
+    private async Task<FurniView?> PutThingAsync(Guid placeId, Guid? ownerId, string description, string? model)
     {
         await SettleAsync();
         var place = Find(placeId);
@@ -118,12 +136,12 @@ public sealed partial class PlacesGrain
         var furni = new Furni
         {
             Id = $"thing-{now}-{Random.Shared.Next(1000)}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
-            Name = Decor.Label(description), SpotId = spot.Id, TendedAt = now, OwnerId = ownerId,
+            Name = Decor.Label(description), SpotId = spot.Id, TendedAt = now, OwnerId = ownerId, Model = model,
         };
         place.Furni.Add(furni);
         await SaveAsync();
         await PublishPlaceAsync(place);
-        QueueModel(place, furni, description);
+        if (model is null) QueueModel(place, furni, description);
         return View(place, furni, now);
     }
 

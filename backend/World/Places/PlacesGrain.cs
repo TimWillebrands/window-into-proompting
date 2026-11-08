@@ -1069,9 +1069,11 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Change a look from words ("dye my hair pink"), within the palette.</summary>
     [Alias("RestyleAsync")] Task<RestyleResult?> RestyleAsync(Guid participantId, string intent);
+    [Alias("DressAsync")] Task<RestyleResult?> DressAsync(Guid participantId, string look);
 
     /// <summary>A new thing in a Place, with a generated model arriving shortly after.</summary>
     [Alias("AddThingAsync")] Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description);
+    [Alias("AddMadeThingAsync")] Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model);
 
     [Alias("RemodelAsync")] Task RemodelAsync(Guid placeId, string furniId);
 
@@ -1150,7 +1152,7 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
     [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);
-    [Alias("RedesignHomeAsync")] Task<Place?> RedesignHomeAsync(Guid placeId, PlaceDraft draft, string? name);
+    [Alias("RedesignPlaceAsync")] Task<Place?> RedesignPlaceAsync(Guid placeId, PlaceDraft draft, string? name);
 
     /// <summary>The mover leaves their Home empty and shares the host's (ADR 0035); false when they share one already.</summary>
     [Alias("MoveInAsync")] Task<bool> MoveInAsync(Guid moverId, Guid hostId);

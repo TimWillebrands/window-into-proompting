@@ -42,44 +42,48 @@ public sealed partial class PlacesGrain
         return home;
     }
 
-    /// <summary>Author: a Home gets a finished design (<see cref="IPlaceDesignerGrain"/>), same id, people, keys and things.</summary>
-    public async Task<Place?> RedesignHomeAsync(Guid placeId, PlaceDraft draft, string? name)
+    /// <summary>Author: a Home or public Place gets a finished design (<see cref="IPlaceDesignerGrain"/>), same id, people, keys and things.</summary>
+    public async Task<Place?> RedesignPlaceAsync(Guid placeId, PlaceDraft draft, string? name)
     {
         await SettleAsync();
-        if (Find(placeId) is not { Kind: PlaceKinds.Home } home || PlaceDesign.MissingHomeSpots(draft.Spots) is not null) return null;
-        var living = Math.Max(1, home.Living().Count());
-        var bed = draft.Spots.Single(s => s.Id == "bed");
-        bed.Capacity = Math.Max(bed.Capacity, living);
-        bed.At = "on";
-        bed.Seat = true;
+        if (Find(placeId) is not { Kind: PlaceKinds.Home or PlaceKinds.Public } place) return null;
+        var isHome = place.Kind == PlaceKinds.Home;
+        if (isHome && PlaceDesign.MissingHomeSpots(draft.Spots) is not null) return null;
+        if (isHome)
+        {
+            var bed = draft.Spots.Single(s => s.Id == "bed");
+            bed.Capacity = Math.Max(bed.Capacity, Math.Max(1, place.Living().Count()));
+            bed.At = "on";
+            bed.Seat = true;
+        }
 
-        home.Scene = "custom";
-        home.CustomScene = draft.Scene;
-        home.Spots = draft.Spots;
-        if (draft.Doc["description"]?.ToString() is { Length: > 0 } about) home.Description = WorldStream.Clip(about, 200);
-        home.WallColour = null;
-        home.FloorColour = null;
-        if (!string.IsNullOrWhiteSpace(name)) home.Name = WorldStream.Clip(name, 40);
-        var spotIds = home.Spots.Select(s => s.Id).ToHashSet();
-        foreach (var furni in home.Furni)
+        place.Scene = "custom";
+        place.CustomScene = draft.Scene;
+        place.Spots = draft.Spots;
+        if (draft.Doc["description"]?.ToString() is { Length: > 0 } about) place.Description = WorldStream.Clip(about, 200);
+        place.WallColour = null;
+        place.FloorColour = null;
+        if (!string.IsNullOrWhiteSpace(name)) place.Name = WorldStream.Clip(name, 40);
+        var spotIds = place.Spots.Select(s => s.Id).ToHashSet();
+        foreach (var furni in place.Furni)
         {
             (furni.TileX, furni.TileZ) = (null, null);
-            if (!spotIds.Contains(furni.SpotId)) furni.SpotId = home.Spots[0].Id;
+            if (!spotIds.Contains(furni.SpotId)) furni.SpotId = place.Spots[0].Id;
         }
-        var renamed = NameThings(home, draft.Doc);
+        var renamed = isHome ? NameThings(place, draft.Doc) : new List<Furni>();
         foreach (var body in state.State.Bodies.Values)
         {
-            if (body.PlaceId == placeId && !spotIds.Contains(body.SpotId)) { body.SpotId = home.Spots[0].Id; EndPose(body); }
-            if (body.DestPlaceId == placeId && body.DestSpotId is { } dest && !spotIds.Contains(dest)) body.DestSpotId = home.Spots[0].Id;
+            if (body.PlaceId == placeId && !spotIds.Contains(body.SpotId)) { body.SpotId = place.Spots[0].Id; EndPose(body); }
+            if (body.DestPlaceId == placeId && body.DestSpotId is { } dest && !spotIds.Contains(dest)) body.DestSpotId = place.Spots[0].Id;
         }
 
         await SaveAsync();
-        await PublishPlaceAsync(home);
+        await PublishPlaceAsync(place);
         foreach (var body in state.State.Bodies.Values.Where(b => b.PlaceId == placeId || b.DestPlaceId == placeId).ToList())
             await PublishAsync(body);
         // The bed keeps its prefab: sleepers lie on its seats.
-        foreach (var furni in renamed.Where(f => f.Kind != FurniKinds.Bed)) QueueModel(home, furni, furni.Name);
-        return home;
+        foreach (var furni in renamed.Where(f => f.Kind != FurniKinds.Bed)) QueueModel(place, furni, furni.Name);
+        return place;
     }
 
 

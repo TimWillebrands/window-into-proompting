@@ -95,7 +95,7 @@ public sealed class McpEndpointTest : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         var tools = Result(await res.Content.ReadAsStringAsync())["tools"]!.AsArray().Select(t => t!["name"]!.ToString()).ToList();
         Assert.Contains("whoami", tools);
-        Assert.Contains("redesign_home", tools);
+        Assert.Contains("design_place", tools);
         Assert.Equal(1, _clerkAsked);
     }
 

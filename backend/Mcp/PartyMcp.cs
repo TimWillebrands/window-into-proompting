@@ -9,8 +9,10 @@ public static class PartyMcp
 {
     public const string Instructions =
         "Proompting Party is a small World of AI Personas and human Players, shown as a Windows XP desktop. "
-        + "These tools act for the signed-in human's Player: read where they are, their Home, look and wallet; change their look; "
-        + "redesign and furnish their Home. Admins may pass participantId to act for anyone; list_participants finds ids.";
+        + "These tools act for the signed-in human's Player: read where they are, their Home, look and wallet. "
+        + "You do the designing: get_design_guide gives the schema and rules for a place, a look or a thing; "
+        + "design_place, dress and add_thing take what you made and check it. "
+        + "Admins may pass participantId to act for anyone (list_participants), and placeId for public Places (list_places).";
 
     public static IServiceCollection AddPartyMcp(this IServiceCollection services)
     {

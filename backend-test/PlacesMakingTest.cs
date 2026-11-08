@@ -243,7 +243,7 @@ public partial class PlacesTest
             """.Replace("GARDEN", withGarden ? """, {"id": "garden", "name": "the garden", "at": "in", "capacity": 2}""" : ""));
         try
         {
-            var redone = await PlaceMaking.RedesignHomeAsync(_fx.GrainFactory, partyId, home.Id, new string('x', 1000) + " a tower", "the stargazer's tower", false);
+            var redone = await PlaceMaking.RedesignAsync(_fx.GrainFactory, partyId, home.Id, new string('x', 1000) + " a tower", "the stargazer's tower", false);
 
             Assert.NotNull(redone);
             Assert.Contains("Spots must include these ids", ScriptedLlm.Instance.Users.Last(u => u.StartsWith("Design:")));
@@ -257,11 +257,43 @@ public partial class PlacesTest
             await places.MoveAsync(denise, home.Id, "garden");
             _fx.Time.Advance(TimeSpan.FromMinutes(5));
             withGarden = false;
-            Assert.NotNull(await PlaceMaking.RedesignHomeAsync(_fx.GrainFactory, partyId, home.Id, "a tower without a garden", null, false));
+            Assert.NotNull(await PlaceMaking.RedesignAsync(_fx.GrainFactory, partyId, home.Id, "a tower without a garden", null, false));
             snapshot = await places.GetSnapshotAsync();
             var body = snapshot.Bodies.Single(b => b.ParticipantId == denise);
             Assert.Equal((home.Id, "sofa"), (body.PlaceId, body.SpotId));
             Assert.Equal("the stargazer's tower", snapshot.Places.Single(p => p.Id == home.Id).Name);
+        }
+        finally
+        {
+            ScriptedLlm.Instance.Json = (_, _) => null;
+        }
+    }
+
+    [Fact]
+    public async Task ARedesignedWorkplace_KeepsItsNameAndThings_WithoutHomeRules()
+    {
+        var (partyId, _, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var works = (await places.GetSnapshotAsync()).Places.First(p => p.Kind == PlaceKinds.Public);
+        var orrery = await places.AddThingAsync(works.Id, null, "a brass orrery");
+        ScriptedLlm.Instance.Json = (system, _) => !system.Contains("You design one new place") ? null : Obj("""
+            {"name": "the sanctum", "description": "a vaulted workshop of glowing terminals",
+             "spots": [{"id": "console", "name": "the great console", "at": "at", "capacity": 3},
+                       {"id": "colloquy", "name": "the colloquy bench", "at": "on", "capacity": 4, "seat": true}],
+             "scene": {"map": ["#ww#####", "#......#", "#......#", "D......#", "########"],
+                       "spots": {"console": {"at": [2, 1]}, "colloquy": {"at": [5, 3]}}}}
+            """);
+        try
+        {
+            var redone = await PlaceMaking.RedesignAsync(_fx.GrainFactory, partyId, works.Id, "a Platonist workshop", null, false);
+
+            Assert.NotNull(redone);
+            var brief = ScriptedLlm.Instance.Users.Last(u => u.StartsWith("Design:"));
+            Assert.DoesNotContain("Spots must include these ids", brief);
+            Assert.Contains($"It stays {works.Name}", brief);
+            Assert.Equal((works.Id, works.Name, PlaceKinds.Public, "custom"), (redone.Id, redone.Name, redone.Kind, redone.Scene));
+            Assert.Equal(new[] { "console", "colloquy" }, redone.Spots.Select(s => s.Id));
+            Assert.Contains(redone.Furni, f => f.Id == orrery!.FurniId && (f.SpotId == "console" || f.SpotId == "colloquy"));
         }
         finally
         {
@@ -294,7 +326,7 @@ public partial class PlacesTest
         };
         try
         {
-            var camp = await PlaceMaking.RedesignHomeAsync(_fx.GrainFactory, partyId, home.Id, "a street camp, a modern Diogenes", "Denise's camp", true);
+            var camp = await PlaceMaking.RedesignAsync(_fx.GrainFactory, partyId, home.Id, "a street camp, a modern Diogenes", "Denise's camp", true);
 
             Assert.NotNull(camp);
             Assert.Contains("Outdoors: no walls", system);
@@ -326,7 +358,7 @@ public partial class PlacesTest
         };
         try
         {
-            var redesign = PlaceMaking.RedesignHomeAsync(_fx.GrainFactory, partyId, home.Id, "a slow tower", null, false);
+            var redesign = PlaceMaking.RedesignAsync(_fx.GrainFactory, partyId, home.Id, "a slow tower", null, false);
             Assert.True(designing.Wait(TimeSpan.FromSeconds(10)));
 
             var snapshot = places.GetSnapshotAsync();

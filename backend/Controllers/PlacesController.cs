@@ -194,7 +194,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
             ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
     }
 
-    /// <summary>Author: design a Home anew from a description, outdoors for a camp; same id, people and keys. 409 when it couldn't be made.</summary>
+    /// <summary>Author: design a Home or public Place anew from a description, outdoors for a camp; same id, people and keys. 409 when it couldn't be made.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{placeId:guid}/redesign")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -202,8 +202,8 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<Place>> RedesignHome(Guid partyId, Guid placeId, [FromBody] RedesignHomeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 1500) return BadRequest("Describe it in under 1500 characters.");
-        return await PlaceMaking.RedesignHomeAsync(grains, partyId, placeId, request.Text, request.Name, request.Outdoor) is { } p
-            ? Ok(p) : Conflict("Not a Home, or couldn't design that one.");
+        return await PlaceMaking.RedesignAsync(grains, partyId, placeId, request.Text, request.Name, request.Outdoor) is { } p
+            ? Ok(p) : Conflict("A Locale, or couldn't design that one.");
     }
 
     /// <summary>Author: a workplace's door (open, appointment or staff) and who else may come in (ADR 0041). Anyone no longer allowed goes home.</summary>
