@@ -60,6 +60,10 @@ Comments and docblocks are 1 line max — if the why needs more, it belongs in
 an ADR, the issue, or a commit message. Sacrifice syntactical correctness
 for readability in writing.
 
+## Git
+
+Commit straight to `master`, no feature branches (unless asked).
+
 ## UI components (Storybook MCP)
 
 When working on UI components, verify component properties through the `proompting-party-sb-mcp` MCP tools (`list-all-documentation`, `get-documentation`) before using them — never assume props from naming conventions or other libraries; if a prop isn't documented, check with the user. Fetch `get-storybook-story-instructions` before creating or updating stories, and verify with `run-story-tests`.
