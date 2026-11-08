@@ -139,7 +139,7 @@ export function topField(
         if (open) {
             const gap =
                 (0.016 + 0.012 * smooth(collarY, hemY, y)) * H - Math.abs(x);
-            if (z > 0) d = sint(d, -gap, 0.004 * H);
+            if (z > 0) d = sint(d, gap, 0.004 * H);
         }
         return d;
     };
