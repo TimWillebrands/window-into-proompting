@@ -198,7 +198,57 @@ public class OwnRecentTest
         }, now);
         Assert.Contains("- 3 min ago, DM Denise & Lena: \"That tin is still on his shelf.\"", text);
         Assert.Contains("Don't say the same thing again", text);
+        Assert.Contains("What you said stands: don't contradict it", text);
         Assert.Equal(string.Empty, VoiceWear.RenderOwnRecent(Array.Empty<VoiceLine>(), now));
+    }
+}
+
+/// <summary>Coherence (ADR 0042): what a persona already said or wrote stands, and their Day knows what the world is on about.</summary>
+public class SaidStandsTest
+{
+    [Fact]
+    public void BoardPost_ShowsOwnPostsAsStanding_NotAsTopicsToMakeNew()
+    {
+        var text = PartyTown.World.Apps.BoardApp.PostUser("the radiator", null, new[] { "1 h ago: radiator finally has a landlord visit booked" }, Array.Empty<string>());
+        Assert.Contains("What you said stands", text);
+        Assert.Contains("don't invent news", text);
+        Assert.DoesNotContain("genuinely new about it", text);
+    }
+
+    [Fact]
+    public void Diary_SeesWhatItAlreadyWrote_NewestFirst()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var entries = new[]
+        {
+            new PartyTown.World.DiaryEntry { Body = "amira's train lands at 2.", CreatedAt = now.AddMinutes(-4).ToUnixTimeMilliseconds() },
+            new PartyTown.World.DiaryEntry { Body = "the van on veerstraat, the cat, the saucer of milk.", CreatedAt = now.AddMinutes(-40).ToUnixTimeMilliseconds() },
+            new PartyTown.World.DiaryEntry { Body = "older", CreatedAt = now.AddHours(-3).ToUnixTimeMilliseconds() },
+            new PartyTown.World.DiaryEntry { Body = "oldest", CreatedAt = now.AddHours(-9).ToUnixTimeMilliseconds() },
+        };
+
+        var written = PartyTown.World.Apps.DiaryApp.OwnRecent(entries, now);
+        var user = PartyTown.World.Apps.DiaryApp.WriterUser("amira", "# Right now", Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(), written);
+
+        Assert.Equal(3, written.Count);
+        Assert.StartsWith("4 min ago: amira's train lands at 2.", written[0]);
+        Assert.Contains("What you already wrote (don't write the same entry again; What you said stands", user);
+        Assert.Contains("- 4 min ago: amira's train lands at 2.", user);
+        Assert.DoesNotContain("oldest", user);
+    }
+
+    [Fact]
+    public void Diary_WhatHappenedIsWhatDid_NotTheDayAhead()
+        => Assert.Contains("anything still coming up hasn't happened yet", PartyTown.World.Apps.DiaryApp.WriterRules);
+
+    [Fact]
+    public void Elsewhere_TellsTheDayWhatEveryoneIsOnAbout_ButNotTheirOwnThings()
+    {
+        var line = SelfMath.Elsewhere(new[] { "radiator", "bread", "polka" }, new[] { "get the landlord to fix the radiator before Amira visits" });
+        Assert.Contains("on about: bread, polka.", line);
+        Assert.DoesNotContain("radiator", line);
+        Assert.Equal(string.Empty, SelfMath.Elsewhere(new[] { "radiator" }, new[] { "the radiator" }));
+        Assert.Equal(string.Empty, SelfMath.Elsewhere(Array.Empty<string>(), Array.Empty<string>()));
     }
 }
 

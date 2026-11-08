@@ -165,12 +165,15 @@ public static partial class VoiceWear
         return lines;
     }
 
-    /// <summary>Your own latest lines, wherever you said them, so you don't repeat yourself across Rooms.</summary>
+    /// <summary>Novelty ⇄ consistency (ADR 0042): what you said got around and stays true; news means something actually happened.</summary>
+    public const string SaidStands = "What you said stands: don't contradict it, and don't invent news to make it new.";
+
+    /// <summary>Your own latest lines, wherever you said them: not to repeat, not to contradict.</summary>
     public static string RenderOwnRecent(IReadOnlyList<VoiceLine> own, DateTimeOffset now)
     {
         if (own.Count == 0) return string.Empty;
         var lines = own.Select(l => $"- {WorldStream.Ago(l.Ts, now)}, {l.Room}: \"{WorldStream.Clip(l.Text, 160)}\"");
-        return $"# What you said lately\n{string.Join("\n", lines)}\nPeople talk to each other; assume it got around. Don't say the same thing again, here or anywhere.\n";
+        return $"# What you said lately\n{string.Join("\n", lines)}\nPeople talk to each other; assume it got around. Don't say the same thing again, here or anywhere. {SaidStands}\n";
     }
 
     private static readonly HashSet<string> Stopwords = new(StringComparer.Ordinal)

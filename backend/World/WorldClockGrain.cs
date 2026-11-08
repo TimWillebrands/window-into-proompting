@@ -152,21 +152,36 @@ public sealed class WorldClockGrain(
         await state.WriteStateAsync();
     }
 
-    public async Task<WorldActivity> AnnounceAsync(string text)
+    public async Task<WorldActivity> AnnounceAsync(string text, Guid? placeId = null)
     {
         var happening = new WorldActivity
         {
             PersonaId = Narrator.PersonaId, PersonaName = Narrator.DisplayName,
-            App = "world", Action = "happening", Summary = WorldStream.Clip(text, 600),
+            App = "world", Action = "happening", Summary = WorldStream.Clip(text, 600), TargetId = placeId,
         };
         await RecordAsync(happening);
 
-        // Everyone in the World lived through it: one Event, a Recollection each.
+        // At a Place, it's news there and in its District (ADR 0043); anywhere else, everyone lived through it.
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
-        var present = cast.Select(c => new ParticipantView(c.Id, c.Name, c.DefaultDriver)).ToList();
+        var around = cast.Select(c => c.Id).ToHashSet();
+        if (placeId is { } at)
+        {
+            try
+            {
+                var places = GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId);
+                await places.NoteHappeningAsync(at, happening.Summary);
+                var snapshot = await places.GetSnapshotAsync();
+                around = HappeningRules.Around(snapshot.Places, snapshot.Bodies, at).ToHashSet();
+                var personas = cast.Where(c => c.DefaultDriver == DriverKind.LLM).Select(c => c.Id).ToHashSet();
+                await NotifyAsync(HappeningRules.Witnesses(snapshot.Bodies, at).Where(personas.Contains).ToList());
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "Placing a happening failed"); }
+        }
+        var present = cast.Where(c => around.Contains(c.Id)).Select(c => new ParticipantView(c.Id, c.Name, c.DefaultDriver)).ToList();
+        if (present.Count == 0) return happening;
         var line = new MomentLine(Narrator.PersonaId, $"[Happening in the world] {happening.Summary}", happening.Ts);
         _ = memory.CaptureAsync(
-            new Moment(PartyId, MomentSources.World, happening.Id, new List<MomentLine> { line }, 0, present),
+            new Moment(PartyId, MomentSources.World, happening.Id, new List<MomentLine> { line }, 0, present, placeId),
             CancellationToken.None);
         return happening;
     }
@@ -363,7 +378,7 @@ public sealed class WorldClockGrain(
         }
     }
 
-    /// <summary>Novelty against echo chambers: the Narrator lets something small happen in the world.</summary>
+    /// <summary>Novelty against echo chambers: the Narrator lets something small happen at a real Place, likelier where people are.</summary>
     private async Task AmbientHappeningAsync()
     {
         try
@@ -372,14 +387,16 @@ public sealed class WorldClockGrain(
                 .Where(a => a.Action == "happening").TakeLast(6).Select(a => $"- {a.Summary}");
             var talk = state.State.Activities
                 .Where(a => a.Action is "post" or "reply" or "say" or "dm").TakeLast(6).Select(a => $"- {a.PersonaName} {a.Summary}");
+            var snapshot = await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetSnapshotAsync();
+            var place = HappeningRules.PickPlace(snapshot.Places, snapshot.Bodies, Random.Shared);
             var local = DateTimeOffset.Now;
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
-                $"You are the narrator of a small online world shared by a handful of people. Let ONE small, concrete thing happen in their surroundings — weather, a local event, a glitch, news, a delivery, a neighbourhood rumour. Everyday scale, no catastrophes, nothing about any person's inner life. It should give people something new to react to, unrelated to what they're already discussing. One or two sentences, present tense.\nOutput ONLY JSON: {AmbientShape}",
+                $"You are the narrator of a small online world shared by a handful of people. Let ONE small, concrete thing happen {HappeningRules.Setting(place, snapshot.Districts)}: weather, a local event, a glitch, a delivery, an animal, a neighbourhood rumour. Everyday scale, no catastrophes, nothing about any person's inner life, nobody by name. It should give people something new to react to, unrelated to what they're already discussing. One or two sentences, present tense.\nOutput ONLY JSON: {AmbientShape}",
                 $"It is {local:dddd HH:mm}.\n\nRecent happenings (don't repeat):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
                 CancellationToken.None, 1.0, ["happening"]);
             var text = json?["happening"]?.ToString();
             if (!string.IsNullOrWhiteSpace(text))
-                await AnnounceAsync(text);
+                await AnnounceAsync(text, place?.Id);
         }
         catch (Exception ex)
         {
@@ -428,8 +445,8 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     /// <summary>Every Participant a human owns, on auto or not.</summary>
     [AlwaysInterleave, Alias("GetClaimedAsync")] Task<List<Guid>> GetClaimedAsync();
     [Alias("ForgetPlayerAsync")] Task ForgetPlayerAsync(Guid participantId);
-    /// <summary>Author-announced Happening: logged, perceived by every Life, remembered by everyone.</summary>
-    [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text);
+    /// <summary>A Happening: logged and perceived by every Life; at a Place, news there and remembered around it, else by everyone.</summary>
+    [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text, Guid? placeId = null);
     /// <summary>Something concerning these Personas landed outside a live chat: they're likelier to get the next turn.</summary>
     [Alias("NotifyAsync")] Task NotifyAsync(List<Guid> personaIds);
     /// <summary>When to look at what this Persona put off; null clears it (ADR 0031).</summary>

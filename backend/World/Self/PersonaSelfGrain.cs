@@ -227,6 +227,17 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
+    /// <summary>Words worn across the world right now (ADR 0021 #3); empty when unavailable.</summary>
+    private async Task<IReadOnlyList<string>> WornAsync(Guid partyId)
+    {
+        try { return (await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync()).WornWords; }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Worn words unavailable for the Day prompt");
+            return Array.Empty<string>();
+        }
+    }
+
     private static readonly TimeSpan SheetCheck = TimeSpan.FromMinutes(10);
     private long _sheetCheckedAt;
 
@@ -300,7 +311,7 @@ public sealed partial class PersonaSelfGrain(
                 Let today's beats move at least one ongoing thread a little.
                 If they want something lasting, one ordinary beat may edge toward it (a call, an errand, an hour on it); no breakthroughs.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}",
+                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}{SelfMath.Elsewhere(await WornAsync(partyId), carried)}",
                 cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
@@ -414,6 +425,15 @@ public static partial class SelfMath
             .Where(x => x.age < ThreadDays)
             .Select(x => x.age >= DraggingDays ? $"{x.t} (dragging on for {x.age} days: today it gets done, or they let it go)" : x.t)
             .ToList();
+
+    /// <summary>The world's worn words that aren't one of their own ongoing things, as an expectation for the Day (ADR 0042); empty when none.</summary>
+    public static string Elsewhere(IReadOnlyList<string> worn, IEnumerable<string> ongoing)
+    {
+        var own = ongoing.SelectMany(ThreadWords).ToHashSet();
+        var others = worn.Where(w => !own.Contains(w.ToLowerInvariant())).ToList();
+        return others.Count == 0 ? string.Empty
+            : $"\nLately everyone around them is on about: {string.Join(", ", others)}. That's other people's; their own day has its own small things.";
+    }
 
     /// <summary>Fingerprint of who they are (sheet + bio); a new one means today's life was written for someone else.</summary>
     public static string SheetKey(string? sheet, string? bio)

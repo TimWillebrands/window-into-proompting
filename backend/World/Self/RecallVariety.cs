@@ -5,7 +5,8 @@ namespace PartyTown.World.Self;
 
 /// <summary>
 /// One story, one slot (ADR 0021): every retelling becomes a new memory, so a favourite story crowds recall and
-/// gets told again. Near-duplicates collapse to the strongest, and stories you told someone say so.
+/// gets told again. Near-duplicates collapse into the strongest one's slot, holding the latest telling (ADR 0042),
+/// and stories you told someone say so.
 /// </summary>
 public static partial class RecallVariety
 {
@@ -18,17 +19,19 @@ public static partial class RecallVariety
     };
 
     public static RecallBeat Apply(RecallBeat beat, IReadOnlyCollection<string> names)
-        => beat.Memories.Count == 0 ? beat : new RecallBeat(Collapse(beat.Memories, m => m.Snippet, names).Select(Annotate).ToList(), beat.Stances);
+        => beat.Memories.Count == 0 ? beat : new RecallBeat(Collapse(beat.Memories, m => m.Snippet, names, m => m.CapturedAt).Select(Annotate).ToList(), beat.Stances);
 
-    public static List<T> Collapse<T>(IReadOnlyList<T> items, Func<T, string> text, IReadOnlyCollection<string> names)
+    /// <summary>Near-duplicates share one slot at the first one's place; with <paramref name="at"/>, the slot holds the latest telling (latest wins, as for Stances).</summary>
+    public static List<T> Collapse<T>(IReadOnlyList<T> items, Func<T, string> text, IReadOnlyCollection<string> names, Func<T, DateTimeOffset>? at = null)
     {
         var kept = new List<(T Item, List<string> Words, HashSet<string> Pairs)>();
         foreach (var item in items)
         {
             var words = VoiceWear.ContentWords(text(item), names).Where(w => !Framing.Contains(w)).ToList();
             var pairs = Pairs(words);
-            if (kept.Any(k => VoiceWear.Overlap(k.Words, words) >= SameStory || k.Pairs.Overlaps(pairs))) continue;
-            kept.Add((item, words, pairs));
+            var same = kept.FindIndex(k => VoiceWear.Overlap(k.Words, words) >= SameStory || k.Pairs.Overlaps(pairs));
+            if (same < 0) kept.Add((item, words, pairs));
+            else if (at is not null && at(item) > at(kept[same].Item)) kept[same] = kept[same] with { Item = item };
         }
         return kept.Select(k => k.Item).ToList();
     }

@@ -18,11 +18,17 @@ public static class Sleep
     public static (int Bed, int Wake) Window(Guid id, int? firstBeat = null, int? lastBeat = null)
     {
         var bytes = id.ToByteArray();
-        var wake = firstBeat ?? 390 + bytes[0] * 180 / 255;          // 06:30–09:30
+        // A day written just after midnight can open with a small-hours beat; nobody's day starts before 05:00.
+        var wake = Math.Clamp(firstBeat ?? 390 + bytes[0] * 180 / 255, EarliestWake, LatestWake); // 06:30–09:30 by chronotype
         var bed = 1350 + bytes[1] * 180 / 255;                       // 22:30–01:30 (past midnight = > 1440)
-        if (lastBeat is { } last) bed = Math.Max(bed - 60, Later(last, wake) + 30);
+        if (lastBeat is { } last) bed = Math.Min(Math.Max(bed - 60, Later(last, wake) + 30), LatestBed);
         return (bed % Day, wake);
     }
+
+    public const int EarliestWake = 5 * 60;
+    public const int LatestWake = 11 * 60;
+    /// <summary>02:30, as minutes past the previous midnight: a late last beat never leaves no night at all.</summary>
+    public const int LatestBed = Day + 150;
 
     /// <summary>Whether <paramref name="minute"/> falls between bedtime and waking (wrapping midnight).</summary>
     public static bool IsNight(int minute, int bed, int wake)

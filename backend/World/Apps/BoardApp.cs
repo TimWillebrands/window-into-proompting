@@ -16,7 +16,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     public const int MaxLength = 280;
 
     private const string PostShape = """{"post": "<your post, under 280 characters>"}""";
-    private const string ReplyShape = """{"body": "<your reply, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
+    private const string ReplyShape = """{"body": "<your reply exactly as you'd type it under the post, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
 
     private const string Shorten = """
         Shorten this Partyboard post to under 280 characters. Keep the writer's voice, casing, facts and point;
@@ -36,9 +36,9 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var threads = all.Take(6).ToList();
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         var postedLately = all.Any(t => t.AuthorId == ctx.Self.Id && ctx.Now.ToUnixTimeMilliseconds() - t.CreatedAt < TimeSpan.FromHours(12).TotalMilliseconds);
-        var affordances = new List<Affordance> { PostAffordance(openers, postedLately) };
+        var affordances = new List<Affordance> { PostAffordance(openers, postedLately, Witnessed(ctx)) };
         if (!ctx.InMind(AttentionKey))
-            return Glance(ctx, all, affordances);
+            return await GlanceAsync(ctx, all, affordances);
         if (threads.Count == 0)
             return new AppPerception(Id, Title, "Partyboard is empty: nobody has posted yet.", affordances);
 
@@ -65,16 +65,35 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 sb.AppendLine("    (you read the latest here and let it be)");
                 continue;
             }
+            var done = await RanItsCourseAsync(ctx, t);
+            if (done) sb.AppendLine(RanItsCourseNote);
             var priority = 1 + (answeredYou ? 1 : 0) + (AddressedSinceYou(t, ctx) ? 2 : 0)
-                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id);
+                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id) - (done ? 2 : 0);
             affordances.Add(new Affordance(Id, $"Reply to {PostLabel(t, ctx.Self.Id)}", priority, t.Id, "reply"));
         }
 
         return new AppPerception(Id, Title, sb.ToString().TrimEnd(), affordances);
     }
 
+    private const string RanItsCourseNote = "    (this exchange has run its course: only agreeing or saying it again)";
+
+    /// <summary>The Rooms' thermostat over a Board thread (ADR 0043): a reply chain that only re-confirms pulls less, like a circling Room.</summary>
+    private async Task<bool> RanItsCourseAsync(LifeContext ctx, BoardThread t)
+    {
+        if (t.Replies.Count < 3) return false;
+        try { return Self.Thermostat.RunItsCourse(await grains.GetGrain<Self.IConversationThermostatGrain>(t.Id).GetThreadReadAsync(ctx.PartyId)); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Thread thermostat failed for {Thread}", t.Id);
+            return false;
+        }
+    }
+
+    /// <summary>A fresh Happening they saw themselves, the one thing from the world worth a post (ADR 0043).</summary>
+    private Happening? Witnessed(LifeContext ctx) => HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "post", ctx.Now);
+
     /// <summary>Partyboard closed: what's new since you last looked, and notifications for what concerns you.</summary>
-    private AppPerception Glance(LifeContext ctx, List<BoardThread> all, List<Affordance> affordances)
+    private async Task<AppPerception> GlanceAsync(LifeContext ctx, List<BoardThread> all, List<Affordance> affordances)
     {
         var seenAt = ctx.Looks.TryGetValue(AttentionKey, out var look) ? look.At : 0L;
         var (threads, replies) = NewSince(all, ctx.Self.Id, seenAt);
@@ -91,8 +110,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         {
             sb.AppendLine($"Notification: {line.AuthorName} {how} on {PostLabel(t, ctx.Self.Id)}: {WorldStream.Clip(line.Body, 100)}");
             if (RunItsCourse(t.Replies.Count) || PassedOn(ctx.RecentOwn, t)) continue;
+            var done = await RanItsCourseAsync(ctx, t);
+            if (done) sb.AppendLine(RanItsCourseNote);
             var priority = 1 + (how == "replied to you" ? 1 : 0) + (AddressedSinceYou(t, ctx) ? 2 : 0)
-                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id);
+                - ThreadFatigue(t.Replies.Select(x => x.AuthorId).ToList(), ctx.Self.Id) - (done ? 2 : 0);
             affordances.Add(new Affordance(Id, $"Reply to {PostLabel(t, ctx.Self.Id)}", priority, t.Id, "reply"));
         }
         if (all.Count > 0)
@@ -164,9 +185,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     public static bool RunItsCourse(int replies) => replies >= MaxReplies;
 
-    /// <summary>A new post seeded by something from your own day; it pulls harder when you haven't posted lately.</summary>
-    public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately)
+    /// <summary>A new post seeded by something from your own day, or by what you just saw happen; it pulls harder when you haven't posted lately.</summary>
+    public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately, Happening? saw = null)
     {
+        if (saw is { Where: { } where }) return new Affordance(Id, Self.Hooks.PostAbout(where, saw.Text), postedLately ? 1 : 2, null, "post");
         var opener = Self.Hooks.Pick(openers);
         return new Affordance(Id, Self.Hooks.Post(opener), opener is null || postedLately ? 1 : 2, null, "post");
     }
@@ -188,7 +210,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             var all = await board.GetThreadsAsync();
             var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
                 PostUser(intent, thought, OwnRecent(all, ctx.Self.Id, ctx.Now), OthersRecent(all, ctx.Self.Id)), ct, 0.9, ["post"]);
-            if (json?["post"]?.ToString().Trim() is not { Length: > 0 } post) return null;
+            if (json?["post"]?.ToString().Trim() is not { Length: > 0 } written
+                || Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(written) is not { Length: > 0 } post) return null;
 
             return (await PostAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, post, ct), ViewsOf(ctx))).Outcome;
         }
@@ -197,6 +220,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var replyJson = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
             ReplyUser(Render(target, ctx.Self.Id), intent, thought), ct, 0.9, ["body", "respect"]);
         if (replyJson is null) return null;
+        // A body that's only a note about replying is a failed write, not a choice to pass.
+        if (ReplyBody(replyJson) is { } drafted && Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(drafted).Length == 0) return null;
 
         var respected = GivesRespect(replyJson) && RespectTarget(target, ctx.Self.Id) is { } aim
             && await RespectAsync(ctx.PartyId, threadId, aim.ReplyId, ctx.Self.Id, ctx.Self.Name, true) is not null;
@@ -205,7 +230,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 ? new ActOutcome("respect", $"gave {RespectTarget(target, ctx.Self.Id)!.Value.Name} Respect! on {PostLabel(target, ctx.Self.Id)}", target.Id)
                 : new ActOutcome("pass", $"read {PostLabel(target, ctx.Self.Id)} and let it be", target.Id);
 
-        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, replyBody, ct), ViewsOf(ctx)))?.Outcome;
+        var sayable = Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(replyBody);
+        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, sayable, ct), ViewsOf(ctx)))?.Outcome;
     }
 
     /// <summary>System prompt for any Partyboard write: who you are, your day, and what a feed post is.</summary>
@@ -221,6 +247,7 @@ You are posting on Partyboard, the social feed of the small online world you liv
 - Readers aren't where you are: say what they need, don't point at your surroundings.
 - It's public. Something meant for one person is a DM.
 - Your own words and angle, not the thread's: don't pick up other people's metaphors or catchphrases.
+- A reply talks to the people under the post; it doesn't sum up who said what first.
 Everyday words, in English like the rest of Partyboard; the odd word from your own language is fine. No hashtags, no sign-off, no meta commentary.
 Output ONLY JSON.
 """;
@@ -229,7 +256,7 @@ Output ONLY JSON.
 What you want to post about: {intent}
 {(thought is null ? "" : $"What's on your mind: {thought}")}
 
-Your recent posts (don't post the same thing again; if it's the same topic, only post something genuinely new about it):
+Your recent posts (don't post the same thing again; {Self.VoiceWear.SaidStands}):
 {(ownRecent.Count == 0 ? "(none yet)" : string.Join("\n", ownRecent.Select(p => $"- {p}")))}
 
 Lately on the timeline:
@@ -398,7 +425,7 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     {
         var entries = await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetEntriesAsync();
         var last = entries.FirstOrDefault();
-        var sinceLast = last is null ? ctx.RecentOwn.Count : ctx.RecentOwn.Count(a => a.Ts > last.CreatedAt);
+        var sinceLast = Lived(ctx.RecentOwn, last?.CreatedAt);
         var block = last is null
             ? "You haven't written in your diary yet."
             : $"Your last diary entry ({WorldStream.Ago(last.CreatedAt, ctx.Now)}): {WorldStream.Clip(last.Body, 140)}";
@@ -409,32 +436,24 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             new[] { new Affordance(Id, Self.Hooks.Diary(onYourMind), priority, null, "write") });
     }
 
+    /// <summary>Things done since the last entry: resting and looking are nothing to write about, so a quiet night doesn't fill the diary.</summary>
+    public static int Lived(IEnumerable<WorldActivity> recentOwn, long? lastEntryAt)
+        => recentOwn.Count(a => a.Action is not ("rest" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
+
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {
         var (memories, stances) = await memory.RecallAsync(
             ctx.PartyId, ctx.Self.Id, ctx.Cast.Select(c => c.Id).ToList(), intent, ct);
-        var activity = string.Join("\n", ctx.RecentOwn.Take(6).Select(a => $"- {a.Action} {a.Summary}"));
+        var activity = ctx.RecentOwn.Take(6).Select(a => $"{a.Action} {a.Summary}").ToList();
         var presence = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetPresenceAsync(withDay: true);
+        var written = OwnRecent(await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetEntriesAsync(), ctx.Now);
         var system = $"""
 {WorldLlm.Identity(ctx.Self)}
 
-You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened today (the ordinary parts too), how you feel about the people around you, what you want. Your own voice, everyday words, first person, 80-180 words.
+{WriterRules}
 Output ONLY JSON: {EntryShape}
 """;
-        var user = $"""
-What you want to write about: {intent}
-
-{presence}
-
-What you've been doing lately:
-{(activity.Length == 0 ? "(not much)" : activity)}
-
-Moments on your mind:
-{(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(6).Select(m => $"- {m.Snippet}")))}
-
-Where you stand:
-{(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
-""";
+        var user = WriterUser(intent, presence, activity, memories.Take(6).Select(m => m.Snippet).ToList(), stances, written);
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["mood", "entry"]);
         var body = json?["entry"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(body)) return null;
@@ -446,4 +465,30 @@ Where you stand:
         var formed = rest is { StancesAppended: > 0 } ? $", and {rest.StancesAppended} feeling(s) settled" : "";
         return new ActOutcome("diary", $"wrote in their diary{(mood is null ? "" : $" ({mood})")}{formed}", null);
     }
+
+    /// <summary>What a diary is for; what happened is what did happen, the day's plan ahead hasn't (ADR 0042).</summary>
+    public const string WriterRules = "You are writing in your private diary. Nobody else reads it. Be honest with yourself: what actually happened (the ordinary parts too), how you feel about the people around you, what you want. What happened is your day so far, what you did and what you remember; anything still coming up hasn't happened yet. Your own voice, everyday words, first person, 80-180 words.";
+
+    /// <summary>Your last entries, newest first: what you already wrote stands, so the next one doesn't rewrite it.</summary>
+    public static List<string> OwnRecent(IReadOnlyList<DiaryEntry> newestFirst, DateTimeOffset now)
+        => newestFirst.Take(3).Select(e => $"{WorldStream.Ago(e.CreatedAt, now)}: {WorldStream.Clip(e.Body, 300)}").ToList();
+
+    public static string WriterUser(string intent, string? presence, IReadOnlyList<string> activity, IReadOnlyList<string> memories,
+        IReadOnlyList<string> stances, IReadOnlyList<string> written) => $"""
+What you want to write about: {intent}
+
+{presence}
+
+What you've been doing lately:
+{(activity.Count == 0 ? "(not much)" : string.Join("\n", activity.Select(a => $"- {a}")))}
+
+Moments on your mind:
+{(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Select(m => $"- {m}")))}
+
+Where you stand:
+{(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
+
+What you already wrote (don't write the same entry again; {Self.VoiceWear.SaidStands}):
+{(written.Count == 0 ? "(nothing yet)" : string.Join("\n", written.Select(w => $"- {w}")))}
+""";
 }

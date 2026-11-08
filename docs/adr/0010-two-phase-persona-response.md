@@ -73,3 +73,12 @@ When a Plan phase earns its place (multi-turn arcs, scene/beat planning, deliber
 
 1. Insert between Decision and Speaking. Decision still owns "engage at all"; Plan owns "what shape"; Speaking owns "literal words".
 2. The `SpeakingDirective` record grows fields (`responseShape`, `callbackBeat`, …) rather than the prompt growing more inline cues.
+
+## Amendment (2026-11): the handoff is content, the reply is only the line
+
+In production the Speaking phase sent its plan as the message: "Lena asks in Dutch whether I've eaten. Reply in English, short, under 12 words, avoid stale words… \n\nnothing but cold toast". The trailing guidance was a list of directions with no output contract, labelled the handoff a "draft" to "refine", and on the shortcut carried its log labels ("Heard my name (urge=1.00)") as gut reaction and draft. Claude takes that later system message as a user turn, so it answered the directions before speaking.
+
+- The shortcut is marked (`ShouldRespondResult.Shortcut`); its Instruction and Reason stay in the appraisal for the thought log but no longer reach Speaking.
+- The handoff is rendered as "What you mean to get across", and the guidance always ends on `SpeakingSession.OnlyTheLine`: reply with only the words sent, no plan or notes on length, language or wording.
+- Life's `intent` asks for the substance, not how to word it, so no word budgets or stale-word lists travel as the draft.
+- Second layer, not the fix: `SpeechCleanup` drops a leading planning note, an echoed copy of the line being answered and any failure placeholder; a turn left with nothing sayable is Declined (Initiative: fizzles), never published. `WorldLlm` treats a placeholder in a requested JSON field as a failed parse.

@@ -295,7 +295,8 @@ public sealed class ResponsePipeline(
             // alongside so speaking refines a felt moment rather than re-deciding cold.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Instruction, decision.Reason, scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
+                decision.Shortcut ? null : decision.Instruction, decision.Shortcut ? null : decision.Reason,
+                scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
                 roomCast.Kind == ChatGroupKinds.Place);
 
             var appraisalJson = JsonSerializer.Serialize(new
@@ -306,6 +307,15 @@ public sealed class ResponsePipeline(
                 stop = false,
                 recall = recallLog
             }, WebOptions);
+
+            // Nothing sayable came back (an error placeholder, only a planning note): the turn fails quietly, nothing is published.
+            if (string.IsNullOrWhiteSpace(result.Message))
+            {
+                turnSpan?.SetTag("decision", "unsayable");
+                logger.LogWarning("Persona {PersonaName} produced no sayable line for message {MessageId}; declining", persona.Name, messageId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisalJson));
+                return;
+            }
 
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
@@ -465,6 +475,14 @@ public sealed class ResponsePipeline(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt,
                 roomCast.Kind == ChatGroupKinds.Place);
+
+            // Nothing sayable: the act fizzles instead of publishing a placeholder or a note.
+            if (string.IsNullOrWhiteSpace(result.Message))
+            {
+                logger.LogWarning("Persona {PersonaName} initiative in {ChatGroupId} produced no sayable line", persona.Name, chatGroupId);
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisalJson));
+                return null;
+            }
 
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));

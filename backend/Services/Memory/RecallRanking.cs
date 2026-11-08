@@ -11,8 +11,16 @@ internal static class RecallRanking
 {
     /// <summary>Relevant-arm quota: structural tension, not a merged formula — keeps a serendipity budget on hot topics.</summary>
     public const int RelevantArmSlots = 5;
-    /// <summary>How many newest edges the recency arm ranks.</summary>
+    /// <summary>Most newest edges the recency arm ever ranks; also the anchorless query's LIMIT.</summary>
     public const int CandidatePool = 50;
+    /// <summary>Newest edges the recency arm ranks per slot it fills: recent means the last few moments, not the strongest of days.</summary>
+    public const int RecentPoolPerSlot = 3;
+
+    /// <summary>Relevant arm's share: at most half the slots (rounded up), so recent ⇄ relevant stays a tension at small limits.</summary>
+    public static int RelevantSlots(int limit) => Math.Min(RelevantArmSlots, (Math.Max(0, limit) + 1) / 2);
+
+    /// <summary>How many newest edges the recency arm ranks to fill <paramref name="slots"/>.</summary>
+    public static int RecentPool(int slots) => Math.Min(CandidatePool, Math.Max(1, slots) * RecentPoolPerSlot);
 
     /// <summary>How far back recall reaches: the now is what matters; Ties, Relations and Stances carry what lasts.</summary>
     public static readonly TimeSpan Horizon = TimeSpan.FromDays(3);
@@ -40,7 +48,7 @@ internal static class RecallRanking
     }
 
     /// <summary>
-    /// Relevant arm takes up to <see cref="RelevantArmSlots"/>; the recency arm (newest <see cref="CandidatePool"/>)
+    /// Relevant arm takes up to <see cref="RelevantSlots"/>; the recency arm (newest <see cref="RecentPool"/>)
     /// fills the rest; both salience-ranked, then merged by salience so the prompt never shows which arm surfaced what.
     /// </summary>
     public static IReadOnlyList<RecalledMemory> QuotaUnion(IReadOnlyList<RecallCandidate> candidates, int limit)
@@ -49,15 +57,15 @@ internal static class RecallRanking
             .Where(c => c.Relevant)
             .OrderByDescending(c => c.Memory.Salience)
             .ThenByDescending(c => c.Memory.CapturedAt)
-            .Take(Math.Min(RelevantArmSlots, limit))
+            .Take(RelevantSlots(limit))
             .ToList();
         var taken = relevantArm.Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
 
         // A relevant edge that missed the relevant quota still competes here — never duplicated.
         var recentArm = candidates
-            .OrderByDescending(c => c.Memory.CapturedAt)
-            .Take(CandidatePool)
             .Where(c => !taken.Contains(c.Key))
+            .OrderByDescending(c => c.Memory.CapturedAt)
+            .Take(RecentPool(limit - relevantArm.Count))
             .OrderByDescending(c => c.Memory.Salience)
             .ThenByDescending(c => c.Memory.CapturedAt)
             .Take(limit - relevantArm.Count);

@@ -19,7 +19,7 @@ public sealed record class WorldActivity
     [Id(6)] public string Summary { get; init; } = string.Empty;
     /// <summary>The Initiative thought that led here; null for non-Life activity.</summary>
     [Id(7)] public string? Thought { get; init; }
-    /// <summary>Room/DM/thread the activity happened in, for click-through.</summary>
+    /// <summary>Room/DM/thread the activity happened in, for click-through; a Happening's Place.</summary>
     [Id(8)] public Guid? TargetId { get; init; }
     /// <summary>The other party of a 1:1 act (DM partner).</summary>
     [Id(9)] public Guid? WithPersonaId { get; init; }

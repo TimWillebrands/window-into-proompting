@@ -58,6 +58,9 @@ public sealed class Place
     [Id(28)] public List<Guid> Staff { get; set; } = new();
     /// <summary>The author's access list: people who aren't staff but come and go anyway.</summary>
     [Id(29)] public List<Guid> Allowed { get; set; } = new();
+    /// <summary>The last Happening here, news to whoever's around while it's fresh (ADR 0043).</summary>
+    [Id(30)] public string? Lately { get; set; }
+    [Id(31)] public long LatelyAt { get; set; }
 }
 
 /// <summary>Who a workplace lets in (ADR 0041).</summary>
