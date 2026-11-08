@@ -129,14 +129,12 @@ public partial class PlacesTest
 
     private async Task<T> Thinking<T>(Func<string, double> read, Func<Task<T>> act)
     {
-        ScriptedJudge.Instance.Enabled = true;
         ScriptedJudge.Instance.Noul = read;
         ScriptedLlm.Instance.Json = (system, _) => system.Contains("\"want\"") ? new JsonObject { ["want"] = "not to stand outside that door again" } : null;
         try { return await act(); }
         finally
         {
-            ScriptedJudge.Instance.Enabled = false;
-            ScriptedJudge.Instance.Noul = _ => 0;
+            ScriptedJudge.Instance.Noul = null;
             ScriptedLlm.Instance.Json = (_, _) => null;
         }
     }

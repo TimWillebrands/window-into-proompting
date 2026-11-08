@@ -74,7 +74,7 @@ public class EndpointInterleavingTest : IAsyncLifetime
         var vlad = Guid.NewGuid();
         await config.SetPersonaRoutesAsync(vlad, new List<PersonaRoute> { new() { Tier = JobComplexity.Decisions, ProviderId = mac.Id } });
         var judge = new ProviderJudge(_cluster.GrainFactory,
-            new LlmJudge(_cluster.GrainFactory, new ConfigurationBuilder().Build(), NullLogger<LlmJudge>.Instance),
+            new LlmJudge(_cluster.GrainFactory, NullLogger<LlmJudge>.Instance),
             NullLogger<ProviderJudge>.Instance);
         await judge.RefreshAsync();
 

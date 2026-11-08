@@ -33,7 +33,6 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
 
     public async Task<string?> GetCueAsync()
     {
-        if (!judge.Enabled) return null;
         var room = GrainFactory.GetGrain<IChatGroupGrain>(this.GetPrimaryKey());
         var recent = (await room.GetRecentMessagesAsync(Lines * 2))
             .Where(m => !string.IsNullOrWhiteSpace(m.Content) && m.Kind is null)

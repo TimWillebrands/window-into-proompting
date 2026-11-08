@@ -15,7 +15,6 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
     public async Task ReviewAsync(Guid partyId, CastMember self, IReadOnlyList<Guid> cast, CancellationToken ct)
     {
         var weigh = judge.For(self.Id);
-        if (!weigh.Enabled) return;
         var grain = grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, self.Id));
         try
         {

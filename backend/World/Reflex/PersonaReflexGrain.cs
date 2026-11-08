@@ -41,7 +41,7 @@ public sealed class PersonaReflexGrain(
     {
         var now = UtcNow;
         var ms = now.ToUnixTimeMilliseconds();
-        if (!judge.For(Keys.Persona).Enabled || !(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
+        if (!(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
 
         // Already in this conversation: it holds the workspace, so no appraisal, just reading time.
         if (p.RoomId is { } room && InExchange(room, ms))

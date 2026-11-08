@@ -88,7 +88,6 @@ public sealed class KeyWants(ISystemOneJudge judge, IGrainFactory grains, IWorld
         var now = DateTimeOffset.UtcNow;
         if (door.Moments < KeyRules.ToThinkOfIt || !KeyRules.MayWant(acquired, now.ToUnixTimeMilliseconds())) return;
         var weigh = judge.For(who.Id);
-        if (!weigh.Enabled) return;
 
         var state = $"""
             {who.Name}. {(LivedSheets.Lived(who.Id, who.SystemPrompt) is { } lived ? LivedSheets.Bio(lived) : null) ?? who.Bio ?? who.SystemPrompt}

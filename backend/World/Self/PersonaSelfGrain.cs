@@ -120,7 +120,7 @@ public sealed partial class PersonaSelfGrain(
             state.State.AvailabilityTried = null;
             state.State.AvailabilityVersion = AvailabilityVersion;
         }
-        if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey || !judge.For(personaId).Enabled) return;
+        if (beats.Count == 0 || beats.All(b => b.Availability is not null) || state.State.AvailabilityTried == state.State.DayKey) return;
         state.State.AvailabilityTried = state.State.DayKey;
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
         if (self is null) return;

@@ -28,6 +28,7 @@ internal static class TestSiloDefaults
 
         siloBuilder.ConfigureServices(services =>
         {
+            services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(new MenuJudge(() => null));
             services.AddSingleton<RaceTrigger>();
             services.AddSingleton<ResponsePipeline>();
             services.AddSingleton<IMemoryRepository>(_ =>

@@ -44,7 +44,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
     private async Task ConsiderAsync(Guid partyId, Guid roomId, Guid speakerId)
     {
         var weigh = judge.For(speakerId);
-        if (!weigh.Enabled) return;
         var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups()).FirstOrDefault(r => r.Id == roomId);
         if (room is not { Kind: ChatGroupKinds.Direct } || room.MemberIds?.FirstOrDefault(id => id != speakerId) is not { } otherId) return;
 

@@ -33,7 +33,6 @@ public sealed class PersonaLifeGrain(
     /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
     public const string LookAction = "look";
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>", "decline": <true if you wouldn't actually do this after all, else false>}""";
-    private const string ChoiceShape = """{"thought": "<one sentence, first person, what's on your mind>", "choice": "<option number>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>"}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
     {
@@ -118,16 +117,6 @@ public sealed class PersonaLifeGrain(
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
             .RenderAsync(cast.Where(c => c.Id != personaId && c.DefaultDriver != DriverKind.System).Select(c => c.Id).ToList(), here: false);
 
-        var system = $"""
-{WorldLlm.Identity(self)}
-
-You live in a small world where a handful of people hang out across a few modes: {string.Join("; ", perceptions.Select(p => p.Title))}. Nobody is asking anything of you right now. You're deciding what you feel like doing next, as yourself.
-
-Pick ONE option. Let your character, mood and relationships decide. Someone waiting on a reply usually matters — unless you'd rather avoid them. Don't repeat what you just did; people drift between apps. Resting is a fine choice.
-You have a life beyond this desktop (see "Right now"): your day, your mood, how much social energy you have left. Not everything has to be about what the others are discussing; plenty of what people do online is ordinary, light or idle. When your battery is low, resting or something solitary is natural.
-Output ONLY JSON: {ChoiceShape}
-""";
-
         var sb = new StringBuilder();
         if (string.IsNullOrWhiteSpace(presence))
             sb.AppendLine($"It is {ctx.Now.ToLocalTime().ToString("dddd HH:mm", CultureInfo.InvariantCulture)}.");
@@ -163,58 +152,40 @@ Output ONLY JSON: {ChoiceShape}
             sb.AppendLine($"{i + 1}. {Read(options[i])}");
         sb.AppendLine($"0. {rest}");
 
-        string? thought;
-        string intent;
-        int choice;
-        var weigh = judge.For(self.Id);
-        if (weigh.Enabled)
+        // System One weighs the Affordances; sampling keeps exploration alive (opponent processing,
+        // not argmax). System Two only voices the one that won.
+        var state = $"{WorldLlm.Identity(self)}\n\n{sb}";
+        var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
+            i => i.ToString(CultureInfo.InvariantCulture),
+            i => (string?)(i == 0 ? rest : Read(options[i - 1])));
+        var answers = await judge.For(self.Id).AskAsync(state, new Dictionary<string, SystemOneQuestion>
         {
-            // System One weighs the Affordances; sampling keeps exploration alive (opponent processing,
-            // not argmax). System Two only voices the one that won.
-            var state = $"{WorldLlm.Identity(self)}\n\n{sb}";
-            var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
-                i => i.ToString(CultureInfo.InvariantCulture),
-                i => (string?)(i == 0 ? rest : Read(options[i - 1])));
-            var answers = await weigh.AskAsync(state, new Dictionary<string, SystemOneQuestion>
-            {
-                ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
-            }, ct);
-            choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
-            if (choice < 1 || choice > options.Count)
-                return (Activity(personaId, self.Name, "life", "rest", "is taking it easy"), false);
-
-            // A Look needs no voice: what to say comes after seeing.
-            if (options[choice - 1].Look)
-                return await ActOnAsync(personaId, self, ctx, options[choice - 1], options[choice - 1].Label, null, ct);
-
-            // No options menu here: with it in view the intent drifted to another App's option.
-            var decided = options[choice - 1];
-            var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
-            var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
-                $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\n{LifeChoice.DeclineCue}\nOutput ONLY JSON: {IntentShape}",
-                $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
-            thought = voiced?["thought"]?.ToString();
-            intent = voiced?["intent"]?.ToString() ?? string.Empty;
-            // System Two has the last word (ADR 0034): a pick it wouldn't make in character doesn't happen.
-            if (LifeChoice.Declined(voiced))
-            {
-                logger.LogInformation("Life {Persona} ✗ {Label} | {Thought}", self.Name, decided.Label, thought);
-                return (Activity(personaId, self.Name, "life", "rest", $"thought better of it ({decided.Label})", thought), false);
-            }
-        }
-        else
-        {
-            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General, system, sb.ToString(), ct, 0.8, ["thought", "choice", "intent"]);
-            thought = json?["thought"]?.ToString();
-            intent = json?["intent"]?.ToString() ?? string.Empty;
-            var choiceRaw = json?["choice"]?.ToString() ?? "0";
-            choice = int.TryParse(new string(choiceRaw.Where(char.IsDigit).ToArray()), out var n) ? n : 0;
-        }
-
+            ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
+        }, ct);
+        var choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
         if (choice < 1 || choice > options.Count)
-            return (Activity(personaId, self.Name, "life", "rest", "is taking it easy", thought), false);
+            return (Activity(personaId, self.Name, "life", "rest", "is taking it easy"), false);
 
-        return await ActOnAsync(personaId, self, ctx, options[choice - 1], intent, thought, ct);
+        // A Look needs no voice: what to say comes after seeing.
+        if (options[choice - 1].Look)
+            return await ActOnAsync(personaId, self, ctx, options[choice - 1], options[choice - 1].Label, null, ct);
+
+        // No options menu here: with it in view the intent drifted to another App's option.
+        var decided = options[choice - 1];
+        var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
+        var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
+            $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\n{LifeChoice.DeclineCue}\nOutput ONLY JSON: {IntentShape}",
+            $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
+        var thought = voiced?["thought"]?.ToString();
+        var intent = voiced?["intent"]?.ToString() ?? string.Empty;
+        // System Two has the last word (ADR 0034): a pick it wouldn't make in character doesn't happen.
+        if (LifeChoice.Declined(voiced))
+        {
+            logger.LogInformation("Life {Persona} ✗ {Label} | {Thought}", self.Name, decided.Label, thought);
+            return (Activity(personaId, self.Name, "life", "rest", $"thought better of it ({decided.Label})", thought), false);
+        }
+
+        return await ActOnAsync(personaId, self, ctx, decided, intent, thought, ct);
     }
 
     private async Task<(WorldActivity Activity, bool Looked)> ActOnAsync(

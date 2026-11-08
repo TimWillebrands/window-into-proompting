@@ -22,7 +22,8 @@ public static class RecallBeatExtensions
         IReadOnlyList<StanceLine> stances = Array.Empty<StanceLine>();
         try
         {
-            memories = await repository.RecallAsync(at.PersonaId, at.PartyId, at.PresentIds, at.AnchorText, memoryLimit, ct, at.PlaceId);
+            if (memoryLimit > 0)
+                memories = await repository.RecallAsync(at.PersonaId, at.PartyId, at.PresentIds, at.AnchorText, memoryLimit, ct, at.PlaceId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

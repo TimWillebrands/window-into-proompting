@@ -422,16 +422,17 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         }
     }
 
-    /// <summary>System One a test scripts by question; off unless a test turns it on.</summary>
+    /// <summary>System One a test scripts by question.</summary>
     public sealed class ScriptedJudge : PartyTown.Services.SystemOne.ISystemOneJudge
     {
         public static readonly ScriptedJudge Instance = new();
-        public bool Enabled { get; set; }
-        public Func<string, double> Noul { get; set; } = _ => 0;
+        /// <summary>Unscripted, it answers nothing, so callers keep their own fallbacks.</summary>
+        public Func<string, double>? Noul { get; set; }
 
         public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
         {
             var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            if (Noul is null) return Task.FromResult(answers);
             foreach (var (key, question) in questions) answers.Nouls[key] = Noul(question.Instructions);
             return Task.FromResult(answers);
         }

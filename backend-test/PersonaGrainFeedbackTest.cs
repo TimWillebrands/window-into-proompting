@@ -113,7 +113,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .Returns(Task.CompletedTask);
 
         Silo.AddService<ILoggerFactory>(NullLoggerFactory.Instance);
-        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance));
+        Silo.AddService(new RaceTrigger(Silo.GrainFactory, NullLoggerFactory.Instance, new BackendTest.Infrastructure.MenuJudge(() => null)));
 
         var memoryRepo = new Mock<IMemoryRepository>();
         memoryRepo.Setup(m => m.RecallAsync(

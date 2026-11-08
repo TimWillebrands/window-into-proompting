@@ -394,7 +394,7 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         private static Quote Copy(Quote q) => new() { Id = q.Id, Bid = q.Bid, Ask = q.Ask, Open = q.Open, Settled = q.Settled };
     }
 
-    /// <summary>Picks the menu line matching <see cref="Choose"/>, and answers the Apps' structured calls.</summary>
+    /// <summary>Voices the pick <see cref="MenuJudge"/> makes from <see cref="Choose"/>, and answers the Apps' structured calls.</summary>
     public sealed class Scripted : IWorldLlm
     {
         public static volatile string? Choose;
@@ -404,13 +404,8 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
 
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
         {
-            if (user.Contains("# Options"))
-            {
-                var wanted = Choose;
-                var line = wanted is null ? null : user.Split('\n').FirstOrDefault(l => l.Contains(wanted));
-                var number = line is null ? "0" : Regex.Match(line, @"^(\d+)\.").Groups[1].Value;
-                return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["choice"] = number, ["intent"] = "say hello to everyone" });
-            }
+            if (user.Contains("# What you've decided"))
+                return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["intent"] = "say hello to everyone" });
             return Task.FromResult<JsonObject?>(new JsonObject
             {
                 ["line"] = "1", ["side"] = "buy", ["percent"] = "10", ["chance"] = "70", ["thesis"] = "scripted thesis",
@@ -480,7 +475,7 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
                     services.AddSingleton(Mock.Of<IStanceConsolidator>());
                     services.AddSingleton<ConsolidationService>();
                     services.AddSingleton<WorldMemory>();
-                    services.AddSingleton(Mock.Of<ISystemOneJudge>(j => j.Enabled == false));
+                    services.AddSingleton<ISystemOneJudge>(new MenuJudge(() => Scripted.Choose));
                     services.AddSingleton<Workplaces>();
                     services.AddSingleton<Responsibilities>();
                     services.AddSingleton<IMarketFeed, FakeMarket>();

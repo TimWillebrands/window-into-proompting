@@ -153,7 +153,6 @@ public sealed partial class PlacesGrain
     {
         var candidates = CatalogueMatch.Candidates(description, CatalogueMatch.Catalogue);
         if (candidates.Count == 0) return null;
-        if (!judge.Enabled) return candidates[0].Name;
         try
         {
             var options = candidates.ToDictionary(c => c.Name, c => (string?)c.About);
@@ -163,8 +162,12 @@ public sealed partial class PlacesGrain
                 {
                     ["thing"] = new Services.SystemOne.ChoiceQuestion("Which of these models shows it best?", options),
                 }, CancellationToken.None);
-            var pick = answers.SampleChoice("thing", 0.2);
-            return pick is null or "none" ? null : pick;
+            return answers.SampleChoice("thing", 0.2) switch
+            {
+                null => candidates[0].Name,
+                "none" => null,
+                var pick => pick,
+            };
         }
         catch (Exception ex)
         {

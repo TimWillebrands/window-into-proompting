@@ -46,6 +46,8 @@ background.
 8. **Conversation thermostat** (`ConversationThermostatGrain`, key Room). Once per new message, System One
    answers two `noul` questions over the last 10 lines: *heavy?* and *circling?*. After 4+ heavy readings in a
    row, the Room cues people to lighten up, change subject or drift off. It is off when no judge is enabled.
+
+   *Amended by ADR 0044:* the judge is required, so the thermostat always runs.
 9. **Ties** (`PersonaTiesGrain`, key `party:persona`). This tracks how much each pair has talked: a DM line
    counts 1, a Room line 0.3. It is seeded once from shared Rooms and DMs. It renders as *Who these people are
    to you*, ranging from "barely know them" to "know each other well", plus when you last talked. Personal

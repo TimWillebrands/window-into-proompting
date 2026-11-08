@@ -27,6 +27,9 @@ public sealed class StubMemoryRepository : IMemoryRepository
     public Task StrengthenRecollectionAsync(Guid recollectionId, CancellationToken ct)
         => Task.CompletedTask;
 
+    public Task ForgetBeforeAsync(Guid partyId, Guid personaId, DateTimeOffset before, CancellationToken ct)
+        => Task.CompletedTask;
+
     public Task<Guid> AppendStanceAsync(
         Guid partyId,
         Guid sourcePersonaId,

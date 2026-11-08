@@ -22,7 +22,7 @@ namespace PartyTown.Services.ResponsePipeline;
 public sealed class RaceTrigger(
     IGrainFactory grainFactory,
     ILoggerFactory loggerFactory,
-    PartyTown.Services.SystemOne.ISystemOneJudge? judge = null)
+    PartyTown.Services.SystemOne.ISystemOneJudge judge)
 {
     // PNR is the absolute generated-token count past which an in-flight generation
     // cannot be cancelled (only repaired on the next turn). Cancel threshold is the
@@ -109,10 +109,7 @@ public sealed class RaceTrigger(
             SalienceScore salience;
             try
             {
-                var salienceService = new PersonaSalienceService(
-                    grainFactory.GetGrain<ILlmRouterGrain>(0),
-                    loggerFactory.CreateLogger<PersonaSalienceService>(),
-                    judge);
+                var salienceService = new PersonaSalienceService(judge, loggerFactory.CreateLogger<PersonaSalienceService>());
                 var selfView = (await chatGroupGrain.GetCastAsync()).Speaker(persona.Id)
                     ?? new SelfView(
                         persona.Id, persona.Name, DriverKind.LLM,

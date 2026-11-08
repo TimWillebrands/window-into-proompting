@@ -167,11 +167,10 @@ public sealed class ResponsePipeline(
             // continue with an empty list so a memory outage never blocks the persona from
             // responding.
             var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
-            var beat = await memoryRepository.RecallBeatAsync(
+            var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
                 new BeatAnchors(persona.Id, partyId, presentPersonaIds, triggeringMessage.Content ?? string.Empty,
                     await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 10, stanceLimit: 5, logger, linkedCt);
-            beat = await FreshenAsync(beat, partyId, persona.Id);
             var recollections = beat.Memories;
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
@@ -453,9 +452,9 @@ public sealed class ResponsePipeline(
             var scenario = await chatGroupGrain.GetScenarioAsync();
             var presentIds = participantViews.Select(p => p.Id).ToList();
 
-            var beat = await memoryRepository.RecallBeatAsync(
+            var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
-                memoryLimit: 5, stanceLimit: 5, logger, linkedCt);
+                memoryLimit: 0, stanceLimit: 5, logger, linkedCt);
             // No memory pressed into the line: Life formed the intent with its memories in view, and a second,
             // separately recalled one at the recency slot outranked the intent (Anne's "eaten?" grew a planner tail).
             string? memory = null;
@@ -686,20 +685,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>One story per slot plus stale-word habituation on recall (ADR 0021); non-fatal.</summary>
-    private async Task<RecallBeat> FreshenAsync(RecallBeat beat, Guid partyId, Guid personaId)
-    {
-        try
-        {
-            var names = (await grainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();
-            return StaleRecall.Apply(RecallVariety.Apply(beat, names), await grainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId));
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Stale recall filter failed");
-            return beat;
-        }
-    }
 
     private async Task<bool> WindingDownAsync(IChatGroupGrain chatGroupGrain)
     {

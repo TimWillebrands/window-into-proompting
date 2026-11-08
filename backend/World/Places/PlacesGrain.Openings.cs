@@ -156,7 +156,6 @@ public sealed partial class PlacesGrain
     /// <summary>System One picks the kit when the name doesn't say; a plain room otherwise.</summary>
     private async Task<string?> ClassifyAsync(string name)
     {
-        if (!judge.Enabled) return null;
         try
         {
             var answers = await judge.AskAsync($"A place people in town talk about: \"{name}\"",

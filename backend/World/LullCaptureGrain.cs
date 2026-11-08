@@ -63,7 +63,7 @@ public sealed class LullCaptureGrain(
     {
         try
         {
-            if (judge.Enabled && !await IsMemorableAsync(context, present))
+            if (!await IsMemorableAsync(context, present))
                 return;
             var placeId = thread.Kind == ChatGroupKinds.Place
                 ? await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetPlaceOfTalkRoomAsync(thread.Id)
