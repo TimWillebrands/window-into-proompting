@@ -129,6 +129,20 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return await Places.RemoveThingAsync(who, home.Id, furniId) ? "Removed." : throw new McpException("Not theirs to take down, or no such thing.");
     });
 
+    [McpServerTool(Name = "move_home"), Description("Move their Home: a new name (the address) and/or part of town, e.g. 'Zuid'. Layout and things stay.")]
+    public Task<string> MoveHomeAsync(
+        ClaimsPrincipal user,
+        [Description("A new name, e.g. 'the house on the Johannes Vermeerstraat'. Default: keep it.")] string? name = null,
+        [Description("Part of town, e.g. 'Zuid' or 'the centre'; made if new. Default: stay.")] string? district = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(district)) throw new McpException("Give a name, a district or both.");
+        var (_, home) = await ActInHomeAsync(user, participantId);
+        var moved = await Places.MoveHomeAsync(home.Id, name, district) ?? throw new McpException("Couldn't move it.");
+        var where = (await Places.GetSnapshotAsync()).Districts.FirstOrDefault(d => d.Id == moved.DistrictId)?.Name ?? "the centre";
+        return $"Now {moved.Name}, in {where}.";
+    });
+
     [McpServerTool(Name = "set_home_colours"), Description("Wall and floor colours of their Home, as #rrggbb; leave one out to give it back to the design.")]
     public Task<string> SetHomeColoursAsync(ClaimsPrincipal user, string? wall = null, string? floor = null, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {

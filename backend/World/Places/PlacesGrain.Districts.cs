@@ -37,6 +37,18 @@ public sealed partial class PlacesGrain
         return true;
     }
 
+    /// <summary>A Home moves house: new name and/or District, layout and things kept.</summary>
+    public async Task<Place?> MoveHomeAsync(Guid placeId, string? name, string? district)
+    {
+        if (Find(placeId) is not { Kind: PlaceKinds.Home } home) return null;
+        if (!string.IsNullOrWhiteSpace(name)) home.Name = WorldStream.Clip(name.Trim(), 40);
+        if (!string.IsNullOrWhiteSpace(district)) home.DistrictId = await DistrictAsync(district.Trim());
+        await SaveAsync();
+        await PublishPlaceAsync(home);
+        await EnsureStreetsAsync(home.DistrictId);
+        return home;
+    }
+
     private string DistrictName(string? id)
         => state.State.Districts.FirstOrDefault(d => d.Id == id)?.Name ?? "another part of town";
 
