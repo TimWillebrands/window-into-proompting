@@ -11580,7 +11580,8 @@
       "RedesignHomeRequest": {
         "required": [
           "text",
-          "name"
+          "name",
+          "outdoor"
         ],
         "type": "object",
         "properties": {
@@ -11592,6 +11593,9 @@
               "null",
               "string"
             ]
+          },
+          "outdoor": {
+            "type": "boolean"
           }
         }
       },

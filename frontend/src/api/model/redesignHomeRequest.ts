@@ -9,4 +9,5 @@ export interface RedesignHomeRequest {
     text: string;
     /** @nullable */
     name: string | null;
+    outdoor: boolean;
 }

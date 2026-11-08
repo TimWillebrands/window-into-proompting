@@ -194,7 +194,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
             ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
     }
 
-    /// <summary>Author: design a Home anew from a description; same id, people and keys. 409 when it couldn't be made.</summary>
+    /// <summary>Author: design a Home anew from a description, outdoors for a camp; same id, people and keys. 409 when it couldn't be made.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{placeId:guid}/redesign")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -202,7 +202,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<Place>> RedesignHome(Guid partyId, Guid placeId, [FromBody] RedesignHomeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 1500) return BadRequest("Describe it in under 1500 characters.");
-        return await Places(partyId).RedesignHomeAsync(placeId, request.Text, request.Name) is { } p
+        return await Places(partyId).RedesignHomeAsync(placeId, request.Text, request.Name, request.Outdoor) is { } p
             ? Ok(p) : Conflict("Not a Home, or couldn't design that one.");
     }
 
@@ -250,7 +250,7 @@ public sealed record ThingRefRequest(Guid PlaceId, string FurniId, Guid? Partici
 public sealed record ArrangeRequest(Guid PlaceId, string FurniId, int? X, int? Z, int Rot, Guid? ParticipantId);
 public sealed record PlaceStyleRequest(Guid PlaceId, string? Wall, string? Floor, Guid? ParticipantId);
 public sealed record CreatePlaceRequest(string Text, bool Outdoor, Guid? MadeBy);
-public sealed record RedesignHomeRequest(string Text, string? Name);
+public sealed record RedesignHomeRequest(string Text, string? Name, bool Outdoor);
 public sealed record IdleRequest(bool Idle, Guid? ParticipantId);
 public sealed record DecorateRequest(string Text, Guid? ParticipantId);
 public sealed record KnockRequest(Guid HomeId, Guid? ParticipantId);

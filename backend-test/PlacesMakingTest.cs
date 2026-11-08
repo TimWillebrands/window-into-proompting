@@ -243,7 +243,7 @@ public partial class PlacesTest
             """.Replace("GARDEN", withGarden ? """, {"id": "garden", "name": "the garden", "at": "in", "capacity": 2}""" : ""));
         try
         {
-            var redone = await places.RedesignHomeAsync(home.Id, new string('x', 1000) + " a tower", "the stargazer's tower");
+            var redone = await places.RedesignHomeAsync(home.Id, new string('x', 1000) + " a tower", "the stargazer's tower", false);
 
             Assert.NotNull(redone);
             Assert.Contains("Spots must include these ids", ScriptedLlm.Instance.Users.Last(u => u.StartsWith("Design:")));
@@ -257,11 +257,52 @@ public partial class PlacesTest
             await places.MoveAsync(denise, home.Id, "garden");
             _fx.Time.Advance(TimeSpan.FromMinutes(5));
             withGarden = false;
-            Assert.NotNull(await places.RedesignHomeAsync(home.Id, "a tower without a garden", null));
+            Assert.NotNull(await places.RedesignHomeAsync(home.Id, "a tower without a garden", null, false));
             snapshot = await places.GetSnapshotAsync();
             var body = snapshot.Bodies.Single(b => b.ParticipantId == denise);
             Assert.Equal((home.Id, "sofa"), (body.PlaceId, body.SpotId));
             Assert.Equal("the stargazer's tower", snapshot.Places.Single(p => p.Id == home.Id).Name);
+        }
+        finally
+        {
+            ScriptedLlm.Instance.Json = (_, _) => null;
+        }
+    }
+
+    [Fact]
+    public async Task AnOutdoorHome_HasNoWalls_AndItsThingsGoByTheDesignsWords()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
+        string? system = null;
+        ScriptedLlm.Instance.Json = (s, _) =>
+        {
+            if (!s.Contains("You design one new place")) return null;
+            system = s;
+            return Obj("""
+                {"name": "the camp", "description": "a tarp strung between a lamp post and a canal railing",
+                 "spots": [{"id": "sofa", "name": "the upturned crate", "at": "on", "capacity": 2, "seat": true},
+                           {"id": "desk", "name": "the soapbox", "at": "on", "capacity": 1},
+                           {"id": "kitchen", "name": "the camping stove", "at": "by", "capacity": 2},
+                           {"id": "bed", "name": "the bedroll", "at": "on", "capacity": 1}],
+                 "things": {"plant": "the geranium in a tin can", "coffee": "the dented kettle on the stove", "bed": "the bedroll under the tarp"},
+                 "scene": {"map": ["HHHHHHHH", "--------", "--------", "--------", "--------", "--------", "--------"],
+                           "entrances": {"*": [0, 6]},
+                           "spots": {"sofa": {"at": [1, 2]}, "desk": {"at": [5, 2]}, "kitchen": {"at": [2, 5]}, "bed": {"at": [6, 5]}}}}
+                """);
+        };
+        try
+        {
+            var camp = await places.RedesignHomeAsync(home.Id, "a street camp, a modern Diogenes", "Denise's camp", true);
+
+            Assert.NotNull(camp);
+            Assert.Contains("Outdoors: no walls", system);
+            Assert.True(JsonNode.Parse(camp.CustomScene!)!["outdoor"]!.GetValue<bool>());
+            var furni = (await places.GetSnapshotAsync()).Furni.Where(f => f.PlaceId == home.Id).ToDictionary(f => f.FurniId, f => f.Name);
+            Assert.Equal("the geranium in a tin can", furni["plant"]);
+            Assert.Equal("the bedroll under the tarp", furni["bed"]);
+            Assert.Equal("the laptop", furni["laptop"]);
         }
         finally
         {

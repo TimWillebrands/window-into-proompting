@@ -1150,7 +1150,7 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
     [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);
-    [Alias("RedesignHomeAsync")] Task<Place?> RedesignHomeAsync(Guid placeId, string description, string? name);
+    [Alias("RedesignHomeAsync")] Task<Place?> RedesignHomeAsync(Guid placeId, string description, string? name, bool outdoor);
 
     /// <summary>The mover leaves their Home empty and shares the host's (ADR 0035); false when they share one already.</summary>
     [Alias("MoveInAsync")] Task<bool> MoveInAsync(Guid moverId, Guid hostId);
