@@ -2,10 +2,7 @@ import {
     defaultParseSearch,
     defaultStringifySearch,
 } from '@tanstack/react-router';
-import {
-    compressToEncodedURIComponent,
-    decompressFromEncodedURIComponent,
-} from 'lz-string';
+import LZString from 'lz-string';
 
 /// <summary>Query param holding the lz-compressed desktop layout.</summary>
 export const PACKED_KEY = 'd';
@@ -35,7 +32,7 @@ export function stringifySearch(search: Search): string {
         else rest[k] = v;
     }
     if (Object.keys(desktop).length > 0) {
-        rest[PACKED_KEY] = compressToEncodedURIComponent(
+        rest[PACKED_KEY] = LZString.compressToEncodedURIComponent(
             JSON.stringify(desktop),
         ).replace(/[+$]/g, (c) => (c === '+' ? '.' : '_'));
     }
@@ -53,7 +50,7 @@ export function parseSearch(str: string): Search {
     let out: Search = rest;
     if (typeof packed === 'string') {
         try {
-            const json = decompressFromEncodedURIComponent(
+            const json = LZString.decompressFromEncodedURIComponent(
                 packed.replace(/[._]/g, (c) => (c === '.' ? '+' : '$')),
             );
             const desktop = json ? JSON.parse(json) : null;
