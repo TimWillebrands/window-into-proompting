@@ -131,6 +131,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         await HireAsync(partyId, denise);
         Cdu.Ahead = new List<CduCommit> { new("s1", "fix: shut the doors", "Denise") };
         Cdu.Pr = new CduPr(9, "u", "fix: shut the doors", "OPEN", "s1", "failing");
+        await Site.StatusAsync(CancellationToken.None, fresh: true);
         try
         {
             var activity = await LiveAsync(partyId, denise, "Look at what the CDU");

@@ -111,9 +111,13 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
                 list.Add(new(AppId, $"Answer the CDU's question to {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)}", 3, company, VerbAnswer));
             list.Add(new(AppId, "Tell the CDU what you want for this world", 2, company, VerbTalk));
         }
-        list.Add(new(AppId, "Look at what the CDU actually did: the trunk and the Agora", 1, company, VerbLook));
+        if (SomethingToSee(desk)) list.Add(new(AppId, "Look at what the CDU actually did: the trunk and the Agora", 1, company, VerbLook));
         return list;
     }
+
+    /// <summary>Nothing said, nothing built: a look only finds an empty trunk, and staff kept choosing it over talking.</summary>
+    private static bool SomethingToSee(CduDesk desk)
+        => desk.State.Exchanges.Count > 0 || desk.Cdu?.Pr is not null || desk.Cdu?.Trunk is { Ahead.Count: > 0 };
 
     /// <summary>Out of allowance for today: words to it would only fail.</summary>
     public static bool Spent(CduStatus cdu) => cdu.Allowance is { } a && a.Usd >= a.CapUsd;

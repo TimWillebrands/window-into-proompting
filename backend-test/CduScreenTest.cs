@@ -31,8 +31,12 @@ public class CduScreenTest
     private static string Verbs(CduDesk desk) => string.Join(",", CduScreen.Affordances(desk).Select(a => a.Verb));
 
     [Fact]
-    public void Affordances_Quiet_OffersTalkAndLook()
-        => Assert.Equal("talk,look", Verbs(Desk(Up())));
+    public void Affordances_Quiet_OffersOnlyTalk_AnEmptyTrunkIsNothingToLookAt()
+        => Assert.Equal("talk", Verbs(Desk(Up())));
+
+    [Fact]
+    public void Affordances_CommitsOnTheTrunk_OfferALook()
+        => Assert.Equal("talk,look", Verbs(Desk(Up(ahead: 1))));
 
     [Fact]
     public void Affordances_AllowanceSpent_OnlyLook()
