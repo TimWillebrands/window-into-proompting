@@ -13,7 +13,7 @@ import type {
     ShoeDoc,
     TopDoc,
 } from './doc';
-import { clamp } from './sdf';
+import { clamp, type V3 } from './sdf';
 
 const zone = (at: HairZone['at'], o: Partial<HairZone>): HairZone => ({
     at,
@@ -437,6 +437,9 @@ const TOPS: Record<string, (c: Hex) => TopDoc> = {
             sleeveColor: c,
             trim: '#f2f2f2',
         }),
+    // Drawn as the outer layer; figureDoc puts a robe under it.
+    'feather-cloak': (c) =>
+        top(c, { sleeve: 1, hem: 2.1, fit: 0.7, neck: 'boat', open: true }),
 };
 
 const bottom = (color: Hex, o: Partial<BottomDoc>): BottomDoc => ({
@@ -637,10 +640,36 @@ export function figureDoc(look: Look): FigureDoc {
             length: 0.02,
             rise: 0.3,
         });
+    if (look.topStyle === 'feather-cloak') {
+        base.outer = base.top;
+        base.top = top(look.bottom, {
+            sleeve: 1,
+            hem: 0.9,
+            fit: 0.3,
+            neck: 'v',
+            trim: blend(look.bottom, '#ffffff', 0.25),
+        });
+        base.extras.push(...cloakExtras(look.top));
+        // Tucked into the hood but for a few strands down the front; more would fan out over it.
+        base.hair.zones = [1, -1].map((side) =>
+            zone([side * 60, side * 75, -5, 15], {
+                count: 3,
+                len: 1.7,
+                width: 0.085,
+                jag: 0.3,
+                lift: 0,
+                fall: 1,
+                sweep: -side * 0.1,
+                curl: 0.05,
+            }),
+        );
+    }
+    if (look.accessory === 'staff') base.stance = { handR: 'grip' };
     const d = look.design;
     return {
         ...base,
         ...d,
+        stance: d?.stance ? { ...base.stance, ...d.stance } : base.stance,
         face: { ...base.face, ...d?.face },
         // A dye over a designed cut: the cut stays, the palette colour shows.
         hair: { ...base.hair, ...d?.hair, color: d?.hair?.color ?? look.hair },
@@ -704,6 +733,90 @@ const frames = (lens: Hex, frame = '#17151c'): ExtraDoc[] => [
         ],
     },
 ];
+
+/** a toward b by t, as hex. */
+const blend = (a: Hex, b: Hex, t: number): Hex => {
+    const ch = (h: Hex, i: number) =>
+        Number.parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+    return `#${[0, 1, 2]
+        .map((i) =>
+            Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * t)
+                .toString(16)
+                .padStart(2, '0'),
+        )
+        .join('')}`;
+};
+
+/** Bind-pose direction that stands upright once the arm hangs and the elbow bends. */
+const STAFF_AXIS: V3 = [0.497, 0.845, 0.199];
+/** The palm, from the wrist, with the arm in its bind pose. */
+const STAFF_GRIP: V3 = [-0.21, -0.28, 0.05];
+
+/** Points on a pole: t along it, a across, b forward, from the grip; head heights. */
+const along = (u: V3, from: V3) => {
+    const across: V3 = [u[1], -u[0], 0];
+    const ahead: V3 = [
+        -(u[1] * across[2] - u[2] * across[1]),
+        -(u[2] * across[0] - u[0] * across[2]),
+        -(u[0] * across[1] - u[1] * across[0]),
+    ];
+    return (t: number, a: number, b: number): V3 =>
+        [0, 1, 2].map(
+            (i) => from[i] + t * u[i] + a * across[i] + b * ahead[i],
+        ) as V3;
+};
+
+const WOOD = '#3b2e25';
+const LEATHER = '#5c4330';
+const RAVEN = '#15141a';
+
+/** The cloak's hood, up, and a mantle of feathers over the shoulders. */
+function cloakExtras(c: Hex): ExtraDoc[] {
+    const sheen = blend(c, '#5f8794', 0.3);
+    const feathers: BlobDoc[] = [];
+    for (const [tier, n, drop, reach, r] of [
+        [0, 17, 0.3, 0.78, 0.12],
+        [1, 14, 0.5, 0.92, 0.11],
+    ] as const)
+        for (let i = 0; i < n; i++) {
+            // Round the back and over the shoulders, open at the chest.
+            const a = ((i + tier * 0.5) / (n - 1) - 0.5) * 2 * 1.95;
+            const [sx, cz] = [Math.sin(a), Math.cos(a)];
+            const y = 0.38 - tier * 0.15;
+            feathers.push(
+                rod(
+                    [sx * 0.4, y, 0.52 - cz * 0.34],
+                    [sx * reach, y - drop, 0.52 - cz * reach * 0.8],
+                    r,
+                    (i + tier) % 2 ? c : sheen,
+                ),
+            );
+        }
+    return [
+        {
+            name: 'hood',
+            socket: 'head',
+            blobs: [
+                {
+                    shape: 'shell',
+                    at: [0, 0.14, 0],
+                    r: 0.08,
+                    color: c,
+                    hat: true,
+                },
+                ball(0, 0.18, -0.12, 0.5, c),
+                rod([0.5, 0.1, -0.05], [0.78, -0.75, -0.15], 0.22, c),
+                rod([-0.5, 0.1, -0.05], [-0.78, -0.75, -0.15], 0.22, c),
+                // Hair above its top stays inside the hood.
+                {
+                    ...rod([0, -0.02, -0.4], [0, -0.8, -0.5], 0.4, c),
+                    hat: true,
+                },
+            ],
+        },
+        { name: 'feather-mantle', socket: 'back', blobs: feathers },
+    ];
+}
 
 /** Palette extras as blob recipes; the LLM's few-shot examples too. */
 export const EXTRAS: Record<string, () => ExtraDoc[]> = {
@@ -931,6 +1044,39 @@ export const EXTRAS: Record<string, () => ExtraDoc[]> = {
                 .concat(ball(0.34, 0.24, 0.24, 0.035, '#ffd166')),
         },
     ],
+    staff: () => {
+        const w = along(STAFF_AXIS, STAFF_GRIP);
+        const wrap = (t: number) =>
+            rod(w(t, 0, 0), w(t + 0.07, 0, 0), 0.1, LEATHER);
+        return [
+            {
+                name: 'staff',
+                socket: 'hand-r',
+                blobs: [
+                    rod(w(-3.1, 0, 0), w(-1, 0.05, 0), 0.07, WOOD),
+                    rod(w(-1, 0.05, 0), w(1.3, -0.06, 0.03), 0.075, WOOD),
+                    rod(w(1.3, -0.06, 0.03), w(2.9, 0.04, 0), 0.08, WOOD),
+                    rod(w(2.9, 0.04, 0), w(3.35, -0.2, 0), 0.05, WOOD),
+                    rod(w(2.9, 0.04, 0), w(3.3, 0.24, 0.02), 0.05, WOOD),
+                    wrap(2.2),
+                    wrap(2.4),
+                    rod(w(2.3, 0.1, 0), w(1.6, 0.16, 0.04), 0.03, LEATHER),
+                    rod(w(2.3, -0.08, 0), w(1.8, -0.14, 0.03), 0.03, LEATHER),
+                    ball(...w(3.5, 0, -0.05), 0.2, RAVEN),
+                    ball(...w(3.72, 0, 0.1), 0.12, RAVEN),
+                    rod(w(3.72, 0, 0.2), w(3.68, 0, 0.34), 0.035, '#3a3a40'),
+                    rod(w(3.55, 0.17, -0.08), w(3.25, 0.2, -0.24), 0.07, RAVEN),
+                    rod(
+                        w(3.55, -0.17, -0.08),
+                        w(3.25, -0.2, -0.24),
+                        0.07,
+                        RAVEN,
+                    ),
+                    rod(w(3.4, 0, -0.18), w(3.05, 0, -0.42), 0.06, RAVEN),
+                ],
+            },
+        ];
+    },
     bow: () => [
         {
             name: 'bow',

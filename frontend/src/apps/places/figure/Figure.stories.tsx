@@ -522,6 +522,69 @@ function Room({ hour = 13 }: { hour?: number }) {
     );
 }
 
+/** One look from four sides, then walking. */
+function Turnaround({ look }: { look: Partial<Look> }) {
+    const doc = useMemo(() => figureDoc({ ...LOOK, ...look }), [look]);
+    return (
+        <div style={{ width: 1200, height: 640, background: '#39304a' }}>
+            <Canvas
+                flat
+                shadows="percentage"
+                dpr={PIXEL_DPR}
+                style={PIXEL_STYLE}
+                camera={{ position: [0, 1, 5.2], fov: 26 }}
+            >
+                <color attach="background" args={['#3d3350']} />
+                <ambientLight intensity={1.2} />
+                <directionalLight
+                    position={[2, 4, 3]}
+                    intensity={2.2}
+                    castShadow
+                />
+                <Aim y={0.66} />
+                {[0, 0.7, 1.57, 3.14].map((turn, i) => (
+                    <Person
+                        key={turn}
+                        doc={doc}
+                        x={(i - 2) * 0.85}
+                        turn={turn}
+                        hangout={null}
+                    />
+                ))}
+                <group position={[1.7, 0, 0]}>
+                    <Person doc={doc} x={0} turn={1.2} hangout={null} moving />
+                </group>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                    <circleGeometry args={[6, 32]} />
+                    <meshStandardMaterial color="#5b4d73" />
+                </mesh>
+            </Canvas>
+        </div>
+    );
+}
+
+/** Hooded feather cloak over a robe in the bottoms' colour, with the staff. */
+export const Cloaked: StoryObj<typeof Turnaround> = {
+    render: () => (
+        <Turnaround
+            look={{
+                topStyle: 'feather-cloak',
+                top: '#2b2b2b',
+                bottom: '#2aa198',
+                bottomStyle: 'trousers',
+                shoeStyle: 'boots',
+                shoes: '#2b2b2b',
+                accessory: 'staff',
+                hairStyle: 'long',
+                hair: '#5a3a22',
+                facialHair: 'beard',
+                height: 'tall',
+                bodyType: 'lanky',
+            }}
+        />
+    ),
+};
+
 export const BodyTypes: StoryObj<typeof Sheet> = {
     render: () => <Sheet looks={bodyLooks} columns={7} />,
 };

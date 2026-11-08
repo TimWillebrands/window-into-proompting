@@ -42,6 +42,7 @@ const TOP: Record<string, string> = {
     corset: '🎀',
     flannel: '👔',
     tracksuit: '🧥',
+    'feather-cloak': '🪶',
 };
 const BOTTOM: Record<string, string> = {
     trousers: '👖',
@@ -73,6 +74,7 @@ const EXTRA: Record<string, string> = {
     wristbands: '🤘',
     'arm-warmers': '🧤',
     'wallet-chain': '⛓️',
+    staff: '🪄',
     none: '🚫',
 };
 const SHOE: Record<string, string> = {

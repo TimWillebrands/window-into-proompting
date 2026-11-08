@@ -40,8 +40,8 @@ public static class AppearanceRules
     public static readonly string[] Hairs = { "black", "brown", "blonde", "red", "grey", "white", "blue", "pink", "green", "purple" };
     public static readonly string[] Styles = { "short", "long", "curly", "bun", "bald", "mohawk", "ponytail", "afro", "braids", "buzz", "bob", "spiky", "fringe", "scene", "pigtails", "undercut", "dreads" };
     public static readonly string[] Colours = { "red", "orange", "yellow", "green", "teal", "blue", "navy", "purple", "pink", "black", "white", "grey", "brown", "beige", "olive", "maroon" };
-    public static readonly string[] Accessories = { "none", "glasses", "sunglasses", "hat", "cap", "beanie", "scarf", "headphones", "earrings", "flower", "bow", "necklace", "bandana", "choker", "studded-belt", "wristbands", "arm-warmers", "wallet-chain" };
-    public static readonly string[] TopStyles = { "tshirt", "hoodie", "shirt", "sweater", "jacket", "dress", "tank", "suit", "baby-tee", "band-tee", "long-sleeve", "mesh", "corset", "flannel", "tracksuit" };
+    public static readonly string[] Accessories = { "none", "glasses", "sunglasses", "hat", "cap", "beanie", "scarf", "headphones", "earrings", "flower", "bow", "necklace", "bandana", "choker", "studded-belt", "wristbands", "arm-warmers", "wallet-chain", "staff" };
+    public static readonly string[] TopStyles = { "tshirt", "hoodie", "shirt", "sweater", "jacket", "dress", "tank", "suit", "baby-tee", "band-tee", "long-sleeve", "mesh", "corset", "flannel", "tracksuit", "feather-cloak" };
     public static readonly string[] BottomStyles = { "trousers", "jeans", "shorts", "skirt", "skinny-jeans", "baggy-jeans", "bootcut", "cargo", "plaid-skirt", "mini-skirt" };
     public static readonly string[] ShoeStyles = { "sneakers", "skate-shoes", "hi-tops", "boots", "platforms", "heels", "sandals", "loafers" };
     public static readonly string[] Legwears = { "none", "knee-socks", "striped-socks", "tights", "fishnets" };

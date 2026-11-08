@@ -70,7 +70,7 @@ public static class Catalog
     private static readonly Dictionary<string, int> TopPrices = new()
     {
         ["tshirt"] = 30, ["tank"] = 25, ["shirt"] = 45, ["sweater"] = 50, ["hoodie"] = 55, ["jacket"] = 90, ["dress"] = 70, ["suit"] = 150,
-        ["baby-tee"] = 30, ["band-tee"] = 40, ["long-sleeve"] = 35, ["mesh"] = 35, ["corset"] = 60, ["flannel"] = 50, ["tracksuit"] = 65,
+        ["baby-tee"] = 30, ["band-tee"] = 40, ["long-sleeve"] = 35, ["mesh"] = 35, ["corset"] = 60, ["flannel"] = 50, ["tracksuit"] = 65, ["feather-cloak"] = 180,
     };
 
     private static readonly Dictionary<string, int> BottomPrices = new()
@@ -90,7 +90,7 @@ public static class Catalog
     {
         ["glasses"] = 60, ["sunglasses"] = 50, ["hat"] = 45, ["cap"] = 20, ["beanie"] = 25, ["scarf"] = 30, ["headphones"] = 80,
         ["earrings"] = 35, ["flower"] = 5, ["bow"] = 10, ["necklace"] = 60, ["bandana"] = 15,
-        ["choker"] = 15, ["studded-belt"] = 30, ["wristbands"] = 12, ["arm-warmers"] = 18, ["wallet-chain"] = 20,
+        ["choker"] = 15, ["studded-belt"] = 30, ["wristbands"] = 12, ["arm-warmers"] = 18, ["wallet-chain"] = 20, ["staff"] = 120,
     };
 
     private static readonly Dictionary<string, string> Nouns = new()
@@ -102,6 +102,7 @@ public static class Catalog
         ["skate-shoes"] = "skate shoes", ["hi-tops"] = "hi-tops", ["knee-socks"] = "pair of knee socks", ["striped-socks"] = "pair of striped socks",
         ["tights"] = "pair of tights", ["fishnets"] = "pair of fishnets", ["skinny-jeans"] = "skinny jeans", ["baggy-jeans"] = "baggy jeans",
         ["plaid-skirt"] = "plaid skirt", ["mini-skirt"] = "mini skirt", ["bootcut"] = "bootcut jeans", ["cargo"] = "cargo pants",
+        ["feather-cloak"] = "hooded feather cloak", ["staff"] = "raven-topped staff",
     };
 
     private static readonly Dictionary<string, string> Cuts = new()
