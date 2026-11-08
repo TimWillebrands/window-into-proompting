@@ -5,6 +5,7 @@ import type { Place } from '../../api/model/place';
 import {
     useDeleteWorldsPartyIdPlacesPlaceId,
     usePostWorldsPartyIdPlacesCreate,
+    usePostWorldsPartyIdPlacesPlaceIdRedesign,
     usePostWorldsPartyIdPlacesPose,
     usePostWorldsPartyIdPlacesStyle,
     usePostWorldsPartyIdPlacesThings,
@@ -400,7 +401,13 @@ export function MakerTools({
                     Make
                 </button>
             </form>
-            {place.customScene && place.id ? (
+            {place.kind === 'home' && place.id ? (
+                <HomeRedesign
+                    placeId={place.id}
+                    name={place.name ?? 'this Home'}
+                />
+            ) : null}
+            {place.customScene && place.id && place.kind === 'public' ? (
                 <button
                     type="button"
                     className="pl-btn pl-btn--warm pl-btn--small"
@@ -422,5 +429,84 @@ export function MakerTools({
                 </button>
             ) : null}
         </div>
+    );
+}
+
+/** Author: design a Home anew from a description, outdoors for a camp; same people, keys and things. */
+function HomeRedesign({ placeId, name }: { placeId: string; name: string }) {
+    const redesign = usePostWorldsPartyIdPlacesPlaceIdRedesign();
+    const [text, setText] = useState('');
+    const [rename, setRename] = useState('');
+    const [outdoor, setOutdoor] = useState(false);
+    return (
+        <form
+            className="flex flex-col"
+            style={{ gap: 4 }}
+            onSubmit={(e) => {
+                e.preventDefault();
+                if (!text.trim()) return;
+                if (
+                    !window.confirm(
+                        `Redesign ${name}? Its scene and spots are replaced; people, keys and things stay.`,
+                    )
+                )
+                    return;
+                redesign.mutate(
+                    {
+                        partyId: WORLD_ID,
+                        placeId,
+                        data: {
+                            text: text.trim(),
+                            name: rename.trim() || null,
+                            outdoor,
+                        },
+                    },
+                    {
+                        onSuccess: () => {
+                            setText('');
+                            setRename('');
+                        },
+                    },
+                );
+            }}
+        >
+            <strong className="pl-card-title">🏚️ Redesign this Home:</strong>
+            <textarea
+                value={text}
+                rows={3}
+                maxLength={1500}
+                placeholder="a tarp under the bridge by the canal, an upturned crate, a barrel he sleeps beside…"
+                onChange={(e) => setText(e.currentTarget.value)}
+            />
+            <div className="flex items-center" style={{ gap: 4 }}>
+                <input
+                    value={rename}
+                    style={{ flex: 1 }}
+                    maxLength={40}
+                    placeholder={`new name (keeps "${name}")`}
+                    onChange={(e) => setRename(e.currentTarget.value)}
+                />
+                <label style={{ whiteSpace: 'nowrap' }}>
+                    <input
+                        type="checkbox"
+                        checked={outdoor}
+                        onChange={(e) => setOutdoor(e.currentTarget.checked)}
+                    />{' '}
+                    outdoors
+                </label>
+                <button
+                    type="submit"
+                    className="pl-btn pl-btn--go"
+                    disabled={redesign.isPending}
+                >
+                    {redesign.isPending ? 'Designing…' : 'Redesign'}
+                </button>
+            </div>
+            {redesign.isError ? (
+                <span style={{ color: '#a00' }}>
+                    Couldn't design that one. Try describing it differently.
+                </span>
+            ) : null}
+        </form>
     );
 }
