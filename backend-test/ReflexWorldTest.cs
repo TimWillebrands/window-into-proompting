@@ -95,19 +95,20 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
     }
 
     [Fact]
-    public async Task FollowUp_WhileHeld_RefreshesTheIntention_WithoutAskingAgain()
+    public async Task FollowUp_WhileHeld_RefreshesTheIntention_WithoutAskingAgain_KeepingWhatTheyMeantToAnswer()
     {
         var (party, denise, hana) = await WorldAsync();
         var room = Guid.NewGuid();
         ScriptedJudge.Pick(ReflexOptions.Soon);
         await Reflex(party, denise).PerceiveAsync(Dm(hana, room));
         var asked = ScriptedJudge.Asked;
+        var gist = Assert.Single(await Reflex(party, denise).GetIntentionsAsync()).Gist;
 
         var verdict = await Reflex(party, denise).PerceiveAsync(Dm(hana, room, text: "hello??"));
 
         Assert.False(verdict.Proceed);
         Assert.Equal(asked, ScriptedJudge.Asked);
-        Assert.Equal("hello??", Assert.Single(await Reflex(party, denise).GetIntentionsAsync()).Gist);
+        Assert.Equal(gist, Assert.Single(await Reflex(party, denise).GetIntentionsAsync()).Gist);
     }
 
     [Fact]

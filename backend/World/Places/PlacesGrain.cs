@@ -520,6 +520,14 @@ public sealed partial class PlacesGrain(
         return state.State.Bodies.TryGetValue(participantId, out var body) ? Situation(body) : null;
     }
 
+    public async Task NoteHappeningAsync(Guid placeId, string text)
+    {
+        if (Find(placeId) is not { } place) return;
+        place.Lately = WorldStream.Clip(text, 300);
+        place.LatelyAt = Now();
+        await SaveAsync();
+    }
+
     public async Task<Body?> MoveAsync(Guid participantId, Guid placeId, string? spotId)
     {
         await SyncCastAsync();
@@ -673,7 +681,7 @@ public sealed partial class PlacesGrain(
         var text = furni.Kind == FurniKinds.Lamp
             ? $"{Capital(furni.Name)} {place.At} {place.Name} has started flickering."
             : $"{Capital(furni.Name)} {place.At} {place.Name} broke down with a sad hiss.";
-        _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync(text);
+        _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync(text, place.Id);
         _ = PublishPlaceAsync(place);
     }
 
@@ -923,6 +931,7 @@ public sealed partial class PlacesGrain(
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
+        if (place is { Lately.Length: > 0 } && Now() - place.LatelyAt < HappeningRules.Fresh.TotalMilliseconds) sb.Append(" Just now here: ").Append(place.Lately);
         // Someone else's Home shows who they are, and a Studio shows the work.
         if (place is { Kind: PlaceKinds.Home } && !place.LivesIn(body.ParticipantId) || place?.Archetype == Art.Studio)
         {
@@ -989,6 +998,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>One line: where the Participant is and who's around. Null when they have no Body.</summary>
     [Alias("GetSituationAsync")] Task<string?> GetSituationAsync(Guid participantId);
+
+    /// <summary>Something happened at this Place: news to whoever's there while it's fresh.</summary>
+    [Alias("NoteHappeningAsync")] Task NoteHappeningAsync(Guid placeId, string text);
 
     /// <summary>Start walking to a spot (null = any free one). Null when not allowed or full.</summary>
     [Alias("MoveAsync")] Task<Body?> MoveAsync(Guid participantId, Guid placeId, string? spotId);

@@ -80,6 +80,15 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
 
+    public Task<bool> IsAnsweringAsync(Guid senderId)
+    {
+        var since = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)OpenTurnHolds.TotalMilliseconds;
+        return Task.FromResult(State.Messages.Any(m => m.SenderId == senderId && IsOpen(m) && (m.SendAt ?? 0) >= since));
+    }
+
+    /// <summary>An open slot older than this is a turn that died without an outcome, not one still being spoken.</summary>
+    private static readonly TimeSpan OpenTurnHolds = TimeSpan.FromMinutes(3);
+
     public Task<List<ChatMessage>> GetRecentMessagesAsync(int count)
         => Task.FromResult(State.Messages
             .Where(m => !string.IsNullOrWhiteSpace(m.Content) && m.Error is null)
@@ -645,6 +654,10 @@ public interface IChatGroupGrain : IGrainWithGuidKey
 
     [Alias("GetSkippedTurnsAsync")]
     Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync();
+
+    /// <summary>This sender has a turn open here right now: a reply already on its way.</summary>
+    [Alias("IsAnsweringAsync")]
+    Task<bool> IsAnsweringAsync(Guid senderId);
 
     [Alias("RecordRaceEvaluationAsync")]
     Task RecordRaceEvaluationAsync(

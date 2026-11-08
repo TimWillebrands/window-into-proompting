@@ -182,14 +182,25 @@ public class ReflexMathTest
         => Assert.Equal(IntentionStep.Forget, Intentions.Step(Held(100, forget: 300), 300, 0.1));
 
     [Fact]
-    public void Intention_FollowUp_ComesToMindSooner_WithTheNewerGist()
+    public void Intention_FollowUp_ComesToMindSooner_KeepingWhatTheyMeantToAnswer()
     {
         var i = Held(1000);
+        var asked = i.Gist;
 
-        Intentions.Renew(i, "still on for lunch?", 200);
+        Intentions.Renew(i, "Fine. Take the night.", 200);
 
         Assert.Equal(600, i.DueAt);
-        Assert.Equal("still on for lunch?", i.Gist);
+        Assert.Equal(asked, i.Gist);
+    }
+
+    [Fact]
+    public void Verdict_PastTheGatesDeadline_IsLate()
+    {
+        var p = new Percept(PerceptKind.Direct, Guid.NewGuid(), "Ana", true, "hi", Deadline: 1000);
+
+        Assert.False(ReflexMath.Late(p, 1000));
+        Assert.True(ReflexMath.Late(p, 1001));
+        Assert.False(ReflexMath.Late(p with { Deadline = null }, 99_999));
     }
 
     [Fact]

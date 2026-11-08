@@ -67,6 +67,11 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             }
         }
 
+        // Something just happened a short walk away: curiosity, the explore pull (ADR 0043).
+        if (!self.IsWalking && ctx.Happenings?.FirstOrDefault(h => h is { Near: HappeningNear.Nearby, PlaceId: not null } && HappeningRules.IsFresh(h, ctx.Now)) is { } news
+            && snapshot.Places.FirstOrDefault(p => p.Id == news.PlaceId) is { } scene && !scene.IsClosed())
+            affordances.Add(new Affordance(Id, $"Go see what's going on {news.Where} ({Self.Hooks.Like(news.Text)})", 1, scene.Id, "go"));
+
         if (!self.IsWalking)
         {
             // No musical chairs: right after a walk, stay put; otherwise one person to go over to, at most.
@@ -224,6 +229,8 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
     {
         if (last is { Content.Length: > 0 }) return Self.Hooks.PickUp(ctx.NameOf(last.SenderId), last.Content);
         var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
+        // Something that just happened here is shared news, fresher than anything from your own day (ADR 0043).
+        if (HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "say", ctx.Now) is { } saw) return Self.Hooks.Saw(who, saw.Text);
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         if (Self.Hooks.Pick(openers) is { } story) return Self.Hooks.Tell(who, story);
         return nearby.FirstOrDefault(o => o.Activity is { Length: > 0 }) is { } busy

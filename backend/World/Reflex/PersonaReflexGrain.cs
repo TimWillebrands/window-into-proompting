@@ -68,6 +68,12 @@ public sealed class PersonaReflexGrain(
 
         var weighed = await WeighAsync(p, sense);
         if (weighed is null) return ReflexVerdict.Through;
+        // The gate gave up waiting and the reply went ahead: acting now would answer twice.
+        if (ReflexMath.Late(p, UtcNow.ToUnixTimeMilliseconds()))
+        {
+            logger.LogInformation("Reflex {Persona} on {Kind} from {From}: too late, the reply went ahead", self.Name, p.Kind, p.FromName);
+            return ReflexVerdict.Through;
+        }
 
         var shaped = ReflexMath.Shape(weighed.Choices[ReflexWeighing.Key], new Landscape(self.Impulsivity, self.Chattiness, p.FromHuman));
         weighed.Choices[ReflexWeighing.Key] = shaped;
@@ -380,7 +386,8 @@ public sealed class ReflexGate(IGrainFactory grains, ILogger<ReflexGate> logger)
 
     public async Task<ReflexVerdict> PerceiveAsync(Guid partyId, Guid personaId, Percept percept)
     {
-        try { return await Of(partyId, personaId).PerceiveAsync(percept).WaitAsync(Bound); }
+        var deadline = DateTimeOffset.UtcNow.Add(Bound).ToUnixTimeMilliseconds();
+        try { return await Of(partyId, personaId).PerceiveAsync(percept with { Deadline = deadline }).WaitAsync(Bound); }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Reflex failed for {Persona}; replying as usual", personaId);

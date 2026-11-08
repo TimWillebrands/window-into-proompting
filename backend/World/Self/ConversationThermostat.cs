@@ -4,7 +4,7 @@ using PartyTown.Services.SystemOne;
 namespace PartyTown.World.Self;
 
 /// <summary>
-/// Conversation thermostat (ADR 0021), key = Room/DM id. System One reads the last lines once per new message:
+/// Conversation thermostat (ADR 0021), key = Room/DM or Board thread id. System One reads the last lines once per new message:
 /// heavy? circling? fizzling? re-confirming settled plans? A sustained heavy streak becomes a cue to lighten, change subject or drift off.
 /// </summary>
 public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<ConversationThermostatGrain> logger)
@@ -45,8 +45,25 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
 
         var partyId = await room.GetPartyIdAsync();
         var names = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).ToDictionary(c => c.Id, c => c.Name);
-        var transcript = string.Join("\n", recent.Select(m =>
-            $"{names.GetValueOrDefault(m.SenderId, "Someone")}: {WorldStream.Clip(m.Content, 300)}"));
+        await ReadAsync(recent.Select(m => $"{names.GetValueOrDefault(m.SenderId, "Someone")}: {WorldStream.Clip(m.Content, 300)}"), last);
+        return _cue;
+    }
+
+    public async Task<ThermostatRead> GetThreadReadAsync(Guid partyId)
+    {
+        if (!judge.Enabled) return ThermostatRead.None;
+        if (await GrainFactory.GetGrain<IBoardGrain>(partyId).GetThreadAsync(this.GetPrimaryKey()) is not { } thread) return _read;
+        var lines = new[] { $"{thread.AuthorName}: {WorldStream.Clip(thread.Body, 300)}" }
+            .Concat(thread.Replies.Select(r => $"{r.AuthorName}: {WorldStream.Clip(r.Body, 300)}"))
+            .TakeLast(Lines).ToList();
+        if (lines.Count < 4 || thread.Replies.Count == _lastMessageId) return _read;
+        await ReadAsync(lines, thread.Replies.Count);
+        return _read;
+    }
+
+    private async Task ReadAsync(IEnumerable<string> lines, int last)
+    {
+        var transcript = string.Join("\n", lines);
         try
         {
             using var cts = new CancellationTokenSource(Budget);
@@ -74,7 +91,6 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
             _lastMessageId = last;
             logger.LogDebug(ex, "Thermostat read failed for {Room}", this.GetPrimaryKey());
         }
-        return _cue;
     }
 }
 
@@ -91,6 +107,9 @@ public static class Thermostat
         => fizzling >= FizzlingThreshold || circling >= CirclingThreshold || reconfirming >= ReconfirmingThreshold;
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
+
+    /// <summary>A Board thread has run its course when it's only acknowledging or re-confirming; staying on one topic is what threads are for.</summary>
+    public static bool RunItsCourse(ThermostatRead read) => read.Fizzling >= FizzlingThreshold || read.Reconfirming >= ReconfirmingThreshold;
 
     public static string? Cue(int heavyStreak, double circling, double fizzling = 0, double reconfirming = 0)
     {
@@ -116,6 +135,8 @@ public interface IConversationThermostatGrain : IGrainWithGuidKey
     [Alias("GetReadAsync")] Task<ThermostatRead> GetReadAsync();
     /// <summary>True while the last read found the talk fizzling, circling or re-confirming; the name-mention auto-reply is off then.</summary>
     [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
+    /// <summary>The same read over a Board thread (key = thread id): its post and latest replies (ADR 0043).</summary>
+    [Alias("GetThreadReadAsync")] Task<ThermostatRead> GetThreadReadAsync(Guid partyId);
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.ThermostatRead")]

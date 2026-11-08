@@ -299,6 +299,10 @@ _Avoid_: action, option, tool, command.
 The fast, calibrated *weighing* half of a Relevance Realization call: state + typed questions → probabilities, no prose (Jev, a local decision model, or an LLM emulation). Served by providers on the **Decisions** tier. The *voicing* half stays with the LLM. Initiative samples from its distribution rather than taking the top pick. See [ADR 0019](docs/adr/0019-system-one-judge.md) and [ADR 0034](docs/adr/0034-system-one-through-providers.md).
 _Avoid_: classifier, scorer, router.
 
+**Happening**:
+Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
+_Avoid_: event (taken — see **Event**), news item.
+
 **Activity**:
 One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
 _Avoid_: event (taken — see **Event**), log entry.
@@ -419,8 +423,12 @@ What a Participant does for a living in one Party: a job title, a workplace, hou
 _Avoid_: job (fine in prose), career, class.
 
 **Responsibility**:
-Something someone holds a Persona to. Always has a holder (a Participant, a Place, or someone offscreen) and a due time. Today it comes from a shift, a Gathering you RSVP'd to or are hosting, or guests in your Home. It renders as "# What you owe" in Right now. Keeping one warms the Tie; neglecting one costs something visible.
+Something someone holds a Persona to. Always has a holder (a Participant, a Place, or someone offscreen) and a due time. Today it comes from a shift, a Gathering you RSVP'd to or are hosting, guests in your Home, or a **Promise**. It renders as "# What you owe" in Right now. Keeping one warms the Tie; neglecting one costs something visible.
 _Avoid_: task, duty, chore, quest, obligation.
+
+**Promise**:
+Something a Persona said they'd do for someone, in talk: come over, answer, tell, send, meet. A **Responsibility** held by the person they said it to, known to both, until it's done, called off or lapses. One due now pulls on their **Initiative**; one for a set day is a settled plan, known but not pressing. Saying it again restates it. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
+_Avoid_: commitment, task, reminder (that's an **Intention**).
 
 **Studio**:
 A **Place** where art gets made, with an easel and finished work on show. Whoever works there finishes **Pieces** on shift; visitors see them. May be private to its owner.
