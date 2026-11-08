@@ -1,6 +1,7 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
 import { createRouter, ErrorComponent } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
+import { parseSearch, stringifySearch } from './lib/search-codec';
 import { toastOnAuto } from './lib/world';
 import { routeTree } from './routeTree.gen';
 
@@ -18,6 +19,8 @@ export function getRouter() {
             return <ErrorComponent error={error} />;
         },
         context: { queryClient },
+        parseSearch,
+        stringifySearch,
     });
 
     setupRouterSsrQueryIntegration({
