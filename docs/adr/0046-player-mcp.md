@@ -9,8 +9,11 @@ good way in.
 ## Decision
 
 - **An MCP server inside the backend**, Streamable HTTP at `/api/mcp`, stateless (`ModelContextProtocol.AspNetCore`).
-  Tools mirror the controller actions one to one (`Mcp/PlayerTools.cs`): read (whoami, participants, situation, Home,
-  look, wallet), look (restyle, set appearance), Home (redesign, add / arrange / remove things, colours).
+  Tools mirror the controller actions (`Mcp/PlayerTools.cs`): read (whoami, participants, places, situation, Home, look,
+  wallet), look (palette picks, dress), Home (design, add / arrange / remove things, colours, move).
+- **The agent designs, we check.** `get_design_guide` hands over the schema and rules our own designer gets (place,
+  look, thing); `design_place`, `dress` and `add_thing` run the same validators and return what's wrong. The MCP never
+  prompts the in-game LLM: the agent on the other end is the better designer.
 - **Agents sign in as their human, through Clerk OAuth.** The endpoint is an OAuth protected resource (RFC 9728): a
   401 points at `/api/.well-known/oauth-protected-resource/mcp`, which names Clerk's Frontend API as the authorization
   server. Agents register themselves (DCR) and get a Clerk OAuth access token.
