@@ -57,6 +57,8 @@ public sealed partial class PlacesGrain
             bed.Seat = true;
         }
 
+        // Designs don't say who works where: a spot keeping its id stays a staff spot.
+        foreach (var spot in draft.Spots) spot.Staff = place.Spots.FirstOrDefault(s => s.Id == spot.Id)?.Staff ?? false;
         place.Scene = "custom";
         place.CustomScene = draft.Scene;
         place.Spots = draft.Spots;

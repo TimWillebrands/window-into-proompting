@@ -107,6 +107,25 @@ public partial class WorldLifeTest
         Assert.Contains(await tools.ListPlacesAsync(), p => p.Id == made.Id);
     }
 
+    [Fact]
+    public async Task ARedesignedCafe_KeepsItsStaffSpot()
+    {
+        var (_, _, _, tools) = await PlayerWorldAsync();
+        var cafe = (await tools.ListPlacesAsync()).Single(p => p.Name == "the Café");
+        var design = JsonDocument.Parse("""
+            {"name": "the Café", "description": "a café with a long counter",
+             "spots": [{"id": "counter", "name": "the counter", "at": "at", "capacity": 3},
+                       {"id": "nook", "name": "the nook", "at": "in", "capacity": 2, "seat": true}],
+             "scene": {"map": ["#ww#####", "#......#", "#......#", "D......#", "########"],
+                       "spots": {"counter": {"at": [2, 1]}, "nook": {"at": [5, 2]}}}}
+            """).RootElement;
+
+        var place = await tools.DesignPlaceAsync(Agent(admin: true), design, placeId: cafe.Id);
+
+        Assert.True(place.Spots.Single(s => s.Id == "counter").Staff);
+        Assert.False(place.Spots.Single(s => s.Id == "nook").Staff);
+    }
+
     private static readonly JsonElement Model = JsonDocument.Parse("""
         {"wall": false, "parts": [{"cyl": [0.2, 0.3], "at": [0, 0, 0], "c": "#b08d57"}, {"ball": 0.12, "at": [0, 0.45, 0], "c": "#e8c547"}]}
         """).RootElement;
