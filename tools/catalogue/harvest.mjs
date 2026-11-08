@@ -107,7 +107,7 @@ function prefabFor(pick, creator, file, box, meta) {
         ...(pick.solid === false ? { solid: false } : {}),
         ...(pick.tint ? { tint: pick.tint } : {}),
         ...(pick.seats ? { seats: pick.seats } : {}),
-        parts: [{ glb: `/models/${creator}/${file}`, fit, c: pick.c ?? '#8c8c8c', ...(pick.mats ? { mats: pick.mats } : {}) }],
+        parts: [{ glb: `/models/${creator}/${file}`, fit, c: pick.c ?? '#8c8c8c', ...(pick.ry ? { ry: pick.ry } : {}), ...(pick.mats ? { mats: pick.mats } : {}) }],
     };
     return { name: pick.name, prefab, about: `${pick.about ?? meta.Title.toLowerCase()} (${meta.Creator.Username} model)` };
 }

@@ -4,7 +4,7 @@ import type { Prefab } from './prefab';
 /** Catalogue models (ADR 0027): curated CC0 GLBs, self-hosted in public/models. */
 export const CATALOGUE: Record<string, Prefab> = {
     'k-desk': {"size":[2,1],"parts":[{"glb":"/models/kenney/desk.glb","fit":[1.9,0.78,0.8],"c":"#d6ae74","mats":{"wood":{"c":"#d6ae74"}}}]},
-    'k-desk-chair': {"tint":{"fabric":"#3d6b8c"},"seats":[{"at":[0,0],"h":0.5,"face":0}],"parts":[{"glb":"/models/kenney/desk-chair.glb","fit":[0.7,1.05,0.7],"c":"#2f3136","mats":{"carpet":{"c":"$fabric"}}}]},
+    'k-desk-chair': {"tint":{"fabric":"#3d6b8c"},"seats":[{"at":[0,0],"h":0.5,"face":0}],"parts":[{"glb":"/models/kenney/desk-chair.glb","fit":[0.7,1.05,0.7],"c":"#2f3136","ry":3.1416,"mats":{"carpet":{"c":"$fabric"}}}]},
     'k-screen': {"solid":false,"parts":[{"glb":"/models/kenney/screen.glb","fit":[0.6,0.45,0.25],"c":"#2f3136","mats":{"metal":{"c":"#9fc7e6","glow":true}}}]},
     'k-office-block': {"size":[3,3],"tint":{"brick":"#cdbb9c","trim":"#6b5a48"},"parts":[{"glb":"/models/kenney/office-block.glb","fit":[3,0,3],"c":"$brick","mats":{"_defaultMat":{"c":"$brick"},"border":{"c":"$trim"}}}]},
     'k-low-building': {"size":[3,3],"tint":{"brick":"#a9573f","trim":"#4a3a33"},"parts":[{"glb":"/models/kenney/low-building.glb","fit":[3,3,3],"c":"$brick","mats":{"_defaultMat":{"c":"$brick"},"border":{"c":"$trim"}}}]},
