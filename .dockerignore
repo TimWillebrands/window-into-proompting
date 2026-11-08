@@ -3,5 +3,4 @@ frontend
 node_modules
 **/bin
 **/obj
-.scratch
 docs

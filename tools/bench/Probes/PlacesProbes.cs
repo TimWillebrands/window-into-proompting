@@ -6,7 +6,7 @@ using PartyTown.World.Self;
 namespace PartyTown.Bench.Probes;
 
 /// <summary>
-/// Places phase 3 (spec .scratch/places): does a Body make replies more grounded? Same personas,
+/// Places phase 3 (ADR 0020): does a Body make replies more grounded? Same personas,
 /// same day, same lines — only the "Where you are" Situation differs between arms.
 /// </summary>
 public static partial class PlacesProbes

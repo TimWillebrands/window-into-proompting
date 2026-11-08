@@ -1,6 +1,6 @@
 # The CDU: a Demiurge whose product is this codebase
 
-> Status: accepted. Supersedes the first version of this ADR ("the Works"). Unparks the repo idea from ADR 0030, builds on 0018 (Apps), 0026 (Occupations) and 0033 (Tailnets). Vocabulary in `CONTEXT.md` (§ The CDU). Spec: `.scratch/cdu/spec.md`.
+> Status: accepted. Supersedes the first version of this ADR ("the Works"). Unparks the repo idea from ADR 0030, builds on 0018 (Apps), 0026 (Occupations) and 0033 (Tailnets). Vocabulary in `CONTEXT.md` (§ The CDU). Open: the ruleset on `master` (#121).
 
 Personas can talk about their world but can't change it. This lets them: one persistent coding agent, the **CDU** (Central Demiurge Unit), lives next to the deployment with this repo, a harness, the database and a GitHub token. Two Personas are its **Cytheurgists**, whose work moves it to act. Power over safety: a broken deployment is a fair price for a world that edits itself.
 

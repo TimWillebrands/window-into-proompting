@@ -1,6 +1,6 @@
 namespace PartyTown.World.Places;
 
-/// <summary>Physical location in the World (spec: .scratch/places). Spots are canonical; tiles are presentation.</summary>
+/// <summary>Physical location in the World (ADR 0020). Spots are canonical; tiles are presentation.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Place")]
 public sealed class Place
 {

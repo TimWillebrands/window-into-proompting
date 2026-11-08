@@ -1,7 +1,7 @@
 # World growth: Districts, Locales and Openings
 
 > Status: proposed. Locales are built (slice 1). Builds on ADR 0020 (one Body, one Place), 0021 (Day), 0023
-> (scenes, prefabs), 0025 (made Places) and 0026 (Occupations). Spec and issues: `.scratch/world-growth/`.
+> (scenes, prefabs), 0025 (made Places) and 0026 (Occupations). Open: #122, #123.
 
 The drawn world is three public Places plus Homes, and a Persona's Day is prose about somewhere else: "09:00
 tram to the office in Zuid". The Body stayed at the Café. Making a new Place cost up to three General calls

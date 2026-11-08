@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append a lifelikeness snapshot (ADR 0021) of a running World to .scratch/lived-self/metrics.jsonl.
+"""Append a lifelikeness snapshot (ADR 0021) of a running World to tools/lived-self/out/metrics.jsonl.
 
 Usage: tools/lived-self/snapshot.py [party-id] [base-url]
 """
@@ -32,7 +32,7 @@ snapshot = {
         for pid in voice["averageWords"]
     },
 }
-out = pathlib.Path(__file__).resolve().parents[2] / ".scratch" / "lived-self" / "metrics.jsonl"
+out = pathlib.Path(__file__).resolve().parent / "out" / "metrics.jsonl"
 out.parent.mkdir(parents=True, exist_ok=True)
 with out.open("a") as f:
     f.write(json.dumps(snapshot, ensure_ascii=False) + "\n")

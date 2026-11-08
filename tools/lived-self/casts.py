@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Snapshot how much separate casts have grown into each other; appends to .scratch/casts/metrics.jsonl.
+"""Snapshot how much separate casts have grown into each other; appends to tools/lived-self/out/casts.jsonl.
 
-Usage: PGPASSWORD=... tools/lived-self/casts.py [casts.json] [base-url]
+Usage: PGPASSWORD=... tools/lived-self/casts.py casts.json [base-url]
 casts.json maps cast name to persona ids; anyone unlisted is "old".
 """
 import collections, json, pathlib, subprocess, sys, time, urllib.request
 
 root = pathlib.Path(__file__).resolve().parents[2]
-casts_file = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else root / ".scratch" / "casts" / "casts.json"
+if len(sys.argv) < 2: sys.exit(__doc__)
+casts_file = pathlib.Path(sys.argv[1])
 base = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:5072/api"
 party = "00000000-0000-0000-0000-000000000000"
 get = lambda path: json.load(urllib.request.urlopen(f"{base}/worlds/{party}{path}"))
@@ -53,7 +54,7 @@ snapshot = {
     "topAcross": [f"{p[1]} ({p[3]}) - {p[2]} ({p[4]}): {p[0]:.1f} {p[5]}" for p in sorted(across, reverse=True)[:8]],
     "mix": dict(mix.most_common(12)),
 }
-out = root / ".scratch" / "casts" / "metrics.jsonl"
+out = root / "tools" / "lived-self" / "out" / "casts.jsonl"
 out.parent.mkdir(parents=True, exist_ok=True)
 with out.open("a") as f:
     f.write(json.dumps(snapshot, ensure_ascii=False) + "\n")

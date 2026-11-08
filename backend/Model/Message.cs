@@ -58,7 +58,7 @@ public record class ChatMessage
     [Id(11)]
     public string? Kind { get; set; }
 
-    /// <summary>Place talk Earshot (spec .scratch/places): who heard this line. Null = everyone in the Room.</summary>
+    /// <summary>Place talk Earshot (ADR 0020): who heard this line. Null = everyone in the Room.</summary>
     [Id(12)]
     public List<Guid>? HeardBy { get; set; }
 

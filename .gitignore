@@ -65,4 +65,6 @@ tools/bench/benchsettings.local.json
 # LLM Junk
 .claude
 docs/Copy of Technokangs.json
-.scratch/import-rewrite/
+
+# lived-self snapshots (tools/lived-self/*.py)
+tools/lived-self/out/

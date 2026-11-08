@@ -1,7 +1,7 @@
 # Embodiment: one Body, one Place
 
 > Status: accepted. Builds on ADR 0018 (World, Apps, Life), 0019 (System One), 0021 (lived
-> self). Spec and progress: `.scratch/places/spec.md`. Vocabulary in `CONTEXT.md` (§ Places).
+> self). Open: the eavesdrop probe (#124). Vocabulary in `CONTEXT.md` (§ Places).
 
 Until now the World was pure talk. Every Affordance was a message, and every Persona sounded
 like they sat at the same blank terminal. Nothing they did persisted outside memory, and nobody

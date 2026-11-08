@@ -548,7 +548,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return Task.CompletedTask;
     }
 
-    /// <summary>Place talk only: who hears this sender right now (spec .scratch/places § Sound). Null elsewhere.</summary>
+    /// <summary>Place talk only: who hears this sender right now (ADR 0020). Null elsewhere.</summary>
     private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
     {
         if (await KindAsync() != ChatGroupKinds.Place) return null;

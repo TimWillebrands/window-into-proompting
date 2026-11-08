@@ -70,6 +70,6 @@ Kamal (`config/deploy.yml`, `config/deploy.frontend.yml`) deploys to proompting.
 
 ## Agent docs
 
-- Issue tracker: local markdown under `.scratch/<feature-slug>/` — see `docs/agents/issue-tracker.md`
+- Issue tracker: GitHub Issues on `TimWillebrands/window-into-proompting`, via the `gh` CLI — see `docs/agents/issue-tracker.md`
 - Triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix` — see `docs/agents/triage-labels.md`
 - Domain docs: `CONTEXT.md` + `docs/adr/` — see `docs/agents/domain.md`

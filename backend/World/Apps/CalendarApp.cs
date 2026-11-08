@@ -45,7 +45,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
                     myRooms.Add(room);
             foreach (var room in myRooms.OrderBy(_ => Random.Shared.Next()).Take(1))
                 affordances.Add(new Affordance(Id, $"Plan a get-together in #{room.Name} for later", 0, room.Id, "plan"));
-            // Meeting in person: a public Place (spec .scratch/places phase 7).
+            // Meeting in person: a public Place (ADR 0020).
             var placesGrain = grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId);
             var snapshot = await placesGrain.GetSnapshotAsync();
             var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant && !p.Private && upcoming.All(g => g.PlaceId != p.Id)).ToList();
@@ -95,7 +95,7 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             : (await PlanAtPlaceAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, meetAt, startsAt, ctx.Now)).Outcome;
     }
 
-    /// <summary>Commit a Gathering at a Place: when it's due, attendees walk there (spec .scratch/places).</summary>
+    /// <summary>Commit a Gathering at a Place: when it's due, attendees walk there (ADR 0020).</summary>
     public async Task<(Gathering Gathering, ActOutcome Outcome)> PlanAtPlaceAsync(
         Guid partyId, Guid hostId, string hostName, string title, Places.Place place, long startsAt, DateTimeOffset now)
     {
