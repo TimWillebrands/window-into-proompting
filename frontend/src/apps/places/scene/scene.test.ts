@@ -164,6 +164,24 @@ describe('scenes', () => {
         expect(s.spots.sofa.seats.length).toBe(2);
     });
 
+    it('turns wall props away from the wall behind them, whatever rot they came with', () => {
+        const s = parseScene(
+            {
+                id: 'walls',
+                map: '#ww##\n#...#\n#...#\n##D##',
+                props: [
+                    { p: 'painting', at: [2, 1], rot: 2 },
+                    { p: 'noticeboard', at: [1, 2] },
+                    { p: 'mirror', at: [1, 1], rot: 1 },
+                    { p: 'clock', at: [1, 1], rot: 3 },
+                ],
+                spots: {},
+            },
+            PREFABS,
+        );
+        expect(s.props.map((p) => p.rot)).toEqual([0, 1, 1, 0]);
+    });
+
     it('rejects a map char nobody defined', () => {
         expect(() =>
             parseScene({ id: 'bad', map: '..?..', spots: {} }, PREFABS),

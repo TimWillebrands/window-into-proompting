@@ -173,10 +173,21 @@ export function parseScene(
         }),
     );
     const props: PlacedProp[] = [];
+    const isWall = (x: number, z: number) =>
+        ['wall', 'window'].includes(cells[z]?.[x]?.ground ?? 'void');
+    /** Wall props face away from their wall: the top one is rot 0, the left one rot 1. */
+    const wallRot = (x: number, z: number, rot: number) => {
+        const top = isWall(x, z - 1);
+        const left = isWall(x - 1, z);
+        if (top && left) return rot === 1 ? 1 : 0;
+        return top ? 0 : left ? 1 : rot;
+    };
     const place = (d: PropDef, furniId?: string) => {
         const prefab = prefabs[d.p];
         if (!prefab) throw new Error(`scene ${def.id}: no prefab '${d.p}'`);
-        const rot = d.rot ?? 0;
+        const rot = prefab.wall
+            ? wallRot(d.at[0], d.at[1], d.rot ?? 0)
+            : (d.rot ?? 0);
         props.push({
             ...d,
             prefab,
