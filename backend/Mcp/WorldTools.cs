@@ -172,6 +172,15 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return $"{Shifts.Describe(view.Job!)}. The clock starts a shift that's due on its next beat.";
     });
 
+    [McpServerTool(Name = "nudge"), Description("Admins: give a Persona a Life turn now, with something nudging them (a feeling, a pull), not words to say. Their choice stays theirs.")]
+    public Task<string> NudgeAsync(ClaimsPrincipal user, [Description("Persona id from list_participants.")] Guid personaId, [Description("What nudges them, e.g. 'a sudden itch to finish what you started at your desk'.")] string? nudge = null) => Guard(async () =>
+    {
+        if (!Actors.IsAdmin(user)) throw new McpException("Only admins may nudge.");
+        return await grains.GetGrain<IWorldClockGrain>(World).TickNowAsync(personaId, string.IsNullOrWhiteSpace(nudge) ? null : nudge.Trim())
+            ? "Nudged; their turn is under way. Watch what they do in get_situation or the activity feed."
+            : throw new McpException("Couldn't start a turn for them (busy, asleep, or not a Persona).");
+    });
+
     [McpServerTool(Name = "get_cdu", ReadOnly = true), Description("The CDU as spectators see it: up or dark, its allowance, trunk, PR, and who said what to it lately.")]
     public Task<string> GetCduAsync([Description("How many exchanges, up to 20.")] int count = 6) => Guard(async () =>
     {
