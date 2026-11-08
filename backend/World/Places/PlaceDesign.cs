@@ -32,6 +32,10 @@ public static class PlaceDesign
         ['t'] = ("grass", "elm"), ['i'] = ("quay", "bollard"), ['L'] = ("quay", "street-lamp"), ['B'] = ("quay", "bike"),
     };
 
+    /// <summary>A stored scene's tile map, row by row; empty for a hand-made scene.</summary>
+    public static List<string> MapRows(string? stored)
+        => stored is null ? new List<string>() : Rows(JsonNode.Parse(stored)?["map"]) ?? new List<string>();
+
     /// <summary>Rows as strings, from a string or an array of strings, padded to one width.</summary>
     public static List<string>? Rows(JsonNode? map)
     {

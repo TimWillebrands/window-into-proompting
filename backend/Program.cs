@@ -1,3 +1,4 @@
+using PartyTown.Mcp;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Orleans.Configuration;
@@ -28,6 +29,7 @@ builder.Services.AddOutputCache();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers(o => o.Filters.Add<PartyTown.Services.Auth.ForbiddenActorFilter>());
 builder.Services.AddClerkAuth(builder.Configuration);
+builder.Services.AddPartyMcp();
 builder.Services.AddHttpClient();
 builder.AddPostHogAnalytics();
 builder.Services.AddSingleton<IAiObservabilityCapture, AiObservabilityCapture>();
@@ -194,6 +196,7 @@ PartyTown.Services.ResponsePipeline.SpeechCleanup.NoteDropped += (before, after)
 app.Logger.LogInformation("App starting...");
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 
+app.UseProxiedScheme();
 app.UsePathBase("/api");
 
 if (app.Environment.IsDevelopment())
@@ -215,6 +218,7 @@ app.UsePostHogAnalytics();
 app.UseOutputCache();
 
 app.MapControllers();
+app.MapPartyMcp();
 
 // Before the silo starts (app.Run): nothing may touch memory ahead of its schema (ADR 0008).
 if (!openApiBuild)

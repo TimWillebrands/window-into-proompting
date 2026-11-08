@@ -37,6 +37,8 @@ env:
     POSTHOG_HOST: https://eu.i.posthog.com
     Tailnets__home: socks5://proompting-tailscale:1055
     Cdu__Url: http://proompting-cdu:8790
+    Mcp__Resource: https://proompting.party/api/mcp
+    Mcp__AuthorizationServer: https://clerk.proompting.party
   secret:
     - POSTGRES_PASSWORD
     - OPENROUTER_API_KEY

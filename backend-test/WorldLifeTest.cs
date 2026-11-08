@@ -17,7 +17,7 @@ using PartyTown.World.Apps;
 namespace BackendTest;
 
 /// <summary>A whole Life turn (ADR 0018) in a real cluster: perceive Apps → choose → act, with a scripted model.</summary>
-public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
+public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly Fixture _fx;
 
@@ -317,9 +317,13 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
 
+        /// <summary>A JSON answer for this system prompt; null falls through to the defaults.</summary>
+        public static Func<string, JsonObject?>? Json;
+
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
         {
             Prompts.Enqueue(user);
+            if (Json?.Invoke(system) is { } scripted) return Task.FromResult<JsonObject?>(scripted);
             if (user.Contains("# What you've decided"))
                 return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted thought", ["intent"] = "say hello to everyone" });
             return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["post"] = Post, ["body"] = "Scripted body", ["respect"] = "no" });
