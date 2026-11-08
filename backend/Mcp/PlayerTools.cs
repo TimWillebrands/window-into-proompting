@@ -140,6 +140,20 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return PlaceView.Of(snapshot.Places.Single(p => p.Id == place.Id), snapshot);
     });
 
+    [McpServerTool(Name = "create_place"), Description("Admins: open a new public Place in the centre from a design you made (see get_design_guide place). It's checked, and what's wrong comes back to fix.")]
+    public Task<PlaceView> CreatePlaceAsync(
+        ClaimsPrincipal user,
+        [Description("The design JSON: name, at, description, purpose, spots, scene.")] JsonElement design,
+        [Description("Outdoors: no walls, open sky.")] bool outdoor = false) => Guard(async () =>
+    {
+        RequireAdmin(user);
+        var (draft, errors) = PlaceDesign.Validate(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, null);
+        if (draft is null) throw new McpException($"The design doesn't work yet:\n- {string.Join("\n- ", errors.Take(12))}");
+        var made = await Places.CreatePlaceAsync(null, draft.Doc["description"]?.ToString() ?? "a new place", draft)
+            ?? throw new McpException($"Couldn't open it; there may be {PlacesGrain.MaxMadePlaces} made Places already.");
+        return PlaceView.Of(made, await Places.GetSnapshotAsync());
+    });
+
     [McpServerTool(Name = "dress"), Description("Put a look you designed on them (see get_design_guide look): palette picks, a summary, and the design slots that change.")]
     public Task<RestyleResult> DressAsync(
         ClaimsPrincipal user,

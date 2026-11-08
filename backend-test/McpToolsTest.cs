@@ -93,6 +93,20 @@ public partial class WorldLifeTest
         Assert.Equal("Removed.", await tools.RemoveThingAsync(Agent(admin: true), orrery.FurniId, placeId: works.Id));
     }
 
+    [Fact]
+    public async Task OnlyAnAdminsAgent_OpensANewPlace_FromItsOwnDesign()
+    {
+        var (_, _, _, tools) = await PlayerWorldAsync();
+
+        await Assert.ThrowsAsync<McpException>(() => tools.CreatePlaceAsync(Agent(), Loft()));
+        var wrong = await Assert.ThrowsAsync<McpException>(() => tools.CreatePlaceAsync(Agent(admin: true), Loft(door: "#")));
+        Assert.Contains("no way in", wrong.Message);
+
+        var made = await tools.CreatePlaceAsync(Agent(admin: true), Loft());
+        Assert.Equal((PlaceKinds.Public, "a loft with a long workbench"), (made.Kind, made.Description));
+        Assert.Contains(await tools.ListPlacesAsync(), p => p.Id == made.Id);
+    }
+
     private static readonly JsonElement Model = JsonDocument.Parse("""
         {"wall": false, "parts": [{"cyl": [0.2, 0.3], "at": [0, 0, 0], "c": "#b08d57"}, {"ball": 0.12, "at": [0, 0.45, 0], "c": "#e8c547"}]}
         """).RootElement;
