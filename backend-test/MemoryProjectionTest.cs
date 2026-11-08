@@ -32,11 +32,49 @@ public class MemoryProjectionTest
         var relevant = Enumerable.Range(0, 7).Select(i => Cand($"r{i}", 0.9 - i * 0.01, 500 + i, true));
         var recent = Enumerable.Range(0, 5).Select(i => Cand($"n{i}", 0.5 - i * 0.01, i, false));
 
-        var picked = RecallRanking.QuotaUnion(relevant.Concat(recent).ToList(), limit: 8);
+        var picked = RecallRanking.QuotaUnion(relevant.Concat(recent).ToList(), limit: 10);
 
-        Assert.Equal(8, picked.Count);
+        Assert.Equal(10, picked.Count);
         Assert.Equal(5, picked.Count(m => m.Arm == RecallArm.Relevant));
         Assert.Equal(picked.OrderByDescending(m => m.Salience).Select(m => m.Snippet), picked.Select(m => m.Snippet));
+    }
+
+    [Theory]
+    [InlineData(10, 5)]
+    [InlineData(5, 3)]
+    [InlineData(4, 2)]
+    [InlineData(3, 2)]
+    [InlineData(1, 1)]
+    public void RelevantSlots_AtMostHalf_RoundedUp(int limit, int slots) => Assert.Equal(slots, RecallRanking.RelevantSlots(limit));
+
+    [Fact]
+    public void QuotaUnion_SmallLimit_KeepsTheLatestMoments()
+    {
+        // Life's case: every cast member is an anchor, so nearly all memories are "relevant" and old strong ones won every slot.
+        var strong = Enumerable.Range(0, 8).Select(i => Cand($"strong{i}", 0.9 - i * 0.01, 600 + i * 60, true));
+        var latest = Enumerable.Range(0, 6).Select(i => Cand($"latest{i}", 0.55 - i * 0.05, 2 + i * 10, i % 2 == 0));
+
+        var picked = RecallRanking.QuotaUnion(strong.Concat(latest).ToList(), limit: 4);
+
+        Assert.Equal(new[] { "strong0", "strong1", "latest0", "latest1" }, picked.Select(m => m.Snippet));
+    }
+
+    [Fact]
+    public void QuotaUnion_RecentArm_RanksOnlyTheLastFewMoments()
+    {
+        // A heavy memory from yesterday doesn't beat this hour's moments for the recency slots.
+        var rows = new[]
+        {
+            Cand("topic", 0.9, 1, true),
+            Cand("yesterday-heavy", 0.95, 20 * 60, false),
+            Cand("m1", 0.4, 10, false), Cand("m2", 0.3, 20, false), Cand("m3", 0.2, 30, false),
+            Cand("m4", 0.2, 40, false), Cand("m5", 0.2, 50, false), Cand("m6", 0.2, 60, false),
+        };
+
+        var picked = RecallRanking.QuotaUnion(rows, limit: 3);
+
+        Assert.DoesNotContain("yesterday-heavy", picked.Select(m => m.Snippet));
+        Assert.Equal(new[] { "topic", "m1", "m2" }, picked.Select(m => m.Snippet));
     }
 
     private static readonly Guid Self = Guid.NewGuid();

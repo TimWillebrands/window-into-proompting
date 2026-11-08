@@ -35,6 +35,28 @@ public class RecallVarietyTest
         Assert.Equal(items, RecallVariety.Collapse(items, s => s, Names));
     }
 
+    [Fact]
+    public void Apply_SlotHoldsTheLatestTelling_AtTheStrongestPlace()
+    {
+        // Yusuf's radiator: the strong, older telling said "we'll see"; the latest said the visit is booked.
+        var now = DateTimeOffset.UtcNow;
+        RecalledMemory M(string s, double salience, int minutesAgo) => new(Guid.NewGuid(), s, salience, 0, null, now.AddMinutes(-minutesAgo), salience);
+        var beat = new RecallBeat(new[]
+        {
+            M("You told Henkie the radiator bleed key snapped and the landlord visit is a we'll-see.", 0.9, 30),
+            M("Pieter is holding the Thursday token team for you.", 0.7, 20),
+            M("You posted that the radiator finally has a landlord visit booked.", 0.5, 5),
+        }, Array.Empty<StanceLine>());
+
+        var kept = RecallVariety.Apply(beat, Names).Memories.Select(m => m.Snippet).ToList();
+
+        Assert.Equal(new[]
+        {
+            "You posted that the radiator finally has a landlord visit booked.",
+            "Pieter is holding the Thursday token team for you.",
+        }, kept);
+    }
+
     [Theory]
     [InlineData("You told Denise you once stayed in empty rooms.", "Denise")]
     [InlineData("Over coffee you told Pieter Voss and Eiko about the lease.", "Pieter Voss and Eiko")]
