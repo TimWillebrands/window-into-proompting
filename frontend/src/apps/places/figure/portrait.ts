@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Appearance } from '../../../api/model/appearance';
 import { CLOTH, EYES, lookOf, SKIN } from '../iso/appearance';
 import { avatarColour } from '../places-lib';
+import { PIXEL_DPR } from '../scene/pixel';
 import { SCENE_DETAIL } from './compile';
 import type { FigureDoc } from './doc';
 import { figureDoc } from './dress';
@@ -10,10 +11,14 @@ import { loadPrints } from './paint';
 import { Puppet } from './puppet';
 import { compiled, svgsOf } from './runtime';
 
-/** Square edge in pixels; every use scales this one image. */
-const SIZE = 128;
+/** Display picture edge whose pixels match the scenes' (ADR 0023). */
+const SHOWN = 72;
+/** Pixels drawn across. */
+const GRID = SHOWN * PIXEL_DPR;
+/** Square edge of the image: the grid blown up unsmoothed, so every use is pixelated. */
+const SIZE = GRID * 4;
 /** Bump when framing or lighting changes: old pictures are thrown away. */
-const VERSION = 1;
+const VERSION = 2;
 const SHELF = 'portraits';
 const KEEP = 256;
 const INK = 1.1;
@@ -54,6 +59,8 @@ let stage: {
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
+    picture: HTMLCanvasElement;
+    pen: CanvasRenderingContext2D;
 } | null = null;
 
 /** One small GL context for every portrait, however many are on screen. */
@@ -61,11 +68,16 @@ function theStage() {
     if (stage) return stage;
     const renderer = new THREE.WebGLRenderer({
         alpha: true,
-        antialias: true,
+        antialias: false,
         preserveDrawingBuffer: true,
     });
     renderer.setPixelRatio(1);
-    renderer.setSize(SIZE, SIZE, false);
+    renderer.setSize(GRID, GRID, false);
+    const picture = document.createElement('canvas');
+    picture.width = picture.height = SIZE;
+    const pen = picture.getContext('2d');
+    if (!pen) throw new Error('no 2d canvas');
+    pen.imageSmoothingEnabled = false;
     const scene = new THREE.Scene();
     scene.add(new THREE.AmbientLight('#fff1f6', 1.4));
     const key = new THREE.DirectionalLight('#fff6e8', 1.5);
@@ -75,6 +87,8 @@ function theStage() {
         renderer,
         scene,
         camera: new THREE.PerspectiveCamera(FOV, 1, 0.1, 20),
+        picture,
+        pen,
     };
     return stage;
 }
@@ -85,7 +99,7 @@ async function draw(doc: FigureDoc): Promise<Blob> {
         compiled(doc, SCENE_DETAIL),
         loadPrints(svgsOf(doc)),
     ]);
-    const { renderer, scene, camera } = theStage();
+    const { renderer, scene, camera, picture, pen } = theStage();
     const figure = figureObject(c, doc, { cloth: 256, face: 256, images });
     const puppet = new Puppet(figure, doc);
     try {
@@ -108,10 +122,11 @@ async function draw(doc: FigureDoc): Promise<Blob> {
         );
         camera.lookAt(head);
         scene.background = new THREE.Color(doc.top.color).lerp(WHITE, PALE);
-        setInk(INK, SIZE, SIZE);
+        setInk(INK, GRID, GRID);
         renderer.render(scene, camera);
+        pen.drawImage(renderer.domElement, 0, 0, SIZE, SIZE);
         return await new Promise<Blob>((resolve, reject) =>
-            renderer.domElement.toBlob(
+            picture.toBlob(
                 (b) => (b ? resolve(b) : reject(new Error('no pixels'))),
                 'image/png',
             ),
