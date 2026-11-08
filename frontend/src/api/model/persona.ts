@@ -13,6 +13,8 @@ export interface Persona {
     chattiness?: number | string;
     /** @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$ */
     impulsivity?: number | string;
+    /** @nullable */
+    aura?: string | null;
     id?: string;
     name?: string;
 }

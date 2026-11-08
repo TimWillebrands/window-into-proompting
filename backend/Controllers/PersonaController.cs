@@ -140,6 +140,11 @@ public class PersonaController(
             return BadRequest("Persona system prompt is required.");
         }
 
+        if (persona.Aura?.Trim().Length > Persona.MaxAura)
+        {
+            return BadRequest($"An aura is up to {Persona.MaxAura} characters.");
+        }
+
         var personaId = id ?? (persona.Id == Guid.Empty ? Guid.NewGuid() : persona.Id);
 
         var root = grains.GetGrain<IPersonaRootGrain>(Guid.Empty);

@@ -667,6 +667,7 @@ public class SpeakingSessionTest
 
         var system = getJob()!.Messages[0].Content;
         Assert.Contains("typing in a chat app", system);
-        Assert.Contains("- Tim (human)", system);
+        Assert.Contains("- Tim\n", system);
+        Assert.DoesNotContain("(human)", system);
     }
 }

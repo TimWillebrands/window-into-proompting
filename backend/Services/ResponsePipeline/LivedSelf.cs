@@ -54,14 +54,8 @@ public static class LivedSelf
         """;
 }
 
-/// <summary>Who else is in the conversation, one line each; face to face, people are just people.</summary>
+/// <summary>Who else is in the conversation, one line each; people are just people, whoever drives them.</summary>
 public static class Roster
 {
-    public static string Line(ParticipantView p, bool inPerson) => p.Driver switch
-    {
-        DriverKind.System => $"- {p.Name} (narrator)",
-        _ when inPerson => $"- {p.Name}",
-        DriverKind.User => $"- {p.Name} (human)",
-        _ => $"- {p.Name} (persona)",
-    };
+    public static string Line(ParticipantView p) => p.Driver == DriverKind.System ? $"- {p.Name} (narrator)" : $"- {p.Name}";
 }

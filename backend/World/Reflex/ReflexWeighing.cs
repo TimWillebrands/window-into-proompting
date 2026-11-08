@@ -75,14 +75,15 @@ public static class ReflexWeighing
     /// <summary>Says what happened, in plain words; the model only sees this and the state around it.</summary>
     public static string Event(Percept p, string name)
     {
-        var from = First(p.FromName);
-        var who = p.FromHuman ? $"{from} (a real person)" : from;
+        var who = First(p.FromName);
         return p.Kind switch
         {
             PerceptKind.Direct => $"{who} sends {name} a private message: \"{WorldStream.Clip(p.Text, 300)}\"",
             PerceptKind.Line => $"In {(string.IsNullOrWhiteSpace(p.RoomName) ? "a group chat" : $"#{p.RoomName}")}, {who} writes: \"{WorldStream.Clip(p.Text, 300)}\"",
             PerceptKind.Speech => $"{who} says out loud, close to {name}: \"{WorldStream.Clip(p.Text, 300)}\"",
-            PerceptKind.Arrival => p.Near ? $"{who} just walked up and is now right next to {name}." : $"{who} just came in, on the other side of the place.",
+            PerceptKind.Arrival => p.Near
+                ? $"{who} just walked up and is now right next to {name}.{(p.FromAura is { Length: > 0 } aura ? $" Up close: {aura.TrimEnd('.')}." : string.Empty)}"
+                : $"{who} just came in, on the other side of the place.",
             PerceptKind.Overheard => $"{name} catches their own name from {who}, too far off to make out the words. It sounds like {(string.IsNullOrWhiteSpace(p.Text) ? "chatting" : p.Text)}.",
             PerceptKind.Knock => $"{who} is knocking on {name}'s door.",
             _ => $"{who} did something nearby.",

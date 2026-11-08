@@ -251,7 +251,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
 {{scenarioBlock}}
 # Other people in the room
-{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => Roster.Line(p, inPerson)))}}
+{{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => Roster.Line(p)))}}
 {{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}
 {{(string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n")}}
 # What you're doing

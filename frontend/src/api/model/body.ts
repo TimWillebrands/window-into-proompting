@@ -60,5 +60,7 @@ export interface Body {
     awayByDay?: boolean;
     /** @nullable */
     awayStretch?: string | null;
+    /** @nullable */
+    aura?: string | null;
     isWalking?: boolean;
 }

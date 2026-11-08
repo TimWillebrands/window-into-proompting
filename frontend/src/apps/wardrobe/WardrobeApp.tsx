@@ -14,7 +14,13 @@ import {
 import { useDesktopContext } from '#lib/desktop-context';
 import type { ShopItem, WalletSummary } from '../../api/model';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
-import { usePlayerId, WORLD_ID } from '../../lib/world';
+import {
+    AURA_MAX,
+    usePlayerAccount,
+    usePlayerId,
+    useSetAura,
+    WORLD_ID,
+} from '../../lib/world';
 import { lookOf } from '../places/iso/appearance';
 import { avatarColour } from '../places/places-lib';
 import './wardrobe.css';
@@ -112,6 +118,57 @@ export default function WardrobeApp({
                 <div className="wr-empty">Nobody to dress yet.</div>
             )}
         </div>
+    );
+}
+
+/** How you come across to whoever stands right next to you; saved on leaving the field. */
+function AuraField() {
+    const saved = usePlayerAccount().account?.aura ?? '';
+    const setAura = useSetAura();
+    const [draft, setDraft] = useState(saved);
+    const [status, setStatus] = useState<'' | 'saving' | 'saved' | 'failed'>(
+        '',
+    );
+    useEffect(() => setDraft(saved), [saved]);
+    const save = async () => {
+        if (draft.trim() === saved) return;
+        setStatus('saving');
+        try {
+            await setAura(draft);
+            setStatus('saved');
+        } catch {
+            setStatus('failed');
+        }
+    };
+    return (
+        <label className="wr-aura">
+            <span>
+                ✨ Aura <small>felt by whoever stands right next to you</small>
+            </span>
+            <input
+                type="text"
+                maxLength={AURA_MAX}
+                value={draft}
+                placeholder="e.g. an unsettling calm, like he's not from here"
+                onChange={(e) => {
+                    setDraft(e.currentTarget.value);
+                    setStatus('');
+                }}
+                onBlur={() => void save()}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+            />
+            <small data-status={status}>
+                {status === 'saving'
+                    ? 'Saving…'
+                    : status === 'saved'
+                      ? 'Saved'
+                      : status === 'failed'
+                        ? "Couldn't save that"
+                        : `${draft.length}/${AURA_MAX}`}
+            </small>
+        </label>
     );
 }
 
@@ -401,6 +458,7 @@ function Boutique({
                 {failure ? (
                     <div className="wr-warn">{failure.message}</div>
                 ) : null}
+                {mine ? <AuraField /> : null}
             </section>
             <section className="wr-catalogue">
                 {viewing.newGifts.length > 0 ? (

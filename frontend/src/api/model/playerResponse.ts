@@ -14,4 +14,6 @@ export interface PlayerResponse {
     auto?: boolean;
     /** @nullable */
     mission?: string | null;
+    /** @nullable */
+    aura?: string | null;
 }

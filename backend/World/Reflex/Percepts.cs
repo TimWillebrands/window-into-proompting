@@ -36,7 +36,8 @@ public sealed record Percept(
     [property: Id(9)] string? SpotId = null,
     [property: Id(10)] string? RoomName = null,
     [property: Id(11)] IReadOnlyList<string>? Context = null,
-    [property: Id(12)] long? Deadline = null);
+    [property: Id(12)] long? Deadline = null,
+    [property: Id(13)] string? FromAura = null);
 
 /// <summary>What the caller does next: run its normal reply, or leave it to Reflex.</summary>
 /// <param name="Proceed">Reply through the normal path; false means Reflex dealt with it.</param>

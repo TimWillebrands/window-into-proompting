@@ -1,3 +1,4 @@
+using PartyTown.Model;
 using PartyTown.World.Reflex;
 
 namespace BackendTest;
@@ -11,6 +12,25 @@ public class ReflexMathTest
         => new(kind, Someone, "Hana", human, Named: named, Near: near);
 
     private static Landscape L(double impulsivity = 0.5, double chattiness = 0.5, bool human = false) => new(impulsivity, chattiness, human);
+
+    [Fact]
+    public void Aura_ReachesWhoeverTheyWalkUpTo_AndNobodyIsLabelledHuman()
+    {
+        var near = P(PerceptKind.Arrival, human: true) with { FromAura = "the air feels older around him." };
+        var far = near with { Near = false };
+
+        Assert.Equal("Hana just walked up and is now right next to Justin. Up close: the air feels older around him.", ReflexWeighing.Event(near, "Justin"));
+        Assert.DoesNotContain("older", ReflexWeighing.Event(far, "Justin"));
+        Assert.DoesNotContain("real person", ReflexWeighing.Event(P(PerceptKind.Speech, human: true), "Justin"));
+    }
+
+    [Fact]
+    public void Aura_IsOneShortLine_OrNothing()
+    {
+        Assert.Null(Persona.CleanAura("   "));
+        Assert.Equal("cold and very old", Persona.CleanAura("  cold\n and   very old "));
+        Assert.Equal(Persona.MaxAura, Persona.CleanAura(new string('x', 100))!.Length);
+    }
 
     [Fact]
     public void Load_DemandsCombine_AndStayBelowTheCap()

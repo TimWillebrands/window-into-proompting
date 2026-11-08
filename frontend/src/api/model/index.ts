@@ -122,6 +122,7 @@ export * from './repromptRequest';
 export * from './rsvpRequest';
 export * from './selfSummary';
 export * from './sessionSummary';
+export * from './setAuraRequest';
 export * from './setAutoRequest';
 export * from './shopItem';
 export * from './shopItemPicks';

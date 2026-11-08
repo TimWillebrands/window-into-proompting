@@ -746,10 +746,11 @@ public sealed partial class PlacesGrain(
             }
             if (state.State.Bodies.TryGetValue(c.Id, out var body))
             {
-                if (body.Name != c.Name || body.IsHuman != (c.DefaultDriver == DriverKind.User))
+                if (body.Name != c.Name || body.IsHuman != (c.DefaultDriver == DriverKind.User) || body.Aura != c.Aura)
                 {
                     body.Name = c.Name;
                     body.IsHuman = c.DefaultDriver == DriverKind.User;
+                    body.Aura = c.Aura;
                     changed = true;
                 }
                 continue;
@@ -760,6 +761,7 @@ public sealed partial class PlacesGrain(
                 ParticipantId = c.Id, Name = c.Name, PlaceId = home.Id, SpotId = sofa.Id,
                 Posture = sofa.Seat ? Posture.Sitting : Posture.Standing,
                 IsHuman = c.DefaultDriver == DriverKind.User,
+                Aura = c.Aura,
                 ArrivedAt = Now(),
             };
             changed = true;
@@ -835,8 +837,11 @@ public sealed partial class PlacesGrain(
     {
         var talkRoom = Find(arrived.PlaceId)?.TalkRoomId;
         foreach (var watcher in Occupants(arrived.PlaceId).Where(o => o.ParticipantId != arrived.ParticipantId && !o.IsHuman && !o.Asleep && !o.IsWalking))
+        {
+            var near = watcher.SpotId == arrived.SpotId;
             Perceive(watcher.ParticipantId, new Reflex.Percept(Reflex.PerceptKind.Arrival, arrived.ParticipantId, arrived.Name, arrived.IsHuman,
-                RoomId: talkRoom, Near: watcher.SpotId == arrived.SpotId, PlaceId: arrived.PlaceId, SpotId: arrived.SpotId));
+                RoomId: talkRoom, Near: near, PlaceId: arrived.PlaceId, SpotId: arrived.SpotId, FromAura: near ? arrived.Aura : null));
+        }
     }
 
     private void Perceive(Guid participantId, Reflex.Percept percept)
@@ -927,7 +932,7 @@ public sealed partial class PlacesGrain(
             sb.Append(" Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
-                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)})"
+                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)})"
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');

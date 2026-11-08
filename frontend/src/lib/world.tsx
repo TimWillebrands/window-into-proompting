@@ -8,6 +8,7 @@ import {
     getGetWorldsPartyIdQueryKey,
     getWorldsPartyIdPlayer,
     postWorldsPartyIdPlayer,
+    putWorldsPartyIdPlayerAura,
     putWorldsPartyIdPlayerAuto,
 } from '#api/party-zone';
 import { useDesktopContext } from '#lib/desktop-context';
@@ -88,6 +89,21 @@ export function useSetAuto() {
         void queryClient.invalidateQueries({
             queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
         });
+    };
+}
+
+/** Longest Aura, as the backend's Persona.MaxAura. */
+export const AURA_MAX = 64;
+
+/** Sets how this human's character comes across up close; empty clears it. */
+export function useSetAura() {
+    const queryClient = useQueryClient();
+    const userId = usePlayerSession((s) => s.userId);
+    return async (aura: string) => {
+        const res = await putWorldsPartyIdPlayerAura(WORLD_ID, {
+            aura: aura.trim() || null,
+        });
+        queryClient.setQueryData(playerKey(userId), res.data);
     };
 }
 

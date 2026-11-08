@@ -47,6 +47,19 @@ public sealed record class Persona : PersonaMetadata
     [Id(5)]
     public double Impulsivity { get; set; } = 0.5;
 
+    /// <summary>How they come across to whoever stands right next to them; empty by default.</summary>
+    [Id(6)]
+    public string? Aura { get; set; }
+
+    public const int MaxAura = 64;
+
+    /// <summary>One line, at most <see cref="MaxAura"/> characters; null when blank.</summary>
+    public static string? CleanAura(string? aura)
+    {
+        var line = string.Join(' ', (aura ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return line.Length == 0 ? null : line[..Math.Min(line.Length, MaxAura)];
+    }
+
     public Persona()
     {
     }

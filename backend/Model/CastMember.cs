@@ -17,6 +17,7 @@ public sealed record class CastMember
     [Id(4)] public string? SystemPrompt { get; init; }
     [Id(5)] public double Chattiness { get; init; } = 0.5;
     [Id(6)] public double Impulsivity { get; init; } = 0.5;
+    [Id(7)] public string? Aura { get; init; }
 
     /// <summary>
     /// Pure factory. No I/O. System links and library misses are sparse; any other link
@@ -42,7 +43,8 @@ public sealed record class CastMember
             Bio = persona.Bio,
             SystemPrompt = persona.SystemPrompt,
             Chattiness = persona.Chattiness,
-            Impulsivity = persona.Impulsivity
+            Impulsivity = persona.Impulsivity,
+            Aura = persona.Aura
         };
     }
 

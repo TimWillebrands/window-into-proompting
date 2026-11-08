@@ -125,7 +125,19 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var id = await actors.FindPlayerAsync(User, partyId);
         var info = await grains.GetGrain<IPartyGrain>(partyId).GetParty();
         var link = info.Participants.FirstOrDefault(p => p.Id == id);
-        return Ok(new PlayerResponse(id, link?.Name, Actors.IsAdmin(User), link?.Driver == DriverKind.LLM, id is { } own && link?.Driver == DriverKind.LLM ? await auto.MissionAsync(partyId, own) : null));
+        var aura = id is { } self ? (await grains.GetGrain<IPersonaGrain>(self).GetPersona()).Aura : null;
+        return Ok(new PlayerResponse(id, link?.Name, Actors.IsAdmin(User), link?.Driver == DriverKind.LLM, id is { } own && link?.Driver == DriverKind.LLM ? await auto.MissionAsync(partyId, own) : null, aura));
+    }
+
+    /// <summary>How the caller's character comes across to whoever stands right next to them; empty clears it.</summary>
+    [HttpPut("player/aura")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PlayerResponse>> SetAura(Guid partyId, [FromBody] SetAuraRequest request)
+    {
+        if (request.Aura?.Trim().Length > Persona.MaxAura) return BadRequest($"An aura is up to {Persona.MaxAura} characters.");
+        var id = await actors.PlayerAsync(User, partyId);
+        await grains.GetGrain<IPersonaGrain>(id).SetAura(request.Aura);
+        return await GetPlayer(partyId);
     }
 
     /// <summary>Hand the caller's character to the agent, or take it back, optionally with a mission for them to go after.</summary>
@@ -367,7 +379,9 @@ public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
 public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
-public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, bool Auto = false, string? Mission = null);
+public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, bool Auto = false, string? Mission = null, string? Aura = null);
+
+public sealed record SetAuraRequest(string? Aura);
 public sealed record CreatePlayerRequest(string Name);
 public sealed record SetAutoRequest(bool On, string? Mission);
 public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);

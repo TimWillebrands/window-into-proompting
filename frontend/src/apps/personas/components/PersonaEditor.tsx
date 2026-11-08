@@ -10,6 +10,7 @@ import { personaWsStream } from '#lib/persona-ws-stream';
 import type { Persona } from '../../../api/model';
 import Portrait from '../../../components/Portrait';
 import { ROOT_PARTY_ID } from '../../../lib/chat-api';
+import { AURA_MAX } from '../../../lib/world';
 import Residence from './Residence';
 
 type PersonaGenerationDeltaData = { data: string };
@@ -33,12 +34,14 @@ export default function PersonaEditor({
     const nameId = useId();
     const promptId = useId();
     const bioId = useId();
+    const auraId = useId();
 
     const [name, setName] = useState(persona.name ?? '');
     const [systemPrompt, setSystemPrompt] = useState(
         persona.systemPrompt ?? '',
     );
     const [bio, setBio] = useState(persona.bio ?? '');
+    const [aura, setAura] = useState(persona.aura ?? '');
     const [chattiness, setChattiness] = useState(
         Number(persona.chattiness ?? 0.5),
     );
@@ -131,6 +134,7 @@ export default function PersonaEditor({
                         name,
                         systemPrompt,
                         bio: bio || null,
+                        aura: aura.trim() || null,
                         chattiness: Math.round(chattiness * 100) / 100,
                         impulsivity: Math.round(impulsivity * 100) / 100,
                     },
@@ -178,6 +182,25 @@ export default function PersonaEditor({
                             value={name}
                             onChange={(event) =>
                                 setName(event.currentTarget.value)
+                            }
+                            className="w-full"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            htmlFor={auraId}
+                            style={{ fontWeight: 600, color: '#000' }}
+                        >
+                            Aura
+                        </label>
+                        <input
+                            id={auraId}
+                            type="text"
+                            maxLength={AURA_MAX}
+                            value={aura}
+                            placeholder="How they come across up close (optional)"
+                            onChange={(event) =>
+                                setAura(event.currentTarget.value)
                             }
                             className="w-full"
                         />

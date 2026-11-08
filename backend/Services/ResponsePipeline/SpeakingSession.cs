@@ -174,7 +174,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
-            : string.Join("\n", others.Select(p => Roster.Line(p, inPerson)));
+            : string.Join("\n", others.Select(p => Roster.Line(p)));
 
         // Scenario sits between identity and the participant roster: persona-self comes first
         // (primacy), the in-fiction setting establishes context, then who else is there.

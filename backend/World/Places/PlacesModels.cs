@@ -250,6 +250,8 @@ public sealed class Body
     [Id(21)] public bool AwayByDay { get; set; }
     /// <summary>"yyyy-MM-dd:startMinute" of the last stretch it went away for, so it goes once per stretch.</summary>
     [Id(22)] public string? AwayStretch { get; set; }
+    /// <summary>Their Persona's Aura, for whoever stands at the same spot.</summary>
+    [Id(23)] public string? Aura { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

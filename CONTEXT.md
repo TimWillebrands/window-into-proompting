@@ -370,6 +370,10 @@ A Body in bed at night. The World clock skips it and persona talk doesn't wake i
 How a Body looks: named picks from a fixed palette (skin, hair, style, clothes, accessory), plus a **Design** laid over them. Personas dress themselves once from their bio; Players pick theirs.
 _Avoid_: avatar, sprite, skin (as a whole).
 
+**Aura**:
+How a Persona comes across to whoever stands right next to them: one line of up to 64 characters, empty by default. Players set theirs in the Wardrobe, admins any Persona's in the editor. It reaches others only at the same Spot, never in chats. See [ADR 0045](docs/adr/0045-aura.md).
+_Avoid_: vibe, presence, reputation (that's earned, an Aura is declared).
+
 **Figure**:
 How a Body is drawn in 3D: a doll compiled from a document of numbers, names, colours, SVG and blobs. See [ADR 0028](docs/adr/0028-figures-as-documents.md).
 _Avoid_: avatar (fine for the React component), model, character.

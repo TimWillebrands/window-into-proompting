@@ -684,3 +684,24 @@
     text-align: center;
     color: #777;
 }
+
+.wr-aura {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+    font:
+        11px Tahoma,
+        sans-serif;
+    color: var(--wr-ink);
+}
+.wr-aura input {
+    width: 100%;
+    box-sizing: border-box;
+}
+.wr-aura small {
+    color: var(--wr-muted);
+}
+.wr-aura small[data-status="failed"] {
+    color: #b3261e;
+}

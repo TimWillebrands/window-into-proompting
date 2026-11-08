@@ -51,7 +51,15 @@ public sealed class PersonaGrain(
             SystemPrompt = persona.SystemPrompt,
             Bio = persona.Bio,
             Chattiness = Math.Clamp(persona.Chattiness, 0, 1),
-            Impulsivity = Math.Clamp(persona.Impulsivity, 0, 1)
+            Impulsivity = Math.Clamp(persona.Impulsivity, 0, 1),
+            Aura = Persona.CleanAura(persona.Aura)
+        });
+
+    public async Task SetAura(string? aura)
+        => await UpdateStateAsync(current => current with
+        {
+            Id = this.GetPrimaryKey(),
+            Aura = Persona.CleanAura(aura)
         });
 
     public async Task SetPersona(string name, string systemPrompt, string? bio)
@@ -132,6 +140,9 @@ public interface IPersonaGrain : IGrainWithGuidKey
 
     [Alias("SetPersona")]
     Task SetPersona(string name, string systemPrompt, string? bio);
+
+    [Alias("SetAura")]
+    Task SetAura(string? aura);
 
     [Alias("SetName")]
     Task SetName(string name);

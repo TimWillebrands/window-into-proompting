@@ -106,6 +106,26 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task AnAura_IsFeltRightNextToThem_NotAcrossTheRoom()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
+        await _fx.GrainFactory.GetGrain<IPersonaGrain>(pieter).SetAura("unsettlingly calm, like he's from elsewhere");
+
+        await places.MoveAsync(denise, cafe.Id, null);
+        await places.JoinAsync(pieter, denise);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.Contains("Pieter (right next to you; up close: unsettlingly calm, like he's from elsewhere)", await places.GetSituationAsync(denise));
+
+        var spot = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).SpotId;
+        var other = cafe.Spots.First(s => s.Id != spot);
+        await places.MoveAsync(denise, cafe.Id, other.Id);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.DoesNotContain("unsettlingly", await places.GetSituationAsync(denise));
+    }
+
+    [Fact]
     public async Task TextingShowsOnTheBody()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

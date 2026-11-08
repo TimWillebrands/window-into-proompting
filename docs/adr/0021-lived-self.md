@@ -37,8 +37,8 @@ background.
    never perform it or reuse its lines". The generic style block becomes "texting": ordinary register,
    plain words over metaphor, you may be brief/bored/distracted, match length, no stage directions.
    Place talk gets its own block instead (2026-11): out loud, face to face, somewhere real, so who's here, where and
-   when come into the reaction. The Decision prompt reads the moment in person too, and the roster drops
-   "(human)"/"(persona)" there.
+   when come into the reaction. The Decision prompt reads the moment in person too. The roster labels nobody "(human)" or "(persona)"
+   (ADR 0045).
 6. **Stage-direction cleanup.** `SpeechCleanup` drops narrated actions: 4+ words inside asterisks, starting
    lowercase. A short `*sigh*` stays, and so does capitalised emphasis.
 7. **Utterance rhythm.** Each Speaking turn samples a length cue (short, medium or long). The odds track the

@@ -107,6 +107,7 @@ import type {
     RsvpRequest,
     SelfSummary,
     SessionSummary,
+    SetAuraRequest,
     SetAutoRequest,
     ShopItem,
     SituationResponse,
@@ -26073,6 +26074,124 @@ export const usePostWorldsPartyIdPlayer = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlayerMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type putWorldsPartyIdPlayerAuraResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putWorldsPartyIdPlayerAuraResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type putWorldsPartyIdPlayerAuraResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+export type putWorldsPartyIdPlayerAuraResponseError = (
+    | putWorldsPartyIdPlayerAuraResponse400TextPlain
+    | putWorldsPartyIdPlayerAuraResponse400ApplicationJson
+    | putWorldsPartyIdPlayerAuraResponse400TextJson
+) & {
+    headers: Headers;
+};
+
+export type putWorldsPartyIdPlayerAuraResponse =
+    putWorldsPartyIdPlayerAuraResponseError;
+
+export const getPutWorldsPartyIdPlayerAuraUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/player/aura`;
+};
+
+export const putWorldsPartyIdPlayerAura = async (
+    partyId: string,
+    setAuraRequest: SetAuraRequest,
+    options?: RequestInit,
+): Promise<putWorldsPartyIdPlayerAuraResponse> => {
+    return customFetch<putWorldsPartyIdPlayerAuraResponse>(
+        getPutWorldsPartyIdPlayerAuraUrl(partyId),
+        {
+            ...options,
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(setAuraRequest),
+        },
+    );
+};
+
+export const getPutWorldsPartyIdPlayerAuraMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>,
+        TError,
+        { partyId: string; data: SetAuraRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>,
+    TError,
+    { partyId: string; data: SetAuraRequest },
+    TContext
+> => {
+    const mutationKey = ['putWorldsPartyIdPlayerAura'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>,
+        { partyId: string; data: SetAuraRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return putWorldsPartyIdPlayerAura(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PutWorldsPartyIdPlayerAuraMutationResult = NonNullable<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>
+>;
+export type PutWorldsPartyIdPlayerAuraMutationBody = SetAuraRequest;
+export type PutWorldsPartyIdPlayerAuraMutationError = ProblemDetails;
+
+export const usePutWorldsPartyIdPlayerAura = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>,
+            TError,
+            { partyId: string; data: SetAuraRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof putWorldsPartyIdPlayerAura>>,
+    TError,
+    { partyId: string; data: SetAuraRequest },
+    TContext
+> => {
+    return useMutation(
+        getPutWorldsPartyIdPlayerAuraMutationOptions(options),
         queryClient,
     );
 };
