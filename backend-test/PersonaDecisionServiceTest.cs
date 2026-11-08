@@ -111,6 +111,8 @@ public class PersonaDecisionServiceTest
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
 
         Assert.True(result.Respond);
+        // Its labels ("Heard my name (urge=1.00)") are for the thought log; Speaking must not read them as a draft.
+        Assert.True(result.Shortcut);
         router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

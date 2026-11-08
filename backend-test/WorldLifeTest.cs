@@ -42,6 +42,23 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task LifeTurn_BoardPostThatIsOnlyANoteAboutWriting_Fizzles_AndPublishesNothing()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        ScriptedLlm.ChooseOptionContaining = "Write a new post";
+        ScriptedLlm.Post = "Post something light, in English, under 40 words. Avoid stale words.";
+        try
+        {
+            var activity = await _fx.GrainFactory
+                .GetGrain<IPersonaLifeGrain>(WorldKeys.Life(partyId, denise)).LiveAsync(null);
+
+            Assert.Equal("fizzle", activity.Action);
+            Assert.Empty(await _fx.GrainFactory.GetGrain<IBoardGrain>(partyId).GetThreadsAsync());
+        }
+        finally { ScriptedLlm.Post = "Scripted post"; }
+    }
+
+    [Fact]
     public async Task LifeTurn_ChoosingPlan_SchedulesGatheringHostedByPersona()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
@@ -294,6 +311,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     public sealed class ScriptedLlm : IWorldLlm
     {
         public static volatile string? ChooseOptionContaining;
+        public static volatile string Post = "Scripted post";
         public static readonly ConcurrentQueue<string> Prompts = new();
 
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
@@ -312,7 +330,7 @@ public class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     ["thought"] = "scripted thought", ["choice"] = number, ["intent"] = "say hello to everyone",
                 });
             }
-            return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["post"] = "Scripted post", ["body"] = "Scripted body", ["respect"] = "no" });
+            return Task.FromResult<JsonObject?>(new JsonObject { ["title"] = "Scripted title", ["post"] = Post, ["body"] = "Scripted body", ["respect"] = "no" });
         }
     }
 

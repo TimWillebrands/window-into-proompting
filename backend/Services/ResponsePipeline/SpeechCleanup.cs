@@ -2,9 +2,70 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>Strips model artefacts from a spoken line: chat-template tokens, a leading "Name:" self-label, narrated stage directions.</summary>
+/// <summary>Strips model artefacts from a spoken line: chat-template tokens, a leading "Name:" self-label, narrated stage directions, a planning note, an error placeholder.</summary>
 public static partial class SpeechCleanup
 {
+    [GeneratedRegex(@"^\s*[\[<({]+[^\]>)}\n]{0,200}[\]>)}]+\s*$")]
+    private static partial Regex Wrapped();
+
+    [GeneratedRegex(@"\b(?:error|exception|failed|failure|can'?t parse|cannot parse|unparseable|invalid|timeout|timed out|refused|unavailable)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex FailureWord();
+
+    [GeneratedRegex(@"^\s*(?:ERROR|Error|error)\s*:")]
+    private static partial Regex ErrorPrefix();
+
+    /// <summary>"[ERROR: Can't parse response]", "&lt;&lt;error: 503&gt;&gt;", "Error: …": a failure placeholder, never a line to publish.</summary>
+    public static bool IsFailureMarker(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var t = text.Trim();
+        if (Wrapped().IsMatch(t)) return FailureWord().IsMatch(t);
+        // "Error: coffee not found" is a joke; "Error: request failed" is not.
+        return ErrorPrefix().Match(t) is { Success: true } prefix && FailureWord().IsMatch(t[prefix.Length..]);
+    }
+
+    // A note about the line, not the line: word budgets, the draft, stale words, which language to answer in.
+    [GeneratedRegex(@"\b(?:under|max(?:imum)?|at most|below|fewer than) \d+ words\b|\b\d+ words\b|\bstale words?\b|\bthe draft\b|\bstage direction|\b(?:reply|respond|answer|write|keep it|send it)\b[^.\n]{0,30}\bin (?:english|dutch|french|german|spanish|portuguese)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex StrongNote();
+
+    [GeneratedRegex(@"^\s*[A-Z][\w'-]+ (?:asks|says|wants|wrote|writes|mentions|mentioned|is asking|just asked|replied)\b|\bI(?:'ll| will| need to| have to| want to| should) (?:send|reply|respond|answer|write|keep)\b|\b(?:short|light|brief|one line|private line|keep it|avoid|leave out|in english|in dutch|in french|reply|respond)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex WeakNote();
+
+    [GeneratedRegex(@"^\s*(?:send(?:ing)? to [^\n:]{1,40}|reply|message|line|final|answer|my reply|text|draft)\s*:\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex LineLabel();
+
+    [GeneratedRegex(@"\n\s*\n")]
+    private static partial Regex ParagraphBreak();
+
+    private static int NoteScore(string paragraph)
+        => 2 * StrongNote().Matches(paragraph).Count + WeakNote().Matches(paragraph).Count;
+
+    /// <summary>"Reply short, under 12 words…\n\nthe line" → "the line"; all note → empty. The model thinking aloud before speaking.</summary>
+    public static string DropPlanningNote(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var paragraphs = ParagraphBreak().Split(text.Trim()).Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
+        // A lone paragraph needs more evidence: it may just be someone talking about replying.
+        if (paragraphs.Count == 1)
+            return NoteScore(paragraphs[0]) >= 4 && StrongNote().IsMatch(paragraphs[0]) ? string.Empty : text;
+        var kept = paragraphs.SkipWhile(p => StrongNote().IsMatch(p) || NoteScore(p) >= 3).ToList();
+        if (kept.Count == paragraphs.Count) return text;
+        if (kept.Count == 0) return string.Empty;
+        var line = LineLabel().Replace(string.Join("\n\n", kept), string.Empty).Trim();
+        return line.Length > 1 && line[0] is '"' or '“' && line[^1] is '"' or '”' ? line[1..^1].Trim() : line;
+    }
+
+    /// <summary>"Al wijzer geworden? Ik ben…" answering "Al wijzer geworden?" → "Ik ben…": small models open by echoing the line they answer.</summary>
+    public static string DropEcho(string text, string? answering)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(answering)) return text;
+        var echo = answering.Trim();
+        if (echo.Length < 12) return text;
+        var t = text.TrimStart();
+        if (!t.StartsWith(echo, StringComparison.OrdinalIgnoreCase)) return text;
+        return t[echo.Length..].TrimStart(' ', ',', '-', '—', '–', ':', '\n').Trim();
+    }
+
     [GeneratedRegex(@"<\|[^|>]{1,40}\|>")]
     private static partial Regex TemplateToken();
 
@@ -40,7 +101,9 @@ public static partial class SpeechCleanup
     public static string Clean(string? text, string? selfName)
     {
         if (string.IsNullOrEmpty(text)) return text ?? string.Empty;
-        var s = TemplateToken().Replace(text, " ").Trim();
+        if (IsFailureMarker(text)) return string.Empty;
+        var s = DropPlanningNote(TemplateToken().Replace(text, " ").Trim());
+        if (IsFailureMarker(s)) return string.Empty;
         // "private" survives as a bare word when the template was <|channel|>private<|message|>.
         if (s.StartsWith("private ", StringComparison.Ordinal) && text.Contains("<|channel|>")) s = s[8..].TrimStart();
         // A leaked room label: "#kitchen: hi" or a trailing "Going. #test:" header.

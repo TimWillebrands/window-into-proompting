@@ -83,7 +83,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             {
                 Respond = true,
                 Instruction = "React naturally — they spoke to you.",
-                Reason = $"Heard my name (urge={urge.Total:F2}). Worth a reply."
+                Reason = $"Heard my name (urge={urge.Total:F2}). Worth a reply.",
+                Shortcut = true,
             };
         }
 
@@ -404,6 +405,11 @@ public sealed record class ShouldRespondResult
     [JsonPropertyName("memoryToReference")]
     [JsonConverter(typeof(LenientMemoryIndexConverter))]
     public int? MemoryToReference { get; init; }
+
+    /// <summary>Auto-respond shortcut: Instruction and Reason are log labels, not a draft or a gut reaction, so Speaking doesn't get them.</summary>
+    [Id(4)]
+    [JsonIgnore]
+    public bool Shortcut { get; init; }
 }
 
 /// <summary>

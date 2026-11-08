@@ -16,7 +16,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     public const int MaxLength = 280;
 
     private const string PostShape = """{"post": "<your post, under 280 characters>"}""";
-    private const string ReplyShape = """{"body": "<your reply, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
+    private const string ReplyShape = """{"body": "<your reply exactly as you'd type it under the post, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
 
     private const string Shorten = """
         Shorten this Partyboard post to under 280 characters. Keep the writer's voice, casing, facts and point;
@@ -188,7 +188,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             var all = await board.GetThreadsAsync();
             var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
                 PostUser(intent, thought, OwnRecent(all, ctx.Self.Id, ctx.Now), OthersRecent(all, ctx.Self.Id)), ct, 0.9, ["post"]);
-            if (json?["post"]?.ToString().Trim() is not { Length: > 0 } post) return null;
+            if (json?["post"]?.ToString().Trim() is not { Length: > 0 } written
+                || Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(written) is not { Length: > 0 } post) return null;
 
             return (await PostAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, post, ct), ViewsOf(ctx))).Outcome;
         }
@@ -197,6 +198,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var replyJson = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
             ReplyUser(Render(target, ctx.Self.Id), intent, thought), ct, 0.9, ["body", "respect"]);
         if (replyJson is null) return null;
+        // A body that's only a note about replying is a failed write, not a choice to pass.
+        if (ReplyBody(replyJson) is { } drafted && Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(drafted).Length == 0) return null;
 
         var respected = GivesRespect(replyJson) && RespectTarget(target, ctx.Self.Id) is { } aim
             && await RespectAsync(ctx.PartyId, threadId, aim.ReplyId, ctx.Self.Id, ctx.Self.Name, true) is not null;
@@ -205,7 +208,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
                 ? new ActOutcome("respect", $"gave {RespectTarget(target, ctx.Self.Id)!.Value.Name} Respect! on {PostLabel(target, ctx.Self.Id)}", target.Id)
                 : new ActOutcome("pass", $"read {PostLabel(target, ctx.Self.Id)} and let it be", target.Id);
 
-        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, replyBody, ct), ViewsOf(ctx)))?.Outcome;
+        var sayable = Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(replyBody);
+        return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, sayable, ct), ViewsOf(ctx)))?.Outcome;
     }
 
     /// <summary>System prompt for any Partyboard write: who you are, your day, and what a feed post is.</summary>
@@ -221,6 +225,7 @@ You are posting on Partyboard, the social feed of the small online world you liv
 - Readers aren't where you are: say what they need, don't point at your surroundings.
 - It's public. Something meant for one person is a DM.
 - Your own words and angle, not the thread's: don't pick up other people's metaphors or catchphrases.
+- A reply talks to the people under the post; it doesn't sum up who said what first.
 Everyday words, in English like the rest of Partyboard; the odd word from your own language is fine. No hashtags, no sign-off, no meta commentary.
 Output ONLY JSON.
 """;
