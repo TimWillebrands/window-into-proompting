@@ -222,4 +222,50 @@ public partial class PlacesTest
             ScriptedLlm.Instance.Json = (_, _) => null;
         }
     }
+    [Fact]
+    public async Task ARedesignedHome_KeepsItsPeopleAndThings_InANewScene()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
+        var plant = home.Furni.Single(f => f.Kind == FurniKinds.Plant);
+        Assert.True(await places.ArrangeAsync(denise, home.Id, plant.Id, 3, 3, 1));
+        var withGarden = true;
+        ScriptedLlm.Instance.Json = (system, _) => !system.Contains("You design one new place") ? null : Obj("""
+            {"name": "the tower", "description": "a round stone room full of books",
+             "spots": [{"id": "sofa", "name": "the reading chair", "at": "in", "capacity": 1, "seat": true},
+                       {"id": "desk", "name": "the lectern", "at": "at", "capacity": 1},
+                       {"id": "kitchen", "name": "the hearth", "at": "by", "capacity": 2},
+                       {"id": "bed", "name": "the bed", "at": "on", "capacity": 1, "seat": true}GARDEN],
+             "scene": {"map": ["#ww#######", "#........#", "#........#", "D........#", "#ggggg...#", "#ggtgg...#", "##########"],
+                       "spots": {"sofa": {"at": [2, 1]}, "desk": {"at": [7, 1]}, "kitchen": {"at": [7, 3]}, "bed": {"at": [4, 2]}, "garden": {"at": [2, 4]}},
+                       "floor": "#5a4a3a", "wall": "#8a8a90"}}
+            """.Replace("GARDEN", withGarden ? """, {"id": "garden", "name": "the garden", "at": "in", "capacity": 2}""" : ""));
+        try
+        {
+            var redone = await places.RedesignHomeAsync(home.Id, new string('x', 1000) + " a tower", "the stargazer's tower");
+
+            Assert.NotNull(redone);
+            Assert.Contains("Spots must include these ids", ScriptedLlm.Instance.Users.Last(u => u.StartsWith("Design:")));
+            Assert.Equal((home.Id, denise, "the stargazer's tower"), (redone.Id, redone.OwnerId, redone.Name));
+            Assert.Equal("custom", redone.Scene);
+            Assert.Contains(redone.Spots, s => s.Id == "garden");
+            var snapshot = await places.GetSnapshotAsync();
+            var view = snapshot.Furni.Single(f => f.PlaceId == home.Id && f.FurniId == plant.Id);
+            Assert.Equal((null, null), (view.TileX, view.TileZ));
+
+            await places.MoveAsync(denise, home.Id, "garden");
+            _fx.Time.Advance(TimeSpan.FromMinutes(5));
+            withGarden = false;
+            Assert.NotNull(await places.RedesignHomeAsync(home.Id, "a tower without a garden", null));
+            snapshot = await places.GetSnapshotAsync();
+            var body = snapshot.Bodies.Single(b => b.ParticipantId == denise);
+            Assert.Equal((home.Id, "sofa"), (body.PlaceId, body.SpotId));
+            Assert.Equal("the stargazer's tower", snapshot.Places.Single(p => p.Id == home.Id).Name);
+        }
+        finally
+        {
+            ScriptedLlm.Instance.Json = (_, _) => null;
+        }
+    }
 }

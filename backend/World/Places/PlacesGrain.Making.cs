@@ -278,7 +278,7 @@ public sealed partial class PlacesGrain
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
         if (state.State.Places.Count(p => p.CustomScene is not null && p.Kind == PlaceKinds.Public) >= MaxMadePlaces) return null;
-        if (await DesignAsync(description, outdoor) is not { } draft) return null;
+        if (await DesignAsync(WorldStream.Clip(description, 400), outdoor) is not { } draft) return null;
         var json = draft.Json;
         var name = json["name"]?.ToString()?.Trim() is { Length: > 0 } n ? WorldStream.Clip(n, 40) : "the new place";
         if (!name.StartsWith("the ", StringComparison.OrdinalIgnoreCase) && !char.IsUpper(name[0])) name = $"the {name}";
@@ -300,9 +300,9 @@ public sealed partial class PlacesGrain
 
     /// <summary>Asks the designer until the scene checks out, three tries at most; null when it never does.</summary>
     /// <param name="rule">What's wrong with these spots beyond the scene check; null when they're fine.</param>
-    private async Task<PlaceDraft?> DesignAsync(string description, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
+    private async Task<PlaceDraft?> DesignAsync(string brief, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
     {
-        var user = $"Design: {WorldStream.Clip(description, 400)}\nPlaces that already exist: {string.Join(", ", state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name))}";
+        var user = $"Design: {brief}\nPlaces that already exist: {string.Join(", ", state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name))}";
         for (var attempt = 0; attempt < 3; attempt++)
         {
             JsonObject? json;

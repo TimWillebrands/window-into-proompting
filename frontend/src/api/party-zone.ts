@@ -101,6 +101,7 @@ import type {
     PromptRequest,
     ProviderAvailability,
     ProviderUsage,
+    RedesignHomeRequest,
     Relation,
     RelationHomeRequest,
     RepromptRequest,
@@ -19746,6 +19747,153 @@ export const usePostWorldsPartyIdPlacesCreate = <
 > => {
     return useMutation(
         getPostWorldsPartyIdPlacesCreateMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse409TextPlain = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse409ApplicationJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse409TextJson = {
+    data: ProblemDetails;
+    status: 409;
+};
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponseError = (
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse400TextPlain
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse400ApplicationJson
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse400TextJson
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse409TextPlain
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse409ApplicationJson
+    | postWorldsPartyIdPlacesPlaceIdRedesignResponse409TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdPlacesPlaceIdRedesignResponse =
+    postWorldsPartyIdPlacesPlaceIdRedesignResponseError;
+
+export const getPostWorldsPartyIdPlacesPlaceIdRedesignUrl = (
+    partyId: string,
+    placeId: string,
+) => {
+    return `/api/worlds/${partyId}/places/${placeId}/redesign`;
+};
+
+export const postWorldsPartyIdPlacesPlaceIdRedesign = async (
+    partyId: string,
+    placeId: string,
+    redesignHomeRequest: RedesignHomeRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdPlacesPlaceIdRedesignResponse> => {
+    return customFetch<postWorldsPartyIdPlacesPlaceIdRedesignResponse>(
+        getPostWorldsPartyIdPlacesPlaceIdRedesignUrl(partyId, placeId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(redesignHomeRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdPlacesPlaceIdRedesignMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>,
+        TError,
+        { partyId: string; placeId: string; data: RedesignHomeRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>,
+    TError,
+    { partyId: string; placeId: string; data: RedesignHomeRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdPlacesPlaceIdRedesign'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>,
+        { partyId: string; placeId: string; data: RedesignHomeRequest }
+    > = (props) => {
+        const { partyId, placeId, data } = props ?? {};
+
+        return postWorldsPartyIdPlacesPlaceIdRedesign(
+            partyId,
+            placeId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdPlacesPlaceIdRedesignMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>
+>;
+export type PostWorldsPartyIdPlacesPlaceIdRedesignMutationBody =
+    RedesignHomeRequest;
+export type PostWorldsPartyIdPlacesPlaceIdRedesignMutationError =
+    ProblemDetails;
+
+export const usePostWorldsPartyIdPlacesPlaceIdRedesign = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>,
+            TError,
+            { partyId: string; placeId: string; data: RedesignHomeRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdPlacesPlaceIdRedesign>>,
+    TError,
+    { partyId: string; placeId: string; data: RedesignHomeRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdPlacesPlaceIdRedesignMutationOptions(options),
         queryClient,
     );
 };

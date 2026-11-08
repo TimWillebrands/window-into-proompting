@@ -15,7 +15,7 @@ public sealed partial class PlacesGrain
         var left = state.State.Places.Where(p => p.Kind == PlaceKinds.Home && (pair.Contains(p.OwnerId ?? Guid.Empty) || p.Living().Any(pair.Contains))).ToList();
         if (left.Any(p => p.Living().Except(pair).Any())) return null;
 
-        var brief = $"{description.Trim()}\nIt's a home two people live in. Spots must include these ids, plus up to two more: {string.Join(", ", HomeSpots)}. Leave out the bed, laptop, coffee maker, dishes and plant: they get placed next to their spots.";
+        var brief = $"{WorldStream.Clip(description, 400)}\n{HomeRules(2)}";
         if (await DesignAsync(brief, false, MissingHomeSpots) is not { } draft) return null;
         var bed = draft.Spots.Single(s => s.Id == "bed");
         bed.Capacity = Math.Max(bed.Capacity, pair.Length);
@@ -38,6 +38,48 @@ public sealed partial class PlacesGrain
         await SyncTalkRoomAsync(home.Id);
         return home;
     }
+
+    /// <summary>Author: a new design for a Home, same id, people, keys and things.</summary>
+    public async Task<Place?> RedesignHomeAsync(Guid placeId, string description, string? name)
+    {
+        await SettleAsync();
+        if (string.IsNullOrWhiteSpace(description) || Find(placeId) is not { Kind: PlaceKinds.Home } home) return null;
+        var living = Math.Max(1, home.Living().Count());
+        var brief = $"{WorldStream.Clip(description, 1500)}\n{HomeRules(living)}";
+        if (await DesignAsync(brief, false, MissingHomeSpots) is not { } draft) return null;
+        var bed = draft.Spots.Single(s => s.Id == "bed");
+        bed.Capacity = Math.Max(bed.Capacity, living);
+        bed.At = "on";
+        bed.Seat = true;
+
+        home.Scene = "custom";
+        home.CustomScene = PlaceDesign.Store(draft.Scene);
+        home.Spots = draft.Spots;
+        home.Description = WorldStream.Clip(draft.Json["description"]?.ToString() ?? description, 200);
+        home.WallColour = null;
+        home.FloorColour = null;
+        if (!string.IsNullOrWhiteSpace(name)) home.Name = WorldStream.Clip(name, 40);
+        var spotIds = home.Spots.Select(s => s.Id).ToHashSet();
+        foreach (var furni in home.Furni)
+        {
+            (furni.TileX, furni.TileZ) = (null, null);
+            if (!spotIds.Contains(furni.SpotId)) furni.SpotId = home.Spots[0].Id;
+        }
+        foreach (var body in state.State.Bodies.Values)
+        {
+            if (body.PlaceId == placeId && !spotIds.Contains(body.SpotId)) { body.SpotId = home.Spots[0].Id; EndPose(body); }
+            if (body.DestPlaceId == placeId && body.DestSpotId is { } dest && !spotIds.Contains(dest)) body.DestSpotId = home.Spots[0].Id;
+        }
+
+        await SaveAsync();
+        await PublishPlaceAsync(home);
+        foreach (var body in state.State.Bodies.Values.Where(b => b.PlaceId == placeId || b.DestPlaceId == placeId).ToList())
+            await PublishAsync(body);
+        return home;
+    }
+
+    private static string HomeRules(int living)
+        => $"It's a home {(living == 1 ? "one person lives" : $"{living} people live")} in. Spots must include these ids, plus up to two more: {string.Join(", ", HomeSpots)}. Leave out the bed, laptop, coffee maker, dishes and plant: they get placed next to their spots.";
 
     public async Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId)
     {
