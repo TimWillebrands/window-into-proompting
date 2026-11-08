@@ -1,41 +1,19 @@
+using System.Globalization;
 using PartyTown.Model;
 using PartyTown.Services.SystemOne;
+using PartyTown.World.Desires;
 
 namespace PartyTown.World.Self;
 
-/// <summary>Something one of two people said they'd do for the other (ADR 0043); kept on both their Ties.</summary>
-[GenerateSerializer, Alias("PartyTown.World.Self.Promise")]
-public sealed class Promise
-{
-    /// <summary>This persona made it; false means it was made to them.</summary>
-    [Id(0)] public bool Mine { get; set; }
-    /// <summary>To come over to where the other is; being there keeps it.</summary>
-    [Id(1)] public bool Coming { get; set; }
-    /// <summary>The line that made it.</summary>
-    [Id(2)] public string Said { get; set; } = string.Empty;
-    /// <summary>What the other had just said, if anything: often the real content ("what was my father working on?").</summary>
-    [Id(3)] public string? Asked { get; set; }
-    [Id(4)] public long MadeAt { get; set; }
-    /// <summary>Last time it was said again.</summary>
-    [Id(5)] public long LastAt { get; set; }
-    /// <summary>Pressing from then; null for a set later day, which is known but doesn't press.</summary>
-    [Id(6)] public long? DueFrom { get; set; }
-    [Id(7)] public long LapseAt { get; set; }
-    /// <summary>Times it was said again since: a restated plan, or a put-off.</summary>
-    [Id(8)] public int Again { get; set; }
-}
-
-/// <summary>A promise with who it's between, as one persona holds it.</summary>
-[GenerateSerializer, Alias("PartyTown.World.Self.PromiseView")]
-public sealed record PromiseView([property: Id(0)] Guid OtherId, [property: Id(1)] Promise Promise);
-
-/// <summary>Pure rules for promises: when they press, when they lapse, how they read (ADR 0043).</summary>
+/// <summary>Pure rules for promises (ADR 0043): a promise is the promiser's Desire, a set-day meet-up a Gathering.</summary>
 public static class PromiseRules
 {
     /// <summary>p(said they'd do something) at which it counts as a promise.</summary>
     public const double Made = 0.6;
     /// <summary>p(did it, or called it off) at which an open promise is settled.</summary>
     public const double Settled = 0.6;
+    /// <summary>Choice share a set-day meet-up's day and Home need before it goes on the Calendar.</summary>
+    public const double Sure = 0.5;
 
     public const string Soon = "soon";
     public const string Tomorrow = "tomorrow";
@@ -43,61 +21,67 @@ public static class PromiseRules
     public const string Come = "come";
     public const string Do = "do";
 
+    public const string Morning = "morning";
+    public const string Afternoon = "afternoon";
+    public const string Evening = "evening";
+    public const string TheirHome = "speaker";
+    public const string OtherHome = "other";
+    public const string Elsewhere = "elsewhere";
+
     public static readonly TimeSpan SoonLasts = TimeSpan.FromHours(24);
     public static readonly TimeSpan TomorrowLasts = TimeSpan.FromHours(36);
     public static readonly TimeSpan SetDayLasts = TimeSpan.FromDays(8);
+    /// <summary>A Gathering this close to the agreed start is the same plan.</summary>
+    public static readonly TimeSpan SameMeetup = TimeSpan.FromDays(1);
 
-    /// <summary>A fresh promise; <paramref name="now"/> in the persona's local offset, so "tomorrow" starts at their midnight.</summary>
-    public static Promise Make(bool mine, bool coming, string said, string? asked, string when, DateTimeOffset now)
+    /// <summary>The promiser's Desire; <paramref name="now"/> in their local offset, so "tomorrow" starts at their midnight.</summary>
+    public static Desire Make(Guid holder, bool coming, string said, string? asked, string when, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
-        var p = new Promise { Mine = mine, Coming = coming, Said = WorldStream.Clip(said, 200), Asked = asked is null ? null : WorldStream.Clip(asked, 160), MadeAt = ms, LastAt = ms };
-        Schedule(p, when, now);
-        return p;
+        var text = asked is null ? $"\"{WorldStream.Clip(said, 140)}\"" : $"\"{WorldStream.Clip(said, 140)}\", answering \"{WorldStream.Clip(asked, 100)}\"";
+        var d = new Desire { Kind = DesireKind.Being, Source = DesireSource.Promise, Text = text, TargetId = holder, Coming = coming, Since = ms, TouchedAt = ms };
+        Schedule(d, when, now);
+        return d;
     }
 
-    private static void Schedule(Promise p, string when, DateTimeOffset now)
+    private static void Schedule(Desire d, string when, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
         switch (when)
         {
             case Tomorrow:
                 var midnight = new DateTimeOffset(now.Date.AddDays(1), now.Offset).ToUnixTimeMilliseconds();
-                p.DueFrom = midnight;
-                p.LapseAt = midnight + (long)TomorrowLasts.TotalMilliseconds;
+                d.DueAt = midnight;
+                d.Until = midnight + (long)TomorrowLasts.TotalMilliseconds;
                 break;
             case SetDay:
-                p.DueFrom = null;
-                p.LapseAt = ms + (long)SetDayLasts.TotalMilliseconds;
+                d.DueAt = null;
+                d.Until = ms + (long)SetDayLasts.TotalMilliseconds;
                 break;
             default:
-                p.DueFrom = ms;
-                p.LapseAt = ms + (long)SoonLasts.TotalMilliseconds;
+                d.DueAt = ms;
+                d.Until = ms + (long)SoonLasts.TotalMilliseconds;
                 break;
         }
     }
 
-    /// <summary>One open promise per direction and kind between two people: saying it again restates it, keeping the first words.</summary>
-    /// <returns>True when it restated one already open.</returns>
-    public static bool Merge(List<Promise> open, Promise incoming, string when, DateTimeOffset now)
+    /// <summary>The open promise to that person of that kind, if any.</summary>
+    public static Desire? Open(IEnumerable<Desire> desires, Guid holder, bool coming, long now)
+        => desires.FirstOrDefault(d => DesireRules.IsPromise(d) && d.Status == DesireStatus.Active && d.TargetId == holder && d.Coming == coming && !DesireRules.Lapsed(d, now));
+
+    /// <summary>Saying it again restates the open one, keeping the first words; true when it did.</summary>
+    public static bool Restate(IEnumerable<Desire> desires, Desire incoming, DateTimeOffset now)
     {
-        var same = open.FirstOrDefault(p => p.Mine == incoming.Mine && p.Coming == incoming.Coming && !Lapsed(p, now.ToUnixTimeMilliseconds()));
-        if (same is null)
-        {
-            open.RemoveAll(p => p.Mine == incoming.Mine && p.Coming == incoming.Coming);
-            open.Add(incoming);
-            return false;
-        }
+        if (incoming.TargetId is not { } holder || Open(desires, holder, incoming.Coming, now.ToUnixTimeMilliseconds()) is not { } same) return false;
         same.Again++;
-        same.LastAt = now.ToUnixTimeMilliseconds();
-        Schedule(same, when, now);
+        same.TouchedAt = now.ToUnixTimeMilliseconds();
+        same.DueAt = incoming.DueAt;
+        same.Until = incoming.Until;
         return true;
     }
 
-    public static bool Lapsed(Promise p, long now) => now >= p.LapseAt;
-
-    /// <summary>Theirs to keep, and due now: it pulls on what they do next.</summary>
-    public static bool Pressing(Promise p, long now) => p.Mine && p.DueFrom is { } due && now >= due && !Lapsed(p, now);
+    /// <summary>A due promise left to lapse: whoever was owed it cools on the promiser.</summary>
+    public static bool LetDown(Desire d, long now) => DesireRules.IsPromise(d) && d.DueAt is not null && DesireRules.Lapsed(d, now);
 
     /// <summary>A come-over is kept by being there.</summary>
     public static bool Arrived(Places.Body? me, Places.Body? them)
@@ -114,8 +98,13 @@ public static class PromiseRules
         return null;
     }
 
-    /// <summary>The question for System One: did the last line promise something, what, when, and does it settle one already open.</summary>
-    public static Dictionary<string, SystemOneQuestion> Questions(string speaker, string other, IReadOnlyList<Promise> open)
+    /// <summary>The next seven days by date key, for a set-day meet-up.</summary>
+    public static IReadOnlyList<DateTime> Days(DateTimeOffset now) => Enumerable.Range(1, 7).Select(i => now.Date.AddDays(i)).ToList();
+
+    private static string DayKey(DateTime day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>One System One read of the last line: a promise, what, when, a set-day meet-up's day and Home, and each open one kept or off.</summary>
+    public static Dictionary<string, SystemOneQuestion> Questions(string speaker, string other, IReadOnlyList<Desire> open, DateTimeOffset now)
     {
         var questions = new Dictionary<string, SystemOneQuestion>
         {
@@ -131,61 +120,81 @@ public static class PromiseRules
                 [Tomorrow] = "tomorrow",
                 [SetDay] = "on a set later day or time, like a weekday or next week",
             }),
+            ["day"] = new ChoiceQuestion($"If they agreed to meet on a set day, which day?",
+                Days(now).ToDictionary(DayKey, d => (string?)d.ToString("dddd d MMMM", CultureInfo.InvariantCulture))),
+            ["part"] = new ChoiceQuestion("And when in that day?", new Dictionary<string, string?>
+            {
+                [Morning] = "morning", [Afternoon] = "afternoon", [Evening] = "evening or for dinner",
+            }),
+            ["where"] = new ChoiceQuestion($"Where would they meet?", new Dictionary<string, string?>
+            {
+                [TheirHome] = $"at {speaker}'s home", [OtherHome] = $"at {other}'s home", [Elsewhere] = "somewhere else, or not said",
+            }),
         };
         for (var i = 0; i < open.Count; i++)
-            questions[$"kept{i}"] = new NoulQuestion($"In their last message, {speaker} actually does what they earlier told {other} they would ({Gist(open[i])}), or plainly tells {other} they won't after all.");
+        {
+            questions[$"kept{i}"] = new NoulQuestion($"In their last message, {speaker} actually does what they earlier told {other} they would ({WorldStream.Clip(open[i].Text, 180)}).");
+            questions[$"off{i}"] = new NoulQuestion($"In their last message, {speaker} plainly tells {other} they won't do what they earlier said they would ({WorldStream.Clip(open[i].Text, 180)}).");
+        }
         return questions;
     }
 
     /// <summary>The likeliest option of a classifying choice: reading what was said, not choosing what to do.</summary>
-    public static string Top(SystemOneAnswers answers, string key, string fallback)
-        => answers.Choices.TryGetValue(key, out var dist) && dist.Count > 0 ? dist.MaxBy(kv => kv.Value).Key : fallback;
+    public static string Top(SystemOneAnswers answers, string key, string fallback) => TopShare(answers, key, fallback).Key;
 
-    public static string Gist(Promise p)
-        => p.Asked is { } asked ? $"answering \"{WorldStream.Clip(asked, 100)}\": \"{WorldStream.Clip(p.Said, 120)}\"" : $"\"{WorldStream.Clip(p.Said, 140)}\"";
+    /// <summary>The likeliest option with its share; the fallback at 0 when unanswered.</summary>
+    public static (string Key, double Share) TopShare(SystemOneAnswers answers, string key, string fallback)
+    {
+        if (!answers.Choices.TryGetValue(key, out var dist) || dist.Count == 0) return (fallback, 0);
+        var top = dist.MaxBy(kv => kv.Value);
+        return (top.Key, top.Value);
+    }
 
-    /// <summary>Their own open promises as "# What you owe" lines: pressing first, then by when.</summary>
-    public static IEnumerable<Work.Owed> Owed(IEnumerable<PromiseView> promises, Func<Guid, string> nameOf, DateTimeOffset now)
+    /// <summary>When and at whose Home a set-day meet-up is, or null when the read isn't sure enough to put it on the Calendar.</summary>
+    public static (long StartsAt, string Where)? Meetup((string Key, double Share) day, (string Key, double Share) part, (string Key, double Share) where, DateTimeOffset now)
+    {
+        if (day.Share < Sure || where.Share < Sure || where.Key == Elsewhere) return null;
+        if (!DateTime.TryParseExact(day.Key, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return null;
+        var hour = (part.Share >= Sure ? part.Key : Evening) switch { Morning => 10, Afternoon => 14, _ => 19 };
+        return (new DateTimeOffset(date.AddHours(hour), now.Offset).ToUnixTimeMilliseconds(), where.Key);
+    }
+
+    /// <summary>Someone's Home: one they own and still live in, or one they've moved into.</summary>
+    public static Places.Place? HomeOf(IEnumerable<Places.Place> places, Guid who)
+        => places.FirstOrDefault(p => p.Kind == Places.PlaceKinds.Home && Places.Homes.LivesIn(p, who));
+
+    /// <summary>A planned Gathering both already go to, near enough that it's this plan.</summary>
+    public static Gathering? Already(IEnumerable<Gathering> gatherings, Guid a, Guid b, long startsAt)
+        => gatherings.FirstOrDefault(g => g.Status == GatheringStatus.Planned && g.AttendeeIds.Contains(a) && g.AttendeeIds.Contains(b)
+            && Math.Abs(g.StartsAt - startsAt) <= SameMeetup.TotalMilliseconds);
+
+    /// <summary>"Denise over at Anne's": the plan as the Calendar shows it.</summary>
+    public static string Title(string guest, string host) => $"{guest.Split(' ')[0]} over at {host.Split(' ')[0]}'s";
+
+    /// <summary>Their own open promises as "# What you owe" lines.</summary>
+    public static IEnumerable<Work.Owed> Owed(IEnumerable<Desire> desires, Func<Guid, string> nameOf, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
-        foreach (var (other, p) in promises.Where(v => v.Promise.Mine && !Lapsed(v.Promise, ms)).Select(v => (v.OtherId, v.Promise)))
-        {
-            var after = p.Asked is { } asked ? $" (when they said \"{WorldStream.Clip(asked, 100)}\")" : string.Empty;
-            yield return new Work.Owed(
-                $"You told {nameOf(other)} \"{WorldStream.Clip(p.Said, 140)}\"{after}, {WorldStream.Ago(p.MadeAt, now)}{When(p, ms)}{Again(p)}; not done yet.",
-                p.DueFrom ?? p.LapseAt, other);
-        }
+        foreach (var d in desires.Where(d => DesireRules.IsPromise(d) && d.Status == DesireStatus.Active && !DesireRules.Lapsed(d, ms) && d.TargetId is not null))
+            yield return new Work.Owed($"You told {nameOf(d.TargetId!.Value)} {d.Text}, {WorldStream.Ago(d.Since, now)}{When(d, ms)}{Again(d)}; not done yet.",
+                d.DueAt ?? d.Until ?? ms, d.TargetId);
     }
 
-    /// <summary>What someone told this persona they'd do, for their line in "Who these people are to you".</summary>
-    public static IEnumerable<string> Heard(IEnumerable<Promise> promises, string first, DateTimeOffset now)
+    /// <summary>What someone told this persona they'd do, read off the promiser's own Desires.</summary>
+    public static IEnumerable<string> Heard(IEnumerable<Desire> theirs, Guid holder, string first, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
-        return promises.Where(p => !p.Mine && !Lapsed(p, ms))
-            .Select(p => $"{first} told you \"{WorldStream.Clip(p.Said, 120)}\" {WorldStream.Ago(p.MadeAt, now)}{Again(p)}");
+        return theirs.Where(d => DesireRules.IsPromise(d) && d.Status == DesireStatus.Active && d.TargetId == holder && !DesireRules.Lapsed(d, ms))
+            .Select(d => $"{first} told you {d.Text} {WorldStream.Ago(d.Since, now)}{Again(d)}");
     }
 
-    /// <summary>Options aimed at whoever they owe, by person, their chat and (for a come-over) where they are now.</summary>
-    public static Dictionary<Guid, string> Handles(IEnumerable<PromiseView> promises, Func<Guid, Guid?> chatWith, Func<Guid, Guid?> placeOf, long now)
-    {
-        var handles = new Dictionary<Guid, string>();
-        foreach (var (other, p) in promises.Where(v => Pressing(v.Promise, now)).Select(v => (v.OtherId, v.Promise)))
-        {
-            var said = p.Said;
-            handles.TryAdd(other, said);
-            if (chatWith(other) is { } chat) handles.TryAdd(chat, said);
-            if (p.Coming && placeOf(other) is { } place) handles.TryAdd(place, said);
-        }
-        return handles;
-    }
+    private static string When(Desire d, long now)
+        => d.DueAt is null ? " (for a set day later)" : d.DueAt > now ? " (for tomorrow)" : string.Empty;
 
-    private static string When(Promise p, long now)
-        => p.DueFrom is null ? " (for a set day later)" : p.DueFrom > now ? " (for tomorrow)" : string.Empty;
-
-    private static string Again(Promise p) => p.Again switch
+    private static string Again(Desire d) => d.Again switch
     {
         0 => string.Empty,
         1 => "; said again once since",
-        _ => $"; said again {p.Again} times since",
+        _ => $"; said again {d.Again} times since",
     };
 }

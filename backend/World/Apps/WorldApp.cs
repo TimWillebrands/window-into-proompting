@@ -12,24 +12,14 @@ public sealed record LifeContext(
     IReadOnlyList<WorldActivity> RecentOwn,
     DateTimeOffset Now,
     IReadOnlyDictionary<Guid, PartyTown.World.Self.AttentionLook> Looks,
-    IReadOnlyDictionary<Guid, string>? Wanted = null,
-    IReadOnlyDictionary<Guid, string>? Promised = null,
+    IReadOnlyDictionary<Guid, PartyTown.World.Desires.Desire>? Wanted = null,
     IReadOnlyList<PartyTown.World.Happening>? Happenings = null)
 {
-    /// <summary>The want on their mind that's about <paramref name="id"/>, if any (ADR 0026).</summary>
-    public string? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;
+    /// <summary>What an option toward <paramref name="id"/> pulls with: a promise due to them, else a want about them (ADR 0026, 0043).</summary>
+    public PartyTown.World.Desires.Desire? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;
 
-    /// <summary>What they said they'd do that's due, aimed at <paramref name="id"/> (a person, their chat, where they are), if any (ADR 0043).</summary>
-    public string? PromiseAbout(Guid? id) => id is { } key ? Promised?.GetValueOrDefault(key) : null;
-
-    /// <summary>An option toward someone they owe or want something from: one handle, one pull more (ADR 0026, 0043).</summary>
-    public bool Drawn(Guid? id) => PromiseAbout(id) is not null || WantAbout(id) is not null;
-
-    /// <summary>The option as the chooser reads it: what they said they'd do comes before what they want.</summary>
-    public string Read(Affordance a)
-        => PromiseAbout(a.TargetId) is { } said
-            ? $"{a.Label} (you said you would: \"{WorldStream.Clip(said, 80)}\")"
-            : PartyTown.World.Desires.DesireRules.Toward(a.Label, WantAbout(a.TargetId));
+    /// <summary>They said they'd do something for <paramref name="id"/> (a person, their chat, where they are), and it's due.</summary>
+    public bool Owes(Guid? id) => WantAbout(id) is { Source: PartyTown.World.Desires.DesireSource.Promise };
 
     /// <summary>Looked at <paramref name="target"/> recently enough that it's still in mind.</summary>
     public bool InMind(Guid target)

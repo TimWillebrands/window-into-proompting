@@ -44,40 +44,6 @@ public sealed class PersonaTiesGrain(
         return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow), tie.LastAt);
     }
 
-    public async Task NotePromiseAsync(Guid otherId, Promise promise, string when)
-    {
-        await EnsureSeededAsync();
-        var tie = state.State.Ties.TryGetValue(otherId, out var t) ? t : state.State.Ties[otherId] = new Tie();
-        PromiseRules.Merge(tie.Promises, promise, when, DateTimeOffset.Now);
-        await state.WriteStateAsync();
-    }
-
-    public async Task SettlePromiseAsync(Guid otherId, bool mine, bool coming)
-    {
-        if (state.State.Ties.GetValueOrDefault(otherId) is not { } tie) return;
-        if (tie.Promises.RemoveAll(p => p.Mine == mine && p.Coming == coming) > 0) await state.WriteStateAsync();
-    }
-
-    public Task<List<PromiseView>> GetPromisesAsync()
-    {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        return Task.FromResult(state.State.Ties
-            .SelectMany(t => t.Value.Promises.Where(p => !PromiseRules.Lapsed(p, now)).Select(p => new PromiseView(t.Key, p)))
-            .ToList());
-    }
-
-    public async Task<List<PromiseView>> DropLapsedAsync()
-    {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var lapsed = state.State.Ties
-            .SelectMany(t => t.Value.Promises.Where(p => PromiseRules.Lapsed(p, now)).Select(p => new PromiseView(t.Key, p)))
-            .ToList();
-        if (lapsed.Count == 0) return lapsed;
-        foreach (var tie in state.State.Ties.Values) tie.Promises.RemoveAll(p => PromiseRules.Lapsed(p, now));
-        await state.WriteStateAsync();
-        return lapsed;
-    }
-
     public async Task<Guid?> GetClosestAsync()
     {
         await EnsureSeededAsync();
@@ -92,12 +58,22 @@ public sealed class PersonaTiesGrain(
         var cast = await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
         var book = await GrainFactory.GetGrain<IRelationsGrain>(partyId).GetAsync();
         var firstNames = cast.ToDictionary(c => c.Id, c => c.Name.Split(' ')[0]);
-        var people = cast
-            .Where(c => presentIds.Contains(c.Id) && c.Id != personaId && c.Id != Narrator.PersonaId)
-            .Select(c => RelationRules.Seen(book, personaId, c.Id, c.Name, state.State.Ties.GetValueOrDefault(c.Id), id => firstNames.GetValueOrDefault(id), here)
-                with { Promised = PromiseRules.Heard(state.State.Ties.GetValueOrDefault(c.Id)?.Promises ?? new List<Promise>(), firstNames[c.Id], DateTimeOffset.UtcNow).ToList() })
-            .ToList();
+        var people = new List<Acquaintance>();
+        foreach (var c in cast.Where(c => presentIds.Contains(c.Id) && c.Id != personaId && c.Id != Narrator.PersonaId))
+            people.Add(RelationRules.Seen(book, personaId, c.Id, c.Name, state.State.Ties.GetValueOrDefault(c.Id), id => firstNames.GetValueOrDefault(id), here)
+                with { Promised = await HeardAsync(partyId, c.Id, personaId, firstNames[c.Id]) });
         return Ties.Render(people, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>What they told this persona they'd do, read off their own Desires: one source of truth (ADR 0043).</summary>
+    private async Task<List<string>> HeardAsync(Guid partyId, Guid promiser, Guid holder, string first)
+    {
+        try
+        {
+            var theirs = await GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, promiser)).GetAsync();
+            return PromiseRules.Heard(theirs.Acquired, holder, first, DateTimeOffset.UtcNow).ToList();
+        }
+        catch (Exception) { return new List<string>(); }
     }
 
     /// <summary>First use: reconstruct ties from who spoke in the same Rooms and DMs.</summary>
@@ -235,14 +211,6 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
     [Alias("GetClosestAsync")] Task<Guid?> GetClosestAsync();
     /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
     [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
-    /// <summary>A promise between them (ADR 0043); said again, it restates the open one.</summary>
-    [Alias("NotePromiseAsync")] Task NotePromiseAsync(Guid otherId, Promise promise, string when);
-    /// <summary>Kept, called off or lapsed: <paramref name="mine"/> = the one this persona made.</summary>
-    [Alias("SettlePromiseAsync")] Task SettlePromiseAsync(Guid otherId, bool mine, bool coming);
-    /// <summary>Open promises both ways, lapsed ones left out.</summary>
-    [Alias("GetPromisesAsync")] Task<List<PromiseView>> GetPromisesAsync();
-    /// <summary>Removes and returns lapsed promises.</summary>
-    [Alias("DropLapsedAsync")] Task<List<PromiseView>> DropLapsedAsync();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.TieRead")]
@@ -266,6 +234,4 @@ public sealed class Tie
     [Id(1)] public long LastAt { get; set; }
     [Id(2)] public double Warmth { get; set; }
     [Id(3)] public long WarmthAt { get; set; }
-    /// <summary>Open promises between the two, either way (ADR 0043).</summary>
-    [Id(4)] public List<Promise> Promises { get; set; } = new();
 }

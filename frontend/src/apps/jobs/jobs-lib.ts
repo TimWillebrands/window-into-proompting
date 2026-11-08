@@ -84,6 +84,7 @@ export function shiftLabel(job: JobSummary, now = new Date()): string {
 
 /** "to become: get your sourdough right (from Bo, got it)": kind, text, where it came from, how it went. */
 export function desireLabel(d: Desire, nameOf: (id: string) => string): string {
+    if (d.source === 'Promise') return promiseLabel(d, nameOf);
     const kind = d.kind === 'Having' ? 'to have' : 'to become';
     const notes = [
         d.source === 'Mimesis' && d.fromId ? `from ${nameOf(d.fromId)}` : null,
@@ -93,6 +94,20 @@ export function desireLabel(d: Desire, nameOf: (id: string) => string): string {
         d.status === 'Abandoned' ? 'dropped' : null,
     ].filter(Boolean);
     return `${kind}: ${d.text ?? ''}${notes.length ? ` (${notes.join(', ')})` : ''}`;
+}
+
+const PROMISE_OUTCOMES: Partial<Record<NonNullable<Desire['status']>, string>> =
+    {
+        Fulfilled: 'kept',
+        Faded: 'lapsed',
+        Abandoned: 'called off',
+    };
+
+/** 'promised Pieter: "tot morgen" (kept)': a promise is a desire to keep their word (ADR 0043). */
+function promiseLabel(d: Desire, nameOf: (id: string) => string): string {
+    const to = d.targetId ? nameOf(d.targetId) : 'someone';
+    const how = d.status ? PROMISE_OUTCOMES[d.status] : undefined;
+    return `promised ${to}: ${d.text ?? ''}${how ? ` (${how})` : ''}`;
 }
 
 /** The backend's own reason; a plain-string 400 can arrive still wearing its JSON quotes. */

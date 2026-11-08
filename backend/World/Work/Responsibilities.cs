@@ -91,7 +91,7 @@ public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilit
             owed.AddRange(ResponsibilityRules.FromGatherings(await grains.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync(), personaId, now));
             var practice = grains.GetGrain<Practices.ISessionsGrain>(partyId);
             owed.AddRange(Practices.PracticeRules.Owed(await practice.GetSessionsAsync(), await practice.GetHomeworkAsync(), personaId, NameOf, now, job.Job?.Practice?.Approach));
-            owed.AddRange(Self.PromiseRules.Owed(await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId)).GetPromisesAsync(), NameOf, now.ToLocalTime()));
+            owed.AddRange(Self.PromiseRules.Owed((await grains.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(partyId, personaId)).GetAsync()).Acquired, NameOf, now.ToLocalTime()));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

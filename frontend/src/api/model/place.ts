@@ -59,4 +59,8 @@ export interface Place {
     access?: string | null;
     staff?: string[];
     allowed?: string[];
+    /** @nullable */
+    lately?: string | null;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    latelyAt?: number | string;
 }

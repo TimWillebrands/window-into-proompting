@@ -9091,6 +9091,35 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "dueAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "until": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "coming": {
+            "type": "boolean"
+          },
+          "again": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -9128,7 +9157,8 @@
           "Sheet",
           "Play",
           "Mimesis",
-          "Mission"
+          "Mission",
+          "Promise"
         ]
       },
       "DesireStatus": {
@@ -10848,6 +10878,20 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "lately": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "latelyAt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },

@@ -67,7 +67,7 @@ public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis
     {
         if (desire.TargetId is not { } target) return;
         var theirs = await grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, from.Id)).GetAsync();
-        if (!theirs.All.Any(d => d.Status == DesireStatus.Active && d.TargetId == target)) return;
+        if (!theirs.All.Any(d => d.Status == DesireStatus.Active && d.TargetId == target && !DesireRules.IsPromise(d))) return;
         if (!await grains.GetGrain<IMimesisGrain>(partyId).TryRivalryAsync(who.Id, from.Id)) return;
         await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, who.Id)).ShiftWarmthAsync(from.Id, MimesisRules.Friction);
         await grains.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, from.Id)).ShiftWarmthAsync(who.Id, MimesisRules.Friction);

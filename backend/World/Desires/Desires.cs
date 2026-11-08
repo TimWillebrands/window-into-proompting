@@ -21,6 +21,14 @@ public sealed class Desire
     [Id(9)] public DesireStatus Status { get; set; }
     /// <summary>The closed Place it's about, so Relations can foreground the key (ADR 0036).</summary>
     [Id(10)] public Guid? PlaceId { get; set; }
+    /// <summary>Presses on what they do from then; null when it never presses (a want, or a promise for a set day).</summary>
+    [Id(11)] public long? DueAt { get; set; }
+    /// <summary>Gone after this, done or not: a promise lapses (ADR 0043).</summary>
+    [Id(12)] public long? Until { get; set; }
+    /// <summary>A promise to come over to where the target is: being there keeps it.</summary>
+    [Id(13)] public bool Coming { get; set; }
+    /// <summary>Times it was said again since it was made: a restated plan, or a put-off.</summary>
+    [Id(14)] public int Again { get; set; }
 }
 
 [GenerateSerializer]
@@ -41,6 +49,8 @@ public enum DesireSource
     Mimesis = 3,
     /// <summary>Given by a Player to their character on auto (ADR 0037).</summary>
     Mission = 4,
+    /// <summary>What they told someone they'd do: being someone who keeps their word (ADR 0043).</summary>
+    Promise = 5,
 }
 
 [GenerateSerializer]
@@ -60,13 +70,22 @@ public static class DesireRules
     public static readonly TimeSpan FadesAfter = TimeSpan.FromDays(14);
     public static readonly TimeSpan ReviewEvery = TimeSpan.FromHours(12);
 
-    /// <summary>Acquired desires nobody touched in a fortnight fade; intrinsic ones are who you are and stay.</summary>
+    /// <summary>Acquired desires nobody touched in a fortnight fade, and any past its until; intrinsic ones are who you are and stay.</summary>
     public static bool Fades(Desire d, bool intrinsic, DateTimeOffset now)
-        => !intrinsic && d.Status == DesireStatus.Active && now.ToUnixTimeMilliseconds() - Math.Max(d.TouchedAt, d.Since) > FadesAfter.TotalMilliseconds;
+        => d.Status == DesireStatus.Active && (Lapsed(d, now.ToUnixTimeMilliseconds())
+            || !intrinsic && now.ToUnixTimeMilliseconds() - Math.Max(d.TouchedAt, d.Since) > FadesAfter.TotalMilliseconds);
 
-    /// <summary>What's on their mind: active ones, the most recently touched first, at most two.</summary>
+    public static bool Lapsed(Desire d, long now) => d.Until is { } until && now >= until;
+
+    public static bool IsPromise(Desire d) => d.Source == DesireSource.Promise;
+
+    /// <summary>Due and not lapsed: it pulls on what they do next, whatever else is on their mind.</summary>
+    public static bool Pressing(Desire d, long now)
+        => d.Status == DesireStatus.Active && d.DueAt is { } due && now >= due && !Lapsed(d, now);
+
+    /// <summary>What's on their mind: active wants, the most recently touched first, at most two. Promises are owed, not wanted.</summary>
     public static List<Desire> OnMind(IEnumerable<Desire> desires)
-        => desires.Where(d => d.Status == DesireStatus.Active)
+        => desires.Where(d => d.Status == DesireStatus.Active && !IsPromise(d))
             .OrderByDescending(d => Math.Max(d.TouchedAt, d.Since))
             .Take(MaxLines)
             .ToList();
@@ -78,17 +97,30 @@ public static class DesireRules
         return lines.Count == 0 ? string.Empty : $"# What you want lately\n{string.Join("\n", lines)}\n";
     }
 
-    /// <summary>People a want on their mind is about (its target, or a cast name in its text) → that want's text.</summary>
-    public static Dictionary<Guid, string> People(IEnumerable<Desire> desires, IEnumerable<(Guid Id, string Name)> cast)
+    /// <summary>
+    /// What an option toward someone pulls with (ADR 0026, 0043): a promise due to them first, also through their chat and,
+    /// for a come-over, where they are; then a want on their mind about them (its target, or a cast name in its text).
+    /// </summary>
+    public static Dictionary<Guid, Desire> People(IEnumerable<Desire> desires, IEnumerable<(Guid Id, string Name)> cast,
+        long? now = null, Func<Guid, Guid?>? chatWith = null, Func<Guid, Guid?>? placeOf = null)
     {
-        var people = new Dictionary<Guid, string>();
-        var named = cast.ToList();
-        foreach (var d in OnMind(desires))
+        var people = new Dictionary<Guid, Desire>();
+        var all = desires.ToList();
+        var at = now ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var d in all.Where(d => IsPromise(d) && Pressing(d, at) && d.TargetId is not null))
         {
-            if (d.TargetId is { } target) people.TryAdd(target, d.Text);
+            var target = d.TargetId!.Value;
+            people.TryAdd(target, d);
+            if (chatWith?.Invoke(target) is { } chat) people.TryAdd(chat, d);
+            if (d.Coming && placeOf?.Invoke(target) is { } place) people.TryAdd(place, d);
+        }
+        var named = cast.ToList();
+        foreach (var d in OnMind(all))
+        {
+            if (d.TargetId is { } target) people.TryAdd(target, d);
             foreach (var (id, name) in named)
                 if (Names(name).Any(n => System.Text.RegularExpressions.Regex.IsMatch(d.Text, $@"\b{System.Text.RegularExpressions.Regex.Escape(n)}\b")))
-                    people.TryAdd(id, d.Text);
+                    people.TryAdd(id, d);
         }
         return people;
     }
@@ -100,9 +132,13 @@ public static class DesireRules
         if (first.Length >= 3 && first != name) yield return first;
     }
 
-    /// <summary>An option as the chooser reads it: one about someone you want something from says so.</summary>
-    public static string Toward(string label, string? want)
-        => want is null ? label : $"{label} (toward what you want: {WorldStream.Clip(want, 80)})";
+    /// <summary>An option as the chooser reads it: one toward someone you owe or want something from says so.</summary>
+    public static string Toward(string label, Desire? about) => about switch
+    {
+        null => label,
+        { Source: DesireSource.Promise } => $"{label} (you said you would: {WorldStream.Clip(about.Text, 80)})",
+        _ => $"{label} (toward what you want: {WorldStream.Clip(about.Text, 80)})",
+    };
 
     /// <summary>The having-desire the shops can answer: active, naming a catalog item you don't own yet.</summary>
     public static Desire? Shopping(IEnumerable<Desire> desires, IReadOnlyCollection<string> owned)

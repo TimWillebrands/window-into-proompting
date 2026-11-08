@@ -94,6 +94,20 @@ describe('desireLabel', () => {
             ),
         ).toBe('to have: a navy hoodie (who they are, got it)');
     });
+    it('reads a promise as who it was made to and whether it was kept', () => {
+        expect(
+            desireLabel(
+                {
+                    kind: 'Being',
+                    text: '"tot morgen"',
+                    source: 'Promise',
+                    targetId: 'b',
+                    status: 'Faded',
+                },
+                names,
+            ),
+        ).toBe('promised Bo: "tot morgen" (lapsed)');
+    });
 });
 
 const trade = (over: Partial<TradeSummary>): TradeSummary => ({

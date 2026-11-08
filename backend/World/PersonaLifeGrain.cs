@@ -73,11 +73,6 @@ public sealed class PersonaLifeGrain(
         var now = DateTimeOffset.UtcNow;
         var snapshot = await SnapshotAsync(partyId);
         var me = snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == personaId);
-        // What they said they'd do, due now, gets a handle: an option toward that person, their chat or where they are (ADR 0043).
-        var promised = PromiseRules.Handles(await PromisesAsync(partyId, personaId),
-            other => threads.FirstOrDefault(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(other) == true && t.MemberIds.Contains(personaId))?.Id,
-            other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId,
-            now.ToUnixTimeMilliseconds());
         var happenings = (await clock.GetActivitiesAsync(4, Narrator.PersonaId))
             .Where(a => a.Action == "happening" && now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < HappeningRules.Lingers)
             .Select(a => HappeningRules.Relate(a, me, snapshot?.Places ?? new List<Places.Place>(), personaId))
@@ -90,8 +85,10 @@ public sealed class PersonaLifeGrain(
                 .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
             now,
             await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
-            Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name))),
-            promised,
+            // A promise due reaches its person, their chat and (for a come-over) where they are; then wants (ADR 0026, 0043).
+            Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name)), now.ToUnixTimeMilliseconds(),
+                other => threads.FirstOrDefault(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(other) == true && t.MemberIds.Contains(personaId))?.Id,
+                other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId),
             happenings);
 
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
@@ -103,8 +100,8 @@ public sealed class PersonaLifeGrain(
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
         var onShift = await OnShiftAsync(partyId, personaId);
         // Wanting and owing get a handle (ADR 0026, 0043): an option toward that person pulls one more; a promise also outlasts Settling.
-        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.PromiseAbout(a.TargetId) is not null)
-            - Work.Shifts.Damping(a.AppId, onShift) + (ctx.Drawn(a.TargetId) ? 1 : 0);
+        int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.Owes(a.TargetId))
+            - Work.Shifts.Damping(a.AppId, onShift) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -158,7 +155,7 @@ public sealed class PersonaLifeGrain(
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
         var world = sb.ToString();
         sb.AppendLine("# Options");
-        string Read(Affordance a) => ctx.Read(a);
+        string Read(Affordance a) => Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId));
         for (var i = 0; i < options.Count; i++)
             sb.AppendLine($"{i + 1}. {Read(options[i])}");
         sb.AppendLine($"0. {rest}");
@@ -227,17 +224,6 @@ public sealed class PersonaLifeGrain(
         {
             logger.LogDebug(ex, "Desires failed for {Persona}", personaId);
             return new List<Desires.Desire>();
-        }
-    }
-
-    /// <summary>Promises both ways on their Ties (ADR 0043); none when the grain can't be read.</summary>
-    private async Task<List<PromiseView>> PromisesAsync(Guid partyId, Guid personaId)
-    {
-        try { return await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId)).GetPromisesAsync(); }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Promises failed for {Persona}", personaId);
-            return new List<PromiseView>();
         }
     }
 

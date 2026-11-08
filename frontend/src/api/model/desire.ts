@@ -26,4 +26,17 @@ export interface Desire {
     status?: DesireStatus;
     /** @nullable */
     placeId?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    dueAt?: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    until?: number | string | null;
+    coming?: boolean;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    again?: number | string;
 }

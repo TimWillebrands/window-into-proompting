@@ -198,7 +198,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 {
                     // The thermostat reads this path too (ADR 0043): a chat that ended on settled plans isn't chased again.
                     var settled = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
-                    if (MessengerManners.Chase(settled, ctx.PromiseAbout(otherId) is not null))
+                    if (MessengerManners.Chase(settled, ctx.Owes(otherId)))
                         affordances.Add(new Affordance(Id, $"Follow up with {other} (no answer to your message from {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})", 0, otherId, "open"));
                     else
                         sb.AppendLine($"  (it ended on a settled note; there's nothing to chase {other} about)");
@@ -214,7 +214,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var newContacts = ctx.Others
             .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
-            .ThenByDescending(c => ctx.Drawn(c.Id))
+            .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
             .ThenBy(_ => Random.Shared.Next())
             .Take(3);
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;

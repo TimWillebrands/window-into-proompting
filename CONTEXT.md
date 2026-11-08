@@ -427,7 +427,7 @@ Something someone holds a Persona to. Always has a holder (a Participant, a Plac
 _Avoid_: task, duty, chore, quest, obligation.
 
 **Promise**:
-Something a Persona said they'd do for someone, in talk: come over, answer, tell, send, meet. A **Responsibility** held by the person they said it to, known to both, until it's done, called off or lapses. One due now pulls on their **Initiative**; one for a set day is a settled plan, known but not pressing. Saying it again restates it. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
+Something a Persona said they'd do for someone, in talk: come over, answer, tell, send, meet. An Acquired **Desire** of the promiser's (source `Promise`, to keep their word), and a **Responsibility** held by the person they said it to, who reads it off the promiser's Desires. Kept, called off or lapsed. One due now pulls on their **Initiative**; a meet-up on a set day at one of their Homes becomes a **Gathering**, otherwise it's known but not pressing. Saying it again restates it. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
 _Avoid_: commitment, task, reminder (that's an **Intention**).
 
 **Studio**:

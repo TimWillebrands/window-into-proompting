@@ -1,94 +1,128 @@
 using PartyTown.Model;
+using PartyTown.Services.SystemOne;
 using PartyTown.World;
 using PartyTown.World.Apps;
+using PartyTown.World.Desires;
 using PartyTown.World.Places;
 using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>What people say they'll do becomes something they know and owe (ADR 0043).</summary>
+/// <summary>What people say they'll do is a Desire of theirs, and a set-day meet-up a Gathering (ADR 0043).</summary>
 public class PromisesTest
 {
     // Saturday 21:25 in Amsterdam winter time.
     private static readonly DateTimeOffset Sat = new(2026, 11, 7, 21, 25, 0, TimeSpan.FromHours(1));
     private static readonly Guid Pieter = Guid.NewGuid();
 
-    private static Promise Justins(string when = PromiseRules.Soon, DateTimeOffset? at = null, bool coming = false)
-        => PromiseRules.Make(true, coming, "I'll write properly tomorrow.", "what was my father working on at Meridiaan?", when, at ?? Sat);
+    private static Desire Justins(string when = PromiseRules.Soon, DateTimeOffset? at = null, bool coming = false)
+        => PromiseRules.Make(Pieter, coming, "I'll write properly tomorrow.", "what was my father working on at Meridiaan?", when, at ?? Sat);
+
+    [Fact]
+    public void APromise_IsTheirDesireToKeepTheirWord()
+    {
+        var d = Justins();
+
+        Assert.Equal(DesireSource.Promise, d.Source);
+        Assert.Equal(DesireKind.Being, d.Kind);
+        Assert.Equal(Pieter, d.TargetId);
+        Assert.Equal("\"I'll write properly tomorrow.\", answering \"what was my father working on at Meridiaan?\"", d.Text);
+    }
 
     [Fact]
     public void Soon_PressesAtOnce_AndLapsesAfterADay()
     {
-        var p = Justins();
+        var d = Justins();
         var ms = Sat.ToUnixTimeMilliseconds();
 
-        Assert.True(PromiseRules.Pressing(p, ms));
-        Assert.False(PromiseRules.Lapsed(p, ms + (long)TimeSpan.FromHours(23).TotalMilliseconds));
-        Assert.True(PromiseRules.Lapsed(p, ms + (long)TimeSpan.FromHours(24).TotalMilliseconds));
+        Assert.True(DesireRules.Pressing(d, ms));
+        Assert.False(DesireRules.Fades(d, intrinsic: false, Sat.AddHours(23)));
+        Assert.True(DesireRules.Fades(d, intrinsic: false, Sat.AddHours(24)));
     }
 
     [Fact]
     public void Tomorrow_PressesFromTheirMidnight()
     {
-        var p = Justins(PromiseRules.Tomorrow);
-        var midnight = new DateTimeOffset(2026, 11, 8, 0, 0, 0, TimeSpan.FromHours(1)).ToUnixTimeMilliseconds();
+        var d = Justins(PromiseRules.Tomorrow);
+        var midnight = new DateTimeOffset(2026, 11, 8, 0, 0, 0, TimeSpan.FromHours(1));
 
-        Assert.False(PromiseRules.Pressing(p, Sat.ToUnixTimeMilliseconds()));
-        Assert.True(PromiseRules.Pressing(p, midnight));
-        Assert.False(PromiseRules.Lapsed(p, midnight + (long)TimeSpan.FromHours(35).TotalMilliseconds));
+        Assert.False(DesireRules.Pressing(d, Sat.ToUnixTimeMilliseconds()));
+        Assert.True(DesireRules.Pressing(d, midnight.ToUnixTimeMilliseconds()));
+        Assert.False(DesireRules.Fades(d, intrinsic: false, midnight.AddHours(35)));
     }
 
     [Fact]
     public void ASetDay_IsKnown_ButNeverPresses()
     {
-        var p = PromiseRules.Make(true, true, "thursday yes. tell sienna i'm coming", "Thursday?", PromiseRules.SetDay, Sat);
+        var d = PromiseRules.Make(Pieter, true, "thursday yes. tell sienna i'm coming", "Thursday?", PromiseRules.SetDay, Sat);
 
-        Assert.Null(p.DueFrom);
-        Assert.False(PromiseRules.Pressing(p, Sat.AddDays(3).ToUnixTimeMilliseconds()));
-        Assert.True(PromiseRules.Lapsed(p, Sat.AddDays(8).ToUnixTimeMilliseconds()));
+        Assert.Null(d.DueAt);
+        Assert.False(DesireRules.Pressing(d, Sat.AddDays(3).ToUnixTimeMilliseconds()));
+        Assert.True(DesireRules.Fades(d, intrinsic: false, Sat.AddDays(8)));
+    }
+
+    [Fact]
+    public void ALapse_LetsDownOnlyWhatWasDue()
+    {
+        var lapsedSoon = Justins();
+        var lapsedSetDay = PromiseRules.Make(Pieter, true, "thursday", null, PromiseRules.SetDay, Sat);
+        var later = Sat.AddDays(9).ToUnixTimeMilliseconds();
+
+        Assert.True(PromiseRules.LetDown(lapsedSoon, later));
+        Assert.False(PromiseRules.LetDown(lapsedSetDay, later));
+        Assert.False(PromiseRules.LetDown(Justins(), Sat.ToUnixTimeMilliseconds()));
     }
 
     [Fact]
     public void SayingItAgain_RestatesTheOpenOne_KeepingTheFirstWords()
     {
-        var open = new List<Promise> { Justins() };
+        var open = new List<Desire> { Justins() };
 
-        var restated = PromiseRules.Merge(open, PromiseRules.Make(true, false, "Tot morgen, Pieter. Ik laat het niet liggen.", "Goed, tot morgen.", PromiseRules.Tomorrow, Sat.AddHours(11)),
-            PromiseRules.Tomorrow, Sat.AddHours(11));
+        var restated = PromiseRules.Restate(open, PromiseRules.Make(Pieter, false, "Tot morgen, Pieter. Ik laat het niet liggen.", "Goed, tot morgen.", PromiseRules.Tomorrow, Sat.AddHours(11)),
+            Sat.AddHours(11));
 
         Assert.True(restated);
-        var p = Assert.Single(open);
-        Assert.Equal(1, p.Again);
-        Assert.Equal("what was my father working on at Meridiaan?", p.Asked);
-        Assert.Equal("I'll write properly tomorrow.", p.Said);
+        var d = Assert.Single(open);
+        Assert.Equal(1, d.Again);
+        Assert.Contains("I'll write properly tomorrow.", d.Text);
+        Assert.Contains("Meridiaan", d.Text);
     }
 
     [Fact]
     public void ComingOver_AndDoingSomething_AreSeparatePromises()
     {
-        var open = new List<Promise> { Justins() };
-
-        Assert.False(PromiseRules.Merge(open, Justins(coming: true), PromiseRules.Soon, Sat));
-        Assert.Equal(2, open.Count);
+        Assert.False(PromiseRules.Restate(new List<Desire> { Justins() }, Justins(coming: true), Sat));
     }
 
     [Fact]
-    public void ALapsedOne_IsReplaced_NotRestated()
+    public void ALapsedOrSettledOne_IsNotRestated()
     {
-        var open = new List<Promise> { Justins() };
-        var later = Sat.AddDays(2);
+        var lapsed = new List<Desire> { Justins() };
+        var kept = Justins();
+        kept.Status = DesireStatus.Fulfilled;
 
-        Assert.False(PromiseRules.Merge(open, Justins(at: later), PromiseRules.Soon, later));
-        Assert.Equal(0, Assert.Single(open).Again);
+        Assert.False(PromiseRules.Restate(lapsed, Justins(at: Sat.AddDays(2)), Sat.AddDays(2)));
+        Assert.False(PromiseRules.Restate(new List<Desire> { kept }, Justins(), Sat));
+    }
+
+    [Fact]
+    public void Promises_AreOwed_NotWanted_SoTheyStayOutOfWhatYouWant()
+    {
+        var want = new Desire { Text = "get your sourdough right", Kind = DesireKind.Being, Since = Sat.ToUnixTimeMilliseconds() };
+        var desires = new[] { want, Justins() };
+
+        Assert.Equal(new[] { want }, DesireRules.OnMind(desires));
+        Assert.DoesNotContain("write properly", DesireRules.Render(desires));
+        Assert.Single(PromiseRules.Owed(desires, _ => "Pieter", Sat.AddHours(1)));
     }
 
     [Fact]
     public void Owed_ReadsAsAFact_WithWhatTheyWereAsked()
     {
-        var promise = Justins();
-        promise.Again = 2;
+        var d = Justins();
+        d.Again = 2;
 
-        var line = Assert.Single(PromiseRules.Owed(new[] { new PromiseView(Pieter, promise) }, _ => "Pieter", Sat.AddHours(1))).Text;
+        var line = Assert.Single(PromiseRules.Owed(new[] { d }, _ => "Pieter", Sat.AddHours(1))).Text;
 
         Assert.Contains("You told Pieter \"I'll write properly tomorrow.\"", line);
         Assert.Contains("Meridiaan", line);
@@ -96,34 +130,61 @@ public class PromisesTest
     }
 
     [Fact]
-    public void Owed_LeavesOutWhatOthersOwe()
+    public void Owed_LeavesOutWhatsSettledOrLapsed()
     {
-        var theirs = PromiseRules.Make(false, false, "I'll send it", null, PromiseRules.Soon, Sat);
+        var kept = Justins();
+        kept.Status = DesireStatus.Fulfilled;
 
-        Assert.Empty(PromiseRules.Owed(new[] { new PromiseView(Pieter, theirs) }, _ => "Pieter", Sat));
-        Assert.Single(PromiseRules.Heard(new[] { theirs }, "Pieter", Sat));
+        Assert.Empty(PromiseRules.Owed(new[] { kept }, _ => "Pieter", Sat));
+        Assert.Empty(PromiseRules.Owed(new[] { Justins() }, _ => "Pieter", Sat.AddDays(2)));
     }
 
     [Fact]
-    public void Handles_ReachThePerson_TheirChat_AndForAComeOverWhereTheyAre()
+    public void Heard_IsReadOffThePromisersOwnDesires_ForThatHolderOnly()
+    {
+        var toSomeoneElse = PromiseRules.Make(Guid.NewGuid(), false, "I'll send it", null, PromiseRules.Soon, Sat);
+
+        var line = Assert.Single(PromiseRules.Heard(new[] { Justins(), toSomeoneElse }, Pieter, "Justin", Sat.AddHours(10)));
+
+        Assert.StartsWith("Justin told you \"I'll write properly tomorrow.\"", line);
+    }
+
+    [Fact]
+    public void ADuePromise_IsAlwaysInTheHandles_PastTheTwoWantsOnTheMind()
     {
         var chat = Guid.NewGuid();
         var place = Guid.NewGuid();
         var anne = Guid.NewGuid();
-        var promises = new[]
+        var wants = Enumerable.Range(0, 3).Select(i => new Desire
         {
-            new PromiseView(Pieter, Justins()),
-            new PromiseView(anne, PromiseRules.Make(true, true, "Ik kom er zo aan", null, PromiseRules.Soon, Sat)),
-            new PromiseView(Guid.NewGuid(), PromiseRules.Make(true, true, "thursday", null, PromiseRules.SetDay, Sat)),
-        };
+            Text = $"want {i}", Kind = DesireKind.Being, TargetId = Guid.NewGuid(), Since = Sat.AddMinutes(i).ToUnixTimeMilliseconds(),
+        });
+        var desires = wants.Concat(new[]
+        {
+            Justins(),
+            PromiseRules.Make(anne, true, "Ik kom er zo aan", null, PromiseRules.Soon, Sat),
+            PromiseRules.Make(Guid.NewGuid(), true, "thursday", null, PromiseRules.SetDay, Sat),
+        }).ToList();
 
-        var handles = PromiseRules.Handles(promises, id => id == Pieter ? chat : null, id => id == anne ? place : Guid.NewGuid(), Sat.ToUnixTimeMilliseconds());
+        var handles = DesireRules.People(desires, Array.Empty<(Guid, string)>(), Sat.ToUnixTimeMilliseconds(),
+            id => id == Pieter ? chat : null, id => id == anne ? place : Guid.NewGuid());
 
-        Assert.Contains(Pieter, handles.Keys);
-        Assert.Contains(chat, handles.Keys);
-        Assert.Contains(anne, handles.Keys);
-        Assert.Contains(place, handles.Keys);
-        Assert.Equal(4, handles.Count);
+        Assert.Equal(DesireSource.Promise, handles[Pieter].Source);
+        Assert.Equal(DesireSource.Promise, handles[chat].Source);
+        Assert.Equal(DesireSource.Promise, handles[anne].Source);
+        Assert.Equal(DesireSource.Promise, handles[place].Source);
+        // Four promise keys plus the two wants on the mind; the set-day one doesn't press.
+        Assert.Equal(6, handles.Count);
+    }
+
+    [Fact]
+    public void APromise_ReadsBeforeAWant_ForTheSamePerson()
+    {
+        var want = new Desire { Text = "his respect", Kind = DesireKind.Being, TargetId = Pieter, Since = Sat.ToUnixTimeMilliseconds() };
+
+        var handles = DesireRules.People(new[] { want, Justins() }, Array.Empty<(Guid, string)>(), Sat.ToUnixTimeMilliseconds());
+
+        Assert.StartsWith("Reply to Pieter (you said you would: \"I'll write properly tomorrow.\"", DesireRules.Toward("Reply to Pieter", handles[Pieter]));
     }
 
     [Fact]
@@ -151,13 +212,47 @@ public class PromisesTest
     }
 
     [Fact]
-    public void Questions_AskWhetherEachOpenOneWasKept()
+    public void Questions_AskKeptOrOffForEachOpenOne_AndTheMeetupsDayAndHome()
     {
-        var questions = PromiseRules.Questions("Justin", "Pieter", new[] { Justins() });
+        var questions = PromiseRules.Questions("Justin", "Pieter", new[] { Justins() }, Sat);
 
         Assert.Contains("promise", questions.Keys);
-        Assert.Contains("when", questions.Keys);
         Assert.Contains("kept0", questions.Keys);
+        Assert.Contains("off0", questions.Keys);
+        var day = Assert.IsType<ChoiceQuestion>(questions["day"]);
+        Assert.Equal(7, day.Options.Count);
+        Assert.Equal("Thursday 12 November", day.Options["2026-11-12"]);
+        Assert.Contains("where", questions.Keys);
+    }
+
+    [Fact]
+    public void Meetup_NeedsASureDayAndAHome_PartOfDayDefaultsToTheEvening()
+    {
+        var thursday = ("2026-11-12", 0.8);
+        var home = (PromiseRules.OtherHome, 0.7);
+
+        var plan = PromiseRules.Meetup(thursday, (PromiseRules.Morning, 0.3), home, Sat);
+
+        Assert.NotNull(plan);
+        Assert.Equal(new DateTimeOffset(2026, 11, 12, 19, 0, 0, TimeSpan.FromHours(1)).ToUnixTimeMilliseconds(), plan.Value.StartsAt);
+        Assert.Equal(PromiseRules.OtherHome, plan.Value.Where);
+        Assert.Equal(new DateTimeOffset(2026, 11, 12, 10, 0, 0, TimeSpan.FromHours(1)).ToUnixTimeMilliseconds(),
+            PromiseRules.Meetup(thursday, (PromiseRules.Morning, 0.9), home, Sat)!.Value.StartsAt);
+        Assert.Null(PromiseRules.Meetup(("2026-11-12", 0.4), (PromiseRules.Evening, 1), home, Sat));
+        Assert.Null(PromiseRules.Meetup(thursday, (PromiseRules.Evening, 1), (PromiseRules.Elsewhere, 0.9), Sat));
+        Assert.Null(PromiseRules.Meetup(thursday, (PromiseRules.Evening, 1), (PromiseRules.TheirHome, 0.4), Sat));
+    }
+
+    [Fact]
+    public void Already_FindsThePlannedGatheringBothGoTo_WithinADay()
+    {
+        var (anne, denise) = (Guid.NewGuid(), Guid.NewGuid());
+        var at = Sat.AddDays(5).ToUnixTimeMilliseconds();
+        var supper = new Gathering { HostId = anne, AttendeeIds = new List<Guid> { anne, denise }, StartsAt = at, Status = GatheringStatus.Planned };
+
+        Assert.Same(supper, PromiseRules.Already(new[] { supper }, denise, anne, at + (long)TimeSpan.FromHours(20).TotalMilliseconds));
+        Assert.Null(PromiseRules.Already(new[] { supper }, denise, anne, at + (long)TimeSpan.FromDays(2).TotalMilliseconds));
+        Assert.Null(PromiseRules.Already(new[] { supper }, denise, Guid.NewGuid(), at));
     }
 
     [Fact]
@@ -172,32 +267,37 @@ public class PromisesTest
 /// <summary>Owing and wanting share one handle on Initiative (ADR 0026, 0043).</summary>
 public class InitiativeHandleTest
 {
-    private static LifeContext Ctx(IReadOnlyDictionary<Guid, string>? wanted, IReadOnlyDictionary<Guid, string>? promised)
+    private static LifeContext Ctx(IReadOnlyDictionary<Guid, Desire>? wanted)
     {
         var self = new CastMember { Id = Guid.NewGuid(), Name = "Justin" };
         return new LifeContext(Guid.Empty, self, new List<CastMember> { self }, new HashSet<Guid>(), new List<ChatGroupInfo>(), new List<WorldActivity>(),
-            DateTimeOffset.UtcNow, new Dictionary<Guid, AttentionLook>(), wanted, promised);
+            DateTimeOffset.UtcNow, new Dictionary<Guid, AttentionLook>(), wanted);
     }
 
     [Fact]
-    public void APromise_ReadsBeforeAWant()
+    public void Owes_IsAPromiseInTheHandle_NotAWant()
     {
-        var pieter = Guid.NewGuid();
-        var ctx = Ctx(new Dictionary<Guid, string> { [pieter] = "his respect" }, new Dictionary<Guid, string> { [pieter] = "I'll write properly tomorrow." });
-        var reply = new Affordance("messenger", "Reply to Pieter", 0, pieter, "reply");
+        var (pieter, anne) = (Guid.NewGuid(), Guid.NewGuid());
+        var ctx = Ctx(new Dictionary<Guid, Desire>
+        {
+            [pieter] = PromiseRules.Make(pieter, false, "I'll write properly tomorrow.", null, PromiseRules.Soon, DateTimeOffset.UtcNow),
+            [anne] = new Desire { Text = "her approval", Kind = DesireKind.Being, TargetId = anne },
+        });
 
-        Assert.True(ctx.Drawn(pieter));
-        Assert.Equal("Reply to Pieter (you said you would: \"I'll write properly tomorrow.\")", ctx.Read(reply));
+        Assert.True(ctx.Owes(pieter));
+        Assert.False(ctx.Owes(anne));
+        Assert.NotNull(ctx.WantAbout(anne));
     }
 
     [Fact]
     public void NothingOwedOrWanted_LeavesTheLabel()
     {
-        var ctx = Ctx(null, null);
+        var ctx = Ctx(null);
         var a = new Affordance("messenger", "Reply to Pieter", 0, Guid.NewGuid(), "reply");
 
-        Assert.False(ctx.Drawn(a.TargetId));
-        Assert.Equal("Reply to Pieter", ctx.Read(a));
+        Assert.Null(ctx.WantAbout(a.TargetId));
+        Assert.False(ctx.Owes(a.TargetId));
+        Assert.Equal("Reply to Pieter", DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId)));
     }
 
     [Fact]

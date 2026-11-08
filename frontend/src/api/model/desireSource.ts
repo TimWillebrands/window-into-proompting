@@ -13,4 +13,5 @@ export const DesireSource = {
     Play: 'Play',
     Mimesis: 'Mimesis',
     Mission: 'Mission',
+    Promise: 'Promise',
 } as const;

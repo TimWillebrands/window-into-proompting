@@ -106,6 +106,7 @@ public sealed class DesiresGrain(
 {
     /// <summary>Acquired ones crowd out who you are past this; the oldest active one fades.</summary>
     private const int MaxAcquired = 3;
+    private const int MaxSpentPromises = 10;
 
     public async Task<DesiresView> GetAsync()
     {
@@ -116,13 +117,12 @@ public sealed class DesiresGrain(
             await intrinsic.EnsureAsync(who.Name, sheet);
 
         var now = DateTimeOffset.UtcNow;
-        var faded = false;
-        foreach (var d in state.State.Acquired.Where(d => DesireRules.Fades(d, intrinsic: false, now)))
-        {
-            d.Status = DesireStatus.Faded;
-            faded = true;
-        }
-        if (faded) await state.WriteStateAsync();
+        var faded = state.State.Acquired.Where(d => DesireRules.Fades(d, intrinsic: false, now)).ToList();
+        foreach (var d in faded) d.Status = DesireStatus.Faded;
+        if (faded.Count > 0) await state.WriteStateAsync();
+        // A due promise left to lapse: whoever was owed it cools on them (ADR 0043). Detached: their Ties may be what's reading us.
+        foreach (var d in faded.Where(d => Self.PromiseRules.LetDown(d, now.ToUnixTimeMilliseconds())))
+            _ = CoolAsync(partyId, d.TargetId!.Value, participantId);
 
         var mine = (await intrinsic.GetAsync()).Select(d =>
         {
@@ -136,11 +136,27 @@ public sealed class DesiresGrain(
         return new DesiresView(mine, state.State.Acquired.ToList(), state.State.ReviewedAt);
     }
 
+    private async Task CoolAsync(Guid partyId, Guid holder, Guid promiser)
+    {
+        try { await GrainFactory.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, holder)).ShiftWarmthAsync(promiser, Work.ResponsibilityRules.NoShow); }
+        catch (Exception) { /* a missed cooling is no harm */ }
+    }
+
     public async Task<Desire> AddAsync(Desire desire)
     {
+        // Said again: the open promise to them is restated, not doubled (ADR 0043).
+        if (DesireRules.IsPromise(desire) && Self.PromiseRules.Restate(state.State.Acquired, desire, DateTimeOffset.UtcNow))
+        {
+            await state.WriteStateAsync();
+            return Self.PromiseRules.Open(state.State.Acquired, desire.TargetId!.Value, desire.Coming, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())!;
+        }
         state.State.Acquired.Add(desire);
-        var active = state.State.Acquired.Where(d => d.Status == DesireStatus.Active).OrderBy(d => Math.Max(d.TouchedAt, d.Since)).ToList();
+        // Promises are owed, not wanted: they neither count toward the cap nor get crowded out by it.
+        var active = state.State.Acquired.Where(d => d.Status == DesireStatus.Active && !DesireRules.IsPromise(d)).OrderBy(d => Math.Max(d.TouchedAt, d.Since)).ToList();
         foreach (var old in active.Take(Math.Max(0, active.Count - MaxAcquired))) old.Status = DesireStatus.Faded;
+        // Settled promises are spent; unlike a fulfilled want they're no candidate for Promotion, so only the latest few stay.
+        var spent = state.State.Acquired.Where(d => DesireRules.IsPromise(d) && d.Status != DesireStatus.Active).OrderByDescending(d => d.TouchedAt).Skip(MaxSpentPromises).ToHashSet();
+        state.State.Acquired.RemoveAll(spent.Contains);
         await state.WriteStateAsync();
         return desire;
     }
@@ -193,6 +209,7 @@ public interface IDesiresGrain : IGrainWithStringKey
 {
     /// <summary>Intrinsic (as they're going here) and Acquired desires; kicks off distilling the intrinsic ones.</summary>
     [Alias("GetAsync")] Task<DesiresView> GetAsync();
+    /// <summary>A promise said again restates the open one to that person and returns it (ADR 0043).</summary>
     [Alias("AddAsync")] Task<Desire> AddAsync(Desire desire);
     /// <summary>Fulfilled, faded or abandoned; false when no such desire.</summary>
     [Alias("MarkAsync")] Task<bool> MarkAsync(Guid desireId, DesireStatus status);

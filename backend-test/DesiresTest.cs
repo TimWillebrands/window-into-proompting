@@ -66,7 +66,7 @@ public class DesiresTest
         };
         var people = DesireRules.People(wants, cast);
         Assert.Equal(new HashSet<Guid> { anne, justin, other }, people.Keys.ToHashSet());
-        Assert.Equal("say to Anne and Justin's faces what you never said", people[justin]);
+        Assert.Equal("say to Anne and Justin's faces what you never said", people[justin].Text);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class DesiresTest
     public void Toward_NotesTheWantOnAnOptionAboutThatPerson()
     {
         Assert.Equal("Send Pieter Voss a private message (toward what you want: Pieter Voss's trust)",
-            DesireRules.Toward("Send Pieter Voss a private message", "Pieter Voss's trust"));
+            DesireRules.Toward("Send Pieter Voss a private message", D("Pieter Voss's trust", DesireKind.Having)));
         Assert.Equal("Rest", DesireRules.Toward("Rest", null));
     }
 }
