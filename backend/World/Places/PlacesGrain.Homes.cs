@@ -5,7 +5,6 @@ namespace PartyTown.World.Places;
 /// <summary>Sharing a Home (ADR 0035): moving in, moving back, and what's left when someone leaves the World.</summary>
 public sealed partial class PlacesGrain
 {
-    private static readonly string[] HomeSpots = { "sofa", "desk", "kitchen", "bed" };
 
     public async Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description)
     {
@@ -17,8 +16,8 @@ public sealed partial class PlacesGrain
         var left = state.State.Places.Where(p => p.Kind == PlaceKinds.Home && (pair.Contains(p.OwnerId ?? Guid.Empty) || p.Living().Any(pair.Contains))).ToList();
         if (left.Any(p => p.Living().Except(pair).Any())) return null;
 
-        var brief = $"{WorldStream.Clip(description, 400)}\n{HomeRules(2)}";
-        if (await DesignAsync(brief, false, MissingHomeSpots) is not { } draft) return null;
+        var brief = $"{WorldStream.Clip(description, 400)}\n{PlaceDesign.HomeRules(2)}";
+        if (await PlaceDesign.DesignAsync(llm, logger, brief, false, PublicNames(), PlaceDesign.MissingHomeSpots) is not { } draft) return null;
         var bed = draft.Spots.Single(s => s.Id == "bed");
         bed.Capacity = Math.Max(bed.Capacity, pair.Length);
         bed.At = "on";
@@ -26,12 +25,12 @@ public sealed partial class PlacesGrain
         var home = new Place
         {
             Id = Guid.NewGuid(), Name = WorldStream.Clip(description.Trim(), 40), Kind = PlaceKinds.Home, OwnerId = hostId,
-            Housemates = new List<Guid> { mateId }, Scene = "custom", CustomScene = PlaceDesign.Store(draft.Scene), Spots = draft.Spots,
-            Description = WorldStream.Clip(draft.Json["description"]?.ToString() ?? description, 200), Purpose = PlaceSeeds.HomePurpose,
+            Housemates = new List<Guid> { mateId }, Scene = "custom", CustomScene = draft.Scene, Spots = draft.Spots,
+            Description = WorldStream.Clip(draft.Doc["description"]?.ToString() ?? description, 200), Purpose = PlaceSeeds.HomePurpose,
             DistrictId = left.FirstOrDefault(p => p.OwnerId == hostId)?.DistrictId ?? Districts.Centre,
         };
         EnsureFurni(home);
-        var renamed = NameThings(home, draft.Json);
+        var renamed = NameThings(home, draft.Doc);
         state.State.Places.Add(home);
         foreach (var body in state.State.Bodies.Values.Where(b => left.Any(p => p.Id == (b.DestPlaceId ?? b.PlaceId))).ToList())
             await RelocateAsync(body, pair.Contains(body.ParticipantId) ? home : state.State.Places.HomeOf(body.ParticipantId) ?? home);
@@ -43,24 +42,21 @@ public sealed partial class PlacesGrain
         return home;
     }
 
-    /// <summary>Author: a new design for a Home, same id, people, keys and things; outdoors is a camp, no walls.</summary>
-    public async Task<Place?> RedesignHomeAsync(Guid placeId, string description, string? name, bool outdoor)
+    /// <summary>Author: a Home gets a finished design (<see cref="IPlaceDesignerGrain"/>), same id, people, keys and things.</summary>
+    public async Task<Place?> RedesignHomeAsync(Guid placeId, PlaceDraft draft, string? name)
     {
         await SettleAsync();
-        if (string.IsNullOrWhiteSpace(description) || Find(placeId) is not { Kind: PlaceKinds.Home } home) return null;
+        if (Find(placeId) is not { Kind: PlaceKinds.Home } home || PlaceDesign.MissingHomeSpots(draft.Spots) is not null) return null;
         var living = Math.Max(1, home.Living().Count());
-        var brief = $"{WorldStream.Clip(description, 1500)}\n{HomeRules(living)}";
-        if (await DesignAsync(brief, outdoor, MissingHomeSpots) is not { } draft) return null;
         var bed = draft.Spots.Single(s => s.Id == "bed");
         bed.Capacity = Math.Max(bed.Capacity, living);
         bed.At = "on";
         bed.Seat = true;
-        if (outdoor) draft.Scene["outdoor"] = true;
 
         home.Scene = "custom";
-        home.CustomScene = PlaceDesign.Store(draft.Scene);
+        home.CustomScene = draft.Scene;
         home.Spots = draft.Spots;
-        home.Description = WorldStream.Clip(draft.Json["description"]?.ToString() ?? description, 200);
+        if (draft.Doc["description"]?.ToString() is { Length: > 0 } about) home.Description = WorldStream.Clip(about, 200);
         home.WallColour = null;
         home.FloorColour = null;
         if (!string.IsNullOrWhiteSpace(name)) home.Name = WorldStream.Clip(name, 40);
@@ -70,7 +66,7 @@ public sealed partial class PlacesGrain
             (furni.TileX, furni.TileZ) = (null, null);
             if (!spotIds.Contains(furni.SpotId)) furni.SpotId = home.Spots[0].Id;
         }
-        var renamed = NameThings(home, draft.Json);
+        var renamed = NameThings(home, draft.Doc);
         foreach (var body in state.State.Bodies.Values)
         {
             if (body.PlaceId == placeId && !spotIds.Contains(body.SpotId)) { body.SpotId = home.Spots[0].Id; EndPose(body); }
@@ -86,17 +82,15 @@ public sealed partial class PlacesGrain
         return home;
     }
 
-    private static readonly string[] HomeThings = { FurniKinds.Plant, FurniKinds.Coffee, FurniKinds.Cups, FurniKinds.Laptop, FurniKinds.Bed };
 
-    private static string HomeRules(int living)
-        => $"It's a home {(living == 1 ? "one person lives" : $"{living} people live")} in. Spots must include these ids, plus up to two more: {string.Join(", ", HomeSpots)}. Leave out the bed, laptop, coffee maker, dishes and plant: they get placed next to their spots. Add \"things\": {{{string.Join(", ", HomeThings.Select(t => $"\"{t}\": \"...\""))}}}, what each of those is here, with where it is (\"the dented kettle on the camping stove\").";
+    private List<string> PublicNames() => state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name).ToList();
 
     /// <summary>The design's words for the standing things; the ones it renamed, models cleared.</summary>
     private static List<Furni> NameThings(Place home, JsonObject design)
     {
         var renamed = new List<Furni>();
         if (design["things"] is not JsonObject things) return renamed;
-        foreach (var kind in HomeThings)
+        foreach (var kind in PlaceDesign.HomeThings)
         {
             if (things[kind]?.ToString().Trim() is not { Length: > 2 } said || home.Furni.FirstOrDefault(f => f.Id == kind) is not { } furni) continue;
             furni.Name = WorldStream.Clip(said, 60);
@@ -147,9 +141,6 @@ public sealed partial class PlacesGrain
         if (keyWants is not null && place.Keyed() && place.Hosts().FirstOrDefault() is var host && host != Guid.Empty)
             _ = keyWants.ConsiderAsync(PartyId, new Relations.Door(place.Id, place.Name, host, visitor, place.DoorstepsLately(visitor, now)));
     }
-
-    private static string? MissingHomeSpots(IReadOnlyList<Spot> spots)
-        => HomeSpots.Except(spots.Select(s => s.Id)).ToList() is { Count: > 0 } missing ? $"spots must include: {string.Join(", ", missing)}" : null;
 
     /// <summary>Straight there, no walk: the Place they were in is going.</summary>
     private async Task RelocateAsync(Body body, Place to)

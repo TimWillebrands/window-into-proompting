@@ -190,7 +190,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<Place>> CreatePlace(Guid partyId, [FromBody] CreatePlaceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 400) return BadRequest("Describe it in under 400 characters.");
-        return await Places(partyId).CreatePlaceAsync(request.MadeBy, request.Text, request.Outdoor) is { } p
+        return await PlaceMaking.CreatePlaceAsync(grains, partyId, request.MadeBy, request.Text, request.Outdoor) is { } p
             ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
     }
 
@@ -202,7 +202,7 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<Place>> RedesignHome(Guid partyId, Guid placeId, [FromBody] RedesignHomeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 1500) return BadRequest("Describe it in under 1500 characters.");
-        return await Places(partyId).RedesignHomeAsync(placeId, request.Text, request.Name, request.Outdoor) is { } p
+        return await PlaceMaking.RedesignHomeAsync(grains, partyId, placeId, request.Text, request.Name, request.Outdoor) is { } p
             ? Ok(p) : Conflict("Not a Home, or couldn't design that one.");
     }
 

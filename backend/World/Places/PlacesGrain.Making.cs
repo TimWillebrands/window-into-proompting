@@ -273,13 +273,12 @@ public sealed partial class PlacesGrain
 
     // ---- Places ----
 
-    /// <summary>The model designs spots and a scene from a description; up to three tries, each told what didn't check out.</summary>
-    public async Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, bool outdoor)
+    /// <summary>A public Place from a finished design (<see cref="IPlaceDesignerGrain"/>).</summary>
+    public async Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, PlaceDraft draft)
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
         if (state.State.Places.Count(p => p.CustomScene is not null && p.Kind == PlaceKinds.Public) >= MaxMadePlaces) return null;
-        if (await DesignAsync(WorldStream.Clip(description, 400), outdoor) is not { } draft) return null;
-        var json = draft.Json;
+        var json = draft.Doc;
         var name = json["name"]?.ToString()?.Trim() is { Length: > 0 } n ? WorldStream.Clip(n, 40) : "the new place";
         if (!name.StartsWith("the ", StringComparison.OrdinalIgnoreCase) && !char.IsUpper(name[0])) name = $"the {name}";
         if (state.State.Places.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) name = $"{name} ({state.State.Places.Count})";
@@ -289,7 +288,7 @@ public sealed partial class PlacesGrain
             At = json["at"]?.ToString() is "in" or "on" ? json["at"]!.ToString() : "at",
             Description = WorldStream.Clip(json["description"]?.ToString() ?? description, 200),
             Purpose = json["purpose"]?.ToString()?.Trim() is { Length: > 0 } purpose ? WorldStream.Clip(purpose, 120) : null,
-            Spots = draft.Spots, CustomScene = PlaceDesign.Store(draft.Scene), Scene = "custom",
+            Spots = draft.Spots, CustomScene = draft.Scene, Scene = "custom",
             DistrictId = Districts.Centre,
         };
         state.State.Places.Add(place);
@@ -297,39 +296,6 @@ public sealed partial class PlacesGrain
         await PublishPlaceAsync(place);
         return place;
     }
-
-    /// <summary>Asks the designer until the scene checks out, three tries at most; null when it never does.</summary>
-    /// <param name="rule">What's wrong with these spots beyond the scene check; null when they're fine.</param>
-    private async Task<PlaceDraft?> DesignAsync(string brief, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
-    {
-        var user = $"Design: {brief}\nPlaces that already exist: {string.Join(", ", state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name))}";
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            JsonObject? json;
-            try
-            {
-                json = await llm.CompleteJsonAsync(JobComplexity.General, PlaceDesign.Prompt(outdoor), user, CancellationToken.None, 0.8);
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Designing a Place failed");
-                return null;
-            }
-            if (json?["scene"] is not JsonObject scene) { user += "\n\nYour last answer had no \"scene\" object. Try again."; continue; }
-            var spots = PlaceDesign.SpotsOf(json["spots"] as JsonArray);
-            var errors = spots.Count < 2 ? new List<string> { "give 2 to 5 spots" } : PlaceDesign.Check(scene, spots);
-            if (rule?.Invoke(spots) is { } broken) errors.Add(broken);
-            if (errors.Count > 0)
-            {
-                user += $"\n\nYour last design didn't work:\n- {string.Join("\n- ", errors.Take(8))}\nFix these and output the whole JSON again.";
-                continue;
-            }
-            return new PlaceDraft(json, scene, spots);
-        }
-        return null;
-    }
-
-    private sealed record PlaceDraft(JsonObject Json, JsonObject Scene, List<Spot> Spots);
 
     public async Task<string?> MakeArtAsync(Guid participantId, string description)
     {

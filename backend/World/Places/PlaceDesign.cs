@@ -1,3 +1,4 @@
+using PartyTown.Grains.Generation;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -148,6 +149,48 @@ public static class PlaceDesign
 
     private static (int, int)? Pair(JsonNode? n)
         => n is JsonArray { Count: >= 2 } a && Num(a[0]) is { } x && Num(a[1]) is { } z ? ((int)x, (int)z) : null;
+
+    private static readonly string[] HomeSpots = { "sofa", "desk", "kitchen", "bed" };
+    public static readonly string[] HomeThings = { FurniKinds.Plant, FurniKinds.Coffee, FurniKinds.Cups, FurniKinds.Laptop, FurniKinds.Bed };
+
+    /// <summary>What a Home's design must hold, for how many live there.</summary>
+    public static string HomeRules(int living)
+        => $"It's a home {(living <= 1 ? "one person lives" : $"{living} people live")} in. Spots must include these ids, plus up to two more: {string.Join(", ", HomeSpots)}. Leave out the bed, laptop, coffee maker, dishes and plant: they get placed next to their spots. Add \"things\": {{{string.Join(", ", HomeThings.Select(t => $"\"{t}\": \"...\""))}}}, what each of those is here, with where it is (\"the dented kettle on the camping stove\").";
+
+    public static string? MissingHomeSpots(IReadOnlyList<Spot> spots)
+        => HomeSpots.Except(spots.Select(s => s.Id)).ToList() is { Count: > 0 } missing ? $"spots must include: {string.Join(", ", missing)}" : null;
+
+    /// <summary>Asks the designer until the scene checks out, three tries at most; null when it never does.</summary>
+    /// <param name="rule">What's wrong with these spots beyond the scene check; null when they're fine.</param>
+    public static async Task<PlaceDraft?> DesignAsync(IWorldLlm llm, ILogger logger, string brief, bool outdoor, IReadOnlyList<string> placesNow, Func<IReadOnlyList<Spot>, string?>? rule = null)
+    {
+        var user = $"Design: {brief}\nPlaces that already exist: {string.Join(", ", placesNow)}";
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            JsonObject? json;
+            try
+            {
+                json = await llm.CompleteJsonAsync(JobComplexity.General, Prompt(outdoor), user, CancellationToken.None, 0.8);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Designing a Place failed");
+                return null;
+            }
+            if (json?["scene"] is not JsonObject scene) { user += "\n\nYour last answer had no \"scene\" object. Try again."; continue; }
+            var spots = SpotsOf(json["spots"] as JsonArray);
+            var errors = spots.Count < 2 ? new List<string> { "give 2 to 5 spots" } : Check(scene, spots);
+            if (rule?.Invoke(spots) is { } broken) errors.Add(broken);
+            if (errors.Count > 0)
+            {
+                user += $"\n\nYour last design didn't work:\n- {string.Join("\n- ", errors.Take(8))}\nFix these and output the whole JSON again.";
+                continue;
+            }
+            if (outdoor) scene["outdoor"] = true;
+            return new PlaceDraft(json.ToJsonString(), Store(scene), spots);
+        }
+        return null;
+    }
 
     /// <summary>The scene as stored: map rows joined, the rest as the model gave it.</summary>
     public static string Store(JsonObject scene)
