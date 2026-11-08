@@ -206,14 +206,8 @@ public sealed class WorldMemory(
         try { placeId = await grains.GetGrain<Places.IPlacesGrain>(partyId).GetPlaceOfAsync(personaId); }
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Place lookup failed for {PersonaId}", personaId); }
 
-        var beat = await repository.RecallBeatAsync(
+        var beat = await Self.PersonaRecall.ForBeatAsync(repository, grains,
             new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 4, stanceLimit: 6, logger, ct);
-        try
-        {
-            var names = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Select(c => c.Name).ToList();
-            beat = Self.StaleRecall.Apply(Self.RecallVariety.Apply(beat, names), await grains.GetGrain<Self.IWorldVoiceGrain>(partyId).GetStaleWordsAsync(personaId));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogDebug(ex, "Stale recall filter failed"); }
         return (beat.Memories, beat.Stances.Select(Services.ResponsePipeline.StanceBlock.FormatLine).ToList());
     }
 }
