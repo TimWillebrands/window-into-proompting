@@ -38,7 +38,7 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
         if (desk.Cdu is null) return new ActOutcome("hold", $"found the CDU at {company.Name} dark", company.Id);
         var ask = kind == CduRules.Answer
             ? "Answer the CDU's question in your own words, as yourself. Say what you think, and why, plainly."
-            : "Put what you've decided into words for the CDU, as yourself. Say what you want to be different for people here and what you saw that makes it worth it. It decides how; you bring the why.";
+            : "Put what you've decided into words for the CDU, as yourself. Say what you want to be different for people here and what you saw that makes it worth it. It decides how; you bring the why. You're on shift at your desk now, whatever the hour: give it the wish itself now, not a promise of one later.";
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(ctx.Self)}\n\n{CduScreen.Frame(company)}\n{ask}\nOutput ONLY JSON: {CduScreen.MessageShape}",
             $"{CduScreen.Render(desk)}\n\nWhat you've decided: {intent}", ct, 0.4, new[] { "message", "mind" });
