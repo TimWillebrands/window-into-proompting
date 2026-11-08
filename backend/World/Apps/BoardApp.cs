@@ -234,7 +234,7 @@ Output ONLY JSON.
 What you want to post about: {intent}
 {(thought is null ? "" : $"What's on your mind: {thought}")}
 
-Your recent posts (don't post the same thing again; if it's the same topic, only post something genuinely new about it):
+Your recent posts (don't post the same thing again; {Self.VoiceWear.SaidStands}):
 {(ownRecent.Count == 0 ? "(none yet)" : string.Join("\n", ownRecent.Select(p => $"- {p}")))}
 
 Lately on the timeline:
@@ -418,28 +418,16 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     {
         var (memories, stances) = await memory.RecallAsync(
             ctx.PartyId, ctx.Self.Id, ctx.Cast.Select(c => c.Id).ToList(), intent, ct);
-        var activity = string.Join("\n", ctx.RecentOwn.Take(6).Select(a => $"- {a.Action} {a.Summary}"));
+        var activity = ctx.RecentOwn.Take(6).Select(a => $"{a.Action} {a.Summary}").ToList();
         var presence = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetPresenceAsync(withDay: true);
+        var written = OwnRecent(await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetEntriesAsync(), ctx.Now);
         var system = $"""
 {WorldLlm.Identity(ctx.Self)}
 
-You are writing in your private diary. Nobody else reads it. Be honest with yourself — what happened today (the ordinary parts too), how you feel about the people around you, what you want. Your own voice, everyday words, first person, 80-180 words.
+{WriterRules}
 Output ONLY JSON: {EntryShape}
 """;
-        var user = $"""
-What you want to write about: {intent}
-
-{presence}
-
-What you've been doing lately:
-{(activity.Length == 0 ? "(not much)" : activity)}
-
-Moments on your mind:
-{(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(6).Select(m => $"- {m.Snippet}")))}
-
-Where you stand:
-{(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
-""";
+        var user = WriterUser(intent, presence, activity, memories.Take(6).Select(m => m.Snippet).ToList(), stances, written);
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system, user, ct, 0.9, ["mood", "entry"]);
         var body = json?["entry"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(body)) return null;
@@ -451,4 +439,30 @@ Where you stand:
         var formed = rest is { StancesAppended: > 0 } ? $", and {rest.StancesAppended} feeling(s) settled" : "";
         return new ActOutcome("diary", $"wrote in their diary{(mood is null ? "" : $" ({mood})")}{formed}", null);
     }
+
+    /// <summary>What a diary is for; what happened is what did happen, the day's plan ahead hasn't (ADR 0042).</summary>
+    public const string WriterRules = "You are writing in your private diary. Nobody else reads it. Be honest with yourself: what actually happened (the ordinary parts too), how you feel about the people around you, what you want. What happened is your day so far, what you did and what you remember; anything still coming up hasn't happened yet. Your own voice, everyday words, first person, 80-180 words.";
+
+    /// <summary>Your last entries, newest first: what you already wrote stands, so the next one doesn't rewrite it.</summary>
+    public static List<string> OwnRecent(IReadOnlyList<DiaryEntry> newestFirst, DateTimeOffset now)
+        => newestFirst.Take(3).Select(e => $"{WorldStream.Ago(e.CreatedAt, now)}: {WorldStream.Clip(e.Body, 300)}").ToList();
+
+    public static string WriterUser(string intent, string? presence, IReadOnlyList<string> activity, IReadOnlyList<string> memories,
+        IReadOnlyList<string> stances, IReadOnlyList<string> written) => $"""
+What you want to write about: {intent}
+
+{presence}
+
+What you've been doing lately:
+{(activity.Count == 0 ? "(not much)" : string.Join("\n", activity.Select(a => $"- {a}")))}
+
+Moments on your mind:
+{(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Select(m => $"- {m}")))}
+
+Where you stand:
+{(stances.Count == 0 ? "(no strong feelings yet)" : string.Join("\n", stances.Select(s => $"- {s}")))}
+
+What you already wrote (don't write the same entry again; {Self.VoiceWear.SaidStands}):
+{(written.Count == 0 ? "(nothing yet)" : string.Join("\n", written.Select(w => $"- {w}")))}
+""";
 }
