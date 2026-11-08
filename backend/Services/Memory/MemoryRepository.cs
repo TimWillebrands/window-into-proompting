@@ -296,7 +296,7 @@ public sealed class MemoryRepository(
         }
         if (placeId is { } place)
         {
-            // Being back where it happened: Place talk Events carry place_id (spec .scratch/places).
+            // Being back where it happened: Place talk Events carry place_id (ADR 0020).
             legs.Add($"""
                   {match}(e:Event)
                   WHERE e.place_id = '{place}'

@@ -1,6 +1,6 @@
 # Tailnet sidecars: local providers reachable from production
 
-> Status: accepted. Builds on ADR 0032 (Persona Models) and the failover in `.scratch/world/issues/04-provider-failover.md`. Vocabulary in `CONTEXT.md`.
+> Status: accepted. Builds on ADR 0032 (Persona Models) and the router's provider failover. Vocabulary in `CONTEXT.md`.
 
 Ollama and llama.cpp providers sit on machines at home. The server on Hetzner can't reach them, so local models only
 worked in development.

@@ -6,7 +6,7 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Places: where every Body is (spec .scratch/places). Place talk uses the Room message routes.</summary>
+/// <summary>Places: where every Body is (ADR 0020). Place talk uses the Room message routes.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/places")]
 public sealed class PlacesController(IGrainFactory grains, Actors actors) : ControllerBase

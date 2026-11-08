@@ -6,4 +6,3 @@
 .env.*
 frontend/.env.local
 .kamal
-.scratch
