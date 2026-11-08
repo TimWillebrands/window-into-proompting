@@ -86,8 +86,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (avoidWords is { Count: > 0 })
             guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
         var lastOtherName = lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId);
-        if (ConversationLanguage.Cue(ConversationLanguage.Own(history, persona.Id), ConversationLanguage.Guess(lastOther?.Content), lastOtherName) is { } language)
-            guidanceParts.Add(language);
         guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
         // Last, so nothing above reads as a task to report on: the reply is the line itself.
         guidanceParts.Add(OnlyTheLine(persona.Name, inPerson));

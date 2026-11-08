@@ -50,7 +50,6 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
 
     public async Task<ThermostatRead> GetThreadReadAsync(Guid partyId)
     {
-        if (!judge.Enabled) return ThermostatRead.None;
         if (await GrainFactory.GetGrain<IBoardGrain>(partyId).GetThreadAsync(this.GetPrimaryKey()) is not { } thread) return _read;
         var lines = new[] { $"{thread.AuthorName}: {WorldStream.Clip(thread.Body, 300)}" }
             .Concat(thread.Replies.Select(r => $"{r.AuthorName}: {WorldStream.Clip(r.Body, 300)}"))

@@ -81,5 +81,4 @@ In production the Speaking phase sent its plan as the message: "Lena asks in Dut
 - The shortcut is marked (`ShouldRespondResult.Shortcut`); its Instruction and Reason stay in the appraisal for the thought log but no longer reach Speaking.
 - The handoff is rendered as "What you mean to get across", and the guidance always ends on `SpeakingSession.OnlyTheLine`: reply with only the words sent, no plan or notes on length, language or wording.
 - Life's `intent` asks for the substance, not how to word it, so no word budgets or stale-word lists travel as the draft.
-- The guidance states the language the persona has been speaking in this conversation (`ConversationLanguage`), so the line doesn't drift with the last speaker.
 - Second layer, not the fix: `SpeechCleanup` drops a leading planning note, an echoed copy of the line being answered and any failure placeholder; a turn left with nothing sayable is Declined (Initiative: fizzles), never published. `WorldLlm` treats a placeholder in a requested JSON field as a failed parse.

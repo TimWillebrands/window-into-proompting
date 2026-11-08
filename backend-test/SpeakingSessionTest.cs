@@ -551,26 +551,6 @@ public class SpeakingSessionTest
         Assert.Contains("what Yusuf sends", guidance);
     }
 
-    [Fact]
-    public async Task GenerateResponseOnlyAsync_StatesTheLanguageYouveBeenSpeaking()
-    {
-        // Prod: Pieter answered Anne's English in Dutch and back; the language they've used here is a fact, not drift.
-        var (endpoint, getJob) = CapturingEndpoint();
-        var pieter = MakeParticipant("Pieter Voss");
-        var anne = MakeParticipant("Anne de Castelnaudary");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(pieter), AsView(anne) });
-        var history = new List<ChatMessage>
-        {
-            new() { MessageId = 1, SenderId = pieter.Id, SenderType = "assistant", Content = "Ik zou het haar niet zeggen, maar jij mag het mij zeggen." },
-            new() { MessageId = 2, SenderId = anne.Id, SenderType = "assistant", Content = "Ah, non, je dors pas! Le Debussy, tu me le racontes en bas, et pas de bla-bla." },
-        };
-
-        await session.GenerateResponseOnlyAsync(pieter, history, (_, _, _) => Task.CompletedTask, CancellationToken.None);
-
-        var guidance = getJob()!.Messages[^1].Content;
-        Assert.Contains("you've been talking Dutch here and Anne just used French", guidance);
-    }
-
     [Theory]
     [InlineData("[ERROR: Can't parse response]", "")]
     [InlineData("Lena asks in Dutch whether I've eaten. Reply in English, short, under 12 words, avoid stale words and \"boat, foam, ferry, real\". I'm tired, cold toast earlier, so admit that lightly.\n\nnothing but cold toast, and that was a crime too",
