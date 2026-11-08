@@ -32,7 +32,7 @@ public sealed class PersonaLifeGrain(
     private const double ChoiceTemperature = 0.8;
     /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
     public const string LookAction = "look";
-    private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences>", "decline": <true if you wouldn't actually do this after all, else false>}""";
+    private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
     {

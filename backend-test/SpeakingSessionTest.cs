@@ -516,9 +516,9 @@ public class SpeakingSessionTest
     }
 
     [Fact]
-    public async Task GenerateResponseOnlyAsync_NoHandoffFields_GuidanceCarriesOnlyLengthCue()
+    public async Task GenerateResponseOnlyAsync_NoHandoffFields_GuidanceCarriesLengthCueThenOnlyTheLine()
     {
-        // Nothing to hand off → the trailing system message is just the per-turn length cue (ADR 0021).
+        // Nothing to hand off → the trailing system message is the length cue (ADR 0021), closed by the output contract.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -529,6 +529,61 @@ public class SpeakingSessionTest
         var job = getJob()!;
         Assert.Equal(2, job.Messages.Count);
         Assert.StartsWith("Length:", job.Messages[1].Content);
+        Assert.EndsWith(SpeakingSession.OnlyTheLine("Vlad", false), job.Messages[1].Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_Guidance_EndsOnOnlyTheLine_AndNeverCallsTheIntentADraft()
+    {
+        // Prod: "Draft of what you'd say … refine" got Haiku critiquing the draft aloud before the line.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Yusuf Halloran");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        await session.GenerateResponseOnlyAsync(
+            persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            turnInstruction: "Tell Anne the dunes bit made me laugh.", avoidWords: new[] { "ferry" });
+
+        var guidance = getJob()!.Messages[^1].Content;
+        Assert.DoesNotContain("Draft", guidance);
+        Assert.Contains("Tell Anne the dunes bit made me laugh.", guidance);
+        Assert.EndsWith("no summary of what others said.", guidance);
+        Assert.Contains("what Yusuf sends", guidance);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_StatesTheLanguageYouveBeenSpeaking()
+    {
+        // Prod: Pieter answered Anne's English in Dutch and back; the language they've used here is a fact, not drift.
+        var (endpoint, getJob) = CapturingEndpoint();
+        var pieter = MakeParticipant("Pieter Voss");
+        var anne = MakeParticipant("Anne de Castelnaudary");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(pieter), AsView(anne) });
+        var history = new List<ChatMessage>
+        {
+            new() { MessageId = 1, SenderId = pieter.Id, SenderType = "assistant", Content = "Ik zou het haar niet zeggen, maar jij mag het mij zeggen." },
+            new() { MessageId = 2, SenderId = anne.Id, SenderType = "assistant", Content = "Ah, non, je dors pas! Le Debussy, tu me le racontes en bas, et pas de bla-bla." },
+        };
+
+        await session.GenerateResponseOnlyAsync(pieter, history, (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        var guidance = getJob()!.Messages[^1].Content;
+        Assert.Contains("you've been talking Dutch here and Anne just used French", guidance);
+    }
+
+    [Theory]
+    [InlineData("[ERROR: Can't parse response]", "")]
+    [InlineData("Lena asks in Dutch whether I've eaten. Reply in English, short, under 12 words, avoid stale words and \"boat, foam, ferry, real\". I'm tired, cold toast earlier, so admit that lightly.\n\nnothing but cold toast, and that was a crime too",
+        "nothing but cold toast, and that was a crime too")]
+    public async Task GenerateResponseOnlyAsync_NeverReturnsAPlaceholderOrANoteAsTheLine(string raw, string expected)
+    {
+        var persona = MakeParticipant("Yusuf Halloran");
+        var endpoint = EndpointWith(new[] { new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, raw) });
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        var result = await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        Assert.Equal(expected, result.Message);
     }
 
     // ── Tier routing fallback ─────────────────────────────────────────────────

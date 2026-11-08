@@ -69,7 +69,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (!string.IsNullOrWhiteSpace(gutReaction))
             guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
-            guidanceParts.Add($"Draft of what you'd say: {turnInstruction.Trim()} — make it your own; refine, don't recite. If the draft repeats something you already said lately, drop that part.");
+            guidanceParts.Add($"What you mean to get across: {turnInstruction.Trim()} Say it your own way, and leave out whatever you already said lately.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
         {
             // Small-model crutch (candidate to gate off for stronger models): repeat the
@@ -85,7 +85,12 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         // Stale words (ADR 0021) restated at the recency slot: the history full of them outweighs the system block.
         if (avoidWords is { Count: > 0 })
             guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
+        var lastOtherName = lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId);
+        if (ConversationLanguage.Cue(ConversationLanguage.Own(history, persona.Id), ConversationLanguage.Guess(lastOther?.Content), lastOtherName) is { } language)
+            guidanceParts.Add(language);
         guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
+        // Last, so nothing above reads as a task to report on: the reply is the line itself.
+        guidanceParts.Add(OnlyTheLine(persona.Name, inPerson));
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
@@ -113,11 +118,18 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         {
             Stop = false,
             Message = SpeechCleanup.DropObviousVocative(
-                SpeechCleanup.Clean(result.Content, persona.Name),
-                lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId)),
+                SpeechCleanup.DropEcho(SpeechCleanup.Clean(result.Content, persona.Name), lastOther?.Content),
+                lastOtherName),
             Reasoning = result.Reasoning,
             Metadata = result.Attribution
         };
+    }
+
+    /// <summary>Closes the turn guidance: write the message, not notes on how you'll write it.</summary>
+    public static string OnlyTheLine(string name, bool inPerson)
+    {
+        var first = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? name;
+        return $"Now reply with only what {first} {(inPerson ? "says out loud" : "sends")}, word for word: no plan, no notes on length, language or wording, no summary of what others said.";
     }
 
     /// <summary>

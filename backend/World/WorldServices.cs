@@ -25,7 +25,7 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
 
     public Task<string?> CompleteAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
-        => CompleteCoreAsync(null, preferred, system, user, ct, temperature, null);
+        => CompleteTextAsync(null, preferred, system, user, ct, temperature);
 
     public Task<JsonObject?> CompleteJsonAsync(
         JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
@@ -37,7 +37,7 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
 
         public Task<string?> CompleteAsync(
             JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
-            => llm.CompleteCoreAsync(persona, preferred, system, user, ct, temperature, null);
+            => llm.CompleteTextAsync(persona, preferred, system, user, ct, temperature);
 
         public Task<JsonObject?> CompleteJsonAsync(
             JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
@@ -64,6 +64,21 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
         return await endpoint.CompleteOneShotAsync(job, ct);
     }
 
+    /// <summary>Plain text; an error placeholder in place of an answer is no answer.</summary>
+    private async Task<string?> CompleteTextAsync(
+        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature)
+    {
+        var raw = await CompleteCoreAsync(persona, preferred, system, user, ct, temperature, null);
+        if (!Services.ResponsePipeline.SpeechCleanup.IsFailureMarker(raw)) return raw;
+        logger.LogWarning("World LLM answered with a failure placeholder: {Preview}", LlmJson.LogPreview(raw));
+        return null;
+    }
+
+    /// <summary>A string field holding an error placeholder ("[ERROR: Can't parse response]"); null when none does.</summary>
+    public static string? FailedField(JsonObject json, IReadOnlyList<string>? fields)
+        => (fields ?? json.Select(kv => kv.Key).ToList())
+            .FirstOrDefault(f => json[f] is JsonValue v && v.TryGetValue<string>(out var s) && Services.ResponsePipeline.SpeechCleanup.IsFailureMarker(s));
+
     private async Task<JsonObject?> CompleteJsonCoreAsync(
         Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, IReadOnlyList<string>? fields)
     {
@@ -76,7 +91,11 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
         }
         try
         {
-            return ParseLastWins(json);
+            // A parse that "succeeds" around a placeholder is still a failed parse: the act fizzles, nothing is published.
+            var parsed = ParseLastWins(json);
+            if (parsed is null || FailedField(parsed, fields) is not { } failed) return parsed;
+            logger.LogWarning("World LLM JSON field {Field} holds a failure placeholder: {Preview}", failed, LlmJson.LogPreview(raw));
+            return null;
         }
         catch (Exception ex)
         {
