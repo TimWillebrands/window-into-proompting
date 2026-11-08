@@ -10,6 +10,7 @@ using PartyTown.Services.Auth;
 using PartyTown.World;
 using PartyTown.World.Apps;
 using PartyTown.World.Places;
+using PartyTown.World.Work;
 using PartyTown.World.Work.Cdu;
 
 namespace PartyTown.Mcp;
@@ -150,6 +151,25 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
             PersonaId = who, PersonaName = name, App = Board.Id, Action = outcome.Action, Summary = outcome.Summary, TargetId = outcome.TargetId,
         });
         return $"Posted in [{thread.Id}] {thread.Title}.";
+    });
+
+    [McpServerTool(Name = "set_shift"), Description("Change when someone's job is worked: days like 'Mon-Fri' or 'Mon-Sun', hours like '09:00-17:00' (not past midnight). Title, workplace and company stay.")]
+    public Task<string> SetShiftAsync(
+        ClaimsPrincipal user,
+        [Description("Days, e.g. 'Mon-Fri'. Default: keep.")] string? days = null,
+        [Description("Hours, e.g. '20:00-23:30'. Default: keep.")] string? hours = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var occupation = grains.GetGrain<IOccupationGrain>(WorldKeys.Life(World, who));
+        var job = (await occupation.GetAsync()).Job ?? throw new McpException("They have no job.");
+        var (start, end) = hours is null ? (job.Start, job.End) : Shifts.ParseHours(hours) ?? throw new McpException("Hours like 09:00-17:00, within one day.");
+        var view = await occupation.SetAsync(new Occupation
+        {
+            Title = job.Title, Workplace = job.Workplace, PlaceId = job.PlaceId, LocaleId = job.LocaleId, CompanyId = job.CompanyId, Practice = job.Practice,
+            Days = days is null ? job.Days : Shifts.ParseDays(days), Start = start, End = end,
+        });
+        return $"{Shifts.Describe(view.Job!)}. The clock starts a shift that's due on its next beat.";
     });
 
     [McpServerTool(Name = "get_cdu", ReadOnly = true), Description("The CDU as spectators see it: up or dark, its allowance, trunk, PR, and who said what to it lately.")]
