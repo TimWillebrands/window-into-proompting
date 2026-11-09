@@ -182,7 +182,7 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiO
             completed = true;
             return text.ToString();
         }
-        catch (Exception ex) when (LlmEndpointGrainUtils.IsHardFailure(ex))
+        catch (Exception ex) when (LlmEndpointGrainUtils.Benches(ex))
         {
             failure = Readable(ex);
             await ReportFailureAsync(ex);

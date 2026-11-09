@@ -469,7 +469,7 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         public Task<string?> CompleteAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult(Text(system, user));
 
-        public Task<System.Text.Json.Nodes.JsonObject?> CompleteJsonAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+        public Task<System.Text.Json.Nodes.JsonObject?> CompleteJsonAsync(PartyTown.Grains.Generation.JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<System.Text.Json.Nodes.JsonObject, string?>? refuse = null)
         {
             lock (Users) Users.Add(user);
             return Task.FromResult(Json(system, user));

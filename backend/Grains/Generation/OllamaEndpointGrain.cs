@@ -156,7 +156,7 @@ public class OllamaEndpointGrain(
         {
             return await call;
         }
-        catch (Exception ex) when (LlmEndpointGrainUtils.IsHardFailure(ex))
+        catch (Exception ex) when (LlmEndpointGrainUtils.Benches(ex))
         {
             await ReportFailureAsync(ex);
             throw;

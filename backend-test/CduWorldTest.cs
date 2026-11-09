@@ -347,7 +347,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
 
-        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
         {
             if (user.Contains("# What you've decided"))
                 return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["intent"] = "get on with it" });

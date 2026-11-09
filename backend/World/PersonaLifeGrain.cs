@@ -196,7 +196,7 @@ public sealed class PersonaLifeGrain(
         var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
         var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\n{LifeChoice.DeclineCue}\nOutput ONLY JSON: {IntentShape}",
-            $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"]);
+            $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"], ["decline"], LifeChoice.Refuse);
         var thought = voiced?["thought"]?.ToString();
         var intent = voiced?["intent"]?.ToString() ?? string.Empty;
         // System Two has the last word (ADR 0034): a pick it wouldn't make in character doesn't happen.
@@ -346,6 +346,13 @@ public static class LifeChoice
 
     public static bool Declined(System.Text.Json.Nodes.JsonObject? voiced)
         => string.Equals(voiced?["decline"]?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Longest intent taken as one; past it the model is rambling (Inês's 5000-char "message Eiko instead").</summary>
+    public const int MaxIntent = 600;
+
+    /// <summary>Why a voiced pick can't be acted on, so the next provider is asked; null when it can.</summary>
+    public static string? Refuse(System.Text.Json.Nodes.JsonObject voiced)
+        => voiced["intent"]?.ToString() is { Length: > MaxIntent } intent ? $"intent ran on ({intent.Length} chars)" : null;
 }
 
 /// <summary>People settle where they've just arrived (ADR 0021): walking on again soon needs a real reason.</summary>

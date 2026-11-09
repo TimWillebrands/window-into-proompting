@@ -25,6 +25,19 @@ public static class LlmEndpointGrainUtils
         _ => false,
     };
 
+    /// <summary>The provider said slow down (a free model's quota, a busy key): it will fix itself, just not this minute.</summary>
+    public static bool IsRateLimited(Exception ex) => ex switch
+    {
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsRateLimited),
+        System.ClientModel.ClientResultException { Status: 429 } => true,
+        HttpRequestException { StatusCode: System.Net.HttpStatusCode.TooManyRequests } => true,
+        Anthropic.Exceptions.AnthropicRateLimitException => true,
+        _ => false,
+    };
+
+    /// <summary>Failures that should route callers elsewhere for a while: hard ones and rate limits.</summary>
+    public static bool Benches(Exception ex) => IsHardFailure(ex) || IsRateLimited(ex);
+
     /// <summary>Never reached the server: a down box or a dead Tailnet path, not a refusal.</summary>
     public static bool IsUnreachable(Exception ex) => ex switch
     {
@@ -106,7 +119,7 @@ public static class LlmEndpointGrainUtils
         }
     }
 
-    /// <summary>Pass a stream through, telling the router when it dies of a hard failure.</summary>
+    /// <summary>Pass a stream through, telling the router when it dies of a hard failure or a rate limit.</summary>
     public static async IAsyncEnumerable<LlmGenerationEvent> ReportingHardFailures(
         IAsyncEnumerable<LlmGenerationEvent> inner,
         Func<Exception, Task> report,
@@ -120,7 +133,7 @@ public static class LlmEndpointGrainUtils
             {
                 has = await e.MoveNextAsync();
             }
-            catch (Exception ex) when (IsHardFailure(ex))
+            catch (Exception ex) when (Benches(ex))
             {
                 await report(ex);
                 throw;

@@ -12,15 +12,21 @@ public interface IWorldLlm
     Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null);
 
     /// <param name="fields">String fields the object must have; sent as a JSON schema so small/local models are constrained.</param>
-    Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null);
+    /// <param name="flags">Boolean fields the object must have, same schema.</param>
+    /// <param name="refuse">Why a parsed answer is unusable (null when fine); a refused answer is asked of the next provider.</param>
+    Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null,
+        IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null);
 
     /// <summary>Calls made on this persona's behalf: their assigned providers win over the shared pool.</summary>
     IWorldLlm For(Guid personaId) => this;
 }
 
-/// <summary>One-shot LLM calls for World Apps: tier routing with General fallback + JSON repair.</summary>
+/// <summary>One-shot LLM calls for World Apps: tier routing, provider fallback on a failure or a refused answer, JSON repair.</summary>
 public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : IWorldLlm
 {
+    /// <summary>Providers asked per call before giving up: the assigned one, then the pool.</summary>
+    private const int MaxProviders = 3;
+
     public IWorldLlm For(Guid personaId) => new Acting(this, personaId);
 
     public Task<string?> CompleteAsync(
@@ -28,8 +34,9 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
         => CompleteTextAsync(null, preferred, system, user, ct, temperature);
 
     public Task<JsonObject?> CompleteJsonAsync(
-        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
-        => CompleteJsonCoreAsync(null, preferred, system, user, ct, temperature, fields);
+        JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null,
+        IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
+        => CompleteJsonCoreAsync(null, preferred, system, user, ct, temperature, fields, flags, refuse);
 
     private sealed class Acting(WorldLlm llm, Guid persona) : IWorldLlm
     {
@@ -40,75 +47,123 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
             => llm.CompleteTextAsync(persona, preferred, system, user, ct, temperature);
 
         public Task<JsonObject?> CompleteJsonAsync(
-            JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
-            => llm.CompleteJsonCoreAsync(persona, preferred, system, user, ct, temperature, fields);
+            JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null,
+            IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
+            => llm.CompleteJsonCoreAsync(persona, preferred, system, user, ct, temperature, fields, flags, refuse);
     }
 
-    private async Task<string?> CompleteCoreAsync(
-        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, string? responseFormat)
+    /// <summary>Ask providers in routing order until one answers acceptably; a throw or a refusal moves on to the next.
+    /// Null when every answer was refused; rethrows when none answered at all.</summary>
+    private async Task<T?> AskAsync<T>(
+        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature,
+        string? responseFormat, Func<string, T?> accept) where T : class
     {
-        var (endpoint, complexity) = await new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), persona: persona)
-            .RouteAsync(preferred == JobComplexity.General ? LlmTiers.General : new[] { preferred, JobComplexity.General }, ct);
-
-        var job = new LlmGenerationJob
+        var call = new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger, persona);
+        var tiers = preferred == JobComplexity.General ? LlmTiers.General : new[] { preferred, JobComplexity.General };
+        var tried = new HashSet<ILlmEndpointGrain>();
+        Exception? failure = null;
+        var answered = false;
+        while (tried.Count < MaxProviders)
         {
-            Messages = new List<LlmChatMessage>
+            ILlmEndpointGrain endpoint;
+            JobComplexity served;
+            try
             {
-                new() { Role = "system", Content = system },
-                new() { Role = "user", Content = user },
-            },
-            JobComplexity = complexity,
-            ModelParameters = temperature is null ? null : new LlmModelParameters { Temperature = temperature },
-            ResponseFormat = responseFormat,
-        };
-        return await endpoint.CompleteOneShotAsync(job, ct);
+                (endpoint, served) = await call.RouteAsync(tiers, ct, tried);
+            }
+            catch (InvalidOperationException) when (tried.Count > 0)
+            {
+                break;
+            }
+            tried.Add(endpoint);
+
+            var job = new LlmGenerationJob
+            {
+                Messages = new List<LlmChatMessage>
+                {
+                    new() { Role = "system", Content = system },
+                    new() { Role = "user", Content = user },
+                },
+                JobComplexity = served,
+                ModelParameters = temperature is null ? null : new LlmModelParameters { Temperature = temperature },
+                ResponseFormat = responseFormat,
+            };
+            string raw;
+            try
+            {
+                raw = await endpoint.CompleteOneShotAsync(job, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "World LLM provider failed; trying the next one");
+                failure = ex;
+                continue;
+            }
+            answered = true;
+            if (accept(raw) is { } ok) return ok;
+        }
+        if (!answered && failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failure);
+        return null;
     }
 
     /// <summary>Plain text; an error placeholder in place of an answer is no answer.</summary>
-    private async Task<string?> CompleteTextAsync(
+    private Task<string?> CompleteTextAsync(
         Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature)
-    {
-        var raw = await CompleteCoreAsync(persona, preferred, system, user, ct, temperature, null);
-        if (!Services.ResponsePipeline.SpeechCleanup.IsFailureMarker(raw)) return raw;
-        logger.LogWarning("World LLM answered with a failure placeholder: {Preview}", LlmJson.LogPreview(raw));
-        return null;
-    }
+        => AskAsync(persona, preferred, system, user, ct, temperature, null, raw =>
+        {
+            if (!Services.ResponsePipeline.SpeechCleanup.IsFailureMarker(raw)) return raw;
+            logger.LogWarning("World LLM answered with a failure placeholder: {Preview}", LlmJson.LogPreview(raw));
+            return null;
+        });
 
     /// <summary>A string field holding an error placeholder ("[ERROR: Can't parse response]"); null when none does.</summary>
     public static string? FailedField(JsonObject json, IReadOnlyList<string>? fields)
         => (fields ?? json.Select(kv => kv.Key).ToList())
             .FirstOrDefault(f => json[f] is JsonValue v && v.TryGetValue<string>(out var s) && Services.ResponsePipeline.SpeechCleanup.IsFailureMarker(s));
 
-    private async Task<JsonObject?> CompleteJsonCoreAsync(
-        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature, IReadOnlyList<string>? fields)
-    {
-        var raw = await CompleteCoreAsync(persona, preferred, system, user, ct, temperature, fields is null ? null : SchemaFor(fields));
-        var json = LlmJson.TryRepairObject(raw ?? string.Empty);
-        if (json is null)
-        {
-            logger.LogWarning("World LLM returned unparseable JSON: {Preview}", LlmJson.LogPreview(raw));
-            return null;
-        }
-        try
-        {
-            // A parse that "succeeds" around a placeholder is still a failed parse: the act fizzles, nothing is published.
-            var parsed = ParseLastWins(json);
-            if (parsed is null || FailedField(parsed, fields) is not { } failed) return parsed;
-            logger.LogWarning("World LLM JSON field {Field} holds a failure placeholder: {Preview}", failed, LlmJson.LogPreview(raw));
-            return null;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "World LLM JSON parse failed: {Preview}", LlmJson.LogPreview(raw));
-            return null;
-        }
-    }
+    /// <summary>A field the schema requires that the answer left out; null when all are there.</summary>
+    public static string? MissingField(JsonObject json, IReadOnlyList<string>? fields, IReadOnlyList<string>? flags)
+        => (fields ?? Array.Empty<string>()).Concat(flags ?? Array.Empty<string>()).FirstOrDefault(f => json[f] is null);
 
-    /// <summary>OpenAI-style json_schema response format: an object of required string fields.</summary>
-    public static string SchemaFor(IReadOnlyList<string> fields)
+    private Task<JsonObject?> CompleteJsonCoreAsync(
+        Guid? persona, JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature,
+        IReadOnlyList<string>? fields, IReadOnlyList<string>? flags, Func<JsonObject, string?>? refuse)
+        => AskAsync(persona, preferred, system, user, ct, temperature,
+            fields is null && flags is null ? null : SchemaFor(fields ?? Array.Empty<string>(), flags), raw =>
+            {
+                var json = LlmJson.TryRepairObject(raw ?? string.Empty);
+                if (json is null)
+                {
+                    logger.LogWarning("World LLM returned unparseable JSON: {Preview}", LlmJson.LogPreview(raw));
+                    return null;
+                }
+                JsonObject? parsed;
+                try
+                {
+                    parsed = ParseLastWins(json);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "World LLM JSON parse failed: {Preview}", LlmJson.LogPreview(raw));
+                    return null;
+                }
+                if (parsed is null) return null;
+                // A parse that "succeeds" around a placeholder, a gap in the schema or a refused answer is still a failed answer.
+                var problem = FailedField(parsed, fields) is { } failed ? $"field {failed} holds a failure placeholder"
+                    : MissingField(parsed, fields, flags) is { } missing ? $"field {missing} is missing"
+                    : refuse?.Invoke(parsed);
+                if (problem is null) return parsed;
+                logger.LogWarning("World LLM JSON refused ({Problem}): {Preview}", problem, LlmJson.LogPreview(raw));
+                return null;
+            });
+
+    /// <summary>OpenAI-style json_schema response format: an object of required string fields and boolean flags.</summary>
+    public static string SchemaFor(IReadOnlyList<string> fields, IReadOnlyList<string>? flags = null)
     {
         var props = new JsonObject();
         foreach (var f in fields) props[f] = new JsonObject { ["type"] = "string" };
+        foreach (var f in flags ?? Array.Empty<string>()) props[f] = new JsonObject { ["type"] = "boolean" };
+        var required = fields.Concat(flags ?? Array.Empty<string>()).Select(f => (JsonNode?)JsonValue.Create(f)).ToArray();
         return new JsonObject
         {
             ["type"] = "json_schema",
@@ -120,7 +175,7 @@ public sealed class WorldLlm(IGrainFactory grains, ILogger<WorldLlm> logger) : I
                 {
                     ["type"] = "object",
                     ["properties"] = props,
-                    ["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()),
+                    ["required"] = new JsonArray(required),
                     ["additionalProperties"] = false,
                 },
             },

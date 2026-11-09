@@ -97,5 +97,81 @@ public class VoicedLineTest
 
         Assert.Equal("marijke gets the soup, you get the bread.", json!["body"]!.GetValue<string>());
     }
+
+    private static (WorldLlm Llm, Mock<ILlmEndpointGrain> Assigned, Mock<ILlmEndpointGrain> Pool) AssignedThenPool(Func<string> assigned, string pool)
+    {
+        var mine = new Mock<ILlmEndpointGrain>();
+        mine.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(assigned);
+        var shared = new Mock<ILlmEndpointGrain>();
+        shared.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(pool);
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.AssignedEndpointAsync(It.IsAny<Guid>(), It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(mine.Object);
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(shared.Object);
+        var grains = new Mock<IGrainFactory>();
+        grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
+        return (new WorldLlm(grains.Object, NullLogger<WorldLlm>.Instance), mine, shared);
+    }
+
+    private const string Voiced = """{"thought": "never really talked to them", "intent": "tell Medevortius rui's match report took two sittings", "decline": false}""";
+
+    [Fact]
+    public async Task WorldLlm_RamblingIntent_IsAskedOfThePool()
+    {
+        // Inês, Sun 18:05: the assigned free model ran on for 5000 chars about messaging Eiko instead, and it got sent to Medevortius.
+        var ramble = $$"""{"thought": "I don't message people I've never spoken to.", "intent": "{{new string('x', LifeChoice.MaxIntent + 1)}}"}""";
+        var (llm, _, pool) = AssignedThenPool(() => ramble, Voiced);
+
+        var json = await llm.For(Guid.NewGuid()).CompleteJsonAsync(JobComplexity.General, "s", "u", default, 0.8, new[] { "thought", "intent" }, new[] { "decline" }, LifeChoice.Refuse);
+
+        Assert.Equal("tell Medevortius rui's match report took two sittings", json!["intent"]!.GetValue<string>());
+        pool.Verify(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task WorldLlm_MissingFlag_IsAskedOfThePool()
+    {
+        var (llm, _, _) = AssignedThenPool(() => """{"thought": "t", "intent": "message Eiko instead"}""", Voiced);
+
+        var json = await llm.For(Guid.NewGuid()).CompleteJsonAsync(JobComplexity.General, "s", "u", default, fields: new[] { "thought", "intent" }, flags: new[] { "decline" });
+
+        Assert.False(json!["decline"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task WorldLlm_FailingProvider_FallsToThePool()
+    {
+        var (llm, _, _) = AssignedThenPool(() => throw new HttpRequestException("429", null, System.Net.HttpStatusCode.TooManyRequests), "hello there");
+
+        Assert.Equal("hello there", await llm.For(Guid.NewGuid()).CompleteAsync(JobComplexity.General, "s", "u", default));
+    }
+
+    [Fact]
+    public async Task WorldLlm_EveryProviderFailing_StillThrows()
+    {
+        var endpoint = new Mock<ILlmEndpointGrain>();
+        endpoint.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ThrowsAsync(new TimeoutException());
+        var router = new Mock<ILlmRouterGrain>();
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(endpoint.Object);
+        var grains = new Mock<IGrainFactory>();
+        grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
+
+        await Assert.ThrowsAsync<TimeoutException>(() => new WorldLlm(grains.Object, NullLogger<WorldLlm>.Instance).CompleteAsync(JobComplexity.General, "s", "u", default));
+    }
+
+    [Fact]
+    public void SchemaFor_RequiresFlagsAsBooleans()
+    {
+        var schema = System.Text.Json.Nodes.JsonNode.Parse(WorldLlm.SchemaFor(new[] { "thought", "intent" }, new[] { "decline" }))!["json_schema"]!["schema"]!;
+
+        Assert.Equal("boolean", schema["properties"]!["decline"]!["type"]!.GetValue<string>());
+        Assert.Contains("decline", schema["required"]!.AsArray().Select(n => n!.GetValue<string>()));
+    }
+
+    [Fact]
+    public void RateLimit_Benches()
+    {
+        Assert.True(LlmEndpointGrainUtils.Benches(new Anthropic.Exceptions.AnthropicRateLimitException(new HttpRequestException("slow down")) { StatusCode = System.Net.HttpStatusCode.TooManyRequests, ResponseBody = "" }));
+        Assert.False(LlmEndpointGrainUtils.Benches(new TimeoutException()));
+    }
 }
 

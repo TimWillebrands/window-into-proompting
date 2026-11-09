@@ -320,7 +320,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         /// <summary>A JSON answer for this system prompt; null falls through to the defaults.</summary>
         public static Func<string, JsonObject?>? Json;
 
-        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null)
+        public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
         {
             Prompts.Enqueue(user);
             if (Json?.Invoke(system) is { } scripted) return Task.FromResult<JsonObject?>(scripted);
