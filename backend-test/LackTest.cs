@@ -12,7 +12,7 @@ public class LackTest
 
     [Theory]
     [InlineData(0.9, null, true)]
-    [InlineData(0.6, null, false)]
+    [InlineData(0.4, null, false)]
     [InlineData(0.9, 1, false)]
     [InlineData(0.9, 7, true)]
     public void Felt_StrongAndNotLately(double p, int? hoursAgo, bool felt)

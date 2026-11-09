@@ -177,7 +177,7 @@ public sealed class PersonaLifeGrain(
         if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
         var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
         var lack = answers.Noul(Desires.Lack.Key, 0);
-        if (lack >= 0.5) logger.LogInformation("Lack {Persona} p={P:F2}", self.Name, lack);
+        if (lack >= 0.3) logger.LogInformation("Lack {Persona} p={P:F2}", self.Name, lack);
         if (!lookedAlready && Desires.Lack.Felt(lack, _lackAt, now))
         {
             _lackAt = now.ToUnixTimeMilliseconds();

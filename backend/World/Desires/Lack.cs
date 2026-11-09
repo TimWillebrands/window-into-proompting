@@ -10,7 +10,7 @@ public static class Lack
 {
     public const string Action = "lack";
     public const string Key = "lack";
-    public const double Threshold = 0.75;
+    public const double Threshold = 0.5;
     public static readonly TimeSpan Every = TimeSpan.FromHours(6);
     public const int Shown = 5;
     public const string Shape = """{"want": "<what you wanted to do, first person, one plain concrete line; or none>"}""";
