@@ -40,7 +40,8 @@ public sealed class FakeSocksProxy : IAsyncDisposable
         {
             while (true) _ = ServeAsync(await _listener.AcceptTcpClientAsync(_stop.Token));
         }
-        catch (OperationCanceledException) { }
+        // Stop() can beat the token to a pending accept.
+        catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException) { }
     }
 
     private async Task ServeAsync(TcpClient client)
