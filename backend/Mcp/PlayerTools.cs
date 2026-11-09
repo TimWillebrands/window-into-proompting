@@ -16,7 +16,7 @@ namespace PartyTown.Mcp;
 
 /// <summary>What an agent may read and change of a Player (ADR 0046): their own, or anyone's for an admin.</summary>
 [McpServerToolType]
-public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp)
+public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, PlayerAuto? auto = null)
 {
     private Guid World => mcp.Value.World;
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
@@ -215,6 +215,14 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         var moved = await Places.MoveHomeAsync(home.Id, name, district) ?? throw new McpException("Couldn't move it.");
         var where = (await Places.GetSnapshotAsync()).Districts.FirstOrDefault(d => d.Id == moved.DistrictId)?.Name ?? "the centre";
         return $"Now {moved.Name}, in {where}.";
+    });
+
+    [McpServerTool(Name = "set_auto"), Description("Hand your own character to the agent stack (on), or take them back (off) so say, go and DM act for you again. A mission is what they go after while on auto.")]
+    public Task<string> SetAutoAsync(ClaimsPrincipal user, bool on, [Description("What they go after while on auto; only with on.")] string? mission = null) => Guard(async () =>
+    {
+        var me = await actors.PlayerAsync(user, World);
+        await (auto ?? throw new McpException("Auto isn't available here.")).SetAsync(World, me, on, on ? mission : null);
+        return on ? "On auto: they live on their own now." : "Yours again.";
     });
 
     [McpServerTool(Name = "set_home_colours"), Description("Wall and floor colours of their Home, as #rrggbb; leave one out to give it back to the design.")]
