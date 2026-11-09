@@ -1,9 +1,14 @@
 import { CATALOGUE } from './catalogue.gen';
+import library from './library.json';
 import {
+    type Model,
+    PALETTE,
     type Part,
     type Prefab,
     type PrefabVariant,
     pick,
+    prefabOf,
+    REGISTRY,
     rng,
     type Vec3,
 } from './prefab';
@@ -1599,6 +1604,17 @@ export const PREFABS: Record<string, Prefab> = {
 };
 
 /** The prefab a furni kind (or a decor style) draws with by default. */
+// The data library (ADR 0049): models as JSON, shared with the backend; code prefabs win a name clash.
+Object.assign(PALETTE, library.palette);
+for (const m of library.models as unknown as (Model & { name: string })[]) {
+    const prefab = prefabOf(m);
+    if (prefab && !PREFABS[m.name]) PREFABS[m.name] = prefab;
+}
+Object.assign(REGISTRY, PREFABS);
+
+/** Library models by name, for galleries. */
+export const LIBRARY: string[] = library.models.map((m) => m.name);
+
 export const FURNI_PREFAB: Record<string, string> = {
     plant: 'plant',
     cups: 'cups',

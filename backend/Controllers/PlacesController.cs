@@ -48,6 +48,9 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<FurniActionResponse>> ActOnFurni(Guid partyId, [FromBody] FurniActionRequest request)
     {
         var who = await actors.ActAsync(User, partyId, request.ParticipantId);
+        // A thing to do (ADR 0049) gives a Take; typed words are the Player's own to leave.
+        if (!request.Care && await Doing.DoAsync(grains, partyId, who, null, request.PlaceId, request.FurniId, null, request.Text, DateTimeOffset.UtcNow) is { } did)
+            return Ok(new FurniActionResponse(did.Summary));
         var done = await Places(partyId).ActOnFurniAsync(who, request.PlaceId, request.FurniId, request.Care, request.Text);
         return done is null ? Conflict("Not here, or nothing to do with it right now.") : Ok(new FurniActionResponse(done));
     }

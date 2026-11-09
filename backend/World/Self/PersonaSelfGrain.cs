@@ -76,6 +76,15 @@ public sealed partial class PersonaSelfGrain(
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
 
+    public async Task AddOpenerAsync(string story)
+    {
+        var text = WorldStream.Clip(story.Trim(), 200);
+        if (text.Length == 0 || state.State.Openers.Contains(text)) return;
+        state.State.Openers.Insert(0, text);
+        if (state.State.Openers.Count > 4) state.State.Openers.RemoveRange(4, state.State.Openers.Count - 4);
+        await state.WriteStateAsync();
+    }
+
     public async Task TellAsync(string label)
     {
         var told = Hooks.Told(label, state.State.Openers);
@@ -590,6 +599,8 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
 
     /// <summary>An option was acted on: any of today's openers it carried has been told now, on whatever channel.</summary>
     [Alias("TellAsync")] Task TellAsync(string label);
+    /// <summary>Something that just happened to them, to bring up while it's fresh (ADR 0049).</summary>
+    [Alias("AddOpenerAsync")] Task AddOpenerAsync(string story);
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();

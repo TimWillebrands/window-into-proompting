@@ -14,7 +14,53 @@ export type Ground =
     | 'quay'
     | 'bridge'
     | 'grass'
-    | 'house';
+    | 'house'
+    | 'sand'
+    | 'path'
+    | 'cobble'
+    | 'deck'
+    | 'carpet'
+    | 'tile'
+    | 'stage'
+    | 'pond'
+    | 'flowers'
+    | 'hedge'
+    | 'fence'
+    | 'snow';
+
+export const FLOOR_STYLES = [
+    'planks',
+    'checker',
+    'tiles',
+    'plain',
+    'concrete',
+] as const;
+export const WALL_STYLES = [
+    'wainscot',
+    'plain',
+    'panel',
+    'stripes',
+    'brick',
+] as const;
+export const LIGHT_MOODS = [
+    'bright',
+    'warm',
+    'dim',
+    'candle',
+    'neon',
+    'cold',
+] as const;
+export const AMBIENCES = [
+    'dust',
+    'fireflies',
+    'snow',
+    'rain',
+    'leaves',
+    'petals',
+    'embers',
+    'bubbles',
+    'confetti',
+] as const;
 
 /** A canal house's look; anything left out is rolled from its position. */
 export interface HouseStyle {
@@ -62,6 +108,16 @@ export interface SceneDef {
     entrances?: Record<string, [number, number]>;
     floor?: string;
     wall?: string;
+    /** A second colour: carpet, stage, wall panelling and stripes. */
+    accent?: string;
+    floorStyle?: (typeof FLOOR_STYLES)[number];
+    wallStyle?: (typeof WALL_STYLES)[number];
+    /** How the room is lit, whatever the hour. */
+    light?: (typeof LIGHT_MOODS)[number];
+    /** Small things in the air. */
+    ambience?: (typeof AMBIENCES)[number];
+    /** Prefabs only this scene has, by name (backend ThingModel). */
+    models?: Record<string, unknown>;
     /** Where the camera starts. */
     focus?: [number, number];
 }
@@ -83,6 +139,18 @@ export const LEGEND: Record<string, Cell> = {
     i: { ground: 'quay', prop: 'bollard' },
     L: { ground: 'quay', prop: 'street-lamp' },
     B: { ground: 'quay', prop: 'bike' },
+    s: { ground: 'sand' },
+    ',': { ground: 'path' },
+    c: { ground: 'cobble' },
+    d: { ground: 'deck' },
+    m: { ground: 'carpet' },
+    k: { ground: 'tile' },
+    S: { ground: 'stage' },
+    p: { ground: 'pond' },
+    f: { ground: 'flowers' },
+    h: { ground: 'hedge' },
+    x: { ground: 'fence' },
+    n: { ground: 'snow' },
 };
 
 export const WALKABLE: ReadonlySet<Ground> = new Set([
@@ -92,6 +160,15 @@ export const WALKABLE: ReadonlySet<Ground> = new Set([
     'quay',
     'bridge',
     'grass',
+    'sand',
+    'path',
+    'cobble',
+    'deck',
+    'carpet',
+    'tile',
+    'stage',
+    'flowers',
+    'snow',
 ]);
 
 const BACK: ReadonlySet<Ground> = new Set(['wall', 'window', 'door', 'house']);
@@ -109,6 +186,18 @@ export const TOP: Record<Ground, number> = {
     bridge: 0.14,
     grass: 0.02,
     house: 0,
+    sand: 0,
+    path: 0,
+    cobble: 0,
+    deck: 0.06,
+    carpet: 0.015,
+    tile: 0,
+    stage: 0.3,
+    pond: -0.12,
+    flowers: 0.02,
+    hedge: 0.02,
+    fence: 0,
+    snow: 0.04,
 };
 
 export interface Slot {

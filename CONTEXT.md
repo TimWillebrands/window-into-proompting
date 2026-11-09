@@ -360,6 +360,14 @@ _Avoid_: item, object, prop.
 The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it.
 _Avoid_: context, location string, environment.
 
+**Feature**:
+Something to do at a **Place**, pinned to a thing in its scene: "Look through the telescope". Designed with the Place, or what a catalogue thing affords by default. A **Furni** of kind `feature`. See [ADR 0049](docs/adr/0049-places-worth-going-to.md).
+_Avoid_: activity (what a Body shows it's busy with), interaction, quest.
+
+**Take**:
+What one person came away with from a **Feature**: one concrete line. The world writes a find; where the Feature *leaves*, they write it themselves and it stays for the next visitor. It becomes something to tell, and a memory tied to the Place.
+_Avoid_: reward, loot, result.
+
 **Place talk**:
 Speech between Bodies in a Place. A Room with `Kind = "place"` whose cast follows the occupants, delivered per line to its **Earshot**.
 

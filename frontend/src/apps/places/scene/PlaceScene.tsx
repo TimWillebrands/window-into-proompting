@@ -86,7 +86,7 @@ export default function PlaceScene(props: Props) {
     const [zoomBy, setZoomBy] = useState(1);
     const [recentre, setRecentre] = useState(0);
     const hour = useHour(props.hour);
-    const sky = skyAt(hour, !!scene.def.outdoor);
+    const sky = skyAt(hour, !!scene.def.outdoor, scene.def.light);
     useEffect(() => {
         const el = wrap.current;
         if (!el) return;
@@ -115,7 +115,7 @@ export default function PlaceScene(props: Props) {
                     // Fill whatever height the window has left; scroll only below the minimum.
                     flex: `1 0 ${MIN_HEIGHT}px`,
                     minHeight: MIN_HEIGHT,
-                    background: sky.background,
+                    background: sky.backdrop,
                 }}
             >
                 <Canvas
@@ -135,7 +135,6 @@ export default function PlaceScene(props: Props) {
                                 : 'default',
                     }}
                 >
-                    <color attach="background" args={[sky.background]} />
                     <Rig
                         scene={scene}
                         width={width}
@@ -188,6 +187,10 @@ export default function PlaceScene(props: Props) {
         </OverlayContext.Provider>
     );
 }
+
+/** A thing with something to do (ADR 0049). */
+const isDoable = (f: FurniView) =>
+    !!f.useLabel && (f as { gives?: string | null }).gives != null;
 
 const localHour = () => {
     const d = new Date();
@@ -346,11 +349,10 @@ function Lights({ scene, sky }: { scene: Scene; sky: Sky }) {
     }, [scene, span]);
     return (
         <>
-            <ambientLight
-                intensity={sky.ambient}
-                color={scene.def.outdoor ? '#dfe8ff' : '#fff1de'}
+            <ambientLight intensity={sky.ambient} color={sky.ambientColour} />
+            <hemisphereLight
+                args={['#cfe3ff', '#7a6a55', sky.night ? 0.18 : 0.3]}
             />
-            <hemisphereLight args={['#cfe3ff', '#7a6a55', 0.35]} />
             <directionalLight
                 ref={sun}
                 castShadow
@@ -375,6 +377,13 @@ const plainMat = new THREE.MeshStandardMaterial({
     roughness: 0.85,
 });
 const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+const sunlitMat = new THREE.MeshBasicMaterial({
+    color: '#fff3d6',
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+});
 const clearMats = new Map<number, THREE.Material>();
 /** Shared per opacity, so a rebuild (a model landing) doesn't free and recompile its shader. */
 function clearMat(opacity: number): THREE.Material {
@@ -512,6 +521,9 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                         <meshBasicMaterial color={sky.pane} />
                     </mesh>
                 ) : null}
+                {ground.sunlit && !sky.night ? (
+                    <mesh geometry={ground.sunlit} material={sunlitMat} />
+                ) : null}
                 {ground.lights && sky.night ? (
                     <mesh geometry={ground.lights} material={glowMat} />
                 ) : null}
@@ -564,6 +576,13 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
                       ))
                 : null}
             {scene.def.outdoor ? <Water scene={scene} sky={sky} /> : null}
+            {scene.def.ambience ? (
+                <Ambience
+                    kind={scene.def.ambience}
+                    scene={scene}
+                    night={sky.night}
+                />
+            ) : null}
             <PropLights scene={scene} props={lamps} sky={sky} />
             <FurniAnchors props={placed} />
             {onSpotClick || arrange ? (
@@ -679,11 +698,12 @@ function Sign({ w, h, text, bg, fg, matrix }: Built['signs'][number]) {
     );
 }
 
-/** Parts that move: flickering lamps, smoke from a broken machine, a jukebox's lights and notes, ducks. */
-function Tagged({ tag, geometry, colour, at }: Built['tagged'][number]) {
+/** Parts that move: flickering lamps, smoke, a jukebox's lights, ducks, and whatever a model tags (spin, bob, sway, pulse, flame, twinkle). */
+function Tagged({ tag, geometry, colour, at, glow }: Built['tagged'][number]) {
     const ref = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const seed = at.x * 3.1 + at.z * 1.7;
+    const base = useMemo(() => new THREE.Color(colour), [colour]);
     useFrame(({ clock }) => {
         const t = clock.elapsedTime;
         const m = ref.current;
@@ -691,24 +711,60 @@ function Tagged({ tag, geometry, colour, at }: Built['tagged'][number]) {
         if (tag === 'flicker')
             m.visible = Math.sin(t * 23 + seed) + Math.sin(t * 7.3) > -0.3;
         if (tag === 'disco' && mat.current)
-            mat.current.color.setHSL((t * 0.25) % 1, 0.8, 0.6);
+            mat.current.color.setHSL((t * 0.25 + seed * 0.13) % 1, 0.8, 0.6);
         if (tag === 'smoke') {
             const k = (t * 0.5 + seed) % 1;
-            m.position.set(0, k * 0.8, 0);
+            m.position.set(at.x, at.y + k * 0.8, at.z);
             m.scale.setScalar(0.6 + k);
             if (mat.current) mat.current.opacity = 0.7 * (1 - k);
         }
         if (tag === 'paddle')
             m.position.set(
-                Math.sin(t * 0.21 + seed) * 0.7,
-                Math.sin(t * 2 + seed) * 0.015,
-                Math.cos(t * 0.17 + seed) * 0.35,
+                at.x + Math.sin(t * 0.21 + seed) * 0.7,
+                at.y + Math.sin(t * 2 + seed) * 0.015,
+                at.z + Math.cos(t * 0.17 + seed) * 0.35,
             );
+        if (tag === 'spin') m.rotation.y = t * 1.2 + seed;
+        if (tag === 'bob')
+            m.position.y = at.y + Math.sin(t * 1.6 + seed) * 0.04;
+        if (tag === 'sway') {
+            m.rotation.z = Math.sin(t * 0.9 + seed) * 0.06;
+            m.rotation.x = Math.sin(t * 0.7 + seed * 2) * 0.04;
+        }
+        if (tag === 'flame') {
+            const k = Math.sin(t * 11 + seed) * 0.5 + Math.sin(t * 17.3 + seed);
+            m.scale.set(1 - k * 0.06, 1 + k * 0.12, 1 - k * 0.06);
+        }
+        if (tag === 'pulse' && mat.current)
+            mat.current.color
+                .copy(base)
+                .multiplyScalar(0.65 + 0.35 * Math.sin(t * 2 + seed));
+        if (tag === 'twinkle' && mat.current)
+            mat.current.color
+                .copy(base)
+                .multiplyScalar(
+                    Math.sin(t * 3.1 + seed * 5) * Math.sin(t * 1.3 + seed) >
+                        0.2
+                        ? 1
+                        : 0.35,
+                );
     });
     if (tag === 'notes') return null;
-    const glows = tag === 'flicker' || tag === 'light' || tag === 'disco';
+    const glows =
+        glow ||
+        tag === 'flicker' ||
+        tag === 'light' ||
+        tag === 'disco' ||
+        tag === 'flame' ||
+        tag === 'pulse' ||
+        tag === 'twinkle';
     return (
-        <mesh ref={ref} geometry={geometry} castShadow={tag === 'paddle'}>
+        <mesh
+            ref={ref}
+            geometry={geometry}
+            position={at}
+            castShadow={!glows && tag !== 'smoke'}
+        >
             {glows || tag === 'smoke' ? (
                 <meshBasicMaterial
                     ref={mat}
@@ -734,7 +790,7 @@ function PropLights({
 }) {
     const indoor = !scene.def.outdoor;
     if (!indoor && !sky.night) return null;
-    const lit = props.filter((p) => p.prefab.light).slice(0, 8);
+    const lit = props.filter((p) => p.prefab.light).slice(0, 12);
     return (
         <>
             {lit.map((p) => {
@@ -813,6 +869,157 @@ function Water({ scene, sky }: { scene: Scene; sky: Sky }) {
                 uniforms={uniforms}
             />
         </mesh>
+    );
+}
+
+const AIR: Record<
+    string,
+    {
+        n: number;
+        size: number;
+        colours: string[];
+        /** Units per second, down is negative. */
+        fall: number;
+        drift: number;
+        top: number;
+        glow?: boolean;
+    }
+> = {
+    dust: {
+        n: 0.35,
+        size: 2,
+        colours: ['#fff6dc'],
+        fall: -0.03,
+        drift: 0.12,
+        top: 2.2,
+    },
+    fireflies: {
+        n: 0.25,
+        size: 3,
+        colours: ['#e9ff70', '#b8ff5c'],
+        fall: 0,
+        drift: 0.35,
+        top: 1.6,
+        glow: true,
+    },
+    snow: {
+        n: 1.2,
+        size: 3,
+        colours: ['#ffffff'],
+        fall: -0.55,
+        drift: 0.2,
+        top: 5,
+    },
+    rain: { n: 1.6, size: 2, colours: ['#9fc4e8'], fall: -5, drift: 0, top: 5 },
+    leaves: {
+        n: 0.3,
+        size: 4,
+        colours: ['#d9822b', '#b5562f', '#e0b23c'],
+        fall: -0.35,
+        drift: 0.5,
+        top: 4,
+    },
+    petals: {
+        n: 0.35,
+        size: 3,
+        colours: ['#ffc2d9', '#ff9ec4', '#ffffff'],
+        fall: -0.25,
+        drift: 0.45,
+        top: 4,
+    },
+    embers: {
+        n: 0.3,
+        size: 2,
+        colours: ['#ff9a3c', '#ffd27a'],
+        fall: 0.4,
+        drift: 0.2,
+        top: 2.6,
+        glow: true,
+    },
+    bubbles: {
+        n: 0.4,
+        size: 3,
+        colours: ['#d6f1ff'],
+        fall: 0.3,
+        drift: 0.15,
+        top: 2.8,
+    },
+    confetti: {
+        n: 0.9,
+        size: 3,
+        colours: ['#ff5d8f', '#ffd23f', '#3bceac', '#6a8dff', '#ffffff'],
+        fall: -0.7,
+        drift: 0.4,
+        top: 4,
+    },
+};
+
+/** Small things in the air (a scene's `ambience`): one draw call, moved on the CPU. */
+function Ambience({
+    kind,
+    scene,
+    night,
+}: {
+    kind: string;
+    scene: Scene;
+    night: boolean;
+}) {
+    const spec = AIR[kind];
+    const made = useMemo(() => {
+        if (!spec) return null;
+        const n = Math.min(400, Math.ceil(scene.w * scene.h * spec.n));
+        const pos = new Float32Array(n * 3);
+        const col = new Float32Array(n * 3);
+        const seeds = new Float32Array(n);
+        const c = new THREE.Color();
+        for (let i = 0; i < n; i++) {
+            pos.set(
+                [
+                    Math.random() * scene.w,
+                    Math.random() * spec.top,
+                    Math.random() * scene.h,
+                ],
+                i * 3,
+            );
+            c.set(spec.colours[i % spec.colours.length]);
+            col.set([c.r, c.g, c.b], i * 3);
+            seeds[i] = Math.random() * 100;
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        return { g, seeds, n };
+    }, [spec, scene.w, scene.h]);
+    useFrame(({ clock }, dt) => {
+        if (!made || !spec) return;
+        const t = clock.elapsedTime;
+        const a = made.g.getAttribute('position') as THREE.BufferAttribute;
+        const p = a.array as Float32Array;
+        const step = Math.min(dt, 0.1);
+        for (let i = 0; i < made.n; i++) {
+            const s = made.seeds[i];
+            p[i * 3] += Math.sin(t * 0.6 + s) * spec.drift * step;
+            p[i * 3 + 2] += Math.cos(t * 0.5 + s * 1.3) * spec.drift * step;
+            p[i * 3 + 1] +=
+                spec.fall * step +
+                (spec.fall === 0 ? Math.sin(t + s) * 0.1 * step : 0);
+            if (p[i * 3 + 1] < 0.05) p[i * 3 + 1] = spec.top;
+            if (p[i * 3 + 1] > spec.top) p[i * 3 + 1] = 0.05;
+        }
+        a.needsUpdate = true;
+    });
+    if (!made || !spec) return null;
+    return (
+        <points geometry={made.g} frustumCulled={false}>
+            <pointsMaterial
+                size={spec.size}
+                sizeAttenuation={false}
+                vertexColors
+                transparent
+                opacity={spec.glow ? (night ? 1 : 0.5) : 0.85}
+                depthWrite={false}
+            />
+        </points>
     );
 }
 
@@ -1334,7 +1541,11 @@ function Labels({
                 );
             })}
             {furni
-                .filter((f) => f.placeId === place.id && (f.notable || f.on))
+                .filter(
+                    (f) =>
+                        f.placeId === place.id &&
+                        (f.notable || f.on || isDoable(f)),
+                )
                 .map((f) => (
                     <div
                         key={f.furniId}
@@ -1347,6 +1558,13 @@ function Labels({
                         {f.notable ? (
                             <span className="pl-mark" title={f.notable}>
                                 !
+                            </span>
+                        ) : isDoable(f) ? (
+                            <span
+                                className="pl-spark"
+                                title={f.useLabel ?? undefined}
+                            >
+                                ✦
                             </span>
                         ) : null}
                     </div>

@@ -655,6 +655,29 @@ public sealed partial class PlacesGrain(
         return $"{done} {AtName(place, Guid.Empty)}";
     }
 
+    public async Task<string?> DoFeatureAsync(Guid participantId, Guid placeId, string furniId, string take)
+    {
+        await SettleAsync();
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking || body.PlaceId != placeId) return null;
+        var place = Find(placeId);
+        if (place?.Furni.FirstOrDefault(f => f.Id == furniId) is not { Do: { } what } furni) return null;
+        var now = Now();
+        var text = WorldStream.Clip(take.Trim(), 220);
+        if (text.Length > 0)
+        {
+            furni.Takes.Add(new Take { By = participantId, ByName = body.Name, Text = text, At = now });
+            if (furni.Takes.Count > Features.KeptTakes) furni.Takes.RemoveRange(0, furni.Takes.Count - Features.KeptTakes);
+        }
+        furni.TendedAt = now;
+        StepTo(body, place, furni);
+        body.Activity = $"at {furni.Name}";
+        body.ActivityUntil = now + (long)BusyWithFurni.TotalMilliseconds;
+        await SaveAsync();
+        await PublishAsync(body);
+        await PublishPlaceAsync(place);
+        return $"{Features.Third(what)} {AtName(place, Guid.Empty)}{(text.Length > 0 ? $": {text}" : string.Empty)}";
+    }
+
     /// <summary>Doing something with it means being next to it.</summary>
     private void StepTo(Body body, Place place, Furni furni)
     {
@@ -692,6 +715,7 @@ public sealed partial class PlacesGrain(
         Notable = FurniRules.Notable(f, now),
         CareLabel = FurniRules.CareFor(f, now)?.Label,
         UseLabel = FurniRules.UseOf(f, now)?.Label,
+        Gives = f.Gives, Leaves = f.Leaves, Takes = f.Takes,
         On = FurniRules.IsOn(f, now),
         Style = f.Style,
         Model = f.Model, TileX = f.TileX, TileZ = f.TileZ, Rot = f.Rot, Prefab = f.Prefab,
@@ -705,6 +729,22 @@ public sealed partial class PlacesGrain(
     private void EnsureFurni(Place place)
     {
         if (place.Furni.Count == 0) place.Furni = FurniRules.SeedFor(place, Now());
+        // Things to do (ADR 0049) reach Places that were there before them: the seeded ones by name, designed ones from what's in their scene.
+        foreach (var f in FurniRules.SeededFeatures(place, Now()))
+            if (place.Furni.All(x => x.Id != f.Id)) place.Furni.Add(f);
+        if (place.CustomScene is null || place.Spots.Count == 0 || place.Furni.Any(f => f.Kind == FurniKinds.Feature)) return;
+        try
+        {
+            if (System.Text.Json.Nodes.JsonNode.Parse(place.CustomScene) is not System.Text.Json.Nodes.JsonObject scene) return;
+            var features = PlaceDesign.Featurize(scene, place.Spots);
+            if (features.Count == 0) return;
+            place.CustomScene = PlaceDesign.Store(scene);
+            Features.Apply(place, features, Now());
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "No things to do found in {Place}'s scene", place.Name);
+        }
     }
 
     /// <summary>Spots stored before <see cref="Spot.At"/> existed get it from the seed templates.</summary>
@@ -936,6 +976,11 @@ public sealed partial class PlacesGrain(
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
+        var todo = place?.Furni.Where(f => f.Do is not null).Take(4)
+            .Select(f => Features.Lower(f.Do!) + (f.SpotId == body.SpotId ? string.Empty : $" ({place.Spots.FirstOrDefault(s => s.Id == f.SpotId)?.Name ?? "over there"})")).ToList();
+        if (todo is { Count: > 0 }) sb.Append(" To do here: ").Append(string.Join("; ", todo)).Append('.');
+        foreach (var (f, mark) in (place?.Furni ?? new()).SelectMany(f => Features.Marks(f, body.ParticipantId, Now()).Take(1).Select(m => (f, m))).Take(2))
+            sb.Append($" Left at {f.Name} by {mark.ByName.Split(' ')[0]}: \"{WorldStream.Clip(mark.Text, 120)}\".");
         if (place is { Lately.Length: > 0 } && Now() - place.LatelyAt < HappeningRules.Fresh.TotalMilliseconds) sb.Append(" Just now here: ").Append(place.Lately);
         // Someone else's Home shows who they are, and a Studio shows the work.
         if (place is { Kind: PlaceKinds.Home } && !place.LivesIn(body.ParticipantId) || place?.Archetype == Art.Studio)
@@ -1023,6 +1068,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
 
     /// <summary>Put something up in your own Home, from your own words. Null when not home or over today's allowance.</summary>
+    /// <summary>Someone does a Feature's thing and this is what they came away with; the line for the feed, or null when they can't.</summary>
+    [Alias("DoFeatureAsync")] Task<string?> DoFeatureAsync(Guid participantId, Guid placeId, string furniId, string take);
     [Alias("DecorateAsync")] Task<string?> DecorateAsync(Guid participantId, string description);
 
     /// <summary>A human's tab went idle (their Body dozes off) or came back.</summary>
@@ -1073,7 +1120,7 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>A new thing in a Place, with a generated model arriving shortly after.</summary>
     [Alias("AddThingAsync")] Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description);
-    [Alias("AddMadeThingAsync")] Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model);
+    [Alias("AddMadeThingAsync")] Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model, Offer? offer = null);
 
     [Alias("RemodelAsync")] Task RemodelAsync(Guid placeId, string furniId);
 

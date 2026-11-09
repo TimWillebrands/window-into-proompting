@@ -12,6 +12,8 @@ The CDU (ADR 0039) is a persistent coding agent whose product is this repo: Cyth
 
 People in Places are Figures: JSON docs an LLM writes, compiled to skinned meshes in `frontend/src/apps/places/figure/` (ADR 0028). Keep `figure/doc.ts`, `backend/World/Places/FigureDesign.cs` and its prompt in step.
 
+Things in Places are models as data (ADR 0049): `backend/World/Places/library.json` and its frontend copy are written by `python3 tools/places/library.py`; edit that, not the JSON. A Feature is something to do there, a Take what someone comes away with.
+
 Domain terminology and architecture overview: `CONTEXT.md`. Design decisions: `docs/adr/`.
 
 ## Running the app

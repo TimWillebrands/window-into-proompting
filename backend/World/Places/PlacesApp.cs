@@ -5,7 +5,7 @@ using PartyTown.World.Apps;
 namespace PartyTown.World.Places;
 
 /// <summary>Places: the physical layer. Where your Body is, who's around, walking, talking out loud.</summary>
-public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
+public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) : IWorldApp
 {
     private static readonly TimeSpan Restless = TimeSpan.FromMinutes(45);
 
@@ -97,7 +97,17 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                     .OrderBy(x => FurniRules.Condition(x.Furni, nowMs))
                     .FirstOrDefault() is { Care: { } care } worst)
                 affordances.Add(new Affordance(Id, care.Label, care.Priority, here.Id, $"care:{worst.Furni.Id}"));
-            if (here?.Furni.Select(f => (Furni: f, Use: FurniRules.UseOf(f, nowMs)))
+            // Things to do here (ADR 0049): the one at your elbow first, one across the room; what someone left is the hook.
+            var open = (here?.Furni ?? new()).Where(f => Features.Fresh(f, ctx.Self.Id, nowMs)).OrderBy(_ => Random.Shared.Next()).ToList();
+            foreach (var (f, close) in open.Where(f => f.SpotId == self.SpotId).Take(1).Select(f => (f, true))
+                         .Concat(open.Where(f => f.SpotId != self.SpotId).Take(1).Select(f => (f, false))))
+            {
+                var mark = Features.Marks(f, ctx.Self.Id, nowMs).FirstOrDefault();
+                var label = f.Do! + (close ? string.Empty : $", over at {SpotName(here, f.SpotId)}")
+                    + (mark is null ? string.Empty : $" ({mark.ByName.Split(' ')[0]} left: \"{WorldStream.Clip(mark.Text, 70)}\")");
+                affordances.Add(new Affordance(Id, label, close ? 1 : 0, here!.Id, $"do:{f.Id}"));
+            }
+            if (here?.Furni.Where(f => f.Do is null).Select(f => (Furni: f, Use: FurniRules.UseOf(f, nowMs)))
                     .Where(x => x.Use is not null)
                     .OrderBy(_ => Random.Shared.Next())
                     .FirstOrDefault() is { Use: { } use } pick)
@@ -181,7 +191,12 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
             }
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
-            var label = mine ? "Head home" : there.Count == 0 ? $"Go to {name}" : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
+            // An empty place still has something going for it: what there is to do there.
+            var todo = there.Count > 0 || mine ? null
+                : place.Furni.Where(f => Features.Fresh(f, ctx.Self.Id, ctx.Now.ToUnixTimeMilliseconds())).OrderBy(_ => Random.Shared.Next()).FirstOrDefault();
+            var label = mine ? "Head home"
+                : there.Count == 0 ? $"Go to {name}{(todo is null ? string.Empty : $" (to {Features.Lower(todo.Do!)})")}"
+                : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
             if (keyed) label += " (you have a key)";
             // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
             var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
@@ -308,6 +323,23 @@ public sealed class PlacesApp(IGrainFactory grains) : IWorldApp
                 if (body is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
                 return new ActOutcome("walk", place?.LivesIn(ctx.Self.Id) == true ? "heads home" : $"heads to {place?.Name ?? "somewhere"}", null);
+            }
+            case { } verb when verb.StartsWith("do:", StringComparison.Ordinal):
+            {
+                var done = await Doing.DoAsync(grains, ctx.PartyId, ctx.Self.Id, WorldLlm.Identity(ctx.Self), target, verb[3..], thought ?? intent, null, ctx.Now);
+                if (done is null) return null;
+                if (done.Take.Length > 0)
+                {
+                    // What they come away with: something to tell, a lift, and a memory that's tied to the Place.
+                    var self = grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id));
+                    await self.AddOpenerAsync($"{done.Take} ({done.Thing}, {done.Place})");
+                    await self.ShiftValenceAsync(0.6, done.Place);
+                    if (memory is not null)
+                        _ = memory.CaptureAsync(new Services.Memory.Moment(ctx.PartyId, Services.Memory.MomentSources.Places, Guid.NewGuid(),
+                            new List<Services.Memory.MomentLine> { new(ctx.Self.Id, $"[{ctx.Self.Name} {done.Summary}]", ctx.Now.ToUnixTimeMilliseconds()) }, 0,
+                            new List<PartyTown.Model.ParticipantView> { ctx.ViewOf(ctx.Self.Id) }, target), CancellationToken.None);
+                }
+                return new ActOutcome("do", done.Summary, null);
             }
             case { } verb when verb.StartsWith("care:", StringComparison.Ordinal) || verb.StartsWith("use:", StringComparison.Ordinal):
             {

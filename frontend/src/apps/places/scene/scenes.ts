@@ -2,7 +2,7 @@ import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
 import type { Pt } from '../iso/iso';
 import { KIT_SCENES, variedKit } from './kits';
-import { type Part, type Prefab, pick, rng, turned } from './prefab';
+import { type Model, type Prefab, pick, prefabOf, rng, turned } from './prefab';
 import { FURNI_PREFAB, PREFABS, prefabForSpot } from './prefabs';
 import {
     key,
@@ -35,7 +35,6 @@ const cafe: SceneDef = {
         { p: 'counter', at: [6, 1] },
         { p: 'stool', at: [6, 2], rot: 2, spot: 'counter' },
         { p: 'stool', at: [8, 2], rot: 2, spot: 'counter' },
-        { p: 'chalkboard', at: [4, 1] },
         { p: 'table', at: [2, 4] },
         { p: 'chair', at: [1, 4], rot: 1, spot: 'window-table' },
         { p: 'chair', at: [3, 4], rot: 3, spot: 'window-table' },
@@ -58,6 +57,7 @@ const cafe: SceneDef = {
         cups: { at: [6, 1], y: 1.04 },
         jukebox: { at: [9, 1] },
         plant: { at: [2, 4], y: 0.76 },
+        chalkboard: { p: 'chalkboard', at: [4, 1] },
     },
 };
 
@@ -79,7 +79,6 @@ const lobby: SceneDef = {
     `,
     props: [
         { p: 'reception', at: [8, 1] },
-        { p: 'noticeboard', at: [3, 1] },
         { p: 'painting', at: [12, 1] },
         { p: 'window-bench', at: [1, 2], rot: 1, spot: 'window' },
         { p: 'rug', at: [3, 5], tint: { rug: '#c9a227' } },
@@ -109,6 +108,7 @@ const lobby: SceneDef = {
     furni: {
         plant: { p: 'big-plant', at: [1, 4] },
         lamp: { p: 'desk-lamp', at: [10, 1], y: 1.06 },
+        noticeboard: { p: 'noticeboard', at: [3, 1] },
     },
 };
 
@@ -206,7 +206,6 @@ const centre: SceneDef = {
         { p: 'houseboat', at: [4, 15], rot: 1 },
         { p: 'steps', at: [6, 9], rot: 3, spot: 'steps' },
         { p: 'steps', at: [6, 10], rot: 3, spot: 'steps' },
-        { p: 'herring-cart', at: [10, 11] },
         { p: 'bike-rack', at: [10, 9] },
         { p: 'bike-rack', at: [17, 10], rot: 1 },
         { p: 'terrace-table', at: [18, 1] },
@@ -214,7 +213,6 @@ const centre: SceneDef = {
         { p: 'chair', at: [20, 1], rot: 3 },
         { p: 'chair', at: [22, 1], rot: 3 },
         { p: 'bench', at: [22, 12] },
-        { p: 'duck', at: [10, 5] },
         { p: 'duck', at: [11, 4] },
         { p: 'duck', at: [5, 17] },
         { p: 'elm', at: [10, 14] },
@@ -236,6 +234,8 @@ const centre: SceneDef = {
         lamp: { p: 'street-lamp', at: [16, 4] },
         planters: { p: 'planter', at: [22, 7], rot: 2 },
         coffee: { p: 'coffee-cart', at: [12, 11] },
+        herring: { p: 'herring-cart', at: [10, 11] },
+        ducks: { p: 'duck', at: [10, 5] },
     },
     entrances: { cafe: [19, 1], lobby: [8, 1], '*': [16, 19] },
     focus: [14, 8],
@@ -388,6 +388,12 @@ function parse(def: SceneDef): Scene {
             { ...f, p: f.p ?? FURNI_PREFAB[id] ?? id },
         ]),
     );
+    // A scene's own models sit beside the library, under their own names.
+    const own: Record<string, Prefab> = {};
+    for (const [name, m] of Object.entries(def.models ?? {})) {
+        const prefab = prefabOf(m as Model);
+        if (prefab) own[name] = prefab;
+    }
     const s = parseScene(
         {
             ...def,
@@ -396,7 +402,7 @@ function parse(def: SceneDef): Scene {
                 ...Object.entries(furniProps).map(([, f]) => f),
             ],
         },
-        PREFABS,
+        def.models ? { ...PREFABS, ...own } : PREFABS,
     );
     // Tag the furni placements so state can find them.
     const ids = Object.keys(furniProps);
@@ -409,19 +415,13 @@ function parse(def: SceneDef): Scene {
 
 const models = new Map<string, Prefab>();
 
-/** A generated model (backend ThingModel parts) as a prefab. */
+/** A generated model (backend ThingModel) as a prefab. */
 export function modelPrefab(json: string): Prefab | null {
     const hit = models.get(json);
     if (hit) return hit;
     try {
-        const m = JSON.parse(json) as { wall?: boolean; parts?: Part[] };
-        if (!m.parts?.length) return null;
-        const prefab: Prefab = {
-            wall: !!m.wall,
-            solid: !m.wall,
-            parts: m.parts,
-        };
-        models.set(json, prefab);
+        const prefab = prefabOf(JSON.parse(json) as Model);
+        if (prefab) models.set(json, prefab);
         return prefab;
     } catch {
         return null;
@@ -449,7 +449,7 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
             (f.kind === 'decor' && f.style
                 ? (FURNI_PREFAB[f.style] ?? 'thing')
                 : (FURNI_PREFAB[f.kind ?? ''] ?? 'thing'));
-        const prefab = PREFABS[name] ?? PREFABS.thing;
+        const prefab = PREFABS[name] ?? from?.prefab ?? PREFABS.thing;
         const rot = Number(f.rot ?? 0);
         placed.push({
             ...(from ?? {}),
@@ -479,7 +479,7 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
                   ...p,
                   p: 'model',
                   prefab,
-                  size: turned([1, 1], p.rot),
+                  size: turned(prefab.size ?? [1, 1], p.rot),
                   y: prefab.wall ? 0 : p.y,
               }
             : p;

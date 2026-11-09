@@ -5,7 +5,7 @@ namespace PartyTown.World.Places;
 
 /// <summary>A design that checked out: the model's JSON, the scene as stored, and its spots.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.PlaceDraft")]
-public sealed record PlaceDraft([property: Id(0)] string Json, [property: Id(1)] string Scene, [property: Id(2)] List<Spot> Spots)
+public sealed record PlaceDraft([property: Id(0)] string Json, [property: Id(1)] string Scene, [property: Id(2)] List<Spot> Spots, [property: Id(3)] List<Feature> Features)
 {
     public JsonObject Doc => JsonNode.Parse(Json) as JsonObject ?? new JsonObject();
 }

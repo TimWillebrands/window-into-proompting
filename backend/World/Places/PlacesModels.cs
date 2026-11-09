@@ -288,6 +288,11 @@ public sealed class FurniView
     [Id(14)] public int Rot { get; set; }
     /// <summary>Catalogue prefab name; null = drawn from its kind or <see cref="Model"/>.</summary>
     [Id(15)] public string? Prefab { get; set; }
+    /// <summary>A Feature's brief for what doing it gives.</summary>
+    [Id(16)] public string? Gives { get; set; }
+    [Id(17)] public bool Leaves { get; set; }
+    /// <summary>What people came away with or left, latest last.</summary>
+    [Id(18)] public List<Take> Takes { get; set; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.PlacesState")]

@@ -1,3 +1,4 @@
+using System.Text;
 using System.ComponentModel;
 using System.Security.Claims;
 using System.Text.Json;
@@ -111,7 +112,7 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
             case "place":
                 var place = placeId is { } id ? snapshot.Places.FirstOrDefault(p => p.Id == id) : snapshot.Places.HomeOf(who);
                 var rules = place is { Kind: PlaceKinds.Home } ? PlaceDesign.HomeRules(Math.Max(1, place.Living().Count())) : "It's a public place.";
-                return $"{PlaceDesign.Prompt(outdoor)}\n{rules}\nPass the whole JSON as design_place's design. Errors come back as a list; fix them and send it again.";
+                return $"{PlaceDesign.Prompt(outdoor)}\n{rules}\nPass the whole JSON as design_place's design (or create_place's). check_place tries it without changing anything and shows the map with everything on it.";
             case "look":
                 return LookGuide(snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Appearance ?? AppearanceRules.Default(who));
             case "thing":
@@ -133,8 +134,9 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         var (_, place) = await ActInAsync(user, participantId, placeId);
         if (place.Kind is not (PlaceKinds.Home or PlaceKinds.Public)) throw new McpException("Only Homes and public Places have designs.");
         Func<IReadOnlyList<Spot>, string?>? rule = place.Kind == PlaceKinds.Home ? PlaceDesign.MissingHomeSpots : null;
-        var (draft, errors) = PlaceDesign.Validate(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, rule);
-        if (draft is null) throw new McpException($"The design doesn't work yet:\n- {string.Join("\n- ", errors.Take(12))}");
+        var check = PlaceDesign.Inspect(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, rule);
+        var draft = check.Draft;
+        if (draft is null) throw new McpException(Wrong(check));
         _ = await Places.RedesignPlaceAsync(place.Id, draft, name) ?? throw new McpException("Couldn't apply it.");
         var snapshot = await Places.GetSnapshotAsync();
         return PlaceView.Of(snapshot.Places.Single(p => p.Id == place.Id), snapshot);
@@ -147,11 +149,41 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         [Description("Outdoors: no walls, open sky.")] bool outdoor = false) => Guard(async () =>
     {
         RequireAdmin(user);
-        var (draft, errors) = PlaceDesign.Validate(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, null);
-        if (draft is null) throw new McpException($"The design doesn't work yet:\n- {string.Join("\n- ", errors.Take(12))}");
+        var check = PlaceDesign.Inspect(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, null);
+        if (check.Draft is not { } draft) throw new McpException(Wrong(check));
         var made = await Places.CreatePlaceAsync(null, draft.Doc["description"]?.ToString() ?? "a new place", draft)
             ?? throw new McpException($"Couldn't open it; there may be {PlacesGrain.MaxMadePlaces} made Places already.");
         return PlaceView.Of(made, await Places.GetSnapshotAsync());
+    });
+
+    [McpServerTool(Name = "check_place", ReadOnly = true), Description("Try a place design without changing anything: what's wrong, what was mended, the things to do it would have, and the map with props lettered and spots numbered.")]
+    public Task<string> CheckPlaceAsync(
+        [Description("The design JSON, as for design_place or create_place.")] JsonElement design,
+        [Description("Outdoors: no walls, open sky.")] bool outdoor = false,
+        [Description("It's for a Home: needs the sofa, desk, kitchen and bed spots.")] bool home = false) => Guard(() =>
+    {
+        var check = PlaceDesign.Inspect(JsonNode.Parse(design.GetRawText()) as JsonObject, outdoor, home ? PlaceDesign.MissingHomeSpots : null);
+        if (check.Draft is not { } draft) return Task.FromResult(Wrong(check));
+        var sb = new StringBuilder("It checks out.\n");
+        if (check.Notes.Count > 0) sb.AppendLine($"Mended:\n- {string.Join("\n- ", check.Notes)}");
+        sb.AppendLine(draft.Features.Count == 0
+            ? "Nothing to do here yet: place something marked ★ or give a prop a \"do\" and \"gives\"."
+            : $"To do here:\n- {string.Join("\n- ", draft.Features.Select(f => $"{f.Do} ({f.Name}, {f.SpotId}){(f.Leaves ? ", stays for the next visitor" : string.Empty)}: {f.Gives}"))}");
+        return Task.FromResult(sb.Append(check.Preview).ToString());
+    });
+
+    [McpServerTool(Name = "do_thing"), Description("Do what a thing where they are offers (thing ids and what they offer from get_place). Gives back what they came away with; for things that keep what's left, text is their own words to leave.")]
+    public Task<string> DoThingAsync(
+        ClaimsPrincipal user,
+        [Description("Thing id from get_place.")] string furniId,
+        [Description("Their own words to leave (a wish, a line); default: the world writes what they find.")] string? text = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var body = (await Places.GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who) ?? throw new McpException("They have no Body yet.");
+        var done = await Doing.DoAsync(grains, World, who, null, body.PlaceId, furniId, null, text, DateTimeOffset.UtcNow)
+            ?? throw new McpException("Nothing to do with that here (not in this Place, still walking, or no such thing).");
+        return done.Summary;
     });
 
     [McpServerTool(Name = "dress"), Description("Put a look you designed on them (see get_design_guide look): palette picks, a summary, and the design slots that change.")]
@@ -174,12 +206,16 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         [Description("What it is, e.g. 'a brass orrery'; under 200 characters.")] string description,
         [Description("The model JSON: {\"wall\": false, \"parts\": [...]}.")] JsonElement model,
         [Description(Whom)] Guid? participantId = null,
-        [Description(Where)] Guid? placeId = null) => Guard(async () =>
+        [Description(Where)] Guid? placeId = null,
+        [Description("Something to do with it, starting with a verb: 'Wind up the music box'. Default: it's just there.")] string? doWhat = null,
+        [Description("With doWhat: what someone comes away with, a concrete find: 'the tune it plays and where it sticks'.")] string? gives = null,
+        [Description("With doWhat: what they do stays for the next visitor to find.")] bool leaves = false) => Guard(async () =>
     {
         if (string.IsNullOrWhiteSpace(description) || description.Length > 200) throw new McpException("Describe it in under 200 characters.");
         var made = ThingModel.Clean(JsonNode.Parse(model.GetRawText())) ?? throw new McpException("No parts survived cleaning; check the model against get_design_guide thing.");
         var (who, place) = await ActInAsync(user, participantId, placeId);
-        return await Places.AddMadeThingAsync(place.Id, who == Guid.Empty ? null : who, description, made) ?? throw new McpException("Couldn't add that.");
+        var offer = string.IsNullOrWhiteSpace(doWhat) ? null : Library.OfferOf(new JsonObject { ["do"] = doWhat, ["gives"] = gives, ["leaves"] = leaves });
+        return await Places.AddMadeThingAsync(place.Id, who == Guid.Empty ? null : who, description, made, offer) ?? throw new McpException("Couldn't add that.");
     });
 
     [McpServerTool(Name = "arrange_thing"), Description("Move or turn a thing in their Home (ids and tiles from get_home). No tile hands it back to the scene.")]
@@ -262,6 +298,11 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return (Guid.Empty, place);
     }
 
+    private static string Wrong(DesignCheck check)
+        => $"The design doesn't work yet:\n- {string.Join("\n- ", check.Errors.Take(12))}"
+            + (check.Notes.Count > 0 ? $"\nMended already:\n- {string.Join("\n- ", check.Notes.Take(8))}" : string.Empty)
+            + (check.Preview.Length > 0 ? $"\nAs it stands (props lettered, spots numbered):\n{check.Preview}" : string.Empty);
+
     private static void RequireAdmin(ClaimsPrincipal user)
     {
         if (!Actors.IsAdmin(user)) throw new McpException("Only admins may act on Places other than a Home.");
@@ -289,7 +330,7 @@ public sealed record ParticipantRow(Guid Id, string Name, bool Human);
 
 public sealed record WalletRead(int Balance, string Means, int DailyPay, bool PaidToday, List<string> Owns, List<LedgerEntry> RecentLedger);
 
-public sealed record HomeThing(string Id, string Kind, string Name, string SpotId, int? TileX, int? TileZ, int Rot);
+public sealed record HomeThing(string Id, string Kind, string Name, string SpotId, int? TileX, int? TileZ, int Rot, string? Do = null, List<string>? Left = null);
 
 public sealed record PlaceRow(Guid Id, string Name, string Kind, string? Purpose, List<string> People);
 
@@ -300,7 +341,9 @@ public sealed record PlaceView(Guid Id, string Name, string Kind, string Descrip
         home.Living().Select(id => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == id)?.Name ?? "?").ToList(),
         home.Staff.Select(id => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == id)?.Name ?? "?").ToList(),
         home.Spots,
-        snapshot.Furni.Where(f => f.PlaceId == home.Id).Select(f => new HomeThing(f.FurniId, f.Kind, f.Name, f.SpotId, f.TileX, f.TileZ, f.Rot)).ToList(),
+        snapshot.Furni.Where(f => f.PlaceId == home.Id).Select(f => new HomeThing(f.FurniId, f.Kind, f.Name, f.SpotId, f.TileX, f.TileZ, f.Rot,
+            f.Gives is not null ? f.UseLabel : null,
+            f.Leaves && f.Takes.Count > 0 ? f.Takes.TakeLast(4).Select(t => $"{t.ByName}: {t.Text}").ToList() : null)).ToList(),
         home.WallColour, home.FloorColour,
         PlaceDesign.MapRows(home.CustomScene));
 }

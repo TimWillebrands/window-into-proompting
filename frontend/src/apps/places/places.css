@@ -991,3 +991,28 @@
 .pl-grow .pl-occ-bar {
     grid-column: 1 / -1;
 }
+
+.pl-thing--do {
+    max-width: 340px;
+}
+.pl-thing-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pl-spark {
+    color: #ffe08a;
+    font-size: 13px;
+    text-shadow:
+        0 0 4px rgba(255, 200, 80, 0.9),
+        0 1px 0 rgba(0, 0, 0, 0.6);
+    animation: pl-spark 2.4s ease-in-out infinite;
+    pointer-events: auto;
+    cursor: help;
+}
+@keyframes pl-spark {
+    50% {
+        opacity: 0.45;
+        transform: translateY(-2px);
+    }
+}

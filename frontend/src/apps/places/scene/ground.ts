@@ -20,7 +20,18 @@ const GROUND: Partial<Record<Ground, { top: string; side: string }>> = {
     bridge: { top: '#9d968d', side: '#86563f' },
     grass: { top: '#6fae4f', side: '#6b4f36' },
     house: { top: '#5f5a55', side: '#6b4a3a' },
+    sand: { top: '#e3cf9a', side: '#b89b62' },
+    path: { top: '#b89c74', side: '#6b4f36' },
+    cobble: { top: '#8f8a84', side: '#5c5753' },
+    deck: { top: '#a57a4c', side: '#6b4a2c' },
+    pond: { top: '#3f8fa8', side: '#2c5f70' },
+    flowers: { top: '#6fae4f', side: '#6b4f36' },
+    hedge: { top: '#6fae4f', side: '#6b4f36' },
+    fence: { top: '#6fae4f', side: '#6b4f36' },
+    snow: { top: '#eef3f7', side: '#b9c4cf' },
 };
+
+const PETALS = ['#f2c14e', '#e86a92', '#f4f1de', '#c77dff', '#ff8552'];
 
 export interface GroundMeshes {
     solid: THREE.BufferGeometry | null;
@@ -28,6 +39,8 @@ export interface GroundMeshes {
     glass: THREE.BufferGeometry | null;
     /** Arch lights under bridges, on at night. */
     lights: THREE.BufferGeometry | null;
+    /** Daylight falling in through the windows, on the floor. */
+    sunlit: THREE.BufferGeometry | null;
     houses: Placement[];
 }
 
@@ -36,11 +49,15 @@ export function buildGround(s: Scene): GroundMeshes {
     const solid: THREE.BufferGeometry[] = [];
     const glass: THREE.BufferGeometry[] = [];
     const lights: THREE.BufferGeometry[] = [];
+    const sunlit: THREE.BufferGeometry[] = [];
     const houses: Placement[] = [];
     const outdoor = !!s.def.outdoor;
     const floor = s.def.floor ?? '#c8a173';
     const wall = s.def.wall ?? '#e9dcc4';
     const cap = mix(wall, '#000000', 0.35);
+    const accent = s.def.accent ?? mix(floor, '#7a2f3d', 0.7);
+    const floorStyle = s.def.floorStyle ?? 'planks';
+    const wallStyle = s.def.wallStyle ?? 'wainscot';
     const g = (x: number, z: number): Ground =>
         s.cells[z]?.[x]?.ground ?? 'void';
     const bottom = outdoor ? -1.0 : -0.3;
@@ -53,24 +70,265 @@ export function buildGround(s: Scene): GroundMeshes {
                 mix(c, r() < 0.5 ? '#000000' : '#ffffff', r() * 0.06);
             const kind = cell.ground;
             if (kind === 'floor' || (kind === 'door' && !outdoor)) {
-                const top =
-                    kind === 'door'
-                        ? mix(floor, '#000000', 0.25)
-                        : (x + z) % 2
-                          ? floor
-                          : mix(floor, '#000000', 0.06);
-                solid.push(
-                    slab(
-                        1,
-                        -bottom,
-                        1,
-                        x + 0.5,
-                        bottom,
-                        z + 0.5,
-                        top,
-                        mix(floor, '#000000', 0.3),
-                    ),
-                );
+                const side = mix(floor, '#000000', 0.3);
+                if (kind === 'door')
+                    solid.push(
+                        slab(
+                            1,
+                            -bottom,
+                            1,
+                            x + 0.5,
+                            bottom,
+                            z + 0.5,
+                            mix(floor, '#000000', 0.25),
+                            side,
+                        ),
+                    );
+                else if (floorStyle === 'planks') {
+                    // Boards run along x, a seam every tile and a half.
+                    for (let i = 0; i < 4; i++) {
+                        const shade = jitter(
+                            mix(floor, '#000000', ((i + z) % 3) * 0.035),
+                        );
+                        solid.push(
+                            slab(
+                                1,
+                                -bottom,
+                                0.25,
+                                x + 0.5,
+                                bottom,
+                                z + 0.125 + i * 0.25,
+                                shade,
+                                side,
+                            ),
+                        );
+                        const seam = ((x * 2 + i * 3 + z) % 3) / 3 + 0.15;
+                        solid.push(
+                            slab(
+                                0.03,
+                                0.004,
+                                0.25,
+                                x + seam,
+                                0,
+                                z + 0.125 + i * 0.25,
+                                mix(floor, '#000000', 0.13),
+                                side,
+                            ),
+                        );
+                    }
+                    solid.push(
+                        slab(
+                            1,
+                            0.003,
+                            0.015,
+                            x + 0.5,
+                            0,
+                            z + 0.008,
+                            mix(floor, '#000000', 0.1),
+                            side,
+                        ),
+                    );
+                } else if (floorStyle === 'tiles') {
+                    solid.push(
+                        slab(
+                            1,
+                            -bottom - 0.01,
+                            1,
+                            x + 0.5,
+                            bottom,
+                            z + 0.5,
+                            mix(floor, '#000000', 0.3),
+                            side,
+                        ),
+                    );
+                    for (const [dx, dz] of [
+                        [0.25, 0.25],
+                        [0.75, 0.25],
+                        [0.25, 0.75],
+                        [0.75, 0.75],
+                    ])
+                        solid.push(
+                            slab(
+                                0.47,
+                                0.012,
+                                0.47,
+                                x + dx,
+                                -0.012,
+                                z + dz,
+                                jitter(
+                                    (Math.round(dx * 2 + dz * 2) + x + z) % 2
+                                        ? floor
+                                        : mix(floor, '#ffffff', 0.12),
+                                ),
+                                side,
+                            ),
+                        );
+                } else {
+                    const top =
+                        floorStyle === 'checker'
+                            ? (x + z) % 2
+                                ? floor
+                                : mix(floor, '#000000', 0.06)
+                            : floorStyle === 'concrete'
+                              ? jitter(jitter(floor))
+                              : floor;
+                    solid.push(
+                        slab(
+                            1,
+                            -bottom,
+                            1,
+                            x + 0.5,
+                            bottom,
+                            z + 0.5,
+                            top,
+                            side,
+                        ),
+                    );
+                }
+                // Where floor meets a back wall it's a touch darker: cheap depth.
+                if (kind === 'floor') {
+                    const shade = mix(floor, '#000000', 0.2);
+                    if (['wall', 'window'].includes(g(x, z - 1)))
+                        solid.push(
+                            slab(
+                                1,
+                                0.006,
+                                0.14,
+                                x + 0.5,
+                                0,
+                                z + 0.07,
+                                shade,
+                                shade,
+                            ),
+                        );
+                    if (['wall', 'window'].includes(g(x - 1, z)))
+                        solid.push(
+                            slab(
+                                0.14,
+                                0.006,
+                                1,
+                                x + 0.07,
+                                0,
+                                z + 0.5,
+                                shade,
+                                shade,
+                            ),
+                        );
+                    if (g(x, z - 1) === 'window')
+                        sunlit.push(
+                            slab(
+                                0.8,
+                                0.001,
+                                1.7,
+                                x + 0.5,
+                                0.012,
+                                z + 1.15,
+                                '#fff3d6',
+                                '#fff3d6',
+                            ),
+                        );
+                    if (g(x - 1, z) === 'window')
+                        sunlit.push(
+                            slab(
+                                1.7,
+                                0.001,
+                                0.8,
+                                x + 1.15,
+                                0.012,
+                                z + 0.5,
+                                '#fff3d6',
+                                '#fff3d6',
+                            ),
+                        );
+                }
+            } else if (
+                kind === 'carpet' ||
+                kind === 'tile' ||
+                kind === 'stage'
+            ) {
+                const top = TOP[kind];
+                const base = kind === 'tile' ? '#e9ecef' : accent;
+                const side = mix(base, '#000000', 0.35);
+                if (kind === 'tile') {
+                    solid.push(
+                        slab(
+                            1,
+                            -bottom - 0.01,
+                            1,
+                            x + 0.5,
+                            bottom,
+                            z + 0.5,
+                            '#9aa3ab',
+                            side,
+                        ),
+                    );
+                    for (const [dx, dz] of [
+                        [0.25, 0.25],
+                        [0.75, 0.25],
+                        [0.25, 0.75],
+                        [0.75, 0.75],
+                    ])
+                        solid.push(
+                            slab(
+                                0.47,
+                                0.012,
+                                0.47,
+                                x + dx,
+                                -0.012,
+                                z + dz,
+                                Math.round(dx * 2 + dz * 2) % 2
+                                    ? base
+                                    : mix(base, accent, 0.45),
+                                side,
+                            ),
+                        );
+                } else {
+                    solid.push(
+                        slab(
+                            1,
+                            top - bottom,
+                            1,
+                            x + 0.5,
+                            bottom,
+                            z + 0.5,
+                            kind === 'carpet'
+                                ? jitter(base)
+                                : (x + z) % 2
+                                  ? base
+                                  : mix(base, '#000000', 0.08),
+                            side,
+                        ),
+                    );
+                    if (kind === 'stage') {
+                        const lip = mix(base, '#ffffff', 0.25);
+                        if (g(x, z + 1) !== 'stage')
+                            solid.push(
+                                slab(
+                                    1,
+                                    0.03,
+                                    0.06,
+                                    x + 0.5,
+                                    top,
+                                    z + 0.97,
+                                    lip,
+                                    lip,
+                                ),
+                            );
+                        if (g(x + 1, z) !== 'stage')
+                            solid.push(
+                                slab(
+                                    0.06,
+                                    0.03,
+                                    1,
+                                    x + 0.97,
+                                    top,
+                                    z + 0.5,
+                                    lip,
+                                    lip,
+                                ),
+                            );
+                    }
+                }
             } else if (kind === 'water') {
                 solid.push(
                     slab(
@@ -114,6 +372,165 @@ export function buildGround(s: Scene): GroundMeshes {
                         ),
                     );
                 if (kind === 'bridge') bridgeRails(s, x, z, solid);
+                if (kind === 'cobble')
+                    for (let i = 0; i < 5; i++)
+                        solid.push(
+                            slab(
+                                0.2 + r() * 0.12,
+                                0.012,
+                                0.2 + r() * 0.12,
+                                x + 0.15 + r() * 0.7,
+                                top,
+                                z + 0.15 + r() * 0.7,
+                                mix(
+                                    c.top,
+                                    r() < 0.5 ? '#000000' : '#ffffff',
+                                    0.1 + r() * 0.1,
+                                ),
+                                c.side,
+                            ),
+                        );
+                if (kind === 'deck')
+                    for (let i = 1; i < 4; i++)
+                        solid.push(
+                            slab(
+                                0.02,
+                                0.004,
+                                1,
+                                x + i * 0.25,
+                                top,
+                                z + 0.5,
+                                mix(c.top, '#000000', 0.3),
+                                c.side,
+                            ),
+                        );
+                if (kind === 'path' || kind === 'sand')
+                    for (let i = 0; i < 2; i++)
+                        solid.push(
+                            slab(
+                                0.08,
+                                0.01,
+                                0.08,
+                                x + 0.1 + r() * 0.8,
+                                top,
+                                z + 0.1 + r() * 0.8,
+                                mix(c.top, '#000000', 0.18),
+                                c.side,
+                            ),
+                        );
+                if (kind === 'grass' && r() < 0.35)
+                    solid.push(
+                        slab(
+                            0.05,
+                            0.07,
+                            0.05,
+                            x + 0.15 + r() * 0.7,
+                            top,
+                            z + 0.15 + r() * 0.7,
+                            mix(c.top, '#ffffff', 0.12),
+                            mix(c.top, '#000000', 0.1),
+                        ),
+                    );
+                if (kind === 'flowers')
+                    for (let i = 0; i < 5; i++) {
+                        const [fx, fz] = [
+                            x + 0.12 + r() * 0.76,
+                            z + 0.12 + r() * 0.76,
+                        ];
+                        const petal = PETALS[Math.floor(r() * PETALS.length)];
+                        solid.push(
+                            slab(
+                                0.025,
+                                0.14,
+                                0.025,
+                                fx,
+                                top,
+                                fz,
+                                '#3f7d34',
+                                '#3f7d34',
+                            ),
+                        );
+                        solid.push(
+                            slab(
+                                0.09,
+                                0.06,
+                                0.09,
+                                fx,
+                                top + 0.13,
+                                fz,
+                                petal,
+                                mix(petal, '#000000', 0.15),
+                            ),
+                        );
+                    }
+                if (kind === 'hedge') {
+                    const leaf = jitter('#3f7d34');
+                    solid.push(
+                        slab(
+                            0.92,
+                            0.72,
+                            0.92,
+                            x + 0.5,
+                            top,
+                            z + 0.5,
+                            mix(leaf, '#ffffff', 0.08),
+                            leaf,
+                        ),
+                    );
+                }
+                if (kind === 'fence') {
+                    const wood = '#d9cdb8';
+                    const alongX =
+                        g(x - 1, z) === 'fence' || g(x + 1, z) === 'fence';
+                    for (const d of [-0.4, 0, 0.4])
+                        solid.push(
+                            alongX
+                                ? slab(
+                                      0.07,
+                                      0.62,
+                                      0.07,
+                                      x + 0.5 + d,
+                                      top,
+                                      z + 0.5,
+                                      wood,
+                                      wood,
+                                  )
+                                : slab(
+                                      0.07,
+                                      0.62,
+                                      0.07,
+                                      x + 0.5,
+                                      top,
+                                      z + 0.5 + d,
+                                      wood,
+                                      wood,
+                                  ),
+                        );
+                    for (const y of [0.22, 0.46])
+                        solid.push(
+                            alongX
+                                ? slab(
+                                      1,
+                                      0.06,
+                                      0.04,
+                                      x + 0.5,
+                                      top + y,
+                                      z + 0.5,
+                                      wood,
+                                      wood,
+                                  )
+                                : slab(
+                                      0.04,
+                                      0.06,
+                                      1,
+                                      x + 0.5,
+                                      top + y,
+                                      z + 0.5,
+                                      wood,
+                                      wood,
+                                  ),
+                        );
+                }
                 if (kind === 'house') {
                     const front = isFront(s, x, z);
                     const face = facing(s, x, z);
@@ -204,14 +621,133 @@ export function buildGround(s: Scene): GroundMeshes {
                     face === 'z'
                         ? slab(w, h, T, x + 0.5 + d, y, z + 1 - T / 2, cap, c)
                         : slab(T, h, w, x + 1 - T / 2, y, z + 0.5 + d, cap, c);
-                const wainscot = mix(wall, '#000000', 0.12);
+                const wainscot =
+                    wallStyle === 'panel' ? accent : mix(wall, '#000000', 0.12);
+                const skirting = mix(wainscot, '#000000', 0.3);
+                const dress = (full: boolean) => {
+                    // Skirting board and a rail under the ceiling line, on every style.
+                    solid.push(along(1, 0.1, 0, skirting, skirting, 0.03));
+                    if (wallStyle === 'wainscot')
+                        solid.push(
+                            along(1, 0.8, 0, wainscot, wainscot, 0.012),
+                            along(
+                                1,
+                                0.04,
+                                0.8,
+                                mix(wall, '#ffffff', 0.3),
+                                mix(wall, '#ffffff', 0.3),
+                                0.025,
+                            ),
+                        );
+                    if (wallStyle === 'panel') {
+                        solid.push(
+                            along(1, 1.05, 0, wainscot, wainscot, 0.012),
+                        );
+                        solid.push(
+                            along(
+                                1,
+                                0.05,
+                                1.05,
+                                mix(wainscot, '#ffffff', 0.2),
+                                mix(wainscot, '#ffffff', 0.2),
+                                0.03,
+                            ),
+                        );
+                        for (const d of [-0.25, 0.25])
+                            solid.push(
+                                offset(
+                                    d,
+                                    0.04,
+                                    1.0,
+                                    0.05,
+                                    mix(wainscot, '#000000', 0.18),
+                                ),
+                            );
+                    }
+                    if (!full) return;
+                    solid.push(
+                        along(
+                            1,
+                            0.12,
+                            WALL_H - 0.12,
+                            mix(wall, '#ffffff', 0.35),
+                            mix(wall, '#ffffff', 0.35),
+                            0.02,
+                        ),
+                    );
+                    if (wallStyle === 'stripes')
+                        for (const d of [-0.375, 0.125])
+                            solid.push(
+                                face === 'z'
+                                    ? slab(
+                                          0.25,
+                                          WALL_H - 0.2,
+                                          0.01,
+                                          x + 0.5 + d,
+                                          0.1,
+                                          z + 1 + 0.004,
+                                          accent,
+                                          accent,
+                                      )
+                                    : slab(
+                                          0.01,
+                                          WALL_H - 0.2,
+                                          0.25,
+                                          x + 1 + 0.004,
+                                          0.1,
+                                          z + 0.5 + d,
+                                          accent,
+                                          accent,
+                                      ),
+                            );
+                    if (wallStyle === 'brick')
+                        for (let row = 0; row < 9; row++)
+                            for (const d of row % 2
+                                ? [-0.25, 0.25]
+                                : [-0.5, 0, 0.5]) {
+                                const brick = jitter(
+                                    mix(
+                                        wall,
+                                        '#000000',
+                                        0.08 + ((row * 7 + x + z) % 3) * 0.04,
+                                    ),
+                                );
+                                const wide = Math.abs(d) === 0.5 ? 0.22 : 0.46;
+                                const dd =
+                                    d === -0.5 ? -0.385 : d === 0.5 ? 0.385 : d;
+                                solid.push(
+                                    face === 'z'
+                                        ? slab(
+                                              wide,
+                                              0.2,
+                                              0.012,
+                                              x + 0.5 + dd,
+                                              0.14 + row * 0.24,
+                                              z + 1 + 0.004,
+                                              brick,
+                                              brick,
+                                          )
+                                        : slab(
+                                              0.012,
+                                              0.2,
+                                              wide,
+                                              x + 1 + 0.004,
+                                              0.14 + row * 0.24,
+                                              z + 0.5 + dd,
+                                              brick,
+                                              brick,
+                                          ),
+                                );
+                            }
+                };
                 if (kind === 'wall') {
                     solid.push(along(1, WALL_H, 0, cap, wall));
-                    solid.push(along(1, 0.8, 0, wainscot, wainscot, 0.012));
+                    dress(true);
                 } else if (kind === 'window') {
+                    solid.push(along(1, 0.9, 0, cap, wall));
+                    dress(false);
                     solid.push(
-                        along(1, 0.9, 0, cap, wall),
-                        along(1, 0.8, 0, wainscot, wainscot, 0.012),
+                        along(1, 0.06, 0.88, '#f3efe6', '#f3efe6', 0.06),
                     );
                     solid.push(along(1, 0.55, 1.85, cap, wall));
                     solid.push(
@@ -266,6 +802,7 @@ export function buildGround(s: Scene): GroundMeshes {
         solid: mergeAll(solid),
         glass: mergeAll(glass),
         lights: mergeAll(lights),
+        sunlit: mergeAll(sunlit),
         houses,
     };
 }

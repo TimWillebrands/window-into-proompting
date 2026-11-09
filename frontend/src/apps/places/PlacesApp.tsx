@@ -1246,6 +1246,58 @@ function FurniRow({
             },
         });
     const careWord = furni.careLabel?.split(' ')[0];
+    // A thing to do (ADR 0049): the offer is its name, and what it gave shows once done.
+    const thing = furni as Doable;
+    const doable = thing.gives != null && !!furni.useLabel;
+    const left = thing.leaves ? thing.takes?.at(-1) : undefined;
+    const doIt = () => {
+        const text = thing.leaves
+            ? window.prompt(
+                  `${furni.useLabel}: your own words to leave (empty lets the world write it)`,
+              )
+            : null;
+        if (thing.leaves && text === null) return;
+        if (furni.placeId && furni.furniId)
+            act.mutate({
+                partyId: WORLD_ID,
+                data: {
+                    placeId: furni.placeId,
+                    furniId: furni.furniId,
+                    care: false,
+                    text: text?.trim() || null,
+                    participantId: playerId,
+                },
+            });
+    };
+    const gave = (
+        act.data as unknown as { data?: { done?: string } } | undefined
+    )?.data?.done;
+    if (doable)
+        return (
+            <div
+                className="pl-thing pl-thing--do"
+                title={
+                    left
+                        ? `${left.byName?.split(' ')[0]} left: “${left.text}”`
+                        : (furni.name ?? undefined)
+                }
+            >
+                <span>✦</span>
+                <span className="min-w-0 pl-thing-text">
+                    {gave ?? furni.useLabel}
+                </span>
+                {canAct && !gave ? (
+                    <button
+                        type="button"
+                        className="pl-btn pl-btn--small"
+                        disabled={act.isPending}
+                        onClick={doIt}
+                    >
+                        {act.isPending ? '…' : 'Do'}
+                    </button>
+                ) : null}
+            </div>
+        );
     return (
         <div
             className="pl-thing"
@@ -1295,6 +1347,13 @@ function FurniRow({
         </div>
     );
 }
+
+/** FurniView plus what a thing to do carries; typed here until the client is regenerated. */
+type Doable = FurniView & {
+    gives?: string | null;
+    leaves?: boolean;
+    takes?: { byName?: string; text?: string }[];
+};
 
 function BodyChip({
     body,

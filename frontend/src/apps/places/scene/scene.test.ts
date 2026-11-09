@@ -208,13 +208,31 @@ describe('prefab catalogue', () => {
                 'utf8',
             ),
         );
-        const mine = Object.entries(PREFABS).map(([name, p]) => ({
-            name,
-            size: p.size ?? [1, 1],
-            solid: p.solid !== false,
-            wall: !!p.wall,
-            seats: (p.seats ?? []).length,
-        }));
+        const library: { models: { name: string }[] } = JSON.parse(
+            readFileSync(
+                resolve(
+                    __dirname,
+                    '../../../../../backend/World/Places/library.json',
+                ),
+                'utf8',
+            ),
+        );
+        // The data library is one file in two places; the backend's is the one the designer prompts with.
+        expect(
+            JSON.parse(
+                readFileSync(resolve(__dirname, 'library.json'), 'utf8'),
+            ),
+        ).toEqual(library);
+        const fromLibrary = new Set(library.models.map((m) => m.name));
+        const mine = Object.entries(PREFABS)
+            .filter(([name]) => !fromLibrary.has(name))
+            .map(([name, p]) => ({
+                name,
+                size: p.size ?? [1, 1],
+                solid: p.solid !== false,
+                wall: !!p.wall,
+                seats: (p.seats ?? []).length,
+            }));
         expect(
             catalogue.map(({ name, size, solid, wall, seats }) => ({
                 name,

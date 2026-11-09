@@ -118,13 +118,13 @@ public sealed partial class PlacesGrain
 
     // ---- Things ----
 
-    public Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description) => PutThingAsync(placeId, ownerId, description, null);
+    public Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description) => PutThingAsync(placeId, ownerId, description, null, null);
 
     /// <summary>A thing with its model already made (<see cref="ThingModel.Clean"/>): no catalogue, no LLM.</summary>
-    public Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model)
-        => PutThingAsync(placeId, ownerId, description, model);
+    public Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model, Offer? offer = null)
+        => PutThingAsync(placeId, ownerId, description, model, offer);
 
-    private async Task<FurniView?> PutThingAsync(Guid placeId, Guid? ownerId, string description, string? model)
+    private async Task<FurniView?> PutThingAsync(Guid placeId, Guid? ownerId, string description, string? model, Offer? offer)
     {
         await SettleAsync();
         var place = Find(placeId);
@@ -137,6 +137,7 @@ public sealed partial class PlacesGrain
         {
             Id = $"thing-{now}-{Random.Shared.Next(1000)}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
             Name = Decor.Label(description), SpotId = spot.Id, TendedAt = now, OwnerId = ownerId, Model = model,
+            Do = offer?.Do, Gives = offer?.Gives, Leaves = offer?.Leaves ?? false,
         };
         place.Furni.Add(furni);
         await SaveAsync();
@@ -309,6 +310,7 @@ public sealed partial class PlacesGrain
             Spots = draft.Spots, CustomScene = draft.Scene, Scene = "custom",
             DistrictId = Districts.Centre,
         };
+        Features.Apply(place, draft.Features, Now());
         state.State.Places.Add(place);
         await SaveAsync();
         await PublishPlaceAsync(place);

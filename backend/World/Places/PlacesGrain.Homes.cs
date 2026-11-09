@@ -72,6 +72,7 @@ public sealed partial class PlacesGrain
             (furni.TileX, furni.TileZ) = (null, null);
             if (!spotIds.Contains(furni.SpotId)) furni.SpotId = place.Spots[0].Id;
         }
+        Features.Apply(place, draft.Features, Now());
         var renamed = isHome ? NameThings(place, draft.Doc) : new List<Furni>();
         foreach (var body in state.State.Bodies.Values)
         {

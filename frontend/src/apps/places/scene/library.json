@@ -1,0 +1,3450 @@
+{
+    "palette": {
+        "wood": "#a0703f",
+        "dark-wood": "#5b3a22",
+        "light-wood": "#d6ae74",
+        "birch": "#e8dcc6",
+        "metal": "#a7b0ba",
+        "chrome": "#d9dee5",
+        "iron": "#2a2f2c",
+        "brass": "#c9a24a",
+        "gold": "#e6b422",
+        "copper": "#b8693a",
+        "stone": "#9a958c",
+        "dark-stone": "#5f5a55",
+        "concrete": "#b5b2ab",
+        "brick": "#8a4a36",
+        "terracotta": "#b5562f",
+        "white": "#f3efe6",
+        "cream": "#efe3c8",
+        "paper": "#f7f1e1",
+        "black": "#22242a",
+        "charcoal": "#3a3d44",
+        "grey": "#8b9097",
+        "glass": "#9fc7e6",
+        "water": "#3f8fa8",
+        "ice": "#d6f1ff",
+        "leaf": "#4f9a43",
+        "dark-leaf": "#2f6b34",
+        "moss": "#6b8e3a",
+        "lime": "#a4c639",
+        "dry-leaf": "#a58f3e",
+        "red": "#c0392b",
+        "crimson": "#8b1e2d",
+        "orange": "#e07a2f",
+        "amber": "#f2a541",
+        "yellow": "#f2c94c",
+        "green": "#3e8e5a",
+        "teal": "#2a9d8f",
+        "blue": "#3a6ea5",
+        "navy": "#243b63",
+        "sky": "#8fc4ef",
+        "purple": "#7b4fa3",
+        "lilac": "#b9a0e0",
+        "pink": "#e86a92",
+        "blush": "#f4b6c2",
+        "magenta": "#c2267a",
+        "sand": "#e3cf9a",
+        "tan": "#c8a173",
+        "rust": "#9a4a2a",
+        "wine": "#6b1d2e",
+        "fire": "#ff8a2a",
+        "ember": "#ffd27a",
+        "neon-pink": "#ff4fa3",
+        "neon-blue": "#4fc3ff",
+        "neon-green": "#7dff7a",
+        "warm-light": "#ffe2a8"
+    },
+    "groups": {
+        "seating": [
+            "sofa",
+            "armchair",
+            "chair",
+            "stool",
+            "bench",
+            "window-bench",
+            "booth",
+            "beanbag",
+            "hammock",
+            "k-lounge-sofa",
+            "k-chair",
+            "k-desk-chair",
+            "k-bar-stool",
+            "k-park-bench"
+        ],
+        "tables": [
+            "table",
+            "long-table",
+            "coffee-table",
+            "desk",
+            "counter",
+            "reception",
+            "terrace-table",
+            "k-desk",
+            "k-desk-corner",
+            "k-round-table",
+            "k-kitchen-bar",
+            "k-cloth-table"
+        ],
+        "home": [
+            "kitchen",
+            "fridge",
+            "bed",
+            "tv",
+            "rug",
+            "books",
+            "fireplace",
+            "k-bed",
+            "k-stove",
+            "k-fridge",
+            "k-bookcase",
+            "k-shelves",
+            "k-carton"
+        ],
+        "plants": [
+            "plant",
+            "big-plant",
+            "planter",
+            "potted-palm",
+            "k-potted-plant",
+            "elm",
+            "k-tree-large",
+            "k-tree-fall"
+        ],
+        "lights": ["lamp", "desk-lamp", "street-lamp", "neon"],
+        "on the wall": [
+            "poster",
+            "painting",
+            "photo",
+            "noticeboard",
+            "chalkboard",
+            "mirror",
+            "clock"
+        ],
+        "bar, shop, club": [
+            "bar-shelf",
+            "shelf",
+            "register",
+            "clothes-rack",
+            "speaker",
+            "dj-booth",
+            "dance-floor",
+            "pool-table",
+            "piano",
+            "arcade",
+            "jukebox",
+            "vending-machine",
+            "k-barrel"
+        ],
+        "street and water": [
+            "bollard",
+            "bike",
+            "bike-rack",
+            "herring-cart",
+            "coffee-cart",
+            "flower-stall",
+            "fountain",
+            "steps",
+            "houseboat",
+            "duck",
+            "umbrella"
+        ],
+        "small things": [
+            "cups",
+            "coffee",
+            "espresso",
+            "laptop",
+            "guitar",
+            "easel",
+            "thing",
+            "k-screen",
+            "k-laptop",
+            "k-coffee-machine",
+            "k-hospital-sign"
+        ],
+        "buildings": [
+            "k-office-block",
+            "k-low-building",
+            "k-skyscraper",
+            "k-small-building"
+        ]
+    },
+    "defaults": {
+        "piano": {
+            "do": "Play something on the piano",
+            "gives": "what they play, how far they get before a wrong note, and which key sticks"
+        },
+        "books": {
+            "do": "Pull a book off the shelf",
+            "gives": "the book: its title, and the line on the page it falls open at"
+        },
+        "k-bookcase": {
+            "do": "Pull a book out of the bookcase",
+            "gives": "the book: its title, and the line on the page it falls open at"
+        },
+        "arcade": {
+            "do": "Play a round on the arcade cabinet",
+            "gives": "the game, the score, and the initials at the top of the high-score table"
+        },
+        "pool-table": {
+            "do": "Knock a few balls around the pool table",
+            "gives": "the one shot worth describing, made or missed"
+        },
+        "fountain": {
+            "do": "Toss a coin in the fountain",
+            "gives": "the wish that goes with the coin, in their own few words",
+            "leaves": true
+        },
+        "noticeboard": {
+            "do": "Read the noticeboard and pin something up",
+            "gives": "one notice already there that stands out, and the note they pin beside it",
+            "leaves": true
+        },
+        "chalkboard": {
+            "do": "Read today's chalkboard",
+            "gives": "the special chalked up today and the joke or doodle next to it"
+        },
+        "vending-machine": {
+            "do": "Get something from the vending machine",
+            "gives": "what they pick, and what the machine does about it"
+        },
+        "herring-cart": {
+            "do": "Get a herring at the cart",
+            "gives": "how they take it (onions, pickles, by the tail) and what the herring man says"
+        },
+        "flower-stall": {
+            "do": "Pick out flowers at the stall",
+            "gives": "which flowers, and who they turn out to be for"
+        },
+        "mirror": {
+            "do": "Catch yourself in the mirror",
+            "gives": "the one thing about themselves they notice today, concrete, not a judgement"
+        },
+        "fireplace": {
+            "do": "Stand by the fireplace a while",
+            "gives": "one small thing the fire does or brings up: a pop, a smell, a memory with a place and a year"
+        },
+        "guitar": {
+            "do": "Pick up the guitar",
+            "gives": "what they play or try to, and which string is out"
+        },
+        "tv": {
+            "do": "See what's on TV",
+            "gives": "what's on: the programme and the one absurd moment in it"
+        },
+        "dj-booth": {
+            "do": "Take a turn at the decks",
+            "gives": "the track they put on and how the mix into it goes"
+        },
+        "duck": {
+            "do": "Feed the ducks",
+            "gives": "what one particular duck does about it"
+        },
+        "clothes-rack": {
+            "do": "Go through the clothes rack",
+            "gives": "the one piece they hold up: what it is, the colour, the price tag"
+        },
+        "shelf": {
+            "do": "Browse the shelves",
+            "gives": "the one thing they pick up and turn over, and what's written on it"
+        },
+        "bar-shelf": {
+            "do": "Read the bottles behind the bar",
+            "gives": "the strangest bottle on the shelf: its name, its colour, where it's from"
+        },
+        "painting": {
+            "do": "Stand in front of the painting",
+            "gives": "what the painting shows, and the detail most people would miss"
+        },
+        "poster": {
+            "do": "Read the poster",
+            "gives": "what the poster announces, with its date and the small print"
+        },
+        "houseboat": {
+            "do": "Look in at the houseboat",
+            "gives": "one thing visible on deck or through a window that says who lives there"
+        }
+    },
+    "models": [
+        {
+            "name": "dining-set",
+            "size": [3, 3],
+            "about": "round table with four chairs",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [1, 0],
+                    "h": 0.46,
+                    "face": 0
+                },
+                {
+                    "at": [1, 2],
+                    "h": 0.46,
+                    "face": 2
+                },
+                {
+                    "at": [0, 1],
+                    "h": 0.46,
+                    "face": 1
+                },
+                {
+                    "at": [2, 1],
+                    "h": 0.46,
+                    "face": 3
+                }
+            ],
+            "tint": {
+                "top": "light-wood"
+            },
+            "parts": [
+                {
+                    "cyl": [0.24, 0.03],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "cyl": [0.05, 0.7],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "cyl": [0.62, 0.05],
+                    "at": [0, 0.7, 0],
+                    "c": "$top"
+                },
+                {
+                    "use": "chair",
+                    "at": [0, 0, -1]
+                },
+                {
+                    "use": "chair",
+                    "at": [0, 0, 1],
+                    "ry": 3.1416
+                },
+                {
+                    "use": "chair",
+                    "at": [-1, 0, 0],
+                    "ry": 1.5708
+                },
+                {
+                    "use": "chair",
+                    "at": [1, 0, 0],
+                    "ry": -1.5708
+                }
+            ]
+        },
+        {
+            "name": "cafe-set",
+            "size": [3, 1],
+            "about": "small table with two chairs facing each other",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.46,
+                    "face": 1
+                },
+                {
+                    "at": [2, 0],
+                    "h": 0.46,
+                    "face": 3
+                }
+            ],
+            "parts": [
+                {
+                    "use": "table",
+                    "at": [0, 0, 0]
+                },
+                {
+                    "use": "chair",
+                    "at": [-1, 0, 0],
+                    "ry": 1.5708
+                },
+                {
+                    "use": "chair",
+                    "at": [1, 0, 0],
+                    "ry": -1.5708
+                },
+                {
+                    "cyl": [0.05, 0.09],
+                    "at": [0.12, 0.76, 0.05],
+                    "c": "white"
+                },
+                {
+                    "cyl": [0.05, 0.09],
+                    "at": [-0.1, 0.76, -0.08],
+                    "c": "white"
+                }
+            ]
+        },
+        {
+            "name": "lounge-set",
+            "size": [3, 2],
+            "about": "sofa, two armchairs and a coffee table on a rug",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [0.5, 0],
+                    "h": 0.43,
+                    "face": 0
+                },
+                {
+                    "at": [1.5, 0],
+                    "h": 0.43,
+                    "face": 0
+                },
+                {
+                    "at": [0, 1],
+                    "h": 0.43,
+                    "face": 1
+                },
+                {
+                    "at": [2, 1],
+                    "h": 0.43,
+                    "face": 3
+                }
+            ],
+            "tint": {
+                "rug": "crimson"
+            },
+            "parts": [
+                {
+                    "box": [2.7, 0.012, 1.7],
+                    "at": [0, 0.001, 0.1],
+                    "c": "$rug",
+                    "flat": true
+                },
+                {
+                    "box": [2.3, 0.014, 1.3],
+                    "at": [0, 0.001, 0.1],
+                    "c": "cream",
+                    "flat": true
+                },
+                {
+                    "use": "sofa",
+                    "at": [-0.5, 0, -0.5]
+                },
+                {
+                    "use": "armchair",
+                    "at": [-1, 0, 0.5],
+                    "ry": 1.5708
+                },
+                {
+                    "use": "armchair",
+                    "at": [1, 0, 0.5],
+                    "ry": -1.5708
+                },
+                {
+                    "use": "coffee-table",
+                    "at": [0, 0, 0.5]
+                }
+            ]
+        },
+        {
+            "name": "bar-set",
+            "size": [3, 2],
+            "about": "bar counter with three stools in front",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [0, 1],
+                    "h": 0.7,
+                    "face": 2
+                },
+                {
+                    "at": [1, 1],
+                    "h": 0.7,
+                    "face": 2
+                },
+                {
+                    "at": [2, 1],
+                    "h": 0.7,
+                    "face": 2
+                }
+            ],
+            "parts": [
+                {
+                    "use": "counter",
+                    "at": [0, 0, -0.5]
+                },
+                {
+                    "use": "stool",
+                    "at": [-1, 0, 0.5]
+                },
+                {
+                    "use": "stool",
+                    "at": [0, 0, 0.5]
+                },
+                {
+                    "use": "stool",
+                    "at": [1, 0, 0.5]
+                },
+                {
+                    "cyl": [0.04, 0.16],
+                    "at": [0.9, 1.04, -0.6],
+                    "c": "brass"
+                },
+                {
+                    "cyl": [0.04, 0.16],
+                    "at": [0.7, 1.04, -0.6],
+                    "c": "brass"
+                },
+                {
+                    "cyl": [0.05, 0.12],
+                    "at": [-0.6, 1.04, -0.45],
+                    "c": "glass",
+                    "opacity": 0.6
+                }
+            ]
+        },
+        {
+            "name": "desk-set",
+            "size": [2, 2],
+            "about": "desk with a chair, lamp and laptop",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [0.5, 1],
+                    "h": 0.46,
+                    "face": 2
+                }
+            ],
+            "light": {
+                "at": [0.5, 1.1, -0.5],
+                "colour": "#ffd9a0",
+                "power": 1.2
+            },
+            "parts": [
+                {
+                    "use": "desk",
+                    "at": [0, 0, -0.5]
+                },
+                {
+                    "use": "chair",
+                    "at": [-0.5, 0, 0.5],
+                    "ry": 3.1416
+                },
+                {
+                    "use": "laptop",
+                    "at": [-0.4, 0.79, -0.5]
+                },
+                {
+                    "cyl": [0.08, 0.02],
+                    "at": [0.7, 0.79, -0.7],
+                    "c": "charcoal"
+                },
+                {
+                    "tube": [
+                        [0.7, 0.8, -0.7],
+                        [0.7, 1.1, -0.7],
+                        [0.55, 1.2, -0.6]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "charcoal",
+                    "r": 0.015
+                },
+                {
+                    "cone": [0.09, 0.1],
+                    "at": [0.5, 1.12, -0.56],
+                    "c": "amber",
+                    "glow": true
+                }
+            ]
+        },
+        {
+            "name": "picnic-table",
+            "size": [2, 2],
+            "about": "picnic table with two benches",
+            "group": "sets",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.42,
+                    "face": 0
+                },
+                {
+                    "at": [1, 0],
+                    "h": 0.42,
+                    "face": 0
+                },
+                {
+                    "at": [0, 1],
+                    "h": 0.42,
+                    "face": 2
+                },
+                {
+                    "at": [1, 1],
+                    "h": 0.42,
+                    "face": 2
+                }
+            ],
+            "parts": [
+                {
+                    "box": [1.8, 0.06, 0.7],
+                    "at": [0, 0.68, 0],
+                    "c": "wood"
+                },
+                {
+                    "box": [1.8, 0.05, 0.26],
+                    "at": [0, 0.4, -0.62],
+                    "c": "wood"
+                },
+                {
+                    "box": [1.8, 0.05, 0.26],
+                    "at": [0, 0.4, 0.62],
+                    "c": "wood"
+                },
+                {
+                    "box": [0.08, 0.7, 1.5],
+                    "at": [0.7, 0, 0],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                },
+                {
+                    "box": [0.1, 0.06, 1.5],
+                    "at": [0.7, 0.36, 0],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                }
+            ]
+        },
+        {
+            "name": "campfire",
+            "size": [1, 1],
+            "about": "campfire in a ring of stones, lit",
+            "group": "outdoors",
+            "light": {
+                "at": [0, 0.5, 0],
+                "colour": "#ff9a4a",
+                "power": 3
+            },
+            "do": "Sit by the fire and watch it a while",
+            "gives": "one small thing the fire does or brings up: a log collapsing, a smell from years ago, a shape in the flames",
+            "parts": [
+                {
+                    "ball": 0.09,
+                    "at": [0.3, 0.05, 0],
+                    "c": "stone",
+                    "spin": 7,
+                    "squash": 0.7
+                },
+                {
+                    "box": [0.5, 0.08, 0.1],
+                    "at": [0, 0.03, 0],
+                    "c": "dark-wood",
+                    "ry": 0.5
+                },
+                {
+                    "box": [0.5, 0.08, 0.1],
+                    "at": [0, 0.09, 0],
+                    "c": "dark-wood",
+                    "ry": -0.7
+                },
+                {
+                    "cone": [0.16, 0.42],
+                    "at": [0, 0.1, 0],
+                    "c": "fire",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 6
+                },
+                {
+                    "cone": [0.09, 0.28],
+                    "at": [0.03, 0.12, 0.02],
+                    "c": "ember",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 5
+                }
+            ]
+        },
+        {
+            "name": "log-seat",
+            "size": [1, 1],
+            "about": "a log to sit on",
+            "group": "outdoors",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.36,
+                    "face": 0
+                }
+            ],
+            "parts": [
+                {
+                    "cyl": [0.2, 0.8],
+                    "at": [0, 0.2, 0],
+                    "c": "dark-wood",
+                    "rz": 1.5707963267948966,
+                    "sides": 8
+                },
+                {
+                    "cyl": [0.2, 0.002],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood",
+                    "flat": true
+                },
+                {
+                    "cyl": [0.15, 0.82],
+                    "at": [0, 0.2, 0],
+                    "c": "light-wood",
+                    "rz": 1.5707963267948966,
+                    "sides": 8
+                }
+            ]
+        },
+        {
+            "name": "tent",
+            "size": [2, 2],
+            "about": "small ridge tent, open at the front",
+            "group": "outdoors",
+            "tint": {
+                "canvas": "moss"
+            },
+            "parts": [
+                {
+                    "gable": [1.5, 1.1, 1.7],
+                    "at": [0, 0, 0],
+                    "c": "$canvas",
+                    "ry": 1.5707963267948966
+                },
+                {
+                    "gable": [0.5, 0.75, 0.06],
+                    "at": [0, 0, 0.84],
+                    "c": "charcoal",
+                    "ry": 0
+                },
+                {
+                    "cyl": [0.02, 1.15],
+                    "at": [0, 0, 0.86],
+                    "c": "light-wood"
+                },
+                {
+                    "box": [1.2, 0.02, 1.4],
+                    "at": [0, 0.005, 0],
+                    "c": "tan",
+                    "flat": true
+                }
+            ]
+        },
+        {
+            "name": "pine",
+            "size": [1, 1],
+            "about": "pine tree",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "cyl": [0.07, 0.5],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "cone": [0.42, 0.7],
+                    "at": [0, 0.4, 0],
+                    "c": "dark-leaf",
+                    "sides": 7
+                },
+                {
+                    "cone": [0.33, 0.6],
+                    "at": [0, 0.85, 0],
+                    "c": "dark-leaf",
+                    "sides": 7
+                },
+                {
+                    "cone": [0.22, 0.5],
+                    "at": [0, 1.3, 0],
+                    "c": "leaf",
+                    "sides": 7
+                }
+            ]
+        },
+        {
+            "name": "birch",
+            "size": [1, 1],
+            "about": "slim birch tree",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "cyl": [0.05, 1.5],
+                    "at": [0, 0, 0],
+                    "c": "birch"
+                },
+                {
+                    "box": [0.11, 0.03, 0.02],
+                    "at": [0, 0.5, 0.05],
+                    "c": "charcoal",
+                    "array": {
+                        "n": 3,
+                        "step": [0, 0.35, 0]
+                    }
+                },
+                {
+                    "ball": 0.34,
+                    "at": [0, 1.75, 0],
+                    "c": "lime",
+                    "squash": 1.2,
+                    "tag": "sway"
+                },
+                {
+                    "ball": 0.24,
+                    "at": [0.2, 1.5, 0.1],
+                    "c": "leaf"
+                },
+                {
+                    "ball": 0.22,
+                    "at": [-0.2, 1.55, -0.1],
+                    "c": "lime"
+                }
+            ]
+        },
+        {
+            "name": "cherry-tree",
+            "size": [2, 2],
+            "about": "cherry tree in blossom",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "cyl": [0.09, 0.14, 1.0],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "cyl": [0.05, 0.6],
+                    "at": [0.2, 0.9, 0],
+                    "c": "dark-wood",
+                    "rz": -0.8
+                },
+                {
+                    "cyl": [0.05, 0.6],
+                    "at": [-0.2, 0.9, 0.1],
+                    "c": "dark-wood",
+                    "rz": 0.8
+                },
+                {
+                    "ball": 0.6,
+                    "at": [0, 1.6, 0],
+                    "c": "blush",
+                    "squash": 0.75
+                },
+                {
+                    "ball": 0.42,
+                    "at": [0.5, 1.35, 0.2],
+                    "c": "pink",
+                    "squash": 0.8
+                },
+                {
+                    "ball": 0.42,
+                    "at": [-0.5, 1.4, -0.15],
+                    "c": "blush",
+                    "squash": 0.8
+                },
+                {
+                    "ball": 0.35,
+                    "at": [0, 1.45, 0.5],
+                    "c": "pink",
+                    "squash": 0.8
+                }
+            ]
+        },
+        {
+            "name": "palm",
+            "size": [1, 1],
+            "about": "palm tree",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "tube": [
+                        [0, 0, 0],
+                        [0.08, 0.7, 0],
+                        [0.02, 1.4, 0],
+                        [-0.08, 1.9, 0]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "tan",
+                    "r": 0.07,
+                    "sides": 6
+                },
+                {
+                    "extrude": [
+                        [0, 0],
+                        [0.8, 0.12],
+                        [0.95, -0.25],
+                        [0.5, -0.05]
+                    ],
+                    "at": [0, 1.9, 0],
+                    "c": "leaf",
+                    "depth": 0.16,
+                    "spin": 6,
+                    "rz": 0.1
+                },
+                {
+                    "ball": 0.07,
+                    "at": [0.06, 1.82, 0.05],
+                    "c": "dark-wood"
+                }
+            ]
+        },
+        {
+            "name": "bush",
+            "size": [1, 1],
+            "about": "round bush",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "ball": 0.36,
+                    "at": [0, 0.3, 0],
+                    "c": "dark-leaf",
+                    "squash": 0.85
+                },
+                {
+                    "ball": 0.26,
+                    "at": [0.2, 0.36, 0.12],
+                    "c": "leaf"
+                },
+                {
+                    "ball": 0.22,
+                    "at": [-0.22, 0.3, -0.08],
+                    "c": "moss"
+                }
+            ]
+        },
+        {
+            "name": "rock",
+            "size": [1, 1],
+            "about": "boulder you can sit on",
+            "group": "outdoors",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.42,
+                    "face": 0
+                }
+            ],
+            "parts": [
+                {
+                    "ball": 0.4,
+                    "at": [0, 0.2, 0],
+                    "c": "stone",
+                    "squash": 0.62,
+                    "detail": 0
+                },
+                {
+                    "ball": 0.22,
+                    "at": [0.26, 0.12, 0.2],
+                    "c": "dark-stone",
+                    "squash": 0.6,
+                    "detail": 0
+                }
+            ]
+        },
+        {
+            "name": "mushrooms",
+            "size": [1, 1],
+            "about": "a cluster of toadstools",
+            "group": "outdoors",
+            "solid": false,
+            "parts": [
+                {
+                    "cyl": [0.03, 0.14],
+                    "at": [0, 0, 0],
+                    "c": "cream"
+                },
+                {
+                    "dome": 0.11,
+                    "at": [0, 0.13, 0],
+                    "c": "red",
+                    "squash": 0.7
+                },
+                {
+                    "cyl": [0.02, 0.09],
+                    "at": [0.2, 0, 0.1],
+                    "c": "cream"
+                },
+                {
+                    "dome": 0.07,
+                    "at": [0.2, 0.08, 0.1],
+                    "c": "red",
+                    "squash": 0.7
+                },
+                {
+                    "cyl": [0.02, 0.07],
+                    "at": [-0.15, 0, 0.18],
+                    "c": "cream"
+                },
+                {
+                    "dome": 0.06,
+                    "at": [-0.15, 0.06, 0.18],
+                    "c": "orange",
+                    "squash": 0.7
+                }
+            ]
+        },
+        {
+            "name": "cactus",
+            "size": [1, 1],
+            "about": "tall cactus",
+            "group": "outdoors",
+            "parts": [
+                {
+                    "capsule": [0.13, 1.1],
+                    "at": [0, 0, 0],
+                    "c": "moss"
+                },
+                {
+                    "tube": [[0.1, 0.5, 0], [0.34, 0.55, 0], [0.34, 0.85, 0]],
+                    "at": [0, 0, 0],
+                    "c": "moss",
+                    "r": 0.07,
+                    "sides": 6
+                },
+                {
+                    "tube": [[-0.1, 0.35, 0], [-0.3, 0.4, 0], [-0.3, 0.62, 0]],
+                    "at": [0, 0, 0],
+                    "c": "moss",
+                    "r": 0.06,
+                    "sides": 6
+                },
+                {
+                    "ball": 0.05,
+                    "at": [0, 1.12, 0],
+                    "c": "pink"
+                }
+            ]
+        },
+        {
+            "name": "flower-bed",
+            "size": [2, 1],
+            "about": "bed of mixed flowers",
+            "group": "outdoors",
+            "solid": false,
+            "parts": [
+                {
+                    "box": [1.8, 0.1, 0.8],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [1.7, 0.03, 0.7],
+                    "at": [0, 0.09, 0],
+                    "c": "rust"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.015, 0.22],
+                            "at": [0, 0, 0],
+                            "c": "dark-leaf"
+                        },
+                        {
+                            "ball": 0.07,
+                            "at": [0, 0.26, 0],
+                            "c": "pink"
+                        }
+                    ],
+                    "at": [-0.7, 0.1, -0.15],
+                    "array": {
+                        "n": 5,
+                        "step": [0.35, 0, 0]
+                    }
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.015, 0.18],
+                            "at": [0, 0, 0],
+                            "c": "dark-leaf"
+                        },
+                        {
+                            "ball": 0.06,
+                            "at": [0, 0.21, 0],
+                            "c": "yellow"
+                        }
+                    ],
+                    "at": [-0.55, 0.1, 0.18],
+                    "array": {
+                        "n": 4,
+                        "step": [0.35, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "reeds",
+            "size": [1, 1],
+            "about": "reeds at the water's edge (on water)",
+            "group": "outdoors",
+            "solid": false,
+            "parts": [
+                {
+                    "group": [
+                        {
+                            "cyl": [0.012, 0.8],
+                            "at": [0, 0, 0],
+                            "c": "moss"
+                        },
+                        {
+                            "capsule": [0.03, 0.16],
+                            "at": [0, 0.72, 0],
+                            "c": "dark-wood"
+                        }
+                    ],
+                    "at": [0.14, -0.3, 0],
+                    "spin": 5,
+                    "tag": "sway"
+                },
+                {
+                    "cyl": [0.012, 0.9],
+                    "at": [0, -0.3, 0],
+                    "c": "leaf"
+                }
+            ]
+        },
+        {
+            "name": "rowboat",
+            "size": [2, 1],
+            "about": "rowing boat (on water)",
+            "group": "outdoors",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.1,
+                    "face": 1
+                },
+                {
+                    "at": [1, 0],
+                    "h": 0.1,
+                    "face": 3
+                }
+            ],
+            "tint": {
+                "hull": "teal"
+            },
+            "parts": [
+                {
+                    "extrude": [
+                        [-0.9, 0],
+                        [-0.7, -0.22],
+                        [0.7, -0.22],
+                        [0.95, 0],
+                        [0.7, 0.02],
+                        [-0.7, 0.02]
+                    ],
+                    "at": [0, -0.12, 0],
+                    "c": "$hull",
+                    "depth": 0.62
+                },
+                {
+                    "box": [1.3, 0.04, 0.5],
+                    "at": [0, -0.1, 0],
+                    "c": "light-wood"
+                },
+                {
+                    "box": [0.12, 0.03, 0.56],
+                    "at": [-0.4, -0.02, 0],
+                    "c": "wood"
+                },
+                {
+                    "box": [0.12, 0.03, 0.56],
+                    "at": [0.4, -0.02, 0],
+                    "c": "wood"
+                },
+                {
+                    "cyl": [0.015, 1.1],
+                    "at": [0, 0.02, 0.33],
+                    "c": "light-wood",
+                    "rz": 1.5707963267948966,
+                    "ry": 0.25
+                }
+            ]
+        },
+        {
+            "name": "well",
+            "size": [1, 1],
+            "about": "old stone well with a little roof",
+            "group": "outdoors",
+            "do": "Drop a coin down the well and make a wish",
+            "gives": "the wish, in their own few words, and the sound the coin makes",
+            "leaves": true,
+            "parts": [
+                {
+                    "lathe": [[0.34, 0], [0.36, 0.5], [0.3, 0.52], [0.28, 0.1]],
+                    "at": [0, 0, 0],
+                    "c": "stone",
+                    "sides": 10
+                },
+                {
+                    "cyl": [0.27, 0.02],
+                    "at": [0, 0.12, 0],
+                    "c": "water"
+                },
+                {
+                    "box": [0.06, 1.1, 0.06],
+                    "at": [0.32, 0.4, 0],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                },
+                {
+                    "gable": [0.5, 0.25, 0.9],
+                    "at": [0, 1.5, 0],
+                    "c": "rust",
+                    "ry": 1.5707963267948966
+                },
+                {
+                    "cyl": [0.03, 0.6],
+                    "at": [0, 1.3, 0],
+                    "c": "dark-wood",
+                    "rz": 1.5707963267948966
+                },
+                {
+                    "cyl": [0.008, 0.5],
+                    "at": [0, 0.8, 0],
+                    "c": "tan"
+                }
+            ]
+        },
+        {
+            "name": "wishing-tree",
+            "size": [2, 2],
+            "about": "bare tree hung with ribbons and paper wishes",
+            "group": "outdoors",
+            "do": "Tie a wish to the wishing tree",
+            "gives": "the wish they write on the paper, in their own few words",
+            "leaves": true,
+            "parts": [
+                {
+                    "cyl": [0.08, 0.15, 1.1],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "tube": [[0, 1.0, 0], [0.4, 1.5, 0.1], [0.7, 1.7, 0.2]],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood",
+                    "r": 0.04,
+                    "spin": 5
+                },
+                {
+                    "tube": [[0, 1.0, 0], [0.15, 1.7, 0.1], [0.2, 2.1, 0]],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood",
+                    "r": 0.035,
+                    "spin": 3
+                },
+                {
+                    "box": [0.05, 0.22, 0.01],
+                    "at": [0.55, 1.35, 0.15],
+                    "c": "red",
+                    "spin": 5,
+                    "tag": "sway"
+                },
+                {
+                    "box": [0.05, 0.18, 0.01],
+                    "at": [0.35, 1.25, -0.2],
+                    "c": "paper",
+                    "spin": 4,
+                    "tag": "sway"
+                },
+                {
+                    "box": [0.05, 0.2, 0.01],
+                    "at": [0.2, 1.75, 0.1],
+                    "c": "yellow",
+                    "spin": 3,
+                    "tag": "sway"
+                }
+            ]
+        },
+        {
+            "name": "statue",
+            "size": [1, 1],
+            "about": "weathered statue on a plinth, with a plaque",
+            "group": "outdoors",
+            "do": "Read the plaque on the statue",
+            "gives": "who or what the statue is of and one odd detail the plaque gives, plausible for this town",
+            "parts": [
+                {
+                    "box": [0.6, 0.5, 0.6],
+                    "at": [0, 0, 0],
+                    "c": "stone"
+                },
+                {
+                    "box": [0.7, 0.06, 0.7],
+                    "at": [0, 0.5, 0],
+                    "c": "dark-stone"
+                },
+                {
+                    "box": [0.3, 0.14, 0.02],
+                    "at": [0, 0.2, 0.31],
+                    "c": "brass"
+                },
+                {
+                    "capsule": [0.13, 0.7],
+                    "at": [0, 0.56, 0],
+                    "c": "moss"
+                },
+                {
+                    "ball": 0.11,
+                    "at": [0, 1.36, 0],
+                    "c": "moss"
+                },
+                {
+                    "tube": [
+                        [0.1, 1.1, 0],
+                        [0.3, 1.25, 0.1],
+                        [0.34, 1.55, 0.1]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "moss",
+                    "r": 0.045
+                }
+            ]
+        },
+        {
+            "name": "little-library",
+            "size": [1, 1],
+            "about": "little free library box on a post",
+            "group": "outdoors",
+            "tint": {
+                "paint": "teal"
+            },
+            "do": "Swap a book at the little library",
+            "gives": "the book they take (title, one detail about its state) and what they leave behind",
+            "leaves": true,
+            "parts": [
+                {
+                    "box": [0.08, 0.9, 0.08],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.5, 0.45, 0.32],
+                    "at": [0, 0.9, 0],
+                    "c": "$paint"
+                },
+                {
+                    "gable": [0.4, 0.18, 0.6],
+                    "at": [0, 1.35, 0],
+                    "c": "charcoal",
+                    "ry": 1.5707963267948966
+                },
+                {
+                    "box": [0.4, 0.34, 0.02],
+                    "at": [0, 0.95, 0.16],
+                    "c": "glass",
+                    "opacity": 0.5
+                },
+                {
+                    "box": [0.05, 0.26, 0.2],
+                    "at": [-0.14, 0.94, 0],
+                    "c": "red",
+                    "array": {
+                        "n": 5,
+                        "step": [0.07, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "mailbox",
+            "size": [1, 1],
+            "about": "red pillar mailbox",
+            "group": "outdoors",
+            "do": "Post a card in the mailbox",
+            "gives": "who the card is to and the one line on it",
+            "leaves": true,
+            "parts": [
+                {
+                    "cyl": [0.2, 1.0],
+                    "at": [0, 0, 0],
+                    "c": "red",
+                    "sides": 12
+                },
+                {
+                    "dome": 0.21,
+                    "at": [0, 1.0, 0],
+                    "c": "crimson",
+                    "squash": 0.5
+                },
+                {
+                    "box": [0.2, 0.03, 0.02],
+                    "at": [0, 0.8, 0.2],
+                    "c": "black"
+                },
+                {
+                    "cyl": [0.23, 0.08],
+                    "at": [0, 0, 0],
+                    "c": "black"
+                }
+            ]
+        },
+        {
+            "name": "ice-cream-cart",
+            "size": [2, 1],
+            "about": "ice cream cart with a striped parasol",
+            "group": "outdoors",
+            "do": "Get an ice cream from the cart",
+            "gives": "the flavour they pick, and what happens to it within the first minute",
+            "parts": [
+                {
+                    "box": [1.2, 0.6, 0.6],
+                    "at": [0, 0.3, 0],
+                    "c": "white"
+                },
+                {
+                    "box": [1.2, 0.08, 0.6],
+                    "at": [0, 0.9, 0],
+                    "c": "blush"
+                },
+                {
+                    "ring": [0.2, 0.03],
+                    "at": [-0.45, 0.2, 0.32],
+                    "c": "charcoal",
+                    "mirror": "x"
+                },
+                {
+                    "cyl": [0.02, 1.2],
+                    "at": [0.3, 0.9, 0],
+                    "c": "metal"
+                },
+                {
+                    "cone": [0.75, 0.3],
+                    "at": [0.3, 2.0, 0],
+                    "c": "pink",
+                    "sides": 8
+                },
+                {
+                    "cone": [0.76, 0.1],
+                    "at": [0.3, 2.0, 0],
+                    "c": "white",
+                    "sides": 8
+                },
+                {
+                    "cone": [0.05, 0.14],
+                    "at": [-0.3, 1.12, 0],
+                    "c": "tan",
+                    "rx": 3.141592653589793
+                },
+                {
+                    "ball": 0.07,
+                    "at": [-0.3, 1.16, 0],
+                    "c": "blush"
+                },
+                {
+                    "sign": [0.6, 0.2],
+                    "at": [0, 0.5, 0.31],
+                    "c": "pink",
+                    "text": "IJS",
+                    "fg": "#ffffff"
+                }
+            ]
+        },
+        {
+            "name": "market-stall",
+            "size": [2, 1],
+            "about": "market stall with a striped awning",
+            "group": "outdoors",
+            "tint": {
+                "awning": "red"
+            },
+            "do": "See what's on the market stall today",
+            "gives": "one thing on the stall that catches their eye, what it costs, and what the seller says about it",
+            "parts": [
+                {
+                    "box": [1.8, 0.8, 0.7],
+                    "at": [0, 0, 0],
+                    "c": "wood"
+                },
+                {
+                    "box": [1.9, 0.05, 0.8],
+                    "at": [0, 0.8, 0],
+                    "c": "light-wood"
+                },
+                {
+                    "box": [0.05, 2.0, 0.05],
+                    "at": [0.9, 0, -0.35],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                },
+                {
+                    "wedge": [2.0, 0.3, 1.1],
+                    "at": [0, 1.9, 0.1],
+                    "c": "$awning"
+                },
+                {
+                    "box": [0.25, 0.02, 1.12],
+                    "at": [-0.75, 2.06, 0.1],
+                    "c": "white",
+                    "array": {
+                        "n": 4,
+                        "step": [0.5, 0, 0]
+                    },
+                    "rx": 0.266
+                },
+                {
+                    "box": [0.3, 0.14, 0.3],
+                    "at": [-0.6, 0.85, 0],
+                    "c": "light-wood",
+                    "array": {
+                        "n": 4,
+                        "step": [0.4, 0, 0]
+                    }
+                },
+                {
+                    "ball": 0.07,
+                    "at": [-0.6, 1.02, 0],
+                    "c": "orange",
+                    "array": {
+                        "n": 2,
+                        "step": [0.8, 0, 0]
+                    }
+                },
+                {
+                    "ball": 0.07,
+                    "at": [-0.2, 1.02, 0],
+                    "c": "red",
+                    "array": {
+                        "n": 2,
+                        "step": [0.8, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "string-lights",
+            "size": [3, 1],
+            "about": "string of bulbs between two poles",
+            "group": "outdoors",
+            "solid": false,
+            "light": {
+                "at": [0, 1.8, 0],
+                "colour": "#ffd9a0",
+                "power": 2
+            },
+            "parts": [
+                {
+                    "cyl": [0.03, 2.3],
+                    "at": [1.4, 0, 0],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                },
+                {
+                    "tube": [
+                        [-1.4, 2.25, 0],
+                        [-0.7, 2.0, 0],
+                        [0, 1.92, 0],
+                        [0.7, 2.0, 0],
+                        [1.4, 2.25, 0]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "black",
+                    "r": 0.01
+                },
+                {
+                    "ball": 0.05,
+                    "at": [-1.05, 2.07, 0],
+                    "c": "warm-light",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [-0.7, 1.95, 0],
+                    "c": "amber",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [-0.35, 1.89, 0],
+                    "c": "warm-light",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [0, 1.87, 0],
+                    "c": "amber",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [0.35, 1.89, 0],
+                    "c": "warm-light",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [0.7, 1.95, 0],
+                    "c": "amber",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [1.05, 2.07, 0],
+                    "c": "warm-light",
+                    "glow": true,
+                    "tag": "twinkle"
+                }
+            ]
+        },
+        {
+            "name": "lantern",
+            "size": [1, 1],
+            "about": "standing lantern with a flame",
+            "group": "outdoors",
+            "light": {
+                "at": [0, 0.4, 0],
+                "colour": "#ffb060",
+                "power": 1.6
+            },
+            "parts": [
+                {
+                    "box": [0.24, 0.04, 0.24],
+                    "at": [0, 0, 0],
+                    "c": "iron"
+                },
+                {
+                    "box": [0.02, 0.36, 0.02],
+                    "at": [0.1, 0.04, 0.1],
+                    "c": "iron",
+                    "mirror": "xz"
+                },
+                {
+                    "pyramid": [0.3, 0.12, 0.3],
+                    "at": [0, 0.4, 0],
+                    "c": "iron"
+                },
+                {
+                    "box": [0.18, 0.34, 0.18],
+                    "at": [0, 0.05, 0],
+                    "c": "warm-light",
+                    "opacity": 0.35
+                },
+                {
+                    "cone": [0.04, 0.14],
+                    "at": [0, 0.1, 0],
+                    "c": "fire",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 5
+                },
+                {
+                    "ring": [0.05, 0.01],
+                    "at": [0, 0.56, 0],
+                    "c": "iron"
+                }
+            ]
+        },
+        {
+            "name": "sandcastle",
+            "size": [1, 1],
+            "about": "sandcastle with a paper flag",
+            "group": "outdoors",
+            "solid": false,
+            "parts": [
+                {
+                    "box": [0.6, 0.14, 0.6],
+                    "at": [0, 0, 0],
+                    "c": "sand"
+                },
+                {
+                    "cyl": [0.1, 0.13, 0.3],
+                    "at": [0.2, 0.1, 0.2],
+                    "c": "sand",
+                    "mirror": "xz"
+                },
+                {
+                    "cyl": [0.12, 0.16, 0.42],
+                    "at": [0, 0.14, 0],
+                    "c": "sand"
+                },
+                {
+                    "cyl": [0.008, 0.22],
+                    "at": [0, 0.56, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.12, 0.07, 0.005],
+                    "at": [0.06, 0.7, 0],
+                    "c": "red"
+                }
+            ]
+        },
+        {
+            "name": "beach-towel",
+            "size": [1, 2],
+            "about": "beach towel to lie on",
+            "group": "outdoors",
+            "solid": false,
+            "seats": [
+                {
+                    "at": [0, 0.5],
+                    "h": 0.03,
+                    "face": 0
+                }
+            ],
+            "tint": {
+                "towel": "teal"
+            },
+            "parts": [
+                {
+                    "box": [0.8, 0.02, 1.8],
+                    "at": [0, 0.001, 0],
+                    "c": "$towel",
+                    "flat": true
+                },
+                {
+                    "box": [0.8, 0.022, 0.12],
+                    "at": [0, 0.001, -0.6],
+                    "c": "white",
+                    "flat": true,
+                    "array": {
+                        "n": 4,
+                        "step": [0, 0, 0.4]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "surfboard",
+            "size": [1, 1],
+            "about": "surfboard stuck upright in the sand",
+            "group": "outdoors",
+            "tint": {
+                "board": "yellow"
+            },
+            "parts": [
+                {
+                    "extrude": [
+                        [0, 0],
+                        [0.2, 0.3],
+                        [0.22, 1.2],
+                        [0, 1.9],
+                        [-0.22, 1.2],
+                        [-0.2, 0.3]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "$board",
+                    "depth": 0.06,
+                    "rx": -0.12
+                },
+                {
+                    "box": [0.04, 1.5, 0.065],
+                    "at": [0, 0.2, -0.03],
+                    "c": "white",
+                    "rx": -0.12
+                }
+            ]
+        },
+        {
+            "name": "hot-tub",
+            "size": [2, 2],
+            "about": "steaming wooden hot tub",
+            "group": "outdoors",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.25,
+                    "face": 0
+                },
+                {
+                    "at": [1, 0],
+                    "h": 0.25,
+                    "face": 0
+                },
+                {
+                    "at": [0, 1],
+                    "h": 0.25,
+                    "face": 2
+                },
+                {
+                    "at": [1, 1],
+                    "h": 0.25,
+                    "face": 2
+                }
+            ],
+            "parts": [
+                {
+                    "lathe": [[0.9, 0], [0.92, 0.75], [0.8, 0.75], [0.78, 0.2]],
+                    "at": [0, 0, 0],
+                    "c": "wood",
+                    "sides": 14
+                },
+                {
+                    "cyl": [0.79, 0.02],
+                    "at": [0, 0.6, 0],
+                    "c": "water",
+                    "opacity": 0.8
+                },
+                {
+                    "ring": [0.92, 0.025],
+                    "at": [0, 0.3, 0],
+                    "c": "iron",
+                    "rx": 1.5707963267948966
+                },
+                {
+                    "ring": [0.92, 0.025],
+                    "at": [0, 0.6, 0],
+                    "c": "iron",
+                    "rx": 1.5707963267948966
+                },
+                {
+                    "ball": 0.14,
+                    "at": [0.2, 0.8, 0],
+                    "c": "white",
+                    "tag": "smoke",
+                    "opacity": 0.5
+                },
+                {
+                    "ball": 0.12,
+                    "at": [-0.3, 0.8, 0.2],
+                    "c": "white",
+                    "tag": "smoke",
+                    "opacity": 0.5
+                }
+            ]
+        },
+        {
+            "name": "swing-bench",
+            "size": [2, 1],
+            "about": "porch swing for two",
+            "group": "outdoors",
+            "seats": [
+                {
+                    "at": [0, 0],
+                    "h": 0.45,
+                    "face": 0
+                },
+                {
+                    "at": [1, 0],
+                    "h": 0.45,
+                    "face": 0
+                }
+            ],
+            "tint": {
+                "seat": "sky"
+            },
+            "parts": [
+                {
+                    "box": [0.07, 1.9, 0.07],
+                    "at": [0.95, 0, 0],
+                    "c": "white",
+                    "mirror": "x"
+                },
+                {
+                    "box": [2.0, 0.07, 0.07],
+                    "at": [0, 1.9, 0],
+                    "c": "white"
+                },
+                {
+                    "group": [
+                        {
+                            "box": [1.5, 0.05, 0.5],
+                            "at": [0, 0.42, 0.05],
+                            "c": "$seat"
+                        },
+                        {
+                            "box": [1.5, 0.5, 0.05],
+                            "at": [0, 0.45, -0.2],
+                            "c": "$seat"
+                        },
+                        {
+                            "cyl": [0.008, 1.45],
+                            "at": [0.7, 0.45, 0],
+                            "c": "iron",
+                            "mirror": "x"
+                        }
+                    ],
+                    "tag": "sway"
+                }
+            ]
+        },
+        {
+            "name": "telescope",
+            "size": [1, 1],
+            "about": "brass telescope on a tripod",
+            "group": "things to do",
+            "do": "Look through the telescope",
+            "gives": "one specific thing seen through it that fits the hour and the weather: a window across town, a named star, a gull on a mast",
+            "parts": [
+                {
+                    "cyl": [0.012, 1.1],
+                    "at": [0.22, 0, 0],
+                    "c": "dark-wood",
+                    "rz": 0.2,
+                    "spin": 3
+                },
+                {
+                    "ball": 0.06,
+                    "at": [0, 1.05, 0],
+                    "c": "brass"
+                },
+                {
+                    "cyl": [0.05, 0.07, 0.8],
+                    "at": [0, 1.08, -0.1],
+                    "c": "brass",
+                    "rx": 1.1
+                },
+                {
+                    "cyl": [0.075, 0.1],
+                    "at": [0, 1.38, 0.42],
+                    "c": "copper",
+                    "rx": 1.1
+                },
+                {
+                    "cyl": [0.03, 0.12],
+                    "at": [0, 0.82, -0.52],
+                    "c": "black",
+                    "rx": 1.1
+                }
+            ]
+        },
+        {
+            "name": "record-crates",
+            "size": [1, 1],
+            "about": "crates of second-hand records",
+            "group": "things to do",
+            "tint": {
+                "sleeve": "orange"
+            },
+            "do": "Flip through the record crates",
+            "gives": "the one record they pull out: artist, title, state of the sleeve, the price sticker",
+            "parts": [
+                {
+                    "box": [0.8, 0.5, 0.42],
+                    "at": [0, 0, -0.2],
+                    "c": "light-wood"
+                },
+                {
+                    "box": [0.8, 0.3, 0.42],
+                    "at": [0, 0, 0.24],
+                    "c": "wood"
+                },
+                {
+                    "box": [0.03, 0.34, 0.36],
+                    "at": [-0.33, 0.24, -0.2],
+                    "c": "$sleeve",
+                    "array": {
+                        "n": 10,
+                        "step": [0.072, 0, 0]
+                    },
+                    "rz": 0.08
+                },
+                {
+                    "box": [0.03, 0.34, 0.36],
+                    "at": [-0.3, 0.06, 0.24],
+                    "c": "navy",
+                    "array": {
+                        "n": 9,
+                        "step": [0.072, 0, 0]
+                    },
+                    "rz": -0.1
+                }
+            ]
+        },
+        {
+            "name": "library-shelves",
+            "size": [1, 1],
+            "about": "tall shelves packed with books",
+            "group": "things to do",
+            "do": "Pull a book off the shelves",
+            "gives": "the book: its title, and the line or picture on the page it falls open at",
+            "parts": [
+                {
+                    "box": [0.9, 2.0, 0.34],
+                    "at": [0, 0, -0.26],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.82, 0.03, 0.3],
+                    "at": [0, 0.5, -0.22],
+                    "c": "wood",
+                    "array": {
+                        "n": 4,
+                        "step": [0, 0.45, 0]
+                    }
+                },
+                {
+                    "box": [0.07, 0.34, 0.2],
+                    "at": [-0.34, 0.08, -0.16],
+                    "c": "crimson",
+                    "array": {
+                        "n": 10,
+                        "step": [0.077, 0, 0]
+                    }
+                },
+                {
+                    "box": [0.07, 0.3, 0.2],
+                    "at": [-0.34, 0.53, -0.16],
+                    "c": "navy",
+                    "array": {
+                        "n": 10,
+                        "step": [0.077, 0, 0]
+                    }
+                },
+                {
+                    "box": [0.07, 0.33, 0.2],
+                    "at": [-0.34, 0.98, -0.16],
+                    "c": "green",
+                    "array": {
+                        "n": 10,
+                        "step": [0.077, 0, 0]
+                    }
+                },
+                {
+                    "box": [0.07, 0.28, 0.2],
+                    "at": [-0.34, 1.43, -0.16],
+                    "c": "amber",
+                    "array": {
+                        "n": 9,
+                        "step": [0.077, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "chess-table",
+            "size": [1, 1],
+            "about": "chess table with a game left mid-play",
+            "group": "things to do",
+            "do": "Study the game left on the chess table and make a move",
+            "gives": "the position in a few words, the move they make, and what it now threatens",
+            "leaves": true,
+            "parts": [
+                {
+                    "cyl": [0.06, 0.66],
+                    "at": [0, 0, 0],
+                    "c": "iron"
+                },
+                {
+                    "cyl": [0.22, 0.03],
+                    "at": [0, 0, 0],
+                    "c": "iron"
+                },
+                {
+                    "box": [0.7, 0.05, 0.7],
+                    "at": [0, 0.66, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.56, 0.01, 0.56],
+                    "at": [0, 0.71, 0],
+                    "c": "cream"
+                },
+                {
+                    "box": [0.14, 0.012, 0.14],
+                    "at": [-0.21, 0.71, -0.21],
+                    "c": "charcoal",
+                    "array": {
+                        "n": 2,
+                        "step": [0.28, 0, 0.28]
+                    }
+                },
+                {
+                    "box": [0.14, 0.012, 0.14],
+                    "at": [0.07, 0.71, -0.21],
+                    "c": "charcoal"
+                },
+                {
+                    "box": [0.14, 0.012, 0.14],
+                    "at": [-0.21, 0.71, 0.07],
+                    "c": "charcoal"
+                },
+                {
+                    "cone": [0.03, 0.1],
+                    "at": [-0.14, 0.72, 0.14],
+                    "c": "white"
+                },
+                {
+                    "cone": [0.03, 0.12],
+                    "at": [0.14, 0.72, -0.07],
+                    "c": "black"
+                },
+                {
+                    "cyl": [0.025, 0.08],
+                    "at": [0.07, 0.72, 0.2],
+                    "c": "white"
+                },
+                {
+                    "cyl": [0.025, 0.09],
+                    "at": [-0.2, 0.72, -0.14],
+                    "c": "black"
+                }
+            ]
+        },
+        {
+            "name": "guestbook",
+            "size": [1, 1],
+            "about": "guestbook open on a lectern",
+            "group": "things to do",
+            "do": "Write a line in the guestbook",
+            "gives": "the line they write, in their own voice, signed",
+            "leaves": true,
+            "parts": [
+                {
+                    "cyl": [0.05, 0.9],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.4, 0.04, 0.4],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [0.56, 0.04, 0.42],
+                    "at": [0, 0.95, 0],
+                    "c": "wood",
+                    "rx": 0.35
+                },
+                {
+                    "box": [0.24, 0.03, 0.34],
+                    "at": [-0.125, 0.99, 0.01],
+                    "c": "paper",
+                    "rx": 0.35
+                },
+                {
+                    "box": [0.24, 0.03, 0.34],
+                    "at": [0.125, 0.99, 0.01],
+                    "c": "paper",
+                    "rx": 0.35
+                },
+                {
+                    "cyl": [0.008, 0.2],
+                    "at": [0.2, 1.02, 0.1],
+                    "c": "navy",
+                    "rz": 1.2
+                }
+            ]
+        },
+        {
+            "name": "fortune-machine",
+            "size": [1, 1],
+            "about": "coin-operated fortune teller in a glass case",
+            "group": "things to do",
+            "light": {
+                "at": [0, 1.1, 0.3],
+                "colour": "#7fd0ff",
+                "power": 1.2
+            },
+            "do": "Put a coin in the fortune machine",
+            "gives": "the fortune printed on the card: one odd, specific sentence, not a platitude",
+            "parts": [
+                {
+                    "box": [0.7, 0.9, 0.6],
+                    "at": [0, 0, 0],
+                    "c": "wine"
+                },
+                {
+                    "box": [0.62, 0.8, 0.52],
+                    "at": [0, 0.9, 0],
+                    "c": "glass",
+                    "opacity": 0.3
+                },
+                {
+                    "box": [0.74, 0.14, 0.64],
+                    "at": [0, 1.7, 0],
+                    "c": "gold"
+                },
+                {
+                    "capsule": [0.14, 0.5],
+                    "at": [0, 0.9, -0.08],
+                    "c": "purple"
+                },
+                {
+                    "ball": 0.11,
+                    "at": [0, 1.45, -0.08],
+                    "c": "tan"
+                },
+                {
+                    "dome": 0.13,
+                    "at": [0, 1.5, -0.08],
+                    "c": "gold",
+                    "squash": 0.8
+                },
+                {
+                    "ball": 0.09,
+                    "at": [0, 1.0, 0.14],
+                    "c": "neon-blue",
+                    "glow": true,
+                    "tag": "pulse"
+                },
+                {
+                    "box": [0.2, 0.05, 0.02],
+                    "at": [0, 0.5, 0.31],
+                    "c": "brass"
+                },
+                {
+                    "sign": [0.6, 0.12],
+                    "at": [0, 1.71, 0.33],
+                    "c": "gold",
+                    "text": "FORTUNA",
+                    "fg": "#6b1d2e"
+                }
+            ]
+        },
+        {
+            "name": "photo-booth",
+            "size": [1, 1],
+            "about": "photo booth with a curtain",
+            "group": "things to do",
+            "tint": {
+                "shell": "navy"
+            },
+            "do": "Take a strip of photos in the booth",
+            "gives": "what the four frames show, frame by frame, in a few words",
+            "parts": [
+                {
+                    "box": [0.95, 2.0, 0.9],
+                    "at": [0, 0, -0.02],
+                    "c": "$shell"
+                },
+                {
+                    "box": [0.5, 1.5, 0.04],
+                    "at": [-0.18, 0.1, 0.44],
+                    "c": "crimson",
+                    "tag": "sway"
+                },
+                {
+                    "box": [0.24, 0.5, 0.03],
+                    "at": [0.32, 1.0, 0.44],
+                    "c": "white"
+                },
+                {
+                    "box": [0.99, 0.2, 0.94],
+                    "at": [0, 1.8, -0.02],
+                    "c": "warm-light",
+                    "glow": "night"
+                },
+                {
+                    "sign": [0.8, 0.16],
+                    "at": [0, 1.82, 0.46],
+                    "c": "black",
+                    "text": "FOTO",
+                    "fg": "#ffe2a8"
+                }
+            ]
+        },
+        {
+            "name": "aquarium",
+            "size": [2, 1],
+            "about": "lit fish tank on a cabinet",
+            "group": "things to do",
+            "light": {
+                "at": [0, 1.2, 0.3],
+                "colour": "#8fd8ff",
+                "power": 1.4
+            },
+            "do": "Watch the fish for a while",
+            "gives": "what one particular fish is up to, small and exact",
+            "parts": [
+                {
+                    "box": [1.6, 0.7, 0.5],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [1.5, 0.6, 0.44],
+                    "at": [0, 0.72, 0],
+                    "c": "water",
+                    "opacity": 0.55
+                },
+                {
+                    "box": [1.56, 0.05, 0.5],
+                    "at": [0, 1.32, 0],
+                    "c": "black"
+                },
+                {
+                    "box": [1.4, 0.05, 0.36],
+                    "at": [0, 0.72, 0],
+                    "c": "sand"
+                },
+                {
+                    "cone": [0.04, 0.3],
+                    "at": [-0.5, 0.76, -0.1],
+                    "c": "leaf",
+                    "tag": "sway"
+                },
+                {
+                    "cone": [0.03, 0.22],
+                    "at": [0.4, 0.76, 0.1],
+                    "c": "lime",
+                    "tag": "sway"
+                },
+                {
+                    "ball": 0.05,
+                    "at": [-0.3, 1.0, 0],
+                    "c": "orange",
+                    "tag": "bob",
+                    "s": [1.6, 1, 0.6]
+                },
+                {
+                    "ball": 0.04,
+                    "at": [0.2, 1.1, 0.1],
+                    "c": "yellow",
+                    "tag": "bob",
+                    "s": [1.6, 1, 0.6]
+                },
+                {
+                    "ball": 0.045,
+                    "at": [0.5, 0.92, -0.05],
+                    "c": "neon-blue",
+                    "tag": "bob",
+                    "s": [1.6, 1, 0.6]
+                }
+            ]
+        },
+        {
+            "name": "globe",
+            "size": [1, 1],
+            "about": "big floor globe that spins",
+            "group": "things to do",
+            "do": "Spin the globe and stop it with a finger",
+            "gives": "the real place the finger lands on, and one thing they know or wonder about it",
+            "parts": [
+                {
+                    "cyl": [0.2, 0.04],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "cyl": [0.03, 0.5],
+                    "at": [0, 0, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "ring": [0.33, 0.015],
+                    "at": [0, 0.85, 0],
+                    "c": "brass",
+                    "rz": 0.4
+                },
+                {
+                    "group": [
+                        {
+                            "ball": 0.3,
+                            "at": [0, 0, 0],
+                            "c": "blue",
+                            "detail": 2
+                        },
+                        {
+                            "ball": 0.12,
+                            "at": [0.2, 0.12, 0.12],
+                            "c": "leaf",
+                            "squash": 0.8
+                        },
+                        {
+                            "ball": 0.1,
+                            "at": [-0.18, -0.05, 0.19],
+                            "c": "moss"
+                        },
+                        {
+                            "ball": 0.13,
+                            "at": [-0.05, 0.1, -0.23],
+                            "c": "leaf",
+                            "squash": 0.7
+                        },
+                        {
+                            "ball": 0.08,
+                            "at": [0.1, -0.2, -0.16],
+                            "c": "sand"
+                        }
+                    ],
+                    "at": [0, 0.85, 0],
+                    "tag": "spin"
+                }
+            ]
+        },
+        {
+            "name": "pottery-wheel",
+            "size": [1, 1],
+            "about": "pottery wheel with a pot half thrown",
+            "group": "things to do",
+            "do": "Throw a pot on the wheel",
+            "gives": "the shape it takes under their hands and the moment it goes right or wrong",
+            "parts": [
+                {
+                    "box": [0.6, 0.4, 0.6],
+                    "at": [0, 0, 0],
+                    "c": "charcoal"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.26, 0.04],
+                            "at": [0, 0, 0],
+                            "c": "metal",
+                            "sides": 14
+                        },
+                        {
+                            "lathe": [
+                                [0.1, 0],
+                                [0.16, 0.12],
+                                [0.12, 0.26],
+                                [0.14, 0.3]
+                            ],
+                            "at": [0, 0.04, 0],
+                            "c": "terracotta"
+                        }
+                    ],
+                    "at": [0, 0.4, 0],
+                    "tag": "spin"
+                },
+                {
+                    "ball": 0.07,
+                    "at": [0.36, 0.05, 0.3],
+                    "c": "terracotta",
+                    "squash": 0.6
+                }
+            ]
+        },
+        {
+            "name": "workbench",
+            "size": [2, 1],
+            "about": "workbench with tools and a half-fixed thing",
+            "group": "things to do",
+            "do": "Tinker at the workbench",
+            "gives": "the small thing they get working, or the part that pings off under the bench",
+            "parts": [
+                {
+                    "box": [1.9, 0.08, 0.7],
+                    "at": [0, 0.8, 0],
+                    "c": "wood"
+                },
+                {
+                    "box": [0.08, 0.8, 0.08],
+                    "at": [0.85, 0, 0.25],
+                    "c": "dark-wood",
+                    "mirror": "xz"
+                },
+                {
+                    "box": [1.7, 0.04, 0.5],
+                    "at": [0, 0.25, 0],
+                    "c": "dark-wood"
+                },
+                {
+                    "box": [1.9, 0.9, 0.04],
+                    "at": [0, 0.88, -0.34],
+                    "c": "tan"
+                },
+                {
+                    "box": [0.04, 0.3, 0.02],
+                    "at": [-0.7, 1.3, -0.31],
+                    "c": "metal",
+                    "array": {
+                        "n": 5,
+                        "step": [0.22, 0, 0]
+                    }
+                },
+                {
+                    "box": [0.3, 0.2, 0.2],
+                    "at": [0.5, 0.88, 0],
+                    "c": "red"
+                },
+                {
+                    "box": [0.22, 0.12, 0.3],
+                    "at": [-0.4, 0.88, 0.05],
+                    "c": "metal"
+                },
+                {
+                    "cyl": [0.02, 0.18],
+                    "at": [-0.4, 1.0, 0.05],
+                    "c": "black"
+                }
+            ]
+        },
+        {
+            "name": "shrine",
+            "size": [1, 1],
+            "about": "small shrine with candles",
+            "group": "things to do",
+            "light": {
+                "at": [0, 0.8, 0],
+                "colour": "#ffb060",
+                "power": 1.2
+            },
+            "do": "Light a candle at the shrine",
+            "gives": "who or what the candle is for, said plainly",
+            "leaves": true,
+            "parts": [
+                {
+                    "box": [0.7, 0.5, 0.4],
+                    "at": [0, 0, -0.2],
+                    "c": "stone"
+                },
+                {
+                    "box": [0.8, 0.05, 0.5],
+                    "at": [0, 0.5, -0.2],
+                    "c": "dark-stone"
+                },
+                {
+                    "gable": [0.5, 0.2, 0.44],
+                    "at": [0, 1.05, -0.2],
+                    "c": "rust",
+                    "ry": 1.5707963267948966
+                },
+                {
+                    "box": [0.04, 0.5, 0.04],
+                    "at": [0.3, 0.55, -0.02],
+                    "c": "dark-wood",
+                    "mirror": "x"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.03, 0.12],
+                            "at": [0, 0, 0],
+                            "c": "cream"
+                        },
+                        {
+                            "cone": [0.015, 0.05],
+                            "at": [0, 0.12, 0],
+                            "c": "fire",
+                            "glow": true,
+                            "tag": "flame",
+                            "sides": 4
+                        }
+                    ],
+                    "at": [-0.2, 0.55, -0.12],
+                    "array": {
+                        "n": 3,
+                        "step": [0.2, 0, 0]
+                    }
+                },
+                {
+                    "ball": 0.06,
+                    "at": [0, 0.64, -0.32],
+                    "c": "gold"
+                }
+            ]
+        },
+        {
+            "name": "whiteboard",
+            "size": [1, 1],
+            "about": "whiteboard covered in scribbles (wall)",
+            "group": "things to do",
+            "wall": true,
+            "do": "Add something to the whiteboard",
+            "gives": "what's already on the board in a few words, and the thing they add",
+            "leaves": true,
+            "parts": [
+                {
+                    "box": [0.92, 0.7, 0.03],
+                    "at": [0, 1.0, -0.47],
+                    "c": "metal"
+                },
+                {
+                    "box": [0.86, 0.64, 0.035],
+                    "at": [0, 1.03, -0.47],
+                    "c": "white"
+                },
+                {
+                    "tube": [
+                        [-0.3, 1.5, -0.44],
+                        [-0.1, 1.42, -0.44],
+                        [0.05, 1.52, -0.44],
+                        [0.3, 1.45, -0.44]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "blue",
+                    "r": 0.008
+                },
+                {
+                    "box": [0.3, 0.012, 0.005],
+                    "at": [-0.2, 1.3, -0.45],
+                    "c": "red"
+                },
+                {
+                    "box": [0.4, 0.012, 0.005],
+                    "at": [-0.1, 1.2, -0.45],
+                    "c": "black"
+                },
+                {
+                    "box": [0.5, 0.04, 0.06],
+                    "at": [0, 0.98, -0.44],
+                    "c": "metal"
+                }
+            ]
+        },
+        {
+            "name": "punching-bag",
+            "size": [1, 1],
+            "about": "punching bag on a stand",
+            "group": "things to do",
+            "do": "Go a round with the punching bag",
+            "gives": "how the round goes and what, honestly, they were hitting",
+            "parts": [
+                {
+                    "box": [0.7, 0.05, 0.7],
+                    "at": [0, 0, 0],
+                    "c": "iron"
+                },
+                {
+                    "box": [0.06, 2.0, 0.06],
+                    "at": [0, 0, -0.3],
+                    "c": "iron"
+                },
+                {
+                    "box": [0.06, 0.06, 0.4],
+                    "at": [0, 1.95, -0.12],
+                    "c": "iron"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.008, 0.25],
+                            "at": [0, 0.85, 0],
+                            "c": "metal"
+                        },
+                        {
+                            "capsule": [0.17, 0.9],
+                            "at": [0, 0, 0],
+                            "c": "crimson"
+                        }
+                    ],
+                    "at": [0, 0.82, 0.05],
+                    "tag": "sway"
+                }
+            ]
+        },
+        {
+            "name": "stage-mic",
+            "size": [1, 1],
+            "about": "microphone on a stand",
+            "group": "things to do",
+            "solid": false,
+            "do": "Step up to the mic",
+            "gives": "what comes out when they try it: a line, a hum, a joke that half lands",
+            "parts": [
+                {
+                    "cyl": [0.16, 0.02],
+                    "at": [0, 0, 0],
+                    "c": "iron"
+                },
+                {
+                    "cyl": [0.012, 1.3],
+                    "at": [0, 0, 0],
+                    "c": "metal"
+                },
+                {
+                    "capsule": [0.035, 0.14],
+                    "at": [0, 1.3, 0.03],
+                    "c": "charcoal",
+                    "rx": 0.5
+                },
+                {
+                    "ball": 0.04,
+                    "at": [0, 1.42, 0.09],
+                    "c": "metal"
+                }
+            ]
+        },
+        {
+            "name": "drum-kit",
+            "size": [2, 1],
+            "about": "drum kit",
+            "group": "things to do",
+            "tint": {
+                "shell": "crimson"
+            },
+            "do": "Sit down at the drum kit",
+            "gives": "the beat they try and where it falls apart or locks in",
+            "parts": [
+                {
+                    "cyl": [0.3, 0.3],
+                    "at": [0, 0.3, 0],
+                    "c": "$shell",
+                    "rx": 1.5707963267948966,
+                    "sides": 14
+                },
+                {
+                    "cyl": [0.18, 0.16],
+                    "at": [-0.5, 0.5, 0.1],
+                    "c": "$shell"
+                },
+                {
+                    "cyl": [0.2, 0.3],
+                    "at": [0.5, 0.15, 0.15],
+                    "c": "$shell"
+                },
+                {
+                    "cyl": [0.01, 0.9],
+                    "at": [-0.75, 0, -0.1],
+                    "c": "metal"
+                },
+                {
+                    "cyl": [0.2, 0.01],
+                    "at": [-0.75, 0.9, -0.1],
+                    "c": "brass"
+                },
+                {
+                    "cyl": [0.01, 1.1],
+                    "at": [0.75, 0, -0.15],
+                    "c": "metal"
+                },
+                {
+                    "cyl": [0.24, 0.01],
+                    "at": [0.75, 1.1, -0.15],
+                    "c": "brass",
+                    "rz": 0.2
+                },
+                {
+                    "cyl": [0.15, 0.03],
+                    "at": [0, 0.4, -0.4],
+                    "c": "black"
+                },
+                {
+                    "cyl": [0.02, 0.4],
+                    "at": [0, 0, -0.4],
+                    "c": "metal"
+                }
+            ]
+        },
+        {
+            "name": "turntable",
+            "size": [1, 1],
+            "about": "record player; lift onto a table with y",
+            "group": "things to do",
+            "solid": false,
+            "do": "Put a record on the turntable",
+            "gives": "the record they choose, and the first seconds of it",
+            "parts": [
+                {
+                    "box": [0.5, 0.08, 0.4],
+                    "at": [0, 0, 0],
+                    "c": "wood"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.17, 0.012],
+                            "at": [0, 0, 0],
+                            "c": "black",
+                            "sides": 16
+                        },
+                        {
+                            "cyl": [0.05, 0.014],
+                            "at": [0, 0, 0],
+                            "c": "red",
+                            "sides": 10
+                        },
+                        {
+                            "box": [0.02, 0.016, 0.1],
+                            "at": [0.1, 0, 0],
+                            "c": "charcoal"
+                        }
+                    ],
+                    "at": [-0.04, 0.08, 0],
+                    "tag": "spin"
+                },
+                {
+                    "tube": [
+                        [0.2, 0.1, -0.14],
+                        [0.2, 0.12, 0],
+                        [0.1, 0.1, 0.06]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "metal",
+                    "r": 0.008
+                }
+            ]
+        },
+        {
+            "name": "chandelier",
+            "size": [1, 1],
+            "about": "chandelier hanging overhead",
+            "group": "light",
+            "solid": false,
+            "light": {
+                "at": [0, 2.0, 0],
+                "colour": "#ffd9a0",
+                "power": 3
+            },
+            "parts": [
+                {
+                    "cyl": [0.008, 0.5],
+                    "at": [0, 2.3, 0],
+                    "c": "brass"
+                },
+                {
+                    "ball": 0.08,
+                    "at": [0, 2.25, 0],
+                    "c": "brass"
+                },
+                {
+                    "group": [
+                        {
+                            "tube": [
+                                [0, 2.22, 0],
+                                [0.2, 2.1, 0],
+                                [0.34, 2.2, 0]
+                            ],
+                            "at": [0, 0, 0],
+                            "c": "brass",
+                            "r": 0.012
+                        },
+                        {
+                            "cyl": [0.02, 0.08],
+                            "at": [0.34, 2.2, 0],
+                            "c": "cream"
+                        },
+                        {
+                            "cone": [0.018, 0.06],
+                            "at": [0.34, 2.28, 0],
+                            "c": "ember",
+                            "glow": true,
+                            "tag": "flame",
+                            "sides": 4
+                        }
+                    ],
+                    "spin": 6
+                }
+            ]
+        },
+        {
+            "name": "disco-ball",
+            "size": [1, 1],
+            "about": "mirror ball turning overhead",
+            "group": "light",
+            "solid": false,
+            "light": {
+                "at": [0, 2.0, 0],
+                "colour": "#c9a0ff",
+                "power": 2.4
+            },
+            "parts": [
+                {
+                    "cyl": [0.008, 0.4],
+                    "at": [0, 2.5, 0],
+                    "c": "metal"
+                },
+                {
+                    "group": [
+                        {
+                            "ball": 0.22,
+                            "at": [0, 0, 0],
+                            "c": "chrome",
+                            "detail": 1,
+                            "glow": true
+                        }
+                    ],
+                    "at": [0, 2.3, 0],
+                    "tag": "spin"
+                },
+                {
+                    "ball": 0.03,
+                    "at": [0.5, 1.9, 0.3],
+                    "c": "neon-pink",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.03,
+                    "at": [-0.4, 2.0, -0.3],
+                    "c": "neon-blue",
+                    "glow": true,
+                    "tag": "twinkle"
+                },
+                {
+                    "ball": 0.03,
+                    "at": [0.1, 1.8, -0.5],
+                    "c": "neon-green",
+                    "glow": true,
+                    "tag": "twinkle"
+                }
+            ]
+        },
+        {
+            "name": "candles",
+            "size": [1, 1],
+            "about": "cluster of candles; lift onto a table with y",
+            "group": "light",
+            "solid": false,
+            "light": {
+                "at": [0, 0.3, 0],
+                "colour": "#ffb060",
+                "power": 1
+            },
+            "parts": [
+                {
+                    "cyl": [0.04, 0.16],
+                    "at": [-0.06, 0, 0],
+                    "c": "cream"
+                },
+                {
+                    "cyl": [0.035, 0.1],
+                    "at": [0.06, 0, 0.04],
+                    "c": "cream"
+                },
+                {
+                    "cyl": [0.03, 0.07],
+                    "at": [0, 0, -0.07],
+                    "c": "blush"
+                },
+                {
+                    "cone": [0.016, 0.06],
+                    "at": [-0.06, 0.16, 0],
+                    "c": "fire",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 4
+                },
+                {
+                    "cone": [0.016, 0.06],
+                    "at": [0.06, 0.1, 0.04],
+                    "c": "fire",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 4
+                },
+                {
+                    "cone": [0.014, 0.05],
+                    "at": [0, 0.07, -0.07],
+                    "c": "ember",
+                    "glow": true,
+                    "tag": "flame",
+                    "sides": 4
+                }
+            ]
+        },
+        {
+            "name": "paper-lantern",
+            "size": [1, 1],
+            "about": "round paper lantern hanging overhead",
+            "group": "light",
+            "solid": false,
+            "tint": {
+                "paper": "warm-light"
+            },
+            "light": {
+                "at": [0, 1.9, 0],
+                "colour": "#ffd9a0",
+                "power": 2.2
+            },
+            "parts": [
+                {
+                    "cyl": [0.006, 0.5],
+                    "at": [0, 2.2, 0],
+                    "c": "black"
+                },
+                {
+                    "ball": 0.26,
+                    "at": [0, 1.95, 0],
+                    "c": "$paper",
+                    "glow": true,
+                    "squash": 0.9,
+                    "tag": "bob"
+                },
+                {
+                    "cyl": [0.07, 0.03],
+                    "at": [0, 2.17, 0],
+                    "c": "black"
+                }
+            ]
+        },
+        {
+            "name": "neon-tube",
+            "size": [1, 1],
+            "about": "glowing neon squiggle (wall)",
+            "group": "light",
+            "wall": true,
+            "tint": {
+                "neon": "neon-pink"
+            },
+            "light": {
+                "at": [0, 1.4, 0.2],
+                "colour": "#ff6fb5",
+                "power": 1.6
+            },
+            "parts": [
+                {
+                    "tube": [
+                        [-0.35, 1.2, -0.46],
+                        [-0.2, 1.6, -0.46],
+                        [0, 1.25, -0.46],
+                        [0.2, 1.6, -0.46],
+                        [0.35, 1.2, -0.46]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "$neon",
+                    "r": 0.025,
+                    "glow": true,
+                    "tag": "pulse"
+                }
+            ]
+        },
+        {
+            "name": "server-rack",
+            "size": [1, 1],
+            "about": "humming server rack with blinking lights",
+            "group": "light",
+            "parts": [
+                {
+                    "box": [0.7, 1.9, 0.8],
+                    "at": [0, 0, 0],
+                    "c": "charcoal"
+                },
+                {
+                    "box": [0.6, 0.12, 0.02],
+                    "at": [0, 0.2, 0.4],
+                    "c": "black",
+                    "array": {
+                        "n": 9,
+                        "step": [0, 0.18, 0]
+                    }
+                },
+                {
+                    "box": [0.03, 0.03, 0.01],
+                    "at": [-0.2, 0.25, 0.415],
+                    "c": "neon-green",
+                    "glow": true,
+                    "tag": "twinkle",
+                    "array": {
+                        "n": 5,
+                        "step": [0, 0.36, 0]
+                    }
+                },
+                {
+                    "box": [0.03, 0.03, 0.01],
+                    "at": [0.1, 0.43, 0.415],
+                    "c": "amber",
+                    "glow": true,
+                    "tag": "twinkle",
+                    "array": {
+                        "n": 4,
+                        "step": [0, 0.36, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "column",
+            "size": [1, 1],
+            "about": "stone column",
+            "group": "indoors",
+            "parts": [
+                {
+                    "box": [0.5, 0.12, 0.5],
+                    "at": [0, 0, 0],
+                    "c": "stone"
+                },
+                {
+                    "lathe": [
+                        [0.2, 0.12],
+                        [0.17, 0.3],
+                        [0.16, 2.1],
+                        [0.2, 2.25]
+                    ],
+                    "at": [0, 0, 0],
+                    "c": "white",
+                    "sides": 10
+                },
+                {
+                    "box": [0.5, 0.12, 0.5],
+                    "at": [0, 2.25, 0],
+                    "c": "stone"
+                }
+            ]
+        },
+        {
+            "name": "folding-screen",
+            "size": [1, 1],
+            "about": "three-panel folding screen",
+            "group": "indoors",
+            "tint": {
+                "panel": "teal"
+            },
+            "parts": [
+                {
+                    "box": [0.34, 1.6, 0.03],
+                    "at": [-0.3, 0.05, 0.06],
+                    "c": "$panel",
+                    "ry": 0.5
+                },
+                {
+                    "box": [0.34, 1.6, 0.03],
+                    "at": [0, 0.05, 0],
+                    "c": "$panel",
+                    "ry": -0.5
+                },
+                {
+                    "box": [0.34, 1.6, 0.03],
+                    "at": [0.3, 0.05, 0.06],
+                    "c": "$panel",
+                    "ry": 0.5
+                }
+            ]
+        },
+        {
+            "name": "curtain",
+            "size": [1, 1],
+            "about": "heavy curtain (wall)",
+            "group": "indoors",
+            "wall": true,
+            "tint": {
+                "cloth": "wine"
+            },
+            "parts": [
+                {
+                    "box": [1.0, 0.04, 0.04],
+                    "at": [0, 2.15, -0.44],
+                    "c": "brass"
+                },
+                {
+                    "box": [0.12, 2.0, 0.05],
+                    "at": [-0.42, 0.12, -0.44],
+                    "c": "$cloth",
+                    "array": {
+                        "n": 8,
+                        "step": [0.12, 0, 0]
+                    }
+                },
+                {
+                    "box": [0.12, 2.0, 0.07],
+                    "at": [-0.36, 0.12, -0.44],
+                    "c": "$cloth",
+                    "array": {
+                        "n": 4,
+                        "step": [0.24, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "wine-rack",
+            "size": [1, 1],
+            "about": "wine rack full of bottles",
+            "group": "indoors",
+            "parts": [
+                {
+                    "box": [0.8, 1.4, 0.36],
+                    "at": [0, 0, -0.2],
+                    "c": "dark-wood"
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.04, 0.3],
+                            "at": [0, 0, -0.2],
+                            "c": "dark-leaf",
+                            "rx": 1.5707963267948966,
+                            "sides": 7
+                        }
+                    ],
+                    "at": [-0.28, 0.2, 0.1],
+                    "array": {
+                        "n": 4,
+                        "step": [0.19, 0, 0]
+                    }
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.04, 0.3],
+                            "at": [0, 0, -0.2],
+                            "c": "wine",
+                            "rx": 1.5707963267948966,
+                            "sides": 7
+                        }
+                    ],
+                    "at": [-0.28, 0.55, 0.1],
+                    "array": {
+                        "n": 4,
+                        "step": [0.19, 0, 0]
+                    }
+                },
+                {
+                    "group": [
+                        {
+                            "cyl": [0.04, 0.3],
+                            "at": [0, 0, -0.2],
+                            "c": "dark-leaf",
+                            "rx": 1.5707963267948966,
+                            "sides": 7
+                        }
+                    ],
+                    "at": [-0.28, 0.9, 0.1],
+                    "array": {
+                        "n": 4,
+                        "step": [0.19, 0, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "barrel-table",
+            "size": [1, 1],
+            "about": "standing table made from a barrel",
+            "group": "indoors",
+            "parts": [
+                {
+                    "lathe": [[0.26, 0], [0.34, 0.45], [0.26, 0.9]],
+                    "at": [0, 0, 0],
+                    "c": "wood",
+                    "sides": 12
+                },
+                {
+                    "ring": [0.31, 0.015],
+                    "at": [0, 0.22, 0],
+                    "c": "iron",
+                    "rx": 1.5707963267948966
+                },
+                {
+                    "ring": [0.31, 0.015],
+                    "at": [0, 0.68, 0],
+                    "c": "iron",
+                    "rx": 1.5707963267948966
+                },
+                {
+                    "cyl": [0.42, 0.04],
+                    "at": [0, 0.9, 0],
+                    "c": "dark-wood",
+                    "sides": 14
+                }
+            ]
+        },
+        {
+            "name": "water-cooler",
+            "size": [1, 1],
+            "about": "office water cooler",
+            "group": "indoors",
+            "do": "Get a cup at the water cooler and linger",
+            "gives": "the bit of office news going round the cooler today, harmless and specific",
+            "parts": [
+                {
+                    "box": [0.36, 0.95, 0.36],
+                    "at": [0, 0, 0],
+                    "c": "white"
+                },
+                {
+                    "lathe": [
+                        [0.05, 0],
+                        [0.15, 0.08],
+                        [0.15, 0.4],
+                        [0.02, 0.44]
+                    ],
+                    "at": [0, 0.95, 0],
+                    "c": "glass",
+                    "opacity": 0.55
+                },
+                {
+                    "box": [0.06, 0.04, 0.05],
+                    "at": [-0.07, 0.7, 0.2],
+                    "c": "blue"
+                },
+                {
+                    "box": [0.06, 0.04, 0.05],
+                    "at": [0.07, 0.7, 0.2],
+                    "c": "red"
+                }
+            ]
+        },
+        {
+            "name": "yoga-mat",
+            "size": [1, 2],
+            "about": "yoga mat",
+            "group": "indoors",
+            "solid": false,
+            "seats": [
+                {
+                    "at": [0, 0.5],
+                    "h": 0.03,
+                    "face": 0
+                }
+            ],
+            "tint": {
+                "mat": "lilac"
+            },
+            "parts": [
+                {
+                    "box": [0.7, 0.02, 1.8],
+                    "at": [0, 0.001, 0],
+                    "c": "$mat",
+                    "flat": true
+                },
+                {
+                    "cyl": [0.06, 0.6],
+                    "at": [0, 0.06, -0.85],
+                    "c": "$mat",
+                    "rz": 1.5707963267948966
+                }
+            ]
+        },
+        {
+            "name": "bunk-bed",
+            "size": [1, 2],
+            "about": "bunk bed",
+            "group": "indoors",
+            "seats": [
+                {
+                    "at": [0, 0.5],
+                    "h": 0.5,
+                    "face": 1
+                }
+            ],
+            "tint": {
+                "blanket": "blue"
+            },
+            "parts": [
+                {
+                    "box": [0.07, 1.8, 0.07],
+                    "at": [0.42, 0, 0.92],
+                    "c": "wood",
+                    "mirror": "xz"
+                },
+                {
+                    "box": [0.9, 0.12, 1.9],
+                    "at": [0, 0.35, 0],
+                    "c": "$blanket"
+                },
+                {
+                    "box": [0.9, 0.12, 1.9],
+                    "at": [0, 1.3, 0],
+                    "c": "$blanket"
+                },
+                {
+                    "box": [0.6, 0.1, 0.36],
+                    "at": [0, 0.47, -0.7],
+                    "c": "white"
+                },
+                {
+                    "box": [0.6, 0.1, 0.36],
+                    "at": [0, 1.42, -0.7],
+                    "c": "white"
+                },
+                {
+                    "box": [0.04, 0.9, 0.04],
+                    "at": [0.42, 0.45, 0.5],
+                    "c": "wood"
+                },
+                {
+                    "box": [0.04, 0.04, 0.3],
+                    "at": [0.42, 0.6, 0.7],
+                    "c": "wood",
+                    "array": {
+                        "n": 3,
+                        "step": [0, 0.25, 0]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "bathtub",
+            "size": [2, 1],
+            "about": "claw-foot bathtub",
+            "group": "indoors",
+            "seats": [
+                {
+                    "at": [0.5, 0],
+                    "h": 0.2,
+                    "face": 1
+                }
+            ],
+            "parts": [
+                {
+                    "lathe": [
+                        [0.3, 0],
+                        [0.42, 0.45],
+                        [0.44, 0.5],
+                        [0.38, 0.5],
+                        [0.3, 0.1]
+                    ],
+                    "at": [0, 0.12, 0],
+                    "c": "white",
+                    "sides": 12,
+                    "s": [2.1, 1, 1]
+                },
+                {
+                    "ball": 0.05,
+                    "at": [0.6, 0.06, 0.2],
+                    "c": "brass",
+                    "mirror": "xz"
+                },
+                {
+                    "tube": [[0.8, 0.6, 0], [0.8, 0.9, 0], [0.65, 0.9, 0]],
+                    "at": [0, 0, 0],
+                    "c": "brass",
+                    "r": 0.02
+                },
+                {
+                    "cyl": [0.5, 0.01],
+                    "at": [0, 0.5, 0],
+                    "c": "water",
+                    "opacity": 0.7,
+                    "s": [1.6, 1, 0.7]
+                }
+            ]
+        },
+        {
+            "name": "grand-piano",
+            "size": [2, 2],
+            "about": "grand piano with its lid up",
+            "group": "indoors",
+            "do": "Sit down and play something on the grand piano",
+            "gives": "what they play, how far they get, and the note that goes wrong or surprisingly right",
+            "parts": [
+                {
+                    "extrude": [
+                        [-0.75, -0.6],
+                        [0.75, -0.6],
+                        [0.75, 0.1],
+                        [0.3, 0.75],
+                        [-0.2, 0.8],
+                        [-0.75, 0.3]
+                    ],
+                    "at": [0, 0.85, 0],
+                    "c": "black",
+                    "depth": 0.3,
+                    "rx": 1.5707963267948966
+                },
+                {
+                    "extrude": [
+                        [-0.75, -0.6],
+                        [0.75, -0.6],
+                        [0.75, 0.1],
+                        [0.3, 0.75],
+                        [-0.2, 0.8],
+                        [-0.75, 0.3]
+                    ],
+                    "at": [-0.02, 1.35, -0.1],
+                    "c": "charcoal",
+                    "depth": 0.03,
+                    "rx": 1.5707963267948966,
+                    "rz": 0.5
+                },
+                {
+                    "cyl": [0.04, 0.72],
+                    "at": [0.6, 0, 0.45],
+                    "c": "black",
+                    "mirror": "x"
+                },
+                {
+                    "cyl": [0.04, 0.72],
+                    "at": [0, 0, -0.55],
+                    "c": "black"
+                },
+                {
+                    "box": [1.3, 0.04, 0.16],
+                    "at": [0, 0.74, 0.68],
+                    "c": "white"
+                },
+                {
+                    "box": [0.03, 0.045, 0.1],
+                    "at": [-0.6, 0.745, 0.65],
+                    "c": "black",
+                    "array": {
+                        "n": 16,
+                        "step": [0.08, 0, 0]
+                    }
+                },
+                {
+                    "cyl": [0.01, 0.5],
+                    "at": [0.5, 0.86, -0.2],
+                    "c": "brass",
+                    "rz": 0.3
+                }
+            ]
+        }
+    ]
+}
