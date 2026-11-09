@@ -32,6 +32,8 @@ public sealed class PersonaLifeGrain(
     private const double ChoiceTemperature = 0.8;
     /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
     public const string LookAction = "look";
+    /// <summary>When a lack was last voiced; per activation, the cap is soft.</summary>
+    private long? _lackAt;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -82,7 +84,7 @@ public sealed class PersonaLifeGrain(
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
             threads,
             (await clock.GetActivitiesAsync(12, personaId))
-                .Where(a => a.Action is not ("fizzle" or "error")).Take(8).ToList(),
+                .Where(a => a.Action is not ("fizzle" or "error" or Desires.Lack.Action)).Take(8).ToList(),
             now,
             await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
             // A promise due reaches its person, their chat and (for a come-over) where they are; then wants (ADR 0026, 0043).
@@ -167,10 +169,18 @@ public sealed class PersonaLifeGrain(
         var optionMap = Enumerable.Range(0, options.Count + 1).ToDictionary(
             i => i.ToString(CultureInfo.InvariantCulture),
             i => (string?)(i == 0 ? rest : Read(options[i - 1])));
-        var answers = await judge.For(self.Id).AskAsync(state, new Dictionary<string, SystemOneQuestion>
+        var questions = new Dictionary<string, SystemOneQuestion>
         {
             ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
-        }, ct);
+        };
+        // Reaching past the menu rides the same call (ADR 0047): only a first look at the world, not a follow-up.
+        if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
+        var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
+        if (!lookedAlready && Desires.Lack.Felt(answers.Noul(Desires.Lack.Key, 0), _lackAt, now))
+        {
+            _lackAt = now.ToUnixTimeMilliseconds();
+            _ = FeelLackAsync(partyId, personaId, self, sb.ToString());
+        }
         var choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
         if (choice < 1 || choice > options.Count)
             return (Activity(personaId, self.Name, "life", "rest", "is taking it easy"), false);
@@ -214,6 +224,23 @@ public sealed class PersonaLifeGrain(
         {
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
             return (Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought), false);
+        }
+    }
+
+    /// <summary>Voices what they reached for that nothing here affords, off the turn's clock; "none" leaves no trace.</summary>
+    private async Task FeelLackAsync(Guid partyId, Guid personaId, CastMember self, string world)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General, Desires.Lack.Ask(WorldLlm.Identity(self)), world, cts.Token, 0.7, ["want"]);
+            if (Desires.Lack.Read(json?["want"]?.ToString()) is not { } want) return;
+            logger.LogInformation("Lack {Persona}: {Want}", self.Name, want);
+            await GrainFactory.GetGrain<IWorldClockGrain>(partyId).RecordAsync(Activity(personaId, self.Name, "life", Desires.Lack.Action, want));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "Lack failed for {Persona}", self.Name);
         }
     }
 

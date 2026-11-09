@@ -156,6 +156,10 @@ _Avoid_: activation, importance, relevance score, weight.
 The inner pressure a **Persona** feels to act — a push from within, where **Salience** is pull from without. Today the only urge is the urge to speak: built up by being named, open questions, long silence, and the Persona's own **Chattiness**, consulted by the **Decision phase**.
 _Avoid_: drive, motivation, impulse (see **Impulsivity**, a different thing).
 
+**Lack**:
+What a **Persona** wanted to do that no **Affordance** offered: the felt edge of the **Arena**. Weighed in **Initiative**'s own System One call, voiced rarely, and shown on the **CDU** desk as what people found no way to. See [ADR 0047](docs/adr/0047-lack.md).
+_Avoid_: missing feature, request, complaint.
+
 **Recall**:
 Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
 _Avoid_: retrieval, query, lookup, RAG.

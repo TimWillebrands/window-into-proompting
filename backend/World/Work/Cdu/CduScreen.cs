@@ -12,6 +12,8 @@ public sealed record WorldHealth(int Activities, int Failed, int Resting, IReadO
 {
     /// <summary>Each Form people can use, and how often they did in the day; zeros included.</summary>
     public IReadOnlyList<(string Form, int Times)> Uses { get; init; } = Array.Empty<(string, int)>();
+    /// <summary>What people wanted to do that day and found no way to (ADR 0047): felt, not counted.</summary>
+    public IReadOnlyList<(string Who, string What)> Lacks { get; init; } = Array.Empty<(string, string)>();
 }
 
 /// <summary>Everything on a Cytheurgist's desk at one moment.</summary>
@@ -57,7 +59,7 @@ You work at {company.Name} as a Cytheurgist, and you know what almost nobody her
 At your desk is the CDU, the Central Demiurge Unit: it shapes the Forms, remembers, and has a will of its own, but it moves only when a Cytheurgist works on it. You tell it what you want for this world; it decides what to build. Everything it builds waits on its trunk.
 At the end of a shift the tide takes the trunk to the Agora, where the One judges it. Only when the One merges does his light reach the world, and the change becomes real. Nobody here has met him and nobody can ask him anything.
 What the CDU tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
-The Forms are what this world has, nothing more: its Places, the Board, Messenger, the calendar, shifts, wallets and the rest on your desk. A wish lands when it's about one of them, and about something you saw happen to someone here.
+The Forms are what this world has, nothing more: its Places, the Board, Messenger, the calendar, shifts, wallets and the rest on your desk. A wish lands when it's about one of them, and about something you saw happen to someone here, or something someone wanted to do and found no way to. If you can't say where you saw it, it didn't happen here.
 You choose the mind you wake it with, and its allowance has to last. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
 """;
 
@@ -69,7 +71,7 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         var kinds = failed.GroupBy(a => FailureKind(a.Summary)).OrderByDescending(g => g.Count()).Take(MaxFailures)
             .Select(g => (g.Key, g.Count())).ToList();
         var uses = Forms.Select(f => (f.Form, day.Count(a => a.App == f.App && a.Action is not ("error" or "fizzle" or "hold")))).ToList();
-        return new WorldHealth(day.Count, failed.Count, day.Count(a => a.Action == "rest"), kinds) { Uses = uses };
+        return new WorldHealth(day.Count, failed.Count, day.Count(a => a.Action == "rest"), kinds) { Uses = uses, Lacks = Desires.Lack.Of(day) };
     }
 
     /// <summary>Ids and message bodies out, so the same failure counts as one kind.</summary>
@@ -169,6 +171,8 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         foreach (var (what, times) in health.Failures) sb.Append($"\n- failed {times}x: {what}");
         if (health.Uses.Count > 0)
             sb.Append($"\nWhat this world is made of, and how often each part was used that day: {string.Join("; ", health.Uses.OrderByDescending(u => u.Times).Select(u => $"{u.Form} {u.Times}"))}.");
+        if (health.Lacks.Count > 0)
+            sb.Append($"\nWhat people wanted to do that day and found no way to here:\n{string.Join("\n", health.Lacks.Select(l => $"- {l.Who}: {l.What}"))}");
         return sb.ToString();
     }
 
