@@ -205,5 +205,15 @@ public static partial class VoiceWear
         "off", "per", "via", "etc", "i'm", "i'd", "it's", "don", "won", "isn", "aren", "also", "just", "into", "with",
         "from", "that", "this", "they", "them", "what", "when", "then", "than", "your", "have", "been", "were",
         "will", "would", "could", "should", "there", "their", "about", "still", "here", "back", "only", "even",
+        // Dutch grammar: always expected, so never a motif (it was being banned from Dutch speech).
+        "aan", "achter", "al", "alle", "alleen", "alles", "als", "altijd", "ben", "bij", "binnen", "daar", "dan", "dat", "deze",
+        "die", "dit", "doe", "doen", "doet", "door", "echt", "een", "eens", "eigen", "eigenlijk", "even", "gaan", "gaat", "geen",
+        "gewoon", "had", "hadden", "heb", "hebben", "hebt", "heeft", "hem", "het", "hier", "hij", "hoe", "hun", "iemand", "iets",
+        "ik", "jij", "jou", "jouw", "jullie", "kan", "kun", "kunnen", "kunt", "laat", "maar", "mag", "meer", "met", "mij", "mijn",
+        "moet", "moeten", "naar", "niet", "niets", "nog", "nou", "omdat", "ons", "onze", "ook", "over", "dus", "toch", "tot",
+        "uit", "van", "veel", "voor", "waar", "wat", "weer", "wel", "wie", "wil", "wilde", "wij", "word", "wordt", "worden", "zal",
+        "zag", "zei", "zeg", "zeggen", "zegt", "zelf", "zich", "zij", "zijn", "zit", "zo", "zou", "zoals", "zonder", "jou", "haar",
+        "hoor", "toen", "tegen", "na", "om", "op", "te", "en", "er", "je", "ze", "we", "ja", "nee", "graag", "weet", "ga",
+        "komt", "kom", "komen", "gaan", "staat", "even", "beetje", "vandaag", "morgen", "gisteren", "straks", "nu", "nog",
     };
 }

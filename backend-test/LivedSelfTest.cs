@@ -101,6 +101,20 @@ public class LivedSelfTest
     }
 
     [Fact]
+    public void Analyze_DutchGrammarIsNeverWorn_OnlyItsMotifs()
+    {
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var lines = new List<Utterance>
+        {
+            new(a, "het is maar een rinkel, dat weet ik wel"), new(b, "wat een rinkel van die tas, het is wat"),
+            new(a, "dat is het met die rinkel, maar goed"), new(b, "het rinkelt niet, maar dat is een rinkel"),
+            new(a, "een rinkel met een tas, wat wil je"), new(b, "van die rinkel heb ik het al gehad"),
+        };
+        var report = VoiceWear.Analyze(lines);
+        Assert.Equal(new[] { "rinkel" }, report.WornWords);
+    }
+
+    [Fact]
     public void RenderFor_SplitsSharedFromOwn_AndFlagsStageDirections()
     {
         var report = new VoiceWearReport

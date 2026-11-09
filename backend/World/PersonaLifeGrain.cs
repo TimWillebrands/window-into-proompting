@@ -176,7 +176,9 @@ public sealed class PersonaLifeGrain(
         // Reaching past the menu rides the same call (ADR 0047): only a first look at the world, not a follow-up.
         if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
         var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
-        if (!lookedAlready && Desires.Lack.Felt(answers.Noul(Desires.Lack.Key, 0), _lackAt, now))
+        var lack = answers.Noul(Desires.Lack.Key, 0);
+        if (lack >= 0.5) logger.LogInformation("Lack {Persona} p={P:F2}", self.Name, lack);
+        if (!lookedAlready && Desires.Lack.Felt(lack, _lackAt, now))
         {
             _lackAt = now.ToUnixTimeMilliseconds();
             _ = FeelLackAsync(partyId, personaId, self, sb.ToString());
