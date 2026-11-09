@@ -10,13 +10,31 @@ public class LackTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
+    private static readonly Lack.Baseline Usual = new(0.35, 6);
+
     [Theory]
-    [InlineData(0.9, null, true)]
-    [InlineData(0.4, null, false)]
-    [InlineData(0.9, 1, false)]
-    [InlineData(0.9, 7, true)]
-    public void Felt_StrongAndNotLately(double p, int? hoursAgo, bool felt)
-        => Assert.Equal(felt, Lack.Felt(p, hoursAgo is { } h ? Now.AddHours(-h).ToUnixTimeMilliseconds() : null, Now));
+    [InlineData(0.55, null, true)]
+    [InlineData(0.42, null, false)]
+    [InlineData(0.55, 1, false)]
+    [InlineData(0.55, 7, true)]
+    public void Felt_ASpikeAboveTheirUsual_NotLately(double p, int? hoursAgo, bool felt)
+        => Assert.Equal(felt, Lack.Felt(p, Usual, hoursAgo is { } h ? Now.AddHours(-h).ToUnixTimeMilliseconds() : null, Now));
+
+    [Fact]
+    public void Felt_NeverBeforeTheirUsualIsKnown()
+        => Assert.False(Lack.Felt(0.9, new Lack.Baseline(0.9, 1).After(0.9) with { Seen = 2 }, null, Now));
+
+    [Fact]
+    public void Felt_AHighUsualIsNoLack()
+        => Assert.False(Lack.Felt(0.6, new Lack.Baseline(0.55, 10), null, Now));
+
+    [Fact]
+    public void Baseline_FollowsWhatTheyFeel()
+    {
+        var b = new Lack.Baseline().After(0.3);
+        Assert.Equal(0.3, b.Mean, 3);
+        Assert.Equal(0.34, b.After(0.5).Mean, 3);
+    }
 
     [Theory]
     [InlineData(null, null)]

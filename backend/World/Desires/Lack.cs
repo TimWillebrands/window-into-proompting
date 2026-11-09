@@ -10,7 +10,12 @@ public static class Lack
 {
     public const string Action = "lack";
     public const string Key = "lack";
-    public const double Threshold = 0.5;
+    /// <summary>A floor under the surprise, so a quiet persona's small wobble isn't a lack.</summary>
+    public const double Floor = 0.4;
+    /// <summary>How far above their own usual the pull must jump: the judge has a flat prior, the signal is the spike.</summary>
+    public const double Surprise = 0.12;
+    public const int Settled = 4;
+    private const double Rate = 0.2;
     public static readonly TimeSpan Every = TimeSpan.FromHours(6);
     public const int Shown = 5;
     public const string Shape = """{"want": "<what you wanted to do, first person, one plain concrete line; or none>"}""";
@@ -18,9 +23,16 @@ public static class Lack
     public static SystemOneQuestion Question(string name)
         => new NoulQuestion($"What {name} actually wants to do right now is none of these options, and this world gives them no way to do it.");
 
-    /// <summary>Strong enough, and the last one long enough ago: a lack felt every turn is a mood, not a need.</summary>
-    public static bool Felt(double p, long? lastAt, DateTimeOffset now)
-        => p >= Threshold && (lastAt is not { } at || now.ToUnixTimeMilliseconds() - at >= Every.TotalMilliseconds);
+    /// <summary>What they usually feel here: a running mean of this noul and how many turns it has seen.</summary>
+    public readonly record struct Baseline(double Mean, int Seen)
+    {
+        public Baseline After(double p) => Seen == 0 ? new(p, 1) : new(Mean + Rate * (p - Mean), Seen + 1);
+    }
+
+    /// <summary>Felt when it jumps above their usual (a damper is an expectation), and not within the cap: a lack every turn is a mood.</summary>
+    public static bool Felt(double p, Baseline usual, long? lastAt, DateTimeOffset now)
+        => usual.Seen >= Settled && p >= Floor && p - usual.Mean >= Surprise
+            && (lastAt is not { } at || now.ToUnixTimeMilliseconds() - at >= Every.TotalMilliseconds);
 
     public static string Ask(string identity) => $"""
 {identity}

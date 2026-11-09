@@ -34,6 +34,7 @@ public sealed class PersonaLifeGrain(
     public const string LookAction = "look";
     /// <summary>When a lack was last voiced; per activation, the cap is soft.</summary>
     private long? _lackAt;
+    private Desires.Lack.Baseline _lackUsual;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -176,12 +177,12 @@ public sealed class PersonaLifeGrain(
         // Reaching past the menu rides the same call (ADR 0047): only a first look at the world, not a follow-up.
         if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
         var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
-        var lack = answers.Noul(Desires.Lack.Key, 0);
-        if (lack >= 0.3) logger.LogInformation("Lack {Persona} p={P:F2}", self.Name, lack);
-        if (!lookedAlready && Desires.Lack.Felt(lack, _lackAt, now))
+        if (!lookedAlready && answers.Nouls.TryGetValue(Desires.Lack.Key, out var lack))
         {
-            _lackAt = now.ToUnixTimeMilliseconds();
-            _ = FeelLackAsync(partyId, personaId, self, sb.ToString());
+            var felt = Desires.Lack.Felt(lack, _lackUsual, _lackAt, now);
+            if (lack - _lackUsual.Mean >= Desires.Lack.Surprise / 2) logger.LogInformation("Lack {Persona} p={P:F2} usual={U:F2}", self.Name, lack, _lackUsual.Mean);
+            _lackUsual = _lackUsual.After(lack);
+            if (felt) LackNow(partyId, personaId, self, sb.ToString(), now);
         }
         var choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
         if (choice < 1 || choice > options.Count)
@@ -227,6 +228,12 @@ public sealed class PersonaLifeGrain(
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
             return (Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought), false);
         }
+    }
+
+    private void LackNow(Guid partyId, Guid personaId, CastMember self, string world, DateTimeOffset now)
+    {
+        _lackAt = now.ToUnixTimeMilliseconds();
+        _ = FeelLackAsync(partyId, personaId, self, world);
     }
 
     /// <summary>Voices what they reached for that nothing here affords, off the turn's clock; "none" leaves no trace.</summary>
