@@ -17,6 +17,12 @@ public class BoardGlanceTest
         Replies = replies.Select(r => new BoardReply { AuthorId = r.By, AuthorName = r.By == Me ? "Denise" : "Ana", Body = r.Body, CreatedAt = r.At }).ToList(),
     };
 
+    [Theory]
+    [InlineData(150, true)]
+    [InlineData(90, false)]
+    public void Told_SomeoneElsePostedSinceItHappened(long othersPostAt, bool told)
+        => Assert.Equal(told, BoardApp.Told(new List<BoardThread> { Thread(Ana, othersPostAt), Thread(Me, 200) }, 100, Me));
+
     [Fact]
     public void NewSince_CountsOnlyOthersAfterYouLooked()
     {

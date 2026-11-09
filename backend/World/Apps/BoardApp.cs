@@ -36,7 +36,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var threads = all.Take(6).ToList();
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         var postedLately = all.Any(t => t.AuthorId == ctx.Self.Id && ctx.Now.ToUnixTimeMilliseconds() - t.CreatedAt < TimeSpan.FromHours(12).TotalMilliseconds);
-        var affordances = new List<Affordance> { PostAffordance(openers, postedLately, Witnessed(ctx)) };
+        var saw = Witnessed(ctx);
+        var affordances = new List<Affordance> { PostAffordance(openers, postedLately, saw is not null && Told(all, saw.Ts, ctx.Self.Id) ? null : saw) };
         if (!ctx.InMind(AttentionKey))
             return await GlanceAsync(ctx, all, affordances);
         if (threads.Count == 0)
@@ -184,6 +185,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     public const int MaxReplies = 25;
 
     public static bool RunItsCourse(int replies) => replies >= MaxReplies;
+
+    /// <summary>Someone else posted since it happened: the news is out, so it's expected, not a pull (it drew four posts at once).</summary>
+    public static bool Told(IEnumerable<BoardThread> threads, long since, Guid self)
+        => threads.Any(t => t.AuthorId != self && t.CreatedAt >= since);
 
     /// <summary>A new post seeded by something from your own day, or by what you just saw happen; it pulls harder when you haven't posted lately.</summary>
     public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately, Happening? saw = null)
