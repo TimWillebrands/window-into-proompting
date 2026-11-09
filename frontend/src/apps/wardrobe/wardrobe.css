@@ -695,9 +695,31 @@
         sans-serif;
     color: var(--wr-ink);
 }
-.wr-aura input {
+.wr-aura input[type="text"] {
     width: 100%;
     box-sizing: border-box;
+    height: auto;
+    padding: 6px 10px;
+    border: 1px solid #d9b8ee;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--wr-ink);
+    font:
+        12px Tahoma,
+        sans-serif;
+    box-shadow: inset 0 1px 2px rgba(107, 63, 160, 0.12);
+}
+.wr-aura input[type="text"]:focus {
+    outline: none;
+    border-color: var(--wr-plum);
+    box-shadow: 0 0 0 2px rgba(107, 63, 160, 0.2);
+}
+.wr-aura > span {
+    font-weight: bold;
+    color: var(--wr-plum);
+}
+.wr-aura > span small {
+    font-weight: normal;
 }
 .wr-aura small {
     color: var(--wr-muted);
