@@ -38,7 +38,7 @@ public static class Lack
 {identity}
 
 Nothing on offer right now is what you want to do. Say plainly what you wanted to do instead, that this world gives you no way to: something concrete you'd do here, with these people, places and things, not a dream or a feeling about life.
-If, looking again, one of the options was it after all, say none.
+If one of the options was it after all, or you could do it here another way (say it to someone, walk somewhere that exists, write it down), say none: a lack is what this world has no way for at all.
 Output ONLY JSON: {Shape}
 """;
 
