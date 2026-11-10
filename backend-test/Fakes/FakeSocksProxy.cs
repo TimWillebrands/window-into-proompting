@@ -31,7 +31,8 @@ public sealed class FakeSocksProxy : IAsyncDisposable
     public FakeSocksProxy()
     {
         _listener.Start();
-        _loop = Task.Run(AcceptAsync);
+        // Runs to its first await here, so a pending accept exists before the ctor returns and Stop() can only cancel it.
+        _loop = AcceptAsync();
     }
 
     private async Task AcceptAsync()
@@ -40,8 +41,8 @@ public sealed class FakeSocksProxy : IAsyncDisposable
         {
             while (true) _ = ServeAsync(await _listener.AcceptTcpClientAsync(_stop.Token));
         }
-        // Stop() can beat the token to a pending accept.
-        catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException) { }
+        // Backstop: between accepts the listener can die before the loop observes the token.
+        catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException or InvalidOperationException) { }
     }
 
     private async Task ServeAsync(TcpClient client)
