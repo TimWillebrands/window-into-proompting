@@ -36,6 +36,23 @@ public class SystemOneTest
 
         Assert.Equal(0.82, answers.Noul("memorable", 0));
         Assert.Equal(0.8, answers.Choices["next"]["1"]);
+        Assert.Equal("jev-1.13.0", answers.Model);
+    }
+
+    [Fact]
+    public void Damp_TakesPullOffAnOption_BeforeTheDraw()
+    {
+        var answers = new SystemOneAnswers();
+        answers.Choices["next"] = new Dictionary<string, double> { ["0"] = 0.25, ["1"] = 0.75 };
+        var random = new Random(7);
+
+        answers.Damp("next", key => key == "1" ? 0.1 : 1);
+        answers.Damp("missing", _ => 0);
+        var picked = Enumerable.Range(0, 4000).Count(_ => answers.SampleChoice("next", 1.0, random) == "1") / 4000.0;
+
+        Assert.Equal(0.075, answers.Choices["next"]["1"], 6);
+        Assert.Equal(0.25, answers.Choices["next"]["0"], 6);
+        Assert.InRange(picked, 0.19, 0.27);
     }
 
     [Fact]

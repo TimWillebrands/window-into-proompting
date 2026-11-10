@@ -12917,6 +12917,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "affordance": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

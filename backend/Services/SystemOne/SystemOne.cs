@@ -35,10 +35,19 @@ public sealed record ChoiceQuestion(string Instructions, IReadOnlyDictionary<str
 
 public sealed class SystemOneAnswers
 {
+    /// <summary>The judge that answered, when it says so: its numbers are only comparable with its own.</summary>
+    public string? Model { get; set; }
     public Dictionary<string, double> Nouls { get; } = new();
     public Dictionary<string, Dictionary<string, double>> Choices { get; } = new();
 
     public double Noul(string key, double fallback) => Nouls.TryGetValue(key, out var p) ? p : fallback;
+
+    /// <summary>Scales each option's probability by <paramref name="left"/> (0..1) before the draw: what habit or a second thought takes off it.</summary>
+    public void Damp(string key, Func<string, double> left)
+    {
+        if (!Choices.TryGetValue(key, out var probs)) return;
+        foreach (var option in probs.Keys.ToList()) probs[option] *= Math.Clamp(left(option), 0, 1);
+    }
 
     /// <summary>Sample a choice from its distribution sharpened by <paramref name="temperature"/> (&lt;1 = greedier).</summary>
     public string? SampleChoice(string key, double temperature = 1.0, Random? random = null)
@@ -125,6 +134,7 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
     {
         var answers = new SystemOneAnswers();
         using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String) answers.Model = model.GetString();
         if (!doc.RootElement.TryGetProperty("answers", out var all)) return answers;
         foreach (var a in all.EnumerateObject())
         {

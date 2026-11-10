@@ -29,6 +29,8 @@ public sealed class WorldClockGrain(
     private const string AmbientShape = """{"happening": "<one or two sentences>"}""";
 
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
+    /// <summary>The kinds of Happening last let loose; per activation, so a deploy may repeat one.</summary>
+    private readonly Queue<int> _kindsLately = new();
 
     private Guid PartyId => this.GetPrimaryKey();
 
@@ -78,7 +80,7 @@ public sealed class WorldClockGrain(
     public async Task<bool> TickNowAsync(Guid? personaId, string? nudge)
     {
         var now = DateTimeOffset.UtcNow;
-        var target = personaId ?? await PickPersonaAsync(now);
+        var target = personaId ?? await PickPersonaAsync(now, forced: true);
         if (target is null || IsBusy(target.Value, now)) return false;
         StartLife(target.Value, nudge);
         await state.WriteStateAsync();
@@ -283,14 +285,16 @@ public sealed class WorldClockGrain(
         catch { return 1; }
     }
 
-    private async Task<Guid?> PickPersonaAsync(DateTimeOffset now)
+    /// <param name="forced">A turn asked for by hand always lands on someone.</param>
+    private async Task<Guid?> PickPersonaAsync(DateTimeOffset now, bool forced = false)
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
         var asleep = (await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetAsleepAsync()).ToHashSet();
-        var candidates = cast
-            .Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId && !IsBusy(c.Id, now) && !asleep.Contains(c.Id))
-            .ToList();
+        var personas = cast.Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId).ToList();
+        var candidates = personas.Where(c => !IsBusy(c.Id, now) && !asleep.Contains(c.Id)).ToList();
         if (candidates.Count == 0) return null;
+        // Tempo is your own (ADR 0050): the sleepers keep their share of the ticks, so the one still up isn't handed everyone's turns.
+        var resting = forced ? 0 : ClockPolicy.Resting(personas.Where(c => asleep.Contains(c.Id)).Select(c => c.Chattiness));
 
         var free = await Task.WhenAll(candidates.Select(c => AvailabilityAsync(c.Id)));
         var weighed = candidates.Select((c, i) =>
@@ -299,7 +303,7 @@ public sealed class WorldClockGrain(
             long? notified = state.State.NotifiedAt.TryGetValue(c.Id, out var n) ? n : null;
             return new LifeCandidate(c.Id, c.Chattiness, last, free[i], ClockPolicy.Notified(notified, last));
         }).ToList();
-        return ClockPolicy.Pick(weighed, ClockPolicy.LifeWeights(weighed, state.State.TickSeconds, cast.Count, now), Random.Shared.NextDouble());
+        return ClockPolicy.Pick(weighed, ClockPolicy.LifeWeights(weighed, state.State.TickSeconds, cast.Count, now), Random.Shared.NextDouble(), resting);
     }
 
     /// <summary>A planned Gathering came due: attendees join its Room and get a Life turn pointed at it.</summary>
@@ -388,11 +392,16 @@ public sealed class WorldClockGrain(
             var talk = state.State.Activities
                 .Where(a => a.Action is "post" or "reply" or "say" or "dm").TakeLast(6).Select(a => $"- {a.PersonaName} {a.Summary}");
             var snapshot = await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetSnapshotAsync();
+            if (!HappeningRules.AnyoneUp(snapshot.Bodies)) return;
             var place = HappeningRules.PickPlace(snapshot.Places, snapshot.Bodies, Random.Shared);
+            var kind = HappeningRules.PickKind(_kindsLately, Random.Shared);
+            _kindsLately.Enqueue(kind);
+            if (_kindsLately.Count > HappeningRules.KindMemory) _kindsLately.Dequeue();
+            var seen = HappeningRules.Seen(place is null ? 0 : HappeningRules.Witnesses(snapshot.Bodies, place.Id).Count);
             var local = DateTimeOffset.Now;
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
-                $"You are the narrator of a small online world shared by a handful of people. Let ONE small, concrete thing happen {HappeningRules.Setting(place, snapshot.Districts)}: weather, a local event, a glitch, a delivery, an animal, a neighbourhood rumour. Everyday scale, no catastrophes, nothing about any person's inner life, nobody by name. It should give people something new to react to, unrelated to what they're already discussing. One or two sentences, present tense.\nOutput ONLY JSON: {AmbientShape}",
-                $"It is {local:dddd HH:mm}.\n\nRecent happenings (don't repeat):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
+                HappeningRules.Brief(HappeningRules.Setting(place, snapshot.Districts), HappeningRules.Kinds[kind], seen, AmbientShape),
+                $"It is {local:dddd HH:mm}: {HappeningRules.DayPart(local)}.\n\nAlready happened lately (not these again, nor the same things in them):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
                 CancellationToken.None, 1.0, ["happening"]);
             var text = json?["happening"]?.ToString();
             if (!string.IsNullOrWhiteSpace(text))

@@ -50,7 +50,11 @@ public sealed record LifeContext(
 
 /// <summary>An action the Arena offers this Persona right now (ADR 0018). Priority foregrounds, never forces.</summary>
 /// <param name="Look">Only looks (opens an App, scrolls back): Life follows it with a choice over what's now in view.</param>
-public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false);
+public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false)
+{
+    /// <summary>What the option is, whatever its label says this turn.</summary>
+    public string Key => $"{AppId}|{Verb}|{TargetId}";
+}
 
 /// <summary>What the Persona sees of one App: a prose block plus the Affordances it offers.</summary>
 public sealed record AppPerception(string AppId, string Title, string Block, IReadOnlyList<Affordance> Affordances);

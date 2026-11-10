@@ -23,6 +23,8 @@ public sealed record class WorldActivity
     [Id(8)] public Guid? TargetId { get; init; }
     /// <summary>The other party of a 1:1 act (DM partner).</summary>
     [Id(9)] public Guid? WithPersonaId { get; init; }
+    /// <summary>Key of the Affordance acted on or thought better of; null outside Initiative.</summary>
+    [Id(10)] public string? Affordance { get; init; }
 }
 
 /// <summary>Clock + budget snapshot for the World control surface.</summary>

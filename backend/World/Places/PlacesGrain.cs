@@ -307,7 +307,7 @@ public sealed partial class PlacesGrain(
         }
     }
 
-    private const string Dozing = "dozing off in front of the screen";
+    public const string Dozing = "dozing off in front of the screen";
 
     public async Task SetIdleAsync(Guid participantId, bool idle)
     {

@@ -261,21 +261,18 @@ public sealed class PartyGrain(
         await GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId).SetScenarioAsync(normalized);
     }
 
+    /// <summary>Newest <see cref="SnapshotPerRoom"/> messages of every Room, for the realtime snapshot.</summary>
     public async Task<List<ChatMessage>> DownloadMessages()
     {
-        var tasks = State.ChatGroups.Select(async cg =>
-        {
-            var grain = GrainFactory.GetGrain<IChatGroupGrain>(cg.Id);
-            return await grain.GetMessagesAsync();
-        });
-
-        var allMessages = await Task.WhenAll(tasks);
-        return allMessages
-            .SelectMany(msgs => msgs)
-            .OrderBy(m => m.MessageId)
-            .Take(100)
-            .ToList();
+        var rooms = await Task.WhenAll(State.ChatGroups.Select(cg => GrainFactory.GetGrain<IChatGroupGrain>(cg.Id).GetMessagesAsync()));
+        return NewestPerRoom(rooms, SnapshotPerRoom);
     }
+
+    public const int SnapshotPerRoom = 200;
+
+    /// <summary>MessageId counts per Room, so the cap is per Room too; a global cap kept every Room's oldest.</summary>
+    public static List<ChatMessage> NewestPerRoom(IEnumerable<IReadOnlyList<ChatMessage>> rooms, int perRoom)
+        => rooms.SelectMany(msgs => msgs.OrderBy(m => m.MessageId).TakeLast(perRoom)).ToList();
 
     public async Task CancelAllGenerations(CancellationToken ct = default)
     {

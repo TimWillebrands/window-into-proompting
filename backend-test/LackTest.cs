@@ -10,30 +10,53 @@ public class LackTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
-    private static readonly Lack.Baseline Usual = new(0.35, 6);
+    /// <summary>A steady judge: usual 0.35, spread 0.04, so a jump is 0.10 and up.</summary>
+    private static readonly Lack.Baseline Usual = new(0.35, 8, 0.0016);
 
     [Theory]
-    [InlineData(0.55, null, true)]
-    [InlineData(0.42, null, false)]
-    [InlineData(0.55, 1, false)]
-    [InlineData(0.55, 7, true)]
-    public void Felt_ASpikeAboveTheirUsual_NotLately(double p, int? hoursAgo, bool felt)
-        => Assert.Equal(felt, Lack.Felt(p, Usual, hoursAgo is { } h ? Now.AddHours(-h).ToUnixTimeMilliseconds() : null, Now));
+    [InlineData(0.50, null, null, true)]
+    [InlineData(0.42, null, null, false)]
+    [InlineData(0.50, 1, null, false)]
+    [InlineData(0.50, 7, null, true)]
+    [InlineData(0.50, null, 30, false)]
+    [InlineData(0.50, null, 90, true)]
+    public void Felt_ASpikeAboveTheirUsual_NotLately(double p, int? voicedHoursAgo, int? askedMinutesAgo, bool felt)
+        => Assert.Equal(felt, Lack.Felt(p, Usual,
+            voicedHoursAgo is { } h ? Now.AddHours(-h).ToUnixTimeMilliseconds() : null, Now,
+            askedMinutesAgo is { } m ? Now.AddMinutes(-m).ToUnixTimeMilliseconds() : null));
 
     [Fact]
     public void Felt_NeverBeforeTheirUsualIsKnown()
-        => Assert.False(Lack.Felt(0.9, new Lack.Baseline(0.9, 1).After(0.9) with { Seen = 2 }, null, Now));
+        => Assert.False(Lack.Felt(0.9, new Lack.Baseline(0.3, Lack.Settled - 1, 0.0016), null, Now));
 
     [Fact]
     public void Felt_AHighUsualIsNoLack()
-        => Assert.False(Lack.Felt(0.6, new Lack.Baseline(0.55, 10), null, Now));
+        => Assert.False(Lack.Felt(0.6, new Lack.Baseline(0.55, 10, 0.0016), null, Now));
+
+    /// <summary>Production, 10 Nov: Jev sat at 0.17 ± 0.04 and never reached the old 0.4 floor; d1 sat at 0.38 ± 0.055.</summary>
+    [Theory]
+    [InlineData(0.17, 0.037, 0.28, true)]
+    [InlineData(0.17, 0.037, 0.24, false)]
+    [InlineData(0.38, 0.055, 0.53, true)]
+    [InlineData(0.38, 0.055, 0.45, false)]
+    public void Felt_IsReadAgainstEachJudgesOwnSpread(double mean, double spread, double p, bool felt)
+        => Assert.Equal(felt, Lack.Felt(p, new Lack.Baseline(mean, 20, spread * spread), null, Now));
+
+    [Fact]
+    public void Jump_HasAFloor_SoAFlatJudgeMakesNoLackOfNoise()
+    {
+        Assert.Equal(Lack.Surprise, Lack.Jump(new Lack.Baseline(0.2, 20, 0.0001)));
+        Assert.False(Lack.Felt(0.24, new Lack.Baseline(0.2, 20, 0.0001), null, Now));
+    }
 
     [Fact]
     public void Baseline_FollowsWhatTheyFeel()
     {
         var b = new Lack.Baseline().After(0.3);
         Assert.Equal(0.3, b.Mean, 3);
+        Assert.Equal(0, b.Spread, 3);
         Assert.Equal(0.34, b.After(0.5).Mean, 3);
+        Assert.Equal(0.08, b.After(0.5).Spread, 3);
     }
 
     [Theory]

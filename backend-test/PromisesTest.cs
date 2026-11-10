@@ -335,6 +335,21 @@ public class InitiativeHandleTest
         night.Add(new WorldActivity { App = "board", Action = "post", Ts = entry + 10 });
         night.Add(new WorldActivity { App = "board", Action = PersonaLifeGrain.LookAction, Ts = entry + 11 });
         Assert.Equal(1, DiaryApp.Lived(night, entry));
+        night.Add(new WorldActivity { App = "diary", Action = "diary", Ts = entry + 12 });
+        Assert.Equal(1, DiaryApp.Lived(night, entry));
+    }
+
+    [Fact]
+    public void Diary_WrittenDownIsPutDown_UntilSomethingIsLived()
+    {
+        var now = new DateTimeOffset(2026, 11, 10, 0, 12, 0, TimeSpan.Zero);
+        var entry = now.AddMinutes(-20).ToUnixTimeMilliseconds();
+
+        Assert.True(DiaryApp.Due(0, null, now));
+        Assert.False(DiaryApp.Due(0, entry, now));
+        Assert.False(DiaryApp.Due(DiaryApp.Worth - 1, entry, now));
+        Assert.True(DiaryApp.Due(DiaryApp.Worth, entry, now));
+        Assert.True(DiaryApp.Due(0, now.Add(-DiaryApp.Anyway).ToUnixTimeMilliseconds(), now));
     }
 
     [Fact]
@@ -399,6 +414,48 @@ public class HappeningsTest
         Assert.All(picks, p => Assert.Equal(PlaceKinds.Public, p.Kind));
         Assert.DoesNotContain(picks, p => p.Dormant);
         Assert.True(picks.Count(p => p.Id == cafe.Id) > 200);
+    }
+
+    [Fact]
+    public void Kind_IsPickedForTheNarrator_NeverOneOfTheLastFew()
+    {
+        var random = new Random(5);
+        var lately = new Queue<int>();
+        for (var i = 0; i < 200; i++)
+        {
+            var kind = HappeningRules.PickKind(lately, random);
+            Assert.DoesNotContain(kind, lately);
+            lately.Enqueue(kind);
+            if (lately.Count > HappeningRules.KindMemory) lately.Dequeue();
+        }
+        Assert.InRange(HappeningRules.PickKind(Enumerable.Range(0, HappeningRules.Kinds.Length).ToList(), random), 0, HappeningRules.Kinds.Length - 1);
+    }
+
+    [Fact]
+    public void Brief_NamesTheKind_TheStake_AndWhoIsThere()
+    {
+        var (_, cafe, _, _) = World();
+        var brief = HappeningRules.Brief(HappeningRules.Setting(cafe, new[] { Districts.Seed() }), HappeningRules.Kinds[1], HappeningRules.Seen(2), "{}");
+
+        Assert.Contains("at the Café", brief);
+        Assert.Contains("This time: a stranger comes through", brief);
+        Assert.Contains("It has to matter to whoever is there", brief);
+        Assert.Contains("People are there right now", brief);
+        Assert.Contains("What the people who live here do about it is theirs", brief);
+        Assert.Contains("will find", HappeningRules.Seen(0));
+        Assert.DoesNotContain("2", HappeningRules.Seen(2));
+    }
+
+    [Fact]
+    public void TheNarrator_KnowsNightFromDay_AndWaitsWhenNobodyIsUp()
+    {
+        Assert.Contains("dark outside", HappeningRules.DayPart(new DateTimeOffset(2026, 11, 10, 0, 29, 0, TimeSpan.Zero)));
+        Assert.Equal("afternoon", HappeningRules.DayPart(new DateTimeOffset(2026, 11, 10, 15, 9, 0, TimeSpan.Zero)));
+
+        var asleep = new Body { ParticipantId = Guid.NewGuid(), Asleep = true };
+        var idle = new Body { ParticipantId = Guid.NewGuid(), IsHuman = true, Activity = PlacesGrain.Dozing };
+        Assert.False(HappeningRules.AnyoneUp(new[] { asleep, idle }));
+        Assert.True(HappeningRules.AnyoneUp(new[] { asleep, idle, new Body { ParticipantId = Guid.NewGuid() } }));
     }
 
     [Fact]

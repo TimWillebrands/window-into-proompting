@@ -434,6 +434,8 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var block = last is null
             ? "You haven't written in your diary yet."
             : $"Your last diary entry ({WorldStream.Ago(last.CreatedAt, ctx.Now)}): {WorldStream.Clip(last.Body, 140)}";
+        // Written down is put down (ADR 0050): the same worry with nothing lived since is not a new entry.
+        if (!Due(sinceLast, last?.CreatedAt, ctx.Now)) return new AppPerception(Id, "Your diary (private)", block, Array.Empty<Affordance>());
         var priority = sinceLast >= 4 ? 2 : 0;
         var day = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync();
         var onYourMind = string.IsNullOrWhiteSpace(day.Preoccupation) ? Self.Hooks.Pick(day.Threads) : day.Preoccupation;
@@ -441,9 +443,18 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             new[] { new Affordance(Id, Self.Hooks.Diary(onYourMind), priority, null, "write") });
     }
 
-    /// <summary>Things done since the last entry: resting and looking are nothing to write about, so a quiet night doesn't fill the diary.</summary>
+    /// <summary>Things lived before the diary opens again.</summary>
+    public const int Worth = 2;
+    /// <summary>After this long it opens anyway: a day has gone by, even a quiet one.</summary>
+    public static readonly TimeSpan Anyway = TimeSpan.FromHours(6);
+
+    /// <summary>Things done since the last entry: resting, looking and the writing itself are nothing to write about, so a quiet night doesn't fill the diary.</summary>
     public static int Lived(IEnumerable<WorldActivity> recentOwn, long? lastEntryAt)
-        => recentOwn.Count(a => a.Action is not ("rest" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
+        => recentOwn.Count(a => a.Action is not ("rest" or "diary" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
+
+    /// <summary>Something to write: a first entry, a couple of things lived since the last, or hours gone by.</summary>
+    public static bool Due(int lived, long? lastEntryAt, DateTimeOffset now)
+        => lastEntryAt is not { } at || lived >= Worth || now.ToUnixTimeMilliseconds() - at >= Anyway.TotalMilliseconds;
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {

@@ -63,17 +63,20 @@ public static class ClockPolicy
     /// <summary>Notified after they last acted (or never acted).</summary>
     public static bool Notified(long? notifiedAt, long? lastActedAt) => notifiedAt is { } n && (lastActedAt is not { } a || n > a);
 
-    /// <summary>Weighted draw; <paramref name="unit"/> in [0, 1).</summary>
-    public static Guid? Pick(IReadOnlyList<LifeCandidate> candidates, double[] weights, double unit)
+    /// <summary>The sleepers' share of the draw (ADR 0050): what each would weigh, due and free. Nobody takes that turn.</summary>
+    public static double Resting(IEnumerable<double> chattiness) => chattiness.Sum(c => 0.25 + c);
+
+    /// <summary>Weighted draw; <paramref name="unit"/> in [0, 1). Null when it lands in <paramref name="resting"/>, the share nobody takes.</summary>
+    public static Guid? Pick(IReadOnlyList<LifeCandidate> candidates, double[] weights, double unit, double resting = 0)
     {
         if (candidates.Count == 0) return null;
-        var roll = unit * weights.Sum();
+        var roll = unit * (weights.Sum() + resting);
         for (var i = 0; i < candidates.Count; i++)
         {
             roll -= weights[i];
             if (roll <= 0) return candidates[i].Id;
         }
-        return candidates[^1].Id;
+        return resting > 0 ? null : candidates[^1].Id;
     }
 
     /// <summary>Has this thread gone quiet after enough new talk to be worth one memory?</summary>

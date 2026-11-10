@@ -32,9 +32,11 @@ public sealed class PersonaLifeGrain(
     private const double ChoiceTemperature = 0.8;
     /// <summary>Activity action of a look (opening an App, scrolling back): not habituating, followed by a choice.</summary>
     public const string LookAction = "look";
-    /// <summary>When a lack was last voiced; per activation, the cap is soft.</summary>
+    /// <summary>When a lack was last voiced, and last asked about; per activation, the cap is soft.</summary>
     private long? _lackAt;
-    private Desires.Lack.Baseline _lackUsual;
+    private long? _lackAskedAt;
+    /// <summary>Their usual per judge (ADR 0047): one judge's 0.4 is another's 0.2.</summary>
+    private readonly Dictionary<string, Desires.Lack.Baseline> _lackUsual = new();
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -80,12 +82,12 @@ public sealed class PersonaLifeGrain(
             .Where(a => a.Action == "happening" && now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < HappeningRules.Lingers)
             .Select(a => HappeningRules.Relate(a, me, snapshot?.Places ?? new List<Places.Place>(), personaId))
             .ToList();
+        var own = await clock.GetActivitiesAsync(SecondThoughts.Memory, personaId);
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
             threads,
-            (await clock.GetActivitiesAsync(12, personaId))
-                .Where(a => a.Action is not ("fizzle" or "error" or Desires.Lack.Action)).Take(8).ToList(),
+            own.Take(12).Where(a => a.Action is not ("fizzle" or "error" or Desires.Lack.Action)).Take(8).ToList(),
             now,
             await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
             // A promise due reaches its person, their chat and (for a come-over) where they are; then wants (ADR 0026, 0043).
@@ -102,9 +104,11 @@ public sealed class PersonaLifeGrain(
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
         var onShift = await OnShiftAsync(partyId, personaId);
+        // The veto teaches (ADR 0050): what they thought better of stays thought better of for a while.
+        double Left(Affordance a) => SecondThoughts.Left(a.Key, own, ctx.Now);
         // Wanting and owing get a handle (ADR 0026, 0043): an option toward that person pulls one more; a promise also outlasts Settling.
         int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.Owes(a.TargetId))
-            - Work.Shifts.Damping(a.AppId, onShift) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
+            - Work.Shifts.Damping(a.AppId, onShift) - SecondThoughts.Seats(Left(a)) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
 
         // Each App gets at most a few seats on the menu: modes compete on pull, not on how many options they list.
         var options = perceptions
@@ -179,11 +183,15 @@ public sealed class PersonaLifeGrain(
         var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
         if (!lookedAlready && answers.Nouls.TryGetValue(Desires.Lack.Key, out var lack))
         {
-            var felt = Desires.Lack.Felt(lack, _lackUsual, _lackAt, now);
-            if (lack - _lackUsual.Mean >= Desires.Lack.Surprise / 2) logger.LogInformation("Lack {Persona} p={P:F2} usual={U:F2}", self.Name, lack, _lackUsual.Mean);
-            _lackUsual = _lackUsual.After(lack);
+            var judgedBy = answers.Model ?? string.Empty;
+            var usual = _lackUsual.GetValueOrDefault(judgedBy);
+            var felt = Desires.Lack.Felt(lack, usual, _lackAt, now, _lackAskedAt);
+            if (lack - usual.Mean >= Desires.Lack.Jump(usual) / 2) logger.LogInformation("Lack {Persona} p={P:F2} usual={U:F2}±{S:F2} ({Judge})", self.Name, lack, usual.Mean, usual.Spread, judgedBy);
+            _lackUsual[judgedBy] = usual.After(lack);
             if (felt) LackNow(partyId, personaId, self, sb.ToString(), now);
         }
+        // Opponent to System One's plausibility: the pick is drawn from what's left of each option's pull.
+        answers.Damp("next", key => int.TryParse(key, out var i) && i >= 1 && i <= options.Count ? Left(options[i - 1]) : 1);
         var choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
         if (choice < 1 || choice > options.Count)
             return (Activity(personaId, self.Name, "life", "rest", "is taking it easy"), false);
@@ -204,7 +212,7 @@ public sealed class PersonaLifeGrain(
         if (LifeChoice.Declined(voiced))
         {
             logger.LogInformation("Life {Persona} ✗ {Label} | {Thought}", self.Name, decided.Label, thought);
-            return (Activity(personaId, self.Name, "life", "rest", $"thought better of it ({decided.Label})", thought), false);
+            return (Activity(personaId, self.Name, "life", "rest", $"thought better of it ({decided.Label})", thought, affordance: decided.Key), false);
         }
 
         return await ActOnAsync(personaId, self, ctx, decided, intent, thought, ct);
@@ -221,7 +229,7 @@ public sealed class PersonaLifeGrain(
             if (outcome is not null) await TellAsync(ctx.PartyId, personaId, picked.Label);
             return outcome is null
                 ? (Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought), false)
-                : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId), outcome.Looked);
+                : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId, picked.Key), outcome.Looked);
         }
         catch (Exception ex)
         {
@@ -232,7 +240,7 @@ public sealed class PersonaLifeGrain(
 
     private void LackNow(Guid partyId, Guid personaId, CastMember self, string world, DateTimeOffset now)
     {
-        _lackAt = now.ToUnixTimeMilliseconds();
+        _lackAskedAt = now.ToUnixTimeMilliseconds();
         _ = FeelLackAsync(partyId, personaId, self, world);
     }
 
@@ -244,6 +252,7 @@ public sealed class PersonaLifeGrain(
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General, Desires.Lack.Ask(WorldLlm.Identity(self)), world, cts.Token, 0.7, ["want"]);
             if (Desires.Lack.Read(json?["want"]?.ToString()) is not { } want) return;
+            _lackAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             logger.LogInformation("Lack {Persona}: {Want}", self.Name, want);
             await GrainFactory.GetGrain<IWorldClockGrain>(partyId).RecordAsync(Activity(personaId, self.Name, "life", Desires.Lack.Action, want));
         }
@@ -330,11 +339,11 @@ public sealed class PersonaLifeGrain(
     }
 
     private static WorldActivity Activity(Guid personaId, string name, string app, string action, string summary,
-        string? thought = null, Guid? target = null, Guid? with = null)
+        string? thought = null, Guid? target = null, Guid? with = null, string? affordance = null)
         => new()
         {
             PersonaId = personaId, PersonaName = name, App = app, Action = action,
-            Summary = summary, Thought = thought, TargetId = target, WithPersonaId = with,
+            Summary = summary, Thought = thought, TargetId = target, WithPersonaId = with, Affordance = affordance,
         };
 }
 
@@ -381,3 +390,28 @@ public static class Settling
     }
 }
 
+/// <summary>The veto teaches (ADR 0050): an option thought better of pulls far less for a while, longer each time it's refused again.</summary>
+public static class SecondThoughts
+{
+    public static readonly TimeSpan For = TimeSpan.FromMinutes(60);
+    public static readonly TimeSpan Longest = TimeSpan.FromHours(4);
+    /// <summary>What's left of the pull right after a refusal: rare, never impossible.</summary>
+    public const double Floor = 0.1;
+    /// <summary>How far back in their own activity a refusal is still looked for.</summary>
+    public const int Memory = 40;
+
+    public static bool Is(WorldActivity a) => a is { Action: "rest", Affordance: not null };
+
+    /// <summary>The share of an option's pull that's left (Floor..1): it comes back slowly at first, over a window that doubles per refusal.</summary>
+    public static double Left(string key, IEnumerable<WorldActivity> own, DateTimeOffset now)
+    {
+        var refused = own.Where(a => Is(a) && a.Affordance == key).Select(a => a.Ts).ToList();
+        if (refused.Count == 0) return 1;
+        var window = Math.Min(For.TotalMilliseconds * Math.Pow(2, refused.Count - 1), Longest.TotalMilliseconds);
+        var x = Math.Clamp((now.ToUnixTimeMilliseconds() - refused.Max()) / window, 0, 1);
+        return Floor + (1 - Floor) * x * x;
+    }
+
+    /// <summary>Seats on the menu it gives up while mostly refused.</summary>
+    public static int Seats(double left) => left < 0.5 ? 2 : left < 1 ? 1 : 0;
+}

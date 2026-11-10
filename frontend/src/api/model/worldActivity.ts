@@ -20,4 +20,6 @@ export interface WorldActivity {
     targetId?: string | null;
     /** @nullable */
     withPersonaId?: string | null;
+    /** @nullable */
+    affordance?: string | null;
 }

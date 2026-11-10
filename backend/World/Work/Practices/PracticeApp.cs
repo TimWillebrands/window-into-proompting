@@ -3,6 +3,7 @@ using System.Text;
 using PartyTown.Services.SystemOne;
 using PartyTown.World.Apps;
 using PartyTown.World.Economy;
+using PartyTown.World.Relations;
 using PartyTown.World.Self;
 
 namespace PartyTown.World.Work.Practices;
@@ -27,13 +28,15 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
         var open = (await book.GetSessionsAsync()).Where(s => s.ClientId == ctx.Self.Id && s.Status is SessionStatus.Booked or SessionStatus.Running).ToList();
         var balance = (await grains.GetGrain<IWalletGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetAsync()).Balance;
 
+        var relations = await grains.GetGrain<IRelationsGrain>(ctx.PartyId).GetAsync();
         var sb = new StringBuilder();
         var offers = new List<Affordance>();
         foreach (var (who, job) in practices)
         {
             var practice = job!.Practice!;
             sb.AppendLine($"- {PracticeRules.Advert(who.Name, job, practice)}");
-            if (balance < practice.Fee || open.Any(s => s.PractitionerId == who.Id)) continue;
+            // Nobody hires their own partner: that talk happens at home, unpaid.
+            if (balance < practice.Fee || open.Any(s => s.PractitionerId == who.Id) || relations.Partners(ctx.Self.Id, who.Id)) continue;
             if (PracticeRules.Pull(await FitAsync(ctx, who.Id, who.Name, job, practice, ct)) is { } pull)
                 offers.Add(new Affordance(Id, $"Book a session with {who.Name} ({job.Title}, {practice.Fee} credits)", pull, who.Id, "book"));
         }

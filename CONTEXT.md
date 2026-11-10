@@ -300,7 +300,7 @@ A participant's money in a Party: a balance in credits paid once a day by their 
 _Avoid_: account, inventory, currency (the unit is just "credits").
 
 **Affordance**:
-An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces. Its label carries the persona's own material where there is some (a story from their day, what someone next to them said), so modes compete on substance, not on which one happens to be vivid.
+An action an App offers *this* Persona *now* — "reply to Denise's DM", "say something in #kitchen". Relational, like Salience: an unanswered DM is an Affordance only for its recipient. Priority foregrounds; it never forces. One the Persona thought better of pulls far less for a while ([ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md)). Its label carries the persona's own material where there is some (a story from their day, what someone next to them said), so modes compete on substance, not on which one happens to be vivid.
 _Avoid_: action, option, tool, command.
 
 **System One judge**:
@@ -308,7 +308,7 @@ The fast, calibrated *weighing* half of a Relevance Realization call: state + ty
 _Avoid_: classifier, scorer, router.
 
 **Happening**:
-Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
+Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. The Narrator's have a kind and a stake: something to deal with, take up or do without. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md) and [ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md).
 _Avoid_: event (taken — see **Event**), news item.
 
 **Activity**:

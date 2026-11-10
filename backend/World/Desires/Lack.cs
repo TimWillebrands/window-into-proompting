@@ -10,29 +10,42 @@ public static class Lack
 {
     public const string Action = "lack";
     public const string Key = "lack";
-    /// <summary>A floor under the surprise, so a quiet persona's small wobble isn't a lack.</summary>
-    public const double Floor = 0.4;
-    /// <summary>How far above their own usual the pull must jump: the judge has a flat prior, the signal is the spike.</summary>
-    public const double Surprise = 0.12;
-    public const int Settled = 4;
+    /// <summary>How many of their own spreads above usual the pull must jump: every judge has its own flat prior and its own wobble.</summary>
+    public const double Spreads = 2.5;
+    /// <summary>A floor under the jump, so a judge that barely moves doesn't make a lack out of noise.</summary>
+    public const double Surprise = 0.06;
+    public const int Settled = 6;
     private const double Rate = 0.2;
     public static readonly TimeSpan Every = TimeSpan.FromHours(6);
+    /// <summary>After a reach that turned out to be nothing, how soon the next may be asked about.</summary>
+    public static readonly TimeSpan AskAgain = TimeSpan.FromHours(1);
     public const int Shown = 5;
     public const string Shape = """{"want": "<what you wanted to do, first person, one plain concrete line; or none>"}""";
 
     public static SystemOneQuestion Question(string name)
         => new NoulQuestion($"What {name} actually wants to do right now is none of these options, and this world gives them no way to do it.");
 
-    /// <summary>What they usually feel here: a running mean of this noul and how many turns it has seen.</summary>
-    public readonly record struct Baseline(double Mean, int Seen)
+    /// <summary>What they usually feel under one judge: a running mean and spread of this noul, and how many turns it has seen.</summary>
+    public readonly record struct Baseline(double Mean, int Seen, double Var = 0)
     {
-        public Baseline After(double p) => Seen == 0 ? new(p, 1) : new(Mean + Rate * (p - Mean), Seen + 1);
+        public double Spread => Math.Sqrt(Var);
+
+        public Baseline After(double p)
+        {
+            if (Seen == 0) return new(p, 1);
+            var d = p - Mean;
+            return new(Mean + Rate * d, Seen + 1, (1 - Rate) * (Var + Rate * d * d));
+        }
     }
 
-    /// <summary>Felt when it jumps above their usual (a damper is an expectation), and not within the cap: a lack every turn is a mood.</summary>
-    public static bool Felt(double p, Baseline usual, long? lastAt, DateTimeOffset now)
-        => usual.Seen >= Settled && p >= Floor && p - usual.Mean >= Surprise
-            && (lastAt is not { } at || now.ToUnixTimeMilliseconds() - at >= Every.TotalMilliseconds);
+    /// <summary>How far above usual counts for them: a few of their own spreads, never less than the floor.</summary>
+    public static double Jump(Baseline usual) => Math.Max(Surprise, Spreads * usual.Spread);
+
+    /// <summary>Felt when it jumps above their usual (a damper is an expectation), not within the cap, and not right after a reach that was nothing.</summary>
+    public static bool Felt(double p, Baseline usual, long? lastAt, DateTimeOffset now, long? askedAt = null)
+        => usual.Seen >= Settled && p - usual.Mean >= Jump(usual)
+            && (lastAt is not { } at || now.ToUnixTimeMilliseconds() - at >= Every.TotalMilliseconds)
+            && (askedAt is not { } asked || now.ToUnixTimeMilliseconds() - asked >= AskAgain.TotalMilliseconds);
 
     public static string Ask(string identity) => $"""
 {identity}

@@ -43,8 +43,14 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
             var theirs = await theirTies.GetTieAsync(ctx.Self.Id);
             var mutual = await myTies.GetClosestAsync() == other.ParticipantId && await theirTies.GetClosestAsync() == ctx.Self.Id;
             var name = ctx.NameOf(other.ParticipantId);
+            var nowMs = ctx.Now.ToUnixTimeMilliseconds();
+            // A gesture answers a moment (ADR 0050): they just walked up, or you two are mid-talk; and once is the gesture.
+            var moment = Touch.Moment(nowMs, me.ArrivedAt, other.ArrivedAt, Math.Max(mine.LastAt, theirs.LastAt));
             foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId), mutual, book.Partners(ctx.Self.Id, other.ParticipantId)))
-                affordances.Add(new Affordance(Id, Touch.Label(p, name), 0, other.ParticipantId, p));
+            {
+                var offer = new Affordance(Id, Touch.Label(p, name), 0, other.ParticipantId, p);
+                if (Touch.Fits(p, moment, Touch.LastDone(offer.Key, ctx.RecentOwn), nowMs)) affordances.Add(offer);
+            }
         }
         if (affordances.Count == 0) return null;
         if (sb.Length == 0) sb.Append($"Here with you {spot.At} {spot.Name}: {string.Join(", ", company.Take(3).Select(b => ctx.NameOf(b.ParticipantId)))}.");
@@ -85,6 +91,23 @@ public static class Touch
         Poses.HoldHands or Poses.SlowDance => tie.Exchanges >= 10 && tie.Warmth >= 0.4,
         _ => false,
     };
+
+    /// <summary>How long an arrival or an exchange still counts as the moment.</summary>
+    public static readonly TimeSpan Fresh = TimeSpan.FromMinutes(5);
+    /// <summary>How long a passing gesture stays done with the same person.</summary>
+    public static readonly TimeSpan Again = TimeSpan.FromMinutes(60);
+
+    /// <summary>One of them just got here, or they just spoke.</summary>
+    public static bool Moment(long now, long myArrival, long theirArrival, long lastTalked)
+        => now - Math.Max(Math.Max(myArrival, theirArrival), lastTalked) < Fresh.TotalMilliseconds;
+
+    /// <summary>When this exact gesture was last made, not merely thought better of.</summary>
+    public static long? LastDone(string key, IEnumerable<WorldActivity> recentOwn)
+        => recentOwn.Where(a => a.Affordance == key && !SecondThoughts.Is(a)).Select(a => (long?)a.Ts).Max();
+
+    /// <summary>A high-five needs its moment, and a passing gesture isn't repeated within the hour; lasting closeness is neither.</summary>
+    public static bool Fits(string pose, bool moment, long? lastDone, long now)
+        => Poses.Lasts(pose) is null || ((pose != Poses.HighFive || moment) && !(lastDone is { } at && now - at < Again.TotalMilliseconds));
 
     public static string Label(string pose, string name) => pose switch
     {

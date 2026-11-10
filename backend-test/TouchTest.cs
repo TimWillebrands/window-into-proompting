@@ -40,5 +40,36 @@ public class TouchTest
     }
 
     [Fact]
+    public void AHighFive_NeedsItsMoment()
+    {
+        const long now = 10_000_000;
+        var fresh = now - 60_000;
+        var old = now - (long)Touch.Fresh.TotalMilliseconds - 1;
+
+        Assert.True(Touch.Moment(now, old, fresh, 0));
+        Assert.True(Touch.Moment(now, old, old, fresh));
+        Assert.False(Touch.Moment(now, old, old, old));
+        Assert.False(Touch.Fits(Poses.HighFive, moment: false, null, now));
+        Assert.True(Touch.Fits(Poses.HighFive, moment: true, null, now));
+        Assert.True(Touch.Fits(Poses.Hug, moment: false, null, now));
+    }
+
+    [Fact]
+    public void APassingGesture_IsNotRepeatedWithinTheHour_HoldingHandsIs()
+    {
+        const long now = 10_000_000;
+        var other = Guid.NewGuid();
+        var hug = new PartyTown.World.Apps.Affordance("together", "Hug Anne", 0, other, Poses.Hug);
+        var done = new PartyTown.World.WorldActivity { App = "together", Action = "pose", Affordance = hug.Key, Ts = now - 600_000 };
+        var refused = done with { App = "life", Action = "rest", Ts = now - 60_000 };
+
+        Assert.Equal(done.Ts, Touch.LastDone(hug.Key, new[] { refused, done }));
+        Assert.Null(Touch.LastDone(hug.Key, new[] { refused }));
+        Assert.False(Touch.Fits(Poses.Hug, moment: true, done.Ts, now));
+        Assert.True(Touch.Fits(Poses.Hug, moment: true, now - (long)Touch.Again.TotalMilliseconds, now));
+        Assert.True(Touch.Fits(Poses.HoldHands, moment: false, done.Ts, now));
+    }
+
+    [Fact]
     public void Strain_BlocksEvenAHighFive() => Assert.Empty(Touch.Offered(All, new TieRead(30, -0.3), Friend, false, false));
 }

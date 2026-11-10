@@ -42,6 +42,59 @@ public static class HappeningRules
         return open[^1];
     }
 
+    /// <summary>What can happen (ADR 0050): each kind has someone or something acting and leaves people a move. Picked here, not by the model.</summary>
+    public static readonly string[] Kinds =
+    {
+        "the weather turns, and it changes what people there can do or how they get home",
+        "a stranger comes through (a courier, a tourist, a neighbour, someone lost) and wants something from whoever is around",
+        "something there breaks, runs out or stops working, so people have to do without or sort it out",
+        "something is delivered, left behind or found there that somebody will have to decide about",
+        "an animal gets in or gets in the way, and it doesn't simply leave",
+        "word arrives of something going on in the neighbourhood (roadworks, a closure, a street market, a power cut, a strike)",
+        "a noise, a smell or a sight from outside that makes people look up and wonder",
+        "something is on offer there that won't last (leftovers going free, a spare ticket, the last of something)",
+    };
+
+    /// <summary>Which kind this time: any but the last few, so the world doesn't settle into one sort of event.</summary>
+    public static int PickKind(IReadOnlyCollection<int> lately, Random random)
+    {
+        var fresh = Enumerable.Range(0, Kinds.Length).Where(i => !lately.Contains(i)).ToList();
+        return fresh.Count == 0 ? random.Next(Kinds.Length) : fresh[random.Next(fresh.Count)];
+    }
+
+    /// <summary>How many kinds back a kind stays used up.</summary>
+    public const int KindMemory = 4;
+
+    /// <summary>The hour as the Narrator needs it: the day part, and whether it's dark.</summary>
+    public static string DayPart(DateTimeOffset local) => local.Hour switch
+    {
+        < 6 => "the middle of the night, dark outside, most people asleep",
+        < 9 => "early morning",
+        < 12 => "morning",
+        < 14 => "midday",
+        < 18 => "afternoon",
+        < 22 => "evening",
+        _ => "late evening, dark outside",
+    };
+
+    /// <summary>Whether it lands in front of people or waits to be found; no head count, or the Narrator starts moving them.</summary>
+    public static string Seen(int witnesses) => witnesses == 0
+        ? "Nobody is there right now, so leave what whoever comes in next will find."
+        : "People are there right now, so it happens where they can see it.";
+
+    /// <summary>Nothing happens for no one: with everybody asleep or away from their screen, the Narrator waits.</summary>
+    public static bool AnyoneUp(IEnumerable<Body> bodies) => bodies.Any(b => !b.Asleep && b.Activity != PlacesGrain.Dozing);
+
+    /// <summary>The Narrator's brief: one kind, a real Place, and the test that it matters to whoever is there.</summary>
+    public static string Brief(string setting, string kind, string seen, string shape) => $"""
+You are the narrator of a small world: a handful of people living their days in one city. Let ONE thing happen {setting}.
+This time: {kind}.
+It has to matter to whoever is there: something to deal with, something to take up, or something they can no longer do. If nobody would look up for it, it is too small; if it would make the news, it is too big.
+{seen}
+Stop at the thing itself. What the people who live here do about it is theirs: don't name them, don't say what they do, notice, think or feel, and don't explain what it means. One or two sentences, present tense.
+Output ONLY JSON: {shape}
+""";
+
     /// <summary>Where the Narrator sets it, as a phrase for the prompt: a real Place, never an invented street.</summary>
     public static string Setting(Place? place, IReadOnlyList<District> districts)
     {

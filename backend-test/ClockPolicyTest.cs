@@ -80,6 +80,39 @@ public class ClockPolicyTest
         Assert.Null(ClockPolicy.Pick(Array.Empty<LifeCandidate>(), Array.Empty<double>(), 0.5));
     }
 
+    [Fact]
+    public void Pick_TheSleepersShare_IsNobodysTurn()
+    {
+        var up = new LifeCandidate(Guid.NewGuid(), 0.5, null, 1);
+        var weights = new[] { 1.0 };
+        var resting = ClockPolicy.Resting(new[] { 0.5, 0.75, 0.25 });
+
+        Assert.Equal(2.25, resting, 6);
+        Assert.Equal(up.Id, ClockPolicy.Pick(new[] { up }, weights, 0.2, resting));
+        Assert.Null(ClockPolicy.Pick(new[] { up }, weights, 0.5, resting));
+        Assert.Equal(up.Id, ClockPolicy.Pick(new[] { up }, weights, 0.99));
+    }
+
+    [Fact]
+    public void TheOnlyOneUp_ActsNoOftenerThanInAFullRoom()
+    {
+        const int tick = 45, cast = 11, ticks = 4000;
+        var random = new Random(3);
+        var resting = ClockPolicy.Resting(Enumerable.Repeat(0.5, cast - 1));
+        var me = new LifeCandidate(Guid.NewGuid(), 0.5, null, 1);
+        var turns = 0;
+        for (var t = 0; t < ticks; t++)
+        {
+            var now = Now.AddSeconds((long)t * tick);
+            var w = ClockPolicy.LifeWeights(new[] { me }, tick, cast, now);
+            if (ClockPolicy.Pick(new[] { me }, w, random.NextDouble(), resting) is null) continue;
+            turns++;
+            me = me with { LastActedAt = now.ToUnixTimeMilliseconds() };
+        }
+
+        Assert.InRange(turns, ticks / (cast * 3), ticks / cast);
+    }
+
     private static ChatMessage Line(int id, TimeSpan ago, int? replyTo = null)
         => new() { MessageId = id, Content = $"m{id}", SendAt = Ago(ago), TriggeredByMessageId = replyTo };
 
