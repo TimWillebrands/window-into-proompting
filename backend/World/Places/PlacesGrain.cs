@@ -731,7 +731,8 @@ public sealed partial class PlacesGrain(
         if (place.Furni.Count == 0) place.Furni = FurniRules.SeedFor(place, Now());
         // Things to do (ADR 0049) reach Places that were there before them: the seeded ones by name, designed ones from what's in their scene.
         foreach (var f in FurniRules.SeededFeatures(place, Now()))
-            if (place.Furni.All(x => x.Id != f.Id)) place.Furni.Add(f);
+            if (place.Furni.FirstOrDefault(x => x.Id == f.Id) is { } had) (had.Do, had.Gives, had.Leaves) = (f.Do, f.Gives, f.Leaves);
+            else place.Furni.Add(f);
         if (place.CustomScene is null || place.Spots.Count == 0 || place.Furni.Any(f => f.Kind == FurniKinds.Feature)) return;
         try
         {

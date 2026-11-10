@@ -123,6 +123,8 @@ export interface Prefab {
     solid?: boolean;
     /** Hangs on the wall behind its tile instead of standing on it. */
     wall?: boolean;
+    /** A wall thing whose parts are already built against z = -0.5 (models as data). */
+    flush?: boolean;
     seats?: Seat[];
     /** Tints a placement can override. */
     tint?: Record<string, string>;
@@ -207,6 +209,7 @@ export function prefabOf(m: Model): Prefab | null {
     return {
         size: m.size,
         wall: !!m.wall,
+        flush: !!m.wall,
         solid: m.solid ?? !m.wall,
         seats: m.seats,
         tint: m.tint,

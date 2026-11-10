@@ -196,7 +196,7 @@
             "leaves": true
         },
         "noticeboard": {
-            "do": "Read the noticeboard and pin something up",
+            "do": "Pin something up on the noticeboard",
             "gives": "one notice already there that stands out, and the note they pin beside it",
             "leaves": true
         },
@@ -618,7 +618,7 @@
                 "colour": "#ff9a4a",
                 "power": 3
             },
-            "do": "Sit by the fire and watch it a while",
+            "do": "Sit by the fire a while",
             "gives": "one small thing the fire does or brings up: a log collapsing, a smell from years ago, a shape in the flames",
             "parts": [
                 {
@@ -1162,7 +1162,7 @@
             "size": [1, 1],
             "about": "old stone well with a little roof",
             "group": "outdoors",
-            "do": "Drop a coin down the well and make a wish",
+            "do": "Drop a coin down the well",
             "gives": "the wish, in their own few words, and the sound the coin makes",
             "leaves": true,
             "parts": [
@@ -2009,7 +2009,7 @@
             "size": [1, 1],
             "about": "chess table with a game left mid-play",
             "group": "things to do",
-            "do": "Study the game left on the chess table and make a move",
+            "do": "Make a move in the game left on the chess table",
             "gives": "the position in a few words, the move they make, and what it now threatens",
             "leaves": true,
             "parts": [
@@ -2301,7 +2301,7 @@
             "size": [1, 1],
             "about": "big floor globe that spins",
             "group": "things to do",
-            "do": "Spin the globe and stop it with a finger",
+            "do": "Spin the globe to see where a finger lands",
             "gives": "the real place the finger lands on, and one thing they know or wonder about it",
             "parts": [
                 {
@@ -3209,7 +3209,7 @@
             "size": [1, 1],
             "about": "office water cooler",
             "group": "indoors",
-            "do": "Get a cup at the water cooler and linger",
+            "do": "Linger at the water cooler",
             "gives": "the bit of office news going round the cooler today, harmless and specific",
             "parts": [
                 {
@@ -3381,7 +3381,7 @@
             "size": [2, 2],
             "about": "grand piano with its lid up",
             "group": "indoors",
-            "do": "Sit down and play something on the grand piano",
+            "do": "Play something on the grand piano",
             "gives": "what they play, how far they get, and the note that goes wrong or surprisingly right",
             "parts": [
                 {

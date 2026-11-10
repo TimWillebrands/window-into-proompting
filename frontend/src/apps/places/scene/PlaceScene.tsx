@@ -699,7 +699,14 @@ function Sign({ w, h, text, bg, fg, matrix }: Built['signs'][number]) {
 }
 
 /** Parts that move: flickering lamps, smoke, a jukebox's lights, ducks, and whatever a model tags (spin, bob, sway, pulse, flame, twinkle). */
-function Tagged({ tag, geometry, colour, at, glow }: Built['tagged'][number]) {
+function Tagged({
+    tag,
+    geometry,
+    colour,
+    at,
+    glow,
+    painted,
+}: Built['tagged'][number]) {
     const ref = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const seed = at.x * 3.1 + at.z * 1.7;
@@ -769,10 +776,15 @@ function Tagged({ tag, geometry, colour, at, glow }: Built['tagged'][number]) {
                 <meshBasicMaterial
                     ref={mat}
                     color={colour}
+                    vertexColors={!!painted}
                     transparent={tag === 'smoke'}
                 />
             ) : (
-                <meshStandardMaterial color={colour} flatShading />
+                <meshStandardMaterial
+                    color={colour}
+                    vertexColors={!!painted}
+                    flatShading
+                />
             )}
         </mesh>
     );

@@ -91,7 +91,7 @@ model("campfire", "campfire in a ring of stones, lit", group="outdoors",
              cone(0.16, 0.42, 0, 0.1, 0, "fire", glow=True, tag="flame", sides=6),
              cone(0.09, 0.28, 0.03, 0.12, 0.02, "ember", glow=True, tag="flame", sides=5)],
       light={"at": [0, 0.5, 0], "colour": "#ff9a4a", "power": 3},
-      do="Sit by the fire and watch it a while", gives="one small thing the fire does or brings up: a log collapsing, a smell from years ago, a shape in the flames")
+      do="Sit by the fire a while", gives="one small thing the fire does or brings up: a log collapsing, a smell from years ago, a shape in the flames")
 model("log-seat", "a log to sit on", group="outdoors", seats=[seat(0, 0, 0.36)],
       parts=[P("cyl", [0.2, 0.8], (0, 0.2, 0), "dark-wood", rz=H, sides=8), cyl(0.2, 0.002, 0, 0, 0, "dark-wood", flat=True),
              P("cyl", [0.15, 0.82], (0, 0.2, 0), "light-wood", rz=H, sides=8)])
@@ -140,7 +140,7 @@ model("well", "old stone well with a little roof", group="outdoors",
       parts=[P("lathe", [[0.34, 0], [0.36, 0.5], [0.3, 0.52], [0.28, 0.1]], c="stone", sides=10), cyl(0.27, 0.02, 0, 0.12, 0, "water"),
              box(0.06, 1.1, 0.06, 0.32, 0.4, 0, "dark-wood", mirror="x"), P("gable", [0.5, 0.25, 0.9], (0, 1.5, 0), "rust", ry=H),
              P("cyl", [0.03, 0.6], (0, 1.3, 0), "dark-wood", rz=H), cyl(0.008, 0.5, 0, 0.8, 0, "tan")],
-      do="Drop a coin down the well and make a wish", gives="the wish, in their own few words, and the sound the coin makes", leaves=True)
+      do="Drop a coin down the well", gives="the wish, in their own few words, and the sound the coin makes", leaves=True)
 model("wishing-tree", "bare tree hung with ribbons and paper wishes", size=(2, 2), group="outdoors",
       parts=[taper(0.08, 0.15, 1.1, c="dark-wood"),
              P("tube", [[0, 1.0, 0], [0.4, 1.5, 0.1], [0.7, 1.7, 0.2]], c="dark-wood", r=0.04, spin=5),
@@ -228,7 +228,7 @@ model("chess-table", "chess table with a game left mid-play", group="things to d
              box(0.14, 0.012, 0.14, -0.21, 0.71, -0.21, "charcoal", array={"n": 2, "step": [0.28, 0, 0.28]}), box(0.14, 0.012, 0.14, 0.07, 0.71, -0.21, "charcoal"),
              box(0.14, 0.012, 0.14, -0.21, 0.71, 0.07, "charcoal"),
              cone(0.03, 0.1, -0.14, 0.72, 0.14, "white"), cone(0.03, 0.12, 0.14, 0.72, -0.07, "black"), cyl(0.025, 0.08, 0.07, 0.72, 0.2, "white"), cyl(0.025, 0.09, -0.2, 0.72, -0.14, "black")],
-      do="Study the game left on the chess table and make a move", gives="the position in a few words, the move they make, and what it now threatens", leaves=True)
+      do="Make a move in the game left on the chess table", gives="the position in a few words, the move they make, and what it now threatens", leaves=True)
 model("guestbook", "guestbook open on a lectern", group="things to do",
       parts=[cyl(0.05, 0.9, c="dark-wood"), box(0.4, 0.04, 0.4, 0, 0, 0, "dark-wood"), box(0.56, 0.04, 0.42, 0, 0.95, 0, "wood", rx=0.35),
              box(0.24, 0.03, 0.34, -0.125, 0.99, 0.01, "paper", rx=0.35), box(0.24, 0.03, 0.34, 0.125, 0.99, 0.01, "paper", rx=0.35),
@@ -257,7 +257,7 @@ model("globe", "big floor globe that spins", group="things to do",
       parts=[cyl(0.2, 0.04, c="dark-wood"), cyl(0.03, 0.5, c="dark-wood"), P("ring", [0.33, 0.015], (0, 0.85, 0), "brass", rz=0.4),
              {"group": [ball(0.3, 0, 0, 0, "blue", detail=2), ball(0.12, 0.2, 0.12, 0.12, "leaf", squash=0.8), ball(0.1, -0.18, -0.05, 0.19, "moss"),
                         ball(0.13, -0.05, 0.1, -0.23, "leaf", squash=0.7), ball(0.08, 0.1, -0.2, -0.16, "sand")], "at": [0, 0.85, 0], "tag": "spin"}],
-      do="Spin the globe and stop it with a finger", gives="the real place the finger lands on, and one thing they know or wonder about it")
+      do="Spin the globe to see where a finger lands", gives="the real place the finger lands on, and one thing they know or wonder about it")
 model("pottery-wheel", "pottery wheel with a pot half thrown", group="things to do",
       parts=[box(0.6, 0.4, 0.6, 0, 0, 0, "charcoal"), {"group": [cyl(0.26, 0.04, c="metal", sides=14), P("lathe", [[0.1, 0], [0.16, 0.12], [0.12, 0.26], [0.14, 0.3]], (0, 0.04, 0), "terracotta")], "at": [0, 0.4, 0], "tag": "spin"},
              ball(0.07, 0.36, 0.05, 0.3, "terracotta", squash=0.6)],
@@ -344,7 +344,7 @@ model("barrel-table", "standing table made from a barrel", group="indoors",
 model("water-cooler", "office water cooler", group="indoors",
       parts=[box(0.36, 0.95, 0.36, 0, 0, 0, "white"), P("lathe", [[0.05, 0], [0.15, 0.08], [0.15, 0.4], [0.02, 0.44]], (0, 0.95, 0), "glass", opacity=0.55),
              box(0.06, 0.04, 0.05, -0.07, 0.7, 0.2, "blue"), box(0.06, 0.04, 0.05, 0.07, 0.7, 0.2, "red")],
-      do="Get a cup at the water cooler and linger", gives="the bit of office news going round the cooler today, harmless and specific")
+      do="Linger at the water cooler", gives="the bit of office news going round the cooler today, harmless and specific")
 model("yoga-mat", "yoga mat", size=(1, 2), group="indoors", solid=False, seats=[seat(0, 0.5, 0.03, 0)],
       parts=[box(0.7, 0.02, 1.8, 0, 0.001, 0, "$mat", flat=True), P("cyl", [0.06, 0.6], (0, 0.06, -0.85), "$mat", rz=H)], tint={"mat": "lilac"})
 model("bunk-bed", "bunk bed", size=(1, 2), group="indoors", seats=[seat(0, 0.5, 0.5, 1)],
@@ -362,7 +362,7 @@ model("grand-piano", "grand piano with its lid up", size=(2, 2), group="indoors"
              cyl(0.04, 0.72, 0.6, 0, 0.45, "black", mirror="x"), cyl(0.04, 0.72, 0, 0, -0.55, "black"),
              box(1.3, 0.04, 0.16, 0, 0.74, 0.68, "white"), box(0.03, 0.045, 0.1, -0.6, 0.745, 0.65, "black", array={"n": 16, "step": [0.08, 0, 0]}),
              cyl(0.01, 0.5, 0.5, 0.86, -0.2, "brass", rz=0.3)],
-      do="Sit down and play something on the grand piano", gives="what they play, how far they get, and the note that goes wrong or surprisingly right")
+      do="Play something on the grand piano", gives="what they play, how far they get, and the note that goes wrong or surprisingly right")
 
 # ---- What existing prefabs afford, so placing one is enough ----
 DEFAULTS = {
@@ -372,7 +372,7 @@ DEFAULTS = {
     "arcade": {"do": "Play a round on the arcade cabinet", "gives": "the game, the score, and the initials at the top of the high-score table"},
     "pool-table": {"do": "Knock a few balls around the pool table", "gives": "the one shot worth describing, made or missed"},
     "fountain": {"do": "Toss a coin in the fountain", "gives": "the wish that goes with the coin, in their own few words", "leaves": True},
-    "noticeboard": {"do": "Read the noticeboard and pin something up", "gives": "one notice already there that stands out, and the note they pin beside it", "leaves": True},
+    "noticeboard": {"do": "Pin something up on the noticeboard", "gives": "one notice already there that stands out, and the note they pin beside it", "leaves": True},
     "chalkboard": {"do": "Read today's chalkboard", "gives": "the special chalked up today and the joke or doodle next to it"},
     "vending-machine": {"do": "Get something from the vending machine", "gives": "what they pick, and what the machine does about it"},
     "herring-cart": {"do": "Get a herring at the cart", "gives": "how they take it (onions, pickles, by the tail) and what the herring man says"},

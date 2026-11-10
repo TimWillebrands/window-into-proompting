@@ -176,6 +176,269 @@ const camp: Def = {
     ambience: 'fireflies',
 };
 
+/** A design as an agent sent it over MCP: its own models, four things to do. */
+const sterrenwacht = {
+    map: [
+        '####ww##ww####',
+        '#SSSSS.......#',
+        '#SSSSS.......#',
+        'wSSSSS..mmm..#',
+        '#.......mmm..#',
+        'w.......mmm..#',
+        '#............#',
+        'D............#',
+        '#............#',
+        '##############',
+    ],
+    floor: '#5a4634',
+    wall: '#2f3550',
+    accent: '#27406b',
+    floorStyle: 'planks',
+    wallStyle: 'panel',
+    light: 'dim',
+    ambience: 'dust',
+    models: {
+        'great-telescope': {
+            about: 'a big brass refractor on a fork mount',
+            size: [2, 2],
+            parts: [
+                {
+                    cyl: [0.5, 0.6, 0.22],
+                    at: [0, 0, 0],
+                    c: 'dark-wood',
+                    sides: 12,
+                },
+                {
+                    ring: [0.52, 0.03],
+                    at: [0, 0.22, 0],
+                    rx: 1.5708,
+                    c: 'brass',
+                },
+                {
+                    box: [0.12, 1.0, 0.16],
+                    at: [0.36, 0.22, 0],
+                    c: 'iron',
+                    mirror: 'x',
+                },
+                { cyl: [0.05, 0.84], at: [0, 1.1, 0], rz: 1.5708, c: 'iron' },
+                {
+                    group: [
+                        {
+                            cyl: [0.19, 0.23, 1.5],
+                            at: [0, -0.6, 0],
+                            c: 'brass',
+                            sides: 12,
+                        },
+                        {
+                            cyl: [0.26, 0.26, 0.1],
+                            at: [0, 0.86, 0],
+                            c: 'copper',
+                            sides: 12,
+                        },
+                        {
+                            cyl: [0.2, 0.02],
+                            at: [0, 0.95, 0],
+                            c: 'glass',
+                            glow: 'night',
+                            sides: 12,
+                        },
+                        { cyl: [0.07, 0.3], at: [0, -0.88, 0], c: 'black' },
+                        { cyl: [0.045, 0.6], at: [0.26, -0.2, 0], c: 'copper' },
+                        {
+                            ring: [0.24, 0.02],
+                            at: [0, 0.2, 0],
+                            rx: 1.5708,
+                            c: 'copper',
+                        },
+                    ],
+                    at: [0, 1.12, 0],
+                    rx: -0.75,
+                },
+                { ball: 0.1, at: [0.5, 1.1, 0], c: 'iron' },
+            ],
+        },
+        orrery: {
+            about: 'a brass orrery with a glowing sun',
+            parts: [
+                {
+                    lathe: [
+                        [0.26, 0],
+                        [0.1, 0.08],
+                        [0.06, 0.62],
+                        [0.18, 0.72],
+                        [0.2, 0.76],
+                    ],
+                    c: 'dark-wood',
+                    sides: 10,
+                },
+                {
+                    ball: 0.11,
+                    at: [0, 1.0, 0],
+                    c: 'amber',
+                    glow: true,
+                    tag: 'pulse',
+                },
+                { cyl: [0.015, 0.26], at: [0, 0.76, 0], c: 'brass' },
+                {
+                    group: [
+                        {
+                            box: [0.42, 0.012, 0.012],
+                            at: [0.21, 0, 0],
+                            c: 'brass',
+                        },
+                        { ball: 0.05, at: [0.42, 0.02, 0], c: 'blue' },
+                        { ball: 0.018, at: [0.42, 0.02, 0.09], c: 'white' },
+                        {
+                            box: [0.28, 0.012, 0.012],
+                            at: [0.14, 0.05, 0],
+                            ry: 2.2,
+                            c: 'brass',
+                        },
+                        { ball: 0.035, at: [-0.165, 0.07, -0.226], c: 'rust' },
+                        {
+                            box: [0.34, 0.012, 0.012],
+                            at: [0.17, -0.05, 0],
+                            ry: 4.1,
+                            c: 'brass',
+                        },
+                        { ball: 0.06, at: [-0.195, -0.03, 0.278], c: 'sand' },
+                        {
+                            ring: [0.09, 0.008],
+                            at: [-0.195, -0.03, 0.278],
+                            rx: 1.3,
+                            c: 'gold',
+                        },
+                    ],
+                    at: [0, 1.0, 0],
+                    tag: 'spin',
+                },
+            ],
+            light: { at: [0, 1.1, 0], colour: '#ffc66b', power: 1.4 },
+        },
+        'star-chart': {
+            about: 'a wall chart of the northern sky',
+            wall: true,
+            parts: [
+                {
+                    box: [0.94, 0.94, 0.03],
+                    at: [0, 0.95, -0.47],
+                    c: 'dark-wood',
+                },
+                {
+                    cyl: [0.42, 0.02],
+                    at: [0, 1.42, -0.445],
+                    rx: 1.5708,
+                    c: 'navy',
+                    sides: 20,
+                },
+                { ring: [0.3, 0.006], at: [0, 1.42, -0.43], c: 'sky' },
+                { ring: [0.16, 0.006], at: [0, 1.42, -0.43], c: 'sky' },
+                {
+                    ball: 0.018,
+                    at: [0.1, 1.5, -0.43],
+                    c: 'warm-light',
+                    glow: true,
+                    tag: 'twinkle',
+                },
+                {
+                    ball: 0.014,
+                    at: [-0.2, 1.6, -0.43],
+                    c: 'white',
+                    glow: true,
+                    tag: 'twinkle',
+                },
+                {
+                    ball: 0.016,
+                    at: [0.24, 1.3, -0.43],
+                    c: 'white',
+                    glow: true,
+                    tag: 'twinkle',
+                },
+                {
+                    ball: 0.012,
+                    at: [-0.12, 1.25, -0.43],
+                    c: 'warm-light',
+                    glow: true,
+                    tag: 'twinkle',
+                },
+                {
+                    ball: 0.014,
+                    at: [-0.28, 1.42, -0.43],
+                    c: 'white',
+                    glow: true,
+                    tag: 'twinkle',
+                },
+                { ball: 0.02, at: [0, 1.42, -0.43], c: 'amber', glow: true },
+                {
+                    tube: [
+                        [0.1, 1.5, -0.432],
+                        [0.24, 1.3, -0.432],
+                        [-0.12, 1.25, -0.432],
+                    ],
+                    r: 0.004,
+                    c: 'sky',
+                },
+            ],
+        },
+    },
+    props: [
+        {
+            p: 'great-telescope',
+            at: [2, 1],
+            name: 'the great telescope',
+            spot: 'telescope',
+            do: 'Look through the great telescope',
+            gives: "the one thing in the eyepiece tonight: a named star, a planet's moons counted, a lit window across the canal, depending on the hour and the weather",
+        },
+        {
+            p: 'guestbook',
+            at: [5, 3],
+            name: 'the observation log',
+            spot: 'telescope',
+            do: "Write tonight's sighting in the observation log",
+            gives: 'the line they enter: what they saw, the time, and one remark in their own voice',
+            leaves: true,
+        },
+        {
+            p: 'orrery',
+            at: [6, 6],
+            name: 'the orrery',
+            spot: 'orrery',
+            do: 'Wind up the orrery',
+            gives: "which planet catches up with which as it runs down, and the small thing that's wrong with the model",
+        },
+        {
+            p: 'star-chart',
+            at: [7, 1],
+            name: 'the star chart',
+            spot: 'shelves',
+            do: "Find tonight's sky on the star chart",
+            gives: 'the constellation overhead at this hour and the note someone pencilled beside it',
+        },
+        { p: 'star-chart', at: [9, 1] },
+        { p: 'library-shelves', at: [11, 1], spot: 'shelves' },
+        { p: 'library-shelves', at: [12, 1] },
+        {
+            p: 'lounge-set',
+            at: [8, 3],
+            spot: 'armchairs',
+            tint: { rug: 'navy' },
+        },
+        { p: 'chandelier', at: [6, 4] },
+        { p: 'globe', at: [1, 8] },
+        { p: 'desk-set', at: [11, 6] },
+        { p: 'candles', at: [9, 4], y: 0.36 },
+        { p: 'curtain', at: [1, 4], tint: { cloth: 'navy' } },
+        { p: 'big-plant', at: [12, 8] },
+    ],
+    spots: {
+        telescope: { at: [4, 2] },
+        armchairs: { at: [9, 5] },
+        orrery: { at: [6, 7] },
+        shelves: { at: [11, 2] },
+    },
+} as unknown as Def;
+
 const placeOf = (id: string, def: Def, spots: string[]): Place => ({
     id: `story-${id}`,
     name: id,
@@ -203,6 +466,15 @@ const cellarPlace = placeOf('cellar', cellar, ['crates', 'sofas', 'counter']);
 const gardenPlace = placeOf('garden', garden, ['pond', 'tree', 'picnic']);
 const clubPlace = placeOf('club', club, ['stage', 'floor', 'bar']);
 const campPlace = placeOf('camp', camp, ['fire', 'shore', 'tent']);
+const sterrenwachtPlace = placeOf(
+    'sterrenwacht',
+    {
+        ...sterrenwacht,
+        // The server stores the rows joined.
+        map: (sterrenwacht.map as unknown as string[]).join('\n'),
+    },
+    ['telescope', 'armchairs', 'orrery', 'shelves'],
+);
 
 const meta = {
     title: 'Places/Showcase',
@@ -246,4 +518,10 @@ export const Club: Story = { args: { place: clubPlace, furni: [] } };
 export const Camp: Story = { args: { place: campPlace, furni: [] } };
 export const CampAtNight: Story = {
     args: { place: campPlace, furni: [], hour: 23 },
+};
+export const Sterrenwacht: Story = {
+    args: { place: sterrenwachtPlace, furni: [], hour: 22 },
+};
+export const SterrenwachtByDay: Story = {
+    args: { place: sterrenwachtPlace, furni: [], hour: 13 },
 };

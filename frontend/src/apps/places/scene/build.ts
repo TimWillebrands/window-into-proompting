@@ -31,6 +31,8 @@ export interface Built {
         /** Its pivot in the world; the geometry is centred on it. */
         at: THREE.Vector3;
         glow: boolean;
+        /** A whole group in its own colours. */
+        painted?: boolean;
     }[];
     signs: {
         w: number;
@@ -297,7 +299,11 @@ interface Leaf {
     part: Part;
     matrix: THREE.Matrix4;
     colour: string;
+    /** Set under a tagged group: its leaves move as one. */
+    unit?: { id: number; tag: string };
 }
+
+let units = 0;
 
 /** Groups, `use`d prefabs and repeats flattened to leaves, each with its matrix and colour. */
 function leavesOf(
@@ -307,6 +313,7 @@ function leavesOf(
     parent: THREE.Matrix4,
     out: Leaf[],
     depth = 0,
+    unit?: Leaf['unit'],
 ) {
     for (const part of parts) {
         if (out.length >= MAX_LEAVES) return;
@@ -321,17 +328,30 @@ function leavesOf(
                         matrix,
                         out,
                         depth + 1,
+                        unit ??
+                            (part.tag && LIVE.has(part.tag)
+                                ? { id: ++units, tag: part.tag }
+                                : undefined),
                     );
             } else if ('use' in part) {
                 const used = REGISTRY[part.use];
                 if (!used || depth >= 3) continue;
                 const v = { ...variant, tint: part.tint ?? {} };
-                leavesOf(partsOf(used, v), used, v, matrix, out, depth + 1);
+                leavesOf(
+                    partsOf(used, v),
+                    used,
+                    v,
+                    matrix,
+                    out,
+                    depth + 1,
+                    unit,
+                );
             } else
                 out.push({
                     part,
                     matrix,
                     colour: colourOf(part.c, prefab, variant),
+                    unit,
                 });
         }
     }
@@ -406,7 +426,7 @@ export function build(placements: Placement[]): Built {
     };
     for (const pl of placements) {
         let shift = 0;
-        if (pl.prefab.wall) shift = -0.44;
+        if (pl.prefab.wall) shift = pl.prefab.flush ? 0.03 : -0.44;
         const [sx, sz] = turn(0, shift, pl.rot);
         const m = new THREE.Matrix4().compose(
             new THREE.Vector3(pl.x + sx, pl.y, pl.z + sz),
@@ -424,7 +444,11 @@ export function build(placements: Placement[]): Built {
             m,
             found,
         );
-        for (const { part, matrix, colour } of found) {
+        const grouped = new Map<
+            number,
+            { tag: string; glow: boolean; parts: THREE.BufferGeometry[] }
+        >();
+        for (const { part, matrix, colour, unit } of found) {
             if ('sign' in part) {
                 out.signs.push({
                     w: part.sign[0],
@@ -505,7 +529,16 @@ export function build(placements: Placement[]): Built {
             const moved = g.clone().applyMatrix4(matrix);
             if (matrix.determinant() < 0) unflip(moved);
             const placed = paint(moved, colour);
-            if (part.tag && LIVE.has(part.tag)) {
+            if (unit) {
+                const g2 = grouped.get(unit.id) ?? {
+                    tag: unit.tag,
+                    glow: true,
+                    parts: [],
+                };
+                g2.glow &&= !!part.glow;
+                g2.parts.push(placed);
+                grouped.set(unit.id, g2);
+            } else if (part.tag && LIVE.has(part.tag)) {
                 const box = new THREE.Box3().setFromBufferAttribute(
                     placed.getAttribute('position') as THREE.BufferAttribute,
                 );
@@ -530,6 +563,27 @@ export function build(placements: Placement[]): Built {
             else if (part.glow === 'night') night.push(placed);
             else if (part.glow) glow.push(placed);
             else plain.push(placed);
+        }
+        // A tagged group is one mesh in its parts' own colours, turning about its middle.
+        for (const g2 of grouped.values()) {
+            const geometry = merge(g2.parts);
+            if (!geometry) continue;
+            geometry.computeBoundingBox();
+            const box = geometry.boundingBox ?? new THREE.Box3();
+            const at = box.getCenter(new THREE.Vector3());
+            // Hanging things swing from the top, standing ones from the foot.
+            if (g2.tag === 'sway')
+                at.y = box.min.y > pl.y + 0.3 ? box.max.y : box.min.y;
+            if (g2.tag === 'flame') at.y = box.min.y;
+            geometry.translate(-at.x, -at.y, -at.z);
+            out.tagged.push({
+                tag: g2.tag,
+                geometry,
+                colour: '#ffffff',
+                at,
+                glow: g2.glow,
+                painted: true,
+            });
         }
     }
     out.plain = merge(plain);
