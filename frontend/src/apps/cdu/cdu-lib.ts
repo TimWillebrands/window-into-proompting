@@ -29,6 +29,13 @@ const PROMPTS: Record<string, string> = {
 
 export const linePrefix = (kind: string) => PROMPTS[kind] ?? '  ';
 
+/** What someone did when they wrote to it, by exchange kind. */
+export const SAID: Record<string, string> = {
+    ask: 'asked',
+    talk: 'handed it work',
+    answer: 'answered',
+};
+
 export const money = (usd: number | string) => {
     const amount = Number(usd);
     return `$${amount.toFixed(amount > 0 && amount < 1 ? 4 : 2)}`;
@@ -53,6 +60,7 @@ export const prLine = (pr: CduPrSummary) =>
 export function exchangeWord(e: CduExchangeSummary): string {
     if (e.status === 'queued') return 'waiting for it';
     if (e.status === 'failed') return 'it fell silent';
+    if (e.status === 'parked') return 'parked: allowance spent';
     const commits = Number(e.commits);
     const moved =
         commits > 0 ? `, ${commits} commit${commits === 1 ? '' : 's'}` : '';

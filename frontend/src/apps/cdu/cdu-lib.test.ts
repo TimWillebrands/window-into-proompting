@@ -92,6 +92,9 @@ describe('words', () => {
         expect(exchangeWord(exchange({ status: 'failed' }))).toBe(
             'it fell silent',
         );
+        expect(exchangeWord(exchange({ status: 'parked' }))).toBe(
+            'parked: allowance spent',
+        );
         expect(exchangeWord(exchange({ asked: true, commits: 2 }))).toBe(
             'it asked back, 2 commits',
         );

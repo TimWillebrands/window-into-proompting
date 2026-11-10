@@ -15,6 +15,7 @@ import {
     mergeLines,
     mindLine,
     prLine,
+    SAID,
     shortSha,
 } from './cdu-lib';
 import './cdu.css';
@@ -129,8 +130,7 @@ function Said({ cdu }: { cdu: CduOverview }) {
             {cdu.exchanges.map((e) => (
                 <li key={e.turnId}>
                     <span className="cd-title">
-                        {e.speakerName}{' '}
-                        {e.kind === 'answer' ? 'answered' : 'said'}
+                        {e.speakerName} {SAID[e.kind] ?? 'said'}
                     </span>
                     {e.text}
                     <span className="cd-sub">

@@ -34,6 +34,8 @@ public sealed record CduEntry(long N, long At, string Kind, string Text, JsonEle
 
     public int? Int(string name) => Data is { ValueKind: JsonValueKind.Object } d && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
 
+    public double? Num(string name) => Data is { ValueKind: JsonValueKind.Object } d && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+
     public bool Flag(string name) => Data is { ValueKind: JsonValueKind.Object } d && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
 }
 

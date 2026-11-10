@@ -37,7 +37,7 @@ export function createApi(cdu: Cdu, token: string) {
                 const from = body?.from as { id?: unknown; name?: unknown } | undefined;
                 const text = typeof body?.text === 'string' ? body.text.trim() : '';
                 if (!from || typeof from.id !== 'string' || typeof from.name !== 'string' || !text) return send(res, 400, { error: 'from {id, name} and text' });
-                const kind: TurnKind = body?.kind === 'answer' ? 'answer' : 'talk';
+                const kind: TurnKind = body?.kind === 'answer' || body?.kind === 'ask' ? body.kind : 'talk';
                 const model = typeof body?.model === 'string' ? body.model : undefined;
                 return send(res, 202, cdu.talk({ id: from.id, name: from.name }, text, kind, model));
             }

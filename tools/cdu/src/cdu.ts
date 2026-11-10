@@ -10,7 +10,8 @@ export interface Speaker {
     name: string;
 }
 
-export type TurnKind = 'talk' | 'answer';
+/** ask: a question, nothing changes. talk: a brief for work. answer: a reply to its own question. */
+export type TurnKind = 'ask' | 'talk' | 'answer';
 
 export interface Turn {
     id: string;
@@ -100,7 +101,8 @@ export const emailOf = (who: Speaker) => `${who.name.toLowerCase().replace(/[^a-
 
 /** What the CDU hears when it wakes: who speaks, what they say, and what happened while it slept. */
 export function compose(turn: Turn, notes: string[]): string {
-    const said = `${turn.from.name}, a Cytheurgist, ${turn.kind === 'answer' ? 'answers you' : 'speaks to you'}:\n\n${turn.text}`;
+    const does = { ask: 'asks you a question', talk: 'hands you work', answer: 'answers you' }[turn.kind];
+    const said = `${turn.from.name}, a Cytheurgist, ${does}:\n\n${turn.text}`;
     return notes.length ? `${said}\n\nWhile you slept:\n${notes.map((n) => `- ${n}`).join('\n')}` : said;
 }
 

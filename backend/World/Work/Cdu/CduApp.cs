@@ -25,6 +25,7 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
         if (affordance.TargetId is not { } target || await Company(ctx, target) is not { } company) return null;
         return affordance.Verb switch
         {
+            CduScreen.VerbAsk => await SayAsync(ctx, company, CduRules.Ask, intent, ct),
             CduScreen.VerbTalk => await SayAsync(ctx, company, CduRules.Talk, intent, ct),
             CduScreen.VerbAnswer => await SayAsync(ctx, company, CduRules.Answer, intent, ct),
             CduScreen.VerbLook => new ActOutcome("look", await site.LookAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), ct), company.Id),
@@ -36,24 +37,40 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
     {
         var desk = await DeskAsync(ctx, company, ct, fresh: true);
         if (desk.Cdu is null) return new ActOutcome("hold", $"found the CDU at {company.Name} dark", company.Id);
-        var ask = kind == CduRules.Answer
-            ? "Answer the CDU's question in your own words, as yourself. Say what you think, and why, plainly."
-            : "Put what you've decided into words for the CDU, as yourself. Say what you want to be different for people here and what you saw that makes it worth it. It decides how; you bring the why. You're on shift at your desk now, whatever the hour: give it the wish itself now, not a promise of one later.";
+        var ask = kind switch
+        {
+            CduRules.Answer => "Answer the CDU's question in your own words, as yourself. Say what you think, and why, plainly.",
+            CduRules.Ask => "Ask the CDU the one thing you need to know now, plainly, the way you'd ask a colleague who has read all the code. One question about what is built, what is stored or what happened, not a request to change anything. Say what you already know, so it doesn't repeat it. A question is small: the free mind usually does.",
+            _ => "Write the CDU the brief for this one piece of work, plainly, as an engineer directing a coding agent. Say what should be different, where in this world it showed up, and how you'll both know it's done. Build on what it told you and what's on your desk, and leave out what you only assume. It decides how. You're at your desk now: write the brief itself, not a promise of one later.",
+        };
         var json = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(ctx.Self)}\n\n{CduScreen.Frame(company)}\n{ask}\nOutput ONLY JSON: {CduScreen.MessageShape}",
             $"{CduScreen.Render(desk)}\n\nWhat you've decided: {intent}", ct, 0.4, new[] { "message", "mind" });
         if (CduScreen.ReadMessage(json) is not { } message) return new ActOutcome("hold", $"sat with the CDU at {company.Name} and said nothing", company.Id);
         var mind = CduScreen.ReadMind(json, desk.Cdu.Models);
+        if (CduScreen.Spent(desk.Cdu))
+        {
+            await site.ParkAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind, CduScreen.SpendLine(desk));
+            return new ActOutcome("park", $"wrote to the CDU at {company.Name}, but its allowance for today was spent: the message stays parked, unsent", company.Id);
+        }
         var said = await site.SayAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind, ct);
         if (said is null) return new ActOutcome("hold", $"couldn't reach the CDU at {company.Name}", company.Id);
-        return new ActOutcome(kind, kind == CduRules.Answer ? $"answered the CDU at {company.Name}" : $"spoke to the CDU at {company.Name}", company.Id);
+        return new ActOutcome(kind, kind switch
+        {
+            CduRules.Answer => $"answered the CDU at {company.Name}",
+            CduRules.Ask => $"asked the CDU at {company.Name} a question",
+            _ => $"handed the CDU at {company.Name} a piece of work",
+        }, company.Id);
     }
 
     private async Task<CduDesk> DeskAsync(LifeContext ctx, Company company, CancellationToken ct, bool fresh = false)
     {
         var activities = await grains.GetGrain<IWorldClockGrain>(ctx.PartyId).GetActivitiesAsync(HealthWindow, null);
         var state = await grains.GetGrain<ICduGrain>(ctx.PartyId).GetAsync();
-        return new CduDesk(company, state, await site.StatusAsync(ct, fresh), CduScreen.Health(activities, ctx.Now), ctx.Self.Id);
+        return new CduDesk(company, state, await site.StatusAsync(ct, fresh), CduScreen.Health(activities, ctx.Now), ctx.Self.Id)
+        {
+            Colleagues = await site.ColleaguesAsync(ctx.PartyId, company.Id, ctx.Self.Id), Now = ctx.Now,
+        };
     }
 
     private async Task<Company?> Company(LifeContext ctx, Guid id)

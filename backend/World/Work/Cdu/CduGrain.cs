@@ -10,10 +10,10 @@ public sealed class CduExchange
     [Id(1)] public Guid CompanyId { get; set; }
     [Id(2)] public Guid SpeakerId { get; set; }
     [Id(3)] public string SpeakerName { get; set; } = string.Empty;
-    /// <summary>talk or answer.</summary>
+    /// <summary>ask (a question), talk (a piece of work) or answer.</summary>
     [Id(4)] public string Kind { get; set; } = CduRules.Talk;
     [Id(5)] public string Text { get; set; } = string.Empty;
-    /// <summary>queued, done or failed.</summary>
+    /// <summary>queued, done, failed, or parked: written when the allowance was spent, never sent.</summary>
     [Id(6)] public string Status { get; set; } = CduRules.Queued;
     /// <summary>Its words, not a fact.</summary>
     [Id(7)] public string? Reply { get; set; }
@@ -26,6 +26,8 @@ public sealed class CduExchange
     [Id(12)] public long? DoneAt { get; set; }
     /// <summary>The mind it was woken with, as the speaker chose.</summary>
     [Id(13)] public string? Model { get; set; }
+    /// <summary>What answering it cost, from the Meter.</summary>
+    [Id(14)] public double? Usd { get; set; }
 }
 
 /// <summary>A piece of the CDU's news, flattened so it can cross into a grain.</summary>
@@ -38,7 +40,8 @@ public sealed record CduNews(
     [property: Id(4)] int? Number = null,
     [property: Id(5)] bool Asked = false,
     [property: Id(6)] int Commits = 0,
-    [property: Id(7)] bool Opened = false);
+    [property: Id(7)] bool Opened = false,
+    [property: Id(8)] double? Usd = null);
 
 /// <summary>One transcript line for the spectators' window.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Cdu.CduLine")]
@@ -84,11 +87,13 @@ public static class CduRules
 {
     public const string Talk = "talk";
     public const string Answer = "answer";
+    public const string Ask = "ask";
     public const string Queued = "queued";
+    public const string Parked = "parked";
     public const string Done = "done";
     public const string Failed = "failed";
     public const int Kept = 50;
-    private const int ToldMax = 600;
+    private const int ToldMax = 1200;
 
     /// <summary>The latest question nobody has answered yet, if the CDU's last word was one.</summary>
     public static CduExchange? OpenQuestion(IEnumerable<CduExchange> exchanges)
@@ -98,11 +103,22 @@ public static class CduRules
     public static CduExchange? Pending(IEnumerable<CduExchange> exchanges, Guid who)
         => exchanges.LastOrDefault(e => e.SpeakerId == who && e.Status == Queued);
 
+    /// <summary>What this person wrote when the allowance was spent: still on their desk, unsent.</summary>
+    public static CduExchange? ParkedFor(IEnumerable<CduExchange> exchanges, Guid who)
+        => exchanges.LastOrDefault(e => e.SpeakerId == who && e.Status == Parked);
+
+    /// <summary>Who the allowance went to since <paramref name="since"/>, biggest first: the Meter's numbers per answered exchange.</summary>
+    public static List<(Guid Who, string Name, double Usd)> Spend(IEnumerable<CduExchange> exchanges, long since)
+        => exchanges.Where(e => e.Usd is > 0 && (e.DoneAt ?? e.At) >= since).GroupBy(e => e.SpeakerId)
+            .Select(g => (g.Key, g.Last().SpeakerName, g.Sum(e => e.Usd ?? 0))).OrderByDescending(s => s.Item3).ToList();
+
     public static void Spoke(CduState state, CduExchange exchange)
     {
+        // Anything new they write replaces what they had parked.
+        state.Exchanges.RemoveAll(e => e.SpeakerId == exchange.SpeakerId && e.Status == Parked);
         if (exchange.Kind == Answer && OpenQuestion(state.Exchanges) is { } question) question.Answered = true;
         state.Exchanges.Add(exchange);
-        while (state.Exchanges.Count > Kept && state.Exchanges.FindIndex(e => e.Status != Queued) is >= 0 and var oldest) state.Exchanges.RemoveAt(oldest);
+        while (state.Exchanges.Count > Kept && state.Exchanges.FindIndex(e => e.Status is not (Queued or Parked)) is >= 0 and var oldest) state.Exchanges.RemoveAt(oldest);
     }
 
     /// <summary>Takes in news past the cursor; returns what staff should be told, once each.</summary>
@@ -116,7 +132,7 @@ public static class CduRules
             {
                 case "replied" or "failed":
                     if (state.Exchanges.FirstOrDefault(e => e.TurnId == n.TurnId) is not { } e) break;
-                    (e.Status, e.Reply, e.Asked, e.Commits, e.DoneAt) = (n.Kind == "replied" ? Done : Failed, n.Kind == "replied" ? n.Text : null, n.Asked, n.Commits, now);
+                    (e.Status, e.Reply, e.Asked, e.Commits, e.DoneAt, e.Usd) = (n.Kind == "replied" ? Done : Failed, n.Kind == "replied" ? n.Text : null, n.Asked, n.Commits, now, n.Usd);
                     told.Add(new(n.Kind, Replied(e), e.SpeakerId, e.CompanyId));
                     break;
                 case "pr":
@@ -151,7 +167,7 @@ public static class CduRules
         if (e.Status == Failed) return "The CDU fell silent before it answered you.";
         var moved = e.Commits > 0 ? $", and moved the Forms: {Commits(e.Commits)} on the trunk" : string.Empty;
         var said = string.IsNullOrWhiteSpace(e.Reply) ? "it said nothing." : WorldStream.Clip(e.Reply, ToldMax);
-        return $"The CDU answered you{moved}: {said}";
+        return $"The CDU answered {(e.Kind == Ask ? "your question" : "you")}{moved}: {said}";
     }
 
     private static string Commits(int n) => n == 1 ? "1 commit" : $"{n} commits";

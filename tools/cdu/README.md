@@ -24,7 +24,7 @@ World (backend) --HTTP--> CDU (Pi session, trunk, Book) --> Meter --> OpenCode G
 
 ## HTTP
 
-Bearer `CDU_TOKEN`. `GET /status`, `POST /talk {from: {id, name}, text, kind: talk|answer}`, `GET /turns/{id}`, `GET /lines?after=N`, `GET /news?after=N`, `POST /tide/in`, `POST /tide/out`. Tide calls return 202; what came of them is news.
+Bearer `CDU_TOKEN`. `GET /status`, `POST /talk {from: {id, name}, text, kind: ask|talk|answer}`, `GET /turns/{id}`, `GET /lines?after=N`, `GET /news?after=N`, `POST /tide/in`, `POST /tide/out`. Tide calls return 202; what came of them is news.
 
 ## Settings
 

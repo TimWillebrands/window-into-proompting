@@ -32,18 +32,70 @@ public class CduScreenTest
 
     [Fact]
     public void Affordances_Quiet_OffersOnlyTalk_AnEmptyTrunkIsNothingToLookAt()
-        => Assert.Equal("talk", Verbs(Desk(Up())));
+        => Assert.Equal("ask,talk", Verbs(Desk(Up())));
 
     [Fact]
     public void Affordances_CommitsOnTheTrunk_OfferALook()
-        => Assert.Equal("talk,look", Verbs(Desk(Up(ahead: 1))));
+        => Assert.Equal("ask,talk,look", Verbs(Desk(Up(ahead: 1))));
 
     [Fact]
-    public void Affordances_AllowanceSpent_OnlyLook()
+    public void Affordances_AllowanceSpent_TheyCanStillWriteOnce_ThenOnlyLook()
     {
         var spent = Up(ahead: 1) with { Allowance = new CduAllowance(1.02, 1) };
-        Assert.Equal("look", Verbs(Desk(spent, Said(Justin, asked: true))));
-        Assert.Contains("spent today's allowance", CduScreen.Render(Desk(spent)));
+        Assert.Equal("ask,talk,look", Verbs(Desk(spent)));
+        Assert.Contains("stays parked on the desk, unsent", CduScreen.Render(Desk(spent)));
+
+        var parked = Desk(spent, Said(Denise, CduRules.Parked));
+        Assert.Equal("look", Verbs(parked));
+        Assert.Contains("Parked on your desk, unsent", CduScreen.Render(parked));
+        Assert.DoesNotContain("Lately", CduScreen.Render(parked));
+    }
+
+    [Fact]
+    public void Parked_IsReplacedByTheNextThingTheyWrite_AndOfferedAgainOnceThereIsAllowance()
+    {
+        var state = new CduState();
+        CduRules.Spoke(state, Said(Denise, CduRules.Parked));
+        Assert.Equal("ask,talk", Verbs(new CduDesk(Shop, state, Up(), Quiet, Denise)));
+
+        CduRules.Spoke(state, Said(Denise, CduRules.Queued, turn: "t2"));
+        Assert.Null(CduRules.ParkedFor(state.Exchanges, Denise));
+        Assert.Equal("t2", Assert.Single(state.Exchanges).TurnId);
+    }
+
+    [Fact]
+    public void Render_SaysWhoseSpendingItWas_TodayOnly()
+    {
+        var now = new DateTimeOffset(2026, 11, 10, 15, 0, 0, TimeSpan.Zero);
+        long At(int hour) => now.AddHours(hour - 15).ToUnixTimeMilliseconds();
+        var mine = Said(Denise); (mine.Usd, mine.DoneAt) = (0.25, At(9));
+        var theirs = Said(Justin, turn: "t2"); (theirs.Usd, theirs.DoneAt) = (0.5, At(10));
+        var yesterday = Said(Justin, turn: "t3"); (yesterday.Usd, yesterday.DoneAt) = (3, At(-5));
+
+        var text = CduScreen.Render(Desk(Up(), yesterday, mine, theirs) with { Now = now });
+
+        Assert.Contains("Of what it spent today: Justin $0.50, you $0.25.", text);
+    }
+
+    [Fact]
+    public void Render_NamesWhoTheCduIsSharedWith_AsHowItIsHere()
+    {
+        var text = CduScreen.Render(Desk(Up()) with { Colleagues = new List<(string, bool)> { ("Justin", true) } });
+        Assert.Contains("You share this CDU with Justin (on shift now): one allowance, one trunk, one pull request.", text);
+        Assert.DoesNotContain("You share this CDU", CduScreen.Render(Desk(Up())));
+    }
+
+    [Fact]
+    public void Render_TheirOwnAnswerGetsRoom_AColleaguesIsContext()
+    {
+        var mine = Said(Denise, kind: CduRules.Ask); mine.Reply = new string('a', 1400);
+        var theirs = Said(Justin, turn: "t2"); theirs.Reply = new string('b', 1400);
+        var text = CduScreen.Render(Desk(Up(), mine, theirs));
+
+        Assert.Contains("You asked", text);
+        Assert.Contains("Justin handed it work", text);
+        Assert.Contains(new string('a', 1400), text);
+        Assert.DoesNotContain(new string('b', 600), text);
     }
 
     [Fact]
@@ -52,7 +104,7 @@ public class CduScreenTest
 
     [Fact]
     public void Affordances_AQuestionOpen_OffersAnAnswerFirst()
-        => Assert.Equal("answer,talk", Verbs(Desk(Up(), Said(Justin, asked: true))));
+        => Assert.Equal("answer,ask,talk", Verbs(Desk(Up(), Said(Justin, asked: true))));
 
     [Fact]
     public void Affordances_TheirWordsUnanswered_OnlyLook()
@@ -64,7 +116,7 @@ public class CduScreenTest
         var state = new CduState();
         CduRules.Spoke(state, Said(Justin, asked: true));
         CduRules.Spoke(state, Said(Justin, CduRules.Queued, kind: CduRules.Answer, turn: "t2"));
-        Assert.Equal("talk", Verbs(new CduDesk(Shop, state, Up(), Quiet, Denise)));
+        Assert.Equal("ask,talk", Verbs(new CduDesk(Shop, state, Up(), Quiet, Denise)));
     }
 
     [Fact]
@@ -92,8 +144,13 @@ public class CduScreenTest
     }
 
     [Fact]
-    public void Frame_GroundsWishesInThisWorldsForms()
-        => Assert.Contains("A wish lands when it's about one of them", CduScreen.Frame(Shop));
+    public void Frame_IsAnEngineerDirectingACodingAgent_WhoAsksBeforeBuilding()
+    {
+        var frame = CduScreen.Frame(Shop);
+        Assert.Contains("the way a lead engineer directs a coding agent", frame);
+        Assert.Contains("engineers here ask first and build on the answer", frame);
+        Assert.DoesNotContain("wish", frame);
+    }
 
     [Fact]
     public void Render_Dark_SaysSoAndNothingElse()
@@ -114,6 +171,8 @@ public class CduScreenTest
         var seen = CduScreen.Look(Up(1, new CduPr(3, "u", "fix: thing 1", "OPEN", "h", "passing")));
         Assert.Contains("\"fix: thing 1\" for Denise", seen);
         Assert.Contains("PR #3 \"fix: thing 1\" is open, its checks pass", seen);
+        Assert.Contains("It waits on the One now", seen);
+        Assert.DoesNotContain("waits on the One", CduScreen.Look(Up(1, new CduPr(3, "u", "fix: thing 1", "OPEN", "h", "failing"))));
         Assert.Contains("dark", CduScreen.Look(null));
     }
 
@@ -147,14 +206,14 @@ public class CduScreenTest
     {
         var state = new CduState();
         CduRules.Spoke(state, Said(Denise, CduRules.Queued));
-        var news = new List<CduNews> { new(1, "replied", "Moved two Forms.\n\nMore?", "t1", Asked: true, Commits: 2) };
+        var news = new List<CduNews> { new(1, "replied", "Moved two Forms.\n\nMore?", "t1", Asked: true, Commits: 2, Usd: 0.03) };
 
         var told = Assert.Single(CduRules.Apply(state, news, 5));
         Assert.Empty(CduRules.Apply(state, news, 6));
 
         Assert.Equal((Denise, "replied"), (told.Only, told.Kind));
         Assert.Contains("moved the Forms: 2 commits on the trunk", told.Text);
-        Assert.Equal((CduRules.Done, true, 1L), (state.Exchanges[0].Status, state.Exchanges[0].Asked, state.News));
+        Assert.Equal((CduRules.Done, true, 1L, 0.03), (state.Exchanges[0].Status, state.Exchanges[0].Asked, state.News, state.Exchanges[0].Usd));
     }
 
     [Fact]

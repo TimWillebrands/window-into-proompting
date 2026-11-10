@@ -74,7 +74,7 @@ test('a turn: the CDU hears who speaks, commits as them, and its reply is news f
     assert.equal(turn.asked, true);
     assert.equal(turn.usd, 0.25);
     assert.deepEqual(turn.commits.map((c) => [c.subject, c.author]), [['fix: the thing', 'Denise']]);
-    assert.match(s.mind.heard[0], /^Denise, a Cytheurgist, speaks to you:\n\nThe timeouts are killing us\.$/);
+    assert.match(s.mind.heard[0], /^Denise, a Cytheurgist, hands you work:\n\nThe timeouts are killing us\.$/);
     assert.equal(await must('git', ['-C', s.repo, 'config', 'user.email']), emailOf(denise));
     assert.match(await git(s.book.dir, 'log', '-1', '--format=%s'), /^after Denise: The timeouts/);
     const [replied] = s.cdu.news.after(0);
@@ -96,7 +96,7 @@ test('turns run one at a time, in order', async () => {
     s.cdu.talk({ id: 'p-justin', name: 'Justin' }, 'two', 'answer');
     await s.cdu.idle();
     assert.equal(order.length, 2);
-    assert.match(order[0], /Denise.*speaks to you:\n\none/s);
+    assert.match(order[0], /Denise.*hands you work:\n\none/s);
     assert.match(order[1], /Justin.*answers you:\n\ntwo/s);
 });
 
@@ -212,6 +212,7 @@ test('a question is in the last paragraph', () => {
 
 test('compose without notes is just who speaks and what they say', () => {
     const turn: Turn = { id: 'x', from: denise, text: 'hello', kind: 'talk', status: 'queued', at: 0, commits: [] };
-    assert.equal(compose(turn, []), 'Denise, a Cytheurgist, speaks to you:\n\nhello');
+    assert.equal(compose(turn, []), 'Denise, a Cytheurgist, hands you work:\n\nhello');
+    assert.equal(compose({ ...turn, kind: 'ask' }, []), 'Denise, a Cytheurgist, asks you a question:\n\nhello');
     assert.equal(emailOf({ id: 'x', name: 'Anne-Marie de Vries' }), 'anne.marie.de.vries@cytheurgists.proompting.party');
 });

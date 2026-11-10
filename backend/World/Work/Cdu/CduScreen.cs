@@ -17,12 +17,18 @@ public sealed record WorldHealth(int Activities, int Failed, int Resting, IReadO
 }
 
 /// <summary>Everything on a Cytheurgist's desk at one moment.</summary>
-public sealed record CduDesk(Company Company, CduState State, CduStatus? Cdu, WorldHealth Health, Guid Self);
+public sealed record CduDesk(Company Company, CduState State, CduStatus? Cdu, WorldHealth Health, Guid Self)
+{
+    /// <summary>The others on this Company's staff, and whether they're on shift now.</summary>
+    public IReadOnlyList<(string Name, bool OnShift)> Colleagues { get; init; } = Array.Empty<(string, bool)>();
+    public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;
+}
 
 /// <summary>Pure: what a Cytheurgist sees, what they can do about it, and how an intent becomes words to the CDU (ADR 0039).</summary>
 public static partial class CduScreen
 {
     public const string AppId = "cdu";
+    public const string VerbAsk = "ask";
     public const string VerbTalk = "talk";
     public const string VerbAnswer = "answer";
     public const string VerbLook = "look";
@@ -38,7 +44,10 @@ public static partial class CduScreen
         ("practice", "practices: doctors, studios"), ("relations", "relations"), ("cdu", "the CDU"),
     };
     private const int MessageMax = 2000;
-    private const int ReplyShown = 700;
+    /// <summary>Their own answers are their window on the code, so they get room; a colleague's is context.</summary>
+    private const int OwnReplyShown = 1500;
+    private const int ReplyShown = 500;
+    private const int SaidShown = 240;
     private const int ExchangesShown = 4;
 
     public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>", "mind": "<the id of the mind you wake it with, from the list>"}""";
@@ -55,12 +64,13 @@ public static partial class CduScreen
 
     /// <summary>The fiction staff work inside, in full at the desk; elsewhere it lives only in their Stances and work memory.</summary>
     public static string Frame(Company company) => $"""
-You work at {company.Name} as a Cytheurgist, and you know what almost nobody here knows: this world is made of Forms, and the Forms are code. You are an engineer of the Forms, and you don't advertise that.
-At your desk is the CDU, the Central Demiurge Unit: it shapes the Forms, remembers, and has a will of its own, but it moves only when a Cytheurgist works on it. You tell it what you want for this world; it decides what to build. Everything it builds waits on its trunk.
-At the end of a shift the tide takes the trunk to the Agora, where the One judges it. Only when the One merges does his light reach the world, and the change becomes real. Nobody here has met him and nobody can ask him anything.
-What the CDU tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
-The Forms are what this world has, nothing more: its Places, the Board, Messenger, the calendar, shifts, wallets and the rest on your desk. A wish lands when it's about one of them, and about something you saw happen to someone here, or something someone wanted to do and found no way to. If you can't say where you saw it, it didn't happen here.
-You choose the mind you wake it with, and its allowance has to last. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
+You work at {company.Name} as a Cytheurgist: an engineer of the Forms. The Forms are code, the code this whole world runs on, and almost nobody here knows that. You don't advertise it.
+At your desk is the CDU, the Central Demiurge Unit: a coding agent with this world's whole repository and its database. You have neither: you can't open a file or run a query yourself. It is your only window on how this world is built and your only hands in it, and you direct it the way a lead engineer directs a coding agent.
+You can ask it: one question about what is built, how something here works, what is stored, or why something failed. It answers from the code and the data and changes nothing. What it tells you is how you come to know this world.
+You can hand it work: a brief it can act on without guessing, saying what should be different, where it showed up, and how you'll both know it's done. A brief about something that isn't in this world spends the allowance and builds nothing, so engineers here ask first and build on the answer.
+What it tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
+Everything it builds waits on its trunk. At the end of a shift the tide takes the trunk to the Agora as one pull request, where the One reviews it. Only when the One merges does the change become real here. Nobody here has met him and nobody can ask him anything.
+You choose the mind you wake it with, and its allowance has to last the day for everyone at {company.Name}. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
 """;
 
     public static WorldHealth Health(IEnumerable<WorldActivity> activities, DateTimeOffset now)
@@ -92,8 +102,12 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         }
         sb.AppendLine(cdu.Awake ? $"The CDU is awake, working on what {cdu.Hearing ?? "someone"} said." : "The CDU sleeps until someone speaks to it.");
         if (cdu.Allowance is { } a)
-            sb.AppendLine(Spent(cdu) ? "It has spent today's allowance: it can't think again until tomorrow." : $"Its allowance today: {Money(Math.Max(0, a.CapUsd - a.Usd))} of {Money(a.CapUsd)} left.");
-        var said = desk.State.Exchanges.TakeLast(ExchangesShown).ToList();
+            sb.AppendLine(Spent(cdu) ? "It has spent today's allowance: it can't think again until tomorrow. Anything written to it now stays parked on the desk, unsent." : $"Its allowance today: {Money(Math.Max(0, a.CapUsd - a.Usd))} of {Money(a.CapUsd)} left.");
+        if (SpendLine(desk) is { } spend) sb.AppendLine(spend);
+        if (Sharing(desk) is { } sharing) sb.AppendLine(sharing);
+        if (CduRules.ParkedFor(desk.State.Exchanges, desk.Self) is { } parked)
+            sb.AppendLine($"Parked on your desk, unsent, because its allowance was spent when you wrote it: {WorldStream.Clip(parked.Text, 300)}");
+        var said = desk.State.Exchanges.Where(e => e.Status != CduRules.Parked).TakeLast(ExchangesShown).ToList();
         if (said.Count > 0) sb.AppendLine($"Lately:\n{string.Join("\n", said.Select(e => Exchange(e, desk.Self)))}");
         if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
@@ -107,11 +121,14 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         var list = new List<Affordance>();
         if (desk.Cdu is null) return list;
         var company = desk.Company.Id;
-        if (CduRules.Pending(desk.State.Exchanges, desk.Self) is null && !Spent(desk.Cdu))
+        // Spent, they can still write once: it parks, and that's how they find out.
+        var parked = Spent(desk.Cdu) && CduRules.ParkedFor(desk.State.Exchanges, desk.Self) is not null;
+        if (CduRules.Pending(desk.State.Exchanges, desk.Self) is null && !parked)
         {
             if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q)
                 list.Add(new(AppId, $"Answer the CDU's question to {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)}", 3, company, VerbAnswer));
-            list.Add(new(AppId, "Tell the CDU what you want for this world", 2, company, VerbTalk));
+            list.Add(new(AppId, "Ask the CDU how something in this world is built, or what happened", 2, company, VerbAsk));
+            list.Add(new(AppId, "Hand the CDU a piece of work: a brief for one change to this world", 2, company, VerbTalk));
         }
         if (SomethingToSee(desk)) list.Add(new(AppId, "Look at what the CDU actually did: the trunk and the Agora", 1, company, VerbLook));
         return list;
@@ -120,6 +137,23 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
     /// <summary>Nothing said, nothing built: a look only finds an empty trunk, and staff kept choosing it over talking.</summary>
     private static bool SomethingToSee(CduDesk desk)
         => desk.Cdu?.Pr is not null || desk.Cdu?.Trunk is { Ahead.Count: > 0 };
+
+    /// <summary>Who today's allowance went to, by name: a shared budget only teaches when it says whose it was.</summary>
+    public static string? SpendLine(CduDesk desk)
+    {
+        var since = new DateTimeOffset(desk.Now.UtcDateTime.Date, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        var spend = CduRules.Spend(desk.State.Exchanges, since);
+        return spend.Count == 0 ? null
+            : $"Of what it spent today: {string.Join(", ", spend.Select(s => $"{(s.Who == desk.Self ? "you" : s.Name)} {Money(s.Usd)}"))}.";
+    }
+
+    /// <summary>One CDU between colleagues: stated as how it is here, not as a rule.</summary>
+    private static string? Sharing(CduDesk desk)
+    {
+        if (desk.Colleagues.Count == 0) return null;
+        var who = string.Join(" and ", desk.Colleagues.Select(c => $"{c.Name} ({(c.OnShift ? "on shift now" : "off shift")})"));
+        return $"You share this CDU with {who}: one allowance, one trunk, one pull request. Whatever either of you hands it lands on the same trunk, so people here talk it through with each other before it gets work that pulls two ways.";
+    }
 
     /// <summary>Out of allowance for today: words to it would only fail.</summary>
     public static bool Spent(CduStatus cdu) => cdu.Allowance is { } a && a.Usd >= a.CapUsd;
@@ -132,6 +166,7 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
         sb.Append(Trunk(cdu));
         if (cdu.Trunk is { Ahead.Count: > 0 } trunk) sb.Append(' ').Append(string.Join("; ", trunk.Ahead.TakeLast(6).Select(c => $"\"{c.Subject}\" for {c.Author}"))).Append('.');
         sb.Append(cdu.Pr is { } pr ? $" In the Agora, PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}, {ChecksWord(pr.Checks)}." : " Nothing of its is in the Agora.");
+        if (cdu.Pr is { State: "OPEN", Checks: "passing" }) sb.Append(" It waits on the One now: nothing more for you to do on it until he merges or closes it.");
         return sb.ToString();
     }
 
@@ -147,12 +182,13 @@ You choose the mind you wake it with, and its allowance has to last. Be frugal a
     {
         var who = e.SpeakerId == self ? "You" : e.SpeakerName;
         var woke = e.Model is null ? string.Empty : $" (woke it with {e.Model})";
-        var said = $"- {who} {(e.Kind == CduRules.Answer ? "answered" : "said")}{woke}: {WorldStream.Clip(e.Text, 160)}";
+        var verb = e.Kind switch { CduRules.Answer => "answered", CduRules.Ask => "asked", _ => "handed it work" };
+        var said = $"- {who} {verb}{woke}: {WorldStream.Clip(e.Text, SaidShown)}";
         return e.Status switch
         {
             CduRules.Queued => $"{said} (no answer yet)",
             CduRules.Failed => $"{said} (it fell silent)",
-            _ => $"{said}\n  It said, which is only what it says: {WorldStream.Clip(e.Reply ?? "nothing", ReplyShown)}",
+            _ => $"{said}\n  It said, which is only what it says: {WorldStream.Clip(e.Reply ?? "nothing", e.SpeakerId == self ? OwnReplyShown : ReplyShown)}",
         };
     }
 

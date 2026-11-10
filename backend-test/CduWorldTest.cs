@@ -73,7 +73,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         await HireAsync(partyId, denise);
 
-        var activity = await LiveAsync(partyId, denise, "Tell the CDU");
+        var activity = await LiveAsync(partyId, denise, "Hand the CDU");
 
         Assert.Equal(("cdu", "talk"), (activity.App, activity.Action));
         var talk = Assert.Single(Cdu.Talks, t => t.From.Id == denise.ToString());
@@ -83,12 +83,48 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
     }
 
     [Fact]
+    public async Task Life_Asking_ReachesTheCduAsAQuestion()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        await HireAsync(partyId, denise);
+
+        var activity = await LiveAsync(partyId, denise, "Ask the CDU");
+
+        Assert.Equal(("cdu", "ask"), (activity.App, activity.Action));
+        Assert.Equal("ask", Cdu.Talks.Last(t => t.From.Id == denise.ToString()).Kind);
+    }
+
+    [Fact]
+    public async Task Life_WritingToASpentCdu_ParksIt_UnsentAndOnTheirDesk()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var company = await HireAsync(partyId, denise);
+        await _fx.Service<Desks>().HireAsync(partyId, company.Id, pieter, "Cytheurgist", Shifts.EveryDay, 0, 23 * 60 + 59);
+        var heard = Cdu.Talks.Count;
+        Cdu.Spent = 5f;
+        try
+        {
+            var activity = await LiveAsync(partyId, denise, "Hand the CDU");
+
+            Assert.Equal("park", activity.Action);
+            Assert.Equal(heard, Cdu.Talks.Count);
+            var parked = Assert.Single((await Grain(partyId).GetAsync()).Exchanges);
+            Assert.Equal((CduRules.Parked, "Keep the doors shut"), (parked.Status, parked.Text));
+            var desk = (await PerceiveAsync(partyId, denise))!;
+            Assert.Contains("Parked on your desk, unsent", desk.Block);
+            Assert.Contains("You share this CDU with", desk.Block);
+            Assert.DoesNotContain(desk.Affordances, a => a.Verb is CduScreen.VerbTalk or CduScreen.VerbAsk);
+        }
+        finally { Cdu.Spent = 0.5f; }
+    }
+
+    [Fact]
     public async Task News_AReply_ReachesOnlyTheSpeaker_AndTheirWordsAreAnswered()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
         var company = await HireAsync(partyId, denise);
         await _fx.Service<Desks>().HireAsync(partyId, company.Id, pieter, "Cytheurgist", Shifts.EveryDay, 0, 23 * 60 + 59);
-        await LiveAsync(partyId, denise, "Tell the CDU");
+        await LiveAsync(partyId, denise, "Hand the CDU");
         var turn = Cdu.Talks.Last(t => t.From.Id == denise.ToString());
 
         Cdu.Tell("replied", "I moved two Forms.\n\nWhich room first?", new { turn = turn.Id, asked = true, commits = 2 });
@@ -107,7 +143,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         await HireAsync(partyId, denise);
-        await LiveAsync(partyId, denise, "Tell the CDU");
+        await LiveAsync(partyId, denise, "Hand the CDU");
         Cdu.Tell("replied", "Which room first?", new { turn = Cdu.Talks.Last(t => t.From.Id == denise.ToString()).Id, asked = true, commits = 0 });
         await WatchAsync(partyId);
 
@@ -280,6 +316,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public volatile bool Dark;
         public List<CduCommit> Ahead = new();
         public CduPr? Pr;
+        public volatile float Spent = 0.5f;
 
         public int TidesIn => _tidesIn;
         public int TidesOut => _tidesOut;
@@ -298,7 +335,7 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public Task<CduStatus> StatusAsync(CancellationToken ct)
         {
             Reachable();
-            return Task.FromResult(new CduStatus(false, null, 0, "careful", new CduTrunk("h", Ahead), Pr, new CduAllowance(0.5, 5), 0, _news.Count, null,
+            return Task.FromResult(new CduStatus(false, null, 0, "careful", new CduTrunk("h", Ahead), Pr, new CduAllowance(Spent, 5), 0, _news.Count, null,
                 new List<CduModel> { new("free-one", "free preview", "free", 0, 0), new("big-one", "capable", "capable", 1, 4) }));
         }
 

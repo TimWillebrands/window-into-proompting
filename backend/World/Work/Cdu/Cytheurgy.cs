@@ -80,6 +80,27 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
+    /// <summary>Written when the allowance was spent: kept on their desk unsent, and remembered with whose spending it was.</summary>
+    public async Task ParkAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model, string? spend)
+    {
+        await Grain(partyId).SpokeAsync(new CduExchange
+        {
+            TurnId = $"parked-{Guid.NewGuid():N}", CompanyId = company.Id, SpeakerId = speaker.Id, SpeakerName = speaker.Name, Kind = kind, Text = text, Model = model,
+            Status = CduRules.Parked, At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        });
+        Remember(partyId, company.Id, new List<ParticipantView> { speaker },
+            $"You wrote to the CDU, but it had already spent today's allowance, so it never heard you: your message stays parked on your desk, unsent.{(spend is null ? string.Empty : $" {spend}")}");
+    }
+
+    /// <summary>The others on staff and whether they're on shift: who this CDU is shared with.</summary>
+    public async Task<List<(string Name, bool OnShift)>> ColleaguesAsync(Guid partyId, Guid companyId, Guid self)
+    {
+        var others = new List<(string, bool)>();
+        foreach (var person in (await desks.StaffAsync(partyId, companyId)).Where(p => p.Id != self))
+            others.Add((person.Name, (await grains.GetGrain<IOccupationGrain>(WorldKeys.Life(partyId, person.Id)).GetAsync()).OnShift));
+        return others;
+    }
+
     /// <summary>A look becomes the looker's own work memory: what git and GitHub say, not what the CDU claimed.</summary>
     public async Task<string> LookAsync(Guid partyId, Company company, ParticipantView looker, CancellationToken ct)
     {
@@ -140,7 +161,7 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     }
 
     private static CduNews Flatten(CduEntry e) => new(
-        e.N, e.Kind, e.Text, e.Str("turn"), e.Int("number"), e.Flag("asked"), e.Int("commits") ?? 0, e.Flag("opened"));
+        e.N, e.Kind, e.Text, e.Str("turn"), e.Int("number"), e.Flag("asked"), e.Int("commits") ?? 0, e.Flag("opened"), e.Num("usd"));
 
     /// <summary>News reaches staff as work memory, never the wider world: the CDU is a secret (ADR 0039).</summary>
     private async Task TellAsync(Guid partyId, List<Company> companies, CduTold word)
