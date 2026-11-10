@@ -2,8 +2,7 @@ import { useDesktopContext } from '#lib/desktop-context';
 import { useNavHistoryStore } from '#lib/nav-history';
 import ControlPanelHome from './components/ControlPanelHome';
 import { SECTION_NAMES, SECTIONS } from './components/constants';
-import LlmProvidersSection from './components/LlmProvidersSection';
-import PersonaModelsSection from './components/PersonaModelsSection';
+import ModelsSection from './components/ModelsSection';
 
 export default function ConfigPanelApp() {
     const { stack, index } = useNavHistoryStore();
@@ -167,7 +166,7 @@ export default function ConfigPanelApp() {
                             <button
                                 key={s.id}
                                 type="button"
-                                className={`xp-bare xp-glass-row ${section === s.id ? 'active' : ''}`}
+                                className={`xp-bare xp-glass-row ${SECTION_NAMES[section] === s.label ? 'active' : ''}`}
                                 title={s.description}
                                 onClick={() => navigateTo(s.id)}
                             >
@@ -192,12 +191,9 @@ export default function ConfigPanelApp() {
                 >
                     {section === 'home' ? (
                         <ControlPanelHome onNavigate={navigateTo} />
-                    ) : section === 'llm-providers' ? (
-                        <LlmProvidersSection />
-                    ) : section === 'persona-models' ? (
-                        <PersonaModelsSection
-                            onOpenProviders={() => navigateTo('llm-providers')}
-                        />
+                    ) : section === 'llm-providers' ||
+                      section === 'persona-models' ? (
+                        <ModelsSection />
                     ) : (
                         <div style={{ color: '#fff' }}>
                             This section no longer exists. Go Back or pick a

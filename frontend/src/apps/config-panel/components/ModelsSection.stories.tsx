@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import LlmProvidersSection from './LlmProvidersSection';
+import ModelsSection from './ModelsSection';
 
 const meta = {
-    title: 'ConfigPanel/LlmProvidersSection',
-    component: LlmProvidersSection,
+    title: 'ConfigPanel/ModelsSection',
+    component: ModelsSection,
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
             <div
                 style={{
-                    width: 800,
+                    width: 700,
                     minHeight: 480,
                     padding: 20,
                     background:
@@ -20,7 +20,7 @@ const meta = {
             </div>
         ),
     ],
-} satisfies Meta<typeof LlmProvidersSection>;
+} satisfies Meta<typeof ModelsSection>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

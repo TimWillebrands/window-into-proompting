@@ -105,14 +105,11 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         JobComplexity tier,
         CancellationToken cancellationToken = default)
     {
-        var routes = _cachedRoutes ??= (await GrainFactory.GetGrain<ILlmProviderConfigGrain>(0).GetPersonaRoutesAsync())
-            .ToDictionary(r => (r.PersonaId, r.Tier), r => r.ProviderId);
+        var routes = await GetRoutesAsync();
         if (!routes.TryGetValue((personaId, tier), out var providerId)) return null;
 
         // Disabled, benched or offline: the persona falls back to the pool rather than going mute.
-        var unusable = IsBenched(providerId) || IsOffline(providerId);
-        var assigned = unusable ? null : (await GetProvidersAsync(cancellationToken))
-            .Where(p => p.Entry.Id == providerId).Select(p => p.Grain).FirstOrDefault();
+        var assigned = Usable(await GetProvidersAsync(cancellationToken), providerId)?.Grain;
 
         using var span = Tracing.Persona.StartActivity("llm.route.assigned", ActivityKind.Internal);
         span?.SetTag("persona.id", personaId);
@@ -124,78 +121,66 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
 
     public async Task<ILlmEndpointGrain> RouteAsync(
         JobComplexity jobComplexity,
+        Guid? affinity = null,
         CancellationToken cancellationToken = default)
     {
-        // Routing is currently silent ("which provider answered?" requires reading logs).
-        // This span makes the decision tree visible in the Aspire trace: one llm.route
-        // child under whichever caller-span (persona.think / persona.generate) invoked us,
-        // with a per-candidate event explaining why each provider was kept or dropped.
         using var routeSpan = Tracing.Persona.StartActivity("llm.route", ActivityKind.Internal);
         routeSpan?.SetTag("job.complexity", jobComplexity.ToString());
+        routeSpan?.SetTag("affinity", affinity);
 
-        // Reserved first: endpoints aren't reentrant, so asking one for pressure queues behind its generation.
-        // Offline is known unreachable, so it's left out entirely; the caller's next tier beats a dead box.
-        var providers = (await GetProvidersAsync(cancellationToken))
-            .Where(p => !p.Entry.Reserved && !IsOffline(p.Entry.Id)).ToList();
-        routeSpan?.SetTag("candidates.total", providers.Count);
-
-        // Tier support is a property of the provider entry, not of its model list — no
-        // per-route network listing.
-        var modelProviderTasks = providers.Select(async p =>
-        {
-            var supports = p.Entry.SupportedComplexities.HasFlag(jobComplexity);
-            return new
-            {
-                Grain = p.Grain,
-                Priority = p.Entry.Priority,
-                Benched = IsBenched(p.Entry.Id),
-                Pressure = await p.Grain.PressureAsync(),
-                CompatibleModels = supports ? new List<string> { p.Entry.ModelName } : new List<string>(),
-                Failed = false,
-                Error = (string?)null
-            };
-        });
-
-        var finishedTasks = await Task.WhenAll(modelProviderTasks);
-
-        foreach (var candidate in finishedTasks)
-        {
-            var status = candidate.Failed
-                ? "failed"
-                : candidate.CompatibleModels.Count == 0
-                    ? "incompatible"
-                    : "eligible";
-            routeSpan?.AddEvent(new ActivityEvent("candidate", default, new ActivityTagsCollection
-            {
-                ["grain.id"] = candidate.Grain.GetPrimaryKey(),
-                ["pressure"] = candidate.Pressure,
-                ["compatible_models"] = candidate.CompatibleModels.Count,
-                ["status"] = status,
-                ["error"] = candidate.Error
-            }));
-        }
-
-        // Healthy before benched (a benched provider is still better than none), then priority, then load.
-        var compatibleProvider = finishedTasks
-            .Where(provider => !provider.Failed && provider.CompatibleModels.Any())
-            .OrderBy(provider => provider.Benched)
-            .ThenBy(provider => provider.Priority)
-            .ThenBy(provider => provider.Pressure)
-            .FirstOrDefault();
-
-        if (compatibleProvider is null)
+        var ranked = Rank(await GetProvidersAsync(cancellationToken), jobComplexity, affinity);
+        routeSpan?.SetTag("candidates.total", ranked.Count);
+        if (ranked.Count == 0)
         {
             routeSpan?.SetStatus(ActivityStatusCode.Error, "no compatible providers");
             routeSpan?.SetTag("decision", "none");
             throw new InvalidOperationException($"No model-providers available for job complexity {jobComplexity}");
         }
 
+        var picked = ranked[0];
         routeSpan?.SetTag("decision", "selected");
-        routeSpan?.SetTag("selected.grain_id", compatibleProvider.Grain.GetPrimaryKey());
-        routeSpan?.SetTag("selected.pressure", compatibleProvider.Pressure);
-        routeSpan?.SetTag("selected.compatible_models", compatibleProvider.CompatibleModels.Count);
-        return compatibleProvider.Grain;
+        routeSpan?.SetTag("selected.provider_id", picked.Entry.Id);
+        routeSpan?.SetTag("selected.model", picked.Entry.ModelName);
+        routeSpan?.SetTag("selected.benched", IsBenched(picked.Entry.Id));
+        return picked.Grain;
     }
+
+    public async Task<List<ModelAssignment>> GetAssignmentsAsync(List<Guid> personaIds)
+    {
+        var providers = await GetProvidersAsync(CancellationToken.None);
+        var routes = await GetRoutesAsync();
+        return personaIds.Select(id => (Guid?)id).Prepend(null)
+            .SelectMany(persona => LlmTiers.All.Select(tier =>
+            {
+                Guid? pinned = persona is { } id && routes.TryGetValue((id, tier), out var route) ? route : null;
+                var lands = pinned is { } pin && Usable(providers, pin) is not null
+                    ? pinned
+                    : Rank(providers, tier, persona).Select(p => (Guid?)p.Entry.Id).FirstOrDefault();
+                return new ModelAssignment(persona ?? Guid.Empty, tier, lands, pinned);
+            }))
+            .ToList();
+    }
+
+    /// <summary>The pool for a tier, best first: healthy, then Priority, then this key's Share order (ADR 0048).</summary>
+    private List<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> Rank(
+        IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> providers, JobComplexity tier, Guid? affinity)
+        // Offline is known unreachable, so it's left out entirely; the caller's next tier beats a dead box.
+        => providers
+            .Where(p => !p.Entry.Reserved && !IsOffline(p.Entry.Id) && p.Entry.SupportedComplexities.HasFlag(tier))
+            .OrderBy(p => IsBenched(p.Entry.Id))
+            .ThenBy(p => p.Entry.Priority)
+            .ThenBy(p => Shares.Rank(affinity, p.Entry.Id, p.Entry.Share))
+            .ToList();
+
+    private (LlmProviderEntry Entry, ILlmEndpointGrain Grain)? Usable(
+        IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> providers, Guid providerId)
+        => IsBenched(providerId) || IsOffline(providerId)
+            ? null
+            : providers.Where(p => p.Entry.Id == providerId).Select(p => ((LlmProviderEntry, ILlmEndpointGrain)?)p).FirstOrDefault();
+
+    private async Task<Dictionary<(Guid Persona, JobComplexity Tier), Guid>> GetRoutesAsync()
+        => _cachedRoutes ??= (await GrainFactory.GetGrain<ILlmProviderConfigGrain>(0).GetPersonaRoutesAsync())
+            .ToDictionary(r => (r.PersonaId, r.Tier), r => r.ProviderId);
 
     private async Task<IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)>> GetProvidersAsync(CancellationToken cancellationToken)
     {

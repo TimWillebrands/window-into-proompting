@@ -199,7 +199,7 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         while (true)
         {
             // A failing endpoint benches itself, so the next route finds another; the same one again means none is left.
-            endpoint ??= _hasProviders ? await TryRouteAsync(router, ct) : null;
+            endpoint ??= _hasProviders ? await TryRouteAsync(router, persona, ct) : null;
             if (endpoint is null || !tried.Add(endpoint)) break;
             try
             {
@@ -217,9 +217,9 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         return await emulation.AskAsync(state, questions, ct);
     }
 
-    private static async Task<ILlmEndpointGrain?> TryRouteAsync(ILlmRouterGrain router, CancellationToken ct)
+    private static async Task<ILlmEndpointGrain?> TryRouteAsync(ILlmRouterGrain router, Guid? persona, CancellationToken ct)
     {
-        try { return await router.RouteAsync(JobComplexity.Decisions, ct); }
+        try { return await router.RouteAsync(JobComplexity.Decisions, persona, ct); }
         catch (InvalidOperationException) { return null; }
     }
 }
@@ -252,7 +252,7 @@ Output ONLY a JSON object: {"<question key>": <number or object of option probab
 """;
         var user = $"# State\n{state}\n\n# Questions\n{sb}";
         var router = grains.GetGrain<ILlmRouterGrain>(0);
-        var endpoint = await router.RouteAsync(JobComplexity.General, ct);
+        var endpoint = await router.RouteAsync(JobComplexity.General, cancellationToken: ct);
         var raw = await endpoint.CompleteOneShotAsync(new LlmGenerationJob
         {
             Messages = new List<LlmChatMessage>

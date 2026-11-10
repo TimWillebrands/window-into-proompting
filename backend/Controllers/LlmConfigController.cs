@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using PartyTown.Services.Auth;
 using Microsoft.AspNetCore.OutputCaching;
 using PartyTown.Configuration;
+using PartyTown.Grains;
 using PartyTown.Grains.Generation;
 
 namespace PartyTown.Controllers;
@@ -69,6 +70,14 @@ public class LlmConfigController(IGrainFactory grains, IHttpClientFactory httpCl
     [HttpGet("persona-routes")]
     public async Task<ActionResult<List<PersonaRoute>>> GetPersonaRoutes()
         => Ok(await ConfigGrain.GetPersonaRoutesAsync());
+
+    /// <summary>Which provider each persona's work goes to now, per tier; persona Guid.Empty is work nobody owns (ADR 0048).</summary>
+    [HttpGet("assignments")]
+    public async Task<ActionResult<List<ModelAssignment>>> GetAssignments()
+    {
+        var personas = await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).GetAll();
+        return Ok(await grains.GetGrain<ILlmRouterGrain>(0).GetAssignmentsAsync(personas.Select(p => p.Id).ToList()));
+    }
 
     /// <summary>Replaces one persona's routes; send an empty list to put them back on the shared pool.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]

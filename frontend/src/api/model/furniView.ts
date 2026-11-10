@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { Take } from './take';
 
 export interface FurniView {
     placeId?: string;
@@ -38,4 +39,8 @@ export interface FurniView {
     rot?: number | string;
     /** @nullable */
     prefab?: string | null;
+    /** @nullable */
+    gives?: string | null;
+    leaves?: boolean;
+    takes?: Take[];
 }

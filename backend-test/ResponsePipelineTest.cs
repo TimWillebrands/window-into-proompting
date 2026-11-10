@@ -150,7 +150,7 @@ public class ResponsePipelineTest
             .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
         endpoint.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => StreamChunks(scriptedChunks, ct));
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
     }
 
@@ -172,7 +172,7 @@ public class ResponsePipelineTest
         }).ToList();
 
         var idx = 0;
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var next = Interlocked.Increment(ref idx) - 1;
@@ -252,7 +252,7 @@ public class ResponsePipelineTest
             It.IsAny<double>(), It.IsAny<string>()), Times.Once);
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
-            It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── 2. Self-fan-out ───────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ public class ResponsePipelineTest
             It.IsAny<double>(), It.IsAny<string>()), Times.Never);
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
-            It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── 3. Decision returns Respond=false ─────────────────────────────────────
@@ -343,7 +343,7 @@ public class ResponsePipelineTest
         await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
 
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
-        fx.Router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+        fx.Router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(PersonaId, PersonaName, triggering.MessageId, It.IsAny<double>(), "reflex: putting it off"), Times.Once);
     }
 
@@ -462,7 +462,7 @@ public class ResponsePipelineTest
             });
 
         var routeCall = 0;
-        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => Interlocked.Increment(ref routeCall) == 1 ? decisionEp.Object : speakingEp.Object);
 
         var otherSenderId = Guid.NewGuid();
@@ -527,7 +527,7 @@ public class ResponsePipelineTest
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => StreamChunks(new[] { emoteText }, ct));
 
         var routeCall = 0;
-        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => Interlocked.Increment(ref routeCall) switch
             {
                 1 => decisionEp.Object,
@@ -590,7 +590,7 @@ public class ResponsePipelineTest
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => HangUntilCancelled(ct));
 
         var routeCall = 0;
-        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => Interlocked.Increment(ref routeCall) == 1 ? decisionEp.Object : speakingEp.Object);
 
         var triggering = Msg(Guid.NewGuid(), "kick things off");
@@ -677,7 +677,7 @@ public class ResponsePipelineTest
         // Endpoints that capture the job handed to each phase.
         var capturedJobs = new List<LlmGenerationJob>();
         var routeCall = 0;
-        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var content = Interlocked.Increment(ref routeCall) == 1 ? decisionJson : speakingText;
@@ -733,7 +733,7 @@ public class ResponsePipelineTest
 
         var capturedJobs = new List<LlmGenerationJob>();
         var routeCall = 0;
-        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 var content = Interlocked.Increment(ref routeCall) == 1 ? decisionJson : "Sure.";

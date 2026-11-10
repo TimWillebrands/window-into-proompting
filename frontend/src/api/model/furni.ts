@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { Take } from './take';
 
 export interface Furni {
     id?: string;
@@ -44,4 +45,10 @@ export interface Furni {
     ownerId?: string | null;
     /** @nullable */
     prefab?: string | null;
+    /** @nullable */
+    do?: string | null;
+    /** @nullable */
+    gives?: string | null;
+    leaves?: boolean;
+    takes?: Take[];
 }

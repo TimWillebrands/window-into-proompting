@@ -1705,6 +1705,44 @@
         }
       }
     },
+    "/LlmConfig/assignments": {
+      "get": {
+        "tags": [
+          "LlmConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelAssignment"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelAssignment"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelAssignment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/LlmConfig/persona-routes/{personaId}": {
       "put": {
         "tags": [
@@ -9659,6 +9697,27 @@
               "null",
               "string"
             ]
+          },
+          "do": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "gives": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "leaves": {
+            "type": "boolean"
+          },
+          "takes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Take"
+            }
           }
         }
       },
@@ -9788,6 +9847,21 @@
               "null",
               "string"
             ]
+          },
+          "gives": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "leaves": {
+            "type": "boolean"
+          },
+          "takes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Take"
+            }
           }
         }
       },
@@ -10412,6 +10486,14 @@
           },
           "reasoningEffort": {
             "$ref": "#/components/schemas/ReasoningEffort"
+          },
+          "share": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -10563,6 +10645,38 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ModelAssignment": {
+        "required": [
+          "personaId",
+          "tier",
+          "providerId",
+          "pinnedTo"
+        ],
+        "type": "object",
+        "properties": {
+          "personaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/JobComplexity"
+          },
+          "providerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "pinnedTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -12117,6 +12231,29 @@
           "Concept",
           "Self"
         ]
+      },
+      "Take": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "byName": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
       },
       "TextRequest": {
         "required": [

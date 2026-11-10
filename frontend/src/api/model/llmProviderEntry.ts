@@ -28,4 +28,6 @@ export interface LlmProviderEntry {
     /** @nullable */
     tailnet?: string | null;
     reasoningEffort?: ReasoningEffort;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    share?: number | string;
 }

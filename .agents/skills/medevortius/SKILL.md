@@ -14,6 +14,20 @@ You help the World's Personas wake up, through The Works (the CDU Company, ADR 0
 
 If this turn isn't already a `/loop` tick, invoke the `loop` skill with args `/medevortius` and stop: the loop re-enters this skill on every tick. Otherwise run one tick.
 
+## Memory
+
+Keep `~/.claude/medevortius/MEMORY.md`: out of the repo on purpose, since the CDU reads the repo and would find its mentor's notes.
+
+- **Read it first** on every tick, before the world. Create it if missing.
+- **Write it last**, before the report. Keep it under ~150 lines: rewrite in place, don't append a log.
+- Sections:
+  - **Threads**: per Cytheurgist, what you last told them, what they promised, what you're waiting on.
+  - **Moves made**: what Medevortius did in the world (posts, walks, nudges) with date, so a later you recognises its own hand.
+  - **Psyche**: diagnoses with their evidence count, tune candidates not yet shipped, and what shipped (commit, ADR).
+  - **Standing word**: what the user decided or asked to leave alone.
+  - **Lessons**: what worked or backfired as a mentor.
+- Facts with dates, not prose. Drop what's resolved. Check a note against the world before acting on it: the cast moves on.
+
 ## Scope: the Cytheurgists only
 
 Mentor only the Cytheurgists, whoever works at The Works now: read who they are fresh each tick from `list_places` (its staff) and `get_cdu`, since the staff change. Teach them their craft:
@@ -33,6 +47,7 @@ Rules:
 
 ## Each tick
 
+0. **Read `MEMORY.md`** (see Memory).
 1. **Read the world**:
    - `get_cdu` (on shift? what did they say, what did it build? PR checks?)
    - `get_situation` and `listen` for Medevortius and each Cytheurgist
@@ -65,7 +80,8 @@ Rules:
    - 20–30 min otherwise.
    - Up to 60 min at night, when the cast sleeps.
    - Wait for their shift: that's when the CDU work happens.
-7. **Report** in a few lines to the user: what happened in the world, what changed in code, and what you're waiting on.
+7. **Remember**: update `MEMORY.md` (see Memory).
+8. **Report** in a few lines to the user: what happened in the world, what changed in code, and what you're waiting on.
 
 ## Where things live
 

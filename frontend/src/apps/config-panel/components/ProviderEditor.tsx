@@ -22,6 +22,7 @@ const CLAUDE_EFFORTS = REASONING_EFFORTS.filter((r) =>
 );
 
 import FormRow from './FormRow';
+import { DEFAULT_SHARE } from './split';
 
 export default function ProviderEditor({
     entry,
@@ -210,7 +211,7 @@ export default function ProviderEditor({
                         { reserved: false, label: 'All personas' },
                         {
                             reserved: true,
-                            label: 'Only personas assigned to it in Persona Models',
+                            label: 'Only personas pinned to it',
                         },
                     ].map((o) => (
                         <label
@@ -279,6 +280,20 @@ export default function ProviderEditor({
             )}
 
             {!form.reserved && (
+                <FormRow label="Share">
+                    <input
+                        type="number"
+                        min={1}
+                        aria-label="Share"
+                        value={form.share ?? DEFAULT_SHARE}
+                        onChange={(e) => set({ share: Number(e.target.value) })}
+                        title="Its part of the personas, next to the other models at the same priority: 50 and 50 is half each"
+                        style={inputStyle}
+                    />
+                </FormRow>
+            )}
+
+            {!form.reserved && (
                 <FormRow label="Priority">
                     <input
                         type="number"
@@ -286,7 +301,7 @@ export default function ProviderEditor({
                         onChange={(e) =>
                             set({ priority: Number(e.target.value) })
                         }
-                        title="Lower goes first; equal priorities share the load"
+                        title="Lower goes first; equal priorities split personas by share"
                         style={inputStyle}
                     />
                 </FormRow>

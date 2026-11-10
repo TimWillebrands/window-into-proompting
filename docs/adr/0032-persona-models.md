@@ -19,6 +19,9 @@ through the expensive model and everyone else stays cheap".
    reach work done for another.
 5. **A Route never mutes anyone.** A disabled or benched provider falls back to the pool, and the UI says so.
 
+*Amended by ADR 0048:* the pool is split by Share and a Persona keeps one provider in it; Routes are set in Control
+Panel → Language Models.
+
 ## What counts as a Persona's work
 
 Routed: the Response pipeline, Life, App acts in a Persona's voice, the day and lived sheet, stance consolidation, and

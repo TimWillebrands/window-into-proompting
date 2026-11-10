@@ -57,7 +57,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
 
         var routeCall = 0;
         var router = Silo.AddProbe<ILlmRouterGrain>(0L);
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => Interlocked.Increment(ref routeCall) == 1 ? decisionEp.Object : speakingEp.Object);
 
         var personaRoot = Silo.AddProbe<IPersonaRootGrain>(Guid.Empty);

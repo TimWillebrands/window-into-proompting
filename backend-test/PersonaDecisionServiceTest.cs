@@ -73,7 +73,7 @@ public class PersonaDecisionServiceTest
     {
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
         return new PersonaDecisionService(router.Object, NullLogger.Instance);
     }
@@ -113,7 +113,7 @@ public class PersonaDecisionServiceTest
         Assert.True(result.Respond);
         // Its labels ("Heard my name (urge=1.00)") are for the thought log; Speaking must not read them as a draft.
         Assert.True(result.Shortcut);
-        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+        router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ShouldRespondAsync — LLM decision path ────────────────────────────────

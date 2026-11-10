@@ -78,6 +78,7 @@ import type {
     LlmModel,
     LlmProviderEntry,
     MemoryGraphDto,
+    ModelAssignment,
     MoveBodyRequest,
     NewHomeRequest,
     OpenDirectChatRequest,
@@ -6937,6 +6938,305 @@ export function useGetLlmConfigPersonaRoutesSuspense<
 } {
     const queryOptions =
         getGetLlmConfigPersonaRoutesSuspenseQueryOptions(options);
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type getLlmConfigAssignmentsResponse200TextPlain = {
+    data: ModelAssignment[];
+    status: 200;
+};
+
+export type getLlmConfigAssignmentsResponse200ApplicationJson = {
+    data: ModelAssignment[];
+    status: 200;
+};
+
+export type getLlmConfigAssignmentsResponse200TextJson = {
+    data: ModelAssignment[];
+    status: 200;
+};
+
+export type getLlmConfigAssignmentsResponseSuccess = (
+    | getLlmConfigAssignmentsResponse200TextPlain
+    | getLlmConfigAssignmentsResponse200ApplicationJson
+    | getLlmConfigAssignmentsResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getLlmConfigAssignmentsResponse =
+    getLlmConfigAssignmentsResponseSuccess;
+
+export const getGetLlmConfigAssignmentsUrl = () => {
+    return `/api/LlmConfig/assignments`;
+};
+
+export const getLlmConfigAssignments = async (
+    options?: RequestInit,
+): Promise<getLlmConfigAssignmentsResponse> => {
+    return customFetch<getLlmConfigAssignmentsResponse>(
+        getGetLlmConfigAssignmentsUrl(),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetLlmConfigAssignmentsQueryKey = () => {
+    return [`/api/LlmConfig/assignments`] as const;
+};
+
+export const getGetLlmConfigAssignmentsQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigAssignmentsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigAssignments>>
+    > = ({ signal }) => getLlmConfigAssignments({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigAssignmentsQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigAssignments>>
+>;
+export type GetLlmConfigAssignmentsQueryError = unknown;
+
+export function useGetLlmConfigAssignments<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigAssignments>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigAssignments<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                    TError,
+                    Awaited<ReturnType<typeof getLlmConfigAssignments>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigAssignments<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigAssignments<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetLlmConfigAssignmentsQueryOptions(options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetLlmConfigAssignmentsSuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(options?: {
+    query?: Partial<
+        UseSuspenseQueryOptions<
+            Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+            TError,
+            TData
+        >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetLlmConfigAssignmentsQueryKey();
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getLlmConfigAssignments>>
+    > = ({ signal }) => getLlmConfigAssignments({ signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLlmConfigAssignmentsSuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getLlmConfigAssignments>>
+>;
+export type GetLlmConfigAssignmentsSuspenseQueryError = unknown;
+
+export function useGetLlmConfigAssignmentsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigAssignmentsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLlmConfigAssignmentsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetLlmConfigAssignmentsSuspense<
+    TData = Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+    TError = unknown,
+>(
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getLlmConfigAssignments>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetLlmConfigAssignmentsSuspenseQueryOptions(options);
 
     const query = useSuspenseQuery(
         queryOptions,

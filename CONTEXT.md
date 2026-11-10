@@ -71,15 +71,19 @@ The dry-run result of an **Arrival**: the newcomer's Events, Recollections and S
 _Avoid_: preview, proposal, staging.
 
 **Persona Route**:
-A **Persona**'s work at one tier goes to one chosen provider instead of the shared pool. Admin-set in Control Panel → Persona Models. A provider marked **Reserved** stays out of the pool, so only Personas routed to it use it. See [ADR 0032](docs/adr/0032-persona-models.md).
+A **Persona**'s work at one tier goes to one chosen provider instead of the shared pool: a pin on top of the split by **Share**. Admin-set in Control Panel → Language Models. A provider marked **Reserved** stays out of the pool, so only Personas routed to it use it. See [ADR 0032](docs/adr/0032-persona-models.md).
 _Avoid_: model override, persona provider.
+
+**Share**:
+A pool provider's part of the **Personas**, weighed against the other providers at its Priority: 50 and 50 is half each. It splits Personas, not calls: a Persona stays on the provider their Share landed them on, for every tier it handles, so their prompts stay cached and their voice stays one model's. Roughly the ratio, never exactly. Work nobody owns goes to the biggest Share. See [ADR 0048](docs/adr/0048-shares.md).
+_Avoid_: weight, load balancing, traffic split, quota.
 
 **Tailnet**:
 A private Tailscale network holding local LLM providers, such as a home GPU box. A provider set to one connects through that Tailnet's sidecar; otherwise it connects directly. Named in deploy config, chosen per provider in Control Panel. See [ADR 0033](docs/adr/0033-tailnet-sidecars.md).
 _Avoid_: VPN, tunnel, tailscale provider.
 
 **Provider Availability**:
-Whether the router can use a provider now. **Ready**; **Benched** when it refused a call (bad key, no credit, missing model): skipped for 10 minutes unless nothing else is left; **Offline** when it can't be reached: skipped until a ping every 30 seconds reaches it again. Lower Priority goes first, so a local model ahead of OpenRouter means "use it when it's up". See [ADR 0040](docs/adr/0040-provider-availability.md).
+Whether the router can use a provider now. **Ready**; **Benched** when it refused a call (bad key, no credit, missing model): skipped for 10 minutes unless nothing else is left; **Offline** when it can't be reached: skipped until a ping every 30 seconds reaches it again. Lower Priority goes first, so a local model ahead of OpenRouter means "use it when it's up". Equal Priorities split Personas by **Share**. See [ADR 0040](docs/adr/0040-provider-availability.md).
 _Avoid_: health, down, probe (a Probe is a Bench run).
 
 ### Persona behaviour dials

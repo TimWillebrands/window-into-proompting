@@ -41,7 +41,7 @@ public class SpeakingSessionTest
     {
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
         return router;
     }
@@ -576,10 +576,10 @@ public class SpeakingSessionTest
         var (endpoint, getJob) = CapturingEndpoint();
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("No model-providers available for job complexity CharacterVoice"));
         router
-            .Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
 
         var persona = MakeParticipant("Vlad");
@@ -590,8 +590,8 @@ public class SpeakingSessionTest
 
         Assert.NotNull(result);
         Assert.Equal(JobComplexity.General, getJob()!.JobComplexity);
-        router.Verify(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<CancellationToken>()), Times.Once);
-        router.Verify(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>()), Times.Once);
+        router.Verify(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
+        router.Verify(r => r.RouteAsync(JobComplexity.General, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Error propagation ─────────────────────────────────────────────────────
@@ -605,7 +605,7 @@ public class SpeakingSessionTest
         // the exception surfaces.)
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("no endpoints available"));
 
         var persona = MakeParticipant("Frank");

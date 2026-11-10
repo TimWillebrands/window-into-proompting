@@ -49,7 +49,7 @@ public class PersonaEmoteServiceTest
 
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
         return (router, endpoint);
     }
@@ -129,7 +129,7 @@ public class PersonaEmoteServiceTest
     {
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("no provider supports CharacterThoughts"));
 
         var service = new PersonaEmoteService(router.Object, NullLogger.Instance);
@@ -156,7 +156,7 @@ public class PersonaEmoteServiceTest
 
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(endpoint.Object);
 
         var service = new PersonaEmoteService(router.Object, NullLogger.Instance);
@@ -210,8 +210,8 @@ public class PersonaEmoteServiceTest
 
         var router = new Mock<ILlmRouterGrain>();
         router
-            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()))
-            .Callback<JobComplexity, CancellationToken>((c, _) => requested = c)
+            .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .Callback<JobComplexity, Guid?, CancellationToken>((c, _, _) => requested = c)
             .ReturnsAsync(endpoint.Object);
 
         var service = new PersonaEmoteService(router.Object, NullLogger.Instance);

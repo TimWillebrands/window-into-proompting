@@ -5,6 +5,7 @@ import type {
     DefaultPersonaTemplate,
     LlmProviderEntry,
     MemoryGraphDto,
+    ModelAssignment,
     Persona,
     PersonaRoute,
     StanceRecord,
@@ -123,15 +124,17 @@ export const mockProviders: LlmProviderEntry[] = [
         modelName: 'llama3.2',
         supportedComplexities: 1,
         isEnabled: true,
+        priority: 10,
     },
     {
         id: 'prov-2',
         type: 'openrouter',
         baseUrl: 'https://openrouter.ai/api/v1',
         apiKey: 'sk-or-…',
-        modelName: 'nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
+        modelName: 'nvidia/nemotron-3-super:free',
         supportedComplexities: 7,
-        isEnabled: false,
+        isEnabled: true,
+        share: 50,
     },
     {
         id: 'prov-3',
@@ -143,12 +146,42 @@ export const mockProviders: LlmProviderEntry[] = [
         isEnabled: true,
         reserved: true,
     },
+    {
+        id: 'prov-4',
+        type: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-…',
+        modelName: 'claude-haiku-5-5',
+        supportedComplexities: 7,
+        isEnabled: true,
+        share: 50,
+    },
 ];
 
 export const mockPersonaRoutes: PersonaRoute[] = [
     { personaId: mockPersonas[0].id, tier: 2, providerId: 'prov-3' },
-    { personaId: mockPersonas[0].id, tier: 4, providerId: 'prov-2' },
 ];
+
+/** Every persona on the split, alternating its two models; the first one's voice is pinned. */
+export const mockAssignments: ModelAssignment[] = [
+    { id: '00000000-0000-0000-0000-000000000000', home: 'prov-2' },
+    ...mockPersonas.map((p, i) => ({
+        id: p.id ?? '',
+        home: i % 2 === 0 ? 'prov-4' : 'prov-2',
+    })),
+].flatMap(({ id, home }) =>
+    ([1, 2, 4, 8] as const).map((tier) => {
+        const pinnedTo =
+            mockPersonaRoutes.find((r) => r.personaId === id && r.tier === tier)
+                ?.providerId ?? null;
+        return {
+            personaId: id,
+            tier,
+            providerId: pinnedTo ?? (tier === 8 ? null : home),
+            pinnedTo,
+        };
+    }),
+);
 
 export const mockProviderModels = [
     'llama3.2',
@@ -298,6 +331,13 @@ export const useGetLlmConfigPersonaRoutes = fn(() =>
         headers: new Headers(),
     }),
 );
+export const useGetLlmConfigAssignments = fn(() =>
+    queryResult({
+        data: mockAssignments,
+        status: 200,
+        headers: new Headers(),
+    }),
+);
 export const usePutLlmConfigPersonaRoutesPersonaId = fn(() =>
     noopMutationResult(),
 );
@@ -322,6 +362,7 @@ export const useGetLlmConfigProvidersAvailability = fn(() =>
             },
             { providerId: 'prov-2', state: 0, reason: null, until: null },
             { providerId: 'prov-3', state: 0, reason: null, until: null },
+            { providerId: 'prov-4', state: 0, reason: null, until: null },
         ],
         status: 200,
         headers: new Headers(),

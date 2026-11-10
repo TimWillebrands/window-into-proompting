@@ -125,7 +125,9 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         title: 'Control Panel',
         icon: '⚙️',
         component: ConfigPanelApp,
-        initialPosition: { x: 200, y: 150 },
+        initialPosition: { x: 120, y: 60 },
+        // The persona table has a column per kind of work.
+        initialSize: { width: 900, height: 640 },
     },
     {
         id: 'memory-graph',

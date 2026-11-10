@@ -58,7 +58,7 @@ public class ProviderJudgeTest
 
     private void Routes(params Mock<ILlmEndpointGrain>[] endpoints)
     {
-        var routes = _router.SetupSequence(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()));
+        var routes = _router.SetupSequence(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()));
         foreach (var endpoint in endpoints) routes = routes.ReturnsAsync(endpoint.Object);
     }
 
@@ -91,7 +91,7 @@ public class ProviderJudgeTest
     {
         var llm = new Mock<ILlmEndpointGrain>();
         llm.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(json);
-        _router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<CancellationToken>())).ReturnsAsync(llm.Object);
+        _router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(llm.Object);
         return llm;
     }
 
@@ -113,7 +113,7 @@ public class ProviderJudgeTest
     public async Task Ask_EmulatesWithAnLlm_WhenEveryDecisionModelIsOffline()
     {
         var judge = await JudgeWithProvidersAsync(Provider());
-        _router.Setup(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()))
+        _router.Setup(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("No model-providers available for job complexity Decisions"));
         EmulationAnswers();
 
@@ -162,7 +162,7 @@ public class ProviderJudgeTest
         await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None);
 
         own.Verify(e => e.JudgeAsync("state", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-        _router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class ProviderJudgeTest
         EmulationAnswers();
 
         Assert.Equal(0.3, (await judge.For(Vlad).AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
-        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class ProviderJudgeTest
 
             Assert.Equal(0.3, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
         }
-        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class ProviderJudgeTest
         EmulationAnswers();
 
         Assert.Equal(0.3, (await judge.AskAsync("state", Questions, CancellationToken.None)).Noul("x", 0));
-        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<CancellationToken>()), Times.Never);
+        _router.Verify(r => r.RouteAsync(JobComplexity.Decisions, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

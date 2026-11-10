@@ -10,6 +10,7 @@ import {
     PROVIDER_STATES,
     providerType,
     REASONING_EFFORTS,
+    seriesColor,
 } from './constants';
 
 const time = (iso: string) =>
@@ -47,6 +48,7 @@ function AvailabilityBadge({
 
 export default function ProviderCard({
     provider,
+    providers,
     availability,
     personaCount = 0,
     onEdit,
@@ -54,6 +56,8 @@ export default function ProviderCard({
     onToggled,
 }: {
     provider: LlmProviderEntry;
+    /** The whole list, so this card wears the colour the split and the persona table use for it. */
+    providers?: LlmProviderEntry[];
     /** The router's view; omitted while unknown or when the provider is disabled. */
     availability?: ProviderAvailability;
     personaCount?: number;
@@ -107,6 +111,19 @@ export default function ProviderCard({
                 opacity: isEnabled ? 1 : 0.55,
             }}
         >
+            {providers && (
+                <span
+                    aria-hidden
+                    style={{
+                        alignSelf: 'stretch',
+                        width: 6,
+                        flexShrink: 0,
+                        borderRadius: 3,
+                        background: seriesColor(providers, provider.id),
+                        boxShadow: '0 0 0 1px rgba(255,255,255,0.7)',
+                    }}
+                />
+            )}
             <span style={{ fontSize: 24, flexShrink: 0 }}>{type.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div
@@ -173,7 +190,7 @@ export default function ProviderCard({
                     )}
                     {[
                         ...(provider.reserved
-                            ? ['Reserved']
+                            ? ['Only pinned personas']
                             : complexityLabels),
                         ...(reasoning ? [`Reasoning: ${reasoning.label}`] : []),
                         ...(provider.tailnet
@@ -188,6 +205,7 @@ export default function ProviderCard({
                                 color: '#adf',
                                 fontSize: 10,
                                 padding: '1px 6px',
+                                whiteSpace: 'nowrap',
                             }}
                         >
                             {label}
@@ -203,7 +221,7 @@ export default function ProviderCard({
                                 padding: '1px 6px',
                             }}
                         >
-                            🎭 {personaCount}{' '}
+                            📌 {personaCount}{' '}
                             {personaCount === 1 ? 'persona' : 'personas'}
                         </span>
                     )}

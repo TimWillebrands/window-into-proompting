@@ -70,7 +70,7 @@ public class VoicedLineTest
         var endpoint = new Mock<ILlmEndpointGrain>();
         endpoint.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(raw);
         var router = new Mock<ILlmRouterGrain>();
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(endpoint.Object);
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(endpoint.Object);
         var grains = new Mock<IGrainFactory>();
         grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
         return new WorldLlm(grains.Object, NullLogger<WorldLlm>.Instance);
@@ -106,7 +106,7 @@ public class VoicedLineTest
         shared.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ReturnsAsync(pool);
         var router = new Mock<ILlmRouterGrain>();
         router.Setup(r => r.AssignedEndpointAsync(It.IsAny<Guid>(), It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(mine.Object);
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(shared.Object);
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(shared.Object);
         var grains = new Mock<IGrainFactory>();
         grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
         return (new WorldLlm(grains.Object, NullLogger<WorldLlm>.Instance), mine, shared);
@@ -151,7 +151,7 @@ public class VoicedLineTest
         var endpoint = new Mock<ILlmEndpointGrain>();
         endpoint.Setup(e => e.CompleteOneShotAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>())).ThrowsAsync(new TimeoutException());
         var router = new Mock<ILlmRouterGrain>();
-        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<CancellationToken>())).ReturnsAsync(endpoint.Object);
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(endpoint.Object);
         var grains = new Mock<IGrainFactory>();
         grains.Setup(g => g.GetGrain<ILlmRouterGrain>(0, null)).Returns(router.Object);
 

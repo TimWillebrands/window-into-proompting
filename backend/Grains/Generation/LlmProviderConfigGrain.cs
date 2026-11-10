@@ -35,7 +35,7 @@ public sealed class LlmProviderConfigGrain(
 
     public async Task<LlmProviderEntry> AddProviderAsync(LlmProviderEntry entry)
     {
-        var newEntry = entry with { Id = Guid.NewGuid() };
+        var newEntry = entry with { Id = Guid.NewGuid(), Share = WholeShare(entry.Share) };
         state.State.Providers.Add(newEntry);
         await state.WriteStateAsync();
         await InvalidateRouter();
@@ -49,6 +49,7 @@ public sealed class LlmProviderConfigGrain(
         if (idx < 0)
             throw new InvalidOperationException($"Provider {entry.Id} not found");
 
+        entry = entry with { Share = WholeShare(entry.Share) };
         state.State.Providers[idx] = entry;
         await state.WriteStateAsync();
         await InvalidateRouter();
@@ -92,8 +93,9 @@ public sealed class LlmProviderConfigGrain(
         return state.State.PersonaRoutes.Where(r => r.PersonaId == personaId).ToList();
     }
 
-    private static bool IsTier(JobComplexity tier)
-        => tier is JobComplexity.General or JobComplexity.CharacterVoice or JobComplexity.CharacterThoughts or JobComplexity.Decisions;
+    private static bool IsTier(JobComplexity tier) => LlmTiers.All.Contains(tier);
+
+    private static int WholeShare(int share) => share > 0 ? share : Shares.Default;
 
     private async Task SeedFromOptionsAsync()
     {
@@ -205,7 +207,7 @@ public sealed record class LlmProviderEntry
     [Id(5)] public JobComplexity SupportedComplexities { get; init; } = JobComplexity.General;
     [Id(6)] public TimeSpan? GenerationTimeout { get; init; }
     [Id(7)] public bool IsEnabled { get; init; } = true;
-    /// <summary>Lower routes first; equal priorities balance by load. Give a local fallback a higher number.</summary>
+    /// <summary>Lower routes first; equal priorities split personas by Share. Give a local fallback a higher number.</summary>
     [Id(8)] public int Priority { get; init; }
     /// <summary>Kept out of the shared pool: only personas assigned to it use it.</summary>
     [Id(9)] public bool Reserved { get; init; }
@@ -213,4 +215,6 @@ public sealed record class LlmProviderEntry
     [Id(11)] public string? Tailnet { get; init; }
     /// <summary>How long a local model may reason; a thinking model can spend a minute on one reply.</summary>
     [Id(12)] public ReasoningEffort ReasoningEffort { get; init; }
+    /// <summary>Its part of the personas, relative to the pool providers at its Priority (ADR 0048).</summary>
+    [Id(13)] public int Share { get; init; } = Shares.Default;
 }

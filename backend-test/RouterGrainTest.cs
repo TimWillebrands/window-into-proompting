@@ -12,7 +12,8 @@ public class RouterGrainTest : TestKitBase
     private List<FakeEndpointGrain> SetupEndpoints(
         int count,
         JobComplexity supportedComplexities = JobComplexity.General,
-        int[]? priorities = null)
+        int[]? priorities = null,
+        int[]? shares = null)
     {
         var endpoints = Enumerable.Range(0, count)
             .Select(_ => new FakeEndpointGrain(Guid.NewGuid(), supportedComplexities))
@@ -24,6 +25,7 @@ public class RouterGrainTest : TestKitBase
         var entries = endpoints.Select((ep, i) => new LlmProviderEntry
         {
             Priority = priorities?[i] ?? 0,
+            Share = shares?[i] ?? Shares.Default,
             Id = ep.Id,
             Type = "ollama",
             BaseUrl = "http://fake",
@@ -310,60 +312,114 @@ public class RouterGrainTest : TestKitBase
     }
 
     [Fact]
-    public async Task RouteAsync_PrefersLowestPressureEndpoint()
+    public async Task RouteAsync_KeepsAPersonaOnOneProvider()
     {
-        var endpoints = SetupEndpoints(2);
-        endpoints[0].HoldSlot();
-        endpoints[0].HoldSlot();
-        endpoints[0].HoldSlot();
-
+        SetupEndpoints(3);
         var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
-        var routed = await router.RouteAsync(JobComplexity.General);
+        var persona = Guid.NewGuid();
 
-        Assert.Same(endpoints[1].Reference, routed);
-        Assert.Equal(3, await endpoints[0].PressureAsync());
-        Assert.Equal(0, await endpoints[1].PressureAsync());
+        var first = await router.RouteAsync(JobComplexity.General, persona);
+
+        for (var i = 0; i < 10; i++)
+            Assert.Same(first, await router.RouteAsync(JobComplexity.General, persona));
     }
 
     [Fact]
-    public async Task RouteAsync_DistributesJobsAcrossEndpoints()
+    public async Task RouteAsync_SplitsPersonasRoughlyByShare()
     {
-        const int jobCount = 30;
-        const int endpointCount = 3;
-
-        var endpoints = SetupEndpoints(endpointCount);
+        var endpoints = SetupEndpoints(2, shares: new[] { 75, 25 });
         var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
 
-        var routed = 0;
-        for (var i = 0; i < jobCount; i++)
-        {
-            var grain = await router.RouteAsync(JobComplexity.General);
-            var ep = FindEndpoint(endpoints, grain);
-            ep.HoldSlot();
-            routed++;
+        var onTheBigOne = 0;
+        for (var i = 0; i < 400; i++)
+            if (ReferenceEquals(endpoints[0].Reference, await router.RouteAsync(JobComplexity.General, Persona(i)))) onTheBigOne++;
 
-            // Simulate completions every 5 jobs: drain the busiest endpoint
-            if (routed % 5 == 0)
-            {
-                var pressures = await Task.WhenAll(
-                    endpoints.Select(async e => new { ep = e, pressure = await e.PressureAsync() }));
-                var busiest = pressures
-                    .Where(x => x.pressure > 0)
-                    .OrderByDescending(x => x.pressure)
-                    .FirstOrDefault();
-                busiest?.ep.ReleaseSlot();
-            }
-        }
-
-        Assert.Equal(jobCount, endpoints.Sum(ep => ep.AssignedSlots));
-        Assert.All(endpoints, ep => Assert.True(ep.AssignedSlots > 0,
-            $"Endpoint {ep.Id} received no jobs"));
-
-        // Tie-breaking by source order means ep[0] wins every tie, skewing its count slightly
-        // above fair share. Allow 50% headroom to catch real imbalances without false failures.
-        var fairShare = (int)Math.Ceiling((double)jobCount / endpointCount);
-        var maxAllowed = (int)Math.Ceiling(fairShare * 1.5);
-        Assert.All(endpoints, ep => Assert.True(ep.AssignedSlots <= maxAllowed,
-            $"Endpoint {ep.Id} received {ep.AssignedSlots} jobs, exceeding 1.5x fair share of {maxAllowed}"));
+        Assert.InRange(onTheBigOne, 260, 340);
     }
+
+    [Fact]
+    public async Task RouteAsync_OnlyMovesThePersonasOfAProviderThatGoesAway()
+    {
+        var endpoints = SetupEndpoints(3);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        var personas = Enumerable.Range(0, 60).Select(Persona).ToList();
+        var before = new Dictionary<Guid, ILlmEndpointGrain>();
+        foreach (var p in personas) before[p] = await router.RouteAsync(JobComplexity.General, p);
+
+        await router.ReportOfflineAsync(endpoints[0].Id, "asleep");
+        foreach (var p in personas.Where(p => !ReferenceEquals(before[p], endpoints[0].Reference)))
+            Assert.Same(before[p], await router.RouteAsync(JobComplexity.General, p));
+
+        // And they come home when it's back, so their prompt cache is where they left it.
+        await router.CheckAvailabilityAsync();
+        foreach (var p in personas)
+            Assert.Same(before[p], await router.RouteAsync(JobComplexity.General, p));
+    }
+
+    [Fact]
+    public async Task RouteAsync_PriorityStillBeatsShare()
+    {
+        var endpoints = SetupEndpoints(2, priorities: new[] { 0, 10 }, shares: new[] { 1, 100 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        for (var i = 0; i < 20; i++)
+            Assert.Same(endpoints[0].Reference, await router.RouteAsync(JobComplexity.General, Persona(i)));
+    }
+
+    [Fact]
+    public async Task RouteAsync_WorkNobodyOwnsGoesToTheBiggestShare()
+    {
+        var endpoints = SetupEndpoints(3, shares: new[] { 30, 50, 20 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task RouteAsync_NeverAsksAProviderHowBusyItIs()
+    {
+        var endpoints = SetupEndpoints(2);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        await router.RouteAsync(JobComplexity.General, Guid.NewGuid());
+
+        Assert.All(endpoints, ep => Mock.Get(ep.Reference).Verify(g => g.PressureAsync(), Times.Never));
+    }
+
+    [Fact]
+    public async Task GetAssignments_SaysWhereEachPersonaLandsAndWhatTheyArePinnedTo()
+    {
+        var pinned = Guid.NewGuid();
+        var free = Guid.NewGuid();
+        var (pool, reserved) = SetupReserved(pinned);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        var assignments = await router.GetAssignmentsAsync(new List<Guid> { pinned, free });
+
+        ModelAssignment At(Guid persona, JobComplexity tier)
+            => Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == tier);
+        Assert.Equal((reserved.Id, reserved.Id), (At(pinned, JobComplexity.General).ProviderId, At(pinned, JobComplexity.General).PinnedTo));
+        Assert.Equal((pool.Id, null), (At(free, JobComplexity.General).ProviderId, At(free, JobComplexity.General).PinnedTo));
+        // Nobody handles Voice here, and Guid.Empty is the work nobody owns.
+        Assert.Null(At(free, JobComplexity.CharacterVoice).ProviderId);
+        Assert.Equal(pool.Id, At(Guid.Empty, JobComplexity.General).ProviderId);
+    }
+
+    [Fact]
+    public async Task GetAssignments_ShowsThePoolWhileAPinIsBenched()
+    {
+        var persona = Guid.NewGuid();
+        var (pool, reserved) = SetupReserved(persona);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        await router.ReportFailureAsync(reserved.Id, "quota");
+
+        var general = Assert.Single(
+            await router.GetAssignmentsAsync(new List<Guid> { persona }),
+            a => a.PersonaId == persona && a.Tier == JobComplexity.General);
+
+        Assert.Equal((pool.Id, reserved.Id), (general.ProviderId, general.PinnedTo));
+    }
+
+    // Fixed ids, so a split test can't flake on an unlucky draw.
+    private static Guid Persona(int i) => new(i + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }

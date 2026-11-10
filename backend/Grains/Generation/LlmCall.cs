@@ -11,7 +11,7 @@ public sealed record LlmCallResult(string Content, string Reasoning, ChatMessage
 /// <summary>
 /// One LLM call over the router seam: tier fallback, best-effort attribution, stream accumulation.
 /// Callers bring the job and their tier order; they no longer route or loop chunks themselves.
-/// With <paramref name="persona"/>, that persona's assigned providers win over the shared pool.
+/// With <paramref name="persona"/>, that persona's assigned providers win, and the pool keeps them on one provider.
 /// </summary>
 public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid? persona = null)
 {
@@ -27,7 +27,7 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
                 if (persona is { } id && await router.AssignedEndpointAsync(id, tiers[i], ct) is { } assigned
                     && exclude?.Contains(assigned) != true)
                     return (assigned, tiers[i]);
-                var pooled = await router.RouteAsync(tiers[i], ct);
+                var pooled = await router.RouteAsync(tiers[i], persona, ct);
                 if (exclude?.Contains(pooled) == true)
                     throw new InvalidOperationException($"Every provider for {tiers[i]} already failed this call");
                 return (pooled, tiers[i]);
@@ -145,4 +145,6 @@ public static class LlmTiers
     public static readonly JobComplexity[] Voice = { JobComplexity.CharacterVoice, JobComplexity.General };
     public static readonly JobComplexity[] Thoughts = { JobComplexity.CharacterThoughts, JobComplexity.General };
     public static readonly JobComplexity[] ThoughtsOnly = { JobComplexity.CharacterThoughts };
+    public static readonly JobComplexity[] All =
+        { JobComplexity.General, JobComplexity.CharacterVoice, JobComplexity.CharacterThoughts, JobComplexity.Decisions };
 }

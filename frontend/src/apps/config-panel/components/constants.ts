@@ -97,23 +97,51 @@ export const inputStyle: React.CSSProperties = {
 
 export const selectStyle: React.CSSProperties = inputStyle;
 
+/** Categorical hues, fixed order, validated on the light sheet; a provider keeps its slot. */
+export const SERIES = [
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+] as const;
+export const SERIES_OTHER = '#8a8a86';
+
+export const seriesColor = (providers: LlmProviderEntry[], id?: string) => {
+    const index = providers.findIndex((p) => p.id === id);
+    return SERIES[index] ?? SERIES_OTHER;
+};
+
+/** The model without its vendor path: what fits a table cell. */
+export const shortModel = (p?: LlmProviderEntry) =>
+    p?.modelName?.split('/').pop() ?? p?.baseUrl ?? 'No model';
+
+export const SHEET: React.CSSProperties = {
+    background: 'rgba(252,252,251,0.96)',
+    border: '1px solid rgba(255,255,255,0.9)',
+    borderRadius: 14,
+    boxShadow: '0 6px 16px -8px rgba(0,0,0,0.45)',
+    padding: '14px 16px',
+    color: '#0b0b0b',
+};
+
+export const INK_MUTED = '#52514e';
+
 export const SECTIONS = [
     {
         id: 'llm-providers',
-        label: 'Language Model Providers',
+        label: 'Language Models',
         icon: '🤖',
-        description: 'Configure AI model endpoints and API keys',
-    },
-    {
-        id: 'persona-models',
-        label: 'Persona Models',
-        icon: '🎭',
-        description: 'Give a persona its own model for a kind of work',
+        description: 'Which models there are and who speaks through which',
     },
 ] as const;
 
 export const SECTION_NAMES: Record<string, string> = {
     home: 'Control Panel',
-    'llm-providers': 'Language Model Providers',
-    'persona-models': 'Persona Models',
+    'llm-providers': 'Language Models',
+    // Old history entries from when this was its own screen.
+    'persona-models': 'Language Models',
 };
