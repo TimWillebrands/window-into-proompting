@@ -10653,7 +10653,8 @@
           "personaId",
           "tier",
           "providerId",
-          "pinnedTo"
+          "pinnedTo",
+          "balanced"
         ],
         "type": "object",
         "properties": {
@@ -10677,6 +10678,9 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "balanced": {
+            "type": "boolean"
           }
         }
       },

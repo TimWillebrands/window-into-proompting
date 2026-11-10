@@ -130,7 +130,7 @@ export default function ModelSplit({
             >
                 Each persona stays on one model, so their prompts stay cached
                 and their voice stays the same. A share says roughly how many
-                personas a model gets.
+                personas a model gets; for Decisions, how many of the calls.
             </p>
 
             <div
@@ -275,6 +275,8 @@ export default function ModelSplit({
                         : tier.value === DECISIONS
                           ? 'LLM emulation on General'
                           : 'General';
+                // Decisions have nothing to cache, so calls take turns instead of personas staying put.
+                const perCall = tier.value === DECISIONS;
                 return (
                     <div
                         key={tier.value}
@@ -323,7 +325,7 @@ export default function ModelSplit({
                                             return (
                                                 <div
                                                     key={part.provider.id}
-                                                    title={`${part.provider.modelName ?? part.provider.baseUrl}: ${percent(part.fraction)} of personas${dirty ? '' : `, ${count} now`}${state === 0 ? '' : ` (${PROVIDER_STATES[state]?.label}: its personas use the others meanwhile)`}`}
+                                                    title={`${part.provider.modelName ?? part.provider.baseUrl}: ${percent(part.fraction)} of ${perCall ? 'calls' : 'personas'}${dirty || perCall ? '' : `, ${count} now`}${state === 0 ? '' : ` (${PROVIDER_STATES[state]?.label}: the others take its ${perCall ? 'calls' : 'personas'} meanwhile)`}`}
                                                     style={{
                                                         flex: `${part.fraction} 1 0`,
                                                         minWidth: 4,
@@ -355,34 +357,50 @@ export default function ModelSplit({
                                             );
                                         })}
                                     </div>
-                                    {!dirty && assignments.length > 0 && (
+                                    {perCall && first.parts.length > 1 && (
                                         <div
-                                            aria-hidden
                                             style={{
-                                                display: 'flex',
-                                                gap: 2,
                                                 marginTop: 2,
                                                 fontSize: 10,
                                                 color: INK_MUTED,
+                                                textAlign: 'center',
                                             }}
                                         >
-                                            {first.parts.map((part) => (
-                                                <span
-                                                    key={part.provider.id}
-                                                    style={{
-                                                        flex: `${part.fraction} 1 0`,
-                                                        minWidth: 4,
-                                                        textAlign: 'center',
-                                                        overflow: 'hidden',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {part.fraction >= 0.14 &&
-                                                        `${personasOn(tier.value, part.provider.id)} now`}
-                                                </span>
-                                            ))}
+                                            every call takes the next one
                                         </div>
                                     )}
+                                    {!perCall &&
+                                        !dirty &&
+                                        assignments.length > 0 && (
+                                            <div
+                                                aria-hidden
+                                                style={{
+                                                    display: 'flex',
+                                                    gap: 2,
+                                                    marginTop: 2,
+                                                    fontSize: 10,
+                                                    color: INK_MUTED,
+                                                }}
+                                            >
+                                                {first.parts.map((part) => (
+                                                    <span
+                                                        key={part.provider.id}
+                                                        style={{
+                                                            flex: `${part.fraction} 1 0`,
+                                                            minWidth: 4,
+                                                            textAlign: 'center',
+                                                            overflow: 'hidden',
+                                                            whiteSpace:
+                                                                'nowrap',
+                                                        }}
+                                                    >
+                                                        {part.fraction >=
+                                                            0.14 &&
+                                                            `${personasOn(tier.value, part.provider.id)} now`}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                 </>
                             ) : (
                                 <div

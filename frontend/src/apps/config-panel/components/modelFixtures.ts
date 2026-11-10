@@ -3,7 +3,7 @@ import type { ModelAssignment } from '../../../api/model/modelAssignment';
 import type { Persona } from '../../../api/model/persona';
 import type { PersonaRoute } from '../../../api/model/personaRoute';
 
-/** Story data: half the personas on Haiku, half on Nemotron, a local box behind them, Opus for pins. */
+/** Story data: half the personas on Haiku, half on Nemotron, a local box behind them, two decision models, Opus for pins. */
 export const providers: LlmProviderEntry[] = [
     {
         id: 'haiku',
@@ -40,6 +40,15 @@ export const providers: LlmProviderEntry[] = [
         modelName: '~typesafe/jev-latest',
         supportedComplexities: 8,
         isEnabled: true,
+    },
+    {
+        id: 'd1',
+        type: 'ollama',
+        baseUrl: 'http://100.91.200.46:8080',
+        modelName: 'd1:3b',
+        supportedComplexities: 8,
+        isEnabled: true,
+        tailnet: 'home',
     },
     {
         id: 'opus',
@@ -86,18 +95,21 @@ export const assignmentsFor = (down: string[] = []): ModelAssignment[] =>
             const pinnedTo =
                 routes.find((r) => r.personaId === personaId && r.tier === tier)
                     ?.providerId ?? null;
+            const up = (id: string | null) => !!id && !down.includes(id);
+            // Decisions take turns over their pool; the rest keep one home.
             const pool =
                 tier === 8
-                    ? ['jev']
+                    ? ['jev', 'd1']
                     : [home, home === 'haiku' ? 'nemotron' : 'haiku'];
+            const balanced = tier === 8 && !up(pinnedTo) && pool.some(up);
             return {
                 personaId,
                 tier,
-                providerId:
-                    [pinnedTo, ...pool].find(
-                        (id) => id && !down.includes(id),
-                    ) ?? null,
+                providerId: balanced
+                    ? null
+                    : ([pinnedTo, ...pool].find(up) ?? null),
                 pinnedTo,
+                balanced,
             };
         }),
     );

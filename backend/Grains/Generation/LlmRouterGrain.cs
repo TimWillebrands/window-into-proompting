@@ -12,6 +12,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
 
     private readonly Dictionary<Guid, (DateTimeOffset Until, string Reason)> _benched = new();
     private readonly Dictionary<Guid, string> _offline = new();
+    private readonly Dictionary<Guid, int> _credit = new();
     private static readonly TimeSpan BenchFor = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(5);
 
@@ -137,7 +138,7 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             throw new InvalidOperationException($"No model-providers available for job complexity {jobComplexity}");
         }
 
-        var picked = ranked[0];
+        var picked = Shares.TakesTurns(jobComplexity) ? NextInTurn(ranked) : ranked[0];
         routeSpan?.SetTag("decision", "selected");
         routeSpan?.SetTag("selected.provider_id", picked.Entry.Id);
         routeSpan?.SetTag("selected.model", picked.Entry.ModelName);
@@ -153,10 +154,12 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             .SelectMany(persona => LlmTiers.All.Select(tier =>
             {
                 Guid? pinned = persona is { } id && routes.TryGetValue((id, tier), out var route) ? route : null;
-                var lands = pinned is { } pin && Usable(providers, pin) is not null
-                    ? pinned
-                    : Rank(providers, tier, persona).Select(p => (Guid?)p.Entry.Id).FirstOrDefault();
-                return new ModelAssignment(persona ?? Guid.Empty, tier, lands, pinned);
+                if (pinned is { } pin && Usable(providers, pin) is not null)
+                    return new ModelAssignment(persona ?? Guid.Empty, tier, pinned, pinned, false);
+                var pool = Rank(providers, tier, persona);
+                return Shares.TakesTurns(tier)
+                    ? new ModelAssignment(persona ?? Guid.Empty, tier, null, pinned, pool.Count > 0)
+                    : new ModelAssignment(persona ?? Guid.Empty, tier, pool.Select(p => (Guid?)p.Entry.Id).FirstOrDefault(), pinned, false);
             }))
             .ToList();
     }
@@ -171,6 +174,19 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             .ThenBy(p => p.Entry.Priority)
             .ThenBy(p => Shares.Rank(affinity, p.Entry.Id, p.Entry.Share))
             .ToList();
+
+    /// <summary>Smooth weighted round-robin over the best step: each call the next provider, in proportion to Share.</summary>
+    private (LlmProviderEntry Entry, ILlmEndpointGrain Grain) NextInTurn(List<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> ranked)
+    {
+        var step = ranked
+            .TakeWhile(p => p.Entry.Priority == ranked[0].Entry.Priority && IsBenched(p.Entry.Id) == IsBenched(ranked[0].Entry.Id))
+            .ToList();
+        foreach (var p in step)
+            _credit[p.Entry.Id] = _credit.GetValueOrDefault(p.Entry.Id) + Shares.Weight(p.Entry.Share);
+        var next = step.MaxBy(p => _credit[p.Entry.Id]);
+        _credit[next.Entry.Id] -= step.Sum(p => Shares.Weight(p.Entry.Share));
+        return next;
+    }
 
     private (LlmProviderEntry Entry, ILlmEndpointGrain Grain)? Usable(
         IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> providers, Guid providerId)

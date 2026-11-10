@@ -35,6 +35,14 @@ export const HalfAndHalf: Story = {
                 name: 'General: claude-haiku-5-5 50%, nemotron-3-super:free 50%',
             }),
         ).toBeVisible();
+        await expect(
+            canvas.getByRole('img', {
+                name: 'Decisions: jev-latest 50%, d1:3b 50%',
+            }),
+        ).toBeVisible();
+        await expect(
+            canvas.getByText('every call takes the next one'),
+        ).toBeVisible();
         await expect(canvas.queryByText('Save split')).toBeNull();
     },
 };
@@ -81,7 +89,9 @@ export const LocalBoxAsleepAndNemotronBenched: Story = {
 
 export const NothingSpeaks: Story = {
     args: {
-        providers: providers.filter((p) => p.id === 'jev' || p.id === 'opus'),
+        providers: providers.filter((p) =>
+            ['jev', 'd1', 'opus'].includes(p.id ?? ''),
+        ),
         assignments: [],
     },
 };

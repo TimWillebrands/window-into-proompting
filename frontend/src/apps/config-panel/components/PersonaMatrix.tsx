@@ -34,6 +34,8 @@ const cellBase: React.CSSProperties = {
     whiteSpace: 'nowrap',
 };
 
+const TAKES_TURNS = 'takes turns';
+
 /** What a tier without a model of its own falls back to. */
 const fallbackOf = (tier: number) =>
     tier === GENERAL
@@ -49,6 +51,7 @@ function PinCell({
     providers,
     pinnedId,
     lands,
+    balanced,
     disabled,
     onPin,
 }: {
@@ -57,12 +60,18 @@ function PinCell({
     providers: LlmProviderEntry[];
     pinnedId?: string;
     lands?: LlmProviderEntry;
+    /** No one model: each call takes the next pool provider (Decisions). */
+    balanced?: boolean;
     disabled: boolean;
     onPin: (providerId: string | undefined) => void;
 }) {
     const pinned = providers.find((p) => p.id === pinnedId);
     const away = pinned && pinned.id !== lands?.id;
-    const landing = lands ? shortModel(lands) : fallbackOf(tier);
+    const landing = lands
+        ? shortModel(lands)
+        : balanced
+          ? TAKES_TURNS
+          : fallbackOf(tier);
     // A decisions-only model can't speak; a disabled one stays listed only while chosen.
     const options = providers.filter(
         (p) =>
@@ -88,7 +97,9 @@ function PinCell({
                     ? `Pinned to ${shortModel(pinned)}, which can't be used right now. On ${landing} until it's back.`
                     : pinned
                       ? `Pinned to ${pinned.modelName}`
-                      : `Follows the split: ${lands?.modelName ?? landing}`
+                      : balanced
+                        ? 'Every call takes the next decision model, by share'
+                        : `Follows the split: ${lands?.modelName ?? landing}`
             }
             value={pinnedId ?? ''}
             disabled={disabled}
@@ -135,14 +146,10 @@ export default function PersonaMatrix({
 
     const routesOf = (personaId?: string) =>
         routes.filter((r) => r.personaId === personaId);
+    const assigned = (personaId: string, tier: number) =>
+        assignments.find((a) => a.personaId === personaId && a.tier === tier);
     const landsOn = (personaId: string, tier: number) =>
-        providers.find(
-            (p) =>
-                p.id ===
-                assignments.find(
-                    (a) => a.personaId === personaId && a.tier === tier,
-                )?.providerId,
-        );
+        providers.find((p) => p.id === assigned(personaId, tier)?.providerId);
     const pinnedCount = new Set(routes.map((r) => r.personaId)).size;
     const shown = personas.filter(
         (p) =>
@@ -302,6 +309,12 @@ export default function PersonaMatrix({
                                                     personaId,
                                                     tier.value,
                                                 )}
+                                                balanced={
+                                                    assigned(
+                                                        personaId,
+                                                        tier.value,
+                                                    )?.balanced
+                                                }
                                                 disabled={busy(personaId)}
                                                 onPin={(providerId) => {
                                                     const others = mine.filter(
@@ -403,7 +416,12 @@ export default function PersonaMatrix({
                                             >
                                                 {lands
                                                     ? shortModel(lands)
-                                                    : fallbackOf(tier.value)}
+                                                    : assigned(
+                                                            NOBODY,
+                                                            tier.value,
+                                                        )?.balanced
+                                                      ? TAKES_TURNS
+                                                      : fallbackOf(tier.value)}
                                             </span>
                                         </td>
                                     );

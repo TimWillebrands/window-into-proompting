@@ -13,4 +13,5 @@ export interface ModelAssignment {
     providerId: string | null;
     /** @nullable */
     pinnedTo: string | null;
+    balanced: boolean;
 }

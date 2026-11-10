@@ -22,7 +22,10 @@ on a prefix the other model had warm, and a voice that changes model mid-convers
 6. **Work nobody owns goes to the biggest Share**, first listed on a tie: the narrator, memory extraction, Places,
    System One about a group. One model for it, and the author picks which by making it the biggest.
 7. **The router no longer asks providers how busy they are.** Routing is in-memory and makes no grain calls.
-8. **A Persona Route is a pin on top of the split.** Unchanged from ADR 0032, and one screen (Control Panel → Language
+8. **Decisions take turns instead.** A System One call has no prompt cache and no voice, so nothing is gained by a
+   Persona staying put. Each call takes the next provider of the best step, in proportion to Share (smooth weighted
+   round-robin), whoever it is about. There the Share is a part of the calls, and the ratio is exact.
+9. **A Persona Route is a pin on top of the split.** Unchanged from ADR 0032, and one screen (Control Panel → Language
    Models) shows the providers, the split, and where every Persona's work goes now, pins included.
 
 ## Considered
@@ -38,3 +41,6 @@ on a prefix the other model had warm, and a voice that changes model mid-convers
 
 A slow provider keeps its Personas: nothing spills to a quieter one unless it is Benched or Offline. With few Personas
 the split can be lopsided (7 and 3 for 50/50), which is why the screen shows the count beside the percentage.
+
+One Persona's decisions now come from every decision model in turn. Their numbers only compare within one judge, so
+each per-judge baseline (ADR 0047) fills more slowly.

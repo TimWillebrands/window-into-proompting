@@ -7,10 +7,15 @@ public static class Shares
 {
     public const int Default = 100;
 
+    public static int Weight(int share) => Math.Max(1, share);
+
+    /// <summary>Decisions have no prompt cache to keep warm, so each call takes the next provider instead of a persona staying put.</summary>
+    public static bool TakesTurns(JobComplexity tier) => tier == JobComplexity.Decisions;
+
     /// <summary>Lower wins. A key keeps its order over providers; work without a key goes to the biggest Share.</summary>
     public static double Rank(Guid? key, Guid providerId, int share)
     {
-        var weight = Math.Max(1, share);
+        var weight = Weight(share);
         if (key is not { } id) return -weight;
 
         // Not HashCode: that one is seeded per process, and a restart would reshuffle everyone.

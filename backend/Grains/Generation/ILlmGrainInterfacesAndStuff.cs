@@ -69,7 +69,7 @@ public interface IOpenRouterEndpointGrain : ILlmEndpointGrain { }
 [Alias("PartyTown.Grains.Generation.ILlmRouterGrain")]
 public interface ILlmRouterGrain : IGrainWithIntegerKey
 {
-    /// <summary>A pool provider for this tier; the same affinity (a persona) keeps getting the same one (ADR 0048).</summary>
+    /// <summary>A pool provider for this tier: the same affinity (a persona) keeps one, except Decisions, which take turns (ADR 0048).</summary>
     [Alias("RouteAsync")]
     Task<ILlmEndpointGrain> RouteAsync(
         JobComplexity jobComplexity,
@@ -110,14 +110,15 @@ public interface ILlmRouterGrain : IGrainWithIntegerKey
     Task<List<ModelAssignment>> GetAssignmentsAsync(List<Guid> personaIds);
 }
 
-/// <summary>Where one persona's work at one tier goes now; PinnedTo is their Persona Route. Persona Guid.Empty is work nobody owns.</summary>
+/// <summary>Where one persona's work at one tier goes now; PinnedTo is their Persona Route, Balanced means each call takes the next pool provider. Persona Guid.Empty is work nobody owns.</summary>
 [GenerateSerializer]
 [Alias("PartyTown.Grains.Generation.ModelAssignment")]
 public sealed record ModelAssignment(
     [property: Id(0)] Guid PersonaId,
     [property: Id(1)] JobComplexity Tier,
     [property: Id(2)] Guid? ProviderId,
-    [property: Id(3)] Guid? PinnedTo);
+    [property: Id(3)] Guid? PinnedTo,
+    [property: Id(4)] bool Balanced);
 
 [GenerateSerializer]
 [Alias("PartyTown.Grains.Generation.ProviderState")]

@@ -37,6 +37,7 @@ public class RouterGrainTest : TestKitBase
         configMock
             .Setup(g => g.GetProvidersAsync())
             .ReturnsAsync(entries);
+        configMock.Setup(g => g.GetPersonaRoutesAsync()).ReturnsAsync(new List<PersonaRoute>());
 
         return endpoints;
     }
@@ -373,6 +374,51 @@ public class RouterGrainTest : TestKitBase
         var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
 
         Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
+    }
+
+    [Fact]
+    public async Task RouteAsync_Decisions_TakeTurnsByShare_EvenForOnePersona()
+    {
+        var endpoints = SetupEndpoints(2, JobComplexity.Decisions, shares: new[] { 75, 25 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+        var persona = Guid.NewGuid();
+
+        var picks = new List<ILlmEndpointGrain>();
+        for (var i = 0; i < 40; i++) picks.Add(await router.RouteAsync(JobComplexity.Decisions, persona));
+
+        Assert.Equal(30, picks.Count(p => ReferenceEquals(p, endpoints[0].Reference)));
+        // Spread through the run, not thirty of one and then ten of the other.
+        Assert.Contains(picks.Take(4), p => ReferenceEquals(p, endpoints[1].Reference));
+    }
+
+    [Fact]
+    public async Task RouteAsync_Decisions_OnlyTheBestStepTakesTurns()
+    {
+        var endpoints = SetupEndpoints(3, JobComplexity.Decisions, priorities: new[] { 0, 0, 10 });
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        for (var i = 0; i < 10; i++)
+            Assert.NotSame(endpoints[2].Reference, await router.RouteAsync(JobComplexity.Decisions));
+
+        await router.ReportFailureAsync(endpoints[0].Id, "timed out");
+        for (var i = 0; i < 10; i++)
+            Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.Decisions));
+    }
+
+    [Fact]
+    public async Task GetAssignments_Decisions_AreBalancedUnlessPinned()
+    {
+        var persona = Guid.NewGuid();
+        SetupEndpoints(2, JobComplexity.Decisions);
+        var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
+
+        var assignments = await router.GetAssignmentsAsync(new List<Guid> { persona });
+
+        var decisions = Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == JobComplexity.Decisions);
+        Assert.Equal((null, true), (decisions.ProviderId, decisions.Balanced));
+        // Nothing handles General here, so there is nothing to balance or land on.
+        var general = Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == JobComplexity.General);
+        Assert.Equal((null, false), (general.ProviderId, general.Balanced));
     }
 
     [Fact]

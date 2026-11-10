@@ -46,6 +46,11 @@ export const SplitWithTwoPins: Story = {
         await expect(
             canvas.getByText('2 of 7 have a model of their own.'),
         ).toBeVisible();
+        await expect(
+            within(
+                canvas.getByRole('combobox', { name: 'Bram: Decisions' }),
+            ).getByRole('option', { name: 'takes turns' }),
+        ).toBeInTheDocument();
     },
 };
 

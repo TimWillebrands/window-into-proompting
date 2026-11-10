@@ -179,6 +179,7 @@ export const mockAssignments: ModelAssignment[] = [
             tier,
             providerId: pinnedTo ?? (tier === 8 ? null : home),
             pinnedTo,
+            balanced: false,
         };
     }),
 );
