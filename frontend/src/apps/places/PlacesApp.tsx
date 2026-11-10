@@ -1247,7 +1247,7 @@ function FurniRow({
         });
     const careWord = furni.careLabel?.split(' ')[0];
     // A thing to do (ADR 0049): the offer is its name, and what it gave shows once done.
-    const thing = furni as Doable;
+    const thing = furni;
     const doable = thing.gives != null && !!furni.useLabel;
     const left = thing.leaves ? thing.takes?.at(-1) : undefined;
     const doIt = () => {
@@ -1347,13 +1347,6 @@ function FurniRow({
         </div>
     );
 }
-
-/** FurniView plus what a thing to do carries; typed here until the client is regenerated. */
-type Doable = FurniView & {
-    gives?: string | null;
-    leaves?: boolean;
-    takes?: { byName?: string; text?: string }[];
-};
 
 function BodyChip({
     body,
