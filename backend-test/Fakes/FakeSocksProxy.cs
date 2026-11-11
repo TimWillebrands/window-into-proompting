@@ -39,10 +39,24 @@ public sealed class FakeSocksProxy : IAsyncDisposable
     {
         try
         {
-            while (true) _ = ServeAsync(await _listener.AcceptTcpClientAsync(_stop.Token));
+            while (true)
+            {
+                var client = await _listener.AcceptTcpClientAsync(_stop.Token);
+                _ = ServeFireAndForgetAsync(client);
+            }
         }
         // Backstop: between accepts the listener can die before the loop observes the token.
         catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException or InvalidOperationException) { }
+
+        async Task ServeFireAndForgetAsync(TcpClient client)
+        {
+            try
+            {
+                await ServeAsync(client);
+            }
+            // Same shutdown races can fault a client mid-serve; swallow them so the accept loop stays alive.
+            catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or InvalidOperationException) { }
+        }
     }
 
     private async Task ServeAsync(TcpClient client)
