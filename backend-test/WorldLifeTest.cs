@@ -24,6 +24,22 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     public WorldLifeTest(Fixture fx) => _fx = fx;
 
     [Fact]
+    public async Task BoardThread_OutstandingExternal_PersistsAndShowsOnTheBoard()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var board = _fx.GrainFactory.GetGrain<IBoardGrain>(partyId);
+
+        var created = await board.CreateThreadAsync(denise, "Denise", "The form went out Monday",
+            outstandingExternal: true, outstandingLabel: "resend due Friday");
+
+        var readBack = Assert.Single(await board.GetThreadsAsync());
+        Assert.True(readBack.OutstandingExternal);
+        Assert.Equal("resend due Friday", readBack.OutstandingLabel);
+
+        Assert.Contains("outstanding external: resend due Friday", BoardApp.PostLabel(readBack, denise));
+    }
+
+    [Fact]
     public async Task LifeTurn_ChoosingBoardPost_WritesThreadAuthoredByPersona()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();

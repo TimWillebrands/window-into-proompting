@@ -52,6 +52,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             var author = t.AuthorId == ctx.Self.Id ? "you" : t.AuthorName;
             sb.AppendLine($"- {author} posted {WorldStream.Ago(t.CreatedAt, ctx.Now)}{RespectNote(t.Respect, ctx.Self.Id)} ({t.Replies.Count} replies){(answeredYou ? " — someone answered you" : "")}");
             sb.AppendLine($"    \"{WorldStream.Clip(t.Body, 200)}\"");
+            if (t.OutstandingExternal) sb.AppendLine($"    outstanding external: {WorldStream.Clip(t.OutstandingLabel, 120)}");
             if (t.Replies.LastOrDefault() is { } r)
                 sb.AppendLine($"    latest reply, {(r.AuthorId == ctx.Self.Id ? "you" : r.AuthorName)} {WorldStream.Ago(r.CreatedAt, ctx.Now)}: {WorldStream.Clip(r.Body, 120)}");
 
@@ -125,7 +126,10 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     /// <summary>"Denise's post "deleted 200 lines…"" / "your post "…"".</summary>
     public static string PostLabel(BoardThread t, Guid self)
-        => $"{(t.AuthorId == self ? "your" : $"{t.AuthorName}'s")} post \"{WorldStream.Clip(t.Body, 50)}\"";
+    {
+        var label = $"{(t.AuthorId == self ? "your" : $"{t.AuthorName}'s")} post \"{WorldStream.Clip(t.Body, 50)}\"";
+        return t.OutstandingExternal ? $"{label} (outstanding external: {WorldStream.Clip(t.OutstandingLabel, 80)})" : label;
+    }
 
     /// <summary>", Respect! from Denise and you" — empty when nobody gave any.</summary>
     public static string RespectNote(IReadOnlyList<BoardRespect> respect, Guid self)
@@ -330,9 +334,11 @@ Output: {ReplyShape}
 
     /// <summary>Commit a post — the same for a Persona's voiced one and the Player's typed one: store, then remember.</summary>
     public async Task<(BoardThread Thread, ActOutcome Outcome)> PostAsync(
-        Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf)
+        Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf,
+        bool outstandingExternal = false, string outstandingLabel = "")
     {
-        var thread = await grains.GetGrain<IBoardGrain>(partyId).CreateThreadAsync(authorId, authorName, body);
+        var thread = await grains.GetGrain<IBoardGrain>(partyId)
+            .CreateThreadAsync(authorId, authorName, body, outstandingExternal, outstandingLabel);
         CaptureDetached(partyId, thread, viewsOf);
         await NotifyAsync(partyId, thread, authorId, body);
         return (thread, new ActOutcome("post", $"posted \"{thread.Title}\"", thread.Id));

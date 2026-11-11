@@ -193,7 +193,8 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Trim().Length > BoardApp.MaxLength)
             return BadRequest($"Body is required (≤ {BoardApp.MaxLength} chars).");
         var (authorId, authorName) = await AuthorAsync(partyId, request.AuthorId);
-        var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId));
+        var (thread, outcome) = await BoardApp.PostAsync(partyId, authorId, authorName, request.Body.Trim(), await ViewsOfAsync(partyId),
+            request.OutstandingExternal, request.OutstandingLabel);
         await RecordAsync(partyId, authorId, authorName, BoardApp.Id, outcome);
         posthog.Track(HttpContext, "board_post_created", new Dictionary<string, object>
         {
@@ -386,7 +387,7 @@ public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, 
 public sealed record SetAuraRequest(string? Aura);
 public sealed record CreatePlayerRequest(string Name);
 public sealed record SetAutoRequest(bool On, string? Mission);
-public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
+public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId, bool OutstandingExternal = false, string OutstandingLabel = "");
 public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);
 public sealed record OpenDirectChatRequest(Guid WithPersonaId, Guid? FromPersonaId);

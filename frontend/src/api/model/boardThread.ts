@@ -19,4 +19,6 @@ export interface BoardThread {
     lastActivityAt?: number | string;
     replies?: BoardReply[];
     respect?: BoardRespect[];
+    outstandingExternal?: boolean;
+    outstandingLabel?: string;
 }

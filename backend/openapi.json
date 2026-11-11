@@ -8342,6 +8342,12 @@
             "items": {
               "$ref": "#/components/schemas/BoardRespect"
             }
+          },
+          "outstandingExternal": {
+            "type": "boolean"
+          },
+          "outstandingLabel": {
+            "type": "string"
           }
         }
       },
@@ -9064,6 +9070,14 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "outstandingExternal": {
+            "type": "boolean",
+            "default": false
+          },
+          "outstandingLabel": {
+            "type": "string",
+            "default": ""
           }
         }
       },
