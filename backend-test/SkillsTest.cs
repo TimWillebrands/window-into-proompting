@@ -73,6 +73,14 @@ public class SkillsTest
     }
 
     [Fact]
+    public void Match_NeverOnTheWorldsAppNames()
+    {
+        var chess = View("playing chess", ["chess", "board"]);
+        Assert.Null(SkillRules.Match(new[] { chess }, "Write a new post on the Board"));
+        Assert.Equal("playing chess", SkillRules.Match(new[] { chess }, "set up the chess board")!.Name);
+    }
+
+    [Fact]
     public void Toward_NamesTheKnowHowOnTheOption()
     {
         Assert.Equal("Look through the telescope", SkillRules.Toward("Look through the telescope", null));

@@ -222,6 +222,12 @@ public sealed class SkillsGrain(
                     joined.Practice += tally.Count;
                     joined.PractisedAt = now;
                 }
+                else
+                {
+                    var mark = state.State.Marks.TryGetValue(joined.Id, out var m) ? m : state.State.Marks[joined.Id] = new SkillMark();
+                    mark.Practice += tally.Count;
+                    mark.PractisedAt = now;
+                }
                 logger.LogInformation("Skill {Name}: {Key} is {Skill}", who.Name, key, joined.Name);
             }
             else if (SkillRules.Parse(json, tally.Source, now, tally.Count) is { } learned)
@@ -312,7 +318,7 @@ public static class SkillPrompts
         - how: 1–3 plain sentences in second person: the judgement and steps they have, what they check first, what they notice
           that others miss, what they do when it goes wrong. No example lines, no catchphrases, no imagery, nothing about feelings.
         - cues: 3–8 lowercase single words a conversation or a thing to do would have to touch for this to come to mind:
-          tools, materials, situations. No generic words (people, time, work, help).
+          tools, materials, situations. No generic words (people, time, work, help) and no app names (board, diary).
         """;
 
     public const string Distill = $$"""

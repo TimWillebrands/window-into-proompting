@@ -26,7 +26,8 @@ calls for it is a Skill.
 3. **Acquired Skills** (`SkillsGrain`, key `party:participant`): learned in play, local to one Party, Promotable like
    Stances and Desires. Practising is the only way in ("practice" stays the Real work term, 0030). Each time names
    what was done and a key:
-   - a shift worked (`work:<title>`), and a Practitioner's Session (same key: it's the same craft);
+   - a shift worked (`work:<title>`), and a Practitioner's Session (same key: it's the same craft; a Practice learns
+     from its Sessions, not its shifts);
    - a Feature done (`feature:<what>`, ADR 0049);
    - a being-Desire to get better at something, fulfilled (`desire:<id>`, counts as three at once).
 
@@ -38,6 +39,7 @@ calls for it is a Skill.
    untouched for 30 days reads as rusty; procedural memory fades slowly and is never deleted.
 5. **Shown only where it's used** (progressive disclosure). No skill list in any prompt. Matching is deterministic:
    content words against cues and name, no LLM.
+   - App names (Board, Diary, Messenger…) never match: every option label has them.
    - **Initiative:** an option that exercises a Skill says so ("look through the telescope (you know how: reading the
      night sky)"). No extra pull; System One weighs who they are. The voicing call for the picked option gets that
      Skill's how, so the intent is a competent one.

@@ -117,11 +117,14 @@ public static partial class SkillRules
     public static string Key(string kind, string what)
         => $"{kind}:{WorldStream.Clip(Spaces().Replace(what.Trim().TrimEnd('.', '!', '?').ToLowerInvariant(), " "), 80)}";
 
+    /// <summary>The World's own App names: every option label has them, so they'd tag a chess player's every Board post.</summary>
+    private static readonly HashSet<string> WorldWords = new(StringComparer.Ordinal) { "board", "partyboard", "diary", "messenger", "calendar", "wardrobe" };
+
     /// <summary>The Skill a moment touches most, if any: content words against cues and name. No LLM.</summary>
     public static SkillView? Match(IEnumerable<SkillView> skills, string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        var words = Self.VoiceWear.ContentWords(text).Select(Stem).ToHashSet();
+        var words = Self.VoiceWear.ContentWords(text).Select(Stem).Where(w => !WorldWords.Contains(w)).ToHashSet();
         if (words.Count == 0) return null;
         return skills
             .Select(s => (Skill: s, Hits: Words(s).Count(words.Contains)))
