@@ -21,11 +21,11 @@ A character with a name, bio, system prompt, and behavioural dials (**Chattiness
 _Avoid_: character, agent, bot, NPC, user.
 
 **Nature**:
-The half of a **Persona** that is who they are, wherever they go: Bio, system prompt, dials, **Intrinsic Stances**. Lives on the Persona and travels into every **Party**.
+The half of a **Persona** that is who they are, wherever they go: Bio, system prompt, dials, **Intrinsic Stances**, **Intrinsic Skills**. Lives on the Persona and travels into every **Party**.
 _Avoid_: personality, traits, sheet, template.
 
 **Nurture**:
-The half of a **Persona** that is what happened to them: **Events**, **Recollections** and **Acquired Stances** in one **Party**. Lives on the **Participant**; begins at **Arrival** and grows through play.
+The half of a **Persona** that is what happened to them: **Events**, **Recollections**, **Acquired Stances** and **Acquired Skills** in one **Party**. Lives on the **Participant**; begins at **Arrival** and grows through play.
 _Avoid_: backstory, history, lore, memories (too broad).
 
 **Narrator**:
@@ -188,7 +188,11 @@ A Persona's view of moments — **Recollection**. What stood out to *them*, with
 A Persona's orientation toward things in the **Arena** — **Stance**. Identity-shaping: these edges say who the Persona is relative to their world.
 
 **Procedural** (knowing *how*):
-A Persona's engagement style. Today static — **Chattiness**, **Impulsivity**, the persona system prompt. Learned procedural memory is an open slot, not yet an entity.
+What a Persona knows how to do — **Skill** — plus their engagement style, which stays static: **Chattiness**, **Impulsivity**, and the sheet's way of talking.
+
+**Skill**:
+Something a Persona knows how to do: a name ("pulling espresso", "calming someone who's panicking"), a short *how* (the judgement and steps a practised hand has), and the cues that bring it to mind. An **Intrinsic Skill** is on the Persona (authored, or distilled from the lived sheet) and counts as second nature. An **Acquired Skill** is learned in one Party by doing something that teaches (a shift worked, a **Session** run, a **Feature** done, a want to get better at something come true) and can be **Promoted**; the third time the same thing is done, the World looks at whether there's know-how in it. Its level comes from how often it's been done: new to it, getting the hang of it, practised, second nature; rusty when untouched for a month. Shown only where it's used — the option that exercises it, the Feature being done, the talk that touches it — never as a list. See [ADR 0054](docs/adr/0054-skills.md).
+_Avoid_: ability, talent, trait, competence, proficiency, perk, XP. "Practising" is fine in prose; **Practice** is taken (§ Real work).
 
 **Recollection**:
 A **Participant**'s edge to an **Event** in the **Arena**. Carries a short, second-person snippet ("you saw Vlad cut Hana off"). One Event can have many Recollections — one per Participant who remembers it, each with their own spin. If a recollection *changes how the Persona feels* about someone or something, that lives as a separate **Stance**.
@@ -680,6 +684,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **Session** has exactly one **Practitioner** and one **Client**, either of whom may be driven by a human or an LLM.
 - A **Homework** comes from one **Session**, belongs to its **Client** and is held by its **Practitioner**.
 - A **Persona** has **Intrinsic Desires**; each **Participant** may add **Acquired Desires**.
+- A **Persona** has **Intrinsic Skills**; each **Participant** may learn **Acquired Skills** by doing.
 - A **Piece** is made by one **Participant** at one **Studio**.
 - A closed **Place** has zero or more **Key** holders; a **Key** is given by a host and held by one **Participant**.
 - A workplace **Place** has one **Door**, its staff (from **Occupations**) and an access list; a workplace has no **Keys**.
