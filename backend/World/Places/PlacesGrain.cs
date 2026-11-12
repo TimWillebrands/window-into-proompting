@@ -70,6 +70,12 @@ public sealed partial class PlacesGrain(
         foreach (var b in state.State.Bodies.Values.Where(b => b.ArrivedAt == 0))
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
         if (state.State.Bodies.Values.Any(b => b.IsWalking)) WatchArrivals();
+        _activatedAt = Now();
+        this.RegisterGrainTimer(async () =>
+        {
+            try { await SettleAsync(); }
+            catch (Exception ex) { logger.LogWarning(ex, "Places AFK check failed"); }
+        }, new GrainTimerCreationOptions(AfkCheckEvery, AfkCheckEvery));
         await FollowMessagesAsync();
     }
 
@@ -88,7 +94,8 @@ public sealed partial class PlacesGrain(
     private async Task OnPartyEventAsync(PartyStreamEvent e)
     {
         if (e.Type != "message" || e.Message is not { } m || string.IsNullOrWhiteSpace(m.Content)) return;
-        if (!state.State.Bodies.ContainsKey(m.SenderId)) return;
+        if (!state.State.Bodies.TryGetValue(m.SenderId, out var sender)) return;
+        if (sender.IsHuman) await SetIdleAsync(m.SenderId, false);
         NoteMentions(m.SenderId, m.Content);
         if (!_rooms.TryGetValue(e.ChatGroupId, out var room))
         {
@@ -124,7 +131,7 @@ public sealed partial class PlacesGrain(
         var home = Find(homeId);
         if (home is null || !home.IsClosed() || home.Hosts().Contains(visitorId)) return false;
         var hosts = home.Hosts().Select(id => state.State.Bodies.GetValueOrDefault(id))
-            .OfType<Body>().Where(b => !b.IsWalking && b.PlaceId == homeId && !b.Asleep).ToList();
+            .OfType<Body>().Where(b => !b.IsWalking && b.PlaceId == homeId && !b.Asleep && !b.Afk).ToList();
         NoteDoorstep(home, visitorId);
         if (hosts.Count == 0)
         {
@@ -308,14 +315,78 @@ public sealed partial class PlacesGrain(
     }
 
     public const string Dozing = "dozing off in front of the screen";
+    public const string AwayFromKeyboard = "away from the keyboard";
+    private static readonly TimeSpan AfkAfter = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan AfkCheckEvery = TimeSpan.FromMinutes(1);
+    /// <summary>When each human was last at it; in memory, so a heartbeat costs no write.</summary>
+    private readonly Dictionary<Guid, long> _seen = new();
+    private long _activatedAt;
+    private bool _goingAfk;
 
+    /// <param name="idle">False is also the heartbeat: they're at it.</param>
     public async Task SetIdleAsync(Guid participantId, bool idle)
     {
+        if (!idle) _seen[participantId] = Now();
         if (!state.State.Bodies.TryGetValue(participantId, out var body) || !body.IsHuman) return;
-        if (idle == (body.Activity == Dozing)) return;
-        body.Activity = idle ? Dozing : null;
+        if (idle)
+        {
+            if (body.Afk || body.Activity == Dozing) return;
+            body.Activity = Dozing;
+        }
+        else
+        {
+            if (!body.Afk && body.Activity != Dozing) return;
+            body.Afk = false;
+            if (body.Activity is Dozing or AwayFromKeyboard) body.Activity = null;
+        }
         body.ActivityUntil = null;
         await SaveAsync();
+        await PublishAsync(body);
+    }
+
+    public async Task<List<Guid>> GetAfkAsync()
+    {
+        await SettleAsync();
+        return state.State.Bodies.Values.Where(b => b.Afk).Select(b => b.ParticipantId).ToList();
+    }
+
+    /// <summary>Humans not at it for <see cref="AfkAfter"/> go AFK; nested settles skip it while that walks people about.</summary>
+    private async Task GoneQuietAsync(long now)
+    {
+        if (_goingAfk) return;
+        var gone = state.State.Bodies.Values
+            .Where(b => b.IsHuman && !b.Afk && now - _seen.GetValueOrDefault(b.ParticipantId, _activatedAt) >= AfkAfter.TotalMilliseconds)
+            .ToList();
+        if (gone.Count == 0) return;
+        _goingAfk = true;
+        try
+        {
+            foreach (var body in gone) await GoAfkAsync(body);
+        }
+        finally
+        {
+            _goingAfk = false;
+        }
+    }
+
+    /// <summary>Walks home and, with nobody else living there at it, closes up: guests out, knocks dropped.</summary>
+    private async Task GoAfkAsync(Body body)
+    {
+        body.Afk = true;
+        body.Activity = AwayFromKeyboard;
+        body.ActivityUntil = null;
+        EndPose(body);
+        await SaveAsync();
+        var home = state.State.Places.HomeOf(body.ParticipantId);
+        if (home is not null && (body.DestPlaceId ?? body.PlaceId) != home.Id) await WalkAsync(body, home, null);
+        if (home is not null && home.Living().All(id => state.State.Bodies.GetValueOrDefault(id)?.Afk != false))
+        {
+            home.Guests.Clear();
+            home.Knocks.Clear();
+            await SaveAsync();
+            await PublishPlaceAsync(home);
+            await ShowOutAsync(home);
+        }
         await PublishAsync(body);
     }
 
@@ -325,7 +396,8 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
         if (body.Appearance is not null) body.Appearance.Kept = true;
-        if (body.Activity == Dozing) body.Activity = null;
+        body.Afk = false;
+        if (body.Activity is Dozing or AwayFromKeyboard) body.Activity = null;
         await SaveAsync();
         await PublishAsync(body);
     }
@@ -789,6 +861,7 @@ public sealed partial class PlacesGrain(
             {
                 if (body.Name != c.Name || body.IsHuman != (c.DefaultDriver == DriverKind.User) || body.Aura != c.Aura)
                 {
+                    if (!body.IsHuman && c.DefaultDriver == DriverKind.User) _seen[c.Id] = Now();
                     body.Name = c.Name;
                     body.IsHuman = c.DefaultDriver == DriverKind.User;
                     body.Aura = c.Aura;
@@ -797,6 +870,7 @@ public sealed partial class PlacesGrain(
                 continue;
             }
             var sofa = home.Spots[0];
+            _seen[c.Id] = Now();
             state.State.Bodies[c.Id] = new Body
             {
                 ParticipantId = c.Id, Name = c.Name, PlaceId = home.Id, SpotId = sofa.Id,
@@ -843,6 +917,7 @@ public sealed partial class PlacesGrain(
             b.ActivityUntil = null;
         }
         foreach (var b in state.State.Bodies.Values.Where(b => b.PoseUntil <= now)) EndPose(b);
+        await GoneQuietAsync(now);
         var mishapDue = state.State.NextMishapAt;
         MaybeMishap(now);
         var arrived = state.State.Bodies.Values.Where(b => b.IsWalking && b.ArriveAt <= now).ToList();
@@ -1075,6 +1150,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>A human's tab went idle (their Body dozes off) or came back.</summary>
     [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);
+    /// <summary>Humans gone AFK: home, door shut, not available.</summary>
+    [Alias("GetAfkAsync")] Task<List<Guid>> GetAfkAsync();
 
     /// <summary>Choose a look by hand (a Player for themselves, or the author for anyone). Off-palette choices are ignored.</summary>
     [Alias("HandOverAsync")] Task HandOverAsync(Guid participantId);

@@ -310,6 +310,44 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task AHumanQuietTenMinutes_WalksHome_ClosesUp_AndIsAfkUntilBack()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var human = Guid.NewGuid();
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var participants = (await party.GetParty()).Participants.ToList();
+        participants.Add(new PartyParticipant { Id = human, Name = "Tim", Driver = DriverKind.User });
+        await party.SetParticipants(participants);
+        var snapshot = await places.GetSnapshotAsync();
+        var home = snapshot.Places.Single(p => p.OwnerId == human);
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+
+        await places.LetInAsync(human, denise);
+        await places.MoveAsync(denise, home.Id, null);
+        await places.MoveAsync(human, cafe.Id, null);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        await places.SetIdleAsync(human, false);
+        await places.SetIdleAsync(human, true);
+        _fx.Time.Advance(TimeSpan.FromMinutes(9));
+        Assert.Empty(await places.GetAfkAsync());
+
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(new[] { human }, await places.GetAfkAsync());
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        snapshot = await places.GetSnapshotAsync();
+        var body = snapshot.Bodies.Single(b => b.ParticipantId == human);
+        Assert.Equal(home.Id, body.PlaceId);
+        Assert.Equal(PlacesGrain.AwayFromKeyboard, body.Activity);
+        Assert.Empty(snapshot.Places.Single(p => p.Id == home.Id).Guests);
+        Assert.NotEqual(home.Id, snapshot.Bodies.Single(b => b.ParticipantId == denise).DestPlaceId ?? snapshot.Bodies.Single(b => b.ParticipantId == denise).PlaceId);
+
+        await places.SetIdleAsync(human, false);
+        Assert.Empty(await places.GetAfkAsync());
+        Assert.DoesNotContain("away from the keyboard", await places.GetSituationAsync(human));
+    }
+
+    [Fact]
     public async Task AShout_CarriesThroughTheDoor_AsTone()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

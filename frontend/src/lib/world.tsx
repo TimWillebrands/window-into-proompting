@@ -18,6 +18,7 @@ import type { BoardThread } from '../api/model/boardThread';
 import type { Body } from '../api/model/body';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
 import type { Gathering } from '../api/model/gathering';
+import type { LifeSummary } from '../api/model/lifeSummary';
 import type { PlacesSnapshot } from '../api/model/placesSnapshot';
 import type { WorldActivity } from '../api/model/worldActivity';
 import { usePlayerIdle } from '../apps/places/use-player-idle';
@@ -308,6 +309,12 @@ export function WorldRealtimeBridge() {
             case 'body': {
                 // Moves are frequent, new looks rare: only a new look touches the cache.
                 const body = payload as Body;
+                const livesKey = getGetWorldsPartyIdLivesQueryKey(WORLD_ID);
+                const life = queryClient
+                    .getQueryData<{ data: LifeSummary[] }>(livesKey)
+                    ?.data.find((l) => l.personaId === body.participantId);
+                if (life && !!life.afk !== !!body.afk)
+                    queryClient.invalidateQueries({ queryKey: livesKey });
                 const queryKey = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID);
                 const snapshot = queryClient.getQueryData<{
                     data: PlacesSnapshot;

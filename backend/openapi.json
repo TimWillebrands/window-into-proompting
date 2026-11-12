@@ -8494,6 +8494,9 @@
               "string"
             ]
           },
+          "afk": {
+            "type": "boolean"
+          },
           "isWalking": {
             "type": "boolean"
           }
@@ -10378,6 +10381,10 @@
                 "$ref": "#/components/schemas/WorldActivity"
               }
             ]
+          },
+          "afk": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

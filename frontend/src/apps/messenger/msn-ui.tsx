@@ -5,26 +5,30 @@ import type { LifeSummary } from '../../api/model/lifeSummary';
 import type { SelfSummary } from '../../api/model/selfSummary';
 import Portrait from '../../components/Portrait';
 
-export type BuddyStatus = 'online' | 'away' | 'busy' | 'offline';
+export type BuddyStatus = 'online' | 'away' | 'busy' | 'afk' | 'offline';
 
-/** Busy while acting; Away when tied up offscreen or their social battery is nearly empty (ADR 0021). */
+/** AFK when a human's gone quiet; Busy while acting; Away when tied up offscreen or their social battery is nearly empty (ADR 0021). */
 export const statusOf = (
     life: LifeSummary | undefined,
     self?: SelfSummary,
 ): BuddyStatus =>
     !life
         ? 'offline'
-        : life.busy
-          ? 'busy'
-          : self &&
-              (Number(self.battery) < 0.25 || Number(self.availability) < 0.35)
-            ? 'away'
-            : 'online';
+        : life.afk
+          ? 'afk'
+          : life.busy
+            ? 'busy'
+            : self &&
+                (Number(self.battery) < 0.25 ||
+                    Number(self.availability) < 0.35)
+              ? 'away'
+              : 'online';
 
 const STATUS_COLORS: Record<BuddyStatus, [string, string]> = {
     online: ['#7ed957', '#2f8f1c'],
     away: ['#ffd75e', '#c79a00'],
     busy: ['#ff7b6b', '#b8241a'],
+    afk: ['#ffb066', '#c46a12'],
     offline: ['#c9c9c9', '#7c7c7c'],
 };
 
@@ -32,6 +36,7 @@ export const STATUS_LABEL: Record<BuddyStatus, string> = {
     online: 'Online',
     away: 'Away',
     busy: 'Busy',
+    afk: 'AFK',
     offline: 'Offline',
 };
 

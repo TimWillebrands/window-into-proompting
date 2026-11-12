@@ -56,6 +56,7 @@ export default function MessengerApp() {
                 .filter((l) => l.personaId !== playerId)
                 .sort(
                     (a, b) =>
+                        Number(a.afk) - Number(b.afk) ||
                         Number(a.busy) - Number(b.busy) ||
                         a.name.localeCompare(b.name),
                 ),
@@ -71,6 +72,7 @@ export default function MessengerApp() {
         chats: true,
         online: true,
         busy: true,
+        afk: true,
     });
     const toggle = (k: keyof typeof openGroups) =>
         setOpenGroups((g) => ({ ...g, [k]: !g[k] }));
@@ -99,8 +101,9 @@ export default function MessengerApp() {
 
     const q = filter.trim().toLowerCase();
     const match = (name: string) => !q || name.toLowerCase().includes(q);
-    const online = contacts.filter((c) => !c.busy && match(c.name));
-    const busy = contacts.filter((c) => c.busy && match(c.name));
+    const online = contacts.filter((c) => !c.afk && !c.busy && match(c.name));
+    const busy = contacts.filter((c) => !c.afk && c.busy && match(c.name));
+    const afk = contacts.filter((c) => c.afk && match(c.name));
     const recent = chats.filter((c) => match(c.withName));
 
     const playerName = player?.name ?? 'You';
@@ -237,6 +240,29 @@ export default function MessengerApp() {
                 />
                 {openGroups.busy &&
                     busy.map((c) => (
+                        <ContactRow
+                            key={c.personaId}
+                            life={c}
+                            self={selfById.get(c.personaId)}
+                            pending={
+                                openDm.isPending &&
+                                openDm.variables?.data.withPersonaId ===
+                                    c.personaId
+                            }
+                            onOpen={() => startChat(c.personaId, c.name)}
+                        />
+                    ))}
+
+                {afk.length > 0 && (
+                    <GroupHeader
+                        label="AFK"
+                        count={afk.length}
+                        open={openGroups.afk}
+                        onToggle={() => toggle('afk')}
+                    />
+                )}
+                {openGroups.afk &&
+                    afk.map((c) => (
                         <ContactRow
                             key={c.personaId}
                             life={c}

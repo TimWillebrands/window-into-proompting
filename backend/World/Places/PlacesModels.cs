@@ -252,6 +252,8 @@ public sealed class Body
     [Id(22)] public string? AwayStretch { get; set; }
     /// <summary>Their Persona's Aura, for whoever stands at the same spot.</summary>
     [Id(23)] public string? Aura { get; set; }
+    /// <summary>A human gone quiet ten minutes: walked home, shut the door, AFK in Messenger.</summary>
+    [Id(24)] public bool Afk { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

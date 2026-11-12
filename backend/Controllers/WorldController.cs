@@ -8,6 +8,7 @@ using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
 using PartyTown.World.Apps;
+using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
@@ -54,13 +55,14 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
         var status = await Clock(partyId).GetStatusAsync();
         var activities = await VisibleAsync(partyId, await Clock(partyId).GetActivitiesAsync(300, null));
+        var afk = (await grains.GetGrain<IPlacesGrain>(partyId).GetAfkAsync()).ToHashSet();
         return Ok(cast
             .Where(c => c.Id != Narrator.PersonaId)
             .Select(c =>
             {
                 var last = activities.FirstOrDefault(a => a.PersonaId == c.Id);
                 return new LifeSummary(c.Id, c.Name, c.DefaultDriver, c.Chattiness,
-                    status.BusyPersonaIds.Contains(c.Id), c.Id == status.PlayerId, last);
+                    status.BusyPersonaIds.Contains(c.Id), c.Id == status.PlayerId, last, afk.Contains(c.Id));
             })
             .ToList());
     }
@@ -389,4 +391,5 @@ public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid?
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);
 public sealed record OpenDirectChatRequest(Guid WithPersonaId, Guid? FromPersonaId);
 public sealed record DirectChatSummary(Guid ChatGroupId, Guid WithId, string WithName, string? LastMessage, Guid? LastSenderId, long LastAt);
-public sealed record LifeSummary(Guid PersonaId, string Name, DriverKind Driver, double Chattiness, bool Busy, bool IsPlayer, WorldActivity? LastActivity);
+/// <param name="Afk">A human gone quiet: home, door shut, not available (see <see cref="PlacesGrain.AwayFromKeyboard"/>).</param>
+public sealed record LifeSummary(Guid PersonaId, string Name, DriverKind Driver, double Chattiness, bool Busy, bool IsPlayer, WorldActivity? LastActivity, bool Afk = false);

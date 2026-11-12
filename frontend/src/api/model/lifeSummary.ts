@@ -16,4 +16,5 @@ export interface LifeSummary {
     busy: boolean;
     isPlayer: boolean;
     lastActivity: null | WorldActivity;
+    afk?: boolean;
 }

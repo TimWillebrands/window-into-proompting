@@ -62,5 +62,6 @@ export interface Body {
     awayStretch?: string | null;
     /** @nullable */
     aura?: string | null;
+    afk?: boolean;
     isWalking?: boolean;
 }

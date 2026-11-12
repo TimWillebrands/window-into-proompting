@@ -148,7 +148,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         var affordances = new List<Affordance>();
         var recentlyTalked = new HashSet<Guid>();
         var waitingOn = new HashSet<Guid>();
-        var nearby = await CoPresentAsync(ctx);
+        var (nearby, afk) = await CoPresentAsync(ctx);
 
         var scrollable = new List<(ChatGroupInfo Dm, string Other, bool Unread)>();
         foreach (var dm in ctx.Threads.Where(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(ctx.Self.Id) == true))
@@ -163,7 +163,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             if (ctx.Now - lastAt < FreshThread) recentlyTalked.Add(otherId);
 
             // Only a chat you're in the middle of, or just scrolled through, is in mind; the rest is a notification.
-            var who = $"{other}{(ctx.IsHuman(otherId) ? " (a real human)" : "")}";
+            var who = $"{other}{(ctx.IsHuman(otherId) ? " (a real human)" : "")}{(afk.Contains(otherId) ? " (AFK: away from the keyboard, won't see it for a while)" : "")}";
             if (glance.Held.Count > 0)
             {
                 sb.AppendLine($"Chat with {who} ({(glance.InExchange ? "you're in the middle of it" : "you just scrolled back through it")}, last message {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}):");
@@ -186,7 +186,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 var done = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
                 if (done) sb.AppendLine("  (this chat has run its course; it's fine to leave it here)");
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
-                    nearby.Contains(otherId) || done ? 0 : ctx.IsHuman(otherId) ? 4 : 1, dm.Id, "reply"));
+                    nearby.Contains(otherId) || done ? 0 : ctx.IsHuman(otherId) && !afk.Contains(otherId) ? 4 : 1, dm.Id, "reply"));
             }
             else
             {
@@ -194,7 +194,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 waitingOn.Add(otherId);
                 var unanswered = recent.AsEnumerable().Reverse().TakeWhile(m => m.SenderId == ctx.Self.Id).Count();
                 sb.AppendLine($"  (you're waiting on {other}{(unanswered >= 2 ? "; you've already followed up, so leave it with them" : "")})");
-                if (MessengerManners.MayFollowUp(unanswered, ctx.Now - lastAt) && !nearby.Contains(otherId))
+                if (MessengerManners.MayFollowUp(unanswered, ctx.Now - lastAt) && !nearby.Contains(otherId) && !afk.Contains(otherId))
                 {
                     // The thermostat reads this path too (ADR 0043): a chat that ended on settled plans isn't chased again.
                     var settled = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
@@ -212,7 +212,7 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 0, scroll.Dm.Id, "scroll", Look: true));
 
         var newContacts = ctx.Others
-            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id))
+            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id) && !afk.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
             .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
             .ThenBy(_ => Random.Shared.Next())
@@ -225,13 +225,15 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         return new AppPerception(Id, "Messenger (private 1:1 chats)", sb.ToString().TrimEnd(), affordances);
     }
 
-    private async Task<HashSet<Guid>> CoPresentAsync(LifeContext ctx)
+    /// <returns>Who's in the same Place, and who's AFK.</returns>
+    private async Task<(HashSet<Guid> Nearby, HashSet<Guid> Afk)> CoPresentAsync(LifeContext ctx)
     {
         var bodies = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Bodies;
+        var afk = bodies.Where(b => b.Afk).Select(b => b.ParticipantId).ToHashSet();
         var self = bodies.FirstOrDefault(b => b.ParticipantId == ctx.Self.Id);
-        if (self is null || self.IsWalking) return new HashSet<Guid>();
-        return bodies.Where(b => b.ParticipantId != ctx.Self.Id && !b.IsWalking && b.PlaceId == self.PlaceId)
-            .Select(b => b.ParticipantId).ToHashSet();
+        if (self is null || self.IsWalking) return (new HashSet<Guid>(), afk);
+        return (bodies.Where(b => b.ParticipantId != ctx.Self.Id && !b.IsWalking && b.PlaceId == self.PlaceId)
+            .Select(b => b.ParticipantId).ToHashSet(), afk);
     }
 
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)

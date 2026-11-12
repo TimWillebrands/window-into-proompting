@@ -192,6 +192,8 @@ function Conversation({
         if (onAuto) return 'Your character is on auto and answers for you.';
         if (isTyping) return `${withName} is typing a message.`;
         if (isReading) return `${withName} is reading your message…`;
+        if (theirStatus === 'afk')
+            return `${withName} is away from the keyboard and may not see this for a while.`;
         if (withId && heldBy(withId, messages, declined))
             return `${withName} saw this and will get back to you.`;
         if (prompt.isError) return 'Your message could not be delivered.';

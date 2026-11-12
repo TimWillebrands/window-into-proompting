@@ -323,6 +323,10 @@ See [ADR 0020](docs/adr/0020-embodiment-one-body-one-place.md).
 A Participant's physical presence in the World. Exactly one per Participant, always in exactly one **Place**, at a named **Spot**, with a posture and maybe something it's busy with ("on their phone, texting").
 _Avoid_: avatar (the sprite, not the thing), character, sprite, NPC.
 
+**AFK**:
+A human whose Player has had no input for ten minutes (tab closed or hidden included): their **Body** walks **Home** and, with nobody else living there at it, closes up (guests shown out, knocks unanswered). Messenger shows them AFK and Personas don't chase them. Any input brings them back. Players on auto never go AFK.
+_Avoid_: offline (that's no Life at all), idle (that's dozing at the screen, after five minutes).
+
 **Place**:
 A physical location in the World: a **Home**, the Lobby, the Café, the city centre (outdoors). Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
 _Avoid_: room (taken, see **Room**), location, map, level.
