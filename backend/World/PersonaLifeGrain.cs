@@ -75,6 +75,7 @@ public sealed class PersonaLifeGrain(
 
         var clock = GrainFactory.GetGrain<IWorldClockGrain>(partyId);
         var wants = await WantsAsync(partyId, personaId);
+        var skills = await SkillsAsync(partyId, personaId);
         var threads = await party.GetChatGroups();
         var now = DateTimeOffset.UtcNow;
         var snapshot = await SnapshotAsync(partyId);
@@ -164,7 +165,8 @@ public sealed class PersonaLifeGrain(
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
         var world = sb.ToString();
         sb.AppendLine("# Options");
-        string Read(Affordance a) => Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId));
+        // What they know how to do shows on the option that exercises it (ADR 0054); no pull, System One weighs who they are.
+        string Read(Affordance a) => Skills.SkillRules.Toward(Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId)), Skills.SkillRules.Match(skills, a.Label));
         for (var i = 0; i < options.Count; i++)
             sb.AppendLine($"{i + 1}. {Read(options[i])}");
         sb.AppendLine($"0. {rest}");
@@ -204,9 +206,11 @@ public sealed class PersonaLifeGrain(
         // No options menu here: with it in view the intent drifted to another App's option.
         var decided = options[choice - 1];
         var where = perceptions.FirstOrDefault(p => p.AppId == decided.AppId)?.Title ?? decided.AppId;
+        // Its how only now, once picked: the intent is a competent one (ADR 0054).
+        var knack = Skills.SkillRules.Render(Skills.SkillRules.Match(skills, decided.Label));
         var voiced = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
             $"{WorldLlm.Identity(self)}\n\nYou've decided what to do next. Say what's on your mind and what exactly you'll do: only this one thing, in {where}, nothing from elsewhere.\n{LifeChoice.DeclineCue}\nOutput ONLY JSON: {IntentShape}",
-            $"{world}\n# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"], ["decline"], LifeChoice.Refuse);
+            $"{world}\n{knack}# What you've decided\n{decided.Label} ({where})", ct, 0.8, ["thought", "intent"], ["decline"], LifeChoice.Refuse);
         var thought = voiced?["thought"]?.ToString();
         var intent = voiced?["intent"]?.ToString() ?? string.Empty;
         // System Two has the last word (ADR 0034): a pick it wouldn't make in character doesn't happen.
@@ -271,6 +275,17 @@ public sealed class PersonaLifeGrain(
         {
             logger.LogDebug(ex, "Desires failed for {Persona}", personaId);
             return new List<Desires.Desire>();
+        }
+    }
+
+    /// <summary>What they know how to do (ADR 0054); none on a failure, never a failed turn.</summary>
+    private async Task<List<Skills.SkillView>> SkillsAsync(Guid partyId, Guid personaId)
+    {
+        try { return await GrainFactory.GetGrain<Skills.ISkillsGrain>(WorldKeys.Life(partyId, personaId)).GetAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Skills failed for {Persona}", personaId);
+            return new List<Skills.SkillView>();
         }
     }
 

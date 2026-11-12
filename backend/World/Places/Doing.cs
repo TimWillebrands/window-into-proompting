@@ -9,7 +9,8 @@ public sealed record TakeBrief(
     [property: Id(0)] Guid Who, [property: Id(1)] string Name, [property: Id(2)] string? Identity,
     [property: Id(3)] string Place, [property: Id(4)] string PlaceAbout, [property: Id(5)] string Thing,
     [property: Id(6)] string Do, [property: Id(7)] string Gives, [property: Id(8)] bool Leaves,
-    [property: Id(9)] string? Why, [property: Id(10)] string When, [property: Id(11)] List<string> Earlier);
+    [property: Id(9)] string? Why, [property: Id(10)] string When, [property: Id(11)] List<string> Earlier,
+    [property: Id(12)] string? Knack = null);
 
 /// <summary>What doing something gave: the line for the feed, and the Take on its own.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Done")]
@@ -49,6 +50,7 @@ public sealed class PlaceMuseGrain(IWorldLlm llm, ILogger<PlaceMuseGrain> logger
             What {b.Name} does: {b.Do}
             What it gives: {b.Gives}
             {(string.IsNullOrWhiteSpace(b.Why) ? string.Empty : $"Why, in their words: {WorldStream.Clip(b.Why, 240)}")}
+            {(string.IsNullOrWhiteSpace(b.Knack) ? string.Empty : $"They know how: {b.Knack}. What they come away with is what someone who knows would get from it, not a first-timer.")}
             It's {b.When}.
             {(b.Earlier.Count == 0 ? string.Empty : $"Earlier here:\n- {string.Join("\n- ", b.Earlier)}")}
             """;
@@ -84,10 +86,21 @@ public static class Doing
             who, body.Name.Split(' ')[0], identity, place.Name, place.Description, furni.Name, what,
             furni.Gives ?? "one small, specific thing they notice or find", furni.Leaves, why,
             now.ToLocalTime().ToString("dddd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
-            furni.Takes.TakeLast(5).Select(t => t.Text).ToList()));
+            furni.Takes.TakeLast(5).Select(t => t.Text).ToList(), await KnackAsync(grains, partyId, who, $"{what} {furni.Name}")));
         var summary = await places.DoFeatureAsync(who, placeId, furniId, take ?? string.Empty);
         if (summary is null) return null;
         await Skills.Practising.NoteAsync(grains, partyId, who, Skills.Practising.Feature(what, summary));
         return new Done(summary, take ?? string.Empty, furni.Name, place.Name);
+    }
+
+    /// <summary>"reading the night sky (practised): …" when they know how to do this (ADR 0054); null for a first-timer.</summary>
+    private static async Task<string?> KnackAsync(IGrainFactory grains, Guid partyId, Guid who, string doing)
+    {
+        try
+        {
+            var skill = Skills.SkillRules.Match(await grains.GetGrain<Skills.ISkillsGrain>(WorldKeys.Life(partyId, who)).GetAsync(), doing);
+            return skill is null ? null : $"{skill.Name} ({Skills.SkillRules.Describe(skill.Level, skill.Rusty)}): {skill.How}";
+        }
+        catch (Exception) { return null; }
     }
 }

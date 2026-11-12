@@ -173,4 +173,15 @@ public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
         Assert.Equal(SkillSource.Desire, learned.Source);
         Assert.Equal(SkillLevel.Learning, learned.Level);
     }
+
+    [Fact]
+    public async Task AFeatureDoneBySomeoneWhoKnowsHow_TellsTheMuse()
+    {
+        var who = Guid.NewGuid();
+        var knack = "reading the night sky (practised): You find the Plough first.";
+        await _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlaceMuseGrain>(0).TakeAsync(new PartyTown.World.Places.TakeBrief(
+            who, "Denise", null, "the Observatory", "a dome on the dyke", "the telescope", "Look through the telescope", "something in the sky",
+            false, null, "Thursday 22:10", new List<string>(), knack));
+        Assert.Contains(WorldLifeTest.ScriptedLlm.Prompts, p => p.Contains($"They know how: {knack}") && p.Contains("not a first-timer"));
+    }
 }

@@ -42,6 +42,26 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task LifeTurn_AnOptionTheyKnowHowToDo_SaysSo_AndOnlyTheVoiceGetsTheHow()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        await _fx.GrainFactory.GetGrain<PartyTown.World.Skills.ISkillsGrain>(WorldKeys.Life(partyId, denise)).AddAsync(new PartyTown.World.Skills.Skill
+        {
+            Name = "writing short posts", How = "You cut the first sentence and keep the second.", Cues = new List<string> { "post" },
+            Practice = 12, PractisedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        });
+        ScriptedLlm.ChooseOptionContaining = "(you know how: writing short posts)";
+
+        var activity = await _fx.GrainFactory
+            .GetGrain<IPersonaLifeGrain>(WorldKeys.Life(partyId, denise)).LiveAsync(null);
+
+        Assert.Equal("post", activity.Action);
+        var voiced = Assert.Single(ScriptedLlm.Prompts, p => p.Contains("You cut the first sentence"));
+        Assert.Contains("- Writing short posts (practised): You cut the first sentence", voiced);
+        Assert.Contains("# What you've decided", voiced);
+    }
+
+    [Fact]
     public async Task LifeTurn_BoardPostThatIsOnlyANoteAboutWriting_Fizzles_AndPublishesNothing()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();

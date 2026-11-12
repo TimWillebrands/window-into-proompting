@@ -851,6 +851,61 @@ public class ResponsePipelineTest
                 job.Messages.First(m => m.Role == "system").Content));
     }
 
+    [Fact]
+    public async Task HandleAsync_TalkTouchingASkill_RendersTheKnowHowInBothPrompts()
+    {
+        // ADR 0054: one Skill the live exchange touches, the same block in Decision and Speaking; none when it doesn't.
+        var fx = BuildFixture();
+        var skills = new Mock<PartyTown.World.Skills.ISkillsGrain>();
+        skills.Setup(g => g.GetAsync()).ReturnsAsync(new List<PartyTown.World.Skills.SkillView>
+        {
+            new(Guid.NewGuid(), "playing chess", "You develop knights before bishops and never trade your queen early.", new List<string> { "chess", "board" },
+                PartyTown.World.Skills.SkillSource.Sheet, PartyTown.World.Skills.SkillLevel.SecondNature, false, 30, 0, true),
+            new(Guid.NewGuid(), "pulling espresso", "You dial the grinder in every morning.", new List<string> { "espresso", "coffee" },
+                PartyTown.World.Skills.SkillSource.Sheet, PartyTown.World.Skills.SkillLevel.SecondNature, false, 30, 0, true),
+        });
+        fx.GrainFactory.Setup(f => f.GetGrain<PartyTown.World.Skills.ISkillsGrain>(It.IsAny<string>(), null)).Returns(skills.Object);
+
+        var decisionJson = """{"gutReaction":"ooh","memoryToReference":null,"wouldSay":"Me!","respond":true}""";
+        var capturedJobs = new List<LlmGenerationJob>();
+        var routeCall = 0;
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var content = Interlocked.Increment(ref routeCall) == 1 ? decisionJson : "Me!";
+                var ep = new Mock<ILlmEndpointGrain>();
+                ep.Setup(e => e.GetAttributionAsync())
+                    .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
+                ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+                    .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+                    {
+                        lock (capturedJobs) capturedJobs.Add(job);
+                        return StreamChunks(new[] { content }, ct);
+                    });
+                return ep.Object;
+            });
+
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(
+            MakePersona(),
+            chatGroupId: Guid.NewGuid(),
+            triggeringMessage: triggering,
+            chatGroupGrain: fx.ChatGroup.Object,
+            store: fx.Store,
+            ct: CancellationToken.None);
+
+        Assert.Equal(2, capturedJobs.Count);
+        foreach (var job in capturedJobs)
+        {
+            var systemPrompt = job.Messages.First(m => m.Role == "system").Content;
+            Assert.Contains("# What you know how to do\n- Playing chess (second nature): You develop knights", systemPrompt);
+            Assert.DoesNotContain("espresso", systemPrompt);
+        }
+    }
+
     private static async IAsyncEnumerable<LlmGenerationEvent> SignalThenHang(
         TaskCompletionSource<bool> signal,
         [EnumeratorCancellation] CancellationToken ct = default)

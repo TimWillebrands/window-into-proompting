@@ -638,7 +638,7 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants, history);
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
@@ -702,9 +702,13 @@ public sealed class ResponsePipeline(
         return result!;
     }
 
-    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
-    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present)
+    /// <summary>Lines of the live exchange a Skill has to be touched by to come to mind (ADR 0054).</summary>
+    private const int SkillWindow = 4;
+
+    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, know-how in use, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
+    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
     {
+        var knowHow = await KnowHowAsync(chatGroupGrain, self.Id, history);
         try
         {
             var partyId = await chatGroupGrain.GetPartyIdAsync();
@@ -724,12 +728,31 @@ public sealed class ResponsePipeline(
             }
             var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
             if (reflex is not null && string.IsNullOrWhiteSpace(scenario)) block += await reflex.MindAsync(partyId, self.Id);
+            block += knowHow;
             return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Presence failed for {PersonaName}; speaking without it", self.Name);
-            return null;
+            return string.IsNullOrEmpty(knowHow) ? null : knowHow;
+        }
+    }
+
+    /// <summary>The one Skill the live exchange touches, as a block; both phases read the same (ADR 0054, like Stances).</summary>
+    private async Task<string> KnowHowAsync(IChatGroupGrain chatGroupGrain, Guid personaId, IReadOnlyList<ChatMessage> history)
+    {
+        try
+        {
+            var live = string.Join("\n", history.TakeLast(SkillWindow).Select(m => m.Content).Where(c => !string.IsNullOrWhiteSpace(c)));
+            if (live.Length == 0) return string.Empty;
+            var key = WorldKeys.Life(await chatGroupGrain.GetPartyIdAsync(), personaId);
+            var skills = await grainFactory.GetGrain<World.Skills.ISkillsGrain>(key).GetAsync();
+            return World.Skills.SkillRules.Render(World.Skills.SkillRules.Match(skills, live));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "Skills lookup failed for {PersonaId}", personaId);
+            return string.Empty;
         }
     }
 
@@ -830,7 +853,7 @@ public sealed class ResponsePipeline(
         var totalAiRounds = UrgeMath.CountExchangeRounds(history);
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);
+        var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants, history);
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
             self = self with { Bio = livedBio };
         var windingDown = await WindingDownAsync(chatGroupGrain);
