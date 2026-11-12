@@ -580,19 +580,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         => Task.FromResult<IReadOnlyList<RaceEvaluation>>(State.RaceEvaluations.ToList());
 
     public Task<int> CountTrailingAssistantMessagesAsync()
-    {
-        var count = 0;
-        for (var i = State.Messages.Count - 1; i >= 0; i--)
-        {
-            var msg = State.Messages[i];
-            if (msg.SenderType != "assistant")
-                break;
-            if (string.IsNullOrEmpty(msg.Content))
-                continue;
-            count++;
-        }
-        return Task.FromResult(count);
-    }
+        => Task.FromResult(Services.ResponsePipeline.UrgeMath.CountExchangeRounds(State.Messages));
 
     /// <summary>
     /// Fan out a message notification to every Participant in this Room (except the sender).
@@ -760,6 +748,7 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesUntilAsync")]
     Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null);
 
+    /// <summary>AI rounds in the current exchange (<see cref="Services.ResponsePipeline.UrgeMath.CountExchangeRounds"/>).</summary>
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
 }

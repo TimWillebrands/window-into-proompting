@@ -92,12 +92,14 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("rounds.total_assistant", preRounds);
         turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
 
-        // Two Personas DMing can't ping-pong forever: a long all-AI streak in a DM ends it.
+        // Two Personas DMing can't ping-pong forever: a long all-AI streak in one exchange ends it.
         var dmExhausted = isDirect && preRounds >= MaxDirectAiRounds;
         if (dmExhausted || UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
-            turnSpan?.SetTag("decision", "skip-obvious");
-            var skipReason = $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
+            turnSpan?.SetTag("decision", dmExhausted ? "skip-dm-cap" : "skip-obvious");
+            var skipReason = dmExhausted
+                ? $"dm-cap (rounds={preRounds}, max={MaxDirectAiRounds})"
+                : $"obvious-skip (rounds={preRounds}, recentSelf={preRecentSelf})";
             logger.LogDebug(
                 "Persona {PersonaName} silently skipped (urge={Urge:F2}, rounds={Rounds}, recentSelf={Self})",
                 persona.Name, preUrge.Total, preRounds, preRecentSelf);
@@ -804,24 +806,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>
-    /// Mirrors <see cref="IChatGroupGrain.CountTrailingAssistantMessagesAsync"/> against an
-    /// in-hand history snapshot. Skips empty-content stubs (reserved slots) and stops at the
-    /// first non-assistant message.
-    /// </summary>
-    private static int CountTrailingAssistantMessages(IReadOnlyList<ChatMessage> history)
-    {
-        var count = 0;
-        for (var i = history.Count - 1; i >= 0; i--)
-        {
-            var msg = history[i];
-            if (msg.SenderType != "assistant") break;
-            if (string.IsNullOrEmpty(msg.Content)) continue;
-            count++;
-        }
-        return count;
-    }
-
     private async Task<ShouldRespondResult> RunDecisionPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
@@ -843,7 +827,7 @@ public sealed class ResponsePipeline(
         // Derive from the same snapshot as `history` so the decision sees a consistent
         // view — re-reading live grain state here could count a sibling persona's append
         // that isn't in `history`.
-        var totalAiRounds = CountTrailingAssistantMessages(history);
+        var totalAiRounds = UrgeMath.CountExchangeRounds(history);
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
         var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants);

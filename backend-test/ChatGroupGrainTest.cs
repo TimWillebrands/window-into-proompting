@@ -525,18 +525,9 @@ public class ChatGroupGrainTest
         Assert.Equal(2, count); // Should NOT count the user message at slot 1
     }
 
-    /// <summary>Replicates <see cref="ChatGroupGrain.CountTrailingAssistantMessagesAsync"/> logic.</summary>
+    /// <summary>What <see cref="ChatGroupGrain.CountTrailingAssistantMessagesAsync"/> returns for this state.</summary>
     private static int CountTrailingAssistant(ChatGroupState state)
     {
-        var count = 0;
-        var messages = state.Messages.OrderBy(m => m.MessageId).ToList();
-        for (var i = messages.Count - 1; i >= 0; i--)
-        {
-            var msg = messages[i];
-            if (msg.SenderType != "assistant") break;
-            if (string.IsNullOrEmpty(msg.Content)) continue;
-            count++;
-        }
-        return count;
+        return PartyTown.Services.ResponsePipeline.UrgeMath.CountExchangeRounds(state.Messages);
     }
 }

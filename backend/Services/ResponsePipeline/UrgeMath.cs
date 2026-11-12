@@ -71,17 +71,49 @@ public static class UrgeMath
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, coldOpenScore, chaosScore);
     }
 
+    /// <summary>A line older than this, counted back from the latest one, is no longer the current exchange (ChatAttention's pause).</summary>
+    public static readonly TimeSpan ExchangeWindow = World.Self.ChatAttention.SessionGap;
+
+    /// <summary>AI rounds in the current exchange: trailing assistant lines within <see cref="ExchangeWindow"/> of the latest line; stubs skipped.</summary>
+    public static int CountExchangeRounds(IReadOnlyList<ChatMessage> history)
+    {
+        var since = ExchangeSince(history);
+        var count = 0;
+        for (var i = history.Count - 1; i >= 0; i--)
+        {
+            var msg = history[i];
+            if (msg.SenderType != "assistant") break;
+            if (string.IsNullOrEmpty(msg.Content)) continue;
+            if (msg.SendAt < since) break;
+            count++;
+        }
+        return count;
+    }
+
+    /// <summary>Own lines in the same trailing run <see cref="CountExchangeRounds"/> counts.</summary>
     public static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
     {
+        var since = ExchangeSince(history);
         var count = 0;
         for (var i = history.Count - 1; i >= 0; i--)
         {
             if (history[i].SenderType != "assistant")
                 break;
+            if (!string.IsNullOrEmpty(history[i].Content) && history[i].SendAt < since)
+                break;
             if (history[i].SenderId == selfId)
                 count++;
         }
         return count;
+    }
+
+    /// <summary>Unix ms where the current exchange starts: <see cref="ExchangeWindow"/> before the latest timed line. Null = no cutoff.</summary>
+    private static long? ExchangeSince(IReadOnlyList<ChatMessage> history)
+    {
+        for (var i = history.Count - 1; i >= 0; i--)
+            if (!string.IsNullOrEmpty(history[i].Content) && history[i].SendAt is { } at)
+                return at - (long)ExchangeWindow.TotalMilliseconds;
+        return null;
     }
 
     /// <summary>
