@@ -101,6 +101,10 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         return others;
     }
 
+    /// <summary>Where the work stands for the Day of someone on staff (ADR 0052); a dark CDU leaves only the desk's answers.</summary>
+    public async Task<string> DayFactsAsync(Guid partyId, Company company, CancellationToken ct)
+        => CduScreen.DayFacts(company, await StatusAsync(ct, fresh: true), (await Grain(partyId).GetAsync()).Exchanges);
+
     /// <summary>A look becomes the looker's own work memory: what git and GitHub say, not what the CDU claimed.</summary>
     public async Task<string> LookAsync(Guid partyId, Company company, ParticipantView looker, CancellationToken ct)
     {

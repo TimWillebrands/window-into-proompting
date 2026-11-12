@@ -242,6 +242,16 @@ public class CduScreenTest
     }
 
     [Fact]
+    public void DayFacts_ADarkCdu_LeavesOnlyWhatTheDeskWasTold()
+    {
+        var facts = CduScreen.DayFacts(Shop, null, new[] { Said(Denise, kind: CduRules.Ask), Said(Justin, CduRules.Queued), Said(Justin, CduRules.Parked) });
+
+        Assert.Equal($"At work (Vormwerk: keeps the Forms), all that is underway there, from the desk:\n- Denise asked: \"The timeouts are killing us\" It said: Done.", facts);
+        Assert.EndsWith("Nobody has asked the CDU anything lately.", CduScreen.DayFacts(Shop, Up(), Array.Empty<CduExchange>()));
+        Assert.Contains("The trunk holds nothing new.\n- Nothing in the Agora.", CduScreen.DayFacts(Shop, Up(), Array.Empty<CduExchange>()));
+    }
+
+    [Fact]
     public void Kinds_TheWorksIsReadAsTheCdu()
         => Assert.True(CompanyKinds.IsCdu("works") && CompanyKinds.IsCdu("cdu") && !CompanyKinds.IsCdu("trading"));
 }

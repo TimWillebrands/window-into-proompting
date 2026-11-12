@@ -274,14 +274,14 @@ public sealed class WorldMemory(
     }
 
     public async Task<(IReadOnlyList<RecalledMemory> Memories, IReadOnlyList<string> Stances)> RecallAsync(
-        Guid partyId, Guid personaId, IReadOnlyList<Guid> anchors, string anchorText, CancellationToken ct)
+        Guid partyId, Guid personaId, IReadOnlyList<Guid> anchors, string anchorText, CancellationToken ct, int memoryLimit = 4)
     {
         Guid? placeId = null;
         try { placeId = await grains.GetGrain<Places.IPlacesGrain>(partyId).GetPlaceOfAsync(personaId); }
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Place lookup failed for {PersonaId}", personaId); }
 
         var beat = await Self.PersonaRecall.ForBeatAsync(repository, grains,
-            new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit: 4, stanceLimit: 6, logger, ct);
+            new BeatAnchors(personaId, partyId, anchors, anchorText, placeId), memoryLimit, stanceLimit: 6, logger, ct);
         return (beat.Memories, beat.Stances.Select(Services.ResponsePipeline.StanceBlock.FormatLine).ToList());
     }
 }

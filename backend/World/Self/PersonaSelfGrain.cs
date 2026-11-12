@@ -18,7 +18,8 @@ public sealed partial class PersonaSelfGrain(
     IWorldLlm llm,
     ISystemOneJudge judge,
     ILogger<PersonaSelfGrain> logger,
-    Services.Memory.IMemoryRepository? memory = null)
+    Services.Memory.IMemoryRepository? memory = null,
+    Work.Cdu.Cytheurgy? cytheurgy = null)
     : Grain, IPersonaSelfGrain
 {
     private const int AvailabilityVersion = 1;
@@ -75,6 +76,20 @@ public sealed partial class PersonaSelfGrain(
     }
 
     public Task<SelfState> GetStateAsync() => Task.FromResult(state.State);
+
+    public async Task<bool> TryReviewThreadsAsync()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (now - state.State.ThreadsReviewedAt < ThreadReview.Every.TotalMilliseconds) return false;
+        state.State.ThreadsReviewedAt = now;
+        await state.WriteStateAsync();
+        return true;
+    }
+
+    public async Task CloseThreadsAsync(List<string> settled, List<string> contradicted)
+    {
+        if (SelfMath.Close(state.State, settled, contradicted)) await state.WriteStateAsync();
+    }
 
     public async Task AddOpenerAsync(string story)
     {
@@ -236,6 +251,25 @@ public sealed partial class PersonaSelfGrain(
         }
     }
 
+    /// <summary>Where their work stands when their Company has a real desk (ADR 0052); empty otherwise.</summary>
+    private async Task<string> AtWorkAsync(Guid partyId, Guid personaId)
+    {
+        if (cytheurgy is null) return string.Empty;
+        try
+        {
+            if (await GrainFactory.GetGrain<Work.IOccupationGrain>(WorldKeys.Life(partyId, personaId)).CompanyAsync() is not { } companyId
+                || await GrainFactory.GetGrain<Work.Companies.ICompaniesGrain>(partyId).GetAsync(companyId) is not { } company
+                || !Work.Companies.CompanyKinds.IsCdu(company.Kind)) return string.Empty;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            return $"\n{await cytheurgy.DayFactsAsync(partyId, company, cts.Token)}";
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Work facts failed for the day of {Persona}", personaId);
+            return string.Empty;
+        }
+    }
+
     private static readonly TimeSpan SheetCheck = TimeSpan.FromMinutes(10);
     private long _sheetCheckedAt;
 
@@ -273,20 +307,12 @@ public sealed partial class PersonaSelfGrain(
         // A rewritten sheet is a new centre: yesterday's mood and errands were lived by someone else.
         var rewritten = state.State.DayKey is not null && state.State.SheetKey is not null && state.State.SheetKey != sheetKey;
         var newDay = state.State.DayKey != key;
-        var carried = SelfMath.CarriedThreads(state.State.Threads, state.State.ThreadAges);
-        var ongoing = carried.Count == 0 ? "(nothing recorded)" : string.Join("; ", carried);
+        var dayState = SelfMath.DayState(state.State, now, personaId, rewritten, await PlacesYouGoAsync(partyId, personaId),
+            await WantsAsync(partyId, personaId), await FixedTodayAsync(partyId, personaId, now), await AtWorkAsync(partyId, personaId));
 
         using var cts = new CancellationTokenSource(DayBudget);
         try
         {
-            var yesterday = state.State.DayKey is null
-                ? "(no record)"
-                : rewritten
-                    ? "(who they are has been rewritten since; go by who they are now)"
-                    : $"Mood: {state.State.Mood}. On your mind: {state.State.Preoccupation}. Last thing you did: {state.State.Beats.LastOrDefault()?.Text}";
-            var ongoingLine = rewritten
-                ? $"Ongoing from before who they are was rewritten (keep only what fits who they are now, drop the rest without a done: line): {ongoing}"
-                : $"Ongoing in their life: {ongoing}";
             var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General,
                 $"""
                 {WorldLlm.Identity(self)}
@@ -298,6 +324,7 @@ public sealed partial class PersonaSelfGrain(
                 No epiphanies, no symbolism, no metaphors, nothing poetic. Plain, specific, a little boring.
                 Keep their job, home and circumstances consistent with who they are. Don't mention any online chat or its people.
                 If a "Fixed today" is given, it happens: put it in the beats at those times.
+                If "At work" is given, that is where their job stands: their work beats and work threads come from it.
                 Output ONLY JSON with string fields:
                 - mood: 2-4 plain words for how they woke up feeling
                 - energy: low, medium or high
@@ -309,7 +336,7 @@ public sealed partial class PersonaSelfGrain(
                 Let today's beats move at least one ongoing thread a little.
                 If they want something lasting, one ordinary beat may edge toward it (a call, an errand, an hour on it); no breakthroughs.
                 """,
-                $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{await PlacesYouGoAsync(partyId, personaId)}\nYesterday: {yesterday}\n{ongoingLine}{await WantsAsync(partyId, personaId)}{await FixedTodayAsync(partyId, personaId, now)}{SelfMath.SmallThings(personaId, now)}",
+                dayState,
                 cts.Token, 0.9, ["mood", "energy", "preoccupation", "beats", "openers", "threads", "whereabouts"]);
             var beats = SelfMath.ParseBeats(json?["beats"]?.ToString());
             if (beats.Count == 0)
@@ -445,6 +472,46 @@ public static partial class SelfMath
     /// <summary>Fingerprint of who they are (sheet + bio); a new one means today's life was written for someone else.</summary>
     public static string SheetKey(string? sheet, string? bio)
         => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{sheet}\n\0{bio}")))[..16];
+
+    /// <summary>What the Day call is handed (ADR 0021, 0052): facts only, the prompt says how to write the day.</summary>
+    public static string DayState(SelfState before, DateTimeOffset now, Guid personaId, bool rewritten, string placesYouGo, string wants, string fixedToday, string atWork)
+    {
+        var carried = CarriedThreads(before.Threads, before.ThreadAges);
+        var ongoing = carried.Count == 0 ? "(nothing recorded)" : string.Join("; ", carried);
+        var onMind = string.IsNullOrWhiteSpace(before.Preoccupation) ? string.Empty : $" On your mind: {before.Preoccupation}.";
+        var yesterday = before.DayKey is null
+            ? "(no record)"
+            : rewritten
+                ? "(who they are has been rewritten since; go by who they are now)"
+                : $"Mood: {before.Mood}.{onMind} Last thing you did: {before.Beats.LastOrDefault()?.Text}";
+        var ongoingLine = rewritten
+            ? $"Ongoing from before who they are was rewritten (keep only what fits who they are now, drop the rest without a done: line): {ongoing}"
+            : $"Ongoing in their life: {ongoing}";
+        return $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{placesYouGo}\nYesterday: {yesterday}\n{ongoingLine}{wants}{fixedToday}{atWork}{SmallThings(personaId, now)}";
+    }
+
+    /// <summary>Drops the threads and Preoccupation a review closed (ADR 0052); settled ones read as settled. True when anything changed.</summary>
+    public static bool Close(SelfState s, IReadOnlyCollection<string> settled, IReadOnlyCollection<string> contradicted)
+    {
+        bool Closed(string t) => settled.Contains(t) || contradicted.Contains(t);
+        var done = settled.Where(t => (s.Threads.Contains(t) || t == s.Preoccupation) && !s.Resolved.Contains(t)).ToList();
+        var kept = s.Threads.Select((t, i) => (t, age: i < s.ThreadAges.Count ? s.ThreadAges[i] : 1)).Where(x => !Closed(x.t)).ToList();
+        var changed = kept.Count != s.Threads.Count;
+        if (changed)
+        {
+            s.Threads = kept.Select(x => x.t).ToList();
+            s.ThreadAges = kept.Select(x => x.age).ToList();
+            // Reviewed, not missing: today's threads aren't written again from the beats.
+            s.ThreadsKey = s.DayKey;
+        }
+        if (s.Preoccupation is { } p && Closed(p))
+        {
+            s.Preoccupation = null;
+            changed = true;
+        }
+        if (done.Count > 0) s.Resolved = s.Resolved.Concat(done).ToList();
+        return changed;
+    }
 
     /// <summary>Life threads: open lines, plus "done: …" lines settled today.</summary>
     public static (List<string> Open, List<string> Done) ParseThreads(string? raw)
@@ -596,6 +663,10 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("SetMoodAsync")] Task SetMoodAsync(string mood);
     [Alias("RechargeAsync")] Task RechargeAsync(double amount);
     [Alias("GetStateAsync")] Task<SelfState> GetStateAsync();
+    /// <summary>True (and the clock reset) when a <see cref="ThreadReview"/> is due.</summary>
+    [Alias("TryReviewThreadsAsync")] Task<bool> TryReviewThreadsAsync();
+    /// <summary>Threads, or the Preoccupation, a review found settled or contradicted (ADR 0052): they go.</summary>
+    [Alias("CloseThreadsAsync")] Task CloseThreadsAsync(List<string> settled, List<string> contradicted);
 
     /// <summary>An option was acted on: any of today's openers it carried has been told now, on whatever channel.</summary>
     [Alias("TellAsync")] Task TellAsync(string label);
@@ -645,6 +716,8 @@ public sealed class SelfState
     [Id(20)] public List<int> ThreadAges { get; set; } = new();
     /// <summary><see cref="SelfMath.SheetKey"/> of the sheet today's life was written for; null before it was tracked.</summary>
     [Id(21)] public string? SheetKey { get; set; }
+    /// <summary>When a <see cref="ThreadReview"/> last ran.</summary>
+    [Id(22)] public long ThreadsReviewedAt { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

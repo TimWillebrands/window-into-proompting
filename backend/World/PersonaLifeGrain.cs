@@ -23,7 +23,8 @@ public sealed class PersonaLifeGrain(
     FollowThrough? followThrough = null,
     Work.Responsibilities? responsibilities = null,
     Desires.DesireReview? desireReview = null,
-    Reflex.ReflexGate? reflex = null)
+    Reflex.ReflexGate? reflex = null,
+    ThreadReview? threadReview = null)
     : Grain, IPersonaLifeGrain
 {
     private const int MaxOptions = 10;
@@ -55,7 +56,7 @@ public sealed class PersonaLifeGrain(
         // Time to yourself recharges (ADR 0021): resting and writing are how talked-out people refill.
         if (activity.Action is "rest" or "diary")
         {
-            if (activity.Action == "diary" && desireReview is not null) _ = ReviewDesiresAsync(partyId, personaId);
+            _ = ReviewAtRestAsync(partyId, personaId, wrote: activity.Action == "diary");
             try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
             catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
         }
@@ -283,12 +284,16 @@ public sealed class PersonaLifeGrain(
         }
     }
 
-    private async Task ReviewDesiresAsync(Guid partyId, Guid personaId)
+    /// <summary>Rest decides what things came to: Life threads on any rest (ADR 0052), wanting in the diary (ADR 0026).</summary>
+    private async Task ReviewAtRestAsync(Guid partyId, Guid personaId, bool wrote)
     {
+        if (threadReview is null && (!wrote || desireReview is null)) return;
         var cast = await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync();
         if (cast.FirstOrDefault(c => c.Id == personaId) is not { } self) return;
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        await desireReview!.ReviewAsync(partyId, self, cast.Select(c => c.Id).ToList(), cts.Token);
+        var ids = cast.Select(c => c.Id).ToList();
+        if (threadReview is not null) await threadReview.ReviewAsync(partyId, self, ids, cts.Token);
+        if (wrote && desireReview is not null) await desireReview.ReviewAsync(partyId, self, ids, cts.Token);
     }
 
     private async Task<bool> OnShiftAsync(Guid partyId, Guid personaId)

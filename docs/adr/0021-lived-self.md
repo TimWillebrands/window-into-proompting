@@ -98,6 +98,8 @@ background.
       ran for weeks and outlived a rewritten sheet. Each thread now has an age: a reworded thread keeps its
       age (word overlap), from 4 days it's flagged as dragging on (done today or dropped), and at 8 days it's
       let go. What lasts longer belongs to desires and the sheet.
+    - *Amended by ADR 0052:* what they remember can close a thread or the preoccupation too, at rest, when it shows
+      it settled or not so.
     - **The sheet is the centre.** `SheetKey` fingerprints sheet and bio. When either changes, today's day is
       written again. Carried threads stay only if they fit who the persona is now, yesterday's mood isn't
       carried over, and the home district is read again. Battery and mood drift reset only on a new day.

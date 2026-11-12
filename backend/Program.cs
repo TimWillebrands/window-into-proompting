@@ -84,6 +84,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Work.Workplaces>();
     builder.Services.AddSingleton<PartyTown.World.Work.Responsibilities>();
     builder.Services.AddSingleton<PartyTown.World.Desires.DesireReview>();
+    builder.Services.AddSingleton<PartyTown.World.Self.ThreadReview>();
     builder.Services.AddSingleton<PartyTown.World.Desires.Mimesis>();
     builder.Services.AddSingleton<PartyTown.World.Relations.KeyWants>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Work.WorkApp>();

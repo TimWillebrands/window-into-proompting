@@ -305,6 +305,49 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         Assert.Null(await desk.PerceiveAsync(ctx, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Day_ACytheurgistsDayIsHandedWhereTheWorkStands_AndOnlyTheirs()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var company = (await Site.FoundAsync(partyId, $"Vormwerk {Guid.NewGuid():N}", "keeps the Forms"))!;
+        var other = (await Site.FoundAsync(partyId, $"Elders {Guid.NewGuid():N}", "keeps other Forms"))!;
+        CduExchange Answered(Company at, string text, string reply) => new()
+        {
+            TurnId = $"t{Guid.NewGuid():N}", CompanyId = at.Id, SpeakerId = denise, SpeakerName = "Denise", Kind = CduRules.Ask,
+            Text = text, Status = CduRules.Done, Reply = reply, At = 1,
+        };
+        await Grain(partyId).SpokeAsync(Answered(company, "Where are the staging numbers for the release schedule?", "There is no staging environment and no release schedule anywhere in this world."));
+        await Grain(partyId).SpokeAsync(Answered(other, "Is the VAT form filed?", "There is no VAT form."));
+        Cdu.Ahead = new List<CduCommit> { new("s1", "fix: the café door stays shut at night", "Denise") };
+        Cdu.Pr = new CduPr(131, "u", "The café keeps its hours", "OPEN", "h", "passing");
+        try
+        {
+            await _fx.Service<Desks>().HireAsync(partyId, company.Id, denise, "Cytheurgist", Shifts.EveryDay, 9 * 60, 17 * 60);
+            await Self(partyId, denise).GetPresenceAsync(withDay: true);
+            await Self(partyId, pieter).GetPresenceAsync(withDay: true);
+
+            // Both know the office as a place they go; only staff are told where the work stands.
+            var here = Scripted.Days.Where(d => d.User.Contains(company.Name)).ToList();
+            var day = Assert.Single(here, d => d.System.Contains("You are Denise."));
+            Assert.Contains("If \"At work\" is given, that is where their job stands", day.System);
+            Assert.Contains($"At work ({company.Name}: keeps the Forms), all that is underway there", day.User);
+            Assert.Contains("\"fix: the café door stays shut at night\" (Denise)", day.User);
+            Assert.Contains("PR #131 \"The café keeps its hours\", open, its checks pass", day.User);
+            Assert.Contains("It said: There is no staging environment and no release schedule", day.User);
+            Assert.DoesNotContain("VAT", day.User);
+            var his = Assert.Single(here, d => d.System.Contains("You are Pieter."));
+            Assert.DoesNotContain("At work", his.User);
+        }
+        finally
+        {
+            Cdu.Ahead = new List<CduCommit>();
+            Cdu.Pr = null;
+        }
+    }
+
+    private PartyTown.World.Self.IPersonaSelfGrain Self(Guid partyId, Guid who)
+        => _fx.GrainFactory.GetGrain<PartyTown.World.Self.IPersonaSelfGrain>(WorldKeys.Life(partyId, who));
+
     public sealed class FakeCdu : ICdu
     {
         public sealed record Talked(string Id, CduSpeaker From, string Text, string Kind, string? Model);
@@ -380,12 +423,15 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public static volatile string? Choose;
         public static volatile string Message = "Keep the doors shut";
         public static volatile string Mind = "big-one";
+        /// <summary>Every Day call, as the Day was asked to be written and what it was handed.</summary>
+        public static readonly ConcurrentQueue<(string System, string User)> Days = new();
 
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
 
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
         {
+            if (system.Contains("ordinary day today")) Days.Enqueue((system, user));
             if (user.Contains("# What you've decided"))
                 return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["intent"] = "get on with it" });
             return Task.FromResult<JsonObject?>(new JsonObject { ["message"] = Message, ["mind"] = Mind });

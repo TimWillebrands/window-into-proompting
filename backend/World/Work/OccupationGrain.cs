@@ -108,6 +108,8 @@ public sealed class OccupationGrain(
 
     public Task<string?> FixedTodayAsync(DateTimeOffset local) => Task.FromResult(Shifts.FixedToday(state.State.Job, local));
 
+    public Task<Guid?> CompanyAsync() => Task.FromResult(state.State.Job?.CompanyId);
+
     /// <summary>An offscreen workplace becomes a Places Locale (ADR 0027); a name that's a drawn Place puts the job onscreen.</summary>
     private async Task PlaceAsync(Occupation job)
     {
@@ -260,6 +262,8 @@ public interface IOccupationGrain : IGrainWithStringKey
     [Alias("NotePaidAsync")] Task NotePaidAsync(string day, int amount);
     /// <summary>Today's shift as a fixed Day beat, or null. Interleaves: Places → Self → here while this grain awaits Places.</summary>
     [Alias("FixedTodayAsync"), Orleans.Concurrency.AlwaysInterleave] Task<string?> FixedTodayAsync(DateTimeOffset local);
+    /// <summary>The Company their job is at, or null. Interleaves for the same reason as <see cref="FixedTodayAsync"/>.</summary>
+    [Alias("CompanyAsync"), Orleans.Concurrency.AlwaysInterleave] Task<Guid?> CompanyAsync();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Work.OccupationView")]

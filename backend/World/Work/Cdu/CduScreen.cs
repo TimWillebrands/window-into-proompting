@@ -170,6 +170,25 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         return sb.ToString();
     }
 
+    private const int DayAnswers = 3;
+
+    /// <summary>Where the work stands, for the Day of someone on staff (ADR 0052): the trunk, the Agora and the desk's last answers.</summary>
+    public static string DayFacts(Company company, CduStatus? cdu, IEnumerable<CduExchange> exchanges)
+    {
+        var sb = new StringBuilder($"At work ({company.Name}: {company.Mandate}), all that is underway there, from the desk:");
+        if (cdu?.Trunk is { } trunk)
+            sb.Append(trunk.Ahead.Count == 0
+                ? "\n- The trunk holds nothing new."
+                : $"\n- On the trunk, not yet in the world: {string.Join("; ", trunk.Ahead.TakeLast(4).Select(c => $"\"{c.Subject}\" ({c.Author})"))}.");
+        if (cdu is not null)
+            sb.Append(cdu.Pr is { } pr ? $"\n- In the Agora: PR #{pr.Number} \"{pr.Title}\", {pr.State.ToLowerInvariant()}, {ChecksWord(pr.Checks)}." : "\n- Nothing in the Agora.");
+        var answered = exchanges.Where(e => e.CompanyId == company.Id && e.Status == CduRules.Done).TakeLast(DayAnswers).ToList();
+        sb.Append(answered.Count == 0
+            ? "\n- Nobody has asked the CDU anything lately."
+            : string.Concat(answered.Select(e => $"\n- {e.SpeakerName} {(e.Kind == CduRules.Ask ? "asked" : e.Kind == CduRules.Answer ? "answered it" : "handed it work")}: \"{WorldStream.Clip(e.Text, 160)}\" It said: {WorldStream.Clip(e.Reply ?? "nothing", 300)}")));
+        return sb.ToString();
+    }
+
     private static string Trunk(CduStatus cdu) => cdu.Trunk switch
     {
         null => "Its trunk can't be read right now.",
