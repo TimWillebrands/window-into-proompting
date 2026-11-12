@@ -300,6 +300,37 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
     }
 
     [Fact]
+    public async Task Soon_TowardAHuman_StillSendsTheQuickLine_AndKeepsTheIntention()
+    {
+        var (party, denise, hana) = await WorldAsync(hanaHuman: true);
+        var dm = await Grains.GetGrain<IPartyGrain>(party).GetOrCreateDirectChatAsync(hana, denise);
+        ScriptedJudge.Pick(ReflexOptions.Soon);
+
+        var verdict = await Reflex(party, denise).PerceiveAsync(Dm(hana, dm.Id, human: true));
+
+        Assert.False(verdict.Proceed);
+        Assert.StartsWith(ReflexVerdict.Holding, verdict.Note);
+        var held = Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
+        Assert.NotNull(held.OwedBy);
+        await TestWait.UntilAsync(() => SpokeAsync(dm.Id, denise), TimeSpan.FromSeconds(5));
+        Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
+    }
+
+    [Fact]
+    public async Task Soon_BetweenPersonas_SendsNothing()
+    {
+        var (party, denise, hana) = await WorldAsync();
+        var dm = await Grains.GetGrain<IPartyGrain>(party).GetOrCreateDirectChatAsync(hana, denise);
+        ScriptedJudge.Pick(ReflexOptions.Soon);
+
+        await Reflex(party, denise).PerceiveAsync(Dm(hana, dm.Id));
+
+        await Task.Delay(500);
+        Assert.False(await SpokeAsync(dm.Id, denise));
+        Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
+    }
+
+    [Fact]
     public async Task TheQuickLineItself_DoesNotSettleWhatTheyOwe()
     {
         var (party, denise, hana) = await WorldAsync(hanaHuman: true);
@@ -322,14 +353,17 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
         var dm = await Grains.GetGrain<IPartyGrain>(party).GetOrCreateDirectChatAsync(hana, denise);
         ScriptedJudge.Pick(ReflexOptions.Soon);
         await Reflex(party, denise).PerceiveAsync(Dm(hana, dm.Id, human: true));
-        Assert.False(await SpokeAsync(dm.Id, denise));
+        await TestWait.UntilAsync(async () => await TurnsAsync(dm.Id, denise) == 1, TimeSpan.FromSeconds(5));
 
         fx.Time.Advance(ReflexMath.OwedWithin);
         await Reflex(party, denise).SurfaceAsync();
 
         Assert.Empty(await Reflex(party, denise).GetIntentionsAsync());
-        await TestWait.UntilAsync(() => SpokeAsync(dm.Id, denise), TimeSpan.FromSeconds(5));
+        await TestWait.UntilAsync(async () => await TurnsAsync(dm.Id, denise) == 2, TimeSpan.FromSeconds(5));
     }
+
+    private async Task<int> TurnsAsync(Guid room, Guid who)
+        => (await Grains.GetGrain<IChatGroupGrain>(room).GetMessagesUntilAsync(int.MaxValue)).Count(m => m.SenderId == who);
 
     [Fact]
     public async Task Clock_LooksAtWhatsDue_OnThePulse()

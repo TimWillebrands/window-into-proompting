@@ -214,7 +214,9 @@ public sealed class PersonaReflexGrain(
             case ReflexOptions.Now or ReflexOptions.Speak:
                 return ReflexVerdict.Reply(Lag(p, sense.Load), torn, picked);
             case ReflexOptions.Soon:
-                await HoldAsync(p, sense, ms);
+                // A human put off still gets the quick line: silence can't be told from a broken app (ADR 0031).
+                await HoldAsync(p, sense, ms, acking: p.FromHuman);
+                if (p.FromHuman) Spawn(() => AckAsync(p, sense), "ack");
                 Log(p, self, "hold", $"saw {Ref(p)}, and is finishing up first");
                 return ReflexVerdict.Taken($"{ReflexVerdict.Holding} finishing up first");
             case ReflexOptions.Brief:

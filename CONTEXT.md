@@ -149,7 +149,7 @@ The one conversation a **Persona** is in the middle of. Its next line needs no *
 _Avoid_: active room, current chat.
 
 **Intention**:
-Something a **Persona** put off and means to get back to. It comes back at a breakpoint, stays on their mind until settled, and speaking in that chat settles it. One owed to a human happens by a deadline; any other can slip their mind. Not the "intent" of a **Life** turn, which is what they're about to say.
+Something a **Persona** put off and means to get back to. It comes back at a breakpoint, stays on their mind until settled, and speaking in that chat settles it. One owed to a human gets a quick line at once and happens by a deadline; any other can slip their mind. Not the "intent" of a **Life** turn, which is what they're about to say.
 _Avoid_: reminder, task, pending reply.
 
 **Salience**:
