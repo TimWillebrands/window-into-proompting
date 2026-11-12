@@ -40,16 +40,13 @@ public sealed partial class PersonaSelfGrain(
             + VoiceWear.RenderOwnRecent(own, now);
     }
 
-    private bool _sheetRequested;
-
-    /// <summary>Kick off (or reload into the cache) the distilled sheet once per activation; never awaited.</summary>
+    /// <summary>Loads the distilled sheet into the cache before anything reads it; a missing one is distilled detached.</summary>
     private async Task EnsureLivedSheetAsync(Guid partyId, Guid personaId)
     {
-        if (_sheetRequested) return;
         var self = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId);
-        _sheetRequested = true;
-        if (self is null || string.IsNullOrWhiteSpace(self.SystemPrompt)) return;
-        _ = GrainFactory.GetGrain<ILivedSheetGrain>(personaId).EnsureAsync(self.Name, self.SystemPrompt);
+        if (self is null) return;
+        try { await LivedSheets.WarmAsync(GrainFactory, self); }
+        catch (Exception ex) { logger.LogDebug(ex, "Lived sheet warm-up failed for {Persona}", self.Name); }
     }
 
     public async Task NoteSpokeAsync(double chattiness)

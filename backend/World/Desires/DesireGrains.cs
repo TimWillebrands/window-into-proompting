@@ -113,7 +113,8 @@ public sealed class DesiresGrain(
         var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var intrinsic = GrainFactory.GetGrain<IIntrinsicDesiresGrain>(participantId);
         var who = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
-        if (who is { DefaultDriver: DriverKind.LLM } && (Self.LivedSheets.For(who.Id, who.SystemPrompt) ?? who.Bio) is { Length: > 0 } sheet)
+        // Read off the lived sheet only: distilling the raw one would be redone once it's written (ADR 0054).
+        if (who is { DefaultDriver: DriverKind.LLM } && await Self.LivedSheets.SourceAsync(GrainFactory, who) is { Length: > 0 } sheet)
             await intrinsic.EnsureAsync(who.Name, sheet);
 
         var now = DateTimeOffset.UtcNow;

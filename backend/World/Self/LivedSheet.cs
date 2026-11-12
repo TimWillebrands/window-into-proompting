@@ -30,25 +30,29 @@ public sealed class LivedSheetGrain(
         }
         if (DateTimeOffset.UtcNow - _lastAttempt < Retry) return null;
         _lastAttempt = DateTimeOffset.UtcNow;
+        // Detached: a stored sheet is awaited, a new one never is.
+        _ = DistillAsync(name, source, hash);
+        return null;
+    }
 
+    private async Task DistillAsync(string name, string source, string hash)
+    {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         try
         {
             var text = await llm.For(this.GetPrimaryKey()).CompleteAsync(JobComplexity.CharacterVoice, LivedSheets.DistillPrompt,
                 $"Name: {name}\n\nTheir description:\n{source}", cts.Token, 0.5);
             text = text?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text.Length < 200) return null;
+            if (string.IsNullOrWhiteSpace(text) || text.Length < 200) return;
             state.State.SourceHash = hash;
             state.State.Text = text;
             await state.WriteStateAsync();
             LivedSheets.Remember(this.GetPrimaryKey(), hash, text);
             logger.LogInformation("Lived sheet for {Name}: {Chars} chars (from {Source})", name, text.Length, source.Length);
-            return text;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Lived sheet distillation failed for {Name}", name);
-            return null;
         }
     }
 }
@@ -132,6 +136,17 @@ public static class LivedSheets
     public static string? Bio(string lived)
         => Controllers.PersonaController.ExtractBioFromMarkdown(lived) is { Length: > 0 } bio ? bio : null;
 
+    /// <summary>The distilled sheet, loaded into the cache when it's stored; null while it's still being written.</summary>
+    public static async Task<string?> WarmAsync(IGrainFactory grains, Model.CastMember who)
+    {
+        if (string.IsNullOrWhiteSpace(who.SystemPrompt)) return null;
+        return Lived(who.Id, who.SystemPrompt) ?? await grains.GetGrain<ILivedSheetGrain>(who.Id).EnsureAsync(who.Name, who.SystemPrompt);
+    }
+
+    /// <summary>What intrinsic distillers read: the lived sheet, or the bio for someone without a sheet; null while the lived one is pending.</summary>
+    public static async Task<string?> SourceAsync(IGrainFactory grains, Model.CastMember who)
+        => string.IsNullOrWhiteSpace(who.SystemPrompt) ? who.Bio is { Length: > 0 } bio ? bio : null : await WarmAsync(grains, who);
+
     /// <summary>The distilled sheet if it was made from this exact source; otherwise the source itself.</summary>
     public static string? For(Guid personaId, string? source)
         => string.IsNullOrWhiteSpace(source) ? source
@@ -142,7 +157,7 @@ public static class LivedSheets
 [Alias("PartyTown.World.Self.ILivedSheetGrain")]
 public interface ILivedSheetGrain : IGrainWithGuidKey
 {
-    /// <summary>Distil (once per source version) and cache; null while not available yet.</summary>
+    /// <summary>The stored sheet for this source (cached), or null while a detached distillation writes it.</summary>
     [Alias("EnsureAsync")] Task<string?> EnsureAsync(string name, string source);
 }
 
