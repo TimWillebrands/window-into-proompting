@@ -114,6 +114,13 @@ public sealed class PersonaGrain(
         await pipeline.HandleAsync(persona, chatGroupId, triggeringMessage, chatGroup, _store, ct);
     }
 
+    public async Task AnswerAsync(Guid chatGroupId, ChatMessage line)
+    {
+        var chatGroup = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
+        var persona = state.State with { Id = this.GetPrimaryKey() };
+        await pipeline.AnswerAsync(persona, chatGroupId, line, chatGroup, _store, CancellationToken.None);
+    }
+
     public async Task<string?> InitiateAsync(Guid chatGroupId, string intent, string? feeling)
     {
         var chatGroup = GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
@@ -164,6 +171,10 @@ public interface IPersonaGrain : IGrainWithGuidKey
 
     [Alias("CancelGenerationAsync")]
     Task CancelGenerationAsync();
+
+    /// <summary>A human's line everyone here let pass: answer it, declining isn't on offer (ADR 0031).</summary>
+    [Alias("AnswerAsync")]
+    Task AnswerAsync(Guid chatGroupId, ChatMessage line);
 
     /// <summary>Speak unprompted in a Room/DM with the given intent (ADR 0018 Initiative).</summary>
     [Alias("InitiateAsync")]

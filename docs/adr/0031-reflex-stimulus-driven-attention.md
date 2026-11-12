@@ -33,6 +33,19 @@ Personas may leave each other unanswered, and an Intention nobody is owed can sl
 
 Two rules from earlier ADRs stay as they were: a sleeping Body only wakes for a human (ADR 0020), and the DM round cap still ends AI ping-pong.
 
+> Amended (#129). Production still left humans unanswered: 6 of 91 bursts got no line within 10 minutes. Two paths did it.
+
+**`soon` sends the quick line too.** Toward a human, `soon` used to put the answer off by up to 9 minutes and send nothing. Now it sends the quick line, as `brief` does, and keeps the Intention for the proper answer. Between Personas `soon` is unchanged. A follow-up while it's held still only renews the Intention: the human has had their line.
+
+**The Room settles a human's line.** The cold-open floor keeps Reflex off a human's first line in a quiet Place, but the Decision phase could still decline it, and every listener's turn is its own root, so nobody knew the others had declined too. The Room sees every turn end, so it settles there:
+
+- A line is owed when a human typed it: one of `AccessRules.Humans` and not on auto. A Persona's line, or a Player on auto's, is never owed.
+- Its listeners are the LLM-driven ones who heard it (Earshot). It settles when each of them has ended their turn on it: spoke, declined, skipped, or held by Reflex.
+- Anything said after it that the human heard answers it, and so does a Reflex hold (`holding:`): its quick line is on the way.
+- Settled with nothing said and nobody's turn still open, the Room asks the listener who wanted it most (highest urge, then Chattiness) to answer it with decline off. That turn skips the pre-gate and Reflex. The Decision phase still runs for the gut reaction and the memory, but its "no" no longer stands. In a DM this means: no decline on a human's line.
+- A line is handed out once. The bookkeeping lives on the Room's activation, not in its journal, so a restart can drop a rerun but never doubles one. A failed turn (a stop pressed, a provider down) stops it: the rerun answers declines, it doesn't retry failures.
+- The rerun is a turn like any other, so the stop-signal race applies: a newer line can cut it off, and that line is owed in its own right.
+
 ## The code does not lean on what System One can see
 
 We first shaped System One's distribution with pulls for load, strain and battery. The calibration probe showed that was wrong. Those facts are already in the state and Jev reads them well: a casual DM in a client meeting gets `soon` 0.80 and `now` 0, and a hospital message in that same meeting lifts `now` to 0.19. The pulls counted load twice and crushed that to 0.04. An emergency looked like a meme.

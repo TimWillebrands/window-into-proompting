@@ -26,6 +26,10 @@ public static class AccessRules
     public static IReadOnlySet<Guid> Humans(IEnumerable<PartyParticipant> cast, IEnumerable<Guid> claimed)
         => cast.Where(p => p.Driver == DriverKind.User).Select(p => p.Id).Concat(claimed).ToHashSet();
 
+    /// <summary>A human's own hand: one of <see cref="Humans"/>, and not on auto, where the agent speaks for them.</summary>
+    public static bool AtTheKeyboard(Guid id, IReadOnlyCollection<PartyParticipant> cast, IEnumerable<Guid> claimed)
+        => Humans(cast, claimed).Contains(id) && !cast.Any(p => p.Id == id && p.Driver == DriverKind.LLM);
+
     /// <summary>Members of a DM with a human in it; null for anything public, Persona-only DMs included.</summary>
     public static IReadOnlyCollection<Guid>? PrivateMembers(ChatGroupInfo group, IReadOnlySet<Guid> humans)
         => group.Kind == ChatGroupKinds.Direct && group.MemberIds is { } members && members.Any(humans.Contains) ? members : null;

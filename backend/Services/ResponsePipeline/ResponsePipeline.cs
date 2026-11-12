@@ -61,8 +61,6 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        var participantViews = roomCast.Views();
-
         // One root span per persona per triggering message. The fan-out at ChatGroupGrain
         // does NOT wrap these in a parent span on purpose — each persona reaction is an
         // independent root so the Aspire timeline shows them as siblings, mirroring reality.
@@ -123,11 +121,64 @@ public sealed class ResponsePipeline(
             }
             // A newer line while reading takes over: one reply to the burst, not one per line.
             if (verdict.LagMs > 0 && !await store.ReadAsync(chatGroupId, TimeSpan.FromMilliseconds(verdict.LagMs), ct))
+            {
+                await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, "reflex: read on to a newer line");
                 return;
+            }
             deliberate = verdict.Deliberate;
         }
 
-        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId);
+        await TurnAsync(persona, chatGroupId, triggeringMessage, chatGroupGrain, store, partyId, roomCast, self, turnSpan,
+            preUrge.Total, deliberate, answer: false, ct);
+    }
+
+    /// <summary>A human's line every listener let pass (ADR 0031): this Persona answers it, with no gate and no decline.</summary>
+    public async Task AnswerAsync(
+        Persona persona,
+        Guid chatGroupId,
+        ChatMessage line,
+        IChatGroupGrain chatGroupGrain,
+        InFlightStore store,
+        CancellationToken ct)
+    {
+        if (line.SenderId == persona.Id) return;
+        var partyId = await chatGroupGrain.GetPartyIdAsync();
+        var roomCast = await chatGroupGrain.GetCastAsync();
+        if (roomCast.Speaker(persona.Id) is not { } self) return;
+
+        using var turnSpan = Tracing.Persona.StartActivity("persona.answer", ActivityKind.Internal);
+        turnSpan?.SetTag("persona.id", persona.Id);
+        turnSpan?.SetTag("persona.name", persona.Name);
+        turnSpan?.SetTag("chat_group.id", chatGroupId);
+        turnSpan?.AddBaggage("posthog.ai.session_id", $"chat-{chatGroupId}");
+        turnSpan?.SetTag("triggered_by.message_id", line.MessageId);
+        turnSpan?.SetTag("triggered_by.sender_id", line.SenderId);
+        logger.LogInformation("Persona {PersonaName} answers message {MessageId} nobody answered in chat group {ChatGroupId}",
+            persona.Name, line.MessageId, chatGroupId);
+
+        await TurnAsync(persona, chatGroupId, line, chatGroupGrain, store, partyId, roomCast, self, turnSpan,
+            urge: null, deliberate: false, answer: true, ct);
+    }
+
+    /// <summary>One turn on a line, slot to outcome: Decision phase, Speaking phase, race; <paramref name="answer"/> takes declining away.</summary>
+    private async Task TurnAsync(
+        Persona persona,
+        Guid chatGroupId,
+        ChatMessage triggeringMessage,
+        IChatGroupGrain chatGroupGrain,
+        InFlightStore store,
+        Guid partyId,
+        RoomCast roomCast,
+        SelfView self,
+        Activity? turnSpan,
+        double? urge,
+        bool deliberate,
+        bool answer,
+        CancellationToken ct)
+    {
+        var participantViews = roomCast.Views();
+        var isDirect = roomCast.IsDirect;
+        var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId, urge);
         turnSpan?.SetTag("result.message_id", messageId);
 
         // Race-trigger state: register before any awaits so a concurrent NotifyMessageAsync
@@ -196,6 +247,11 @@ public sealed class ResponsePipeline(
                 chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
                 repairHint, stanceLines, deliberate, roomCast.Kind == ChatGroupKinds.Place);
+            if (answer && !decision.Respond)
+            {
+                turnSpan?.SetTag("decision.declined_but_owed", true);
+                decision = Answering(decision);
+            }
 
             // Resolve the index pick (1-based into the numbered block; decision service
             // already range-clamped) back to the recalled memory: snippet → speaking phase,
@@ -507,6 +563,10 @@ public sealed class ResponsePipeline(
             store.Remove(chatGroupId, messageId);
         }
     }
+
+    /// <summary>Decline off: their reaction stands, the silence doesn't; an unreadable decision speaks from nothing.</summary>
+    internal static ShouldRespondResult Answering(ShouldRespondResult decision)
+        => decision.Respond ? decision : decision with { Respond = true, Shortcut = decision.Reason.StartsWith("Fallback", StringComparison.Ordinal) };
 
     private async Task RecordSkipAsync(IChatGroupGrain chatGroupGrain, Persona persona, ChatMessage trigger, double urge, string reason)
     {

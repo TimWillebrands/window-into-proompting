@@ -65,6 +65,21 @@ public class AccessRulesTest
     }
 
     [Fact]
+    public void AtTheKeyboard_IsAHumanPlayingThemselves_NotOnAuto_NotAPersona()
+    {
+        var cast = new List<PartyParticipant>
+        {
+            new() { Id = Me, Driver = DriverKind.LLM },
+            new() { Id = Other, Driver = DriverKind.User },
+            new() { Id = PersonaA, Driver = DriverKind.LLM },
+        };
+
+        Assert.True(AccessRules.AtTheKeyboard(Other, cast, new[] { Me, Other }));
+        Assert.False(AccessRules.AtTheKeyboard(Me, cast, new[] { Me, Other }));
+        Assert.False(AccessRules.AtTheKeyboard(PersonaA, cast, new[] { Me, Other }));
+    }
+
+    [Fact]
     public void PersonaOnlyDm_AndRooms_ArePublic()
     {
         Assert.Null(AccessRules.PrivateMembers(Dm(PersonaA, PersonaB), Humans));

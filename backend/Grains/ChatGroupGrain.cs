@@ -20,6 +20,15 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 {
     private string? _kind;
 
+    /// <summary>Past this, a line nobody finished their turn on is let go: the human has moved on.</summary>
+    private static readonly TimeSpan OwedFor = TimeSpan.FromMinutes(10);
+
+    /// <summary>A skip that means Reflex sent, or already sent, the quick line (ADR 0031).</summary>
+    private const string Promised = "reflex: " + World.Reflex.ReflexVerdict.Holding;
+
+    /// <summary>Process state, not history: who still owes a human an answer here.</summary>
+    private readonly OwedAnswers _owed = new(OwedFor);
+
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         await base.OnActivateAsync(cancellationToken);
@@ -96,8 +105,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             .TakeLast(count)
             .ToList());
 
-    public Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null)
-        => ReserveSlotAsync(personaId, "assistant", triggeredByMessageId);
+    public Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null, double? urge = null)
+    {
+        if (triggeredByMessageId is { } line) _owed.Urge(line, personaId, urge);
+        return ReserveSlotAsync(personaId, "assistant", triggeredByMessageId);
+    }
 
     public async Task EndTurnAsync(int turnId, TurnOutcome outcome)
     {
@@ -126,6 +138,9 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
                 await MarkGenerationFailedAsync(turnId, f.Error);
                 break;
         }
+
+        if (trigger is { } line) _owed.Ended(line, slot.SenderId, failed: outcome is TurnOutcome.Failed);
+        await AnswerOwedAsync();
     }
 
     public Task ContinueAsync()
@@ -259,9 +274,58 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             Message = message
         });
 
+        _owed.Landed(messageId, senderId, message.HeardBy);
+        await OweAsync(message);
         _ = NotifyAllParticipantsAsync(message, ct);
 
         return message;
+    }
+
+    /// <summary>A line a human typed is owed an answer by everyone who takes a turn on it.</summary>
+    private async Task OweAsync(ChatMessage line)
+    {
+        try
+        {
+            var party = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetParty();
+            if (party.Participants.All(p => p.Id != line.SenderId)) return;
+            var claimed = await GrainFactory.GetGrain<World.IWorldClockGrain>(State.PartyId).GetClaimedAsync();
+            if (!Services.Auth.AccessRules.AtTheKeyboard(line.SenderId, party.Participants, claimed)) return;
+            var cast = await GetCastAsync();
+            _owed.Expect(line.MessageId, line.SenderId, ListenersOf(line).Where(id => cast.Speaker(id) is not null),
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't tell whether line {MessageId} in {ChatGroupId} is owed an answer", line.MessageId, this.GetPrimaryKey());
+        }
+    }
+
+    /// <summary>A human's line every listener let pass: the keenest of them answers it, once (ADR 0031).</summary>
+    private async Task AnswerOwedAsync()
+    {
+        if (!_owed.AnyDue) return;
+        try
+        {
+            var cast = await GetCastAsync();
+            var present = cast.Members.Select(m => cast.Speaker(m.Id)).OfType<SelfView>().ToList();
+            foreach (var (lineId, who) in _owed.Due(TurnOpenAfter, present))
+            {
+                if (State.Messages.FirstOrDefault(m => m.MessageId == lineId) is not { } line) continue;
+                logger.LogInformation("Nobody answered line {MessageId} in {ChatGroupId}; {PersonaId} answers it", lineId, this.GetPrimaryKey(), who);
+                _ = GrainFactory.GetGrain<IPersonaGrain>(who).AnswerAsync(this.GetPrimaryKey(), line with { });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Answering owed lines in {ChatGroupId} failed", this.GetPrimaryKey());
+        }
+    }
+
+    /// <summary>Someone's turn is open after this line: what they say may yet answer it.</summary>
+    private bool TurnOpenAfter(int lineId)
+    {
+        var since = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)OpenTurnHolds.TotalMilliseconds;
+        return State.Messages.Any(m => m.MessageId > lineId && IsOpen(m) && (m.SendAt ?? 0) >= since);
     }
 
     private async Task AppendMessageAsync(
@@ -292,6 +356,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             TriggeredByMessageId = triggeredByMessageId
         });
         await ConfirmEvents();
+        _owed.Landed(messageId, senderId, earshot?.HeardBy);
 
         var updatedMessage = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
         if (updatedMessage is not null)
@@ -379,6 +444,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var updated = State.Messages.FirstOrDefault(m => m.MessageId == messageId);
         if (updated is not null)
         {
+            _owed.Landed(messageId, updated.SenderId, updated.HeardBy);
             await PublishPartyEvent(new PartyStreamEvent
             {
                 Type = "message",
@@ -403,6 +469,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var chatGroupId = this.GetPrimaryKey();
         RaiseEvent(new ChatGroupMessagesAfterDeletedEvent { MessageId = messageId });
         await ConfirmEvents();
+        _owed.Forget(messageId);
         await PublishPartyEvent(new PartyStreamEvent { Type = "deleteMessagesAfter", ChatGroupId = chatGroupId, MessageId = messageId });
     }
 
@@ -457,6 +524,11 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         if (State.SkippedTurns.LastOrDefault() is { } skipped)
             await PublishPartyEvent(new PartyStreamEvent { Type = "skippedTurn", ChatGroupId = this.GetPrimaryKey(), SkippedTurn = skipped });
+
+        _owed.Urge(triggeredByMessageId, personaId, urgeTotal);
+        if (reason.StartsWith(Promised, StringComparison.Ordinal)) _owed.Answered(triggeredByMessageId);
+        else _owed.Ended(triggeredByMessageId, personaId);
+        await AnswerOwedAsync();
     }
 
     public Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync()
@@ -531,10 +603,7 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     private Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
-        var targets = State.ParticipantIds
-            .Where(id => id != triggeringMessage.SenderId)
-            .Where(id => triggeringMessage.HeardBy is not { } heard || heard.Contains(id))
-            .ToList();
+        var targets = ListenersOf(triggeringMessage);
 
         logger.LogInformation("Fanning out to {Count} participants in chat group {ChatGroupId}",
             targets.Count, chatGroupId);
@@ -547,6 +616,13 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
         return Task.CompletedTask;
     }
+
+    /// <summary>Everyone here but the sender who heard it (Earshot).</summary>
+    private List<Guid> ListenersOf(ChatMessage line)
+        => State.ParticipantIds
+            .Where(id => id != line.SenderId)
+            .Where(id => line.HeardBy is not { } heard || heard.Contains(id))
+            .ToList();
 
     /// <summary>Place talk only: who hears this sender right now (ADR 0020). Null elsewhere.</summary>
     private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
@@ -585,9 +661,9 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
-    /// <summary>Reserve a Persona's turn slot; end it with exactly one <see cref="EndTurnAsync"/>.</summary>
+    /// <summary>Reserve a Persona's turn slot; end it with exactly one <see cref="EndTurnAsync"/>. <paramref name="urge"/> is how keen they were.</summary>
     [Alias("BeginTurnAsync")]
-    Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null);
+    Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null, double? urge = null);
 
     /// <summary>Close a turn. Idempotent: a missing (deleted) or already-closed slot is a no-op.
     /// Only <see cref="TurnOutcome.Spoke"/> fans out.</summary>

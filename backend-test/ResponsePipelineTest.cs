@@ -78,7 +78,7 @@ public class ResponsePipelineTest
                 It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
                 It.IsAny<double>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
-        chatGroup.Setup(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()))
+        chatGroup.Setup(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()))
             .ReturnsAsync(42);
         var outcomes = new List<TurnOutcome>();
         chatGroup.Setup(g => g.EndTurnAsync(It.IsAny<int>(), It.IsAny<TurnOutcome>()))
@@ -250,7 +250,7 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             PersonaId, PersonaName, triggering.MessageId,
             It.IsAny<double>(), It.IsAny<string>()), Times.Once);
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
             It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -281,7 +281,7 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
             It.IsAny<double>(), It.IsAny<string>()), Times.Never);
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(
             It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -320,7 +320,7 @@ public class ResponsePipelineTest
         // Assert: declined → no message body written, papertrail carries the appraisal
         // JSON in the shape PartyController.TryParseAppraisal expects.
         var capturedAppraisal = Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes)).Appraisal;
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.IsAny<double?>()), Times.Once);
         Assert.NotNull(capturedAppraisal);
         Assert.Contains("\"reason\"", capturedAppraisal);
         Assert.Contains("\"stop\":true", capturedAppraisal);
@@ -342,7 +342,7 @@ public class ResponsePipelineTest
 
         await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
 
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
         fx.Router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(PersonaId, PersonaName, triggering.MessageId, It.IsAny<double>(), "reflex: putting it off"), Times.Once);
     }
@@ -358,7 +358,7 @@ public class ResponsePipelineTest
 
         await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
 
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.IsAny<double?>()), Times.Once);
     }
 
     [Fact]
@@ -388,7 +388,89 @@ public class ResponsePipelineTest
         await fx.Store.ReadAsync(room, TimeSpan.FromMilliseconds(1), CancellationToken.None);
         await reading;
 
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
+        fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(PersonaId, PersonaName, first.MessageId, It.IsAny<double>(), "reflex: read on to a newer line"), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TurnTellsTheRoomHowKeenTheyWere()
+    {
+        var fx = BuildFixture();
+        WireRouter(fx.Router, """{"gutReaction":"hm","memoryToReference":null,"wouldSay":"","respond":false}""");
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.Is<double?>(u => u > 0)), Times.Once);
+    }
+
+    // ── A human is never left on read (ADR 0031, #129) ────────────────────────
+
+    [Fact]
+    public async Task AnswerAsync_TheDecisionPhaseDeclines_TheyAnswerAnyway_FromTheirReaction()
+    {
+        var fx = BuildFixture(PartyTown.World.Reflex.ReflexVerdict.Taken("listen"));
+        var jobs = new List<LlmGenerationJob>();
+        var call = 0;
+        fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var content = Interlocked.Increment(ref call) == 1
+                    ? """{"gutReaction":"I'm not rising to it","memoryToReference":null,"wouldSay":"","respond":false}"""
+                    : "Not taking the bait.";
+                var ep = new Mock<ILlmEndpointGrain>();
+                ep.Setup(e => e.GetAttributionAsync()).ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
+                ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+                    .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+                    {
+                        lock (jobs) jobs.Add(job);
+                        return StreamChunks(new[] { content }, ct);
+                    });
+                return ep.Object;
+            });
+        // Deep in a cascade, so the pre-gate alone would have dropped it.
+        var line = Msg(Guid.NewGuid(), "bet nobody here can name a bread");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage>
+            {
+                line,
+                new() { MessageId = 2, SenderId = PersonaId, SenderType = "assistant", Content = "yo" },
+                new() { MessageId = 3, SenderId = PersonaId, SenderType = "assistant", Content = "and another thing" },
+            });
+        fx.ChatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(5);
+
+        await fx.Pipeline.AnswerAsync(MakePersona(), Guid.NewGuid(), line, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.Equal("Not taking the bait.", Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes)).Content);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, line.MessageId, null), Times.Once);
+        fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<double>(), It.IsAny<string>()), Times.Never);
+        Assert.Contains(jobs.Last().Messages, m => m.Content?.Contains("I'm not rising to it") == true);
+    }
+
+    [Fact]
+    public void Answering_KeepsTheirReaction_ButNotAnUnreadableDecision()
+    {
+        var declined = new ShouldRespondResult { Respond = false, Instruction = "", Reason = "I'm not rising to it" };
+        var unreadable = declined with { Reason = "Fallback — unparseable decision. Raw: {" };
+        var spoke = declined with { Respond = true, Instruction = "Rye." };
+
+        Assert.Equal(declined with { Respond = true }, ResponsePipeline.Answering(declined));
+        Assert.True(ResponsePipeline.Answering(unreadable) is { Respond: true, Shortcut: true });
+        Assert.Same(spoke, ResponsePipeline.Answering(spoke));
+    }
+
+    [Fact]
+    public async Task AnswerAsync_NotSpeakingHere_DoesNothing()
+    {
+        var fx = BuildFixture();
+        var line = Msg(Guid.NewGuid(), "hello?");
+        var stranger = new Persona(Guid.NewGuid(), "Stranger", "You are a stranger.", null);
+
+        await fx.Pipeline.AnswerAsync(stranger, Guid.NewGuid(), line, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
     }
 
     // ── 4. Decision + Speaking happy path ─────────────────────────────────────
@@ -422,7 +504,7 @@ public class ResponsePipelineTest
         var spoke = Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes));
         var capturedAppraisal = spoke.Appraisal;
         Assert.Equal(speakingText, spoke.Content);
-        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId), Times.Once);
+        fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.IsAny<double?>()), Times.Once);
         Assert.NotNull(capturedAppraisal);
         Assert.Contains("\"reason\":\"I have thoughts\"", capturedAppraisal);
         Assert.Contains("\"instruction\":\"Bring it.\"", capturedAppraisal);
