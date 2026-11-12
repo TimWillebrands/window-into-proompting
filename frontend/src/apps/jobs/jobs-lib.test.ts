@@ -6,6 +6,7 @@ import type {
     PositionSummary,
     PracticeSummary,
     SessionSummary,
+    SkillView,
     TradeSummary,
     WatchSummary,
 } from '../../api/model';
@@ -27,6 +28,7 @@ import {
     sessionsInOrder,
     shiftLabel,
     signedPercent,
+    skillLabel,
     toneOf,
     tradeLabel,
     workplacesOf,
@@ -401,5 +403,48 @@ describe('doors', () => {
     it('reads an unsettled door as open', () => {
         expect(doorOf(place({}))).toBe('open');
         expect(doorOf(place({ access: 'staff' }))).toBe('staff');
+    });
+});
+
+describe('skillLabel', () => {
+    const skill = (over: Partial<SkillView>): SkillView => ({
+        id: 's',
+        name: 'fixing bikes',
+        how: 'You check the tyre first.',
+        cues: ['bike'],
+        source: 'Work',
+        level: 'Practised',
+        rusty: false,
+        practice: 12,
+        practisedAt: 0,
+        intrinsic: false,
+        ...over,
+    });
+
+    it('says how well, how often and where it came from', () => {
+        expect(skillLabel(skill({}))).toBe(
+            'fixing bikes (practised, 12 times, from work)',
+        );
+    });
+
+    it('reads who they are as second nature, without a count', () => {
+        expect(
+            skillLabel(
+                skill({
+                    intrinsic: true,
+                    source: 'Sheet',
+                    level: 'SecondNature',
+                    practice: 30,
+                }),
+            ),
+        ).toBe('fixing bikes (second nature, who they are)');
+    });
+
+    it('says rusty instead of the level', () => {
+        expect(
+            skillLabel(
+                skill({ rusty: true, practice: '1', source: 'Authored' }),
+            ),
+        ).toBe('fixing bikes (rusty, 1 time)');
     });
 });

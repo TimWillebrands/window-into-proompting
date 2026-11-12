@@ -7,6 +7,7 @@ import type {
     PracticeSummary,
     ProblemDetails,
     SessionSummary,
+    SkillView,
     TradeSummary,
     WatchSummary,
 } from '../../api/model';
@@ -94,6 +95,33 @@ export function desireLabel(d: Desire, nameOf: (id: string) => string): string {
         d.status === 'Abandoned' ? 'dropped' : null,
     ].filter(Boolean);
     return `${kind}: ${d.text ?? ''}${notes.length ? ` (${notes.join(', ')})` : ''}`;
+}
+
+const SKILL_LEVELS: Record<SkillView['level'], string> = {
+    New: 'new to it',
+    Learning: 'getting the hang of it',
+    Practised: 'practised',
+    SecondNature: 'second nature',
+};
+
+const SKILL_SOURCES: Partial<Record<SkillView['source'], string>> = {
+    Sheet: 'who they are',
+    Work: 'from work',
+    Feature: 'from doing it',
+    Desire: 'wanted to',
+};
+
+/** 'fixing bikes (practised, 12 times, from work)': what they know how to do and how well (ADR 0054). */
+export function skillLabel(s: SkillView): string {
+    const times = Number(s.practice);
+    const notes = [
+        s.rusty ? 'rusty' : SKILL_LEVELS[s.level],
+        !s.intrinsic && times > 0
+            ? `${times} ${times === 1 ? 'time' : 'times'}`
+            : null,
+        SKILL_SOURCES[s.source] ?? null,
+    ].filter(Boolean);
+    return `${s.name} (${notes.join(', ')})`;
 }
 
 const PROMISE_OUTCOMES: Partial<Record<NonNullable<Desire['status']>, string>> =

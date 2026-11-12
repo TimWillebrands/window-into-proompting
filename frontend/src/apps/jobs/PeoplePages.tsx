@@ -10,6 +10,7 @@ import { WORLD_ID } from '../../lib/world';
 import { type Employment, jobLine, shiftLabel } from './jobs-lib';
 import { BookForm, SessionList } from './PracticesPage';
 import { Card, Field, Jump, PageHead, Refusal } from './parts';
+import { SkillsPanel } from './SkillsPanel';
 import { WantsPanel } from './WantsPanel';
 import { useRefreshWork, useWork } from './work-context';
 
@@ -131,6 +132,13 @@ export function PersonPage({ person }: { person: JobSummary }) {
                         participantId={id}
                         name={person.name}
                         nameOf={nameOf}
+                    />
+                </Suspense>
+                <Suspense fallback={null}>
+                    <SkillsPanel
+                        key={`s-${id}`}
+                        participantId={id}
+                        name={person.name}
                     />
                 </Suspense>
             </div>
