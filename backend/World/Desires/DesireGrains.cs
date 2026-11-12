@@ -165,18 +165,24 @@ public sealed class DesiresGrain(
     public async Task<bool> MarkAsync(Guid desireId, DesireStatus status)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        Desire? desire;
         if (state.State.Acquired.FirstOrDefault(d => d.Id == desireId) is { } acquired)
         {
+            desire = acquired;
             acquired.Status = status;
             acquired.TouchedAt = now;
         }
         else
         {
-            var (_, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
-            if ((await GrainFactory.GetGrain<IIntrinsicDesiresGrain>(participantId).GetAsync()).All(d => d.Id != desireId)) return false;
+            desire = (await GrainFactory.GetGrain<IIntrinsicDesiresGrain>(participantId).GetAsync()).FirstOrDefault(d => d.Id == desireId);
+            if (desire is null) return false;
             state.State.Marks[desireId] = new DesireMark { Status = status, TouchedAt = now };
         }
         await state.WriteStateAsync();
+        // Becoming someone who can: a being-want come true may be know-how now (ADR 0054).
+        if (status == DesireStatus.Fulfilled && desire is { Kind: DesireKind.Being } && !DesireRules.IsPromise(desire))
+            await Skills.Practising.NoteAsync(GrainFactory, partyId, participantId, Skills.Practising.Desire(desire.Id, desire.Text));
         return true;
     }
 

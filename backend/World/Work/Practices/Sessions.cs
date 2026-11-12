@@ -117,12 +117,26 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         // Flip first: a crash after this can lose Homework, never charge twice.
         if (!await grains.GetGrain<ISessionsGrain>(partyId).EndAsync(session.Id, SessionStatus.Done, now.ToUnixTimeMilliseconds())) return;
         var paid = await ChargeAsync(partyId, session);
+        await PractiseAsync(partyId, session);
         await RecordAsync(partyId, session, "finish", paid
             ? $"finished a session with {session.ClientName} (+{session.Fee} credits)"
             : $"finished a session with {session.ClientName}, who couldn't pay");
         using var cts = new CancellationTokenSource(CloseBudget);
         try { await LeaveHomeworkAsync(partyId, session, lines, cts.Token); }
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Homework failed for session {Session}", session.Id); }
+    }
+
+    /// <summary>A Session run is the Practitioner's craft practised (ADR 0054), keyed like a shift of the same job.</summary>
+    private async Task PractiseAsync(Guid partyId, PracticeSession session)
+    {
+        try
+        {
+            if ((await grains.GetGrain<IOccupationGrain>(WorldKeys.Life(partyId, session.PractitionerId)).GetAsync()).Job is not { } job) return;
+            var field = job.Practice?.Field is { Length: > 0 } f ? $" ({f})" : string.Empty;
+            await Skills.Practising.NoteAsync(grains, partyId, session.PractitionerId,
+                Skills.Practising.Work(job.Title, $"ran a session with {session.ClientName}{field}: {WorldStream.Clip(session.Reason, 120)}"), logger);
+        }
+        catch (Exception ex) { logger.LogDebug(ex, "Practice not counted for session {Session}", session.Id); }
     }
 
     private async Task<bool> ChargeAsync(Guid partyId, PracticeSession session)

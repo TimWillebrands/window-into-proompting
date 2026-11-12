@@ -199,3 +199,21 @@ public static partial class SkillRules
     [GeneratedRegex(@"\s+")]
     private static partial Regex Spaces();
 }
+
+/// <summary>Where doing something teaches (ADR 0054): one call per practice site, never failing what was done.</summary>
+public static class Practising
+{
+    public static async Task NoteAsync(IGrainFactory grains, Guid partyId, Guid who, SkillPractice practice, ILogger? logger = null)
+    {
+        try { await grains.GetGrain<ISkillsGrain>(WorldKeys.Life(partyId, who)).PractiseAsync(practice); }
+        catch (Exception ex) { logger?.LogDebug(ex, "Practice {Key} not counted for {Who}", practice.Key, who); }
+    }
+
+    /// <summary>A shift worked or a Session run: the same craft, keyed by the job.</summary>
+    public static SkillPractice Work(string title, string what) => new(SkillRules.Key("work", title), what, SkillSource.Work);
+
+    public static SkillPractice Feature(string what, string summary) => new(SkillRules.Key("feature", what), summary, SkillSource.Feature);
+
+    /// <summary>A want to get better at something, come true: it counts as having done it enough to know.</summary>
+    public static SkillPractice Desire(Guid desireId, string text) => new($"desire:{desireId:N}", $"got where they wanted: {text}", SkillSource.Desire, SkillRules.Learns);
+}

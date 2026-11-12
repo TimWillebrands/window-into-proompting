@@ -1,9 +1,12 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.World;
+using PartyTown.World.Desires;
 using PartyTown.World.Self;
 using PartyTown.World.Skills;
+using PartyTown.World.Work;
 
 namespace BackendTest;
 
@@ -27,6 +30,8 @@ public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
         {
             if (user.Contains("wish")) return Obj("""{"none": true}""");
             if (user.Contains("steamed milk")) return Obj("""{"none": false, "same": "Pulling Espresso"}""");
+            if (user.Contains("bike courier")) return Obj("""{"none": false, "name": "riding through traffic", "how": "You read a driver's wheels, not their face.", "cues": ["bike", "traffic"]}""");
+            if (user.Contains("sourdough")) return Obj("""{"none": false, "name": "baking sourdough", "how": "You feed the starter the night before and judge the dough by its wobble.", "cues": ["sourdough", "bread", "starter"]}""");
             return Obj("""{"none": false, "same": "", "name": "reading the night sky", "how": "You find the Plough first and hop from it to the rest.", "cues": ["telescope", "stars"]}""");
         }
         if (system.Contains("Someone has got better at something"))
@@ -136,5 +141,36 @@ public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
 
         var elsewhere = await Skills(Guid.NewGuid(), denise).GetAsync();
         Assert.Contains(elsewhere, s => s.Intrinsic && s.Name == "haggling at the market" && s.Level == SkillLevel.SecondNature);
+    }
+
+    [Fact]
+    public async Task ShiftsWorked_TeachTheCraft()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var self = (await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Single(c => c.Id == denise);
+        var workplaces = new Workplaces(_fx.GrainFactory, NullLogger<Workplaces>.Instance);
+        var job = new Occupation { Title = "bike courier", Workplace = "the depot" };
+        var from = DateTimeOffset.UtcNow.AddHours(-8).ToUnixTimeMilliseconds();
+        for (var i = 0; i < SkillRules.Learns; i++)
+            await workplaces.ApplyAsync(partyId, self, new ShiftChange(ShiftStep.End, job,
+                new ShiftRecord { Day = $"2026-11-0{i + 1}", Status = ShiftStatus.Done, StartedAt = from, EndedAt = from + 1 }));
+
+        var learned = (await Eventually(() => Skills(partyId, denise).GetAsync(), s => s.Any(x => !x.Intrinsic))).Single(x => !x.Intrinsic);
+        Assert.Equal("riding through traffic", learned.Name);
+        Assert.Equal(SkillSource.Work, learned.Source);
+    }
+
+    [Fact]
+    public async Task ABeingWantComeTrue_IsKnowHowAtOnce()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var desires = _fx.GrainFactory.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, denise));
+        var want = await desires.AddAsync(new Desire { Kind = DesireKind.Being, Text = "get your sourdough right", Source = DesireSource.Play });
+        Assert.True(await desires.MarkAsync(want.Id, DesireStatus.Fulfilled));
+
+        var learned = (await Eventually(() => Skills(partyId, denise).GetAsync(), s => s.Any(x => !x.Intrinsic))).Single(x => !x.Intrinsic);
+        Assert.Equal("baking sourdough", learned.Name);
+        Assert.Equal(SkillSource.Desire, learned.Source);
+        Assert.Equal(SkillLevel.Learning, learned.Level);
     }
 }

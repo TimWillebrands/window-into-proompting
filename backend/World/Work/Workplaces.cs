@@ -22,6 +22,9 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
             {
                 var pay = await PayAsync(partyId, who.Id, job, record);
                 await LeaveAsync(partyId, who.Id, job);
+                // A shift worked teaches the craft (ADR 0054); a Practice's Sessions teach it instead.
+                if (job.Practice is null && !string.IsNullOrWhiteSpace(job.Title))
+                    await Skills.Practising.NoteAsync(grains, partyId, who.Id, Skills.Practising.Work(job.Title, $"worked a shift as {job.Title} at {job.Workplace}"), logger);
                 return Activity(who, "finish", $"finished work at {job.Workplace} (+{pay} credits)");
             }
             case ShiftStep.Miss:

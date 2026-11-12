@@ -86,6 +86,8 @@ public static class Doing
             now.ToLocalTime().ToString("dddd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
             furni.Takes.TakeLast(5).Select(t => t.Text).ToList()));
         var summary = await places.DoFeatureAsync(who, placeId, furniId, take ?? string.Empty);
-        return summary is null ? null : new Done(summary, take ?? string.Empty, furni.Name, place.Name);
+        if (summary is null) return null;
+        await Skills.Practising.NoteAsync(grains, partyId, who, Skills.Practising.Feature(what, summary));
+        return new Done(summary, take ?? string.Empty, furni.Name, place.Name);
     }
 }
