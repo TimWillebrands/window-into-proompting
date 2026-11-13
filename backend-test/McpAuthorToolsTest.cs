@@ -29,6 +29,20 @@ public partial class WorldLifeTest
     }
 
     [Fact]
+    public async Task AnAdminsAgent_RenamesSomeone_HereAndInTheLibrary()
+    {
+        var (partyId, _, denise, _) = await PlayerWorldAsync();
+        var tools = AuthorToolsFor(partyId);
+
+        await Assert.ThrowsAsync<McpException>(() => tools.EditPersonaAsync(Agent(admin: true), denise, name: " "));
+        var edited = await tools.EditPersonaAsync(Agent(admin: true), denise, name: " Denise Kuyper ");
+
+        Assert.Equal(("Denise Kuyper", "You are Denise."), (edited.Name, edited.SystemPrompt));
+        Assert.Equal("Denise Kuyper", (await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Single(c => c.Id == denise).Name);
+        Assert.Equal("Denise Kuyper", (await PlacesOf(partyId).GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Name);
+    }
+
+    [Fact]
     public async Task AnAdminsAgent_MovesAPairInTogether_AndApart()
     {
         var (partyId, player, denise, _) = await PlayerWorldAsync();

@@ -17,23 +17,33 @@ public sealed class AuthorTools(IGrainFactory grains, IOptions<McpOptions> mcp)
     /// <summary>Set by Guard before each tool runs.</summary>
     private Guid World { get; set; }
     private const string Whom = "Participant id from list_participants.";
+    private const int MaxName = 60;
 
     [McpServerTool(Name = "get_persona", ReadOnly = true), Description("Someone's sheet as authored: name, bio, aura and system prompt. The World reads a distilled version of the prompt.")]
     public Task<PersonaSheet> GetPersonaAsync([Description(Whom)] Guid participantId) => Guard(async () =>
         PersonaSheet.Of(await PersonaAsync(participantId)));
 
-    [McpServerTool(Name = "edit_persona"), Description("Admins: rewrite someone's system prompt and/or bio; what you leave out stays. The sheet is who they are in every World: Nature, not what's going on today.")]
+    [McpServerTool(Name = "edit_persona"), Description("Admins: rewrite someone's system prompt, bio and/or name; what you leave out stays. The sheet is who they are in every World: Nature, not what's going on today.")]
     public Task<PersonaSheet> EditPersonaAsync(
         ClaimsPrincipal user,
         [Description(Whom)] Guid participantId,
         [Description("The whole new system prompt.")] string? systemPrompt = null,
-        [Description("The whole new bio: plain fact, third person, 2-3 sentences.")] string? bio = null) => Guard(async () =>
+        [Description("The whole new bio: plain fact, third person, 2-3 sentences.")] string? bio = null,
+        [Description("A new full name, here and in the library; Worlds they left keep the old one. Say it in the prompt and bio too.")] string? name = null) => Guard(async () =>
     {
         RequireAdmin(user);
         if (systemPrompt is not null && string.IsNullOrWhiteSpace(systemPrompt)) throw new McpException("A system prompt can't be blank.");
+        if (name is not null && name.Trim() is not { Length: > 0 and <= MaxName }) throw new McpException($"A name is 1 to {MaxName} characters.");
         var persona = await PersonaAsync(participantId);
+        if (name?.Trim() is { } renamed && renamed != persona.Name)
+        {
+            var party = grains.GetGrain<IPartyGrain>(World);
+            var link = (await party.GetParty()).Participants.Single(p => p.Id == participantId);
+            await party.UpsertParticipantsAsync(new List<PartyParticipant> { link with { Name = renamed } });
+        }
         await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(persona with
         {
+            Name = name?.Trim() ?? persona.Name,
             SystemPrompt = systemPrompt?.Trim() ?? persona.SystemPrompt,
             Bio = bio is null ? persona.Bio : bio.Trim(),
         });
