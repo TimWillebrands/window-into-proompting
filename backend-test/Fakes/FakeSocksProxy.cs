@@ -54,7 +54,7 @@ public sealed class FakeSocksProxy : IAsyncDisposable
             {
                 await ServeAsync(client);
             }
-            // Same shutdown races can fault a client mid-serve; swallow them so the accept loop stays alive.
+            // Shutdown races can fault a client mid-serve; swallow them so the discarded task never faults unobserved.
             catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or InvalidOperationException) { }
         }
     }

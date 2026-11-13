@@ -14,6 +14,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 {
     /// <summary>Hard cap for posts and replies, persona or Player.</summary>
     public const int MaxLength = 280;
+    public const int MaxOutstandingLength = 120;
 
     private const string PostShape = """{"post": "<your post, under 280 characters>"}""";
     private const string ReplyShape = """{"body": "<your reply exactly as you'd type it under the post, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
@@ -332,7 +333,7 @@ Output: {ReplyShape}
     /// <summary>Commit a post — the same for a Persona's voiced one and the Player's typed one: store, then remember.</summary>
     public async Task<(BoardThread Thread, ActOutcome Outcome)> PostAsync(
         Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf,
-        bool outstandingExternal = false, string outstandingLabel = "")
+        bool outstandingExternal = false, string? outstandingLabel = null)
     {
         var thread = await grains.GetGrain<IBoardGrain>(partyId)
             .CreateThreadAsync(authorId, authorName, body, outstandingExternal, outstandingLabel);

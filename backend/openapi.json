@@ -9076,8 +9076,10 @@
             "default": false
           },
           "outstandingLabel": {
-            "type": "string",
-            "default": ""
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

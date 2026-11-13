@@ -10,5 +10,6 @@ export interface CreateBoardPostRequest {
     /** @nullable */
     authorId: string | null;
     outstandingExternal?: boolean;
-    outstandingLabel?: string;
+    /** @nullable */
+    outstandingLabel?: string | null;
 }

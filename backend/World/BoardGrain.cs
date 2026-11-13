@@ -31,7 +31,7 @@ public sealed class BoardGrain(
     }
 
     public async Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body,
-        bool outstandingExternal = false, string outstandingLabel = "")
+        bool outstandingExternal = false, string? outstandingLabel = null)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var thread = new BoardThread
@@ -44,7 +44,7 @@ public sealed class BoardGrain(
             CreatedAt = now,
             LastActivityAt = now,
             OutstandingExternal = outstandingExternal,
-            OutstandingLabel = outstandingLabel.Trim(),
+            OutstandingLabel = Apps.BoardApp.ClipToLength((outstandingLabel ?? string.Empty).Trim(), Apps.BoardApp.MaxOutstandingLength),
         };
         state.State.Threads.Add(thread);
         if (state.State.Threads.Count > MaxThreads)
@@ -103,7 +103,7 @@ public interface IBoardGrain : IGrainWithGuidKey
     [Alias("GetThreadsAsync")] Task<List<BoardThread>> GetThreadsAsync();
     [Alias("GetThreadAsync")] Task<BoardThread?> GetThreadAsync(Guid threadId);
     [Alias("CreateThreadAsync")] Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body,
-        bool outstandingExternal = false, string outstandingLabel = "");
+        bool outstandingExternal = false, string? outstandingLabel = null);
     [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
     [Alias("ReplyAsync")] Task<BoardThread?> ReplyAsync(Guid threadId, Guid authorId, string authorName, string body);
 

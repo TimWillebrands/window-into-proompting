@@ -41,6 +41,19 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task BoardThread_OutstandingLabel_NullIsEmptyAndLongIsClipped()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync();
+        var board = _fx.GrainFactory.GetGrain<IBoardGrain>(partyId);
+
+        var none = await board.CreateThreadAsync(denise, "Denise", "No label", outstandingExternal: true, outstandingLabel: null);
+        var longOne = await board.CreateThreadAsync(denise, "Denise", "Long label", outstandingExternal: true, outstandingLabel: new string('x', 500));
+
+        Assert.Equal(string.Empty, none.OutstandingLabel);
+        Assert.True(longOne.OutstandingLabel.Length <= BoardApp.MaxOutstandingLength);
+    }
+
+    [Fact]
     public async Task LifeTurn_ChoosingBoardPost_WritesThreadAuthoredByPersona()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();
