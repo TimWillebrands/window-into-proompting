@@ -14,8 +14,10 @@ import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
 import {
     useCanOpen,
+    useForgetStoppedWorld,
     usePlayerAccount,
     usePlayerSession,
+    useWorldChoice,
     WorldRealtimeBridge,
 } from '../lib/world';
 
@@ -222,15 +224,19 @@ export default function DesktopExperience() {
     const userId = usePlayerSession((s) => s.userId);
     const hydrated = usePlayerSession((s) => s.hydrated);
     const visiting = usePlayerSession((s) => s.visiting);
+    const worldId = useWorldChoice((s) => s.id);
+    const checkingWorld = useForgetStoppedWorld();
     const { account, isLoading } = usePlayerAccount();
     const playerId = account?.playerId as string | null | undefined;
 
     const screen = () => {
-        if (!hydrated || isLoading) return <DesktopWallpaper />;
-        if (!userId && !visiting) return <WelcomeScreen />;
+        if (!hydrated || checkingWorld) return <DesktopWallpaper />;
+        if (!worldId || (!userId && !visiting)) return <WelcomeScreen />;
+        if (isLoading) return <DesktopWallpaper />;
         if (userId && !playerId) return <CreateCharacterScreen />;
         return (
-            <section className="fixed inset-0">
+            // Keyed so another World starts from a clean desktop.
+            <section key={worldId} className="fixed inset-0">
                 <DesktopWallpaper />
                 <DesktopProvider>
                     <DesktopWindowLayer />

@@ -52,6 +52,7 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 - **PostHog:** one person per Clerk id on both sides. API-reaching actions are captured by the backend (`posthog.Track`), UI-only ones by `frontend/src/lib/analytics.ts`; never both. Without the `analytics_consent=1` cookie the browser loads no PostHog and the backend only sends anonymized counts: random id, personless, no ids but `party_id`, so new `*_id` properties get dropped for free. The browser reaches PostHog through `/party-line` (`frontend/src/lib/posthog-proxy.ts`). Every signed-in API write without its own `Track` becomes an `api_action`; Error logs with an exception go to error tracking; every LLM call is an `$ai_generation` with tokens and timing (`LlmGeneration`).
 - **Player MCP** (ADR 0046) at `/api/mcp`: tools in `backend/Mcp/` mirror controller actions and go through `Actors`. Agents use Clerk OAuth tokens, which the Clerk scheme accepts only on that path.
 - `PartyGrain` is event-sourced (`JournaledGrain`); the root registry grains are keyed `Guid.Empty`.
+- **Stopped Worlds** (ADR 0056) refuse writes through `StoppedWorldFilter`, which finds the World in the `partyId` route value (`id` on `PartyController`): name it that on new World routes. Background loops over Parties skip `WorldEntry.Stopped`. The root Party isn't always the one in use; ask `GetCurrentAsync` when there's no route to go by.
 
 ## Code style
 

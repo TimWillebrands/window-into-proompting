@@ -206,7 +206,7 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     private ICduGrain Grain(Guid partyId) => grains.GetGrain<ICduGrain>(partyId);
 }
 
-/// <summary>Carries the CDU's news in, outside the World clock so a paused World still shows it working.</summary>
+/// <summary>Carries the CDU's news in, outside the World clock so a paused World still shows it working; a stopped one doesn't.</summary>
 public sealed class CduWatch(IGrainFactory grains, Cytheurgy site, ILogger<CduWatch> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(3);
@@ -220,7 +220,8 @@ public sealed class CduWatch(IGrainFactory grains, Cytheurgy site, ILogger<CduWa
         {
             try
             {
-                foreach (var party in await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetAll()) await site.WatchAsync(party.Id, stoppingToken);
+                foreach (var world in await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetWorldsAsync())
+                    if (!world.Stopped) await site.WatchAsync(world.Id, stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

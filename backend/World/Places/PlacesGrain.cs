@@ -35,6 +35,8 @@ public sealed partial class PlacesGrain(
     private readonly Dictionary<Guid, ChatGroupInfo> _rooms = new();
     private readonly HashSet<Guid> _dressing = new();
     private readonly Queue<CastMember> _dressQueue = new();
+    /// <summary>Looks brought from another World, worn by the Bodies made for them.</summary>
+    private readonly Dictionary<Guid, Appearance> _adoptedLooks = new();
     private bool _dressingRuns;
     private readonly Dictionary<Guid, (int Bed, int Wake, long At)> _sleepWindows = new();
     private long _lastSleepCheck;
@@ -402,6 +404,16 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
     }
 
+    public async Task AdoptLooksAsync(Dictionary<Guid, Appearance> looks)
+    {
+        foreach (var (id, look) in looks) _adoptedLooks[id] = look;
+        await SyncCastAsync();
+        foreach (var (id, look) in looks)
+            if (state.State.Bodies.TryGetValue(id, out var body)) body.Appearance = look;
+        _adoptedLooks.Clear();
+        await SaveAsync();
+    }
+
     public async Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
@@ -427,6 +439,7 @@ public sealed partial class PlacesGrain(
     {
         try
         {
+            if (state.State.Bodies.GetValueOrDefault(who.Id)?.Appearance is { FromBio: true, Design: not null }) return;
             // Others' looks so far: a small world reads better when people don't all pick the same hair.
             var others = state.State.Bodies.Values
                 .Where(b => b.ParticipantId != who.Id && b.Appearance is { FromBio: true })
@@ -878,6 +891,7 @@ public sealed partial class PlacesGrain(
                 IsHuman = c.DefaultDriver == DriverKind.User,
                 Aura = c.Aura,
                 ArrivedAt = Now(),
+                Appearance = _adoptedLooks.GetValueOrDefault(c.Id),
             };
             changed = true;
         }
@@ -910,6 +924,8 @@ public sealed partial class PlacesGrain(
     /// <summary>Bodies whose walk is over arrive: posture from the spot, Place talk cast follows.</summary>
     private async Task SettleAsync()
     {
+        // A stopped World stays as it was left: no mishaps, nobody arrives.
+        if (await GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty).IsStoppedAsync(PartyId)) return;
         var now = Now();
         foreach (var b in state.State.Bodies.Values.Where(b => b.ActivityUntil <= now))
         {
@@ -1156,6 +1172,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Choose a look by hand (a Player for themselves, or the author for anyone). Off-palette choices are ignored.</summary>
     [Alias("HandOverAsync")] Task HandOverAsync(Guid participantId);
     [Alias("SetAppearanceAsync")] Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked);
+    /// <summary>Moving in from another World: Bodies wear the looks they had there, so nobody's drawn anew.</summary>
+    [Alias("AdoptLooksAsync")] Task AdoptLooksAsync(Dictionary<Guid, Appearance> looks);
 
     /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
     [Alias("RedressAsync")] Task RedressAsync(Guid? participantId);

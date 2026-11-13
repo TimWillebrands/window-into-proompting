@@ -19,7 +19,8 @@ namespace PartyTown.Mcp;
 [McpServerToolType]
 public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, PlayerAuto? auto = null)
 {
-    private Guid World => mcp.Value.World;
+    /// <summary>Set by Guard before each tool runs.</summary>
+    private Guid World { get; set; }
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
     private const string Where = "Admins: a Place id from list_places, acted on as its author. Default: their Home.";
 
@@ -311,8 +312,11 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
     private static string NameOf(PlacesSnapshot snapshot, Guid who) => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Name ?? "?";
 
     /// <summary>Identity refusals as tool errors the agent can read, not opaque failures.</summary>
-    private static async Task<T> Guard<T>(Func<Task<T>> run)
+    private async Task<T> Guard<T>(Func<Task<T>> run)
     {
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        World = mcp.Value.World ?? await root.GetCurrentAsync();
+        if (await root.IsStoppedAsync(World)) throw new McpException(StoppedWorldFilter.Title);
         try
         {
             return await run();

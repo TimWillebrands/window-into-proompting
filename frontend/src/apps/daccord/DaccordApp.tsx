@@ -12,8 +12,8 @@ import {
 } from '#lib/realtime-store';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { useSetWindowTitleBar } from '../../components/desktop/window-titlebar-context';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { useDesktopContext, useDesktopStore } from '../../lib/desktop-context';
+import { WORLD_ID } from '../../lib/world';
 import CreateRoomDialog from './components/CreateRoomDialog';
 import DaccordSearchBar from './components/DaccordSearchBar';
 import DaccordSidebar from './components/DaccordSidebar';
@@ -69,14 +69,14 @@ export default function DaccordApp() {
 
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
-    const connectionStatus = useRealtimeConnectionStatus(ROOT_PARTY_ID);
+    const connectionStatus = useRealtimeConnectionStatus(WORLD_ID);
 
     useEffect(() => {
-        connectPartyRealtime(ROOT_PARTY_ID);
-        return () => disconnectPartyRealtime(ROOT_PARTY_ID);
+        connectPartyRealtime(WORLD_ID);
+        return () => disconnectPartyRealtime(WORLD_ID);
     }, [connectPartyRealtime, disconnectPartyRealtime]);
 
-    const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(ROOT_PARTY_ID);
+    const chatGroupsQuery = useGetPartyIdChatGroupsSuspense(WORLD_ID);
     const chatGroups = useMemo(() => {
         const raw = chatGroupsQuery.data?.data;
         if (!Array.isArray(raw)) return [];
@@ -102,7 +102,7 @@ export default function DaccordApp() {
         mutation: {
             onSuccess: (created) => {
                 queryClient.invalidateQueries({
-                    queryKey: getGetPartyIdChatGroupsQueryKey(ROOT_PARTY_ID),
+                    queryKey: getGetPartyIdChatGroupsQueryKey(WORLD_ID),
                 });
                 setCreateOpen(false);
                 if (created.data.id) {
@@ -115,7 +115,7 @@ export default function DaccordApp() {
     const handleCreateRoom = useCallback(
         (name: string, scenario: string) => {
             createMutation.mutate({
-                id: ROOT_PARTY_ID,
+                id: WORLD_ID,
                 data: { name, scenario: scenario || null },
             });
         },
@@ -177,7 +177,7 @@ export default function DaccordApp() {
                             {selected?.name ?? 'Room'}
                         </span>
                         <ScenarioChip
-                            partyId={ROOT_PARTY_ID}
+                            partyId={WORLD_ID}
                             chatGroupId={view.chatGroupId}
                             scenario={selected?.scenario ?? null}
                         />

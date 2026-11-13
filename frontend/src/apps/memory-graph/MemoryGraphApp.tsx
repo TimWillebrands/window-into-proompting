@@ -16,7 +16,7 @@ import {
     useGetPersonaSuspense,
     useGetWorldsPartyIdBoardSuspense,
 } from '#api/party-zone';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import { WORLD_ID } from '../../lib/world';
 import { enrichGraph } from './enrichGraph';
 import {
     buildView,
@@ -40,7 +40,7 @@ export default function MemoryGraphApp() {
 }
 
 function MemoryGraphInner() {
-    const partyId = ROOT_PARTY_ID;
+    const partyId = WORLD_ID;
     const queryClient = useQueryClient();
 
     // Snapshot + manual refresh: no focus refetches while the user inspects the graph.

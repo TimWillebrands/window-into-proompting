@@ -140,6 +140,13 @@ public sealed class RelationsGrain(
         return ask;
     }
 
+    public async Task AdoptAsync(List<Relation> relations)
+    {
+        foreach (var r in relations.Where(r => r.AId != r.BId))
+            Book.Relations.Add(new Relation { AId = r.AId, BId = r.BId, Kind = r.Kind, Story = Clean(r.Story), Since = r.Since, EndedAt = r.EndedAt });
+        await state.WriteStateAsync();
+    }
+
     public async Task LeaveAsync(Guid participantId)
     {
         foreach (var relation in Book.Relations.Where(r => r.IsCurrent() && r.Involves(participantId))) Close(relation);
@@ -219,6 +226,8 @@ public interface IRelationsGrain : IGrainWithGuidKey
     [Alias("DropKeyAsync")] Task<bool> DropKeyAsync(Guid holderId, Guid hostId, Guid placeId, bool taken);
     /// <summary>The Ask as it stands after answering; null when none is open.</summary>
     [Alias("AnswerAsync")] Task<RelationAsk?> AnswerAsync(Guid fromId, Guid toId, bool yes);
+    /// <summary>Author: Relations brought from another World, kind, story and dates kept; nobody lives together yet.</summary>
+    [Alias("AdoptAsync")] Task AdoptAsync(List<Relation> relations);
     /// <summary>Someone left the World: what they were part of is over.</summary>
     [Alias("LeaveAsync")] Task LeaveAsync(Guid participantId);
 }

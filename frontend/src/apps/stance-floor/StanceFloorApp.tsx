@@ -9,7 +9,7 @@ import {
     usePostPartiesPartyIdMemoryParticipantsPersonaIdStancesStanceIdRetract,
 } from '#api/party-zone';
 import { StanceOrigin, StanceTargetKind } from '../../api/model';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
+import { WORLD_ID } from '../../lib/world';
 
 /**
  * Stance Floor — the curator's debug surface for ADR 0016. Author an Acquired Stance from
@@ -20,7 +20,7 @@ import { ROOT_PARTY_ID } from '../../lib/chat-api';
  * and one-click retract — a neutralizing append, never a delete.
  */
 export default function StanceFloorApp() {
-    const partyId = ROOT_PARTY_ID;
+    const partyId = WORLD_ID;
     const personasQuery = useGetPersona();
     const personas = useMemo(() => {
         const data = personasQuery.data?.data;

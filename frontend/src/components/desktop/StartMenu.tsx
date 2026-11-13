@@ -7,6 +7,7 @@ import {
     usePlayerName,
     usePlayerOnAuto,
     usePlayerSession,
+    useWorldChoice,
 } from '../../lib/world';
 
 interface StartMenuProps {
@@ -20,6 +21,7 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
     const onAuto = usePlayerOnAuto();
     const signedIn = usePlayerSession((s) => !!s.userId);
     const canOpen = useCanOpen();
+    const leaveWorld = useWorldChoice((s) => s.leave);
 
     useEffect(() => {
         const handlePointer = (event: PointerEvent) => {
@@ -180,6 +182,17 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
 
             <footer className="xp-startmenu-footer">
                 <span>v0.1</span>
+                <button
+                    type="button"
+                    className="xp-startmenu-item ml-auto mr-1 w-auto px-3 py-1 rounded bg-white/10 hover:bg-white/25"
+                    onClick={() => {
+                        onClose();
+                        leaveWorld();
+                    }}
+                >
+                    <span aria-hidden>🔑</span>
+                    <span>Switch World</span>
+                </button>
                 <button
                     type="button"
                     className="xp-startmenu-item w-auto px-3 py-1 rounded bg-white/10 hover:bg-white/25"

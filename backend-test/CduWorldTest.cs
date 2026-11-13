@@ -22,7 +22,7 @@ using PartyTown.World.Work.Markets;
 namespace BackendTest;
 
 /// <summary>A CDU Company in a real cluster (ADR 0039), against a fake CDU: Life moves it, the CDU reports, shifts drive the tide.</summary>
-public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
+public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
 {
     private readonly Fixture _fx;
 
@@ -500,6 +500,8 @@ public class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
                     services.AddSingleton<Desks>();
                     services.AddSingleton<ICdu, FakeCdu>();
                     services.AddSingleton<Cytheurgy>();
+                    services.AddSingleton<PlayerAuto>();
+                    services.AddSingleton<WorldMove>();
                     services.AddSingleton<IWorldApp, CduApp>();
                     services.AddSingleton<IWorldApp, DeskApp>();
                     services.AddSingleton<IWorldApp, WorkApp>();

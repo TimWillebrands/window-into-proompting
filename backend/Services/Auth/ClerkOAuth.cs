@@ -14,8 +14,8 @@ public sealed class McpOptions
     public string? Resource { get; set; }
     /// <summary>Clerk's Frontend API URL, the authorization server agents sign in at.</summary>
     public string? AuthorizationServer { get; set; }
-    /// <summary>The World the tools act in; there's one, the root.</summary>
-    public Guid World { get; set; } = Guid.Empty;
+    /// <summary>Pins the tools to one World; null follows the current one.</summary>
+    public Guid? World { get; set; }
 }
 
 /// <summary>An agent's OAuth access token, as Clerk vouches for it.</summary>

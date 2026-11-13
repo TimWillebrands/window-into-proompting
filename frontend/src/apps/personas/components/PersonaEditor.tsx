@@ -9,8 +9,7 @@ import {
 import { personaWsStream } from '#lib/persona-ws-stream';
 import type { Persona } from '../../../api/model';
 import Portrait from '../../../components/Portrait';
-import { ROOT_PARTY_ID } from '../../../lib/chat-api';
-import { AURA_MAX } from '../../../lib/world';
+import { AURA_MAX, WORLD_ID } from '../../../lib/world';
 import Residence from './Residence';
 
 type PersonaGenerationDeltaData = { data: string };
@@ -63,8 +62,7 @@ export default function PersonaEditor({
                     }),
                     // Lives show chattiness.
                     queryClient.invalidateQueries({
-                        queryKey:
-                            getGetWorldsPartyIdLivesQueryKey(ROOT_PARTY_ID),
+                        queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
                     }),
                 ]);
                 onSaved?.();

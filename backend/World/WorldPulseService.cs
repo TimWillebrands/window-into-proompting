@@ -2,7 +2,7 @@ using PartyTown.Grains;
 
 namespace PartyTown.World;
 
-/// <summary>Heartbeat for every Party's World clock (ADR 0018) — no grain timers or reminder table needed.</summary>
+/// <summary>Heartbeat for every running Party's World clock (ADR 0018) — no grain timers or reminder table needed.</summary>
 public sealed class WorldPulseService(IGrainFactory grains, ILogger<WorldPulseService> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);
@@ -16,8 +16,8 @@ public sealed class WorldPulseService(IGrainFactory grains, ILogger<WorldPulseSe
         {
             try
             {
-                var parties = await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetAll();
-                await Task.WhenAll(parties.Select(p => grains.GetGrain<IWorldClockGrain>(p.Id).PulseAsync()));
+                var worlds = await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetWorldsAsync();
+                await Task.WhenAll(worlds.Where(w => !w.Stopped).Select(w => grains.GetGrain<IWorldClockGrain>(w.Id).PulseAsync()));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -205,6 +205,15 @@ public sealed class WorldClockGrain(
 
     public Task<List<Guid>> GetClaimedAsync() => Task.FromResult(state.State.PlayersByClerkId.Values.ToList());
 
+    public Task<Dictionary<string, Guid>> GetPlayersAsync() => Task.FromResult(new Dictionary<string, Guid>(state.State.PlayersByClerkId));
+
+    public async Task AdoptPlayersAsync(Dictionary<string, Guid> players)
+    {
+        foreach (var (clerkId, id) in players) state.State.PlayersByClerkId.TryAdd(clerkId, id);
+        state.State.PlayerId ??= state.State.PlayersByClerkId.Values.Cast<Guid?>().FirstOrDefault();
+        await state.WriteStateAsync();
+    }
+
     /// <summary>Makes this Clerk user's character; null when someone in the cast already has that name.</summary>
     public async Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name)
     {
@@ -507,6 +516,10 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("IsClaimedAsync")] Task<bool> IsClaimedAsync(Guid participantId);
     /// <summary>Every Participant a human owns, on auto or not.</summary>
     [AlwaysInterleave, Alias("GetClaimedAsync")] Task<List<Guid>> GetClaimedAsync();
+    /// <summary>Clerk user id to Participant, for every human here.</summary>
+    [Alias("GetPlayersAsync")] Task<Dictionary<string, Guid>> GetPlayersAsync();
+    /// <summary>Humans moving in from another World keep their Participants; a Clerk id already here keeps its own.</summary>
+    [Alias("AdoptPlayersAsync")] Task AdoptPlayersAsync(Dictionary<string, Guid> players);
     [Alias("ForgetPlayerAsync")] Task ForgetPlayerAsync(Guid participantId);
     /// <summary>A Happening: logged and perceived by every Life; at a Place, news there and remembered around it, else by everyone.</summary>
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text, Guid? placeId = null);

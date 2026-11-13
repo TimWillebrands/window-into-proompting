@@ -8,7 +8,7 @@ The domain language of Proompting (aka Partytown): a Windows-XP-themed desktop w
 A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**. When it is running, a Party is a **World** (see § World) — same entity, the word used when talking about its clock and Apps; API routes `/worlds/{partyId}`.
 _Avoid_: server, workspace, tenant, desktop.
 
-> Note: today the frontend always opens the default Party (id = `Guid.Empty`, exposed as `ROOT_PARTY_ID`). The API is fully multi-party; that surface is intentional, not dead code.
+> Note: the frontend opens the World picked at the login screen (`WORLD_ID` in `lib/world.tsx`); the root Party (id = `Guid.Empty`) is the first one. See **Move**.
 
 **Room**:
 A named conversation thread inside a **Party** that a small cast of **Participants** talks in. Has its own message log, optional **Scenario** text, a subset of the Party's **Participants** as cast, and zero or more **Driver overrides**.
@@ -318,6 +318,18 @@ _Avoid_: event (taken — see **Event**), news item.
 **Activity**:
 One line in the World's activity log: who did what in which App, with the Initiative thought that led there.
 _Avoid_: event (taken — see **Event**), log entry.
+
+**Move**:
+Everyone picked leaves a World for a new one, bringing their **Nature**, their looks, their Player, the CDU's staff and the **Relations** an admin ticks, and nothing else of their **Nurture**. The old World is **Stopped** and the new one **Current**. Done from the login screen. See [ADR 0056](docs/adr/0056-moving-to-a-fresh-world.md).
+_Avoid_: migration, reset, fork, copy.
+
+**Stopped**:
+A World kept as it was left: it can be looked around in but takes no writes, no Life turns and no CDU news. An admin can start it again. Not the same as a paused World clock, which stops Initiative only.
+_Avoid_: archived, deleted, frozen.
+
+**Current World**:
+The one World MCP agents act in and the persona generator briefs from; a **Move** makes the new World current. Each browser still picks its own World at the login screen.
+_Avoid_: default party, main world, active world.
 
 ### Places
 

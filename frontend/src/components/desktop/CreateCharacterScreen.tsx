@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { ProblemDetailsError } from '../../api/custom-fetch';
-import { useCreatePlayer } from '../../lib/world';
+import { useCreatePlayer, useWorldChoice } from '../../lib/world';
 import { LoginShell } from './WelcomeScreen';
 
 const MAX_NAME = 40;
@@ -8,6 +8,7 @@ const MAX_NAME = 40;
 /** First stop for a signed-in human with no Player yet: pick who you'll be here. */
 export default function CreateCharacterScreen() {
     const createPlayer = useCreatePlayer();
+    const leaveWorld = useWorldChoice((s) => s.leave);
     const nameId = useId();
     const [name, setName] = useState('');
     const [busy, setBusy] = useState(false);
@@ -20,11 +21,11 @@ export default function CreateCharacterScreen() {
         try {
             await createPlayer(name.trim());
         } catch (err) {
-            setError(
-                err instanceof ProblemDetailsError && err.detail
-                    ? err.detail
-                    : 'That did not work. Try again?',
-            );
+            const said =
+                err instanceof ProblemDetailsError
+                    ? err.detail || err.title
+                    : null;
+            setError(said || 'That did not work. Try again?');
             setBusy(false);
         }
     };
@@ -60,6 +61,13 @@ export default function CreateCharacterScreen() {
                     </p>
                 )}
             </form>
+            <button
+                type="button"
+                onClick={leaveWorld}
+                className="w-72 border-0 bg-transparent p-2 text-left text-sm text-white underline"
+            >
+                Pick another World
+            </button>
         </LoginShell>
     );
 }

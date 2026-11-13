@@ -42,6 +42,8 @@ internal static class TestSiloDefaults
                         It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
                         It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                     .ReturnsAsync(Array.Empty<StanceLine>());
+                mock.Setup(m => m.ListStancesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(Array.Empty<StanceRecord>());
                 return mock.Object;
             });
         });

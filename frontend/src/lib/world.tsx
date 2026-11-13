@@ -10,6 +10,7 @@ import {
     postWorldsPartyIdPlayer,
     putWorldsPartyIdPlayerAura,
     putWorldsPartyIdPlayerAuto,
+    useGetWorlds,
 } from '#api/party-zone';
 import { useDesktopContext } from '#lib/desktop-context';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
@@ -25,8 +26,53 @@ import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
 import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
 
-/** The World the desktop shows. One Party today; the API is multi-world. */
-export const WORLD_ID = ROOT_PARTY_ID;
+const CHOSEN_WORLD = 'partytown.world';
+
+/** What this browser picked last time; the desktop waits for Clerk, so the server's null never shows. */
+const remembered =
+    typeof window === 'undefined'
+        ? null
+        : window.localStorage.getItem(CHOSEN_WORLD);
+
+/** The World the desktop shows, picked at the login screen; the desktop remounts when it changes. */
+export let WORLD_ID: string = remembered ?? ROOT_PARTY_ID;
+
+interface WorldChoice {
+    /** Null until picked at the login screen. */
+    id: string | null;
+    /** Picked in this tab, rather than remembered from last time. */
+    pickedNow: boolean;
+    choose: (id: string) => void;
+    /** Back to the login screen to pick another. */
+    leave: () => void;
+}
+
+export const useWorldChoice = create<WorldChoice>((set) => ({
+    id: remembered,
+    pickedNow: false,
+    choose: (id) => {
+        WORLD_ID = id;
+        window.localStorage.setItem(CHOSEN_WORLD, id);
+        set({ id, pickedNow: true });
+    },
+    leave: () => {
+        window.localStorage.removeItem(CHOSEN_WORLD);
+        set({ id: null });
+    },
+}));
+
+/** A remembered World that has since stopped or gone sends this browser to the login screen; true while checking. */
+export function useForgetStoppedWorld(): boolean {
+    const { id, pickedNow, leave } = useWorldChoice();
+    const check = !!id && !pickedNow;
+    const { data } = useGetWorlds({ query: { enabled: check } });
+    const world = data?.data.worlds.find((w) => w.id === id);
+    const stale = check && !!data && (!world || world.stopped);
+    useEffect(() => {
+        if (stale) leave();
+    }, [stale, leave]);
+    return check && (!data || stale);
+}
 
 const worldPrefix = (suffix = '') => `/api/worlds/${WORLD_ID}${suffix}`;
 
@@ -164,18 +210,21 @@ export const useWorldToasts = create<ToastStore>((set) => ({
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
-/** Any refused action says why, so no App needs its own on-auto handling. */
+/** Any refused action says why, so no App needs its own on-auto or stopped-World handling. */
 export function toastOnAuto(error: unknown) {
-    if (
-        !(error instanceof ProblemDetailsError) ||
-        error.title !== 'Your character is on auto.'
-    )
-        return;
-    useWorldToasts.getState().push({
-        title: 'Your character is on auto',
-        body: 'Take over from the Start menu to act yourself.',
-        icon: '🤖',
-    });
+    if (!(error instanceof ProblemDetailsError)) return;
+    if (error.title === 'This World is stopped.')
+        useWorldToasts.getState().push({
+            title: 'This World is stopped',
+            body: 'You can look around, but nothing here changes any more. Switch World from the Start menu.',
+            icon: '🏚️',
+        });
+    else if (error.title === 'Your character is on auto.')
+        useWorldToasts.getState().push({
+            title: 'Your character is on auto',
+            body: 'Take over from the Start menu to act yourself.',
+            icon: '🤖',
+        });
 }
 
 /** Respect! keys already toasted, so a re-published post doesn't toast twice. */

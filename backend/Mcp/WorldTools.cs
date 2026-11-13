@@ -20,7 +20,8 @@ namespace PartyTown.Mcp;
 public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu)
 {
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
-    private Guid World => mcp.Value.World;
+    /// <summary>Set by Guard before each tool runs.</summary>
+    private Guid World { get; set; }
     private IPlacesGrain Places => grains.GetGrain<IPlacesGrain>(World);
     private IPartyGrain Party => grains.GetGrain<IPartyGrain>(World);
     private BoardApp Board => apps.OfType<BoardApp>().Single();
@@ -216,8 +217,11 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return $"[{at}] {names.GetValueOrDefault(m.SenderId, m.SenderType)}{voice}: {m.Content}";
     }
 
-    private static async Task<T> Guard<T>(Func<Task<T>> run)
+    private async Task<T> Guard<T>(Func<Task<T>> run)
     {
+        var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
+        World = mcp.Value.World ?? await root.GetCurrentAsync();
+        if (await root.IsStoppedAsync(World)) throw new McpException(StoppedWorldFilter.Title);
         try
         {
             return await run();

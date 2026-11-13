@@ -1,3 +1,4 @@
+using Orleans.Concurrency;
 using PartyTown.Model;
 
 namespace PartyTown.Grains;
@@ -87,7 +88,42 @@ public sealed class PartyRootGrain(
 
         return await Task.WhenAll(tasks);
     }
+
+    public async Task<List<WorldEntry>> GetWorldsAsync()
+        => (await GetAll())
+            .Select(p => new WorldEntry(p.Id, p.Name, state.State.Stopped.Contains(p.Id), p.Id == state.State.Current, p.Participants))
+            .ToList();
+
+    public Task<Guid> GetCurrentAsync() => Task.FromResult(state.State.Current);
+
+    public async Task<bool> SetCurrentAsync(Guid id)
+    {
+        if (!state.State.PartyIds.Contains(id)) return false;
+        if (state.State.Current == id) return true;
+        state.State.Current = id;
+        await state.WriteStateAsync();
+        return true;
+    }
+
+    public Task<bool> IsStoppedAsync(Guid id) => Task.FromResult(state.State.Stopped.Contains(id));
+
+    public async Task<bool> SetStoppedAsync(Guid id, bool stopped)
+    {
+        if (!state.State.PartyIds.Contains(id)) return false;
+        if (stopped ? state.State.Stopped.Add(id) : state.State.Stopped.Remove(id))
+            await state.WriteStateAsync();
+        return true;
+    }
 }
+
+/// <summary>A World as the login screen lists it.</summary>
+[GenerateSerializer, Alias("PartyTown.Grains.WorldEntry")]
+public sealed record WorldEntry(
+    [property: Id(0)] Guid Id,
+    [property: Id(1)] string Name,
+    [property: Id(2)] bool Stopped,
+    [property: Id(3)] bool Current,
+    [property: Id(4)] List<PartyParticipant> Participants);
 
 [Alias("backend.IPartyRootGrain")]
 public interface IPartyRootGrain : IGrainWithGuidKey
@@ -109,6 +145,25 @@ public interface IPartyRootGrain : IGrainWithGuidKey
 
     [Alias("GetPartyForChatGroup")]
     Task<Guid?> GetPartyForChatGroup(Guid chatGroupId);
+
+    [Alias("GetWorldsAsync")]
+    Task<List<WorldEntry>> GetWorldsAsync();
+
+    /// <summary>The World new visitors and MCP agents land in.</summary>
+    [AlwaysInterleave, Alias("GetCurrentAsync")]
+    Task<Guid> GetCurrentAsync();
+
+    /// <summary>False when no such World.</summary>
+    [Alias("SetCurrentAsync")]
+    Task<bool> SetCurrentAsync(Guid id);
+
+    /// <summary>Stopped Worlds keep everything but take no writes and no turns.</summary>
+    [AlwaysInterleave, Alias("IsStoppedAsync")]
+    Task<bool> IsStoppedAsync(Guid id);
+
+    /// <summary>False when no such World.</summary>
+    [Alias("SetStoppedAsync")]
+    Task<bool> SetStoppedAsync(Guid id, bool stopped);
 }
 
 [GenerateSerializer, Alias(nameof(PartyRootState))]
@@ -119,4 +174,11 @@ public sealed record class PartyRootState
 
     [Id(1)]
     public Dictionary<Guid, Guid> ChatGroupToParty { get; set; } = [];
+
+    [Id(2)]
+    public HashSet<Guid> Stopped { get; set; } = new();
+
+    /// <summary>Guid.Empty, the root, until someone moves the World.</summary>
+    [Id(3)]
+    public Guid Current { get; set; }
 }

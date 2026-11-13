@@ -433,11 +433,12 @@ public class PersonaController(
         return text.Length > 300 ? text[..300].TrimEnd() + "..." : text;
     }
 
-    /// <summary>The seed plus who and what the newcomer lands among, in the default Party.</summary>
+    /// <summary>The seed plus who and what the newcomer lands among, in the current World.</summary>
     private async Task<string> BriefAsync(string seed)
     {
-        var cast = await grains.GetGrain<IPartyGrain>(Guid.Empty).GetCastAsync();
-        var places = (await grains.GetGrain<IPlacesGrain>(Guid.Empty).GetSnapshotAsync()).Places
+        var world = await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetCurrentAsync();
+        var cast = await grains.GetGrain<IPartyGrain>(world).GetCastAsync();
+        var places = (await grains.GetGrain<IPlacesGrain>(world).GetSnapshotAsync()).Places
             .Where(p => p.Kind == PlaceKinds.Public && !p.Private).Select(p => p.Name).ToList();
         var residents = cast.Where(c => c.Id != Narrator.PersonaId).Select(c => (c.Name, c.Bio)).ToList();
         return PersonaBrief.Compose(seed, Random.Shared, places, residents);

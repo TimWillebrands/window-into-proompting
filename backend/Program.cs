@@ -27,7 +27,11 @@ builder.Services.AddLlmProviderOptions();
 builder.Services.AddMemoryCache();
 builder.Services.AddOutputCache();
 builder.Services.AddOpenApi();
-builder.Services.AddControllers(o => o.Filters.Add<PartyTown.Services.Auth.ForbiddenActorFilter>());
+builder.Services.AddControllers(o =>
+{
+    o.Filters.Add<PartyTown.Services.Auth.ForbiddenActorFilter>();
+    o.Filters.Add<PartyTown.Services.Auth.StoppedWorldFilter>();
+});
 builder.Services.AddClerkAuth(builder.Configuration);
 builder.Services.AddPartyMcp();
 builder.Services.AddHttpClient();
@@ -70,6 +74,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Reflex.ReflexGate>();
     builder.Services.AddSingleton<PartyTown.World.PlayerRemoval>();
     builder.Services.AddSingleton<PartyTown.World.PlayerAuto>();
+    builder.Services.AddSingleton<PartyTown.World.WorldMove>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Self.OffStage>();
     builder.Services.AddSingleton<PartyTown.World.Self.FollowThrough>();

@@ -33,7 +33,6 @@ import {
 import type { Persona } from '../../api/model';
 import { DriverKind } from '../../api/model';
 import Portrait from '../../components/Portrait';
-import { ROOT_PARTY_ID } from '../../lib/chat-api';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
     isShownInRoom,
@@ -41,6 +40,7 @@ import {
     pendingInstructionFor,
 } from '../../lib/room-conversation';
 import { useRoomConversation } from '../../lib/use-room-conversation';
+import { WORLD_ID } from '../../lib/world';
 import { speakAsOverrides } from './room-cast';
 
 export interface ChatViewProps {
@@ -68,7 +68,7 @@ export default function GroupChatWindow({ chatGroupId }: GroupChatWindowProps) {
 }
 
 export function ChatView({ chatGroupId }: ChatViewProps) {
-    const apiPartyId = ROOT_PARTY_ID;
+    const apiPartyId = WORLD_ID;
     const queryClient = useQueryClient();
     const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');

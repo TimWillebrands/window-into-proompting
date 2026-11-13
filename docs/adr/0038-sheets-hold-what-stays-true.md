@@ -30,7 +30,7 @@ Distillation follows the same rules, so legacy sheets and generated ones end up 
 ## Consequences
 
 - Bumping `LivedSheets.Version` redoes every distilled sheet and, through the sheet hash, every Intrinsic Desire
-  nobody authored. It's left at 5 until someone decides existing residents should change.
+  nobody authored. It went to 6 with the first Move (ADR 0056), so residents of the fresh World start from fresh sheets.
 - Distillation only sees the authored sheet, so a job set later in a Party (Pieter is a trader now, his sheet says
   startup) stays contradicted. No prompt fixes that.
 - Arrival (ADR 0022) is still unbuilt. A shared past between new people is a Relation's Story, not memory.

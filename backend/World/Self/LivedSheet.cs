@@ -121,7 +121,7 @@ public static class LivedSheets
         """;
 
     /// <summary>Bump to redo every distillation after a prompt change.</summary>
-    private const int Version = 5;
+    private const int Version = 6;
 
     public static string Hash(string source)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"v{Version}\n{source}")))[..16];
