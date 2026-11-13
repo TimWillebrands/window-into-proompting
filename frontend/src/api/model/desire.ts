@@ -39,4 +39,9 @@ export interface Desire {
     coming?: boolean;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     again?: number | string;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    settlesAt?: number | string | null;
 }
