@@ -74,6 +74,14 @@ public sealed class AuthorTools(IGrainFactory grains, IOptions<McpOptions> mcp)
         return "It's over; it stays as their past.";
     });
 
+    [McpServerTool(Name = "forget_relation", Destructive = true), Description("Admins: strike a Relation as if it never was; a shared Home splits. Their sheets may still say otherwise: edit_persona those.")]
+    public Task<string> ForgetRelationAsync(ClaimsPrincipal user, [Description("Relation id from list_relations.")] Guid relationId) => Guard(async () =>
+    {
+        RequireAdmin(user);
+        if (!await grains.GetGrain<IRelationsGrain>(World).ForgetAsync(relationId)) throw new McpException("No Relation by that id.");
+        return "Struck; it never was.";
+    });
+
     private async Task<Persona> PersonaAsync(Guid participantId)
     {
         if (participantId == Narrator.PersonaId || (await grains.GetGrain<IPartyGrain>(World).GetCastAsync()).All(c => c.Id != participantId))

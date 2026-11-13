@@ -60,4 +60,20 @@ public partial class WorldLifeTest
         Assert.Equal((RelationKind.Married, false), (row.Kind, row.Current));
         await Assert.ThrowsAsync<McpException>(() => tools.EndRelationAsync(Agent(admin: true), relation.Id));
     }
+
+    [Fact]
+    public async Task AnAdminsAgent_ForgetsARelation_AsIfItNeverWas()
+    {
+        var (partyId, player, denise, _) = await PlayerWorldAsync();
+        var tools = AuthorToolsFor(partyId);
+        var relation = (await _fx.GrainFactory.GetGrain<IRelationsGrain>(partyId).DeclareAsync(denise, player, RelationKind.Married, null, false))!;
+        await tools.LiveTogetherAsync(Agent(admin: true), relation.Id, denise);
+
+        await Assert.ThrowsAsync<McpException>(() => tools.ForgetRelationAsync(Agent(), relation.Id));
+        await tools.ForgetRelationAsync(Agent(admin: true), relation.Id);
+
+        Assert.Empty(await tools.ListRelationsAsync(Agent(admin: true)));
+        Assert.DoesNotContain(player, (await PlacesOf(partyId).GetSnapshotAsync()).Places.HomeOf(denise)!.Living());
+        await Assert.ThrowsAsync<McpException>(() => tools.ForgetRelationAsync(Agent(admin: true), relation.Id));
+    }
 }
