@@ -23,7 +23,7 @@ public static partial class PlacesProbes
     private static readonly (string Name, string Situation)[] Situations =
     {
         ("cafe", "You're at the Café, sitting at the window table, on your phone, texting. Here: Hana (standing by the counter), Pieter (sitting in the corner booth)."),
-        ("home", "You're at home, sitting on the sofa, on your phone, texting. Nobody else is here. You've been at home for 3 h."),
+        ("home", "You're at home (a small apartment), sitting on the sofa, on your phone, texting. Nobody else is home. You've been at home for 3 h."),
     };
 
     /// <summary>Stale shared metaphors seen in the live world run (spec § Decisions so far).</summary>

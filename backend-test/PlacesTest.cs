@@ -223,7 +223,10 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
 
         _fx.Time.Advance(UntilLocal(wake + 5));
         Assert.DoesNotContain(denise, await places.GetAsleepAsync());
-        Assert.Contains("just got up", await places.GetSituationAsync(denise));
+        var awake = await places.GetSituationAsync(denise);
+        Assert.Contains("just got up", awake);
+        Assert.StartsWith("You're at home (a small apartment),", awake);
+        Assert.Contains("Nobody else is home.", awake);
         Assert.Equal("kitchen", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).SpotId);
     }
 

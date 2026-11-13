@@ -1081,12 +1081,15 @@ public sealed partial class PlacesGrain(
         var place = Find(body.PlaceId);
         if (body.Asleep) return $"You're asleep in bed {AtName(place, body.ParticipantId)}.";
         if (place is { Kind: PlaceKinds.Locale }) return AwaySituation(body, place);
-        var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}, {PostureAt(place, body)}");
+        // Own Home's shape bounds "here", so a sheet's canal house can't add an upstairs.
+        var home = place?.LivesIn(body.ParticipantId) == true;
+        var shape = home && place!.Description is { Length: > 0 } about ? $" ({about})" : string.Empty;
+        var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}{shape}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
         var others = Occupants(body.PlaceId).Where(b => b.ParticipantId != body.ParticipantId).ToList();
         if (others.Count == 0)
-            sb.Append(" Nobody else is here.");
+            sb.Append(home ? " Nobody else is home." : " Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
                 ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)})"

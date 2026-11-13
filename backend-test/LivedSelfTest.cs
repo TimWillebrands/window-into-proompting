@@ -64,6 +64,7 @@ public class LivedSelfTest
         Assert.Equal("Where you are: You're at the Café, sitting at the window table.", lines[2]);
         Assert.Contains("What your day had for now: at the office", text);
         Assert.Contains("the day is what's going on in your life around it", text);
+        Assert.Contains("'Where you are' is true and the day went differently", text);
     }
 
     [Fact]

@@ -638,7 +638,8 @@ public static class SelfRender
             ? string.Empty
             : $"# Right now\n{string.Join("\n", lines)}\n" + (day is { Beats.Count: > 0 }
                 ? "This is your life outside this conversation. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it."
-                  + (string.IsNullOrWhiteSpace(situation) ? "\n" : " Where you are is the 'Where you are' line; the day is what's going on in your life around it.\n")
+                  + (string.IsNullOrWhiteSpace(situation) ? "\n" : " Where you are is the 'Where you are' line; the day is what's going on in your life around it."
+                      + " Where they disagree (the day puts you elsewhere, or with someone the 'Where you are' line doesn't), 'Where you are' is true and the day went differently.\n")
                 : string.Empty);
         if (wear.Count > 0)
             block += $"\n# Gone stale\n{string.Join("\n", wear.Select(w => $"- {w}"))}\n";
