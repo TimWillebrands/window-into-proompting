@@ -63,5 +63,7 @@ export interface Body {
     /** @nullable */
     aura?: string | null;
     afk?: boolean;
+    /** @nullable */
+    leftFrom?: string | null;
     isWalking?: boolean;
 }

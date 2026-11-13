@@ -13,7 +13,8 @@ public sealed record LifeContext(
     DateTimeOffset Now,
     IReadOnlyDictionary<Guid, PartyTown.World.Self.AttentionLook> Looks,
     IReadOnlyDictionary<Guid, PartyTown.World.Desires.Desire>? Wanted = null,
-    IReadOnlyList<PartyTown.World.Happening>? Happenings = null)
+    IReadOnlyList<PartyTown.World.Happening>? Happenings = null,
+    PartyTown.World.Places.PlaceFit? Fit = null)
 {
     /// <summary>What an option toward <paramref name="id"/> pulls with: a promise due to them, else a want about them (ADR 0026, 0043).</summary>
     public PartyTown.World.Desires.Desire? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;

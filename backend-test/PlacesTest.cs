@@ -71,6 +71,37 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
     }
 
     [Fact]
+    public async Task GettingSomewhere_IsInTheSituation_ForAWhile()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+        var home = snapshot.Places.Single(p => p.OwnerId == denise);
+
+        Assert.DoesNotContain("came over", await places.GetSituationAsync(denise));
+        await places.MoveAsync(denise, cafe.Id, null);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.Contains("You came over from your place just now.", await places.GetSituationAsync(denise));
+        _fx.Time.Advance(TimeSpan.FromMinutes(10));
+        Assert.Contains("You came over from your place 10 min ago.", await places.GetSituationAsync(denise));
+
+        // Moving within a Place isn't getting somewhere.
+        var at = (await places.GetBodyAsync(denise))!.SpotId;
+        var spot = cafe.Spots.First(s => s.Id != at).Id;
+        await places.MoveAsync(denise, cafe.Id, spot);
+        _fx.Time.Advance(TimeSpan.FromSeconds(10));
+        Assert.Contains("You came over from your place", await places.GetSituationAsync(denise));
+
+        _fx.Time.Advance(TimeSpan.FromMinutes(25));
+        Assert.DoesNotContain("came over", await places.GetSituationAsync(denise));
+
+        await places.MoveAsync(denise, home.Id, null);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        Assert.Contains("You got home from the Café just now.", await places.GetSituationAsync(denise));
+    }
+
+    [Fact]
     public async Task OthersHomesAreNotEnterable()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

@@ -254,6 +254,8 @@ public sealed class Body
     [Id(23)] public string? Aura { get; set; }
     /// <summary>A human gone quiet ten minutes: walked home, shut the door, AFK in Messenger.</summary>
     [Id(24)] public bool Afk { get; set; }
+    /// <summary>The Place it last walked away from, for "you came over from" (ADR 0057).</summary>
+    [Id(25)] public Guid? LeftFrom { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

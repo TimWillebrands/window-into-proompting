@@ -9208,6 +9208,13 @@
           "afk": {
             "type": "boolean"
           },
+          "leftFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "isWalking": {
             "type": "boolean"
           }

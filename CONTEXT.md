@@ -164,6 +164,10 @@ _Avoid_: drive, motivation, impulse (see **Impulsivity**, a different thing).
 What a **Persona** wanted to do that no **Affordance** offered: the felt edge of the **Arena**. Weighed in **Initiative**'s own System One call, voiced rarely, and shown on the **CDU** desk as what people found no way to. See [ADR 0047](docs/adr/0047-lack.md).
 _Avoid_: missing feature, request, complaint.
 
+**Arena fit**:
+How a **Place** sits with *this* **Persona**: System One reads it off the person and the place together, so the same bare room lifts one and wears on another. Taken in once per arrival, or when the place has changed, in **Initiative**'s own call. It moves mood by as much as it's unexpected (a new place fully, home barely) and sets how soon staying makes them restless. Its facts are the **Situation**'s feel: light, air, what's in it. See [ADR 0057](docs/adr/0057-arena-fit.md).
+_Avoid_: room quality, comfort score, ambience.
+
 **Recall**:
 Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
 _Avoid_: retrieval, query, lookup, RAG.
@@ -381,7 +385,7 @@ A placed object with state (a plant that dries, cups that pile up, a jukebox tha
 _Avoid_: item, object, prop.
 
 **Situation**:
-The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it.
+The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it, and where they disagree the day went differently. It says how the place feels (**Arena fit**), what your own Home is, and for half an hour where you came over from.
 _Avoid_: context, location string, environment.
 
 **Feature**:

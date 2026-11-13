@@ -25,6 +25,8 @@ public sealed partial class PlacesGrain(
 {
     private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(15);
+    /// <summary>How long "you came over from" stays in the Situation.</summary>
+    private static readonly TimeSpan JustArrived = TimeSpan.FromMinutes(30);
     /// <summary>How soon after its arrival time a walking Body is settled; walks are short, so this is quick.</summary>
     private static readonly TimeSpan SettleEvery = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
@@ -628,6 +630,14 @@ public sealed partial class PlacesGrain(
         return state.State.Bodies.TryGetValue(participantId, out var body) ? Situation(body) : null;
     }
 
+    public Task<int> GetFamiliarityAsync(Guid participantId, Guid placeId)
+    {
+        var today = DayKey(0);
+        var days = state.State.Visits.GetValueOrDefault(participantId)?.Select(SplitVisit)
+            .Count(v => v.Place == placeId && v.Day != today) ?? 0;
+        return Task.FromResult(days);
+    }
+
     public async Task NoteHappeningAsync(Guid placeId, string text)
     {
         if (Find(placeId) is not { } place) return;
@@ -657,6 +667,7 @@ public sealed partial class PlacesGrain(
         if (body.PlaceId == placeId && body.SpotId == spot.Id && !body.IsWalking) return body;
 
         var leaving = body.IsWalking ? body.DestPlaceId : body.PlaceId;
+        if (!body.IsWalking && body.PlaceId != placeId) body.LeftFrom = body.PlaceId;
         var now = Now();
         EndPose(body);
         body.Asleep = false;
@@ -1087,6 +1098,14 @@ public sealed partial class PlacesGrain(
         var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}{shape}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
+        // Getting here is something you did: without it, what you said before you left reads as where you are.
+        if (body.LeftFrom is { } left && left != body.PlaceId && Now() - body.ArrivedAt < JustArrived.TotalMilliseconds && Find(left) is { } leftPlace)
+        {
+            var ago = WorldStream.Ago(body.ArrivedAt, DateTimeOffset.FromUnixTimeMilliseconds(Now()));
+            var origin = WhereName(leftPlace, body.ParticipantId);
+            sb.Append(home ? $" You got home from {origin} {ago}." : $" You came over from {origin} {ago}.");
+        }
+        if (place is not null && ArenaFit.Feel(place) is { } feel) sb.Append(' ').Append(feel);
         var others = Occupants(body.PlaceId).Where(b => b.ParticipantId != body.ParticipantId).ToList();
         if (others.Count == 0)
             sb.Append(home ? " Nobody else is home." : " Nobody else is here.");
@@ -1168,6 +1187,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>One line: where the Participant is and who's around. Null when they have no Body.</summary>
     [Alias("GetSituationAsync")] Task<string?> GetSituationAsync(Guid participantId);
+
+    /// <summary>Days before today, of the last week, they were at this Place (ADR 0057).</summary>
+    [AlwaysInterleave, Alias("GetFamiliarityAsync")] Task<int> GetFamiliarityAsync(Guid participantId, Guid placeId);
 
     /// <summary>Something happened at this Place: news to whoever's there while it's fresh.</summary>
     [Alias("NoteHappeningAsync")] Task NoteHappeningAsync(Guid placeId, string text);

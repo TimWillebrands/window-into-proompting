@@ -38,6 +38,9 @@ public sealed class PersonaLifeGrain(
     private long? _lackAskedAt;
     /// <summary>Their usual per judge (ADR 0047): one judge's 0.4 is another's 0.2.</summary>
     private readonly Dictionary<string, Desires.Lack.Baseline> _lackUsual = new();
+    /// <summary>Per Place, what it looked like and which arrival when they last took it in (ADR 0057); per activation.</summary>
+    private readonly Dictionary<Guid, (string Signature, long ArrivedAt)> _felt = new();
+    private Places.PlaceFit? _fit;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -61,6 +64,21 @@ public sealed class PersonaLifeGrain(
             catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
         }
         return activity;
+    }
+
+    /// <summary>The place, taken in: a mood shift as big as it's unexpected, and a fit that sets how soon they get restless.</summary>
+    private async Task TakeInAsync(Guid partyId, Guid personaId, string name, Places.Place here, string look, long arrivedAt, bool changed, double better)
+    {
+        _felt[here.Id] = (look, arrivedAt);
+        _fit = new Places.PlaceFit(here.Id, better);
+        try
+        {
+            var days = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetFamiliarityAsync(personaId, here.Id);
+            var shift = Places.ArenaFit.Felt(better, Places.ArenaFit.Novelty(days, changed));
+            logger.LogInformation("Arena {Persona} at {Place}: p={Better:F2} known {Days} d{Changed} → {Shift:F2}", name, here.Name, better, days, changed ? ", changed" : "", shift);
+            await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).ShiftValenceAsync(shift, here.Name);
+        }
+        catch (Exception ex) { logger.LogDebug(ex, "Taking in {Place} failed for {Persona}", here.Name, name); }
     }
 
     /// <returns>The activity, and whether it was only a look (opening an App, scrolling back) that wants a follow-up choice.</returns>
@@ -97,7 +115,8 @@ public sealed class PersonaLifeGrain(
             Desires.DesireRules.People(wants, cast.Where(c => c.Id != personaId && c.Id != Narrator.PersonaId).Select(c => (c.Id, c.Name)), now.ToUnixTimeMilliseconds(),
                 other => threads.FirstOrDefault(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(other) == true && t.MemberIds.Contains(personaId))?.Id,
                 other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId),
-            happenings);
+            happenings,
+            _fit);
 
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
@@ -184,7 +203,15 @@ public sealed class PersonaLifeGrain(
         };
         // Reaching past the menu rides the same call (ADR 0047): only a first look at the world, not a follow-up.
         if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
+        // How the place sits with them rides it too (ADR 0057): once per arrival, or when the place has changed.
+        var here = me is { IsWalking: false, Asleep: false } ? snapshot?.Places.FirstOrDefault(p => p.Id == me.PlaceId && p.Kind != Places.PlaceKinds.Locale) : null;
+        var look = here is null ? null : Places.ArenaFit.Signature(here, now.ToUnixTimeMilliseconds());
+        var lastTook = here is null ? default : _felt.GetValueOrDefault(here.Id);
+        var takeIn = !lookedAlready && here is not null && (lastTook.Signature != look || lastTook.ArrivedAt != me!.ArrivedAt);
+        if (takeIn) questions[Places.ArenaFit.Key] = Places.ArenaFit.Question(self.Name);
         var answers = await judge.For(self.Id).AskAsync(state, questions, ct);
+        if (takeIn && answers.Choices.TryGetValue(Places.ArenaFit.Key, out var sits))
+            await TakeInAsync(partyId, personaId, self.Name, here!, look!, me!.ArrivedAt, changed: lastTook.Signature is not null && lastTook.Signature != look, Appraisal.Better(sits));
         if (!lookedAlready && answers.Nouls.TryGetValue(Desires.Lack.Key, out var lack))
         {
             var judgedBy = answers.Model ?? string.Empty;

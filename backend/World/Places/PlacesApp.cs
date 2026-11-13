@@ -7,8 +7,6 @@ namespace PartyTown.World.Places;
 /// <summary>Places: the physical layer. Where your Body is, who's around, walking, talking out loud.</summary>
 public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) : IWorldApp
 {
-    private static readonly TimeSpan Restless = TimeSpan.FromMinutes(45);
-
     public string Id => "places";
 
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
@@ -117,7 +115,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
         // Away at a Locale (ADR 0027): you're there for a reason, so no restlessness, and leaving means leaving it.
         var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
-        var restless = stayed > Restless && !awayHere;
+        // How this place sits with them (ADR 0057) sets how soon getting out pulls.
+        var restless = stayed > ArenaFit.Restless(ctx.Fit is { } fit && fit.PlaceId == self.PlaceId ? fit.Better : null) && !awayHere;
         if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
         else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.LivesIn(ctx.Self.Id) == true ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         // A Gathering at a Place you said you'd come to (spec phase 7): be there, then talk.
