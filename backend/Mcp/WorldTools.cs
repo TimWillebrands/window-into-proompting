@@ -126,19 +126,17 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         {
             var t = await board.GetThreadAsync(id) ?? throw new McpException("No such thread.");
             var sb = new StringBuilder($"{t.AuthorName}: {t.Title}\n{t.Body}\n");
-            if (t.OutstandingExternal) sb.AppendLine($"Outstanding external: {t.OutstandingLabel}");
             foreach (var r in t.Replies) sb.AppendLine($"  {r.AuthorName}: {r.Body}");
             return sb.ToString();
         }
         var threads = (await board.GetThreadsAsync()).OrderByDescending(t => t.LastActivityAt).Take(Math.Clamp(count, 1, 30));
-        return string.Join("\n", threads.Select(t => $"[{t.Id}] {t.AuthorName}: {t.Title} ({t.Replies.Count} replies){(t.OutstandingExternal ? $" [outstanding: {t.OutstandingLabel}]" : "")}"));
+        return string.Join("\n", threads.Select(t => $"[{t.Id}] {t.AuthorName}: {t.Title} ({t.Replies.Count} replies)"));
     });
 
     [McpServerTool(Name = "post_board"), Description("Post on the Board, or reply to a thread with threadId. Everyone reads it.")]
-    public Task<string> PostBoardAsync(ClaimsPrincipal user, [Description("The post.")] string text, [Description("Reply to this thread.")] Guid? threadId = null, [Description("New posts only: an external filing it tracks, what is outstanding and by when.")] string? outstanding = null, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    public Task<string> PostBoardAsync(ClaimsPrincipal user, [Description("The post.")] string text, [Description("Reply to this thread.")] Guid? threadId = null, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
         if (string.IsNullOrWhiteSpace(text) || text.Trim().Length > BoardApp.MaxLength) throw new McpException($"Write something, at most {BoardApp.MaxLength} characters.");
-        if (outstanding?.Trim().Length > BoardApp.MaxOutstandingLength) throw new McpException($"Outstanding is at most {BoardApp.MaxOutstandingLength} characters.");
         var who = await actors.ActAsync(user, World, participantId);
         var names = await NamesAsync();
         var name = names.GetValueOrDefault(who, "You");
@@ -147,7 +145,7 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
             ? new ParticipantView(c.Id, c.Name, c.DefaultDriver) : new ParticipantView(i, "someone", DriverKind.User)).ToList();
         var (thread, outcome) = threadId is { } id
             ? await Board.ReplyAsync(World, id, who, name, text.Trim(), views) ?? throw new McpException("No such thread.")
-            : await Board.PostAsync(World, who, name, text.Trim(), views, !string.IsNullOrWhiteSpace(outstanding), outstanding);
+            : await Board.PostAsync(World, who, name, text.Trim(), views);
         await grains.GetGrain<IWorldClockGrain>(World).RecordAsync(new WorldActivity
         {
             PersonaId = who, PersonaName = name, App = Board.Id, Action = outcome.Action, Summary = outcome.Summary, TargetId = outcome.TargetId,

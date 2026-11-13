@@ -30,8 +30,7 @@ public sealed class BoardGrain(
         await state.WriteStateAsync();
     }
 
-    public async Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body,
-        bool outstandingExternal = false, string? outstandingLabel = null)
+    public async Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var thread = new BoardThread
@@ -43,8 +42,6 @@ public sealed class BoardGrain(
             Body = body.Trim(),
             CreatedAt = now,
             LastActivityAt = now,
-            OutstandingExternal = outstandingExternal,
-            OutstandingLabel = Apps.BoardApp.ClipToLength((outstandingLabel ?? string.Empty).Trim(), Apps.BoardApp.MaxOutstandingLength),
         };
         state.State.Threads.Add(thread);
         if (state.State.Threads.Count > MaxThreads)
@@ -102,8 +99,7 @@ public interface IBoardGrain : IGrainWithGuidKey
 {
     [Alias("GetThreadsAsync")] Task<List<BoardThread>> GetThreadsAsync();
     [Alias("GetThreadAsync")] Task<BoardThread?> GetThreadAsync(Guid threadId);
-    [Alias("CreateThreadAsync")] Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body,
-        bool outstandingExternal = false, string? outstandingLabel = null);
+    [Alias("CreateThreadAsync")] Task<BoardThread> CreateThreadAsync(Guid authorId, string authorName, string body);
     [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
     [Alias("ReplyAsync")] Task<BoardThread?> ReplyAsync(Guid threadId, Guid authorId, string authorName, string body);
 
@@ -130,9 +126,6 @@ public sealed class BoardThread
     [Id(6)] public long LastActivityAt { get; set; }
     [Id(7)] public List<BoardReply> Replies { get; set; } = new();
     [Id(8)] public List<BoardRespect> Respect { get; set; } = new();
-    /// <summary>An external filing this thread tracks; label carries what is outstanding and by when.</summary>
-    [Id(9)] public bool OutstandingExternal { get; set; }
-    [Id(10)] public string OutstandingLabel { get; set; } = string.Empty;
 }
 
 [GenerateSerializer, Alias("PartyTown.World.BoardReply")]

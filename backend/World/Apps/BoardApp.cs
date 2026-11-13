@@ -14,7 +14,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 {
     /// <summary>Hard cap for posts and replies, persona or Player.</summary>
     public const int MaxLength = 280;
-    public const int MaxOutstandingLength = 120;
 
     private const string PostShape = """{"post": "<your post, under 280 characters>"}""";
     private const string ReplyShape = """{"body": "<your reply exactly as you'd type it under the post, under 280 characters, or empty>", "respect": "<yes or no: give Respect! to what you're answering>"}""";
@@ -53,7 +52,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             var author = t.AuthorId == ctx.Self.Id ? "you" : t.AuthorName;
             sb.AppendLine($"- {author} posted {WorldStream.Ago(t.CreatedAt, ctx.Now)}{RespectNote(t.Respect, ctx.Self.Id)} ({t.Replies.Count} replies){(answeredYou ? " — someone answered you" : "")}");
             sb.AppendLine($"    \"{WorldStream.Clip(t.Body, 200)}\"");
-            if (t.OutstandingExternal) sb.AppendLine($"    outstanding external: {WorldStream.Clip(t.OutstandingLabel, 120)}");
             if (t.Replies.LastOrDefault() is { } r)
                 sb.AppendLine($"    latest reply, {(r.AuthorId == ctx.Self.Id ? "you" : r.AuthorName)} {WorldStream.Ago(r.CreatedAt, ctx.Now)}: {WorldStream.Clip(r.Body, 120)}");
 
@@ -332,11 +330,9 @@ Output: {ReplyShape}
 
     /// <summary>Commit a post — the same for a Persona's voiced one and the Player's typed one: store, then remember.</summary>
     public async Task<(BoardThread Thread, ActOutcome Outcome)> PostAsync(
-        Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf,
-        bool outstandingExternal = false, string? outstandingLabel = null)
+        Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf)
     {
-        var thread = await grains.GetGrain<IBoardGrain>(partyId)
-            .CreateThreadAsync(authorId, authorName, body, outstandingExternal, outstandingLabel);
+        var thread = await grains.GetGrain<IBoardGrain>(partyId).CreateThreadAsync(authorId, authorName, body);
         CaptureDetached(partyId, thread, viewsOf);
         await NotifyAsync(partyId, thread, authorId, body);
         return (thread, new ActOutcome("post", $"posted \"{thread.Title}\"", thread.Id));
