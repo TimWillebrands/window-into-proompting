@@ -27,7 +27,12 @@ public partial class CduWorldTest
     }
 
     private Task<Guid?> MoveAsync(Guid from, IReadOnlyCollection<Guid>? who, params Guid[] relations)
-        => _fx.Service<WorldMove>().MoveAsync(from, "Fresh", who, relations);
+        => _fx.Service<WorldMove>().MoveAsync(from, new MovePlan("Fresh", who, relations, null));
+
+    private IPlacesGrain Places(Guid partyId) => _fx.GrainFactory.GetGrain<IPlacesGrain>(partyId);
+
+    private async Task<Place> HomeOf(Guid partyId, Guid owner)
+        => (await Places(partyId).GetSnapshotAsync()).Places.Single(p => p.Kind == PlaceKinds.Home && p.OwnerId == owner);
 
     [Fact]
     public async Task Move_StopsTheOldWorld_AndTheNewOneIsCurrentAndRunsAsItDid()
@@ -98,6 +103,94 @@ public partial class CduWorldTest
         Assert.Equal(denise, Assert.Single(await _fx.Service<Desks>().StaffAsync(to, company.Id)).Id);
         var job = (await _fx.GrainFactory.GetGrain<IOccupationGrain>(WorldKeys.Life(to, denise)).GetAsync()).Job!;
         Assert.Equal(("Cytheurgist", Shifts.EveryDay, company.Id), (job.Title, job.Days, job.CompanyId));
+    }
+
+    [Fact]
+    public async Task Move_BringsAHumansHomeAsMade_ButPersonasGetNewOnes()
+    {
+        var (from, denise, _, tim, _, _) = await LivedInAsync();
+        var timsHome = await HomeOf(from, tim);
+        await Places(from).SetPlaceStyleAsync(tim, timsHome.Id, "#336699", null);
+        await Places(from).MoveHomeAsync(timsHome.Id, "Tim's loft", "Noord");
+        var denisesHome = await HomeOf(from, denise);
+
+        var to = (await MoveAsync(from, null))!.Value;
+
+        var home = await HomeOf(to, tim);
+        Assert.Equal((timsHome.Id, "Tim's loft", "#336699"), (home.Id, home.Name, home.WallColour));
+        Assert.Contains((await Places(to).GetSnapshotAsync()).Districts, d => d.Name == "Noord" && d.Id == home.DistrictId);
+        Assert.NotEqual(denisesHome.Id, (await HomeOf(to, denise)).Id);
+        Assert.Equal(home.Id, (await Places(to).GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == tim).PlaceId);
+    }
+
+    [Fact]
+    public async Task Move_LeavesAPlaceBehind_WhenItIsntPicked()
+    {
+        var (from, _, _, tim, _, _) = await LivedInAsync();
+        var timsHome = await HomeOf(from, tim);
+
+        var to = (await _fx.Service<WorldMove>().MoveAsync(from, new MovePlan("Fresh", null, Array.Empty<Guid>(), Array.Empty<Guid>())))!.Value;
+
+        Assert.NotEqual(timsHome.Id, (await HomeOf(to, tim)).Id);
+    }
+
+    [Fact]
+    public void Movable_OffersWhatSomeoneMade_AndSuggestsWhatHumansAuthored()
+    {
+        var (human, persona) = (Guid.NewGuid(), Guid.NewGuid());
+        var names = new Dictionary<Guid, string> { [human] = "Tim", [persona] = "Denise" };
+        Place Public(string name, Guid? by = null, long? opened = null, string? scene = null)
+            => new() { Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Public, MadeBy = by, OpenedAt = opened, Scene = scene };
+        var places = new List<Place>
+        {
+            PlaceSeeds.Public()[0],
+            Public("the Observatory"),
+            Public("Tim's shop", human),
+            Public("Denise's bar", persona),
+            Public("the Noord office", opened: 1),
+            Public("Noord streets", scene: "district"),
+            PlaceSeeds.Home(human, "Tim"),
+            PlaceSeeds.Home(persona, "Denise"),
+            new() { Id = Guid.NewGuid(), Name = "an office", Kind = PlaceKinds.Locale },
+        };
+
+        var movable = WorldMove.Movable(places, new HashSet<Guid> { human }, names);
+
+        Assert.Equal(
+            new[]
+            {
+                ("the Observatory", PlaceOrigin.Author, (string?)null, true),
+                ("Tim's shop", PlaceOrigin.Player, "Tim", true),
+                ("Denise's bar", PlaceOrigin.Persona, "Denise", false),
+                ("the Noord office", PlaceOrigin.Opened, null, false),
+                (places[6].Name, PlaceOrigin.Home, "Tim", true),
+            },
+            movable.Select(m => (m.Name, m.Origin, m.By, m.Suggested)));
+    }
+
+    [Fact]
+    public void Fresh_KeepsThePlaceAsMade_WithoutWhoWasThereOrWhatTheyLeft()
+    {
+        var (stays, goes) = (Guid.NewGuid(), Guid.NewGuid());
+        var place = new Place
+        {
+            Name = "the Observatory", Kind = PlaceKinds.Public, MadeBy = goes, WallColour = "#112233", TalkRoomId = Guid.NewGuid(),
+            Keyholders = new List<Guid> { stays }, Staff = new List<Guid> { stays }, Lately = "the roof leaked",
+            Furni = new List<Furni>
+            {
+                new() { Id = "telescope", Broken = true, Dirty = 3 },
+                new() { Id = "mine", OwnerId = stays },
+                new() { Id = "theirs", OwnerId = goes },
+            },
+        };
+
+        var fresh = WorldMove.Fresh(place, new HashSet<Guid> { stays });
+
+        Assert.Equal(("#112233", (Guid?)null, (Guid?)null, (string?)null), (fresh.WallColour, fresh.MadeBy, fresh.TalkRoomId, fresh.Lately));
+        Assert.Empty(fresh.Keyholders);
+        Assert.Empty(fresh.Staff);
+        Assert.Equal(new[] { "telescope", "mine" }, fresh.Furni.Select(f => f.Id));
+        Assert.Equal((false, 0), (fresh.Furni[0].Broken, fresh.Furni[0].Dirty));
     }
 
     [Fact]

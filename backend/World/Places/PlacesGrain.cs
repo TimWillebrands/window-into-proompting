@@ -414,6 +414,26 @@ public sealed partial class PlacesGrain(
         await SaveAsync();
     }
 
+    public async Task AdoptPlacesAsync(List<Place> places, List<District> districts)
+    {
+        foreach (var place in places.Where(p => Find(p.Id) is null))
+        {
+            if (place.DistrictId is { } from && from != Districts.Centre)
+                place.DistrictId = DistrictFor(districts.FirstOrDefault(d => d.Id == from)?.Name ?? from);
+            if (place is { Kind: PlaceKinds.Home, OwnerId: { } owner })
+                foreach (var made in state.State.Places.Where(p => p.Kind == PlaceKinds.Home && p.OwnerId == owner).ToList())
+                {
+                    state.State.Places.Remove(made);
+                    foreach (var body in state.State.Bodies.Values.Where(b => b.PlaceId == made.Id))
+                        (body.PlaceId, body.SpotId) = (place.Id, place.Spots.FirstOrDefault()?.Id ?? string.Empty);
+                }
+            EnsureFurni(place);
+            state.State.Places.Add(place);
+        }
+        await SaveAsync();
+        foreach (var district in places.Select(p => p.DistrictId).Distinct()) await EnsureStreetsAsync(district);
+    }
+
     public async Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
@@ -584,10 +604,13 @@ public sealed partial class PlacesGrain(
     public async Task<PlacesSnapshot> GetSnapshotAsync()
     {
         await SyncCastAsync();
-        await SettleAsync();
-        await SleepCycleAsync();
-        await WhereaboutsCycleAsync();
-        RefreshDormancy();
+        if (!await StoppedAsync())
+        {
+            await SettleAsync();
+            await SleepCycleAsync();
+            await WhereaboutsCycleAsync();
+            RefreshDormancy();
+        }
         return new PlacesSnapshot
         {
             Places = state.State.Places.ToList(),
@@ -922,10 +945,12 @@ public sealed partial class PlacesGrain(
     }
 
     /// <summary>Bodies whose walk is over arrive: posture from the spot, Place talk cast follows.</summary>
+    private Task<bool> StoppedAsync() => GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty).IsStoppedAsync(PartyId);
+
     private async Task SettleAsync()
     {
         // A stopped World stays as it was left: no mishaps, nobody arrives.
-        if (await GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty).IsStoppedAsync(PartyId)) return;
+        if (await StoppedAsync()) return;
         var now = Now();
         foreach (var b in state.State.Bodies.Values.Where(b => b.ActivityUntil <= now))
         {
@@ -1174,6 +1199,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("SetAppearanceAsync")] Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked);
     /// <summary>Moving in from another World: Bodies wear the looks they had there, so nobody's drawn anew.</summary>
     [Alias("AdoptLooksAsync")] Task AdoptLooksAsync(Dictionary<Guid, Appearance> looks);
+    /// <summary>Moving in from another World: Places brought as made, Districts by name; a Home brought replaces one made meanwhile.</summary>
+    [Alias("AdoptPlacesAsync")] Task AdoptPlacesAsync(List<Place> places, List<District> districts);
 
     /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
     [Alias("RedressAsync")] Task RedressAsync(Guid? participantId);

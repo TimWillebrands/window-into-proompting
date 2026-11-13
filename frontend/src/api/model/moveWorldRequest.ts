@@ -12,4 +12,6 @@ export interface MoveWorldRequest {
     participantIds: string[] | null;
     /** @nullable */
     relationIds: string[] | null;
+    /** @nullable */
+    placeIds: string[] | null;
 }

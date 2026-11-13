@@ -36,11 +36,17 @@ public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPost
     {
         var name = request.Name?.Trim();
         if (string.IsNullOrEmpty(name) || name.Length > MaxName) return BadRequest($"A name, up to {MaxName} characters.");
-        if (await move.MoveAsync(partyId, name, request.ParticipantIds, request.RelationIds ?? new List<Guid>()) is not { } toId)
-            return NotFound();
+        var plan = new MovePlan(name, request.ParticipantIds, request.RelationIds ?? new List<Guid>(), request.PlaceIds);
+        if (await move.MoveAsync(partyId, plan) is not { } toId) return NotFound();
         posthog.Track(HttpContext, "world_moved", new Dictionary<string, object> { ["party_id"] = toId });
         return Ok(await TileAsync(toId));
     }
+
+    /// <summary>The Places a Move out of this World can bring: made ones and humans' Homes, the authored ones suggested.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+    [HttpGet("{partyId:guid}/movable-places")]
+    public async Task<ActionResult<List<MovablePlace>>> GetMovablePlaces(Guid partyId)
+        => Ok(await move.MovablePlacesAsync(partyId));
 
     /// <summary>Stop a World or start it again; starting again leaves its clock paused.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
@@ -81,7 +87,8 @@ public sealed record WorldList(List<WorldTile> Worlds, bool IsAdmin);
 
 /// <param name="ParticipantIds">Who comes along; null is everyone.</param>
 /// <param name="RelationIds">Relations, from this World's, that come along with their story.</param>
-public sealed record MoveWorldRequest(string? Name, List<Guid>? ParticipantIds, List<Guid>? RelationIds);
+/// <param name="PlaceIds">Places from movable-places that come along; null is the suggested ones.</param>
+public sealed record MoveWorldRequest(string? Name, List<Guid>? ParticipantIds, List<Guid>? RelationIds, List<Guid>? PlaceIds);
 
 public sealed record SetWorldStoppedRequest(bool Stopped);
 

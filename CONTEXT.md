@@ -320,7 +320,7 @@ One line in the World's activity log: who did what in which App, with the Initia
 _Avoid_: event (taken — see **Event**), log entry.
 
 **Move**:
-Everyone picked leaves a World for a new one, bringing their **Nature**, their looks, their Player, the CDU's staff and the **Relations** an admin ticks, and nothing else of their **Nurture**. The old World is **Stopped** and the new one **Current**. Done from the login screen. See [ADR 0056](docs/adr/0056-moving-to-a-fresh-world.md).
+Everyone picked leaves a World for a new one, bringing their **Nature**, their looks, their Player, the CDU's staff, and the **Relations** and authored **Places** an admin ticks, and nothing else of their **Nurture**. The old World is **Stopped** and the new one **Current**. Done from the login screen. See [ADR 0056](docs/adr/0056-moving-to-a-fresh-world.md).
 _Avoid_: migration, reset, fork, copy.
 
 **Stopped**:

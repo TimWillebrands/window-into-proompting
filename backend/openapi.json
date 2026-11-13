@@ -8493,6 +8493,55 @@
         }
       }
     },
+    "/worlds/{partyId}/movable-places": {
+      "get": {
+        "tags": [
+          "Worlds"
+        ],
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovablePlace"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovablePlace"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovablePlace"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/worlds/{partyId}/stopped": {
       "put": {
         "tags": [
@@ -11362,6 +11411,45 @@
           }
         }
       },
+      "MovablePlace": {
+        "required": [
+          "id",
+          "name",
+          "origin",
+          "byId",
+          "by",
+          "suggested"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/PlaceOrigin"
+          },
+          "byId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "suggested": {
+            "type": "boolean"
+          }
+        }
+      },
       "MoveBodyRequest": {
         "required": [
           "placeId",
@@ -11393,7 +11481,8 @@
         "required": [
           "name",
           "participantIds",
-          "relationIds"
+          "relationIds",
+          "placeIds"
         ],
         "type": "object",
         "properties": {
@@ -11414,6 +11503,16 @@
             }
           },
           "relationIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "placeIds": {
             "type": [
               "null",
               "array"
@@ -11909,6 +12008,15 @@
             }
           }
         }
+      },
+      "PlaceOrigin": {
+        "enum": [
+          "Author",
+          "Player",
+          "Persona",
+          "Opened",
+          "Home"
+        ]
       },
       "PlacesSnapshot": {
         "type": "object",
