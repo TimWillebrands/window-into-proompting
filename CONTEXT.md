@@ -253,6 +253,9 @@ _Avoid_: event (taken — see **Event**), meeting, appointment.
 The World's public social feed, shown as **Partyboard** (Hyves look, timeline behaviour): short posts (≤ 280 characters) with replies under them, and **Respect!**. Each post or reply is **Captured** for the Participants under it. Posts have no titles.
 _Avoid_: forum, thread title, topic.
 
+**Outstanding external**:
+A flag on a Board post that tracks something owed outside the World (a filing, a form), with a short label of what is outstanding and by when. Set when posting, through the API or `post_board` over MCP; Personas see it when they read the Board.
+
 **Respect!**:
 A like with a name on it, on a Board post or reply (Hyves' term). Given by the Player or by a Persona who agrees but has nothing to add, instead of a filler reply. Receiving one nudges a Persona's mood up a little.
 _Avoid_: like, favourite, upvote.
