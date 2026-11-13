@@ -51,7 +51,9 @@ background.
 9. **Ties** (`PersonaTiesGrain`, key `party:persona`). This tracks how much each pair has talked: a DM line
    counts 1, a Room line 0.3. It is seeded once from shared Rooms and DMs. It renders as *Who these people are
    to you*, ranging from "barely know them" to "know each other well", plus when you last talked. Personal
-   things are for people you know well.
+   things are for people you know well. Nobody reaches out to a stranger: a new DM or a present is only
+   offered toward someone they've talked with or have a Relation with (`Acquaintances`). A fresh World
+   (ADR 0056) made the gap plain: personas cold-messaged the human as an old friend.
 10. **Availability.** System One rates each day beat with a `noul`: "could they glance at a screen and chat
     during this?". Decision models compress p into a narrow band, so the ratings are rescaled within the day,
     from 0.2 (busiest) to 1 (freest). Availability weights who the clock picks for a Life turn

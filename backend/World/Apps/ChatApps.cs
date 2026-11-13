@@ -211,8 +211,10 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             affordances.Add(new Affordance(Id, $"Scroll back through your chat with {scroll.Other} to see what you talked about before",
                 0, scroll.Dm.Id, "scroll", Look: true));
 
+        // Only people they know: a stranger, the human above all, is met in person first.
+        var known = await Acquaintances.KnownAsync(grains, ctx.PartyId, ctx.Self.Id);
         var newContacts = ctx.Others
-            .Where(c => !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id) && !afk.Contains(c.Id))
+            .Where(c => known.Contains(c.Id) && !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id) && !afk.Contains(c.Id))
             .OrderByDescending(c => ctx.IsHuman(c.Id))
             .ThenByDescending(c => ctx.WantAbout(c.Id) is not null)
             .ThenBy(_ => Random.Shared.Next())

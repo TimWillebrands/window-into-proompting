@@ -46,7 +46,9 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         // Spending follows means: someone flush buys more readily than someone counting coins; saving up holds it back.
         if (wallet.Balance >= cheapest)
             affordances.Add(new Affordance(Id, "Buy something new to wear", (wallet.Balance >= wallet.DailyPay * 3 ? 1 : 0) - (wanted is not null && wallet.Balance < wanted.Price ? 1 : 0), null, "buy"));
-        if (open && wallet.Balance >= cheapest * 2L && ctx.Others.OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } friend)
+        if (open && wallet.Balance >= cheapest * 2L
+            && await Self.Acquaintances.KnownAsync(grains, ctx.PartyId, ctx.Self.Id) is var known
+            && ctx.Others.Where(o => known.Contains(o.Id)).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } friend)
             affordances.Add(new Affordance(Id, $"Get {friend.Name} a little present", 0, friend.Id, "gift"));
 
         return new AppPerception(Id, "Wardrobe and money", sb.ToString().TrimEnd(), affordances);

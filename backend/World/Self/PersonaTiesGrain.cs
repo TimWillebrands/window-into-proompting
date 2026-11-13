@@ -44,6 +44,12 @@ public sealed class PersonaTiesGrain(
         return tie is null ? TieRead.None : new TieRead(tie.Exchanges, Ties.Warmth(tie, DateTimeOffset.UtcNow), tie.LastAt);
     }
 
+    public async Task<List<Guid>> GetTalkedWithAsync()
+    {
+        await EnsureSeededAsync();
+        return state.State.Ties.Where(t => t.Value.Exchanges > 0).Select(t => t.Key).ToList();
+    }
+
     public async Task<Guid?> GetClosestAsync()
     {
         await EnsureSeededAsync();
@@ -192,6 +198,18 @@ public static class Ties
     }
 }
 
+/// <summary>Who a persona knows: anyone they've talked with, or have a Relation with, now or past. Nobody reaches out to a stranger.</summary>
+public static class Acquaintances
+{
+    public static async Task<HashSet<Guid>> KnownAsync(IGrainFactory grains, Guid partyId, Guid selfId)
+    {
+        var known = (await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, selfId)).GetTalkedWithAsync()).ToHashSet();
+        foreach (var relation in (await grains.GetGrain<IRelationsGrain>(partyId).GetAsync()).Relations.Where(r => r.Involves(selfId)))
+            known.Add(relation.Other(selfId));
+        return known;
+    }
+}
+
 /// <summary>Someone as one Persona sees them: the Tie, plus what Relations add (ADR 0035).</summary>
 /// <param name="Between">What the two of them are or were.</param>
 /// <param name="Current">They're something to each other now, so how much they've talked says nothing about distance.</param>
@@ -209,6 +227,8 @@ public interface IPersonaTiesGrain : IGrainWithStringKey
     [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
     /// <summary>The one person this persona is closest to, or null.</summary>
     [Alias("GetClosestAsync")] Task<Guid?> GetClosestAsync();
+    /// <summary>Everyone they've exchanged a word with, anywhere.</summary>
+    [Alias("GetTalkedWithAsync")] Task<List<Guid>> GetTalkedWithAsync();
     /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
     [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
 }
