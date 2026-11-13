@@ -126,10 +126,7 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     /// <summary>"Denise's post "deleted 200 lines…"" / "your post "…"".</summary>
     public static string PostLabel(BoardThread t, Guid self)
-    {
-        var label = $"{(t.AuthorId == self ? "your" : $"{t.AuthorName}'s")} post \"{WorldStream.Clip(t.Body, 50)}\"";
-        return t.OutstandingExternal ? $"{label} (outstanding external: {WorldStream.Clip(t.OutstandingLabel, 80)})" : label;
-    }
+        => $"{(t.AuthorId == self ? "your" : $"{t.AuthorName}'s")} post \"{WorldStream.Clip(t.Body, 50)}\"";
 
     /// <summary>", Respect! from Denise and you" — empty when nobody gave any.</summary>
     public static string RespectNote(IReadOnlyList<BoardRespect> respect, Guid self)

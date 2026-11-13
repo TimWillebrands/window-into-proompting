@@ -36,7 +36,8 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         Assert.True(readBack.OutstandingExternal);
         Assert.Equal("resend due Friday", readBack.OutstandingLabel);
 
-        Assert.Contains("outstanding external: resend due Friday", BoardApp.PostLabel(readBack, denise));
+        // Renders in the scrolled view only; PostLabel (glance notifications/affordances) carries no flag.
+        Assert.DoesNotContain("outstanding external", BoardApp.PostLabel(readBack, denise));
     }
 
     [Fact]
