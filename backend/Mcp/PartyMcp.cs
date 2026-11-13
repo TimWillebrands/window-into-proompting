@@ -12,7 +12,8 @@ public static class PartyMcp
         + "These tools act for the signed-in human's Player: read where they are, their Home, look and wallet; walk, talk, DM and post on the Board. "
         + "You do the designing: get_design_guide gives the schema and rules for a place, a look or a thing; "
         + "design_place, dress and add_thing take what you made and check it. "
-        + "Admins may pass participantId to act for anyone (list_participants), and placeId for public Places (list_places).";
+        + "Admins may pass participantId to act for anyone (list_participants), and placeId for public Places (list_places); "
+        + "they also rewrite a Persona's sheet (get_persona, edit_persona) and say who shares a Home or is over (list_relations, live_together, end_relation).";
 
     public static IServiceCollection AddPartyMcp(this IServiceCollection services)
     {
@@ -23,7 +24,8 @@ public static class PartyMcp
             })
             .WithHttpTransport(o => o.Stateless = true)
             .WithTools<PlayerTools>()
-            .WithTools<WorldTools>();
+            .WithTools<WorldTools>()
+            .WithTools<AuthorTools>();
         return services;
     }
 
