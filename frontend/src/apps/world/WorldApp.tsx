@@ -44,9 +44,16 @@ const APPS: Record<string, { icon: string; label: string }> = {
     world: { icon: '📣', label: 'World' },
 };
 
+/** Actions that read better than their App (ADR 0055). */
+const ACTIONS: Record<string, { icon: string; label: string }> = {
+    rest: { icon: '💤', label: 'Rest' },
+    offstage: { icon: '🎬', label: 'Off-screen' },
+    lived: { icon: '🏠', label: 'Own life' },
+};
+
 const appMeta = (a: WorldActivity) =>
-    a.action === 'rest'
-        ? { icon: '💤', label: 'Rest' }
+    ACTIONS[a.action ?? '']
+        ? ACTIONS[a.action ?? '']
         : a.action === 'error'
           ? { icon: '⚠️', label: APPS[a.app ?? '']?.label ?? a.app ?? '?' }
           : (APPS[a.app ?? ''] ?? { icon: '❔', label: a.app ?? '?' });

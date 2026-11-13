@@ -97,6 +97,14 @@ public sealed partial class PersonaSelfGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task HappenAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        state.State.Own = WorldStream.Clip(text.Trim(), 300);
+        state.State.OwnAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        await state.WriteStateAsync();
+    }
+
     public async Task TellAsync(string label)
     {
         var told = Hooks.Told(label, state.State.Openers);
@@ -484,7 +492,8 @@ public static partial class SelfMath
         var ongoingLine = rewritten
             ? $"Ongoing from before who they are was rewritten (keep only what fits who they are now, drop the rest without a done: line): {ongoing}"
             : $"Ongoing in their life: {ongoing}";
-        return $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{placesYouGo}\nYesterday: {yesterday}\n{ongoingLine}{wants}{fixedToday}{atWork}{SmallThings(personaId, now)}";
+        var lately = rewritten ? string.Empty : OwnHappenings.Carry(before, now);
+        return $"Today is {now.ToString("dddd d MMMM", CultureInfo.InvariantCulture)}.{placesYouGo}\nYesterday: {yesterday}\n{ongoingLine}{lately}{wants}{fixedToday}{atWork}{SmallThings(personaId, now)}";
     }
 
     /// <summary>Drops the threads and Preoccupation a review closed (ADR 0052); settled ones read as settled. True when anything changed.</summary>
@@ -611,6 +620,7 @@ public static class SelfRender
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
             if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
             if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
+            if (OwnHappenings.Line(day, now) is { } own) lines.Add(own);
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this conversation): {day.Preoccupation}");
             if (day.Threads.Count > 0) lines.Add($"Going on in your life lately: {string.Join("; ", day.Threads)}");
             if (day.Resolved.Count > 0) lines.Add($"Finally settled: {string.Join("; ", day.Resolved)}");
@@ -669,6 +679,8 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("TellAsync")] Task TellAsync(string label);
     /// <summary>Something that just happened to them, to bring up while it's fresh (ADR 0049).</summary>
     [Alias("AddOpenerAsync")] Task AddOpenerAsync(string story);
+    /// <summary>Something happened in their own life (ADR 0055): in their Right now for a while, and in the next Day.</summary>
+    [Alias("HappenAsync")] Task HappenAsync(string text);
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     /// <summary>Today's first and last beat in local minutes since midnight; nulls before a day exists. Places uses it for wake and bed.</summary>
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
@@ -715,6 +727,9 @@ public sealed class SelfState
     [Id(21)] public string? SheetKey { get; set; }
     /// <summary>When a <see cref="ThreadReview"/> last ran.</summary>
     [Id(22)] public long ThreadsReviewedAt { get; set; }
+    /// <summary>The last thing that happened in their own life, to them (ADR 0055).</summary>
+    [Id(23)] public string? Own { get; set; }
+    [Id(24)] public long OwnAt { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

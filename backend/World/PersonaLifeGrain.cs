@@ -89,7 +89,8 @@ public sealed class PersonaLifeGrain(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
             threads,
-            own.Take(12).Where(a => a.Action is not ("fizzle" or "error" or Desires.Lack.Action)).Take(8).ToList(),
+            // What happened to them shows in Right now (ADR 0055), not as something they did.
+            own.Take(12).Where(a => a.Action is not ("fizzle" or "error" or Desires.Lack.Action or OwnHappenings.Action)).Take(8).ToList(),
             now,
             await GrainFactory.GetGrain<IPersonaAttentionGrain>(WorldKeys.Life(partyId, personaId)).GetLooksAsync(),
             // A promise due reaches its person, their chat and (for a come-over) where they are; then wants (ADR 0026, 0043).

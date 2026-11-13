@@ -1,6 +1,6 @@
 # Promises, settled plans and Happenings at real Places
 
-> Status: accepted. Builds on ADR 0018 (Initiative, Happenings), 0019 (weigh ⇄ voice), 0021 #26 (settled plans),
+> Status: accepted; restating and lapsing amended by ADR 0055. Builds on ADR 0018 (Initiative, Happenings), 0019 (weigh ⇄ voice), 0021 #26 (settled plans),
 > #29 (words become deeds), #30 (Settling), 0026 (Responsibilities, wanting needs a handle) and 0031 (Reflex).
 > Vocabulary in `CONTEXT.md`.
 

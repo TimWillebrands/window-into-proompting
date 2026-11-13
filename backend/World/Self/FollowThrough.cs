@@ -7,9 +7,9 @@ namespace PartyTown.World.Self;
 /// <summary>
 /// Words become deeds (ADR 0021 #29, ADR 0043): every persona line in a chat is read once for what it commits them to.
 /// "On my way" walks the Body over now; a meet-up on a set day goes on the Calendar; anything else they said they'd do
-/// becomes a Promise, a Desire of theirs that presses on later turns until it's kept, called off or lapses. Detached and non-fatal.
+/// becomes a Promise, a Desire of theirs that presses on later turns until it's kept, called off, settled off-screen or lapses. Detached and non-fatal.
 /// </summary>
-public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, ILogger<FollowThrough> logger)
+public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, ILogger<FollowThrough> logger, OffStage? offStage = null)
 {
     private const int Lines = 4;
     private static readonly TimeSpan ArrivalWait = TimeSpan.FromSeconds(90);
@@ -123,12 +123,14 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         return true;
     }
 
-    /// <summary>A come-over due is kept by being there; lapsing is the Desires grain's to notice.</summary>
+    /// <summary>A come-over due is kept by being there, one to do something is settled off-screen in time (ADR 0055); lapsing is the Desires grain's to notice.</summary>
     private async Task KeepUpAsync(Guid partyId, Guid personaId)
     {
         var desires = DesiresOf(partyId, personaId);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var comings = (await desires.GetAsync()).Acquired.Where(d => Desires.DesireRules.IsPromise(d) && d.Coming && Desires.DesireRules.Pressing(d, now)).ToList();
+        var acquired = (await desires.GetAsync()).Acquired;
+        offStage?.SettleDue(partyId, personaId, acquired);
+        var comings = acquired.Where(d => Desires.DesireRules.IsPromise(d) && d.Coming && Desires.DesireRules.Pressing(d, now)).ToList();
         if (comings.Count == 0) return;
         var bodies = (await grains.GetGrain<Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies;
         var me = bodies.FirstOrDefault(b => b.ParticipantId == personaId);

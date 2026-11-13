@@ -31,6 +31,8 @@ public sealed class WorldClockGrain(
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
     /// <summary>The kinds of Happening last let loose; per activation, so a deploy may repeat one.</summary>
     private readonly Queue<int> _kindsLately = new();
+    /// <summary>Same for own Happenings (ADR 0055).</summary>
+    private readonly Queue<int> _ownKindsLately = new();
 
     private Guid PartyId => this.GetPrimaryKey();
 
@@ -68,6 +70,13 @@ public sealed class WorldClockGrain(
         {
             state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
             _ = AmbientHappeningAsync();
+        }
+        // Life brings its own news (ADR 0055); the one ambient switch turns it off too.
+        (var ownDue, state.State.LastOwnAt) = ClockPolicy.Ambient(state.State.LastOwnAt, state.State.AmbientMinutes > 0 ? Self.OwnHappenings.EveryMinutes : 0, now);
+        if (ownDue)
+        {
+            state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
+            _ = OwnHappeningAsync();
         }
 
         var personaId = await PickPersonaAsync(now);
@@ -390,18 +399,19 @@ public sealed class WorldClockGrain(
             var recent = state.State.Activities
                 .Where(a => a.Action == "happening").TakeLast(6).Select(a => $"- {a.Summary}");
             var talk = state.State.Activities
-                .Where(a => a.Action is "post" or "reply" or "say" or "dm").TakeLast(6).Select(a => $"- {a.PersonaName} {a.Summary}");
+                .Where(a => a.Action is "post" or "reply" or "say" or "dm").TakeLast(10).Select(a => $"- {a.PersonaName} {a.Summary}").ToList();
             var snapshot = await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetSnapshotAsync();
             if (!HappeningRules.AnyoneUp(snapshot.Bodies)) return;
             var place = HappeningRules.PickPlace(snapshot.Places, snapshot.Bodies, Random.Shared);
-            var kind = HappeningRules.PickKind(_kindsLately, Random.Shared);
+            var kind = HappeningRules.PickKind(_kindsLately, Random.Shared, talk: talk.Count > 0);
             _kindsLately.Enqueue(kind);
             if (_kindsLately.Count > HappeningRules.KindMemory) _kindsLately.Dequeue();
+            var worn = kind == HappeningRules.Talk ? (await GrainFactory.GetGrain<Self.IWorldVoiceGrain>(PartyId).GetReportAsync()).WornWords : new List<string>();
             var seen = HappeningRules.Seen(place is null ? 0 : HappeningRules.Witnesses(snapshot.Bodies, place.Id).Count);
             var local = DateTimeOffset.Now;
             var json = await llm.CompleteJsonAsync(Grains.Generation.JobComplexity.General,
                 HappeningRules.Brief(HappeningRules.Setting(place, snapshot.Districts), HappeningRules.Kinds[kind], seen, AmbientShape),
-                $"It is {local:dddd HH:mm}: {HappeningRules.DayPart(local)}.\n\nAlready happened lately (not these again, nor the same things in them):\n{string.Join("\n", recent)}\n\nWhat people are talking about (steer away from it):\n{string.Join("\n", talk)}",
+                $"It is {local:dddd HH:mm}: {HappeningRules.DayPart(local)}.\n\nAlready happened lately (not these again, nor the same things in them):\n{string.Join("\n", recent)}\n\n{HappeningRules.Talking(kind, worn, kind == HappeningRules.Talk ? talk : talk.TakeLast(6))}",
                 CancellationToken.None, 1.0, ["happening"]);
             var text = json?["happening"]?.ToString();
             if (!string.IsNullOrWhiteSpace(text))
@@ -410,6 +420,50 @@ public sealed class WorldClockGrain(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Ambient happening failed");
+        }
+    }
+
+    /// <summary>Something happens in one awake Persona's own life (ADR 0055): theirs alone, remembered by them.</summary>
+    private async Task OwnHappeningAsync()
+    {
+        try
+        {
+            var snapshot = await GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId).GetSnapshotAsync();
+            var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
+            var claimed = state.State.PlayersByClerkId.Values.ToHashSet();
+            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var awake = cast
+                .Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId && !claimed.Contains(c.Id)
+                    && snapshot.Bodies.Any(b => b.ParticipantId == c.Id && !b.Asleep && b.Activity != Places.PlacesGrain.Dozing))
+                .Select(c => (c.Id, state.State.OwnAt.GetValueOrDefault(c.Id)))
+                .ToList();
+            if (Self.OwnHappenings.Pick(awake, nowMs, Random.Shared) is not { } id || cast.FirstOrDefault(c => c.Id == id) is not { } who) return;
+            state.State.OwnAt[id] = nowMs;
+            var kind = Self.OwnHappenings.PickKind(_ownKindsLately, Random.Shared);
+            _ownKindsLately.Enqueue(kind);
+            if (_ownKindsLately.Count > Self.OwnHappenings.KindMemory) _ownKindsLately.Dequeue();
+
+            var self = GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, id));
+            var sheet = await Self.LivedSheets.SourceAsync(GrainFactory, who) ?? $"{who.SystemPrompt}\n{who.Bio}";
+            var json = await llm.For(id).CompleteJsonAsync(Grains.Generation.JobComplexity.General,
+                Self.OwnHappenings.Brief(who.Name, Self.OwnHappenings.Kinds[kind]),
+                Self.OwnHappenings.Material(who.Name, sheet, await self.GetStateAsync(), DateTimeOffset.Now),
+                CancellationToken.None, 1.0, ["happening", "summary"]);
+            if (Self.OwnHappenings.Clean(json?["happening"]?.ToString(), 300) is not { } text) return;
+            var summary = Self.OwnHappenings.Clean(json?["summary"]?.ToString(), 160) ?? text;
+
+            await self.HappenAsync(text);
+            var activity = new WorldActivity { PersonaId = id, PersonaName = who.Name, App = "life", Action = Self.OwnHappenings.Action, Summary = summary };
+            await RecordAsync(activity);
+            _ = memory.CaptureAsync(new Moment(PartyId, MomentSources.World, activity.Id,
+                new List<MomentLine> { new(Narrator.PersonaId, $"[Happened to {who.Name}] {who.Name} {summary}", activity.Ts) }, 0,
+                new List<ParticipantView> { new(who.Id, who.Name, who.DefaultDriver) }), CancellationToken.None);
+            await NotifyAsync(new List<Guid> { id });
+            logger.LogInformation("Own happening for {Persona} ({Kind}): {Text}", who.Name, kind, text);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Own happening failed");
         }
     }
 
@@ -485,4 +539,7 @@ public sealed class WorldClockState
     [Id(12)] public Dictionary<string, Guid> PlayersByClerkId { get; set; } = new();
     /// <summary>Who has something coming back to mind, and when.</summary>
     [Id(13)] public Dictionary<Guid, long> Reminders { get; set; } = new();
+    /// <summary>When each Persona's own life last brought them something (ADR 0055).</summary>
+    [Id(14)] public Dictionary<Guid, long> OwnAt { get; set; } = new();
+    [Id(15)] public long? LastOwnAt { get; set; }
 }

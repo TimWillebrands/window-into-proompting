@@ -29,6 +29,8 @@ public sealed class Desire
     [Id(13)] public bool Coming { get; set; }
     /// <summary>Times it was said again since it was made: a restated plan, or a put-off.</summary>
     [Id(14)] public int Again { get; set; }
+    /// <summary>A promise to do something away from the chat is settled off-screen then, done or not (ADR 0055).</summary>
+    [Id(15)] public long? SettlesAt { get; set; }
 }
 
 [GenerateSerializer]

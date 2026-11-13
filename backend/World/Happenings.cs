@@ -53,13 +53,27 @@ public static class HappeningRules
         "word arrives of something going on in the neighbourhood (roadworks, a closure, a street market, a power cut, a strike)",
         "a noise, a smell or a sight from outside that makes people look up and wonder",
         "something is on offer there that won't last (leftovers going free, a spare ticket, the last of something)",
+        "one thing people around here keep talking about, that nobody has seen with their own eyes, turns up for real or turns out to be nothing, and that settles it",
     };
 
-    /// <summary>Which kind this time: any but the last few, so the world doesn't settle into one sort of event.</summary>
-    public static int PickKind(IReadOnlyCollection<int> lately, Random random)
+    /// <summary>The kind that takes up what people say (ADR 0055): talk the World ratifies or ends.</summary>
+    public const int Talk = 8;
+
+    /// <summary>Which kind this time: any but the last few, so the world doesn't settle into one sort of event. Talk only when there's talk.</summary>
+    public static int PickKind(IReadOnlyCollection<int> lately, Random random, bool talk = true)
     {
-        var fresh = Enumerable.Range(0, Kinds.Length).Where(i => !lately.Contains(i)).ToList();
-        return fresh.Count == 0 ? random.Next(Kinds.Length) : fresh[random.Next(fresh.Count)];
+        var all = Enumerable.Range(0, Kinds.Length).Where(i => talk || i != Talk).ToList();
+        var fresh = all.Where(i => !lately.Contains(i)).ToList();
+        return fresh.Count == 0 ? all[random.Next(all.Count)] : fresh[random.Next(fresh.Count)];
+    }
+
+    /// <summary>What people are saying, for the Narrator: steered away from, or for the Talk kind what it's about.</summary>
+    public static string Talking(int kind, IReadOnlyCollection<string> worn, IEnumerable<string> lines)
+    {
+        var said = string.Join("\n", lines);
+        if (kind != Talk) return $"What people are talking about (steer away from it):\n{said}";
+        var words = worn.Count == 0 ? string.Empty : $"Words they keep reaching for: {string.Join(", ", worn)}\n";
+        return $"What people keep coming back to (this time it's about one thing in here):\n{words}{said}";
     }
 
     /// <summary>How many kinds back a kind stays used up.</summary>

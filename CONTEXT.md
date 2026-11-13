@@ -312,7 +312,7 @@ The fast, calibrated *weighing* half of a Relevance Realization call: state + ty
 _Avoid_: classifier, scorer, router.
 
 **Happening**:
-Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. The Narrator's have a kind and a stake: something to deal with, take up or do without. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md) and [ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md).
+Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. The Narrator's have a kind and a stake: something to deal with, take up or do without; one kind makes real, or ends, something people keep talking about. An **own Happening** happens in one Persona's offscreen life (family, home, work, body), theirs alone: in their Right now for a while, then in their next **Day**. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md), [ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md) and [ADR 0055](docs/adr/0055-loops-close-and-lives-happen.md).
 _Avoid_: event (taken — see **Event**), news item.
 
 **Activity**:
@@ -455,7 +455,7 @@ Something someone holds a Persona to. Always has a holder (a Participant, a Plac
 _Avoid_: task, duty, chore, quest, obligation.
 
 **Promise**:
-Something a Persona said they'd do for someone, in talk: come over, answer, tell, send, meet. An Acquired **Desire** of the promiser's (source `Promise`, to keep their word), and a **Responsibility** held by the person they said it to, who reads it off the promiser's Desires. Kept, called off or lapsed. One due now pulls on their **Initiative**; a meet-up on a set day at one of their Homes becomes a **Gathering**, otherwise it's known but not pressing. Saying it again restates it. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md).
+Something a Persona said they'd do for someone, in talk: come over, answer, tell, send, meet. An Acquired **Desire** of the promiser's (source `Promise`, to keep their word), and a **Responsibility** held by the person they said it to, who reads it off the promiser's Desires. Kept, called off, settled off-screen or lapsed. One due now pulls on their **Initiative**; a meet-up on a set day at one of their Homes becomes a **Gathering**, otherwise it's known but not pressing. Saying it again restates it and counts, but keeps the first deadline. Anything but a come-over is settled off-screen in time: done or not, by who they are, and both of them learn how it ended. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md) and [ADR 0055](docs/adr/0055-loops-close-and-lives-happen.md).
 _Avoid_: commitment, task, reminder (that's an **Intention**).
 
 **Studio**:

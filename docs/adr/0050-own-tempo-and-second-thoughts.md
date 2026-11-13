@@ -1,6 +1,6 @@
 # Own tempo and second thoughts
 
-> Status: accepted. Builds on ADR 0018 (Initiative), 0019 (System One), 0021 (lived self) and 0043 (Happenings).
+> Status: accepted; Happening kinds amended by ADR 0055. Builds on ADR 0018 (Initiative), 0019 (System One), 0021 (lived self) and 0043 (Happenings).
 > Amends ADR 0047 (how a Lack is felt). Vocabulary in `CONTEXT.md`.
 
 One day of production (9–10 Nov) showed Initiative missing the two things that keep relevance realization from

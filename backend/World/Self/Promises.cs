@@ -34,6 +34,12 @@ public static class PromiseRules
     /// <summary>A Gathering this close to the agreed start is the same plan.</summary>
     public static readonly TimeSpan SameMeetup = TimeSpan.FromDays(1);
 
+    /// <summary>A "soon" promise to do something is settled off-screen this long after it was made (ADR 0055).</summary>
+    public static readonly TimeSpan SoonSettles = TimeSpan.FromHours(4);
+    /// <summary>A "tomorrow" one this long after their midnight: early afternoon.</summary>
+    public static readonly TimeSpan TomorrowSettles = TimeSpan.FromHours(14);
+    public static readonly TimeSpan SetDaySettles = TimeSpan.FromDays(2);
+
     /// <summary>The promiser's Desire; <paramref name="now"/> in their local offset, so "tomorrow" starts at their midnight.</summary>
     public static Desire Make(Guid holder, bool coming, string said, string? asked, string when, DateTimeOffset now)
     {
@@ -53,30 +59,42 @@ public static class PromiseRules
                 var midnight = new DateTimeOffset(now.Date.AddDays(1), now.Offset).ToUnixTimeMilliseconds();
                 d.DueAt = midnight;
                 d.Until = midnight + (long)TomorrowLasts.TotalMilliseconds;
+                d.SettlesAt = midnight + (long)TomorrowSettles.TotalMilliseconds;
                 break;
             case SetDay:
                 d.DueAt = null;
                 d.Until = ms + (long)SetDayLasts.TotalMilliseconds;
+                d.SettlesAt = ms + (long)SetDaySettles.TotalMilliseconds;
                 break;
             default:
                 d.DueAt = ms;
                 d.Until = ms + (long)SoonLasts.TotalMilliseconds;
+                d.SettlesAt = ms + (long)SoonSettles.TotalMilliseconds;
                 break;
         }
+        // Being there keeps a come-over; nobody settles it for them.
+        if (d.Coming) d.SettlesAt = null;
     }
+
+    /// <summary>When an open promise to do something gets settled off-screen; promises made before ADR 0055 settle a while after they came due.</summary>
+    public static long? SettlesAt(Desire d)
+        => d.Coming ? null : d.SettlesAt ?? (d.DueAt is { } due ? due + (long)SoonSettles.TotalMilliseconds : null);
+
+    /// <summary>Open, not a come-over, and its time to be settled off-screen has come (ADR 0055).</summary>
+    public static bool OffStageDue(Desire d, long now)
+        => DesireRules.IsPromise(d) && d.Status == DesireStatus.Active && d.TargetId is not null && !DesireRules.Lapsed(d, now)
+            && SettlesAt(d) is { } at && now >= at;
 
     /// <summary>The open promise to that person of that kind, if any.</summary>
     public static Desire? Open(IEnumerable<Desire> desires, Guid holder, bool coming, long now)
         => desires.FirstOrDefault(d => DesireRules.IsPromise(d) && d.Status == DesireStatus.Active && d.TargetId == holder && d.Coming == coming && !DesireRules.Lapsed(d, now));
 
-    /// <summary>Saying it again restates the open one, keeping the first words; true when it did.</summary>
+    /// <summary>Saying it again restates the open one, keeping the first words and the first deadline (ADR 0055); true when it did.</summary>
     public static bool Restate(IEnumerable<Desire> desires, Desire incoming, DateTimeOffset now)
     {
         if (incoming.TargetId is not { } holder || Open(desires, holder, incoming.Coming, now.ToUnixTimeMilliseconds()) is not { } same) return false;
         same.Again++;
         same.TouchedAt = now.ToUnixTimeMilliseconds();
-        same.DueAt = incoming.DueAt;
-        same.Until = incoming.Until;
         return true;
     }
 

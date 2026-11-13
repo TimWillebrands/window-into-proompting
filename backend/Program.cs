@@ -71,6 +71,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.PlayerRemoval>();
     builder.Services.AddSingleton<PartyTown.World.PlayerAuto>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
+    builder.Services.AddSingleton<PartyTown.World.Self.OffStage>();
     builder.Services.AddSingleton<PartyTown.World.Self.FollowThrough>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.RoomsApp>();
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp, PartyTown.World.Apps.MessengerApp>();
