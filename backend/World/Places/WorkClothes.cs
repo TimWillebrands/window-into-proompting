@@ -25,8 +25,8 @@ public static class WorkClothesRules
     public static readonly string[] GarmentPicks = { "topStyle", "top", "bottomStyle", "bottom", "shoeStyle", "shoes", "legwear", "accessory" };
     public static readonly string[] GarmentSlots = { "top", "under", "outer", "bottom", "legwear", "shoes", "extras" };
 
-    /// <summary>Bumped when a fault in making them means everyone's should be made again (1: picks and design were schema'd out).</summary>
-    public const int Made = 2;
+    /// <summary>Bumped when a fault in making them means everyone's should be made again (2: schema'd out; 3: titles read as costumes).</summary>
+    public const int Made = 3;
 
     /// <summary>Same job, same clothes: a title edit or a new job has them made again.</summary>
     public static bool Fits(WorkClothes? clothes, string? title)

@@ -111,6 +111,8 @@ public static partial class FigureDesign
         most office work, writing, studying, freelancing, working from a desk. A dress code that is only "smart" is none too.
         Dress them only where the job or the place clearly asks for it: vestments, a uniform, an apron, scrubs, chef's whites,
         protective gear, a costume for the stage. Then it's what that job really wears, in that place, on this person.
+        A title that sounds strange or grand is flavour on the work the company actually does: dress for that work, and let the
+        title show in one small detail at most (a pin, a ring, a lanyard), never as robes or a costume.
         Answer ONLY with JSON: {"code": "none" | "dress", "summary": "...", "picks": {...}, "design": {...}}.
         For none, leave out picks and design.
         summary: one plain line (under 140 characters) of how they look in their work clothes.

@@ -258,7 +258,9 @@ public sealed class OccupationGrain(
         var body = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == participantId);
         var own = body?.OwnLook ?? body?.Appearance ?? Places.AppearanceRules.Default(participantId);
         var place = snapshot.Places.FirstOrDefault(p => p.Id == (job.PlaceId ?? job.LocaleId));
+        var company = job.CompanyId is { } companyId ? await GrainFactory.GetGrain<Companies.ICompaniesGrain>(partyId).GetAsync(companyId) : null;
         var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}\nJob: {job.Title} at {job.Workplace}"
+            + (company is { Mandate.Length: > 0 } ? $"\nThe company: {company.Name}, which {WorldStream.Clip(company.Mandate, 300)}" : string.Empty)
             + (place is { Description.Length: > 0 } ? $"\nThe place: {WorldStream.Clip(place.Description, 300)}" : string.Empty)
             + $"\nTheir own look: {(own.Summary is { Length: > 0 } s ? s + "; " : string.Empty)}{Places.AppearanceRules.Describe(own)}"
             + $"\nDrawn as: {WorldStream.Clip(Places.WorkClothesRules.Garments(own.Design) ?? "(palette only)", 3000)}"
