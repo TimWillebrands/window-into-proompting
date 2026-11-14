@@ -173,6 +173,32 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return $"{Shifts.Describe(view.Job!)}. The clock starts a shift that's due on its next beat.";
     });
 
+    [McpServerTool(Name = "dress_for_work"), Description("What their job has them wear: put on at the start of each shift over their own look, off at the end. Give a look you designed (garments only: picks and the top, under, outer, bottom, legwear, shoes and extras slots of get_design_guide look; or {\"code\": \"none\"} for their own clothes), or a wish for the World to design from, or clear.")]
+    public Task<string> DressForWorkAsync(
+        ClaimsPrincipal user,
+        [Description("{\"code\": \"dress\" | \"none\", \"summary\": \"...\", \"picks\": {...}, \"design\": {...}}")] System.Text.Json.JsonElement? look = null,
+        [Description("Their own words, e.g. 'chef whites and clogs'; the World designs it.")] string? wish = null,
+        [Description("Stop changing for work.")] bool clear = false,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var occupation = grains.GetGrain<IOccupationGrain>(WorldKeys.Life(World, who));
+        var job = (await occupation.GetAsync()).Job ?? throw new McpException("They have no job.");
+        OccupationView view;
+        if (clear) view = await occupation.SetClothesAsync(null);
+        else if (look is { ValueKind: System.Text.Json.JsonValueKind.Object } given)
+            view = await occupation.SetClothesAsync(WorkClothesRules.Clean(System.Text.Json.Nodes.JsonNode.Parse(given.GetRawText())!.AsObject(), job.Title));
+        else if (!string.IsNullOrWhiteSpace(wish)) view = await occupation.TailorAsync(wish.Trim());
+        else throw new McpException("Give a look, a wish, or clear.");
+        var wearing = (await Places.GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who)?.WorkClothes is not null;
+        return view.Job?.Clothes switch
+        {
+            null => $"No work clothes for {job.Title}: they come in their own clothes.",
+            { OwnClothes: true } => $"As {job.Title} they come in their own clothes.",
+            { } c => $"Work clothes for {job.Title}: {c.Summary ?? "designed"}.{(wearing ? " They're in them now." : " They'll change at the start of their next shift.")}",
+        };
+    });
+
     [McpServerTool(Name = "nudge"), Description("Admins: give a Persona a Life turn now, with something nudging them (a feeling, a pull), not words to say. Their choice stays theirs.")]
     public Task<string> NudgeAsync(ClaimsPrincipal user, [Description("Persona id from list_participants.")] Guid personaId, [Description("What nudges them, e.g. 'a sudden itch to finish what you started at your desk'.")] string? nudge = null) => Guard(async () =>
     {

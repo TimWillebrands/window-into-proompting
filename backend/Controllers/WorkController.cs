@@ -53,6 +53,39 @@ public sealed class WorkController(IGrainFactory grains, Actors actors) : Contro
         return Ok(Summary(who.Id, who.Name, await Occupation(partyId, participantId).SetAsync(null)));
     }
 
+    /// <summary>What someone's job has them wear, and whether they're in it now.</summary>
+    [AllowAnonymous]
+    [HttpGet("jobs/{participantId:guid}/clothes")]
+    public async Task<ActionResult<WorkClothesView>> GetClothes(Guid partyId, Guid participantId)
+        => Ok(await ClothesAsync(partyId, participantId, await Occupation(partyId, participantId).GetAsync()));
+
+    /// <summary>Have work clothes designed from your own words ("chef whites and clogs"); you change into them on shift.</summary>
+    [HttpPost("jobs/{participantId:guid}/clothes")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<WorkClothesView>> TailorClothes(Guid partyId, Guid participantId, [FromBody] WorkClothesRequest request)
+    {
+        await actors.ActAsync(User, partyId, participantId);
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > 300) return BadRequest("Say what to wear for work, under 300 characters.");
+        var occupation = Occupation(partyId, participantId);
+        if ((await occupation.GetAsync()).Job is null) return BadRequest("Work clothes need a job.");
+        return Ok(await ClothesAsync(partyId, participantId, await occupation.TailorAsync(request.Text.Trim())));
+    }
+
+    /// <summary>Stop changing for work: come in your own clothes.</summary>
+    [HttpDelete("jobs/{participantId:guid}/clothes")]
+    public async Task<ActionResult<WorkClothesView>> ClearClothes(Guid partyId, Guid participantId)
+    {
+        await actors.ActAsync(User, partyId, participantId);
+        return Ok(await ClothesAsync(partyId, participantId, await Occupation(partyId, participantId).SetClothesAsync(null)));
+    }
+
+    private async Task<WorkClothesView> ClothesAsync(Guid partyId, Guid participantId, OccupationView view)
+    {
+        var body = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == participantId);
+        var clothes = view.Job?.Clothes;
+        return new WorkClothesView(view.Job?.Title, clothes is not null, clothes?.OwnClothes ?? false, clothes?.Summary, body?.WorkClothes is not null, view.OnShift);
+    }
+
     private IOccupationGrain Occupation(Guid partyId, Guid who) => grains.GetGrain<IOccupationGrain>(WorldKeys.Life(partyId, who));
 
     private static JobSummary Summary(Guid id, string name, OccupationView view) => new(
@@ -64,6 +97,14 @@ public sealed class WorkController(IGrainFactory grains, Actors actors) : Contro
 }
 
 public sealed record JobRequest(string Title, string Workplace, string? Days, string Hours);
+
+public sealed record WorkClothesRequest(string Text);
+
+/// <param name="Title">Their job; null without one.</param>
+/// <param name="Designed">False until someone designs them; a Player's stay undesigned until they do.</param>
+/// <param name="OwnClothes">The job asks nothing: they come as they are.</param>
+/// <param name="Wearing">In them right now.</param>
+public sealed record WorkClothesView(string? Title, bool Designed, bool OwnClothes, string? Summary, bool Wearing, bool OnShift);
 
 /// <param name="Seeded">False while the job is still being read off the persona's sheet.</param>
 /// <param name="ShiftStatus">Last shift: On, Done, LeftEarly or Missed.</param>

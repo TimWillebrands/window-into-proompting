@@ -24,6 +24,8 @@ public sealed class Occupation
     [Id(7)] public Guid? CompanyId { get; set; }
     /// <summary>Set when this job sells Sessions (ADR 0030); then it pays by Fee, not by shift.</summary>
     [Id(8)] public Practices.Practice? Practice { get; set; }
+    /// <summary>What this job has them wear; null until designed, or made again for a new title.</summary>
+    [Id(9)] public Places.WorkClothes? Clothes { get; set; }
 
     public bool Onscreen => PlaceId is not null;
 }
@@ -193,6 +195,13 @@ public static class WorkRules
         if (next.CompanyId is not null) next.Practice = null;
         else if (next.Practice is not null) next.CompanyId = null;
         else (next.CompanyId, next.Practice) = (previous?.CompanyId, previous?.Practice);
+    }
+
+    /// <summary>The same job keeps its work clothes; a new title leaves them to be made again.</summary>
+    public static void CarryClothes(Occupation next, Occupation? previous)
+    {
+        if (next.Clothes is null && Places.WorkClothesRules.Fits(previous?.Clothes, next.Title)) next.Clothes = previous!.Clothes;
+        if (next.Clothes is { } c && !Places.WorkClothesRules.Fits(c, next.Title)) next.Clothes = null;
     }
 
     /// <summary>Public → onscreen, Locale → offscreen (an Opened place Closed again); the name follows renames.</summary>

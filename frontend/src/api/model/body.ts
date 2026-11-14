@@ -6,6 +6,7 @@
  */
 import type { Appearance } from './appearance';
 import type { Posture } from './posture';
+import type { WorkClothes } from './workClothes';
 
 export interface Body {
     participantId?: string;
@@ -65,5 +66,7 @@ export interface Body {
     afk?: boolean;
     /** @nullable */
     leftFrom?: string | null;
+    workClothes?: null | WorkClothes;
+    ownLook?: null | Appearance;
     isWalking?: boolean;
 }

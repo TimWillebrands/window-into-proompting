@@ -260,6 +260,10 @@ public sealed class Body
     [Id(24)] public bool Afk { get; set; }
     /// <summary>The Place it last walked away from, for "you came over from" (ADR 0057).</summary>
     [Id(25)] public Guid? LeftFrom { get; set; }
+    /// <summary>The work clothes on now; null off duty.</summary>
+    [Id(26)] public WorkClothes? WorkClothes { get; set; }
+    /// <summary>Their own look, waiting while they're in work clothes; changes to how they look land here.</summary>
+    [Id(27)] public Appearance? OwnLook { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

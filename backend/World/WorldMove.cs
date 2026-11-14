@@ -44,8 +44,8 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
             .ToList();
         await grains.GetGrain<IPlacesGrain>(toId).AdoptPlacesAsync(places, town.Districts);
         var looks = town.Bodies
-            .Where(b => carried.Contains(b.ParticipantId) && b.Appearance is not null)
-            .ToDictionary(b => b.ParticipantId, b => b.Appearance!);
+            .Where(b => carried.Contains(b.ParticipantId) && (b.OwnLook ?? b.Appearance) is not null)
+            .ToDictionary(b => b.ParticipantId, b => (b.OwnLook ?? b.Appearance)!);
         await grains.GetGrain<IPlacesGrain>(toId).AdoptLooksAsync(looks);
 
         var picked = plan.RelationIds.ToHashSet();

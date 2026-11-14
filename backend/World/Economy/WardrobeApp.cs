@@ -16,7 +16,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     public async Task<AppPerception?> PerceiveAsync(LifeContext ctx, CancellationToken ct)
     {
         var wallet = await WalletOf(ctx.PartyId, ctx.Self.Id).GetAsync();
-        var look = await LookAsync(ctx.PartyId, ctx.Self.Id);
+        var (look, atWork) = await LookAsync(ctx.PartyId, ctx.Self.Id);
         var wearing = Catalog.Wearing(look);
         var shops = Catalog.InTheShops(ctx.Self.Id, Money.DayKey(ctx.Now), wallet.Wardrobe);
         var spare = wallet.Wardrobe.Where(k => !wearing.Contains(k)).Select(Catalog.Find).OfType<ShopItem>().ToList();
@@ -25,7 +25,12 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         sb.AppendLine(wallet.Employed
             ? $"You have {wallet.Balance} credits (paid per shift at work)."
             : $"You have {wallet.Balance} credits ({(wallet.PaidToday ? "paid today" : "payday is due")}; you earn about {wallet.DailyPay} a day).");
-        sb.AppendLine($"Wearing: {Describe(look)}.");
+        if (atWork is not null)
+        {
+            sb.AppendLine($"Wearing: your work clothes{(atWork.Summary is { Length: > 0 } s ? $" ({s.TrimEnd('.')})" : string.Empty)}.");
+            sb.AppendLine($"After work you'll change back into: {Describe(look)}.");
+        }
+        else sb.AppendLine($"Wearing: {Describe(look)}.");
         if (spare.Count > 0) sb.AppendLine($"Also in your wardrobe: {string.Join(", ", spare.Select(i => i.Name))}.");
         foreach (var g in wallet.NewGifts) sb.AppendLine($"New: {Catalog.Find(g.Key)?.Name ?? "something"}, a present from {g.FromName}.");
         var open = Money.ShopsOpen(ctx.Now.ToLocalTime());
@@ -38,7 +43,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         else if (shops.Count > 0) sb.AppendLine($"In the shops today (open till {Money.ClosesAt}:00): {string.Join(", ", shops.Select(i => $"{i.Name} ({i.Price})"))}.");
 
         var affordances = new List<Affordance>();
-        if (spare.Count > 0)
+        if (spare.Count > 0 && atWork is null)
             affordances.Add(new Affordance(Id, "Change into something else from your wardrobe", wallet.NewGifts.Count > 0 ? 1 : 0, null, "wear"));
         var cheapest = shops.Count == 0 || !open ? int.MaxValue : shops.Min(i => i.Price);
         if (open && wanted is not null && wallet.Balance >= wanted.Price)
@@ -57,7 +62,7 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     public async Task<ActOutcome?> ActAsync(LifeContext ctx, Affordance affordance, string intent, string? thought, CancellationToken ct)
     {
         var wallet = await WalletOf(ctx.PartyId, ctx.Self.Id).GetAsync();
-        var look = await LookAsync(ctx.PartyId, ctx.Self.Id);
+        var (look, _) = await LookAsync(ctx.PartyId, ctx.Self.Id);
         var wearing = Catalog.Wearing(look);
         var shops = Catalog.InTheShops(ctx.Self.Id, Money.DayKey(ctx.Now), wallet.Wardrobe);
         var text = $"{intent} {thought}";
@@ -95,8 +100,9 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
     {
         var wallet = await WalletOf(partyId, who).GetAsync();
         if (!wallet.Wardrobe.Contains(item.Key)) return null;
+        var (_, atWork) = await LookAsync(partyId, who);
         await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, Picks(item));
-        return new ActOutcome("wear", $"changed into {item.Name}", null);
+        return new ActOutcome("wear", atWork is null ? $"changed into {item.Name}" : $"laid out {item.Name} for after work", null);
     }
 
     /// <summary>Pay, own it (unless it's a service like a haircut) and put it on; null when they can't afford it.</summary>
@@ -105,9 +111,11 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         var wallet = WalletOf(partyId, who);
         if (!await wallet.SpendAsync(item.Price, item.Name)) return null;
         if (!Catalog.IsService(item)) await wallet.AddToWardrobeAsync(item.Key, null, null);
+        var (_, atWork) = await LookAsync(partyId, who);
         await grains.GetGrain<IPlacesGrain>(partyId).SetAppearanceAsync(who, Picks(item));
         await FulfilAsync(partyId, who, item);
-        return new ActOutcome("buy", Catalog.IsService(item) ? $"got {item.Name} ({item.Price} credits)" : $"bought {item.Name} ({item.Price} credits) and put it on", null);
+        return new ActOutcome("buy", Catalog.IsService(item) ? $"got {item.Name} ({item.Price} credits)"
+            : $"bought {item.Name} ({item.Price} credits) and {(atWork is null ? "put it on" : "will wear it after work")}", null);
     }
 
     /// <summary>Pay for something and put it in someone else's wardrobe; they'll feel a little warmer toward the giver.</summary>
@@ -174,9 +182,12 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
 
     private IWalletGrain WalletOf(Guid partyId, Guid who) => grains.GetGrain<IWalletGrain>(WorldKeys.Life(partyId, who));
 
-    private async Task<Appearance> LookAsync(Guid partyId, Guid who)
-        => (await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Appearance
-            ?? AppearanceRules.Default(who);
+    /// <summary>Their own look (what the Wardrobe works on), and the work clothes they're in, if any.</summary>
+    private async Task<(Appearance Own, WorkClothes? AtWork)> LookAsync(Guid partyId, Guid who)
+    {
+        var body = (await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who);
+        return (body?.OwnLook ?? body?.Appearance ?? AppearanceRules.Default(who), body?.WorkClothes);
+    }
 
     private static Dictionary<string, string?> Picks(ShopItem item) => item.Picks.ToDictionary(p => p.Key, p => (string?)p.Value);
 

@@ -13,6 +13,7 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         switch (change.Step)
         {
             case ShiftStep.Start:
+                await ChangeForWorkAsync(partyId, who.Id, job);
                 await GoAsync(partyId, who.Id, job);
                 await AnchorAsync(partyId, who.Id, job);
                 return Activity(who, "start", record.LateMinutes > 0
@@ -65,6 +66,14 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         catch (Exception ex) { logger.LogWarning(ex, "Going to work failed for {Who}", who); }
     }
 
+    /// <summary>Into the job's work clothes, when it has any; the shift doesn't wait for ones still being made.</summary>
+    private async Task ChangeForWorkAsync(Guid partyId, Guid who, Occupation job)
+    {
+        if (job.Clothes is not { OwnClothes: false } clothes) return;
+        try { await grains.GetGrain<Places.IPlacesGrain>(partyId).ChangeForWorkAsync(who, clothes); }
+        catch (Exception ex) { logger.LogWarning(ex, "Changing for work failed for {Who}", who); }
+    }
+
     /// <summary>A day worked at an offscreen Locale is footfall toward Opening it (ADR 0027); once a day counts.</summary>
     private async Task AnchorAsync(Guid partyId, Guid who, Occupation job)
     {
@@ -79,6 +88,7 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         try
         {
             var places = grains.GetGrain<Places.IPlacesGrain>(partyId);
+            await places.ChangeBackAsync(who);
             if (job.Onscreen) await places.SetActivityAsync(who, null, null);
             else await places.ReturnAsync(who);
         }

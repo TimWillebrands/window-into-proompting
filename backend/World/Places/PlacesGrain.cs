@@ -401,6 +401,7 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
         if (body.Appearance is not null) body.Appearance.Kept = true;
+        if (body.OwnLook is not null) body.OwnLook.Kept = true;
         body.Afk = false;
         if (body.Activity is Dozing or AwayFromKeyboard) body.Activity = null;
         await SaveAsync();
@@ -440,10 +441,11 @@ public sealed partial class PlacesGrain(
     public async Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
-        body.Appearance = AppearanceRules.Merge(body.Appearance ?? AppearanceRules.Default(participantId), picked);
+        var look = AppearanceRules.Merge(OwnLook(body), picked);
+        SetOwn(body, look);
         await SaveAsync();
         await PublishAsync(body);
-        return body.Appearance;
+        return look;
     }
 
     public async Task RedressAsync(Guid? participantId)
@@ -451,6 +453,7 @@ public sealed partial class PlacesGrain(
         foreach (var body in state.State.Bodies.Values.Where(b => !b.IsHuman && (participantId is null || b.ParticipantId == participantId)))
         {
             if (body.Appearance is not null) body.Appearance.FromBio = false;
+            if (body.OwnLook is not null) body.OwnLook.FromBio = false;
             _dressing.Remove(body.ParticipantId);
         }
         await SaveAsync();
@@ -462,13 +465,14 @@ public sealed partial class PlacesGrain(
     {
         try
         {
-            if (state.State.Bodies.GetValueOrDefault(who.Id)?.Appearance is { FromBio: true, Design: not null }) return;
+            if (state.State.Bodies.GetValueOrDefault(who.Id) is { } dressed && OwnLook(dressed) is { FromBio: true, Design: not null }) return;
             // Others' looks so far: a small world reads better when people don't all pick the same hair.
             var others = state.State.Bodies.Values
-                .Where(b => b.ParticipantId != who.Id && b.Appearance is { FromBio: true })
-                .Select(b => $"{b.Name.Split(' ')[0]}: {b.Appearance!.Hair} {b.Appearance.HairStyle} hair, {b.Appearance.Top} {b.Appearance.TopStyle}, {b.Appearance.Accessory}")
+                .Where(b => b.ParticipantId != who.Id && OwnLook(b) is { FromBio: true })
+                .Select(b => (b.Name, Look: OwnLook(b)))
+                .Select(b => $"{b.Name.Split(' ')[0]}: {b.Look.Hair} {b.Look.HairStyle} hair, {b.Look.Top} {b.Look.TopStyle}, {b.Look.Accessory}")
                 .ToList();
-            var current = state.State.Bodies.GetValueOrDefault(who.Id)?.Appearance;
+            var current = state.State.Bodies.GetValueOrDefault(who.Id) is { } now ? OwnLook(now) : null;
             var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}"
                 + (current is { FromBio: true } ? $"\n\nPeople know them like this; keep it recognisably them: {AppearanceRules.Describe(current)}" : string.Empty)
                 + (others.Count == 0 ? string.Empty : $"\n\nOthers here already look like this; be recognisably different:\n{string.Join("\n", others)}");
@@ -476,7 +480,7 @@ public sealed partial class PlacesGrain(
             if (json is null) return;
             var design = await DrawPrintsAsync(FigureDesign.Clean(json["design"]));
             if (!state.State.Bodies.TryGetValue(who.Id, out var body)) return;
-            body.Appearance = Dressed(body.Appearance ?? AppearanceRules.Default(who.Id), json, design);
+            SetOwn(body, Dressed(OwnLook(body), json, design));
             await SaveAsync();
             await PublishAsync(body);
         }
@@ -496,17 +500,7 @@ public sealed partial class PlacesGrain(
         return look;
     }
 
-    /// <summary>Draws each print a design asked for; one that doesn't come out is left off.</summary>
-    private async Task<string?> DrawPrintsAsync(string? design)
-    {
-        var art = new Dictionary<(string, int), string>();
-        foreach (var (slot, index, brief) in FigureDesign.Briefs(design).Take(FigureDesign.MaxPrints))
-        {
-            var svg = await llm.CompleteAsync(Grains.Generation.JobComplexity.General, FigureDesign.PrintPrompt, brief, CancellationToken.None, 0.8);
-            if (FigureDesign.Svg(svg) is { } clean) art[(slot, index)] = clean;
-        }
-        return FigureDesign.WithArtwork(design, art);
-    }
+    private Task<string?> DrawPrintsAsync(string? design) => FigureDesign.DrawPrintsAsync(llm, design);
 
     private async Task RestAsync(Guid personaId)
     {
@@ -940,7 +934,8 @@ public sealed partial class PlacesGrain(
                 changed = true;
             }
             // No Design yet is a look from before Figures: same person, drawn anew.
-            if ((!body.Appearance.FromBio || body.Appearance.Design is null) && !body.Appearance.Kept && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
+            var own = OwnLook(body);
+            if ((!own.FromBio || own.Design is null) && !own.Kept && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
                 _dressQueue.Enqueue(c);
         }
         if (_dressQueue.Count > 0 && !_dressingRuns) _ = DressInTurnAsync();
@@ -1266,6 +1261,10 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>Change a look from words ("dye my hair pink"), within the palette.</summary>
     [Alias("RestyleAsync")] Task<RestyleResult?> RestyleAsync(Guid participantId, string intent);
+    /// <summary>Into work clothes over their own look, which waits on the Body; false when there's nothing to change into.</summary>
+    [Alias("ChangeForWorkAsync")] Task<bool> ChangeForWorkAsync(Guid participantId, WorkClothes clothes);
+    /// <summary>Out of work clothes, back into their own look exactly; false when they weren't in any.</summary>
+    [Alias("ChangeBackAsync")] Task<bool> ChangeBackAsync(Guid participantId);
     [Alias("DressAsync")] Task<RestyleResult?> DressAsync(Guid participantId, string look);
 
     /// <summary>A new thing in a Place, with a generated model arriving shortly after.</summary>

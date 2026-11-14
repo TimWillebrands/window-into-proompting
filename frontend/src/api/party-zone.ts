@@ -138,6 +138,8 @@ import type {
     VoiceWearReport,
     WalletSummary,
     WardrobeRequest,
+    WorkClothesRequest,
+    WorkClothesView,
     WorldActivity,
     WorldList,
     WorldStatus,
@@ -25433,6 +25435,691 @@ export const useDeleteWorldsPartyIdJobsParticipantId = <
 > => {
     return useMutation(
         getDeleteWorldsPartyIdJobsParticipantIdMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type getWorldsPartyIdJobsParticipantIdClothesResponse200TextPlain = {
+    data: WorkClothesView;
+    status: 200;
+};
+
+export type getWorldsPartyIdJobsParticipantIdClothesResponse200ApplicationJson =
+    {
+        data: WorkClothesView;
+        status: 200;
+    };
+
+export type getWorldsPartyIdJobsParticipantIdClothesResponse200TextJson = {
+    data: WorkClothesView;
+    status: 200;
+};
+
+export type getWorldsPartyIdJobsParticipantIdClothesResponseSuccess = (
+    | getWorldsPartyIdJobsParticipantIdClothesResponse200TextPlain
+    | getWorldsPartyIdJobsParticipantIdClothesResponse200ApplicationJson
+    | getWorldsPartyIdJobsParticipantIdClothesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type getWorldsPartyIdJobsParticipantIdClothesResponse =
+    getWorldsPartyIdJobsParticipantIdClothesResponseSuccess;
+
+export const getGetWorldsPartyIdJobsParticipantIdClothesUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/jobs/${participantId}/clothes`;
+};
+
+export const getWorldsPartyIdJobsParticipantIdClothes = async (
+    partyId: string,
+    participantId: string,
+    options?: RequestInit,
+): Promise<getWorldsPartyIdJobsParticipantIdClothesResponse> => {
+    return customFetch<getWorldsPartyIdJobsParticipantIdClothesResponse>(
+        getGetWorldsPartyIdJobsParticipantIdClothesUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetWorldsPartyIdJobsParticipantIdClothesQueryKey = (
+    partyId: string,
+    participantId: string,
+) => {
+    return [`/api/worlds/${partyId}/jobs/${participantId}/clothes`] as const;
+};
+
+export const getGetWorldsPartyIdJobsParticipantIdClothesQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdJobsParticipantIdClothesQueryKey(
+            partyId,
+            participantId,
+        );
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>
+    > = ({ signal }) =>
+        getWorldsPartyIdJobsParticipantIdClothes(partyId, participantId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!(partyId && participantId),
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdJobsParticipantIdClothesQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>
+>;
+export type GetWorldsPartyIdJobsParticipantIdClothesQueryError = unknown;
+
+export function useGetWorldsPartyIdJobsParticipantIdClothes<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdJobsParticipantIdClothes
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdJobsParticipantIdClothes
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdJobsParticipantIdClothes<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdJobsParticipantIdClothes
+                        >
+                    >,
+                    TError,
+                    Awaited<
+                        ReturnType<
+                            typeof getWorldsPartyIdJobsParticipantIdClothes
+                        >
+                    >
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdJobsParticipantIdClothes<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdJobsParticipantIdClothes<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetWorldsPartyIdJobsParticipantIdClothesQueryOptions(
+            partyId,
+            participantId,
+            options,
+        );
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetWorldsPartyIdJobsParticipantIdClothesSuspenseQueryOptions = <
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ??
+        getGetWorldsPartyIdJobsParticipantIdClothesQueryKey(
+            partyId,
+            participantId,
+        );
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>
+    > = ({ signal }) =>
+        getWorldsPartyIdJobsParticipantIdClothes(partyId, participantId, {
+            signal,
+            ...requestOptions,
+        });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetWorldsPartyIdJobsParticipantIdClothesSuspenseQueryResult =
+    NonNullable<
+        Awaited<ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>>
+    >;
+export type GetWorldsPartyIdJobsParticipantIdClothesSuspenseQueryError =
+    unknown;
+
+export function useGetWorldsPartyIdJobsParticipantIdClothesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdJobsParticipantIdClothesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetWorldsPartyIdJobsParticipantIdClothesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetWorldsPartyIdJobsParticipantIdClothesSuspense<
+    TData = Awaited<
+        ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+    >,
+    TError = unknown,
+>(
+    partyId: string,
+    participantId: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<
+                    ReturnType<typeof getWorldsPartyIdJobsParticipantIdClothes>
+                >,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions =
+        getGetWorldsPartyIdJobsParticipantIdClothesSuspenseQueryOptions(
+            partyId,
+            participantId,
+            options,
+        );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export type postWorldsPartyIdJobsParticipantIdClothesResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdJobsParticipantIdClothesResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postWorldsPartyIdJobsParticipantIdClothesResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+export type postWorldsPartyIdJobsParticipantIdClothesResponseError = (
+    | postWorldsPartyIdJobsParticipantIdClothesResponse400TextPlain
+    | postWorldsPartyIdJobsParticipantIdClothesResponse400ApplicationJson
+    | postWorldsPartyIdJobsParticipantIdClothesResponse400TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdJobsParticipantIdClothesResponse =
+    postWorldsPartyIdJobsParticipantIdClothesResponseError;
+
+export const getPostWorldsPartyIdJobsParticipantIdClothesUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/jobs/${participantId}/clothes`;
+};
+
+export const postWorldsPartyIdJobsParticipantIdClothes = async (
+    partyId: string,
+    participantId: string,
+    workClothesRequest: WorkClothesRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdJobsParticipantIdClothesResponse> => {
+    return customFetch<postWorldsPartyIdJobsParticipantIdClothesResponse>(
+        getPostWorldsPartyIdJobsParticipantIdClothesUrl(partyId, participantId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(workClothesRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdJobsParticipantIdClothesMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>>,
+        TError,
+        { partyId: string; participantId: string; data: WorkClothesRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>>,
+    TError,
+    { partyId: string; participantId: string; data: WorkClothesRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdJobsParticipantIdClothes'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>>,
+        { partyId: string; participantId: string; data: WorkClothesRequest }
+    > = (props) => {
+        const { partyId, participantId, data } = props ?? {};
+
+        return postWorldsPartyIdJobsParticipantIdClothes(
+            partyId,
+            participantId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdJobsParticipantIdClothesMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>>
+    >;
+export type PostWorldsPartyIdJobsParticipantIdClothesMutationBody =
+    WorkClothesRequest;
+export type PostWorldsPartyIdJobsParticipantIdClothesMutationError =
+    ProblemDetails;
+
+export const usePostWorldsPartyIdJobsParticipantIdClothes = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>
+            >,
+            TError,
+            {
+                partyId: string;
+                participantId: string;
+                data: WorkClothesRequest;
+            },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdJobsParticipantIdClothes>>,
+    TError,
+    { partyId: string; participantId: string; data: WorkClothesRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdJobsParticipantIdClothesMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type deleteWorldsPartyIdJobsParticipantIdClothesResponse200TextPlain = {
+    data: WorkClothesView;
+    status: 200;
+};
+
+export type deleteWorldsPartyIdJobsParticipantIdClothesResponse200ApplicationJson =
+    {
+        data: WorkClothesView;
+        status: 200;
+    };
+
+export type deleteWorldsPartyIdJobsParticipantIdClothesResponse200TextJson = {
+    data: WorkClothesView;
+    status: 200;
+};
+
+export type deleteWorldsPartyIdJobsParticipantIdClothesResponseSuccess = (
+    | deleteWorldsPartyIdJobsParticipantIdClothesResponse200TextPlain
+    | deleteWorldsPartyIdJobsParticipantIdClothesResponse200ApplicationJson
+    | deleteWorldsPartyIdJobsParticipantIdClothesResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type deleteWorldsPartyIdJobsParticipantIdClothesResponse =
+    deleteWorldsPartyIdJobsParticipantIdClothesResponseSuccess;
+
+export const getDeleteWorldsPartyIdJobsParticipantIdClothesUrl = (
+    partyId: string,
+    participantId: string,
+) => {
+    return `/api/worlds/${partyId}/jobs/${participantId}/clothes`;
+};
+
+export const deleteWorldsPartyIdJobsParticipantIdClothes = async (
+    partyId: string,
+    participantId: string,
+    options?: RequestInit,
+): Promise<deleteWorldsPartyIdJobsParticipantIdClothesResponse> => {
+    return customFetch<deleteWorldsPartyIdJobsParticipantIdClothesResponse>(
+        getDeleteWorldsPartyIdJobsParticipantIdClothesUrl(
+            partyId,
+            participantId,
+        ),
+        {
+            ...options,
+            method: 'DELETE',
+        },
+    );
+};
+
+export const getDeleteWorldsPartyIdJobsParticipantIdClothesMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>>,
+        TError,
+        { partyId: string; participantId: string },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>>,
+    TError,
+    { partyId: string; participantId: string },
+    TContext
+> => {
+    const mutationKey = ['deleteWorldsPartyIdJobsParticipantIdClothes'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>>,
+        { partyId: string; participantId: string }
+    > = (props) => {
+        const { partyId, participantId } = props ?? {};
+
+        return deleteWorldsPartyIdJobsParticipantIdClothes(
+            partyId,
+            participantId,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorldsPartyIdJobsParticipantIdClothesMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>>
+    >;
+
+export type DeleteWorldsPartyIdJobsParticipantIdClothesMutationError = unknown;
+
+export const useDeleteWorldsPartyIdJobsParticipantIdClothes = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>
+            >,
+            TError,
+            { partyId: string; participantId: string },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof deleteWorldsPartyIdJobsParticipantIdClothes>>,
+    TError,
+    { partyId: string; participantId: string },
+    TContext
+> => {
+    return useMutation(
+        getDeleteWorldsPartyIdJobsParticipantIdClothesMutationOptions(options),
         queryClient,
     );
 };

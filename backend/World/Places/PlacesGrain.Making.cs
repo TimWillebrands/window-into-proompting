@@ -85,7 +85,7 @@ public sealed partial class PlacesGrain
     public async Task<RestyleResult?> RestyleAsync(Guid participantId, string intent)
     {
         if (string.IsNullOrWhiteSpace(intent) || !state.State.Bodies.TryGetValue(participantId, out var body)) return null;
-        var before = body.Appearance ?? AppearanceRules.Default(participantId);
+        var before = OwnLook(body);
         var json = await llm.CompleteJsonAsync(JobComplexity.General, FigureDesign.RestylePrompt,
             $"Current look: {AppearanceRules.Describe(before)}\nDrawn as: {WorldStream.Clip(before.Design ?? "(palette only)", 5000)}\nWhat they want: {WorldStream.Clip(intent, 300)}",
             CancellationToken.None, 0.5);
@@ -103,17 +103,65 @@ public sealed partial class PlacesGrain
     private async Task<RestyleResult?> WearAsync(Guid participantId, System.Text.Json.Nodes.JsonObject json, string? design)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
-        var before = body.Appearance ?? AppearanceRules.Default(participantId);
+        var before = OwnLook(body);
         var after = Dressed(before, json, design);
         var changes = AppearanceRules.Changes(before, after);
         if (changes.Length == 0 && after.Design == before.Design) return new RestyleResult(before, "looks in the mirror and keeps their look");
         if (changes.Length == 0) changes = after.Summary ?? "a new look";
-        body.Appearance = after;
-        body.Activity = "showing off a new look";
-        body.ActivityUntil = Now() + (long)ActivityWearsOff.TotalMilliseconds;
+        SetOwn(body, after);
+        if (body.WorkClothes is not null) changes += ", for after work";
+        else
+        {
+            body.Activity = "showing off a new look";
+            body.ActivityUntil = Now() + (long)ActivityWearsOff.TotalMilliseconds;
+        }
         await SaveAsync();
         await PublishAsync(body);
         return new RestyleResult(after, $"changes their look: {changes}");
+    }
+
+    // ---- Work clothes ----
+
+    public async Task<bool> ChangeForWorkAsync(Guid participantId, WorkClothes clothes)
+    {
+        if (clothes.OwnClothes)
+        {
+            await ChangeBackAsync(participantId);
+            return false;
+        }
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return false;
+        var own = OwnLook(body);
+        body.WorkClothes = clothes;
+        body.OwnLook = own;
+        body.Appearance = WorkClothesRules.Wear(own, clothes);
+        await SaveAsync();
+        await PublishAsync(body);
+        return true;
+    }
+
+    public async Task<bool> ChangeBackAsync(Guid participantId)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.WorkClothes is null) return false;
+        body.Appearance = body.OwnLook ?? body.Appearance;
+        body.OwnLook = null;
+        body.WorkClothes = null;
+        await SaveAsync();
+        await PublishAsync(body);
+        return true;
+    }
+
+    /// <summary>Their own look: worn, or waiting while they're in work clothes.</summary>
+    private static Appearance OwnLook(Body body) => body.OwnLook ?? body.Appearance ?? AppearanceRules.Default(body.ParticipantId);
+
+    /// <summary>A change to how someone looks lands on their own look; in work clothes it shows after work.</summary>
+    private static void SetOwn(Body body, Appearance look)
+    {
+        if (body.WorkClothes is { } clothes)
+        {
+            body.OwnLook = look;
+            body.Appearance = WorkClothesRules.Wear(look, clothes);
+        }
+        else body.Appearance = look;
     }
 
     // ---- Things ----

@@ -466,6 +466,10 @@ _Avoid_: rank, permission, membership.
 What a Participant does for a living in one Party: a job title, a workplace, hours and pay per shift. Onscreen when the workplace is a Place in the Party (the Body goes to a Staff spot), offscreen otherwise (the Body is away at a **Locale**, and the shift is a fixed beat in the **Day**). Started and ended by the **World clock**, not chosen. Pays into the **Wallet**; **Means** is the fallback for people with no Occupation.
 _Avoid_: job (fine in prose), career, class.
 
+**Work clothes**:
+What an **Occupation** has you wear: garments only, laid over your own **Appearance** from the start of a shift to its end, so face, hair and body stay yours. Many jobs ask nothing ("their own clothes"). Designed once per job title, a Persona's by the World, a Player's only from their own words. While you're in them your own look waits on the **Body**, and anything you buy or restyle lands there for after work. See [ADR 0058](docs/adr/0058-work-clothes.md).
+_Avoid_: uniform (a Company's shared one doesn't exist yet), outfit, costume.
+
 **Responsibility**:
 Something someone holds a Persona to. Always has a holder (a Participant, a Place, or someone offscreen) and a due time. Today it comes from a shift, a Gathering you RSVP'd to or are hosting, guests in your Home, or a **Promise**. It renders as "# What you owe" in Right now. Keeping one warms the Tie; neglecting one costs something visible.
 _Avoid_: task, duty, chore, quest, obligation.

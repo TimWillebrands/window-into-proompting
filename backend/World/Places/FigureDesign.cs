@@ -133,6 +133,18 @@ public static partial class FigureDesign
         return found;
     }
 
+    /// <summary>Draws each print a design asked for; one that doesn't come out is left off.</summary>
+    public static async Task<string?> DrawPrintsAsync(IWorldLlm llm, string? design)
+    {
+        var art = new Dictionary<(string, int), string>();
+        foreach (var (slot, index, brief) in Briefs(design).Take(MaxPrints))
+        {
+            var svg = await llm.CompleteAsync(Grains.Generation.JobComplexity.General, PrintPrompt, brief, CancellationToken.None, 0.8);
+            if (Svg(svg) is { } clean) art[(slot, index)] = clean;
+        }
+        return WithArtwork(design, art);
+    }
+
     /// <summary>Puts drawn artwork in; a print with no artwork is dropped.</summary>
     public static string? WithArtwork(string? design, IReadOnlyDictionary<(string Slot, int Index), string> art)
     {

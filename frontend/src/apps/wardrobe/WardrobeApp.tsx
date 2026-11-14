@@ -1,12 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    getGetWorldsPartyIdJobsParticipantIdClothesQueryKey,
     getGetWorldsPartyIdPlacesQueryKey,
     getGetWorldsPartyIdWalletsParticipantIdShopQueryKey,
     getGetWorldsPartyIdWalletsQueryKey,
+    useDeleteWorldsPartyIdJobsParticipantIdClothes,
+    useGetWorldsPartyIdJobsParticipantIdClothes,
     useGetWorldsPartyIdPlaces,
     useGetWorldsPartyIdWalletsParticipantIdShop,
     useGetWorldsPartyIdWalletsSuspense,
+    usePostWorldsPartyIdJobsParticipantIdClothes,
     usePostWorldsPartyIdWalletsParticipantIdBuy,
     usePostWorldsPartyIdWalletsParticipantIdGift,
     usePostWorldsPartyIdWalletsParticipantIdWear,
@@ -172,6 +176,96 @@ function AuraField() {
     );
 }
 
+/** What your job has you wear: designed from your words, put on at the start of each shift. */
+function WorkClothesField({ participantId }: { participantId: string }) {
+    const queryClient = useQueryClient();
+    const view = useGetWorldsPartyIdJobsParticipantIdClothes(
+        WORLD_ID,
+        participantId,
+    ).data?.data;
+    const tailor = usePostWorldsPartyIdJobsParticipantIdClothes();
+    const clear = useDeleteWorldsPartyIdJobsParticipantIdClothes();
+    const [wish, setWish] = useState('');
+    if (!view?.title) return null;
+    const refresh = () =>
+        Promise.all([
+            queryClient.invalidateQueries({
+                queryKey: getGetWorldsPartyIdJobsParticipantIdClothesQueryKey(
+                    WORLD_ID,
+                    participantId,
+                ),
+            }),
+            queryClient.invalidateQueries({
+                queryKey: getGetWorldsPartyIdPlacesQueryKey(WORLD_ID),
+            }),
+        ]);
+    const design = async () => {
+        if (!wish.trim()) return;
+        await tailor.mutateAsync({
+            partyId: WORLD_ID,
+            participantId,
+            data: { text: wish.trim() },
+        });
+        setWish('');
+        await refresh();
+    };
+    const stop = async () => {
+        await clear.mutateAsync({ partyId: WORLD_ID, participantId });
+        await refresh();
+    };
+    const busy = tailor.isPending || clear.isPending;
+    const dressed = view.designed && !view.ownClothes;
+    return (
+        <div className="wr-aura wr-work">
+            <span>
+                👔 Work clothes <small>as {view.title}</small>
+            </span>
+            <small>
+                {dressed
+                    ? `${view.summary ?? 'Designed'}${view.wearing ? ' · wearing them now' : ' · on at the start of your shift'}`
+                    : 'You go to work in your own clothes.'}
+            </small>
+            <input
+                type="text"
+                aria-label="What to wear for work"
+                maxLength={300}
+                value={wish}
+                disabled={busy}
+                placeholder="e.g. chef whites and clogs"
+                onChange={(e) => setWish(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') void design();
+                }}
+            />
+            <div className="wr-work-actions">
+                <button
+                    type="button"
+                    className="wr-btn wr-btn--ghost"
+                    disabled={busy || !wish.trim()}
+                    onClick={() => void design()}
+                >
+                    {tailor.isPending ? 'Designing…' : 'Design them'}
+                </button>
+                {dressed ? (
+                    <button
+                        type="button"
+                        className="wr-btn wr-btn--ghost"
+                        disabled={busy}
+                        onClick={() => void stop()}
+                    >
+                        Come in my own clothes
+                    </button>
+                ) : null}
+            </div>
+            {tailor.error || clear.error ? (
+                <small data-status="failed">
+                    {((tailor.error ?? clear.error) as Error).message}
+                </small>
+            ) : null}
+        </div>
+    );
+}
+
 function OpenSign() {
     const hour = new Date().getHours();
     const open = hour >= OPENS && hour < CLOSES;
@@ -334,8 +428,8 @@ function Boutique({
         [viewing.wardrobe],
     );
     const preview = useMemo(
-        () => tryOn(body?.appearance, tried),
-        [body?.appearance, tried],
+        () => tryOn(body?.ownLook ?? body?.appearance, tried),
+        [body?.ownLook, body?.appearance, tried],
     );
     const items = (page === 'closet' ? viewing.wardrobe : shop).filter((i) =>
         inTab(i, tab),
@@ -459,6 +553,9 @@ function Boutique({
                     <div className="wr-warn">{failure.message}</div>
                 ) : null}
                 {mine ? <AuraField /> : null}
+                {mine ? (
+                    <WorkClothesField participantId={viewing.participantId} />
+                ) : null}
             </section>
             <section className="wr-catalogue">
                 {viewing.newGifts.length > 0 ? (

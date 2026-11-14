@@ -1,6 +1,6 @@
 # RFC: dressing for work
 
-> Status: draft. If accepted it becomes ADR 0058.
+> Status: accepted and built as [ADR 0058](../adr/0058-work-clothes.md); where they differ, the ADR holds.
 > Builds on ADR 0024 (Wardrobe), 0026 (Occupations and shifts), 0028 (Figures), 0030 (Companies), 0037 (Players on auto).
 > Vocabulary in `CONTEXT.md`.
 

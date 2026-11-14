@@ -28,6 +28,9 @@ public sealed class Appearance
     [Id(18)] public string BodyType { get; set; } = "straight";
     /// <summary>A Player's own look: going on auto doesn't get them dressed from their bio.</summary>
     [Id(19)] public bool Kept { get; set; }
+
+    /// <summary>A separate copy; every field is a value or a string.</summary>
+    public Appearance Copy() => (Appearance)MemberwiseClone();
 }
 
 /// <summary>One choosable part of a look, for editors and prompts.</summary>

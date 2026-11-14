@@ -727,3 +727,9 @@
 .wr-aura small[data-status="failed"] {
     color: #b3261e;
 }
+
+.wr-work-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}

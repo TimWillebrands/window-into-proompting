@@ -18,18 +18,22 @@ public sealed class OccupationGrain(
     private const int HistorySize = 14;
     private static readonly TimeSpan SeedRetry = TimeSpan.FromMinutes(10);
     private bool _seeding;
+    private bool _tailoring;
 
     public Task<OccupationView> GetAsync()
     {
         KickSeed();
+        KickClothes();
         return Task.FromResult(View());
     }
 
     public async Task<OccupationView> SetAsync(Occupation? job)
     {
+        var clothes = state.State.Job?.Clothes;
         if (job is not null)
         {
             WorkRules.Carry(job, state.State.Job);
+            WorkRules.CarryClothes(job, state.State.Job);
             await PlaceAsync(job);
         }
         state.State.Job = job;
@@ -38,6 +42,19 @@ public sealed class OccupationGrain(
         await state.WriteStateAsync();
         await EmployAsync();
         await StaffAsync();
+        if (job?.Clothes != clothes) await DressForShiftAsync();
+        return View();
+    }
+
+    public async Task<OccupationView> SetClothesAsync(Places.WorkClothes? clothes)
+    {
+        if (state.State.Job is not { } job) return View();
+        if (clothes is not null) clothes.For = job.Title;
+        job.Clothes = clothes;
+        // Cleared by hand: a Persona's are made again a while later, a Player's never.
+        state.State.ClothesAttemptAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        await state.WriteStateAsync();
+        await DressForShiftAsync();
         return View();
     }
 
@@ -52,6 +69,7 @@ public sealed class OccupationGrain(
     public async Task<ShiftChange> StepAsync(DateTimeOffset local, bool asleep)
     {
         KickSeed();
+        KickClothes();
         await StaffAsync();
         if (state.State.Job is not { } job) return ShiftChange.Nothing;
         var today = state.State.History.LastOrDefault();
@@ -162,6 +180,97 @@ public sealed class OccupationGrain(
         if (state.State.History.Count > HistorySize) state.State.History.RemoveRange(0, state.State.History.Count - HistorySize);
     }
 
+    /// <summary>On shift in work clothes, off shift in their own: after the clothes or the job changed.</summary>
+    private async Task DressForShiftAsync()
+    {
+        try
+        {
+            var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+            var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
+            if (View().OnShift && state.State.Job?.Clothes is { OwnClothes: false } clothes) await places.ChangeForWorkAsync(participantId, clothes);
+            else await places.ChangeBackAsync(participantId);
+        }
+        catch (Exception ex) { logger.LogDebug(ex, "Changing for work failed"); }
+    }
+
+    /// <summary>A job without work clothes gets them designed, detached so the clock never waits on an LLM.</summary>
+    private void KickClothes()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (state.State.Job is not { } job || job.Clothes is not null || _tailoring || now - state.State.ClothesAttemptAt < SeedRetry.TotalMilliseconds) return;
+        _tailoring = true;
+        state.State.ClothesAttemptAt = now;
+        _ = TailorInBackgroundAsync(job.Title);
+    }
+
+    public async Task OfferClothesAsync(Places.WorkClothes clothes)
+    {
+        // The job may have changed while they were being made.
+        if (state.State.Job is not { } job || job.Clothes is not null || !Places.WorkClothesRules.Fits(clothes, job.Title)) return;
+        job.Clothes = clothes;
+        await state.WriteStateAsync();
+        await DressForShiftAsync();
+    }
+
+    public async Task<OccupationView> TailorAsync(string wish)
+    {
+        var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        var who = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
+        if (who is null || state.State.Job is not { } job) return View();
+        if (await MakeClothesAsync(who, job, wish) is { } clothes && Places.WorkClothesRules.Fits(clothes, state.State.Job?.Title))
+        {
+            state.State.Job!.Clothes = clothes;
+            await state.WriteStateAsync();
+            await DressForShiftAsync();
+        }
+        return View();
+    }
+
+    private async Task TailorInBackgroundAsync(string title)
+    {
+        var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        try
+        {
+            var who = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
+            // A Player's look is theirs: they design their own work clothes, or come as they are.
+            if (who is null || who.DefaultDriver != DriverKind.LLM || state.State.Job is not { } job) return;
+            if ((await GrainFactory.HumansAsync(partyId)).Contains(participantId)) return;
+            if (await MakeClothesAsync(who, job, null) is not { } clothes) return;
+            // Through the grain's own queue: a detached write would race a request's.
+            await this.AsReference<IOccupationGrain>().OfferClothesAsync(clothes);
+            logger.LogInformation("Work clothes for {Name} ({Job}): {Clothes}", who.Name, title, clothes.OwnClothes ? "their own" : clothes.Summary);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Designing work clothes failed for {ParticipantId}", participantId);
+        }
+        finally
+        {
+            _tailoring = false;
+        }
+    }
+
+    /// <summary>One design call (and its prints) for what this job has them wear; null when nothing came back.</summary>
+    private async Task<Places.WorkClothes?> MakeClothesAsync(CastMember who, Occupation job, string? wish)
+    {
+        var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        var snapshot = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSnapshotAsync();
+        var body = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == participantId);
+        var own = body?.OwnLook ?? body?.Appearance ?? Places.AppearanceRules.Default(participantId);
+        var place = snapshot.Places.FirstOrDefault(p => p.Id == (job.PlaceId ?? job.LocaleId));
+        var user = $"Name: {who.Name}\nWho they are: {WorldStream.Clip(who.Bio, 800)}\nJob: {job.Title} at {job.Workplace}"
+            + (place is { Description.Length: > 0 } ? $"\nThe place: {WorldStream.Clip(place.Description, 300)}" : string.Empty)
+            + $"\nTheir own look: {(own.Summary is { Length: > 0 } s ? s + "; " : string.Empty)}{Places.AppearanceRules.Describe(own)}"
+            + $"\nDrawn as: {WorldStream.Clip(Places.WorkClothesRules.Garments(own.Design) ?? "(palette only)", 3000)}"
+            + (string.IsNullOrWhiteSpace(wish) ? string.Empty : $"\nWhat they want to wear for work: {WorldStream.Clip(wish, 300)}");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var json = await llm.For(participantId).CompleteJsonAsync(JobComplexity.General, Places.FigureDesign.WorkPrompt, user, cts.Token, 0.7, ["code"]);
+        if (json is null) return null;
+        var clothes = Places.WorkClothesRules.Clean(json, job.Title);
+        clothes.Design = await Places.FigureDesign.DrawPrintsAsync(llm.For(participantId), clothes.Design);
+        return clothes;
+    }
+
     private OccupationView View() => new(state.State.Job, state.State.History.LastOrDefault(), state.State.Seeded);
 
     /// <summary>First use: read a job off the lived sheet, detached so the clock never waits on an LLM.</summary>
@@ -259,6 +368,12 @@ public interface IOccupationGrain : IGrainWithStringKey
     [Alias("StepAsync")] Task<ShiftChange> StepAsync(DateTimeOffset local, bool asleep);
     /// <summary>Walking out mid-shift; null when not on shift.</summary>
     [Alias("LeaveEarlyAsync")] Task<ShiftRecord?> LeaveEarlyAsync(DateTimeOffset local);
+    /// <summary>Work clothes by hand (a Player's, an author's); null clears them. On shift they change at once.</summary>
+    [Alias("SetClothesAsync")] Task<OccupationView> SetClothesAsync(Places.WorkClothes? clothes);
+    /// <summary>Work clothes designed from their own words (a Player's); waits on the LLM.</summary>
+    [Alias("TailorAsync")] Task<OccupationView> TailorAsync(string wish);
+    /// <summary>The World's design landed: worn from now unless the job changed or has clothes already.</summary>
+    [Alias("OfferClothesAsync")] Task OfferClothesAsync(Places.WorkClothes clothes);
     [Alias("NotePaidAsync")] Task NotePaidAsync(string day, int amount);
     /// <summary>Today's shift as a fixed Day beat, or null. Interleaves: Places → Self → here while this grain awaits Places.</summary>
     [Alias("FixedTodayAsync"), Orleans.Concurrency.AlwaysInterleave] Task<string?> FixedTodayAsync(DateTimeOffset local);
@@ -295,4 +410,6 @@ public sealed class OccupationState
     [Id(4)] public string? SawShiftDay { get; set; }
     /// <summary>The Place Places last heard this person works at.</summary>
     [Id(5)] public Guid? StaffAt { get; set; }
+    /// <summary>When work clothes were last asked for (or cleared by hand).</summary>
+    [Id(6)] public long ClothesAttemptAt { get; set; }
 }

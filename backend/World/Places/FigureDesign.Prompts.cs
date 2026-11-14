@@ -101,6 +101,26 @@ public static partial class FigureDesign
         {{{Schema}}}
         """;
 
+    private static string GarmentOptions => string.Join("\n", AppearanceRules.Fields.Where(f => WorkClothesRules.GarmentPicks.Contains(f.Key)).Select(f => $"{f.Key}: {string.Join(", ", f.Options)}"));
+
+    public static string WorkPrompt => $$$"""
+        You are the costume designer. {{{World}}}
+
+        Someone goes to work. Decide what their job has them wear there, over who they already are.
+        Many jobs ask nothing: they come in their own clothes. Say so with "code": "none" whenever that's how it would be:
+        most office work, writing, studying, freelancing, working from a desk. A dress code that is only "smart" is none too.
+        Dress them only where the job or the place clearly asks for it: vestments, a uniform, an apron, scrubs, chef's whites,
+        protective gear, a costume for the stage. Then it's what that job really wears, in that place, on this person.
+        Answer ONLY with JSON: {"code": "none" | "dress", "summary": "...", "picks": {...}, "design": {...}}.
+        For none, leave out picks and design.
+        summary: one plain line (under 140 characters) of how they look in their work clothes.
+        picks: the closest palette option for each garment they change into, exactly as written; leave out what stays their own.
+        {{{GarmentOptions}}}
+        design: only the garment slots that change: top, under, outer, bottom, legwear, shoes, each one whole; extras for what
+        they carry or wear for the job (an apron's ties, a badge, a ritual wand), added to their own. Never body, face, hair or stance.
+        {{{Schema}}}
+        """;
+
     public const string PrintPrompt = """
         You draw graphics for clothes in a small 3D world: bold shapes, thick lines, at most three flat colours, readable when tiny.
         Answer with one SVG and nothing else: viewBox="0 0 256 256", transparent background, filling the square.

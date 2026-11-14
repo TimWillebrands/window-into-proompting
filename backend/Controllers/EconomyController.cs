@@ -70,8 +70,8 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
 
     private async Task<Dictionary<Guid, List<string>>> LooksAsync(Guid partyId)
         => (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies
-            .Where(b => b.Appearance is not null)
-            .ToDictionary(b => b.ParticipantId, b => Catalog.Wearing(b.Appearance!));
+            .Where(b => (b.OwnLook ?? b.Appearance) is not null)
+            .ToDictionary(b => b.ParticipantId, b => Catalog.Wearing((b.OwnLook ?? b.Appearance)!));
 
     private IWalletGrain Wallet(Guid partyId, Guid who) => grains.GetGrain<IWalletGrain>(WorldKeys.Life(partyId, who));
 
