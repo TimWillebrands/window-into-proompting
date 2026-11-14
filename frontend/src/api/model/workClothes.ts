@@ -14,4 +14,6 @@ export interface WorkClothes {
     /** @nullable */
     summary?: string | null;
     for?: string;
+    /** @pattern ^-?(?:0|[1-9]\d*)$ */
+    made?: number | string;
 }

@@ -2,7 +2,6 @@ import { fn } from 'storybook/test';
 import type {
     CduExchangeSummary,
     ChatGroupInfo,
-    DefaultPersonaTemplate,
     LlmProviderEntry,
     MemoryGraphDto,
     ModelAssignment,
@@ -84,19 +83,6 @@ export const mockPersonas: Persona[] = [
         name: 'CTO Skeptic',
         bio: null,
         systemPrompt: 'You are a battle-hardened CTO.',
-    },
-];
-
-export const mockPersonaTemplates: DefaultPersonaTemplate[] = [
-    {
-        name: 'Indie Hacker Girl',
-        bio: 'Sharp-witted millennial.',
-        systemPrompt: 'You are Denise.',
-    },
-    {
-        name: 'Shaman Agile Coach',
-        bio: 'Ancient agile coach.',
-        systemPrompt: 'You are Vlad.',
     },
 ];
 
@@ -195,14 +181,6 @@ export const mockProviderModels = [
 export const useGetPersonaSuspense = fn(() =>
     suspenseQueryResult({
         data: mockPersonas,
-        status: 200,
-        headers: new Headers(),
-    }),
-);
-
-export const useGetPersonaDefaultsSuspense = fn(() =>
-    suspenseQueryResult({
-        data: mockPersonaTemplates,
         status: 200,
         headers: new Headers(),
     }),

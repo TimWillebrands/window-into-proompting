@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using PartyTown.Grains;
 using PartyTown.Mcp;
+using PartyTown.Model;
 using PartyTown.Services.Auth;
 using PartyTown.World.Places;
 using PartyTown.World.Relations;
@@ -40,6 +41,21 @@ public partial class WorldLifeTest
         Assert.Equal(("Denise Kuyper", "You are Denise."), (edited.Name, edited.SystemPrompt));
         Assert.Equal("Denise Kuyper", (await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Single(c => c.Id == denise).Name);
         Assert.Equal("Denise Kuyper", (await PlacesOf(partyId).GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Name);
+    }
+
+    [Fact]
+    public async Task AnAdminsAgent_MovesANewcomerIn_OnAutoWithAHome()
+    {
+        var (partyId, _, _, _) = await PlayerWorldAsync();
+        var tools = AuthorToolsFor(partyId);
+
+        await Assert.ThrowsAsync<McpException>(() => tools.MoveInAsync(Agent(), "Vlad", "# Vlad", "Vlad is old."));
+        await Assert.ThrowsAsync<McpException>(() => tools.MoveInAsync(Agent(admin: true), "Vlad", " ", "Vlad is old."));
+        var vlad = await tools.MoveInAsync(Agent(admin: true), " Vlad ", "# Vlad", "Vlad is old.", chattiness: 3);
+
+        Assert.Equal(("Vlad", "Vlad is old.", 1.0), (vlad.Name, vlad.Bio, (await _fx.GrainFactory.GetGrain<IPersonaGrain>(vlad.Id).GetPersona()).Chattiness));
+        Assert.Equal(DriverKind.LLM, (await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetParty()).Participants.Single(p => p.Id == vlad.Id).Driver);
+        Assert.NotNull((await PlacesOf(partyId).GetSnapshotAsync()).Places.HomeOf(vlad.Id));
     }
 
     [Fact]

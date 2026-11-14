@@ -38,7 +38,6 @@ export * from './createPlaceRequest';
 export * from './createPlayerRequest';
 export * from './declareRelationRequest';
 export * from './decorateRequest';
-export * from './defaultPersonaTemplate';
 export * from './desire';
 export * from './desireKind';
 export * from './desireRequest';

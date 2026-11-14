@@ -5,7 +5,6 @@ import GeneratePersonaDialog from './components/GeneratePersonaDialog';
 import MoveInDialog from './components/MoveInDialog';
 import NewPersonaButton from './components/NewPersonaButton';
 import PersonaEditor from './components/PersonaEditor';
-import TemplateButton from './components/TemplateButton';
 import { useResidents } from './residence';
 
 export default function PersonasApp() {
@@ -144,7 +143,6 @@ export default function PersonasApp() {
                             setAskOnSaveId(id);
                         }}
                     />
-                    <TemplateButton onCreated={createdComplete} />
                     <button
                         type="button"
                         className="w-full"

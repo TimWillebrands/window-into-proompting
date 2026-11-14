@@ -20,13 +20,6 @@ namespace PartyTown.Controllers;
 /// <summary>What the generator wrote: the sheet, plus the Card's fields when it filled them in.</summary>
 internal sealed record GeneratedPersona(string Name, string SystemPrompt, string Bio, double? Chattiness, double? Impulsivity);
 
-public sealed record DefaultPersonaTemplate
-{
-    public required string Name { get; init; }
-    public required string SystemPrompt { get; init; }
-    public required string Bio { get; init; }
-}
-
 public sealed record GenerateBioRequest
 {
     public required string SystemPrompt { get; init; }
@@ -201,45 +194,6 @@ public class PersonaController(
     }
 
     /// <summary>
-    /// Returns the built-in default persona templates.
-    /// </summary>
-    [AllowAnonymous]
-    [HttpGet("defaults")]
-    public async Task<ActionResult<DefaultPersonaTemplate[]>> GetDefaults()
-    {
-        var templates = await cache.GetOrCreateAsync("persona-defaults", async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
-            var dir = Path.Combine(env.ContentRootPath,
-                "Services", "ResponsePipeline", "Prompts", "DefaultCharacters");
-
-            if (!Directory.Exists(dir))
-            {
-                logger.LogWarning("Default characters directory not found: {Dir}", dir);
-                return [];
-            }
-
-            var files = Directory.GetFiles(dir, "*.md");
-            var results = new List<DefaultPersonaTemplate>();
-            foreach (var file in files)
-            {
-                var content = await System.IO.File.ReadAllTextAsync(file);
-                var name = ExtractNameFromMarkdown(content);
-                var bio = ExtractBioFromMarkdown(content);
-                results.Add(new DefaultPersonaTemplate
-                {
-                    Name = name,
-                    SystemPrompt = content,
-                    Bio = bio
-                });
-            }
-            return results.ToArray();
-        });
-
-        return Ok(templates ?? []);
-    }
-
-    /// <summary>
     /// WebSocket endpoint for streaming persona generation.
     /// Client sends one JSON request, server streams realtime envelope events back.
     /// Request shapes:
@@ -405,18 +359,11 @@ public class PersonaController(
         await socket.SendAsync(payload, WebSocketMessageType.Text, true, ct);
     }
 
-    private static string ExtractNameFromMarkdown(string content)
-    {
-        // Match "# Name: Epithet" or "# Name (Epithet)" or just "# Name"
-        var match = Regex.Match(content, @"^#\s+([^:\(\n]+?)(?:\s*[:\(]|$)", RegexOptions.Multiline);
-        return match.Success ? match.Groups[1].Value.Trim() : "Default Persona";
-    }
-
-    /// <summary>First sentences of the persona's self-description: "## Who you are" (lived format) or "## 1. Persona Definition" (legacy).</summary>
+    /// <summary>First sentences of the persona's "## Who you are".</summary>
     internal static string ExtractBioFromMarkdown(string content)
     {
         var section = Regex.Match(content,
-            @"^##\s*(?:1\.\s*Persona Definition|Who you are)\s*\n(.*?)(?=\n##\s|\z)",
+            @"^##\s*Who you are\s*\n(.*?)(?=\n##\s|\z)",
             RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
         var text = section.Success
@@ -444,7 +391,7 @@ public class PersonaController(
         return PersonaBrief.Compose(seed, Random.Shared, places, residents);
     }
 
-    /// <summary>Name from "# Full Name" (lived format) or "# System Prompt: Name (The Epithet)" (legacy); "## Card" feeds the fields and stays out of the sheet.</summary>
+    /// <summary>Name from "# Full Name"; "## Card" feeds the fields and stays out of the sheet.</summary>
     internal static GeneratedPersona ParseGeneratedPersona(string raw)
     {
         var card = Regex.Match(raw, @"^##\s*Card\s*$(.*)\z", RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
@@ -453,9 +400,7 @@ public class PersonaController(
         double? Dial(string key) => double.TryParse(Field(key), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? Math.Clamp(v, 0, 1) : null;
 
         var heading = Regex.Match(sheet, @"^#(?!#)\s*(.+?)\s*$", RegexOptions.Multiline);
-        var name = heading.Success
-            ? Regex.Replace(Regex.Replace(heading.Groups[1].Value, @"^System Prompt:\s*", "", RegexOptions.IgnoreCase), @"\s*\(.*\)\s*$", "").Trim()
-            : string.Empty;
+        var name = heading.Success ? heading.Groups[1].Value.Trim() : string.Empty;
         if (string.IsNullOrWhiteSpace(name)) name = "Generated Persona";
 
         var bio = Field("bio") ?? ExtractBioFromMarkdown(sheet);

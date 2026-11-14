@@ -3990,44 +3990,6 @@
         }
       }
     },
-    "/Persona/defaults": {
-      "get": {
-        "tags": [
-          "Persona"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultPersonaTemplate"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultPersonaTemplate"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DefaultPersonaTemplate"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/Persona/ws": {
       "get": {
         "tags": [
@@ -10108,25 +10070,6 @@
           }
         }
       },
-      "DefaultPersonaTemplate": {
-        "required": [
-          "name",
-          "systemPrompt",
-          "bio"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "systemPrompt": {
-            "type": "string"
-          },
-          "bio": {
-            "type": "string"
-          }
-        }
-      },
       "Desire": {
         "type": "object",
         "properties": {
@@ -14130,6 +14073,14 @@
           },
           "for": {
             "type": "string"
+          },
+          "made": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

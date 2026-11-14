@@ -3,7 +3,7 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest;
 
-/// <summary>Generated persona parsing: lived format (ADR 0021) and the legacy mode-sheet format.</summary>
+/// <summary>Generated persona parsing: the lived format (ADR 0021).</summary>
 public class PersonaGeneratorParseTest
 {
     private const string Lived = """
@@ -28,16 +28,6 @@ public class PersonaGeneratorParseTest
         impulsivity: 1.4
         """;
 
-    private const string Legacy = """
-        # System Prompt: Eiko Tanaka (The Tradition-Reformer)
-
-        ## 1. Persona Definition
-        Eiko merges *serene* gravitas with restless ambition. She sketches revolution.
-
-        ## 2. Core Drive
-        Something.
-        """;
-
     [Fact]
     public void Lived_NameFromHeading_BioFromWhoYouAre()
     {
@@ -57,14 +47,6 @@ public class PersonaGeneratorParseTest
         Assert.Equal(1, persona.Impulsivity);
         Assert.DoesNotContain("Card", persona.SystemPrompt);
         Assert.EndsWith("You're 63.", persona.SystemPrompt);
-    }
-
-    [Fact]
-    public void Legacy_StillParses()
-    {
-        var persona = PersonaController.ParseGeneratedPersona(Legacy);
-        Assert.Equal("Eiko Tanaka", persona.Name);
-        Assert.Equal("Eiko merges serene gravitas with restless ambition. She sketches revolution.", persona.Bio);
     }
 
     [Fact]

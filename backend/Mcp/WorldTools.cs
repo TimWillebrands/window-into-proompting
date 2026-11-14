@@ -154,6 +154,25 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return $"Posted in [{thread.Id}] {thread.Title}.";
     });
 
+    [McpServerTool(Name = "set_job"), Description("Give someone a job, or change it: a title and a workplace (a Place's name from list_places), days like 'Mon-Fri', hours like '09:00-17:00' (not past midnight).")]
+    public Task<string> SetJobAsync(
+        ClaimsPrincipal user,
+        [Description("e.g. 'keeper of the Sterrenwacht'.")] string title,
+        [Description("Where it's worked, e.g. 'the Sterrenwacht'.")] string workplace,
+        [Description("Days, e.g. 'Mon-Fri'.")] string days = "Mon-Fri",
+        [Description("Hours, e.g. '09:00-17:00'.")] string hours = "09:00-17:00",
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(workplace)) throw new McpException("A job needs a title and a workplace.");
+        var (start, end) = Shifts.ParseHours(hours) ?? throw new McpException("Hours like 09:00-17:00, within one day.");
+        var view = await grains.GetGrain<IOccupationGrain>(WorldKeys.Life(World, who)).SetAsync(new Occupation
+        {
+            Title = title.Trim(), Workplace = workplace.Trim(), Days = Shifts.ParseDays(days), Start = start, End = end,
+        });
+        return $"{Shifts.Describe(view.Job!)}.";
+    });
+
     [McpServerTool(Name = "set_shift"), Description("Change when someone's job is worked: days like 'Mon-Fri' or 'Mon-Sun', hours like '09:00-17:00' (not past midnight). Title, workplace and company stay.")]
     public Task<string> SetShiftAsync(
         ClaimsPrincipal user,

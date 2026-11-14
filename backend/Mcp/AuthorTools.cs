@@ -6,6 +6,7 @@ using ModelContextProtocol.Server;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.Auth;
+using PartyTown.World;
 using PartyTown.World.Relations;
 
 namespace PartyTown.Mcp;
@@ -48,6 +49,32 @@ public sealed class AuthorTools(IGrainFactory grains, IOptions<McpOptions> mcp)
             Bio = bio is null ? persona.Bio : bio.Trim(),
         });
         return PersonaSheet.Of(await grains.GetGrain<IPersonaGrain>(participantId).GetPersona());
+    });
+
+    [McpServerTool(Name = "move_in"), Description("Admins: a new Persona joins the library and moves into this World, on auto, with a Home of their own. Give a job with set_job, a part of town with move_home.")]
+    public Task<PersonaSheet> MoveInAsync(
+        ClaimsPrincipal user,
+        [Description("Full name, 1-60 characters.")] string name,
+        [Description("The whole system prompt: who they are, with other people, contradictions, how they talk.")] string systemPrompt,
+        [Description("Plain fact, third person, 2-3 sentences.")] string bio,
+        [Description("0 broods, 1 always chimes in. Default 0.5.")] double chattiness = 0.5,
+        [Description("0 deliberates, 1 barrels on. Default 0.5.")] double impulsivity = 0.5) => Guard(async () =>
+    {
+        RequireAdmin(user);
+        if (name.Trim() is not { Length: > 0 and <= MaxName } named) throw new McpException($"A name is 1 to {MaxName} characters.");
+        if (string.IsNullOrWhiteSpace(systemPrompt) || string.IsNullOrWhiteSpace(bio)) throw new McpException("A newcomer needs a system prompt and a bio.");
+        var id = Guid.NewGuid();
+        await grains.GetGrain<IPersonaRootGrain>(Guid.Empty).AddPersona(new Persona
+        {
+            Id = id, Name = named, SystemPrompt = systemPrompt.Trim(), Bio = bio.Trim(),
+            Chattiness = Math.Clamp(chattiness, 0, 1), Impulsivity = Math.Clamp(impulsivity, 0, 1),
+        });
+        await grains.GetGrain<IPartyGrain>(World).AddParticipantsAsync(new List<PartyParticipant> { new() { Id = id, Name = named, Driver = DriverKind.LLM } });
+        await grains.GetGrain<IWorldClockGrain>(World).RecordAsync(new WorldActivity
+        {
+            PersonaId = id, PersonaName = named, App = "world", Action = "arrive", Summary = "moved into the world",
+        });
+        return PersonaSheet.Of(await grains.GetGrain<IPersonaGrain>(id).GetPersona());
     });
 
     [McpServerTool(Name = "list_relations", ReadOnly = true), Description("Admins: who's what to whom in this World, in their own words, and who shares a Home; ids for live_together.")]
