@@ -120,6 +120,38 @@ public sealed partial class PlacesGrain
         logger.LogInformation("{Locale} is {Place}: folded into it instead of opening", locale.Name, into.Name);
     }
 
+    private static readonly TimeSpan SweepAfter = TimeSpan.FromMinutes(1);
+    private IGrainTimer? _sweep;
+
+    /// <summary>Once per World, off the activation path: Locales from before same-place judging get the Opening vibecheck.</summary>
+    private void SweepSoon()
+        => _sweep = this.RegisterGrainTimer(async () =>
+        {
+            _sweep?.Dispose();
+            try
+            {
+                var folded = await SweepSameAsync();
+                state.State.SameSwept = true;
+                await SaveAsync();
+                logger.LogInformation("Same-place sweep folded {Count} Locales: {Folded}", folded.Count, string.Join("; ", folded));
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "Same-place sweep failed; it runs again on the next activation"); }
+        }, new GrainTimerCreationOptions(SweepAfter, Timeout.InfiniteTimeSpan));
+
+    /// <summary>Every Locale System One judges a drawn Place already there folds into it; "locale → place" for each.</summary>
+    public async Task<List<string>> SweepSameAsync()
+    {
+        await SettleAsync();
+        var folded = new List<string>();
+        foreach (var locale in state.State.Places.Where(p => p is { Kind: PlaceKinds.Locale, SameAs: null } && !Unnamed(p.Name)).ToList())
+            if (await AlreadyDrawnAsync(locale) is { } drawn)
+            {
+                await FoldAsync(locale, drawn);
+                folded.Add($"{locale.Name} → {drawn.Name}");
+            }
+        return folded;
+    }
+
     /// <summary>Talk names Places: a drawn Place takes the credit for a Locale it covers.</summary>
     private void CreditTalk(IEnumerable<Place> named, IReadOnlyCollection<Guid> speakers)
     {

@@ -93,6 +93,24 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task TheSweep_FoldsLocalesThatAreAlreadyDrawn_AndLeavesTheRest()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var locale = await places.LocaleInAsync("the Shinto shrine", denise, "Amstelveen");
+        var gym = await places.LocaleAsync("the climbing gym", denise);
+        var shrine = await places.LocaleInAsync("small Shinto shrine in Amstelveen", denise, "Amstelveen");
+        await places.OpenAsync(shrine, "park", "author");
+
+        Assert.Equal(new[] { "the Shinto shrine → small Shinto shrine in Amstelveen" }, await places.SweepSameAsync());
+
+        var snapshot = await places.GetSnapshotAsync();
+        Assert.Equal((Guid?)shrine, snapshot.Places.Single(p => p.Id == locale).SameAs);
+        Assert.Null(snapshot.Places.Single(p => p.Id == gym).SameAs);
+        Assert.Empty(await places.SweepSameAsync());
+    }
+
+    [Fact]
     public async Task TalkAboutADrawnPlace_GivesNoFootfall_ToALocaleThatSoundsLikeIt()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();

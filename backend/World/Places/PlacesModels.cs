@@ -319,6 +319,8 @@ public sealed class PlacesState
     [Id(6)] public string? LastOpenedDay { get; set; }
     /// <summary>How often each catalogue miss came up: recurring ones are what to curate first.</summary>
     [Id(7)] public Dictionary<string, int> MissCounts { get; set; } = new();
+    /// <summary>The one-time sweep folding Locales that were already drawn Places has run.</summary>
+    [Id(8)] public bool SameSwept { get; set; }
 }
 
 public static class PlaceKinds

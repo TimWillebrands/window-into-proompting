@@ -75,6 +75,7 @@ public sealed partial class PlacesGrain(
             b.ArrivedAt = Now() - (long)TimeSpan.FromHours(1).TotalMilliseconds;
         if (state.State.Bodies.Values.Any(b => b.IsWalking)) WatchArrivals();
         _activatedAt = Now();
+        if (!state.State.SameSwept) SweepSoon();
         this.RegisterGrainTimer(async () =>
         {
             try { await SettleAsync(); }
@@ -1293,6 +1294,9 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     /// <summary>A Locale under exactly this name, never judged the same as another Place: a new Company's office.</summary>
     [Alias("NamedLocaleAsync")] Task<Guid> NamedLocaleAsync(string name);
+
+    /// <summary>Every Locale System One judges a drawn Place already there folds into it; "locale → place" for each.</summary>
+    [Alias("SweepSameAsync")] Task<List<string>> SweepSameAsync();
 
     /// <summary>Walk out to a Locale and be away there ("at work"); a drawn Place id just walks there, to a Staff spot if any.</summary>
     [Alias("GoAwayAsync")] Task<Body?> GoAwayAsync(Guid participantId, Guid localeId, string? activity);
