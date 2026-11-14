@@ -15,11 +15,25 @@ public sealed partial class PlacesGrain
         "work", "my work", "their work", "at work", "the office", "office", "the job", "job", "my job", "workplace", "the workplace",
     };
 
-    public async Task<Guid> LocaleAsync(string name, Guid? forParticipant)
+    public Task<Guid> LocaleAsync(string name, Guid? forParticipant) => MintAsync(name, forParticipant, null, match: true);
+
+    public Task<Guid> NamedLocaleAsync(string name) => MintAsync(name, null, null, match: false);
+
+    /// <summary>A name resolves to a Place by name, by System One judging it means one, or as a new Locale.</summary>
+    private async Task<Guid> MintAsync(string name, Guid? forParticipant, string? district, bool match)
     {
         await SyncCastAsync();
         var wanted = LocaleName(name, forParticipant);
         if (FindByName(wanted) is { } known) return known.Id;
+        if (match && !Unnamed(wanted)
+            && await SamePlaceAsync(wanted, district ?? Districts.FromName(wanted), Shortlist(wanted, state.State.Places, DistrictNames()),
+                "Is that one of these places, under another name? Pick one only if it's clearly the same place.") is { } same)
+        {
+            AddName(same, wanted);
+            await SaveAsync();
+            return same.Id;
+        }
+        if (FindByName(wanted) is { } meanwhile) return meanwhile.Id;
         if (state.State.Places.Count(p => p.Kind == PlaceKinds.Locale) >= MaxLocales)
             wanted = Somewhere;
         if (FindByName(wanted) is { } fallback) return fallback.Id;
@@ -34,7 +48,8 @@ public sealed partial class PlacesGrain
     {
         await SyncCastAsync();
         await SettleAsync();
-        if (!state.State.Bodies.TryGetValue(participantId, out var body) || Find(localeId) is not { } place) return null;
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || Find(localeId) is not { } found) return null;
+        var place = Resolved(found);
         if (place.Kind != PlaceKinds.Locale)
         {
             // Drawn workplace: just go there, behind the counter if it has one.
@@ -61,7 +76,7 @@ public sealed partial class PlacesGrain
 
     public async Task<Guid> LocaleInAsync(string name, Guid? forParticipant, string? district)
     {
-        var id = await LocaleAsync(name, forParticipant);
+        var id = await MintAsync(name, forParticipant, district, match: true);
         if (!string.IsNullOrWhiteSpace(district) && Find(id) is { Kind: PlaceKinds.Locale, DistrictId: null } locale)
         {
             locale.DistrictId = await DistrictAsync(district);
@@ -77,9 +92,10 @@ public sealed partial class PlacesGrain
         var mine = (state.State.Visits.GetValueOrDefault(participantId) ?? new List<string>()).Select(v => SplitVisit(v).Place).ToHashSet();
         var visitors = state.State.Visits.SelectMany(kv => kv.Value.Select(v => (Who: kv.Key, SplitVisit(v).Place)))
             .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Who).Distinct().Count());
-        var locales = state.State.Places.Where(p => p.Kind == PlaceKinds.Locale && !Unnamed(p.Name)).ToList();
-        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && !p.Private && p.DistrictId == district && !p.Dormant)
-            .OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(5)
+        var locales = state.State.Places.Where(p => p is { Kind: PlaceKinds.Locale, SameAs: null } && !Unnamed(p.Name)).ToList();
+        // Every drawn Place, not just this District's: one they can't see gets invented again under a new name.
+        var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && !p.Private && !p.Dormant)
+            .OrderByDescending(p => p.DistrictId == district).ThenByDescending(p => visitors.GetValueOrDefault(p.Id))
             .Concat(locales.Where(p => mine.Contains(p.Id)).Take(3))
             .Concat(locales.OrderByDescending(p => visitors.GetValueOrDefault(p.Id)).Take(3))
             .DistinctBy(p => p.Id)
@@ -159,12 +175,14 @@ public sealed partial class PlacesGrain
         return trimmed;
     }
 
-    /// <summary>Case-insensitive, "the" optional; Homes never match (they're named for their owner).</summary>
+    /// <summary>Case-insensitive, "the" optional, other names too; Homes never match (they're named for their owner).</summary>
     private Place? FindByName(string name)
     {
         static string Key(string n) => (n.StartsWith("the ", StringComparison.OrdinalIgnoreCase) ? n[4..] : n).Trim().ToLowerInvariant();
         var key = Key(name);
-        return state.State.Places.FirstOrDefault(p => p.Kind != PlaceKinds.Home && Key(p.Name) == key);
+        var found = state.State.Places.FirstOrDefault(p => p.Kind != PlaceKinds.Home && Key(p.Name) == key)
+            ?? state.State.Places.FirstOrDefault(p => p.Kind != PlaceKinds.Home && p.AlsoCalled.Any(n => Key(n) == key));
+        return found is null ? null : Resolved(found);
     }
 
     /// <summary>"You're at work at the office in Zuid", offscreen; generic workplaces don't repeat the name.</summary>
@@ -178,27 +196,20 @@ public sealed partial class PlacesGrain
 
     /// <summary>Naming a Locale in talk is a little footfall (ADR 0027); generic workplaces don't count.</summary>
     private void NoteMentions(Guid speakerId, string content)
-    {
-        foreach (var locale in state.State.Places.Where(p => p.Kind == PlaceKinds.Locale))
-            if (Mentioned(content, locale.Name))
-                _ = GrainFactory.GetGrain<Growth.IGrowthGrain>(PartyId).NoteAsync(locale.Id, speakerId, Growth.FootfallSources.Talk);
-        // Talking about an opened Place keeps it awake (dormancy).
-        foreach (var opened in state.State.Places.Where(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public))
-            if (Mentioned(content, opened.Name))
-                opened.MentionedAt = Now();
-    }
+        => CreditTalk(Nameable().Where(p => Names(p).Any(n => Mentioned(content, n))).ToList(), new[] { speakerId });
 
+    /// <summary>Each topic names one Place at most: a drawn one before any Locale, then the closest name.</summary>
     public Task NoteTopicsAsync(List<string> topics, List<Guid> speakers)
     {
-        var now = Now();
-        foreach (var place in state.State.Places.Where(p => !Unnamed(p.Name) && topics.Any(t => TopicNames(t, p.Name))))
-        {
-            if (place.Kind == PlaceKinds.Locale)
-                foreach (var speaker in speakers.Where(state.State.Bodies.ContainsKey))
-                    _ = GrainFactory.GetGrain<Growth.IGrowthGrain>(PartyId).NoteAsync(place.Id, speaker, Growth.FootfallSources.Talk);
-            else if (place.OpenedAt is not null)
-                place.MentionedAt = now;
-        }
+        var places = Nameable().ToList();
+        var named = topics
+            .Select(t => places.Where(p => Names(p).Any(n => TopicNames(t, n)))
+                .OrderByDescending(p => p.Kind == PlaceKinds.Public)
+                .ThenBy(p => Names(p).Where(n => TopicNames(t, n)).Min(n => NameWords(n).Count))
+                .FirstOrDefault())
+            .OfType<Place>()
+            .ToList();
+        CreditTalk(named, speakers.Where(state.State.Bodies.ContainsKey).ToList());
         return Task.CompletedTask;
     }
 

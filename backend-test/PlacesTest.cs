@@ -514,7 +514,7 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         }
     }
 
-    /// <summary>System One a test scripts by question.</summary>
+    /// <summary>System One a test scripts by question; "same place" is fixed.</summary>
     public sealed class ScriptedJudge : PartyTown.Services.SystemOne.ISystemOneJudge
     {
         public static readonly ScriptedJudge Instance = new();
@@ -524,6 +524,14 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
         {
             var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            // Same place: one whose name holds the name said, else somewhere else (the last option).
+            if (questions.TryGetValue("same", out var same) && same is PartyTown.Services.SystemOne.ChoiceQuestion options)
+            {
+                var said = System.Text.RegularExpressions.Regex.Match(state, "\"(?:the )?([^\"]+)\"").Groups[1].Value;
+                var pick = options.Options.Keys.FirstOrDefault(k => said.Length > 0 && k.Contains(said, StringComparison.OrdinalIgnoreCase)) ?? options.Options.Keys.Last();
+                answers.Choices["same"] = options.Options.Keys.ToDictionary(k => k, k => k == pick ? 1.0 : 0.0);
+                return Task.FromResult(answers);
+            }
             if (Noul is null) return Task.FromResult(answers);
             foreach (var (key, question) in questions) answers.Nouls[key] = Noul(question.Instructions);
             return Task.FromResult(answers);

@@ -27,7 +27,7 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
         string? District(Place p) => snapshot.Districts.FirstOrDefault(d => d.Id == p.DistrictId)?.Name;
         var rows = readings
             .Select(r => (Reading: r, Place: snapshot.Places.FirstOrDefault(p => p.Id == r.LocaleId)))
-            .Where(x => x.Place is { Kind: PlaceKinds.Locale })
+            .Where(x => x.Place is { Kind: PlaceKinds.Locale, SameAs: null })
             .Select(x => new GrowthRow(
                 x.Reading.LocaleId, x.Place!.Name, District(x.Place),
                 x.Reading.Footfall, x.Reading.People, x.Reading.Days, x.Reading.Missing,

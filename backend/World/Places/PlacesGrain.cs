@@ -651,10 +651,11 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
-        var place = state.State.Places.FirstOrDefault(p => p.Id == placeId);
+        if (Find(placeId) is not { } found) return null;
+        var place = Resolved(found);
         // Locales are reached by going away (GoAwayAsync), never by walking over.
-        if (place is null || place.Kind == PlaceKinds.Locale) return null;
-        return await WalkAsync(body, place, spotId);
+        if (place.Kind == PlaceKinds.Locale) return null;
+        return await WalkAsync(body, place, place == found ? spotId : null);
     }
 
     private async Task<Body?> WalkAsync(Body body, Place place, string? spotId)
@@ -1287,8 +1288,11 @@ public interface IPlacesGrain : IGrainWithGuidKey
     /// <summary>Thing descriptions the catalogue couldn't draw, newest first: the curation queue.</summary>
     [Alias("GetCatalogueMissesAsync")] Task<List<string>> GetCatalogueMissesAsync();
 
-    /// <summary>Resolve-or-create an offscreen Locale by name (ADR 0027); "work" for someone becomes their own. A drawn Place with that name wins.</summary>
+    /// <summary>Resolve-or-create an offscreen Locale by name (ADR 0027); "work" for someone becomes their own. A Place by that name, or one System One judges it means, wins.</summary>
     [Alias("LocaleAsync")] Task<Guid> LocaleAsync(string name, Guid? forParticipant);
+
+    /// <summary>A Locale under exactly this name, never judged the same as another Place: a new Company's office.</summary>
+    [Alias("NamedLocaleAsync")] Task<Guid> NamedLocaleAsync(string name);
 
     /// <summary>Walk out to a Locale and be away there ("at work"); a drawn Place id just walks there, to a Staff spot if any.</summary>
     [Alias("GoAwayAsync")] Task<Body?> GoAwayAsync(Guid participantId, Guid localeId, string? activity);

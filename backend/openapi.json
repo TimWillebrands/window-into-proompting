@@ -11991,6 +11991,19 @@
               "string"
             ],
             "format": "int64"
+          },
+          "alsoCalled": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sameAs": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

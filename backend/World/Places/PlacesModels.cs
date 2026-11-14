@@ -61,6 +61,10 @@ public sealed class Place
     /// <summary>The last Happening here, news to whoever's around while it's fresh (ADR 0043).</summary>
     [Id(30)] public string? Lately { get; set; }
     [Id(31)] public long LatelyAt { get; set; }
+    /// <summary>Other names System One judged to mean this Place; they resolve here.</summary>
+    [Id(32)] public List<string> AlsoCalled { get; set; } = new();
+    /// <summary>A Locale judged the same as this Place at its Opening: it never opens, and resolves there.</summary>
+    [Id(33)] public Guid? SameAs { get; set; }
 }
 
 /// <summary>Who a workplace lets in (ADR 0041).</summary>

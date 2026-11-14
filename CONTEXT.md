@@ -616,6 +616,7 @@ See [ADR 0027](docs/adr/0027-world-growth-districts-locales-openings.md) (propos
 
 **Locale**:
 A named **Place** that exists only offscreen ("the office in Zuid", "Ana's work"): never drawn, no Place talk, not somewhere you walk to. A **Body** is *away* there (`AwayAs`: "at work") and comes back. Keeps its id when **Opened**.
+A new name System One judges to mean a Place already there resolves to it (`AlsoCalled`); one judged so at its **Opening** folds into it instead (`SameAs`). Talk about a drawn Place never feeds a Locale whose name it covers.
 _Avoid_: elsewhere (that's the Life prompt's list of other Places), offscreen place, stub, location.
 
 **District**:

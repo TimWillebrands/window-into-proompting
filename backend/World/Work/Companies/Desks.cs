@@ -63,7 +63,7 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
     public async Task<string> OfficeAsync(Guid partyId, string name)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);
-        var localeId = await places.LocaleAsync(name, null);
+        var localeId = await places.NamedLocaleAsync(name);
         // Authors aren't held to the Opening budget; a full map leaves the office offscreen.
         var opened = await places.OpenAsync(localeId, "office", "author");
         return opened?.Name ?? name;

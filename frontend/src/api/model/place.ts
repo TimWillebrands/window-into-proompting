@@ -63,4 +63,7 @@ export interface Place {
     lately?: string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     latelyAt?: number | string;
+    alsoCalled?: string[];
+    /** @nullable */
+    sameAs?: string | null;
 }

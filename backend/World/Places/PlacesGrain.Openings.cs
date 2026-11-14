@@ -13,11 +13,17 @@ public sealed partial class PlacesGrain
     public async Task<Place?> OpenAsync(Guid localeId, string? archetype, string reason)
     {
         await SettleAsync();
-        if (Find(localeId) is not { Kind: PlaceKinds.Locale } place || place.Name == Somewhere) return null;
+        if (Find(localeId) is not { Kind: PlaceKinds.Locale, SameAs: null } place || place.Name == Somewhere) return null;
         // One a world-day for footfall and visits; the author and a planned get-together aren't held to it.
         var budgeted = reason is not ("author" or "gathering");
         if (budgeted && state.State.LastOpenedDay == DayKey(0)) return null;
         if (state.State.Places.Count(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public) >= MaxOpened) return null;
+        // Only the author opens a second of something on purpose; anything else that's already drawn folds into it.
+        if (reason != "author" && await AlreadyDrawnAsync(place) is { } drawn)
+        {
+            await FoldAsync(place, drawn);
+            return drawn;
+        }
         var kit = Kits.Of(archetype ?? Kits.FromName(place.Name) ?? await ClassifyAsync(place.Name));
         place.Kind = PlaceKinds.Public;
         place.Archetype = kit.Archetype;
