@@ -104,6 +104,7 @@ import type {
     ProviderAvailability,
     ProviderUsage,
     RedesignHomeRequest,
+    RefocusRequest,
     Relation,
     RelationHomeRequest,
     RepromptRequest,
@@ -1531,6 +1532,183 @@ export const usePostWorldsPartyIdCompanies = <
 > => {
     return useMutation(
         getPostWorldsPartyIdCompaniesMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse200TextPlain = {
+    data: CompanySummary;
+    status: 200;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse200ApplicationJson =
+    {
+        data: CompanySummary;
+        status: 200;
+    };
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse200TextJson = {
+    data: CompanySummary;
+    status: 200;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponseSuccess = (
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse200TextPlain
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse200ApplicationJson
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponseError = (
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse400TextPlain
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse400ApplicationJson
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse400TextJson
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse404TextPlain
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse404ApplicationJson
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type patchWorldsPartyIdCompaniesCompanyIdFocusResponse =
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponseSuccess
+    | patchWorldsPartyIdCompaniesCompanyIdFocusResponseError;
+
+export const getPatchWorldsPartyIdCompaniesCompanyIdFocusUrl = (
+    partyId: string,
+    companyId: string,
+) => {
+    return `/api/worlds/${partyId}/companies/${companyId}/focus`;
+};
+
+export const patchWorldsPartyIdCompaniesCompanyIdFocus = async (
+    partyId: string,
+    companyId: string,
+    refocusRequest: RefocusRequest,
+    options?: RequestInit,
+): Promise<patchWorldsPartyIdCompaniesCompanyIdFocusResponse> => {
+    return customFetch<patchWorldsPartyIdCompaniesCompanyIdFocusResponse>(
+        getPatchWorldsPartyIdCompaniesCompanyIdFocusUrl(partyId, companyId),
+        {
+            ...options,
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(refocusRequest),
+        },
+    );
+};
+
+export const getPatchWorldsPartyIdCompaniesCompanyIdFocusMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>>,
+        TError,
+        { partyId: string; companyId: string; data: RefocusRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>>,
+    TError,
+    { partyId: string; companyId: string; data: RefocusRequest },
+    TContext
+> => {
+    const mutationKey = ['patchWorldsPartyIdCompaniesCompanyIdFocus'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>>,
+        { partyId: string; companyId: string; data: RefocusRequest }
+    > = (props) => {
+        const { partyId, companyId, data } = props ?? {};
+
+        return patchWorldsPartyIdCompaniesCompanyIdFocus(
+            partyId,
+            companyId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PatchWorldsPartyIdCompaniesCompanyIdFocusMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>>
+    >;
+export type PatchWorldsPartyIdCompaniesCompanyIdFocusMutationBody =
+    RefocusRequest;
+export type PatchWorldsPartyIdCompaniesCompanyIdFocusMutationError =
+    ProblemDetails;
+
+export const usePatchWorldsPartyIdCompaniesCompanyIdFocus = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>
+            >,
+            TError,
+            { partyId: string; companyId: string; data: RefocusRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof patchWorldsPartyIdCompaniesCompanyIdFocus>>,
+    TError,
+    { partyId: string; companyId: string; data: RefocusRequest },
+    TContext
+> => {
+    return useMutation(
+        getPatchWorldsPartyIdCompaniesCompanyIdFocusMutationOptions(options),
         queryClient,
     );
 };

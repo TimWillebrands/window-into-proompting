@@ -12,8 +12,9 @@ public static class KrakenQuotes
 
     public static string? PairOf(string id) => id.StartsWith(Prefix, StringComparison.Ordinal) ? id[Prefix.Length..] : null;
 
-    /// <summary>Kraken calls bitcoin XBT; people don't.</summary>
-    public static string Display(string wsname) => wsname.Replace("XBT/", "BTC/", StringComparison.Ordinal);
+    /// <summary>Kraken calls bitcoin XBT and dogecoin XDG; people don't.</summary>
+    public static string Display(string wsname)
+        => wsname.Replace("XBT/", "BTC/", StringComparison.Ordinal).Replace("XDG/", "DOGE/", StringComparison.Ordinal);
 
     /// <summary>Pair key → display name for the coins a focus names, or the majors when it names none.</summary>
     public static Dictionary<string, string> Pairs(JsonNode? result, string? focus)

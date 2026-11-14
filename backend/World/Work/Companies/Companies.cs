@@ -71,6 +71,15 @@ public sealed class CompaniesGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task<Company?> RefocusAsync(Guid id, string? focus)
+    {
+        if (Find(id) is not { Kind: CompanyKinds.Trading } company) return null;
+        company.Focus = focus;
+        company.WatchedAt = null;
+        await state.WriteStateAsync();
+        return company;
+    }
+
     public async Task<BookNews> MarkAsync(Guid id, List<Quote> quotes, DateTimeOffset local, long now)
     {
         if (Find(id) is not { } company) return new BookNews(new List<Trade>(), null);
@@ -105,6 +114,8 @@ public interface ICompaniesGrain : IGrainWithGuidKey
     /// <summary>Fills an order at <paramref name="quote"/>; the one way into a Book, for Life and HTTP alike.</summary>
     [Alias("TradeAsync")] Task<TradeResult> TradeAsync(Guid id, Quote quote, TradeOrder order, long now);
     [Alias("WatchAsync")] Task WatchAsync(Guid id, List<Quote> watchlist, long now);
+    /// <summary>A new focus; the Watchlist is due again. Null unless it's a trading Company.</summary>
+    [Alias("RefocusAsync")] Task<Company?> RefocusAsync(Guid id, string? focus);
     /// <summary>Takes in a read of the Market; returns what's worth telling.</summary>
     [Alias("MarkAsync")] Task<BookNews> MarkAsync(Guid id, List<Quote> quotes, DateTimeOffset local, long now);
 }

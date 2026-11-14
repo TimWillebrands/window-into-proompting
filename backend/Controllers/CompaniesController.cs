@@ -47,6 +47,20 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         return Ok(Summary(company, new List<ParticipantView>()));
     }
 
+    /// <summary>A trading Company's new focus: what it searches its Market for. The Watchlist is read again at once.</summary>
+    [Authorize(Policy = ClerkAuth.AdminPolicy)]
+    [HttpPatch("{companyId:guid}/focus")]
+    [ProducesResponseType<CompanySummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CompanySummary>> Refocus(Guid partyId, Guid companyId, [FromBody] RefocusRequest request)
+    {
+        if (await grains.GetGrain<ICompaniesGrain>(partyId).GetAsync(companyId) is not { } company) return NotFound();
+        if (company.Market == MarketKinds.Stocks && string.IsNullOrWhiteSpace(request.Focus)) return BadRequest("Stocks need a focus to search for.");
+        if (await desks.RefocusAsync(partyId, companyId, request.Focus) is null) return BadRequest("Only a trading Company has a focus.");
+        return await OneAsync(partyId, companyId);
+    }
+
     /// <summary>Put someone on the staff. Days like "Mon-Fri"; hours like "09:00-17:00".</summary>
     [HttpPut("{companyId:guid}/staff/{participantId:guid}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -120,6 +134,9 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
 public sealed record FoundCompanyRequest(string Name, string Mandate, string Market, string? Focus, double? Capital, string? Kind = null);
 
 public sealed record HireRequest(string Title, string? Days, string Hours);
+
+/// <param name="Focus">Search term or coins/tickers; empty for the Market's default.</param>
+public sealed record RefocusRequest(string? Focus);
 
 /// <param name="Side">buy or sell.</param>
 /// <param name="Chance">On a question: percent chance it pays out.</param>

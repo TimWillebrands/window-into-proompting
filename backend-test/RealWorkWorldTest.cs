@@ -137,6 +137,19 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
     }
 
     [Fact]
+    public async Task Refocus_ReadsTheWatchlistAgainFromTheNewFocus()
+    {
+        var (partyId, _, _, _) = await _fx.CreateWorldAsync();
+        var company = await FoundAsync(partyId, "Polder Capital", "focus-1");
+        FakeMarket.Quotes["focus-2"] = Rain("focus-2");
+
+        var after = (await _fx.Service<Desks>().RefocusAsync(partyId, company.Id, " focus-2 "))!;
+
+        Assert.Equal("focus-2", after.Focus);
+        Assert.Equal("focus-2", Assert.Single(after.Watchlist).Id);
+    }
+
+    [Fact]
     public async Task Refresh_AfterAFailedRead_LeavesThePositionOpenAndStale()
     {
         var (partyId, denise, _, _) = await _fx.CreateWorldAsync();

@@ -91,7 +91,7 @@ public class MarketQuotesTest
     private static readonly JsonNode Pairs = JsonNode.Parse("""
         {"XXBTZEUR":{"wsname":"XBT/EUR","status":"online"},"XETHZEUR":{"wsname":"ETH/EUR","status":"online"},
          "XXBTZUSD":{"wsname":"XBT/USD","status":"online"},"SOLEUR":{"wsname":"SOL/EUR","status":"cancel_only"},
-         "PEPEEUR":{"wsname":"PEPE/EUR","status":"online"}}
+         "PEPEEUR":{"wsname":"PEPE/EUR","status":"online"},"XDGEUR":{"wsname":"XDG/EUR","status":"online"}}
         """)!;
 
     [Fact]
@@ -100,7 +100,15 @@ public class MarketQuotesTest
 
     [Fact]
     public void Kraken_NoRecognisableFocus_FallsBackToTheMajors()
-        => Assert.Equal(new[] { "XXBTZEUR", "XETHZEUR" }, KrakenQuotes.Pairs(Pairs, "shiny things").Keys);
+        => Assert.Equal(new[] { "XXBTZEUR", "XETHZEUR", "XDGEUR" }, KrakenQuotes.Pairs(Pairs, "shiny things").Keys);
+
+    [Fact]
+    public void Kraken_DogecoinGoesByDoge()
+    {
+        var pairs = KrakenQuotes.Pairs(Pairs, "doge pepe");
+
+        Assert.Equal(new[] { "PEPE/EUR", "DOGE/EUR" }, pairs.Values);
+    }
 
     [Fact]
     public void Kraken_ReadsBidAskAndTheDaysOpen()

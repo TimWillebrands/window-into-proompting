@@ -79,6 +79,14 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         });
     }
 
+    /// <summary>A new focus, and the Watchlist read from it now; null unless it's a trading Company.</summary>
+    public async Task<Company?> RefocusAsync(Guid partyId, Guid companyId, string? focus)
+    {
+        if (await Companies(partyId).RefocusAsync(companyId, string.IsNullOrWhiteSpace(focus) ? null : focus.Trim()) is not { } company) return null;
+        await RefreshCompanyAsync(partyId, company, DateTimeOffset.UtcNow);
+        return await Companies(partyId).GetAsync(companyId);
+    }
+
     /// <summary>One order, at a quote read just now; Life and HTTP both come through here.</summary>
     public async Task<TradeResult> TradeAsync(Guid partyId, Guid companyId, TradeOrder order)
     {

@@ -12,12 +12,14 @@ using PartyTown.World.Apps;
 using PartyTown.World.Places;
 using PartyTown.World.Work;
 using PartyTown.World.Work.Cdu;
+using PartyTown.World.Work.Companies;
+using PartyTown.World.Work.Markets;
 
 namespace PartyTown.Mcp;
 
 /// <summary>Living in the World as a Player (ADR 0046): walk, talk, DM, the Board, and the CDU as spectators see it.</summary>
 [McpServerToolType]
-public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu)
+public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu, Desks desks)
 {
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
     /// <summary>Set by Guard before each tool runs.</summary>
@@ -225,6 +227,19 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return await grains.GetGrain<IWorldClockGrain>(World).TickNowAsync(personaId, string.IsNullOrWhiteSpace(nudge) ? null : nudge.Trim())
             ? "Nudged; their turn is under way. Watch what they do in get_situation or the activity feed."
             : throw new McpException("Couldn't start a turn for them (busy, asleep, or not a Persona).");
+    });
+
+    [McpServerTool(Name = "set_company_focus"), Description("Admins: what a trading Company searches its Market for: coins like 'PEPE SHIB DOGE', tickers, or a search term for predictions. Empty for the Market's default. Its Watchlist is read again at once.")]
+    public Task<string> SetCompanyFocusAsync(ClaimsPrincipal user, [Description("The Company's name, e.g. 'Polder Scam Capital'.")] string company, [Description("The new focus.")] string? focus = null) => Guard(async () =>
+    {
+        if (!Actors.IsAdmin(user)) throw new McpException("Only admins may refocus a Company.");
+        var found = (await grains.GetGrain<ICompaniesGrain>(World).GetAllAsync())
+            .FirstOrDefault(c => string.Equals(c.Name, company.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new McpException("No Company by that name.");
+        if (found.Market == MarketKinds.Stocks && string.IsNullOrWhiteSpace(focus)) throw new McpException("Stocks need a focus to search for.");
+        var after = await desks.RefocusAsync(World, found.Id, focus) ?? throw new McpException("Only a trading Company has a focus.");
+        var watching = after.Watchlist.Count == 0 ? "nothing yet (the Market didn't answer)" : string.Join(", ", after.Watchlist.Select(q => q.Title));
+        return $"{after.Name} now focuses on {after.Focus ?? "the default"}; watching {watching}.";
     });
 
     [McpServerTool(Name = "get_cdu", ReadOnly = true), Description("The CDU as spectators see it: up or dark, its allowance, trunk, PR, and who said what to it lately.")]
