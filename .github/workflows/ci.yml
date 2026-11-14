@@ -18,32 +18,13 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    services:
-      age-db:
-        image: apache/age:release_PG16_1.6.0
-        env:
-          POSTGRES_USER: partytown
-          POSTGRES_PASSWORD: postgresPW
-          POSTGRES_DB: partytown
-        ports:
-          - 5455:5432
-        options: >-
-          --health-cmd "pg_isready -U partytown -d partytown"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 11.0.x
           dotnet-quality: preview
-      # Service containers start before checkout, so the init scripts go in by hand.
-      - name: Init the database
-        run: |
-          for f in docker-entrypoint-initdb.d/*.sql; do
-            docker exec -i ${{ job.services.age-db.id }} psql -v ON_ERROR_STOP=1 -U partytown -d partytown < "$f"
-          done
+      # Integration tests start their own Postgres+AGE through Testcontainers (backend-test/Infrastructure/AgeDb.cs).
       - run: dotnet build backend-test/backend-test.csproj
       - run: dotnet test backend-test/backend-test.csproj --no-build --logger "console;verbosity=normal"
 

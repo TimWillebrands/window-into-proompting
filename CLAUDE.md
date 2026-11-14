@@ -36,6 +36,7 @@ DB init scripts in `docker-entrypoint-initdb.d/` run on first volume init only. 
 
 - Frontend (from `frontend/`): `pnpm test` (Vitest), `pnpm check` (Biome lint + format), `pnpm build`
 - Backend (from `backend/`): `dotnet build`
+- Backend tests (from `backend-test/`): `dotnet test`; needs Docker: integration tests get a Testcontainers Postgres+AGE with the init scripts baked in (`Infrastructure/AgeDb.cs`), rebuilt only when `docker-entrypoint-initdb.d/` changes. `PARTYTOWN_TEST_CONN` points them at another database.
 
 ### Generated API client
 

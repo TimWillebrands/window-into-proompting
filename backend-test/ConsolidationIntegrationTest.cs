@@ -290,8 +290,7 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
     }
 

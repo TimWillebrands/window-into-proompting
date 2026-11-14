@@ -8,7 +8,7 @@ namespace BackendTest;
 /// <summary>
 /// Integration tests for Intrinsic Stance (ADR 0016, issue #91): Persona-scope STANCE edges,
 /// union read across Acquired + Intrinsic, Promotion with Participant→Persona re-targeting.
-/// Requires the dev Postgres+AGE instance (Aspire AppHost).
+/// Runs against a Testcontainers Postgres+AGE (AgeDb).
 /// </summary>
 public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
     : IClassFixture<MemoryGraphFixture>
@@ -21,8 +21,7 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
     }
 

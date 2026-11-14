@@ -4,24 +4,10 @@ using PartyTown.Data;
 
 namespace BackendTest.Infrastructure;
 
-/// <summary>
-/// Connects integration tests to the developer Postgres+AGE container that the Aspire
-/// AppHost spins up on <c>localhost:5455</c>. Tests are skipped (via the static
-/// <see cref="IsAvailable"/> flag) when the container is unreachable so CI without the
-/// dev stack does not appear red.
-/// </summary>
-/// <remarks>
-/// Connection string can be overridden via <c>PARTYTOWN_TEST_CONN</c>. Defaults match the
-/// Aspire-managed container and the password baked into the local dev <c>.env</c>; if you
-/// run a different password locally, export the env var.
-/// </remarks>
+/// <summary>Integration tests' Postgres+AGE: the shared Testcontainers one (<see cref="AgeDb"/>), or <c>PARTYTOWN_TEST_CONN</c> when set.</summary>
 public sealed class MemoryGraphFixture : IAsyncLifetime
 {
-    private const string DefaultConn =
-        "Host=localhost;Port=5455;Database=partytown;Username=partytown;Password=postgresPW";
-
-    public string ConnectionString { get; } =
-        Environment.GetEnvironmentVariable("PARTYTOWN_TEST_CONN") ?? DefaultConn;
+    public string ConnectionString { get; private set; } = string.Empty;
 
     public bool IsAvailable { get; private set; }
     public string? UnavailableReason { get; private set; }
@@ -30,6 +16,15 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        try
+        {
+            ConnectionString = Environment.GetEnvironmentVariable("PARTYTOWN_TEST_CONN") ?? await AgeDb.ConnectionStringAsync();
+        }
+        catch (Exception ex)
+        {
+            UnavailableReason = $"no Docker for Testcontainers ({ex.Message})";
+            return;
+        }
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(ConnectionString)
             .Options;

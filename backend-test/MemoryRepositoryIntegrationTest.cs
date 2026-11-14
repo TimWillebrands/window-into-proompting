@@ -9,7 +9,7 @@ namespace BackendTest;
 
 /// <summary>
 /// Integration test exercising <see cref="MemoryRepository.CaptureAsync"/> end-to-end
-/// against a live Postgres+AGE instance — the developer stack run by the Aspire AppHost.
+/// against a Testcontainers Postgres+AGE instance (AgeDb).
 /// LLM is stubbed by <see cref="FakeMemoryExtractor"/> so the test is deterministic; only
 /// the persistence half is under test in slice 1.
 /// </summary>
@@ -22,8 +22,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
 
         var partyId = Guid.NewGuid();
@@ -332,8 +331,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
     }
 
@@ -366,8 +364,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
 
         var partyId = Guid.NewGuid();
@@ -1131,8 +1128,7 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         if (!fixture.IsAvailable)
         {
             throw new InvalidOperationException(
-                $"Dev Postgres+AGE unavailable: {fixture.UnavailableReason}. " +
-                "Start the Aspire AppHost (`dotnet run --project aspire/Proompting.AppHost`) and rerun.");
+                $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
 
         var partyId = Guid.NewGuid();
