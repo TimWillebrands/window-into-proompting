@@ -100,7 +100,7 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
     [Fact]
     public void SameTitle_KeepsTheClothes_ANewOneDropsThem()
     {
-        var clothes = new WorkClothes { For = "priestess" };
+        var clothes = new WorkClothes { For = "priestess", Made = WorkClothesRules.Made };
         var kept = new Occupation { Title = "Priestess" };
         WorkRules.CarryClothes(kept, new Occupation { Title = "priestess", Clothes = clothes });
         Assert.Same(clothes, kept.Clothes);
@@ -108,6 +108,16 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
         var changed = new Occupation { Title = "barista" };
         WorkRules.CarryClothes(changed, new Occupation { Title = "priestess", Clothes = clothes });
         Assert.Null(changed.Clothes);
+    }
+
+    [Fact]
+    public void ClothesMadeBeforeAFix_AreMadeAgain()
+    {
+        var stale = new WorkClothes { For = "priestess", OwnClothes = true, Made = WorkClothesRules.Made - 1 };
+        Assert.False(WorkClothesRules.Fits(stale, "priestess"));
+        var job = new Occupation { Title = "priestess" };
+        WorkRules.CarryClothes(job, new Occupation { Title = "priestess", Clothes = stale });
+        Assert.Null(job.Clothes);
     }
 
     [Fact]
@@ -248,7 +258,10 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
 
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null,
             IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
-            => Task.FromResult(system == FigureDesign.WorkPrompt && user.Contains("priestess") ? Obj(ShrineDress) : null);
+            // Named fields become a strict schema in production: only those come back.
+            => Task.FromResult(system == FigureDesign.WorkPrompt && user.Contains("priestess")
+                ? fields is null ? Obj(ShrineDress) : new JsonObject { ["code"] = "dress" }
+                : null);
     }
 
     public sealed class Fixture : IAsyncLifetime

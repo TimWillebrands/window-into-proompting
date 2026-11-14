@@ -49,7 +49,7 @@ public sealed class OccupationGrain(
     public async Task<OccupationView> SetClothesAsync(Places.WorkClothes? clothes)
     {
         if (state.State.Job is not { } job) return View();
-        if (clothes is not null) clothes.For = job.Title;
+        if (clothes is not null) (clothes.For, clothes.Made) = (job.Title, Places.WorkClothesRules.Made);
         job.Clothes = clothes;
         // Cleared by hand: a Persona's are made again a while later, a Player's never.
         state.State.ClothesAttemptAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -197,7 +197,7 @@ public sealed class OccupationGrain(
     private void KickClothes()
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (state.State.Job is not { } job || job.Clothes is not null || _tailoring || now - state.State.ClothesAttemptAt < SeedRetry.TotalMilliseconds) return;
+        if (state.State.Job is not { } job || Places.WorkClothesRules.Fits(job.Clothes, job.Title) || _tailoring || now - state.State.ClothesAttemptAt < SeedRetry.TotalMilliseconds) return;
         _tailoring = true;
         state.State.ClothesAttemptAt = now;
         _ = TailorInBackgroundAsync(job.Title);
@@ -206,7 +206,7 @@ public sealed class OccupationGrain(
     public async Task OfferClothesAsync(Places.WorkClothes clothes)
     {
         // The job may have changed while they were being made.
-        if (state.State.Job is not { } job || job.Clothes is not null || !Places.WorkClothesRules.Fits(clothes, job.Title)) return;
+        if (state.State.Job is not { } job || Places.WorkClothesRules.Fits(job.Clothes, job.Title) || !Places.WorkClothesRules.Fits(clothes, job.Title)) return;
         job.Clothes = clothes;
         await state.WriteStateAsync();
         await DressForShiftAsync();
@@ -264,7 +264,8 @@ public sealed class OccupationGrain(
             + $"\nDrawn as: {WorldStream.Clip(Places.WorkClothesRules.Garments(own.Design) ?? "(palette only)", 3000)}"
             + (string.IsNullOrWhiteSpace(wish) ? string.Empty : $"\nWhat they want to wear for work: {WorldStream.Clip(wish, 300)}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-        var json = await llm.For(participantId).CompleteJsonAsync(JobComplexity.General, Places.FigureDesign.WorkPrompt, user, cts.Token, 0.7, ["code"]);
+        // No fields: a schema of named fields forbids picks and design.
+        var json = await llm.For(participantId).CompleteJsonAsync(JobComplexity.General, Places.FigureDesign.WorkPrompt, user, cts.Token, 0.7);
         if (json is null) return null;
         var clothes = Places.WorkClothesRules.Clean(json, job.Title);
         clothes.Design = await Places.FigureDesign.DrawPrintsAsync(llm.For(participantId), clothes.Design);

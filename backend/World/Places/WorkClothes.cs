@@ -16,6 +16,8 @@ public sealed class WorkClothes
     [Id(3)] public string? Summary { get; set; }
     /// <summary>The job title they were made for; a new title has them made again.</summary>
     [Id(4)] public string For { get; set; } = string.Empty;
+    /// <summary>How they were made; older ones are made again (<see cref="WorkClothesRules.Made"/>).</summary>
+    [Id(5)] public int Made { get; set; }
 }
 
 public static class WorkClothesRules
@@ -23,9 +25,12 @@ public static class WorkClothesRules
     public static readonly string[] GarmentPicks = { "topStyle", "top", "bottomStyle", "bottom", "shoeStyle", "shoes", "legwear", "accessory" };
     public static readonly string[] GarmentSlots = { "top", "under", "outer", "bottom", "legwear", "shoes", "extras" };
 
+    /// <summary>Bumped when a fault in making them means everyone's should be made again (1: picks and design were schema'd out).</summary>
+    public const int Made = 2;
+
     /// <summary>Same job, same clothes: a title edit or a new job has them made again.</summary>
     public static bool Fits(WorkClothes? clothes, string? title)
-        => clothes is not null && string.Equals(clothes.For.Trim(), title?.Trim(), StringComparison.OrdinalIgnoreCase);
+        => clothes is not null && clothes.Made == Made && string.Equals(clothes.For.Trim(), title?.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>An answer as work clothes, garments only, so changing for work never changes who you are.</summary>
     public static WorkClothes Clean(JsonObject answer, string title)
@@ -38,8 +43,8 @@ public static class WorkClothesRules
                     picks[key] = v;
         var design = Garments(FigureDesign.Clean(answer["design"]));
         var summary = answer["summary"]?.ToString().Trim() is { Length: > 0 } s ? WorldStream.Clip(s, 160) : null;
-        if (own || (picks.Count == 0 && design is null)) return new WorkClothes { OwnClothes = true, For = title };
-        return new WorkClothes { Picks = picks, Design = design, Summary = summary, For = title };
+        if (own || (picks.Count == 0 && design is null)) return new WorkClothes { OwnClothes = true, For = title, Made = Made };
+        return new WorkClothes { Picks = picks, Design = design, Summary = summary, For = title, Made = Made };
     }
 
     /// <summary>A design with only its garment slots.</summary>
