@@ -1,25 +1,38 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import {
+    abs,
+    dot,
+    float,
+    floor,
+    fract,
+    fwidth,
+    getViewPosition,
+    max,
+    min,
+    screenCoordinate,
+    screenSize,
+    screenUV,
+    smoothstep,
+    sqrt,
+    texture,
+    uniform,
+    vec2,
+    vec3,
+    vec4,
+} from 'three/tsl';
+import {
+    MeshBasicNodeMaterial,
+    MeshNormalNodeMaterial,
+    type Node,
+    QuadMesh,
+    type WebGPURenderer,
+} from 'three/webgpu';
 
 /** The house look (ADR 0023): one pixel per two CSS pixels, drawn low-res and scaled up by `Pixelate`. */
 export const PIXEL_DPR = 0.5;
 export const PIXEL_STYLE = { imageRendering: 'pixelated' } as const;
-
-/** Light pools fall off in whole stops and spot cones in thirds, so lamps draw rings, not mush. */
-function stepLights() {
-    const c = THREE.ShaderChunk;
-    c.lights_pars_begin = c.lights_pars_begin
-        .replace(
-            'return distanceFalloff;',
-            'return distanceFalloff <= 0.0 ? 0.0 : exp2( floor( log2( distanceFalloff ) + 0.5 ) );',
-        )
-        .replace(
-            'return smoothstep( coneCosine, penumbraCosine, angleCosine );',
-            'return floor( smoothstep( coneCosine, penumbraCosine, angleCosine ) * 3.0 + 0.5 ) / 3.0;',
-        );
-}
-stepLights();
 
 /** The canvas's device pixel ratio, kept current across browser zoom and screen moves. */
 export function usePixelDpr(): number {
@@ -44,15 +57,17 @@ export interface PixelGrid {
     forward: THREE.Vector3;
 }
 
-const grids = new WeakMap<THREE.WebGLRenderer, PixelGrid>();
+/** Any renderer: R3F types its `gl` as WebGL's whatever it is. */
+type Gl = object;
 
-export const pixelGrid = (gl: THREE.WebGLRenderer): PixelGrid | null =>
-    grids.get(gl) ?? null;
+const grids = new WeakMap<Gl, PixelGrid>();
+
+export const pixelGrid = (gl: Gl): PixelGrid | null => grids.get(gl) ?? null;
 
 const world = new THREE.Vector3();
 
 /** Puts an object's origin on a whole pixel, sliding along the view so its height stays. */
-export function snapToPixel(gl: THREE.WebGLRenderer, o: THREE.Object3D) {
+export function snapToPixel(gl: Gl, o: THREE.Object3D) {
     const g = grids.get(gl);
     if (!g?.step || Math.abs(g.forward.y) < 0.1) return;
     world.copy(o.position);
@@ -70,87 +85,6 @@ export function snapToPixel(gl: THREE.WebGLRenderer, o: THREE.Object3D) {
     o.position.copy(world);
 }
 
-const QUAD_VERT = /* glsl */ `
-varying vec2 vUv;
-void main() {
-    vUv = uv;
-    gl_Position = vec4(position.xy, 0.0, 1.0);
-}`;
-
-/** Dark outlines where the far side drops away, a lit rim on convex corners, a shade in creases. */
-const EDGE_FRAG = /* glsl */ `
-uniform sampler2D tColor;
-uniform sampler2D tDepth;
-uniform sampler2D tNormal;
-uniform vec2 uSize;
-uniform mat4 uInvProj;
-uniform float uOutline;
-uniform float uRim;
-uniform float uCrease;
-varying vec2 vUv;
-
-vec3 viewAt(vec2 uv, float d) {
-    vec4 p = uInvProj * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
-    return p.xyz / p.w;
-}
-
-void look(vec2 o, vec3 p, vec3 n, float reach, inout float outline, inout float rim, inout float crease) {
-    vec2 q = vUv + o;
-    float dq = texture2D(tDepth, q).r;
-    vec3 pq = viewAt(q, dq);
-    float behind = p.z - pq.z;
-    if (behind > reach) { outline = 1.0; return; }
-    if (dq >= 1.0 || abs(behind) > reach) return;
-    vec3 nq = normalize(texture2D(tNormal, q).rgb * 2.0 - 1.0);
-    // One side of the seam only, the one facing up and right, so lines stay one pixel wide.
-    if (1.0 - dot(n, nq) < 0.15 || dot(n - nq, vec3(1.0)) <= 0.0) return;
-    // A face under two pixels wide (a floor seam's side) is detail, not a corner.
-    vec3 beyond = normalize(texture2D(tNormal, q + o).rgb * 2.0 - 1.0);
-    if (dot(nq, beyond) < 0.9) return;
-    if (dot(pq - p, n) < 0.0) rim = 1.0; else crease = 1.0;
-}
-
-void main() {
-    vec4 c = texture2D(tColor, vUv);
-    float d = texture2D(tDepth, vUv).r;
-    if (d >= 1.0) { gl_FragColor = c; return; }
-    vec2 px = 1.0 / uSize;
-    vec3 p = viewAt(vUv, d);
-    vec3 n = normalize(texture2D(tNormal, vUv).rgb * 2.0 - 1.0);
-    float size = length(viewAt(vUv + vec2(px.x, 0.0), d) - p);
-    // A surface seen edge-on steps far between pixels without being an edge.
-    float slope = min(sqrt(max(1.0 - n.z * n.z, 0.0)) / max(n.z, 0.05), 8.0);
-    float reach = size * (1.5 + slope);
-    float outline = 0.0;
-    float rim = 0.0;
-    float crease = 0.0;
-    look(vec2(px.x, 0.0), p, n, reach, outline, rim, crease);
-    look(vec2(-px.x, 0.0), p, n, reach, outline, rim, crease);
-    look(vec2(0.0, px.y), p, n, reach, outline, rim, crease);
-    look(vec2(0.0, -px.y), p, n, reach, outline, rim, crease);
-    vec3 col = c.rgb;
-    if (outline > 0.0) col *= 1.0 - uOutline;
-    else if (rim > 0.0) col = col * (1.0 + uRim) + uRim * 0.03 * c.a;
-    else if (crease > 0.0) col *= 1.0 - uCrease;
-    gl_FragColor = vec4(col, c.a);
-}`;
-
-/** Whole pixels, blended only across the one screen pixel where two meet, so any scale and sub-pixel shift stays crisp. */
-const UP_FRAG = /* glsl */ `
-uniform sampler2D tPixels;
-uniform vec2 uSize;
-uniform vec2 uOrigin;
-uniform float uStep;
-uniform vec2 uShift;
-void main() {
-    vec2 v = (gl_FragCoord.xy - uOrigin) / uStep + uShift;
-    vec2 box = clamp(fwidth(v), 1e-5, 1.0);
-    vec2 tx = v - 0.5 * box;
-    vec2 seam = smoothstep(1.0 - box, vec2(1.0), fract(tx));
-    gl_FragColor = texture2D(tPixels, (floor(tx) + 0.5 + seam) / uSize);
-    #include <colorspace_fragment>
-}`;
-
 const OUTLINE = 0.45;
 const RIM = 0.3;
 const CREASE = 0.18;
@@ -166,57 +100,47 @@ function noDepth(o: THREE.Object3D): boolean {
         : !(m as THREE.Material).depthWrite;
 }
 
+const unpack = (n: Node) => n.rgb.mul(2).sub(1).normalize();
+
+/** A pass material: no depth, no tone mapping, just the node's colour, alpha kept. */
+const pass = (colorNode: Node) => {
+    const m = new MeshBasicNodeMaterial({
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+        // Opaque node materials write alpha 1; this keeps it without blending.
+        transparent: true,
+        blending: THREE.NoBlending,
+    });
+    m.colorNode = colorNode;
+    return m;
+};
+
 class Pixelator {
-    private color = new THREE.WebGLRenderTarget(1, 1, {
+    private color = new THREE.RenderTarget(1, 1, {
         type: THREE.HalfFloatType,
         minFilter: THREE.NearestFilter,
         magFilter: THREE.NearestFilter,
         depthTexture: new THREE.DepthTexture(1, 1),
     });
-    private normal = new THREE.WebGLRenderTarget(1, 1, {
+    private normal = new THREE.RenderTarget(1, 1, {
         minFilter: THREE.NearestFilter,
         magFilter: THREE.NearestFilter,
     });
-    private edged = new THREE.WebGLRenderTarget(1, 1, {
+    private edged = new THREE.RenderTarget(1, 1, {
         type: THREE.HalfFloatType,
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
     });
-    private normalMat = new THREE.MeshNormalMaterial();
-    private edgeMat = new THREE.ShaderMaterial({
-        vertexShader: QUAD_VERT,
-        fragmentShader: EDGE_FRAG,
-        uniforms: {
-            tColor: { value: this.color.texture },
-            tDepth: { value: this.color.depthTexture },
-            tNormal: { value: this.normal.texture },
-            uSize: { value: new THREE.Vector2() },
-            uInvProj: { value: new THREE.Matrix4() },
-            uOutline: { value: OUTLINE },
-            uRim: { value: RIM },
-            uCrease: { value: CREASE },
-        },
-        depthTest: false,
-        depthWrite: false,
-        toneMapped: false,
-    });
-    private upMat = new THREE.ShaderMaterial({
-        vertexShader: QUAD_VERT,
-        fragmentShader: UP_FRAG,
-        uniforms: {
-            tPixels: { value: this.edged.texture },
-            uSize: { value: new THREE.Vector2() },
-            uOrigin: { value: new THREE.Vector2() },
-            uStep: { value: 1 },
-            uShift: { value: new THREE.Vector2() },
-        },
-        depthTest: false,
-        depthWrite: false,
-        toneMapped: false,
-    });
-    private quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.edgeMat);
-    private quadScene = new THREE.Scene().add(this.quad);
-    private quadCam = new THREE.Camera();
+    private normalMat = new MeshNormalNodeMaterial();
+    private size = uniform(new THREE.Vector2(1, 1));
+    private invProj = uniform(new THREE.Matrix4());
+    private origin = uniform(new THREE.Vector2());
+    private step = uniform(1);
+    private shift = uniform(new THREE.Vector2());
+    private edgeMat = pass(this.edges());
+    private upMat = pass(this.upscale());
+    private quad = new QuadMesh(this.edgeMat);
     private ortho = new THREE.OrthographicCamera();
     private persp = new THREE.PerspectiveCamera();
     private buffer = new THREE.Vector2();
@@ -231,8 +155,80 @@ class Pixelator {
         forward: new THREE.Vector3(),
     };
 
-    constructor() {
-        this.quad.frustumCulled = false;
+    /** Dark outlines where the far side drops away, a lit rim on convex corners, a shade in creases. */
+    private edges(): Node {
+        const colour = (q: Node) => texture(this.color.texture, q);
+        const depth = (q: Node) =>
+            texture(this.color.depthTexture as THREE.DepthTexture, q).r;
+        const normal = (q: Node) => unpack(texture(this.normal.texture, q));
+        const at = (q: Node, d: Node) => getViewPosition(q, d, this.invProj);
+        const uv = screenUV;
+        const c = colour(uv);
+        const d = depth(uv);
+        const px = vec2(1).div(this.size);
+        const p = at(uv, d);
+        const n = normal(uv);
+        const size = at(uv.add(vec2(px.x, 0)), d)
+            .sub(p)
+            .length();
+        // A surface seen edge-on steps far between pixels without being an edge.
+        const slope = min(
+            sqrt(max(n.z.mul(n.z).oneMinus(), 0)).div(max(n.z, 0.05)),
+            8,
+        );
+        const reach = size.mul(slope.add(1.5));
+        let outline: Node = float(0).greaterThan(1);
+        let rim: Node = outline;
+        let crease: Node = outline;
+        for (const o of [
+            vec2(px.x, 0),
+            vec2(px.x.negate(), 0),
+            vec2(0, px.y),
+            vec2(0, px.y.negate()),
+        ]) {
+            const q = uv.add(o);
+            const dq = depth(q);
+            const pq = at(q, dq);
+            const nq = normal(q);
+            // A face under two pixels wide (a floor seam's side) is detail, not a corner.
+            const beyond = normal(q.add(o));
+            const behind = p.z.sub(pq.z);
+            const away = behind.greaterThan(reach);
+            // One side of the seam only, the one facing up and right, so lines stay one pixel wide.
+            const corner = dq
+                .lessThan(1)
+                .and(abs(behind).lessThanEqual(reach))
+                .and(dot(n, nq).oneMinus().greaterThanEqual(0.15))
+                .and(dot(n.sub(nq), vec3(1)).greaterThan(0))
+                .and(dot(nq, beyond).greaterThanEqual(0.9));
+            const convex = dot(pq.sub(p), n).lessThan(0);
+            outline = outline.or(away);
+            rim = rim.or(away.not().and(corner).and(convex));
+            crease = crease.or(away.not().and(corner).and(convex.not()));
+        }
+        const col = outline.select(
+            c.rgb.mul(1 - OUTLINE),
+            rim.select(
+                c.rgb.mul(1 + RIM).add(c.a.mul(RIM * 0.03)),
+                crease.select(c.rgb.mul(1 - CREASE), c.rgb),
+            ),
+        );
+        return d.greaterThanEqual(1).select(c, vec4(col, c.a));
+    }
+
+    /** Whole pixels, blended only across the one screen pixel where two meet, so any scale and sub-pixel shift stays crisp. */
+    private upscale(): Node {
+        // Screen pixels from the bottom left, the way the camera's up runs.
+        const frag = vec2(
+            screenCoordinate.x,
+            screenSize.y.sub(screenCoordinate.y),
+        );
+        const v = frag.sub(this.origin).div(this.step).add(this.shift);
+        const box = fwidth(v).clamp(1e-5, 1);
+        const tx = v.sub(box.mul(0.5));
+        const seam = smoothstep(box.oneMinus(), vec2(1), fract(tx));
+        const at = floor(tx).add(0.5).add(seam).div(this.size);
+        return texture(this.edged.texture, vec2(at.x, at.y.oneMinus()));
     }
 
     /** The low-res camera: the real one widened by the margin, and for ortho moved onto whole pixels. */
@@ -301,7 +297,7 @@ class Pixelator {
         return null;
     }
 
-    render(gl: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+    render(gl: WebGPURenderer, scene: THREE.Scene, camera: THREE.Camera) {
         gl.getDrawingBufferSize(this.buffer);
         const bw = this.buffer.x;
         const bh = this.buffer.y;
@@ -309,7 +305,7 @@ class Pixelator {
         const n = Math.max(1, Math.round(gl.getPixelRatio() / PIXEL_DPR));
         const w = Math.ceil(bw / n) + 2;
         const h = Math.ceil(bh / n) + 2;
-        const shift = this.upMat.uniforms.uShift.value as THREE.Vector2;
+        const shift = this.shift.value;
         const view = this.view(camera, w, h, bw, bh, n, shift);
         if (!view) {
             gl.render(scene, camera);
@@ -324,10 +320,10 @@ class Pixelator {
         this.grid.height = h;
         grids.set(gl, this.grid);
 
-        gl.shadowMap.needsUpdate = true;
         gl.setRenderTarget(this.color);
         gl.render(scene, view);
 
+        // Shadows draw once per frame: the normal material reads no lights, so none redraw here.
         scene.traverseVisible((o) => {
             if (noDepth(o)) {
                 o.visible = false;
@@ -345,24 +341,21 @@ class Pixelator {
         for (const o of this.hidden) o.visible = true;
         this.hidden.length = 0;
 
-        const e = this.edgeMat.uniforms;
-        (e.uSize.value as THREE.Vector2).set(w, h);
-        (e.uInvProj.value as THREE.Matrix4).copy(view.projectionMatrixInverse);
+        this.size.value.set(w, h);
+        this.invProj.value.copy(view.projectionMatrixInverse);
         this.quad.material = this.edgeMat;
         gl.setRenderTarget(this.edged);
-        gl.render(this.quadScene, this.quadCam);
+        this.quad.render(gl);
 
-        const u = this.upMat.uniforms;
-        (u.uSize.value as THREE.Vector2).set(w, h);
         // Where the low-res frame's corner lands, rounded so a still camera has seams on screen-pixel edges.
-        (u.uOrigin.value as THREE.Vector2).set(
+        this.origin.value.set(
             Math.round((bw - w * n) / 2),
             Math.round((bh - h * n) / 2),
         );
-        u.uStep.value = n;
+        this.step.value = n;
         this.quad.material = this.upMat;
         gl.setRenderTarget(null);
-        gl.render(this.quadScene, this.quadCam);
+        this.quad.render(gl);
     }
 
     dispose() {
@@ -381,16 +374,17 @@ class Pixelator {
 export function Pixelate() {
     const gl = useThree((s) => s.gl);
     const pixelator = useMemo(() => new Pixelator(), []);
-    useEffect(() => {
-        const auto = gl.shadowMap.autoUpdate;
-        // Shadows draw once per frame, not again for the normal pass.
-        gl.shadowMap.autoUpdate = false;
-        return () => {
-            gl.shadowMap.autoUpdate = auto;
+    useEffect(
+        () => () => {
             grids.delete(gl);
             pixelator.dispose();
-        };
-    }, [gl, pixelator]);
-    useFrame(({ gl, scene, camera }) => pixelator.render(gl, scene, camera), 1);
+        },
+        [gl, pixelator],
+    );
+    useFrame(
+        ({ gl, scene, camera }) =>
+            pixelator.render(gl as unknown as WebGPURenderer, scene, camera),
+        1,
+    );
     return null;
 }

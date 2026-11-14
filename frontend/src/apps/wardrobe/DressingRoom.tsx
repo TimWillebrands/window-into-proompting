@@ -4,6 +4,7 @@ import type * as THREE from 'three';
 import type { Appearance } from '../../api/model/appearance';
 import { lookOf } from '../places/iso/appearance';
 import Avatar, { type AvatarState } from '../places/scene/Avatar';
+import { canvasRenderer } from '../places/scene/gpu';
 import { PIXEL_STYLE, Pixelate, usePixelDpr } from '../places/scene/pixel';
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
     /** A little dance after a purchase, a wave on arrival. */
     mood: 'idle' | 'dance' | 'wave';
 }
+
+const DRESSING_GL = canvasRenderer({ alpha: true, antialias: false });
 
 /** The fitting room: your figure on a slowly turning podium; drag to spin it. */
 export default function DressingRoom({
@@ -56,7 +59,7 @@ export default function DressingRoom({
                 dpr={dpr}
                 style={PIXEL_STYLE}
                 camera={{ position: [0, 1.15, 3.6], fov: 30 }}
-                gl={{ alpha: true, antialias: false }}
+                gl={DRESSING_GL}
             >
                 <ambientLight intensity={0.9} color="#fff1f6" />
                 <spotLight

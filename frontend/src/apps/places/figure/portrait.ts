@@ -1,7 +1,9 @@
 import * as THREE from 'three';
+import type { WebGPURenderer } from 'three/webgpu';
 import type { Appearance } from '../../../api/model/appearance';
 import { CLOTH, EYES, lookOf, SKIN } from '../iso/appearance';
 import { avatarColour } from '../places-lib';
+import { placesRenderer } from '../scene/gpu';
 import { PIXEL_DPR } from '../scene/pixel';
 import { SCENE_DETAIL } from './compile';
 import type { FigureDoc } from './doc';
@@ -55,22 +57,27 @@ export function seededAppearance(seed: string): Appearance {
 
 const WHITE = new THREE.Color('#ffffff');
 
-let stage: {
-    renderer: THREE.WebGLRenderer;
+interface Stage {
+    renderer: WebGPURenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     picture: HTMLCanvasElement;
     pen: CanvasRenderingContext2D;
-} | null = null;
+}
 
-/** One small GL context for every portrait, however many are on screen. */
-function theStage() {
-    if (stage) return stage;
-    const renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: false,
-        preserveDrawingBuffer: true,
+let stage: Promise<Stage> | null = null;
+
+/** One small renderer for every portrait, however many are on screen. */
+function theStage(): Promise<Stage> {
+    stage ??= setStage();
+    stage.catch(() => {
+        stage = null;
     });
+    return stage;
+}
+
+async function setStage(): Promise<Stage> {
+    const renderer = await placesRenderer({ alpha: true, antialias: false });
     renderer.setPixelRatio(1);
     renderer.setSize(GRID, GRID, false);
     const picture = document.createElement('canvas');
@@ -83,23 +90,31 @@ function theStage() {
     const key = new THREE.DirectionalLight('#fff6e8', 1.5);
     key.position.set(1.2, 3, 4);
     scene.add(key);
-    stage = {
+    return {
         renderer,
         scene,
         camera: new THREE.PerspectiveCamera(FOV, 1, 0.1, 20),
         picture,
         pen,
     };
-    return stage;
 }
+
+const pngOf = (canvas: HTMLCanvasElement) =>
+    new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error('no pixels'))),
+            'image/png',
+        ),
+    );
 
 /** Head and shoulders, standing as they stand, smiling. */
 async function draw(doc: FigureDoc): Promise<Blob> {
-    const [c, images] = await Promise.all([
-        compiled(doc, SCENE_DETAIL),
-        loadPrints(svgsOf(doc)),
-    ]);
-    const { renderer, scene, camera, picture, pen } = theStage();
+    const [c, images, { renderer, scene, camera, picture, pen }] =
+        await Promise.all([
+            compiled(doc, SCENE_DETAIL),
+            loadPrints(svgsOf(doc)),
+            theStage(),
+        ]);
     const figure = figureObject(c, doc, { cloth: 256, face: 256, images });
     const puppet = new Puppet(figure, doc);
     try {
@@ -124,13 +139,12 @@ async function draw(doc: FigureDoc): Promise<Blob> {
         scene.background = new THREE.Color(doc.top.color).lerp(WHITE, PALE);
         setInk(INK, GRID, GRID);
         renderer.render(scene, camera);
-        pen.drawImage(renderer.domElement, 0, 0, SIZE, SIZE);
-        return await new Promise<Blob>((resolve, reject) =>
-            picture.toBlob(
-                (b) => (b ? resolve(b) : reject(new Error('no pixels'))),
-                'image/png',
-            ),
-        );
+        // A WebGPU canvas won't drawImage; its own encoder snapshots it, if called in the same task.
+        const frame = await createImageBitmap(await pngOf(renderer.domElement));
+        pen.clearRect(0, 0, SIZE, SIZE);
+        pen.drawImage(frame, 0, 0, SIZE, SIZE);
+        frame.close();
+        return await pngOf(picture);
     } finally {
         scene.remove(figure.group);
         puppet.dispose();

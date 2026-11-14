@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 import type { Appearance } from '../../../api/model/appearance';
 import type { Body } from '../../../api/model/body';
 import type { Place } from '../../../api/model/place';
+import { canvasRenderer } from '../scene/gpu';
 import '../places.css';
 import '../../wardrobe/wardrobe.css';
 import DressingRoom from '../../wardrobe/DressingRoom';
@@ -17,6 +18,8 @@ import { EXTRAS, figureDoc, HAIR } from './dress';
 import { SAMPLES } from './samples';
 import bodyAnswers from './samples.bodies.llm.json';
 import designed from './samples.llm.json';
+
+const STORY_GL = canvasRenderer();
 
 const LOOK: Look = {
     skin: '#f1c9a5',
@@ -140,6 +143,7 @@ function Sheet({
         >
             <Canvas
                 flat
+                gl={STORY_GL}
                 dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
                 orthographic
@@ -195,6 +199,7 @@ function Designed({
         <div style={{ width: 1400, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
+                gl={STORY_GL}
                 shadows="basic"
                 dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
@@ -367,6 +372,7 @@ function Lineup({
         <div style={{ width: 1200, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
+                gl={STORY_GL}
                 shadows="basic"
                 dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
@@ -532,6 +538,7 @@ function Turnaround({ look }: { look: Partial<Look> }) {
         <div style={{ width: 1200, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
+                gl={STORY_GL}
                 shadows="basic"
                 dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}

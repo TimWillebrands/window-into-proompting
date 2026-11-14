@@ -1,4 +1,23 @@
 import * as THREE from 'three';
+import {
+    cameraProjectionMatrix,
+    diffuseColor,
+    dot,
+    max,
+    normalView,
+    positionViewDirection,
+    pow,
+    smoothstep,
+    uniform,
+    vec3,
+    vec4,
+} from 'three/tsl';
+import {
+    MeshBasicNodeMaterial,
+    MeshToonNodeMaterial,
+    type Node,
+    type NodeBuilder,
+} from 'three/webgpu';
 import type { Compiled, Layer } from './compile';
 import type { FigureDoc } from './doc';
 import { drawFace, type FaceFrame } from './face';
@@ -15,63 +34,66 @@ const ramp = (() => {
 })();
 
 /** Toon shading with a soft rim and a painted-on gloss, so bodies lift off busy floors. */
+class FigureToonMaterial extends MeshToonNodeMaterial {
+    shine = uniform(0);
+
+    setupLighting(builder: NodeBuilder): Node {
+        const light = super.setupLighting(builder);
+        const n = normalView.normalize();
+        const v = positionViewDirection;
+        const rim = pow(dot(n, v).saturate().oneMinus(), 3);
+        const gloss = smoothstep(
+            0.55,
+            0.85,
+            pow(
+                dot(n, v.add(vec3(-0.35, 0.65, 0.2)).normalize()).saturate(),
+                14,
+            ),
+        );
+        const lit = light
+            .add(diffuseColor.rgb.mul(rim).mul(0.3))
+            .add(
+                diffuseColor.rgb.mul(0.5).add(0.09).mul(gloss).mul(this.shine),
+            );
+        // Black clothes keep their folds: lift the deepest shadows a little.
+        return max(lit, vec3(0.018, 0.016, 0.024).add(lit.mul(0.9)));
+    }
+}
+
 function toon(
     params: THREE.MeshToonMaterialParameters,
     shine: number,
-): THREE.MeshToonMaterial {
-    const m = new THREE.MeshToonMaterial(params);
-    m.onBeforeCompile = (shader) => {
-        shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <opaque_fragment>',
-            `vec3 fN = normalize(normal);
-            vec3 fV = normalize(vViewPosition);
-            float rim = pow(1.0 - saturate(dot(fN, fV)), 3.0);
-            outgoingLight += diffuseColor.rgb * rim * 0.3;
-            float gloss = smoothstep(0.55, 0.85, pow(saturate(dot(fN, normalize(fV + vec3(-0.35, 0.65, 0.2)))), 14.0));
-            outgoingLight += (diffuseColor.rgb * 0.5 + 0.09) * gloss * ${shine.toFixed(2)};
-            // Black clothes keep their folds: lift the deepest shadows a little.
-            outgoingLight = max(outgoingLight, vec3(0.018, 0.016, 0.024) + outgoingLight * 0.9);
-            #include <opaque_fragment>`,
-        );
-    };
-    m.customProgramCacheKey = () => `figure-toon-${shine}`;
+): FigureToonMaterial {
+    const m = new FigureToonMaterial(params);
+    m.shine.value = shine;
     return m;
 }
 
-const inkUniforms = {
-    /** Line width in framebuffer pixels over the framebuffer size. */
-    uInk: { value: new THREE.Vector2(1.4 / 800, 1.4 / 600) },
-};
+/** Line width in framebuffer pixels over the framebuffer size. */
+const inkWidth = uniform(new THREE.Vector2(1.4 / 800, 1.4 / 600));
 
 /** Sets the ink line for the current canvas: constant on screen at any zoom. */
 export function setInk(pixels: number, width: number, height: number) {
-    inkUniforms.uInk.value.set(pixels / width, pixels / height);
+    inkWidth.value.set(pixels / width, pixels / height);
 }
 
 /** The mesh again, inside out and pushed along its screen normals. */
-const ink = (() => {
-    const m = new THREE.MeshBasicMaterial({
-        color: '#1b1420',
-        side: THREE.BackSide,
-    });
-    m.onBeforeCompile = (shader) => {
-        shader.uniforms.uInk = inkUniforms.uInk;
-        shader.vertexShader = shader.vertexShader
-            .replace(
-                '#include <common>',
-                'uniform vec2 uInk;\n#include <common>',
-            )
-            .replace(
-                '#include <project_vertex>',
-                `#include <project_vertex>
-                vec2 inkN = normalize((projectionMatrix * vec4(transformedNormal, 0.0)).xy + 1e-5);
-                gl_Position.xy += inkN * uInk * 2.0 * gl_Position.w;
-                // Behind everything: on bumpy cloth the hull would otherwise speckle through at grazing angles.
-                gl_Position.z += 0.0003 * gl_Position.w;`,
-            );
-    };
-    return m;
-})();
+class InkMaterial extends MeshBasicNodeMaterial {
+    setupVertex(builder: NodeBuilder): Node {
+        const clip = super.setupVertex(builder);
+        const normal = cameraProjectionMatrix.mul(vec4(normalView, 0)).xy;
+        const out = normal
+            .add(1e-5)
+            .normalize()
+            .mul(inkWidth)
+            .mul(2)
+            .mul(clip.w);
+        // Behind everything: on bumpy cloth the hull would otherwise speckle through at grazing angles.
+        return vec4(clip.xy.add(out), clip.z.add(clip.w.mul(0.0003)), clip.w);
+    }
+}
+
+const ink = new InkMaterial({ color: '#1b1420', side: THREE.BackSide });
 
 /** Atlas columns: open, blink, talk a little, talk wide. Rows: neutral, smiling. */
 const FACE_COLS = 4;

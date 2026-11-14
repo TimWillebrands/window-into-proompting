@@ -18,6 +18,15 @@ import {
     useState,
 } from 'react';
 import * as THREE from 'three';
+import {
+    instancedBufferAttribute,
+    mix,
+    positionWorld,
+    sin,
+    smoothstep,
+    uniform,
+} from 'three/tsl';
+import { MeshBasicNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
 import { useRealtimeStore } from '#lib/realtime-store';
 import type { Body } from '../../../api/model/body';
@@ -40,6 +49,7 @@ import Avatar, {
     avatarMaterials,
 } from './Avatar';
 import { type Built, build, type Placement } from './build';
+import { canvasRenderer } from './gpu';
 import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
 import { poseOf, round, targets, type Walk } from './motion';
@@ -128,11 +138,7 @@ export default function PlaceScene(props: Props) {
                     shadows="basic"
                     flat
                     dpr={dpr}
-                    gl={{ antialias: false }}
-                    // Checking every shader stalls on compile; worth it in dev only.
-                    onCreated={({ gl }) => {
-                        gl.debug.checkShaderErrors = import.meta.env.DEV;
-                    }}
+                    gl={PLACE_GL}
                     style={{
                         ...PIXEL_STYLE,
                         cursor:
@@ -835,61 +841,48 @@ function PropLights({
     );
 }
 
-const waterVert = `
-varying vec3 vPos;
-void main() {
-    vec4 w = modelMatrix * vec4(position, 1.0);
-    vPos = w.xyz;
-    gl_Position = projectionMatrix * viewMatrix * w;
-}`;
-
-const waterFrag = `
-uniform float uTime;
-uniform vec3 uDeep;
-uniform vec3 uLight;
-varying vec3 vPos;
-void main() {
-    float a = sin(vPos.x * 2.7 + uTime * 0.9) * sin(vPos.z * 2.1 - uTime * 0.7);
-    float b = sin((vPos.x - vPos.z) * 6.0 - uTime * 1.8);
-    float t = clamp(0.45 + 0.3 * a + 0.12 * b, 0.0, 1.0);
-    vec3 col = mix(uDeep, uLight, t);
-    float glint = smoothstep(0.93, 1.0, sin(vPos.x * 9.0 + uTime * 1.3) * sin(vPos.z * 7.0 - uTime));
-    col += vec3(0.35) * glint;
-    gl_FragColor = vec4(col, 1.0);
-    #include <colorspace_fragment>
-}`;
+/** Ripples in two colours with a glint, in world space so tiles meet. */
+function waterMaterial() {
+    const time = uniform(0);
+    const deep = uniform(new THREE.Color());
+    const light = uniform(new THREE.Color());
+    const p = positionWorld;
+    const a = sin(p.x.mul(2.7).add(time.mul(0.9))).mul(
+        sin(p.z.mul(2.1).sub(time.mul(0.7))),
+    );
+    const b = sin(p.x.sub(p.z).mul(6).sub(time.mul(1.8)));
+    const t = a.mul(0.3).add(b.mul(0.12)).add(0.45).clamp(0, 1);
+    const glint = smoothstep(
+        0.93,
+        1,
+        sin(p.x.mul(9).add(time.mul(1.3))).mul(sin(p.z.mul(7).sub(time))),
+    );
+    const material = new MeshBasicNodeMaterial();
+    material.colorNode = mix(deep, light, t).add(glint.mul(0.35));
+    return { material, time, deep, light };
+}
 
 function Water({ scene, sky }: { scene: Scene; sky: Sky }) {
-    const mat = useRef<THREE.ShaderMaterial>(null);
-    const uniforms = useMemo(
-        () => ({
-            uTime: { value: 0 },
-            uDeep: { value: new THREE.Color() },
-            uLight: { value: new THREE.Color() },
-        }),
-        [],
-    );
-    uniforms.uDeep.value.set(sky.water[0]);
-    uniforms.uLight.value.set(sky.water[1]);
+    const water = useMemo(waterMaterial, []);
+    useEffect(() => () => water.material.dispose(), [water]);
+    water.deep.value.set(sky.water[0]);
+    water.light.value.set(sky.water[1]);
     useFrame(({ clock }) => {
-        uniforms.uTime.value = clock.elapsedTime;
+        water.time.value = clock.elapsedTime;
     });
     return (
         <mesh
             position={[scene.w / 2, -0.42, scene.h / 2]}
             rotation={[-Math.PI / 2, 0, 0]}
             receiveShadow
+            material={water.material}
         >
             <planeGeometry args={[scene.w, scene.h]} />
-            <shaderMaterial
-                ref={mat}
-                vertexShader={waterVert}
-                fragmentShader={waterFrag}
-                uniforms={uniforms}
-            />
         </mesh>
     );
 }
+
+const PLACE_GL = canvasRenderer({ antialias: false });
 
 const AIR: Record<
     string,
@@ -1005,15 +998,34 @@ function Ambience({
             col.set([c.r, c.g, c.b], i * 3);
             seeds[i] = Math.random() * 100;
         }
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        return { g, seeds, n };
+        const at = new THREE.InstancedBufferAttribute(pos, 3);
+        at.setUsage(THREE.DynamicDrawUsage);
+        // Sized points are instanced quads under WebGPU: one Sprite drawn n times.
+        const material = new PointsNodeMaterial({
+            sizeAttenuation: false,
+            transparent: true,
+            depthWrite: false,
+        });
+        material.positionNode = instancedBufferAttribute(at);
+        material.colorNode = instancedBufferAttribute(
+            new THREE.InstancedBufferAttribute(col, 3),
+        );
+        const sprite = new THREE.Sprite(material);
+        sprite.count = n;
+        sprite.frustumCulled = false;
+        sprite.raycast = () => {};
+        return { at, material, sprite, seeds, n };
     }, [spec, scene.w, scene.h]);
+    useEffect(() => () => made?.material.dispose(), [made]);
+    if (made && spec) {
+        // Sized in screen pixels, which the pixel look draws at PIXEL_DPR.
+        made.material.size = (spec.size * PIXEL_DPR) / dpr;
+        made.material.opacity = spec.glow ? (night ? 1 : 0.5) : 0.85;
+    }
     useFrame(({ clock }, dt) => {
         if (!made || !spec) return;
         const t = clock.elapsedTime;
-        const a = made.g.getAttribute('position') as THREE.BufferAttribute;
+        const a = made.at;
         const p = a.array as Float32Array;
         const step = Math.min(dt, 0.1);
         for (let i = 0; i < made.n; i++) {
@@ -1029,19 +1041,7 @@ function Ambience({
         a.needsUpdate = true;
     });
     if (!made || !spec) return null;
-    return (
-        <points geometry={made.g} frustumCulled={false}>
-            <pointsMaterial
-                // Sized in screen pixels, which the pixel look draws at PIXEL_DPR.
-                size={(spec.size * PIXEL_DPR) / dpr}
-                sizeAttenuation={false}
-                vertexColors
-                transparent
-                opacity={spec.glow ? (night ? 1 : 0.5) : 0.85}
-                depthWrite={false}
-            />
-        </points>
-    );
+    return <primitive object={made.sprite} />;
 }
 
 /** The tile under the pointer; only this re-renders as the mouse moves. */
