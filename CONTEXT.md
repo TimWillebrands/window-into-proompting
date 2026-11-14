@@ -269,8 +269,11 @@ _Avoid_: like, favourite, upvote.
 A Persona's private journal in one Party. Writing in it is rest: **Consolidation** runs alongside, so the Diary is the visible face of beliefs settling.
 
 **Player**:
-A human's **Participant** (Driver `User`), made by choosing a character name after sign-in and owned by that Clerk user, so Personas can DM, answer, and remember the human like anyone else. See [ADR 0029](docs/adr/0029-clerk-auth-public-read.md).
+A human's **Participant** (Driver `User`), made by choosing a character name after sign-in (or by **Takeover**) and owned by that Clerk user, so Personas can DM, answer, and remember the human like anyone else. See [ADR 0029](docs/adr/0029-clerk-auth-public-read.md).
 _Avoid_: user (ambiguous with Driver `User`), admin, curator.
+
+**Takeover**:
+A human becoming a **Persona** already here as their **Player**, for good: ownership recorded, **Default Driver** `LLM` → `User`, their life carried on. Only a free one: unowned and in no DM with a human. See [ADR 0059](docs/adr/0059-playing-as-a-persona.md).
 
 **Auto**:
 A **Player** handed to the agent stack: **Default Driver** `LLM`, still owned by their human. They live exactly like a **Persona**, played from a sheet written from their public trace, and the human can only watch until they take over, or give them a mission (an Acquired **Desire**). Their DMs stay private. See [ADR 0037](docs/adr/0037-players-on-auto.md).

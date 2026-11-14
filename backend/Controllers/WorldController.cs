@@ -166,6 +166,37 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)));
     }
 
+    /// <summary>Personas the caller could play as instead of making someone new (ADR 0059).</summary>
+    [HttpGet("player/free")]
+    public async Task<ActionResult<List<FreePersona>>> GetFreePersonas(Guid partyId)
+    {
+        var party = grains.GetGrain<IPartyGrain>(partyId);
+        var free = Takeover.Free((await party.GetParty()).Participants, await Clock(partyId).GetClaimedAsync(), await party.GetChatGroups());
+        var result = new List<FreePersona>();
+        foreach (var p in free.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var bio = (await grains.GetGrain<IPersonaGrain>(p.Id).GetPersona()).Bio;
+            result.Add(new FreePersona(p.Id, p.Name, bio is { Length: > 0 } b ? WorldStream.Clip(b, 90) : null));
+        }
+        return Ok(result);
+    }
+
+    /// <summary>Play as a Persona already here, from now on. 409 when the caller has a character or they're not free.</summary>
+    [HttpPost("player/take")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PlayerResponse>> TakePersona(Guid partyId, [FromBody] TakePersonaRequest request)
+    {
+        if (await actors.FindPlayerAsync(User, partyId) is not null) return Conflict("You already have a character here.");
+        if (!await Clock(partyId).TakePersonaAsync(User.ClerkUserId()!, request.PersonaId))
+            return Conflict("They're not free to take.");
+        await grains.GetGrain<IPersonaGrain>(request.PersonaId).CancelGenerationAsync();
+        var places = grains.GetGrain<IPlacesGrain>(partyId);
+        await places.HandOverAsync(request.PersonaId);
+        await places.GetSnapshotAsync();
+        posthog.Track(HttpContext, "player_took_persona", new Dictionary<string, object> { ["party_id"] = partyId, ["player_id"] = request.PersonaId });
+        return await GetPlayer(partyId);
+    }
+
     /// <summary>Remove a human Player and what's theirs. Personas keep their memories.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("players/{playerId:guid}")]
@@ -385,6 +416,8 @@ public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, 
 
 public sealed record SetAuraRequest(string? Aura);
 public sealed record CreatePlayerRequest(string Name);
+public sealed record TakePersonaRequest(Guid PersonaId);
+public sealed record FreePersona(Guid Id, string Name, string? Bio);
 public sealed record SetAutoRequest(bool On, string? Mission);
 public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
 public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);

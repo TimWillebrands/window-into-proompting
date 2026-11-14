@@ -166,6 +166,28 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     }
 
     [Fact]
+    public async Task TakingAPersona_MakesThemYoursOnce_AndOnlyIfNobodyConfidedInThem()
+    {
+        var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var party = _fx.GrainFactory.GetGrain<IPartyGrain>(partyId);
+        var pieter = (await party.GetParty()).Participants.Single(p => p.Name == "Pieter").Id;
+        var sparky = (await clock.ClaimPlayerAsync("user_b", "Sparky"))!.Value;
+        await party.GetOrCreateDirectChatAsync(sparky, pieter);
+
+        Assert.False(await clock.TakePersonaAsync("user_a", pieter));
+        Assert.False(await clock.TakePersonaAsync("user_b", denise));
+        Assert.True(await clock.TakePersonaAsync("user_a", denise));
+        Assert.False(await clock.TakePersonaAsync("user_c", denise));
+
+        Assert.Equal(denise, await clock.FindPlayerAsync("user_a"));
+        var info = await party.GetParty();
+        Assert.Equal(DriverKind.User, info.Participants.Single(p => p.Id == denise).Driver);
+        Assert.Empty(Takeover.Free(info.Participants, await clock.GetClaimedAsync(), await party.GetChatGroups()));
+        Assert.Equal("You are Denise.", await _fx.Auto.SheetAsync(denise));
+    }
+
+    [Fact]
     public async Task PlayerOnAuto_LivesLikeAPersona_AndComesBackUnchanged()
     {
         var (partyId, _) = await _fx.CreateWorldAsync();

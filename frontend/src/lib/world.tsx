@@ -8,6 +8,7 @@ import {
     getGetWorldsPartyIdQueryKey,
     getWorldsPartyIdPlayer,
     postWorldsPartyIdPlayer,
+    postWorldsPartyIdPlayerTake,
     putWorldsPartyIdPlayerAura,
     putWorldsPartyIdPlayerAuto,
     useGetWorlds,
@@ -123,6 +124,19 @@ export function useCreatePlayer() {
     return async (name: string) => {
         const res = await postWorldsPartyIdPlayer(WORLD_ID, { name });
         queryClient.setQueryData(playerKey(userId), res.data);
+    };
+}
+
+/** Plays as a Persona already here, from now on. */
+export function useTakePersona() {
+    const queryClient = useQueryClient();
+    const userId = usePlayerSession((s) => s.userId);
+    return async (personaId: string) => {
+        const res = await postWorldsPartyIdPlayerTake(WORLD_ID, { personaId });
+        queryClient.setQueryData(playerKey(userId), res.data);
+        void queryClient.invalidateQueries({
+            queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
+        });
     };
 }
 

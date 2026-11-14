@@ -235,6 +235,23 @@ public sealed class WorldClockGrain(
         return id;
     }
 
+    /// <summary>Makes a free Persona this Clerk user's character (ADR 0059); false when they have one or that Persona isn't free.</summary>
+    public async Task<bool> TakePersonaAsync(string clerkUserId, Guid personaId)
+    {
+        if (state.State.PlayersByClerkId.ContainsKey(clerkUserId)) return false;
+        var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
+        var info = await party.GetParty();
+        var free = Takeover.Free(info.Participants, state.State.PlayersByClerkId.Values, await party.GetChatGroups());
+        if (free.FirstOrDefault(p => p.Id == personaId) is not { } link) return false;
+
+        var humans = info.Participants.Where(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId).ToList();
+        await party.UpsertParticipantsAsync(new List<PartyParticipant> { link with { Driver = DriverKind.User } });
+        state.State.PlayersByClerkId[clerkUserId] = personaId;
+        if (state.State.PlayerId is not { } current || (humans.All(h => h.Id != current) && !state.State.PlayersByClerkId.ContainsValue(current))) state.State.PlayerId = personaId;
+        await state.WriteStateAsync();
+        return true;
+    }
+
     /// <summary>Drops a removed Player's ownership and everything the clock kept about them.</summary>
     public async Task ForgetPlayerAsync(Guid participantId)
     {
@@ -513,6 +530,7 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     /// <summary>The human's Participant (Driver = User), created on first use.</summary>
     [Alias("FindPlayerAsync")] Task<Guid?> FindPlayerAsync(string clerkUserId);
     [Alias("ClaimPlayerAsync")] Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name);
+    [Alias("TakePersonaAsync")] Task<bool> TakePersonaAsync(string clerkUserId, Guid personaId);
     [Alias("IsClaimedAsync")] Task<bool> IsClaimedAsync(Guid participantId);
     /// <summary>Every Participant a human owns, on auto or not.</summary>
     [AlwaysInterleave, Alias("GetClaimedAsync")] Task<List<Guid>> GetClaimedAsync();
