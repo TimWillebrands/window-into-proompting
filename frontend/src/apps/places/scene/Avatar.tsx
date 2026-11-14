@@ -10,6 +10,7 @@ import { type Quality, useFigure } from '../figure/runtime';
 import type { Look } from '../iso/appearance';
 import type { Pt } from '../iso/iso';
 import type { Pose } from './motion';
+import { pixelGrid, snapToPixel } from './pixel';
 
 export interface AvatarState {
     pose: Pose;
@@ -40,7 +41,7 @@ export const SCENE_QUALITY: Quality = {
     face: 256,
 };
 
-/** Ink line width in drawing-buffer pixels. */
+/** Ink line width in pixels of the pixel look. */
 const INK = 1.1;
 /** Seconds a walk cycle is sped up by: steps are quick in a small town. */
 const WALK_SPEED = 2.1;
@@ -49,6 +50,9 @@ const BLINK_EVERY = 4.2;
 const SEAT_EDGE = 0.2;
 
 const buffer = new THREE.Vector2();
+
+/** Shown facing in eighths of a turn, like sprites; pair poses keep theirs exact. */
+const EIGHTH = Math.PI / 4;
 
 const turnTo = (from: number, to: number, k: number) => {
     let d = to - from;
@@ -181,12 +185,14 @@ export default function Avatar({
         } else if (pose.slot?.face !== undefined)
             target = (pose.slot.face * Math.PI) / 2;
         facing.current = turnTo(facing.current, target, moving ? 0.35 : 0.12);
-        const f = facing.current;
+        const f = partner
+            ? facing.current
+            : Math.round(facing.current / EIGHTH) * EIGHTH;
 
         const p = puppet.current;
         const name = animation(s, named, sitting && seat !== undefined, side);
         p?.play(name, moving ? 0.14 : 0.3, moving ? WALK_SPEED : 1);
-        p?.update(dt);
+        p?.tick(dt);
 
         // Where the feet go.
         let x = pose.tile.x + 0.5;
@@ -223,6 +229,7 @@ export default function Avatar({
                 (y - height.current) * (1 - Math.exp(-Math.min(dt, 0.1) * 8));
 
         g.position.set(x, height.current, z);
+        snapToPixel(gl, g);
         g.rotation.set(0, f, 0);
         if (figure) figure.group.rotation.x = lying ? -Math.PI / 2 : 0;
         if (phone.current) phone.current.visible = s.phone && !lying && !named;
@@ -247,8 +254,12 @@ export default function Avatar({
                 named === 'high-five',
         );
 
-        gl.getDrawingBufferSize(buffer);
-        setInk(INK, buffer.x, buffer.y);
+        const grid = pixelGrid(gl);
+        if (grid) setInk(INK, grid.width, grid.height);
+        else {
+            gl.getDrawingBufferSize(buffer);
+            setInk(INK, buffer.x, buffer.y);
+        }
     });
 
     return (

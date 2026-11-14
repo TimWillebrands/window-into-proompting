@@ -4,7 +4,7 @@ import type * as THREE from 'three';
 import type { Appearance } from '../../api/model/appearance';
 import { lookOf } from '../places/iso/appearance';
 import Avatar, { type AvatarState } from '../places/scene/Avatar';
-import { PIXEL_DPR, PIXEL_STYLE } from '../places/scene/pixel';
+import { PIXEL_STYLE, Pixelate, usePixelDpr } from '../places/scene/pixel';
 
 interface Props {
     appearance: Appearance | null | undefined;
@@ -25,6 +25,7 @@ export default function DressingRoom({
         dragging: false,
         lastX: 0,
     });
+    const dpr = usePixelDpr();
     const look = useMemo(
         () => lookOf(appearance, fallbackColour),
         [appearance, fallbackColour],
@@ -50,9 +51,9 @@ export default function DressingRoom({
             }}
         >
             <Canvas
-                shadows="percentage"
+                shadows="basic"
                 flat
-                dpr={PIXEL_DPR}
+                dpr={dpr}
                 style={PIXEL_STYLE}
                 camera={{ position: [0, 1.15, 3.6], fov: 30 }}
                 gl={{ alpha: true, antialias: false }}
@@ -78,6 +79,7 @@ export default function DressingRoom({
                 />
                 <Aim y={0.78} />
                 <Podium spin={spin} look={look} mood={mood} />
+                <Pixelate />
             </Canvas>
             <span className="wr-stage-hint">⟲ drag to turn</span>
         </div>

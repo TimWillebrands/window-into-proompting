@@ -8,8 +8,8 @@ Places looked alike, and adding one meant writing drawing code.
 ## Decision
 
 - **three.js via react-three-fiber** (+ drei). It's an orthographic camera at Habbo's 2:1 angle,
-  low-poly flat-shaded geometry, a pixel look (half-resolution canvas, `image-rendering: pixelated`;
-  the only look, shared by every 3D view through `scene/pixel.ts`), local-time day and night, shadows, and animated water. It's lazy-loaded, and without
+  low-poly flat-shaded geometry, a pixel look (the only look, shared by every 3D view through
+  `scene/pixel.ts`, see below), local-time day and night, hard shadows, and animated water. It's lazy-loaded, and without
   WebGL2 the old canvas still draws.
 - **No art assets** (people moved on in ADR 0028). Everything is coloured primitives (box, cylinder, cone, ball, gable, ring,
   sign). Each prop is baked into a few merged meshes (plain, always lit, lit at night), so a
@@ -30,6 +30,12 @@ Places looked alike, and adding one meant writing drawing code.
   quays, canal houses and a little park. Each Place that opens onto it gets a door there
   (`entrances`), and Bodies walk in and out of the matching door.
 - Walls and houses in front of something walkable are cut down to a stub so the camera sees in.
+- **The pixel look** is a render pipeline, not a filter. `Pixelate` draws the scene at one pixel per two CSS
+  pixels, rounded to whole device pixels so none come out wider. A depth and normal pass then gives every thing
+  a dark outline, a lit rim on convex corners and a shade in creases. The ortho camera renders from whole-pixel
+  positions and the scaled-up frame slides by the remainder, so panning is smooth and edges don't crawl.
+  Bodies stand on whole pixels, face eight ways and pose at 12 frames a second, like sprites. Lamp light falls
+  off in whole stops, so it draws rings.
 
 ## Adding content
 

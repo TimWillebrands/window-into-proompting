@@ -1,5 +1,10 @@
 import { MapControls, OrthographicCamera } from '@react-three/drei';
-import { Canvas, type ThreeEvent, useFrame } from '@react-three/fiber';
+import {
+    Canvas,
+    type ThreeEvent,
+    useFrame,
+    useThree,
+} from '@react-three/fiber';
 import {
     createContext,
     memo,
@@ -38,7 +43,7 @@ import { type Built, build, type Placement } from './build';
 import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
 import { poseOf, round, targets, type Walk } from './motion';
-import { PIXEL_DPR, PIXEL_STYLE } from './pixel';
+import { PIXEL_DPR, PIXEL_STYLE, Pixelate, usePixelDpr } from './pixel';
 import {
     type PlacedProp,
     pathIn,
@@ -86,6 +91,7 @@ export default function PlaceScene(props: Props) {
     const [zoomBy, setZoomBy] = useState(1);
     const [recentre, setRecentre] = useState(0);
     const hour = useHour(props.hour);
+    const dpr = usePixelDpr();
     const sky = skyAt(hour, !!scene.def.outdoor, scene.def.light);
     useEffect(() => {
         const el = wrap.current;
@@ -119,9 +125,9 @@ export default function PlaceScene(props: Props) {
                 }}
             >
                 <Canvas
-                    shadows="percentage"
+                    shadows="basic"
                     flat
-                    dpr={PIXEL_DPR}
+                    dpr={dpr}
                     gl={{ antialias: false }}
                     // Checking every shader stalls on compile; worth it in dev only.
                     onCreated={({ gl }) => {
@@ -148,6 +154,7 @@ export default function PlaceScene(props: Props) {
                     <Warmup />
                     <World {...props} scene={scene} sky={sky} furni={here} />
                     <Projector />
+                    <Pixelate />
                 </Canvas>
                 <Labels {...props} overlay={overlay} />
                 <div className="pl-hud">
@@ -977,6 +984,7 @@ function Ambience({
     night: boolean;
 }) {
     const spec = AIR[kind];
+    const dpr = useThree((s) => s.viewport.dpr);
     const made = useMemo(() => {
         if (!spec) return null;
         const n = Math.min(400, Math.ceil(scene.w * scene.h * spec.n));
@@ -1024,7 +1032,8 @@ function Ambience({
     return (
         <points geometry={made.g} frustumCulled={false}>
             <pointsMaterial
-                size={spec.size}
+                // Sized in screen pixels, which the pixel look draws at PIXEL_DPR.
+                size={(spec.size * PIXEL_DPR) / dpr}
                 sizeAttenuation={false}
                 vertexColors
                 transparent

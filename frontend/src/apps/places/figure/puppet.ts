@@ -13,6 +13,8 @@ interface RawClip {
 const RAW = clips as unknown as Record<string, RawClip>;
 const PELVIS_REST = 0.917;
 const PELVIS_BACK = 0.05;
+/** Poses a second when ticked, like frames of a sprite sheet. */
+const POSE_FPS = 12;
 
 function rigClip(name: string, pelvisScale: number): THREE.AnimationClip {
     const src = RAW[name];
@@ -39,6 +41,8 @@ export class Puppet {
     private current: THREE.AnimationAction | null = null;
     private name = '';
     private moves: Record<string, MoveDoc>;
+    /** Time not yet shown; starts a frame in, so the first tick poses. */
+    private due = 1 / POSE_FPS;
 
     constructor(
         private figure: FigureObject,
@@ -98,6 +102,15 @@ export class Puppet {
 
     update(dt: number) {
         this.mixer.update(dt);
+    }
+
+    /** Advances in whole pose frames, so limbs step instead of glide. */
+    tick(dt: number) {
+        this.due += dt;
+        const frames = Math.floor(this.due * POSE_FPS);
+        if (frames < 1) return;
+        this.mixer.update(frames / POSE_FPS);
+        this.due -= frames / POSE_FPS;
     }
 
     dispose() {

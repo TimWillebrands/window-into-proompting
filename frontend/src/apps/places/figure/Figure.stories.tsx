@@ -10,7 +10,7 @@ import DressingRoom from '../../wardrobe/DressingRoom';
 import { type Look, lookOf as paletteLook } from '../iso/appearance';
 import Avatar, { type AvatarState } from '../scene/Avatar';
 import PlaceScene from '../scene/PlaceScene';
-import { PIXEL_DPR, PIXEL_STYLE } from '../scene/pixel';
+import { PIXEL_STYLE, Pixelate } from '../scene/pixel';
 import type { SceneDef } from '../scene/scene';
 import type { FigureDoc } from './doc';
 import { EXTRAS, figureDoc, HAIR } from './dress';
@@ -140,7 +140,7 @@ function Sheet({
         >
             <Canvas
                 flat
-                dpr={PIXEL_DPR}
+                dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
                 orthographic
                 camera={{ position: [0, 1.2, distance], zoom: 200 }}
@@ -161,6 +161,7 @@ function Sheet({
                         <Person doc={d} x={0} turn={0.35} hangout={null} />
                     </group>
                 ))}
+                <Pixelate />
             </Canvas>
         </div>
     );
@@ -194,8 +195,8 @@ function Designed({
         <div style={{ width: 1400, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
-                shadows="percentage"
-                dpr={PIXEL_DPR}
+                shadows="basic"
+                dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
                 camera={{ position: [0, 1, 5.6], fov: 26 }}
             >
@@ -220,6 +221,7 @@ function Designed({
                     <circleGeometry args={[7, 32]} />
                     <meshStandardMaterial color="#5b4d73" />
                 </mesh>
+                <Pixelate />
             </Canvas>
         </div>
     );
@@ -365,8 +367,8 @@ function Lineup({
         <div style={{ width: 1200, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
-                shadows="percentage"
-                dpr={PIXEL_DPR}
+                shadows="basic"
+                dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
                 camera={
                     portrait
@@ -399,6 +401,7 @@ function Lineup({
                     <circleGeometry args={[6, 32]} />
                     <meshStandardMaterial color="#5b4d73" />
                 </mesh>
+                <Pixelate />
             </Canvas>
         </div>
     );
@@ -529,8 +532,8 @@ function Turnaround({ look }: { look: Partial<Look> }) {
         <div style={{ width: 1200, height: 640, background: '#39304a' }}>
             <Canvas
                 flat
-                shadows="percentage"
-                dpr={PIXEL_DPR}
+                shadows="basic"
+                dpr={window.devicePixelRatio}
                 style={PIXEL_STYLE}
                 camera={{ position: [0, 1, 5.2], fov: 26 }}
             >
@@ -558,6 +561,7 @@ function Turnaround({ look }: { look: Partial<Look> }) {
                     <circleGeometry args={[6, 32]} />
                     <meshStandardMaterial color="#5b4d73" />
                 </mesh>
+                <Pixelate />
             </Canvas>
         </div>
     );
