@@ -310,6 +310,137 @@ body {
     border-radius: 8px 0 0 0;
 }
 
+.xp-balloon {
+    position: fixed;
+    z-index: 100001;
+    width: max-content;
+    min-width: 200px;
+    max-width: min(320px, calc(100vw - 8px));
+    background: #ffffe1;
+    color: #000;
+    border: 1px solid #000;
+    border-radius: 8px;
+    box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.35);
+    padding: 6px 8px 8px 9px;
+    font-family: Tahoma, var(--font-xp), sans-serif;
+    font-size: 11px;
+    animation: xp-balloon-in 180ms ease-out;
+}
+
+@keyframes xp-balloon-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.xp-balloon-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.xp-balloon-icon {
+    width: 16px;
+    font-size: 13px;
+    line-height: 16px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.xp-balloon-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.xp-balloon-close {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    margin: 0 -2px 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font:
+        bold 12px / 1 Tahoma,
+        sans-serif;
+    color: #555;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    cursor: default;
+}
+
+.xp-balloon-close:hover {
+    color: #fff;
+    background: linear-gradient(180deg, #e9a089 0%, #d24f3a 100%);
+    border-color: #a13322;
+}
+
+.xp-balloon-body {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 0 22px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.xp-balloon-tail,
+.xp-balloon-tail::after {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+}
+
+.xp-balloon-tail {
+    right: 10px;
+    bottom: -13px;
+    border-width: 13px 0 0 16px;
+    border-color: #000 transparent transparent transparent;
+}
+
+.xp-balloon-tail::after {
+    content: "";
+    right: 1px;
+    bottom: 2px;
+    border-width: 11px 0 0 13px;
+    border-color: #ffffe1 transparent transparent transparent;
+}
+
+.xp-tray-badge {
+    position: absolute;
+    top: -5px;
+    right: -9px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #f08272 0%, #d24f3a 60%, #a13322 100%);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    color: #fff;
+    font:
+        bold 9px / 11px Tahoma,
+        sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
 .xp-task-item {
     background: rgba(55, 128, 243, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.4);

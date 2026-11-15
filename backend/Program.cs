@@ -68,6 +68,7 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Reflex.ReflexGate>();
     builder.Services.AddSingleton<PartyTown.World.PlayerRemoval>();
     builder.Services.AddSingleton<PartyTown.World.PlayerAuto>();
+    builder.Services.AddSingleton<PartyTown.World.Notifications.PlayerInbox>();
     builder.Services.AddSingleton<PartyTown.World.WorldMove>();
     builder.Services.AddSingleton<PartyTown.World.Self.MomentAppraisal>();
     builder.Services.AddSingleton<PartyTown.World.Self.OffStage>();

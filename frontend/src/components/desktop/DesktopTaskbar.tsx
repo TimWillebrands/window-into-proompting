@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useThemeStore } from '../../lib/theme-store';
 
 interface TaskbarWindowInfo {
@@ -15,6 +15,7 @@ interface DesktopTaskbarProps {
     onToggle: (id: string) => void;
     onClose: (id: string) => void;
     onStartClick: () => void;
+    tray?: ReactNode;
 }
 
 function useClock() {
@@ -40,6 +41,7 @@ export default function DesktopTaskbar({
     onToggle,
     onClose,
     onStartClick,
+    tray,
 }: DesktopTaskbarProps) {
     const mode = useThemeStore((s) => s.mode);
     const toggleTheme = useThemeStore((s) => s.toggle);
@@ -113,6 +115,7 @@ export default function DesktopTaskbar({
             </ul>
 
             <div className="xp-tray ml-auto">
+                {tray}
                 <button
                     type="button"
                     aria-label={

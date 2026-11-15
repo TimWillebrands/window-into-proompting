@@ -300,6 +300,7 @@ _Avoid_: browse tool, fetch, search.
 
 **Notification**:
 What reaches a Persona from a screen App without opening it: "Ana: 2 new messages", "Bo replied to you in …". Board posts that concern a Persona also make the **World clock** likelier to give them the next turn.
+A **Player** gets theirs in the tray: DMs waiting, replies and mentions on the Board, Respect!, gatherings starting and presents from the last three days, worked out from those Apps on demand. A balloon pops up for each new one, or one "While you were away" balloon on return. Opening the Notifications window reads them.
 _Avoid_: alert, ping, event.
 
 **Lived self**:

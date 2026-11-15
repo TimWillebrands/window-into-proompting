@@ -9,6 +9,7 @@ import JobsApp from '../apps/jobs/JobsApp';
 import MemoryGraphApp from '../apps/memory-graph/MemoryGraphApp';
 import MessengerApp from '../apps/messenger/MessengerApp';
 import MessengerChatWindow from '../apps/messenger/MessengerChatWindow';
+import NotificationsApp from '../apps/notifications/NotificationsApp';
 import PersonasApp from '../apps/personas/PersonasApp';
 import PlacesApp from '../apps/places/PlacesApp';
 import RelationsApp from '../apps/relations/RelationsApp';
@@ -49,6 +50,14 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         component: MessengerChatWindow,
         initialPosition: { x: 760, y: 220 },
         initialSize: { width: 440, height: 480 },
+    },
+    {
+        id: 'notifications',
+        title: 'Notifications',
+        icon: '✉️',
+        component: NotificationsApp,
+        initialPosition: { x: 520, y: 120 },
+        initialSize: { width: 560, height: 460 },
     },
     {
         id: 'board',

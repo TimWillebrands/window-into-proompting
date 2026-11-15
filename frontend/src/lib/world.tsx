@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import {
     getGetWorldsPartyIdLivesQueryKey,
     getGetWorldsPartyIdMessengerQueryKey,
+    getGetWorldsPartyIdMessengerQueryOptions,
     getGetWorldsPartyIdPlacesQueryKey,
     getGetWorldsPartyIdQueryKey,
     getWorldsPartyIdPlayer,
@@ -16,7 +17,6 @@ import {
 import { useDesktopContext } from '#lib/desktop-context';
 import { useRealtimeStoreActions } from '#lib/realtime-store';
 import { ProblemDetailsError } from '../api/custom-fetch';
-import type { BoardThread } from '../api/model/boardThread';
 import type { Body } from '../api/model/body';
 import type { DirectChatSummary } from '../api/model/directChatSummary';
 import type { Gathering } from '../api/model/gathering';
@@ -25,6 +25,12 @@ import type { PlacesSnapshot } from '../api/model/placesSnapshot';
 import type { WorldActivity } from '../api/model/worldActivity';
 import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
+import {
+    notificationsKey,
+    type PlayerNotification,
+    useMarkNotificationsRead,
+} from './notifications';
+import { useNotificationWatcher } from './use-notification-watcher';
 import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
 
 const CHOSEN_WORLD = 'partytown.world';
@@ -219,37 +225,6 @@ export function toastOnAuto(error: unknown) {
         });
 }
 
-const toastedRespect = new Set<string>();
-
-function freshRespectFor(t: BoardThread, playerId: string | null) {
-    if (!playerId) return [];
-    const lines = [
-        { id: t.id, authorId: t.authorId, body: t.body, respect: t.respect },
-        ...(t.replies ?? []),
-    ];
-    return lines
-        .filter((l) => l.authorId === playerId)
-        .flatMap((l) =>
-            (l.respect ?? []).map((r) => ({
-                key: `${l.id}:${r.giverId}:${r.at}`,
-                giverId: r.giverId,
-                giverName: r.giverName ?? 'Someone',
-                at: Number(r.at ?? 0),
-                on: l.body,
-            })),
-        )
-        .filter(
-            (r) =>
-                r.giverId !== playerId &&
-                Date.now() - r.at < 30_000 &&
-                !toastedRespect.has(r.key) &&
-                toastedRespect.add(r.key),
-        );
-}
-
-const clip = (s: string | null | undefined, n: number) =>
-    !s ? '' : s.length > n ? `${s.slice(0, n)}…` : s;
-
 export function useOpenDirectChat() {
     const { openWindow } = useDesktopContext();
     return (chatGroupId: string, withName: string) =>
@@ -260,15 +235,36 @@ export function useOpenDirectChat() {
         });
 }
 
+export function useOpenNotification() {
+    const { openWindow } = useDesktopContext();
+    const openDirectChat = useOpenDirectChat();
+    const markRead = useMarkNotificationsRead(WORLD_ID);
+    return (n: PlayerNotification) => {
+        void markRead({ ids: [n.id] });
+        if (n.app === 'messenger' && n.targetId)
+            openDirectChat(n.targetId, n.fromName ?? 'Contact');
+        else if (n.app === 'board')
+            openWindow('board', {
+                props: n.targetId ? { threadId: n.targetId } : undefined,
+            });
+        else openWindow(n.app);
+    };
+}
+
 export function WorldRealtimeBridge() {
     const queryClient = useQueryClient();
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();
     const playerId = usePlayerId();
-    const pushToast = useWorldToasts((s) => s.push);
-    const openDirectChat = useOpenDirectChat();
-    const { openWindow, desktopState } = useDesktopContext();
     usePlayerIdle();
+    useNotificationWatcher(WORLD_ID, playerId);
+    useQuery(
+        getGetWorldsPartyIdMessengerQueryOptions(
+            WORLD_ID,
+            { personaId: playerId ?? undefined },
+            { query: { enabled: !!playerId } },
+        ),
+    );
 
     useEffect(() => {
         connectPartyRealtime(WORLD_ID);
@@ -281,6 +277,9 @@ export function WorldRealtimeBridge() {
                 typeof q.queryKey[0] === 'string' &&
                 (q.queryKey[0] as string).startsWith(prefix),
         });
+
+    const refreshNotifications = () =>
+        queryClient.invalidateQueries({ queryKey: notificationsKey(WORLD_ID) });
 
     useWorldEvents((envelope) => {
         if (envelope.type === 'party.message.created') {
@@ -297,29 +296,12 @@ export function WorldRealtimeBridge() {
                       )?.data
                     : undefined) ?? [];
             invalidatePrefix(worldPrefix('/messenger'));
-            const dm = dms.find((d) => d.chatGroupId === data.chatGroupId);
-            const content = data.message?.content;
             if (
                 playerId &&
-                content &&
                 data.message?.senderId !== playerId &&
-                (dm || !data.chatGroupId)
-            ) {
-                const focused = desktopState.focusedId;
-                const dmFocused =
-                    dm &&
-                    focused === `dm-${dm.chatGroupId}` &&
-                    !desktopState.windows[focused]?.minimized;
-                if (dm && !dmFocused) {
-                    pushToast({
-                        title: `${dm.withName} says:`,
-                        body: clip(content, 140),
-                        icon: '💬',
-                        onOpen: () =>
-                            openDirectChat(dm.chatGroupId, dm.withName),
-                    });
-                }
-            }
+                dms.some((d) => d.chatGroupId === data.chatGroupId)
+            )
+                void refreshNotifications();
             return;
         }
 
@@ -334,6 +316,8 @@ export function WorldRealtimeBridge() {
                 if (a.app === 'messenger' && a.action === 'dm') {
                     invalidatePrefix(worldPrefix('/messenger'));
                 }
+                if (playerId && a.withPersonaId === playerId)
+                    void refreshNotifications();
                 break;
             }
             case 'cdu':
@@ -392,34 +376,7 @@ export function WorldRealtimeBridge() {
                 break;
             case 'board': {
                 invalidatePrefix(worldPrefix('/board'));
-                const t = payload as BoardThread;
-                const last = t.replies?.[t.replies.length - 1];
-                const playerInThread =
-                    t.authorId === playerId ||
-                    t.replies?.some((r) => r.authorId === playerId);
-                if (
-                    playerId &&
-                    last &&
-                    last.authorId !== playerId &&
-                    playerInThread
-                ) {
-                    pushToast({
-                        title: `${last.authorName} replied on Partyboard`,
-                        body: clip(last.body, 140),
-                        icon: '📌',
-                        onOpen: () =>
-                            openWindow('board', { props: { threadId: t.id } }),
-                    });
-                }
-                for (const r of freshRespectFor(t, playerId)) {
-                    pushToast({
-                        title: `${r.giverName} gave you Respect!`,
-                        body: clip(r.on, 140),
-                        icon: '★',
-                        onOpen: () =>
-                            openWindow('board', { props: { threadId: t.id } }),
-                    });
-                }
+                if (playerId) void refreshNotifications();
                 break;
             }
             case 'diary':
@@ -428,21 +385,8 @@ export function WorldRealtimeBridge() {
             case 'calendar': {
                 invalidatePrefix(worldPrefix('/gatherings'));
                 const g = payload as Gathering;
-                if (
-                    g.status === 'Started' &&
-                    playerId &&
-                    g.attendeeIds?.includes(playerId)
-                ) {
-                    pushToast({
-                        title: `“${g.title}” is starting`,
-                        body: g.placeId
-                            ? `At ${g.roomName}. You said you'd be there.`
-                            : `In #${g.roomName} — you said you'd be there.`,
-                        icon: '📅',
-                        onOpen: () =>
-                            openWindow(g.placeId ? 'places' : 'open-party'),
-                    });
-                }
+                if (playerId && g.attendeeIds?.includes(playerId))
+                    void refreshNotifications();
                 break;
             }
         }

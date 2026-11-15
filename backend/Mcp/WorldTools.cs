@@ -18,7 +18,7 @@ using PartyTown.World.Work.Markets;
 namespace PartyTown.Mcp;
 
 [McpServerToolType]
-public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu, Desks desks)
+public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu, Desks desks, World.Notifications.PlayerInbox inbox)
 {
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
     private Guid World { get; set; }
@@ -117,6 +117,19 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
             sb.AppendLine($"{names.GetValueOrDefault(with, "?")} ({with}): {(last is null ? "(empty)" : Line(last, names))}");
         }
         return sb.Length == 0 ? "No DMs yet." : sb.ToString();
+    });
+
+    [McpServerTool(Name = "get_notifications", ReadOnly = true), Description("What concerns them lately, newest first: DMs waiting, replies and mentions on the Board, Respect!, gatherings starting, presents. New ones since they last read the tray are marked.")]
+    public Task<string> GetNotificationsAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var feed = await inbox.ForAsync(World, who, DateTimeOffset.UtcNow);
+        if (feed.Items.Count == 0) return "Nothing new for you.";
+        var now = DateTimeOffset.UtcNow;
+        var sb = new StringBuilder($"{feed.Unread} new.\n");
+        foreach (var n in feed.Items)
+            sb.AppendLine($"{(n.Unread ? "[new] " : "")}{WorldStream.Ago(n.At, now)}: {n.Title}: {n.Body} ({n.App}{(n.TargetId is { } t ? $" {t}" : "")})");
+        return sb.ToString();
     });
 
     [McpServerTool(Name = "read_board", ReadOnly = true), Description("The Board: threads newest first, or with threadId one thread with its replies.")]

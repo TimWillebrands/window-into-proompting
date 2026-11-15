@@ -5,6 +5,10 @@ import CreateCharacterScreen from '../components/desktop/CreateCharacterScreen';
 import DesktopIcon from '../components/desktop/DesktopIcon';
 import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
+import {
+    NotificationBalloons,
+    NotificationTray,
+} from '../components/desktop/NotificationArea';
 import StartMenu from '../components/desktop/StartMenu';
 import WelcomeScreen from '../components/desktop/WelcomeScreen';
 import WindowFrame from '../components/desktop/WindowFrame';
@@ -215,7 +219,9 @@ function DesktopWindowLayer() {
                 onToggle={handleTaskbarToggle}
                 onClose={closeWindow}
                 onStartClick={toggleStartMenu}
+                tray={<NotificationTray />}
             />
+            <NotificationBalloons />
         </>
     );
 }
