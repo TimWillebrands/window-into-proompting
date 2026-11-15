@@ -1,5 +1,4 @@
 using BackendTest.Fakes;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -15,8 +14,8 @@ namespace BackendTest;
 
 public class EndpointInterleavingTest : IAsyncLifetime
 {
-    private static readonly FakeSocksProxy Sidecar = new() { Reply = null };
-    private static readonly FakeSocksProxy Answering = new() { Body = """{"answers":{"x":{"type":"noul","noul":0.8}}}""" };
+    private readonly FakeSocksProxy _sidecar = new() { Reply = null };
+    private readonly FakeSocksProxy _answering = new() { Body = """{"answers":{"x":{"type":"noul","noul":0.8}}}""" };
 
     private TestCluster _cluster = null!;
 
@@ -30,13 +29,7 @@ public class EndpointInterleavingTest : IAsyncLifetime
                 services.AddHttpClient();
                 services.AddSingleton(Mock.Of<IAiObservabilityCapture>());
                 services.AddSingleton(Options.Create(new LlmOptions()));
-                services.AddSingleton(new Tailnets(new ConfigurationBuilder()
-                    .AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["Tailnets:home"] = Sidecar.Url,
-                        ["Tailnets:shared"] = Answering.Url,
-                    })
-                    .Build()));
+                services.AddSingleton<Tailnets>();
             });
         }
     }
@@ -44,12 +37,19 @@ public class EndpointInterleavingTest : IAsyncLifetime
     public async Task InitializeAsync()
     {
         var builder = new TestClusterBuilder(1);
+        builder.Properties["Tailnets:home"] = _sidecar.Url;
+        builder.Properties["Tailnets:shared"] = _answering.Url;
         builder.AddSiloBuilderConfigurator<Silo>();
         _cluster = builder.Build();
         await _cluster.DeployAsync();
     }
 
-    public async Task DisposeAsync() => await _cluster.DisposeAsync();
+    public async Task DisposeAsync()
+    {
+        await _sidecar.DisposeAsync();
+        await _answering.DisposeAsync();
+        await _cluster.DisposeAsync();
+    }
 
     private static async Task<bool> EventuallyAsync(Func<bool> condition)
     {
@@ -59,7 +59,7 @@ public class EndpointInterleavingTest : IAsyncLifetime
 
     private int Dials
     {
-        get { lock (Sidecar.Connects) return Sidecar.Connects.Count; }
+        get { lock (_sidecar.Connects) return _sidecar.Connects.Count; }
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class EndpointInterleavingTest : IAsyncLifetime
             new Dictionary<string, SystemOneQuestion> { ["x"] = new NoulQuestion("x") }, CancellationToken.None);
 
         Assert.Equal(0.8, answers.Noul("x", 0));
-        lock (Answering.Requests) Assert.Contains(Answering.Requests, r => r.StartsWith("POST /v1/systemone ") && r.Contains("\"model\":\"d1\""));
+        lock (_answering.Requests) Assert.Contains(_answering.Requests, r => r.StartsWith("POST /v1/systemone ") && r.Contains("\"model\":\"d1\""));
     }
 
     [Fact]

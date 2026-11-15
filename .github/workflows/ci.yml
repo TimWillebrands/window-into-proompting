@@ -25,6 +25,8 @@ jobs:
           dotnet-version: 11.0.x
           dotnet-quality: preview
       # Integration tests start their own Postgres+AGE through Testcontainers (backend-test/Infrastructure/AgeDb.cs).
+      # Pull its base image while the build runs, so the tests don't wait on it.
+      - run: (docker pull -q apache/age:release_PG16_1.6.0 > /tmp/age-pull.log 2>&1 &)
       - run: dotnet build backend-test/backend-test.csproj
       - run: dotnet test backend-test/backend-test.csproj --no-build --logger "console;verbosity=normal"
 

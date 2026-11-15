@@ -19,7 +19,8 @@ public sealed class ResponsePipeline(
     ILogger<ResponsePipeline> logger,
     World.Self.FollowThrough? followThrough = null,
     World.Work.Responsibilities? responsibilities = null,
-    World.Reflex.ReflexGate? reflex = null)
+    World.Reflex.ReflexGate? reflex = null,
+    SpeakingBackoff? backoff = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
@@ -588,11 +589,12 @@ public sealed class ResponsePipeline(
             catch (Exception ex) when (attempt < maxRetries)
             {
                 logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", personaName, attempt + 1);
+                var wait = (backoff ?? SpeakingBackoff.Default).After(attempt + 1);
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                     MessageStreamEvent.GenerationRetry,
-                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = 2 * (attempt + 1) }, WebOptions),
+                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = (int)wait.TotalSeconds }, WebOptions),
                     false);
-                await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)), ct);
+                await Task.Delay(wait, ct);
             }
         }
 
@@ -793,4 +795,10 @@ public sealed class ResponsePipeline(
             return null;
         }
     }
+}
+
+public sealed record SpeakingBackoff(Func<int, TimeSpan> After)
+{
+    public static readonly SpeakingBackoff Default = new(failed => TimeSpan.FromSeconds(2 * failed));
+    public static readonly SpeakingBackoff None = new(_ => TimeSpan.Zero);
 }

@@ -23,6 +23,7 @@ internal static class TestSiloDefaults
         {
             services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(new MenuJudge(() => null));
             services.AddSingleton<RaceTrigger>();
+            services.AddSingleton(SpeakingBackoff.None);
             services.AddSingleton<ResponsePipeline>();
             services.AddSingleton<IMemoryRepository>(_ =>
             {

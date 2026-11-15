@@ -116,7 +116,8 @@ public class ResponsePipelineTest
             memoryRepo.Object,
             NullLoggerFactory.Instance,
             NullLogger<ResponsePipeline>.Instance,
-            reflex: reflex);
+            reflex: reflex,
+            backoff: SpeakingBackoff.None);
 
         return new Fixture(pipeline, store, chatGroup, factory, router, personaRoot, memoryRepo, outcomes);
     }

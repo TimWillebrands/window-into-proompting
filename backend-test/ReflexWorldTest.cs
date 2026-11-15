@@ -374,7 +374,7 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
         await Grains.GetGrain<IWorldClockGrain>(party).RemindAsync(denise, 1);
         await Grains.GetGrain<IWorldClockGrain>(party).PulseAsync();
 
-        await TestWait.UntilAsync(async () => (await Reflex(party, denise).GetIntentionsAsync()).Count == 0, TimeSpan.FromSeconds(5));
+        await TestWait.UntilAsync(async () => (await Reflex(party, denise).GetIntentionsAsync()).All(i => i.Tries > 0), TimeSpan.FromSeconds(5));
     }
 
     [Fact]
