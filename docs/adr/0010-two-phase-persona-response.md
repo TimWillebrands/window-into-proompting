@@ -41,7 +41,7 @@ The Decision phase produces a `ShouldRespondResult`. Only some of its fields tra
 
 Inputs the Decision phase receives but the Speaking phase does **not**:
 
-- **Full recollections list** — Decision phase gets the top-N recollections (see [ADR 0009](0009-mvp-recall-top-n-recent.md)) and is responsible for picking one (`memoryToReference`) or none. The Speaking phase sees only the selection, not the menu. Contract is "Decision selects, Speaking executes" — a 10-item lookup table in the Speaking prompt was found to act as wallpaper, not influence.
+- **Full recollections list** — Decision phase gets the top-N recollections (see ADR 0015) and is responsible for picking one (`memoryToReference`) or none. The Speaking phase sees only the selection, not the menu. Contract is "Decision selects, Speaking executes" — a 10-item lookup table in the Speaking prompt was found to act as wallpaper, not influence.
 - **`RepairHint`** — Levelt-style speech-repair cue (a message arrived while the persona was speaking last turn) lives in Decision only. The persona either acknowledges it in `wouldSay` or doesn't; the Speaking phase doesn't re-evaluate.
 - **The `ResponseUrge` math** — frequency-control math (round penalty, self-dominance, chaos bonus) is exclusively a Decision-phase concern. It shapes whether the persona engages, never how they word a reply.
 
@@ -51,7 +51,7 @@ When `ResponseUrge.Total ≥ 0.9` (today: direct name mention) *and* no `RepairH
 
 This is a cost/latency optimisation: the math is decisive enough that the LLM's verdict isn't needed. Trade-offs:
 
-- **Memory-blind on the shortcut.** No recall snippets reach the Speaking phase. Acceptable when "they said my name" is the trigger — the reply is short, mostly a chime-in. Flagged as a known limitation in [ADR 0009](0009-mvp-recall-top-n-recent.md).
+- **Memory-blind on the shortcut.** No recall snippets reach the Speaking phase. Acceptable when "they said my name" is the trigger — the reply is short, mostly a chime-in. Flagged as a known limitation in ADR 0015.
 - **Bypassed on pending repair.** A pending `RepairHint` always pays the Decision LLM call so the prompt-level repair stanza fires; the shortcut would otherwise mask a missed message under the name-mention.
 
 ## Consequences

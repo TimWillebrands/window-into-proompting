@@ -1,6 +1,6 @@
 # Recall as relevance realization: salience-ranked, graph-walked, self-organizing
 
-> Status: accepted. Supersedes the retrieval design of [ADR 0009](0009-mvp-recall-top-n-recent.md)
+> Status: accepted. Supersedes the retrieval design of ADR 0009 (deleted)
 > (top-N recent, no ranking). What survives from 0009: the `IMemoryRepository` seam as the
 > swap boundary — this ADR is exactly the swap that seam promised — and the
 > "Decision selects, Speaking executes" handoff from [ADR 0010](0010-two-phase-persona-response.md).

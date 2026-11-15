@@ -1,13 +1,11 @@
 # Property-anchored Events; drop Party/Room/Message vertices
 
 > Status: accepted. Reshapes the AGE graph from [ADR 0006](0006-pure-age-for-memory.md) /
-> [ADR 0007](0007-append-only-stance-edges.md). Supersedes the *shape* shown in the
-> examples of [ADR 0009](0009-mvp-recall-top-n-recent.md) (the recall query is unchanged in
+> ADR 0007 (folded into 0016). Supersedes the *shape* shown in the
+> examples of ADR 0009 (folded into 0015); the recall query is unchanged in
 > spirit — it still walks `(:Participant)-[:RECOLLECTS]->(:Event)` — only the surrounding
-> vertices are fewer). The **language** in `CONTEXT.md` is untouched: this is shape, not
+> vertices are fewer. The **language** in `CONTEXT.md` is untouched: this is shape, not
 > vocabulary.
-
-Landed **before** the import slices (#79/#80) so they build against the simpler shape.
 
 ## The change
 
@@ -59,23 +57,9 @@ current behaviour:
    ("lisp" / "common lisp" / "lisp programming") that would later wreck graph-walk recall.
    `NormaliseConceptName` stays as the write-side dedup backstop. The fetch pastes at most
    ~60 names into the prompt; once Concept volume outgrows that, switch the fetch to a
-   prefix/fuzzy match (the seam is `FetchExistingConceptDisplaysAsync`). Same shape as the
-   import design's `PersonaMatchService` ([ADR 0013](0013-import-as-iterative-scene-workshop.md)).
+   prefix/fuzzy match (the seam is `FetchExistingConceptDisplaysAsync`).
 
-## Schema lives in the init script (ADR 0008 is still unimplemented)
-
-> Since implemented: see [ADR 0008](0008-ef-migrations-for-memory-schema.md#as-built). This section records the state at the time of this ADR.
-
-[ADR 0008](0008-ef-migrations-for-memory-schema.md) decided the memory schema should live in
-EF migrations holding raw `Sql(...)` blocks. **That was never built** — there is no
-`backend/Data/Migrations/`; the actual DDL is `docker-entrypoint-initdb.d/06-memory-graph.sql`,
-which runs only on first volume init. This reshape edited the init script (the smaller diff)
-rather than standing up the EF-migration machinery, and re-inits via `docker volume rm
-partytown-pgdata`. **ADR 0008 remains accepted-but-unimplemented**; honouring it is its own
-piece of work, out of scope here. Data preservation does not matter for this internal
-refactor — stored graph data and event streams are disposable.
-
-### Fixed a latent fresh-init failure
+## AGE index gotcha
 
 The property-functional indexes were written `((properties ->> 'name'))`. AGE's `->>` takes
 an **agtype** key on the right, so a bare SQL string raises `invalid input syntax for type
@@ -96,9 +80,4 @@ half-initialised one.
   touched message N" query is a property scan, not a graph walk. Fine at current scale; if
   it becomes hot, add an Event `anchor_message_id` index (cheap) or reintroduce a Message
   vertex then.
-- **Recall is unchanged.** `RecallRecentSnippetsAsync` still walks
-  `(:Participant)-[:RECOLLECTS]->(:Event)`; the Event having fewer neighbours doesn't touch
-  it. [ADR 0009](0009-mvp-recall-top-n-recent.md)'s top-N-recent contract holds.
-- **Relevance-realization work is still ahead.** Activation/weight scoring, use-strengthening,
-  graph-walk recall, auto-capture, Stance, Consolidation, embeddings — all later phases,
-  none attempted here. This was shape + capture-cost only.
+- **Recall is unchanged.** `RecallRecentSnippetsAsync` still walks `(:Participant)-[:RECOLLECTS]->(:Event)`; fewer Event neighbours don't touch it.

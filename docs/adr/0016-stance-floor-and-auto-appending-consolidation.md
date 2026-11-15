@@ -1,6 +1,6 @@
 # Stance floor: ambient in both phases; Consolidation auto-appends with retract
 
-> Status: accepted. Supersedes [ADR 0007](0007-append-only-stance-edges.md) — its
+> Status: accepted. Supersedes ADR 0007 (deleted, restated below) — its
 > append-only core is restated (not reversed) below; what changes is the curation model.
 > Vocabulary (**Stance**, **Consolidation**, the four knowing-layers) is canonised in
 > [`CONTEXT.md`](../../CONTEXT.md). Recall mechanics live in
@@ -87,7 +87,7 @@ click, and latest-wins means a correction immediately masks the junk.
 
 **Triggers**: curator button; a gauge — Σ `weight` of unconsolidated Recollections per
 Participant exceeding a threshold ("the persona has enough unprocessed experience to sleep
-on"); and import-finalize per [ADR 0013](0013-import-as-iterative-scene-workshop.md).
+on"); and import-finalize per the old import design (ADR 0013, superseded by 0022).
 
 ## Ambivalence reads
 

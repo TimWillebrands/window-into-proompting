@@ -1,7 +1,6 @@
 # Arrival: a Persona's nurture is seeded by an agent, not imported from a format
 
-> Status: accepted. Supersedes [ADR 0017](0017-import-scene-workshop-over-stateless-map.md)
-> (and with it [ADR 0013](0013-import-as-iterative-scene-workshop.md)). Builds on ADR 0016
+> Status: accepted. Supersedes ADRs 0013 and 0017 (the chat importer, deleted; see git history). Builds on ADR 0016
 > (Stances) and ADR 0021 (lived self).
 
 The importer turned one chat-export format into a Room's message log plus memories, scene by

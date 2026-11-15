@@ -1,7 +1,7 @@
 # Work clothes: dressed for the job, then yourself again
 
 > Status: accepted. Builds on ADR 0024 (Wardrobe), 0026 (Occupations), 0028 (Figures), 0037 (Players on auto).
-> Proposed in `docs/rfc/2026-11-14-work-clothes.md`. Vocabulary in `CONTEXT.md`.
+> Vocabulary in `CONTEXT.md`.
 
 Eiko, the shrine's priestess, stood at the pond on shift in a purple band tee and sneakers. A look was one thing worn
 all day. No shift step touched clothes, and leaving it to a Life choice would let her skip it every morning.

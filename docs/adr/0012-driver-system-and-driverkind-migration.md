@@ -8,7 +8,7 @@ The vocabulary (**Narrator**, expanded **Driver**) is canonised in [`CONTEXT.md`
 
 ## Why now (and why not chattiness=0)
 
-The chat-import work (see [ADR 0013](0013-import-as-iterative-scene-workshop.md)) needs a permanent home for narration lines that no specific Persona owns. The existing prototype invented a per-import `_narrator` Persona on every commit — one new library Persona per imported chat, accumulating forever. That's the proximate trigger.
+The chat-import work (the old chat importer, ADR 0013, superseded by 0022) needs a permanent home for narration lines that no specific Persona owns. The existing prototype invented a per-import `_narrator` Persona on every commit — one new library Persona per imported chat, accumulating forever. That's the proximate trigger.
 
 Three candidate shapes were on the table:
 
@@ -35,6 +35,6 @@ Per the `feedback_no_migration_safety_internal` memory, stored event streams and
 - `PartyParticipant.IsUser` is removed; `DriverKind` becomes the storage form everywhere.
 - The CONTEXT footnote about `IsUser` being kept is rewritten to reference this migration.
 - A library-level singleton Narrator Persona is seeded by migration. It is *not* deletable through normal Persona-management UI (a separate guard).
-- Every Party — including existing ones — auto-grows a Narrator-Participant with `Default Driver = System` on creation or back-fill. See [ADR 0013](0013-import-as-iterative-scene-workshop.md) for the eager-vs-lazy reasoning.
+- Every Party — including existing ones — auto-grows a Narrator-Participant with `Default Driver = System` on creation or back-fill.
 - The Response pipeline gains a single guard at the auto-generation entry point that short-circuits when `Effective Driver = System`. Other Driver kinds proceed as today.
 - Narrator accumulates **Memories** (Recollections, Stances, Concept references) like any other Participant. Scripted-narration callers can read those edges to produce in-context ambient text without re-deriving scene state.
