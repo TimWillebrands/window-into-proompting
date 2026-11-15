@@ -35,16 +35,12 @@ const PETALS = ['#f2c14e', '#e86a92', '#f4f1de', '#c77dff', '#ff8552'];
 
 export interface GroundMeshes {
     solid: THREE.BufferGeometry | null;
-    /** Window panes: they show the sky, so they're lit by time of day. */
     glass: THREE.BufferGeometry | null;
-    /** Arch lights under bridges, on at night. */
     lights: THREE.BufferGeometry | null;
-    /** Daylight falling in through the windows, on the floor. */
     sunlit: THREE.BufferGeometry | null;
     houses: Placement[];
 }
 
-/** Floors, walls (cut away in front), quays, bridges and the houses' plots, merged per scene. */
 export function buildGround(s: Scene): GroundMeshes {
     const solid: THREE.BufferGeometry[] = [];
     const glass: THREE.BufferGeometry[] = [];
@@ -85,7 +81,6 @@ export function buildGround(s: Scene): GroundMeshes {
                         ),
                     );
                 else if (floorStyle === 'planks') {
-                    // Boards run along x, a seam every tile and a half.
                     for (let i = 0; i < 4; i++) {
                         const shade = jitter(
                             mix(floor, '#000000', ((i + z) % 3) * 0.035),
@@ -185,7 +180,6 @@ export function buildGround(s: Scene): GroundMeshes {
                         ),
                     );
                 }
-                // Where floor meets a back wall it's a touch darker: cheap depth.
                 if (kind === 'floor') {
                     const shade = mix(floor, '#000000', 0.2);
                     if (['wall', 'window'].includes(g(x, z - 1)))
@@ -581,7 +575,6 @@ export function buildGround(s: Scene): GroundMeshes {
                         );
                     continue;
                 }
-                // Along the tile edge next to the room: x-walls run along z, z-walls along x.
                 const along = (
                     w: number,
                     h: number,
@@ -625,7 +618,6 @@ export function buildGround(s: Scene): GroundMeshes {
                     wallStyle === 'panel' ? accent : mix(wall, '#000000', 0.12);
                 const skirting = mix(wainscot, '#000000', 0.3);
                 const dress = (full: boolean) => {
-                    // Skirting board and a rail under the ceiling line, on every style.
                     solid.push(along(1, 0.1, 0, skirting, skirting, 0.03));
                     if (wallStyle === 'wainscot')
                         solid.push(
@@ -807,7 +799,6 @@ export function buildGround(s: Scene): GroundMeshes {
     };
 }
 
-/** Railings on bridge edges over water. */
 function bridgeRails(
     s: Scene,
     x: number,
@@ -842,7 +833,6 @@ function bridgeRails(
     if (wet(0, 1)) rail(x + 0.5, z + 0.94, true);
 }
 
-/** The dark arch on a bridge's camera-facing side, with its string of lights. */
 function arches(s: Scene) {
     const out: {
         dark: THREE.BufferGeometry;
@@ -884,7 +874,6 @@ function arches(s: Scene) {
                     0,
                     Math.PI,
                 );
-                // Half disc, upper half, in the face's plane.
                 if (dir === 'x') disc.rotateZ(Math.PI / 2);
                 else disc.rotateX(Math.PI / 2).rotateZ(Math.PI / 2);
                 disc.translate(cx, -0.42, cz);

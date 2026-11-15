@@ -174,7 +174,6 @@ function FoundForm() {
     );
 }
 
-/** No Book here: the work happens with the CDU, in its window. */
 function CduPage({ company }: { company: CompanySummary }) {
     return (
         <>
@@ -421,7 +420,6 @@ function Staff({ company }: { company: CompanySummary }) {
     );
 }
 
-/** The same order a Persona's Life places, for whoever on the staff you pick. */
 function TradeForm({ company }: { company: CompanySummary }) {
     const trade = usePostWorldsPartyIdCompaniesCompanyIdTrades(
         useRefreshWork(),

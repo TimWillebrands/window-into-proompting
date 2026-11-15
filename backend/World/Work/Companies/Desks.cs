@@ -8,7 +8,6 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
-/// <summary>Pure: when a Company reads its Market, and how a result lands on the people in it.</summary>
 public static class DeskRules
 {
     public static readonly TimeSpan MarkEvery = TimeSpan.FromMinutes(5);
@@ -20,7 +19,6 @@ public static class DeskRules
 
     public static bool Due(long? last, TimeSpan every, long now) => last is not { } at || now - at >= every.TotalMilliseconds;
 
-    /// <summary>How a result moves the mood, as p(better): stronger the more of the Book it was.</summary>
     public static double Better(double amount, double capital)
         => capital <= 0 ? 0.5 : Math.Clamp(0.5 + amount / capital * 5, 0.2, 0.8);
 
@@ -37,13 +35,11 @@ public static class DeskRules
         => $"{company.Name}'s book is {Percent(move)} today, at {Credits(company.Book.Value)} credits.";
 }
 
-/// <summary>Where a Company meets its Market (ADR 0030): the I/O around <see cref="ICompaniesGrain"/>, and word of results reaching its staff.</summary>
 public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory memory, ILogger<Desks> logger)
 {
     private static readonly TimeSpan ReadBudget = TimeSpan.FromSeconds(20);
     private readonly ConcurrentDictionary<Guid, byte> _refreshing = new();
 
-    /// <summary>Founds a Company with an office of its own; null when the name is taken or the Market isn't known.</summary>
     public async Task<Company?> FoundAsync(Guid partyId, string name, string mandate, string market, string? focus, double? capital)
     {
         if (feeds.For(market) is null) return null;
@@ -59,17 +55,14 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         return company is null ? null : await Companies(partyId).GetAsync(company.Id);
     }
 
-    /// <summary>An office for a new Company, under its own name.</summary>
     public async Task<string> OfficeAsync(Guid partyId, string name)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);
         var localeId = await places.NamedLocaleAsync(name);
-        // Authors aren't held to the Opening budget; a full map leaves the office offscreen.
         var opened = await places.OpenAsync(localeId, "office", "author");
         return opened?.Name ?? name;
     }
 
-    /// <summary>Puts someone on the staff; the job's hours are theirs, the workplace is the Company's.</summary>
     public async Task<OccupationView?> HireAsync(Guid partyId, Guid companyId, Guid who, string title, int days, int start, int end)
     {
         if (await Companies(partyId).GetAsync(companyId) is not { } company) return null;
@@ -79,7 +72,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         });
     }
 
-    /// <summary>A new focus, and the Watchlist read from it now; null unless it's a trading Company.</summary>
     public async Task<Company?> RefocusAsync(Guid partyId, Guid companyId, string? focus)
     {
         if (await Companies(partyId).RefocusAsync(companyId, string.IsNullOrWhiteSpace(focus) ? null : focus.Trim()) is not { } company) return null;
@@ -87,7 +79,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         return await Companies(partyId).GetAsync(companyId);
     }
 
-    /// <summary>One order, at a quote read just now; Life and HTTP both come through here.</summary>
     public async Task<TradeResult> TradeAsync(Guid partyId, Guid companyId, TradeOrder order)
     {
         if (await Companies(partyId).GetAsync(companyId) is not { } company) return TradeResult.No("That Company is gone.");
@@ -98,7 +89,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         return await Companies(partyId).TradeAsync(companyId, quote, order, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
-    /// <summary>The clock's step: runs only while the World runs, so a pause catches up as one gap (ADR 0030).</summary>
     public async Task RefreshAsync(Guid partyId, DateTimeOffset now)
     {
         if (!_refreshing.TryAdd(partyId, 0)) return;
@@ -119,7 +109,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         if (DeskRules.Due(company.WatchedAt, DeskRules.WatchEvery, at))
         {
             var found = await feed.SearchAsync(company.Focus, DeskRules.WatchSize, cts.Token);
-            // A failed search is no reason to forget what you were watching.
             if (found.Count > 0)
             {
                 await Companies(partyId).WatchAsync(company.Id, found, at);
@@ -134,7 +123,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         if (news.Any && await Companies(partyId).GetAsync(company.Id) is { } after) await TellAsync(partyId, after, news);
     }
 
-    /// <summary>Prices aren't Events (ADR 0030): only Settlements and big days become memory, for staff alone.</summary>
     private async Task TellAsync(Guid partyId, Company company, BookNews news)
     {
         var lines = news.Settled.Select(t => (Text: DeskRules.Settled(company, t), Amount: t.Realized ?? 0)).ToList();
@@ -162,7 +150,6 @@ public sealed class Desks(IGrainFactory grains, MarketFeeds feeds, WorldMemory m
         _ = memory.CaptureAsync(new Moment(partyId, MomentSources.Work, company.Id, moment, moment.Count - 1, staff), CancellationToken.None);
     }
 
-    /// <summary>Everyone whose Occupation names this Company, whoever drives them.</summary>
     public async Task<List<ParticipantView>> StaffAsync(Guid partyId, Guid companyId)
     {
         var cast = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Where(c => c.Id != Narrator.PersonaId).ToList();

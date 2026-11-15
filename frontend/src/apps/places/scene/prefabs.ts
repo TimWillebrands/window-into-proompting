@@ -14,8 +14,6 @@ import {
 } from './prefab';
 import type { HouseStyle } from './scene';
 
-/** The prefab library (ADR 0023). Add one here and use it by name in any scene. */
-
 const C = {
     wood: '#a0703f',
     darkWood: '#5b3a22',
@@ -74,7 +72,6 @@ const legs = (w: number, d: number, h: number, c: string, r = 0.03): Part[] =>
         cyl(r, h, (sx * w) / 2, 0, (sz * d) / 2, c, { flat: true }),
     );
 
-/** Lerp two hex colours. */
 export function mix(a: string, b: string, t: number): string {
     const pa = Number.parseInt(a.slice(1), 16);
     const pb = Number.parseInt(b.slice(1), 16);
@@ -125,7 +122,6 @@ function bikeParts(r: () => number, x: number, z: number, ry = 0): Part[] {
     ];
 }
 
-/** A plant's leaves, browning and drooping as it dries out. */
 function leaves(v: PrefabVariant, y: number, r: number): Part[] {
     const c = v.state?.condition ?? 1;
     const colour = mix(C.dryLeaf, C.leaf, Math.min(1, c * 1.4));
@@ -149,7 +145,6 @@ function leaves(v: PrefabVariant, y: number, r: number): Part[] {
     ];
 }
 
-/** Lamps light up unless broken, which flickers. */
 const lampGlow = (v: PrefabVariant) =>
     v.state && v.state.condition < 0.5 ? 'flicker' : 'light';
 
@@ -164,7 +159,6 @@ const BRICKS = [
     '#2f3d47',
 ];
 
-/** One narrow canal house, facade toward +z. */
 function canalHouse(v: PrefabVariant, style: HouseStyle = {}): Part[] {
     const r = rng(v.seed);
     const storeys = style.storeys ?? 2 + Math.floor(r() * 3);
@@ -177,7 +171,6 @@ function canalHouse(v: PrefabVariant, style: HouseStyle = {}): Part[] {
     const top = ground + storeys * storey;
     const f = 0.5;
     const parts: Part[] = [box(1, top, 1, 0, 0, 0, brick)];
-    // Ground floor: door with a stoop, and a shop window or a house window.
     const doorLeft = r() < 0.5;
     const dx = doorLeft ? -0.26 : 0.26;
     parts.push(
@@ -308,7 +301,6 @@ export const HOUSE = (style?: HouseStyle): Prefab => ({
     parts: (v) => canalHouse(v, style),
 });
 
-/** Front-row houses are cut away to their ground floor so the camera sees over them. */
 export const HOUSE_STUB: Prefab = {
     parts: (v) => {
         const brick = pick(rng(v.seed), BRICKS);
@@ -407,7 +399,6 @@ const books = (v: PrefabVariant): Part[] => {
 };
 
 export const PREFABS: Record<string, Prefab> = {
-    // Seating
     sofa: {
         size: [2, 1],
         tint: { fabric: '#b8574a' },
@@ -523,7 +514,6 @@ export const PREFABS: Record<string, Prefab> = {
             ];
         },
     },
-    // Tables
     table: {
         parts: [
             cyl(0.2, 0.03, 0, 0, 0, C.dark, { flat: true }),
@@ -630,7 +620,6 @@ export const PREFABS: Record<string, Prefab> = {
             box(0.96, 0.8, 0.08, 0, 0, -0.98, C.darkWood),
         ],
     },
-    // Furni (backend state drives them)
     plant: {
         parts: (v) => [
             cyl(0.17, 0.32, 0, 0, 0, C.pot),
@@ -871,7 +860,6 @@ export const PREFABS: Record<string, Prefab> = {
             }),
         ],
     },
-    // Decor (Homes, in the owner's words)
     poster: { wall: true, solid: false, parts: poster },
     painting: { wall: true, solid: false, parts: painting },
     easel: { parts: easel },
@@ -996,7 +984,6 @@ export const PREFABS: Record<string, Prefab> = {
             box(0.84, 0.46, 0.01, 0, 0.48, -0.25, '#1b2a3a', { flat: true }),
         ],
     },
-    // Outdoors
     elm: {
         parts: (v) => {
             const r = rng(v.seed);
@@ -1136,7 +1123,7 @@ export const PREFABS: Record<string, Prefab> = {
                 },
             ];
         },
-    }, // Bars, shops, parties, cosy corners
+    },
     'bar-shelf': {
         size: [2, 1],
         parts: (v) => {
@@ -1599,12 +1586,9 @@ export const PREFABS: Record<string, Prefab> = {
             },
         ],
     },
-    // Catalogue models (ADR 0027), generated from tools/catalogue/picks.json.
     ...CATALOGUE,
 };
 
-/** The prefab a furni kind (or a decor style) draws with by default. */
-// The data library (ADR 0049): models as JSON, shared with the backend; code prefabs win a name clash.
 Object.assign(PALETTE, library.palette);
 for (const m of library.models as unknown as (Model & { name: string })[]) {
     const prefab = prefabOf(m);
@@ -1612,7 +1596,6 @@ for (const m of library.models as unknown as (Model & { name: string })[]) {
 }
 Object.assign(REGISTRY, PREFABS);
 
-/** Library models by name, for galleries. */
 export const LIBRARY: string[] = library.models.map((m) => m.name);
 
 export const FURNI_PREFAB: Record<string, string> = {
@@ -1633,7 +1616,6 @@ export const FURNI_PREFAB: Record<string, string> = {
     thing: 'thing',
 };
 
-/** Prefab for a spot nobody drew a scene for, by what it's called. */
 export function prefabForSpot(name: string): string | null {
     const n = name.toLowerCase();
     const rules: [RegExp, string][] = [

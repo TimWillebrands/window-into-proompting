@@ -9,10 +9,8 @@ using PartyTown.World.Work.Companies;
 
 namespace PartyTown.World;
 
-/// <summary>Everyone moves to a fresh World: Nature travels, Nurture stays behind but for the Relations picked and the CDU's staff.</summary>
 public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks, Cytheurgy cdu, ILogger<WorldMove> logger)
 {
-    /// <returns>The new World's id; null when there's no World to move from.</returns>
     public async Task<Guid?> MoveAsync(Guid fromId, MovePlan plan)
     {
         var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);
@@ -35,7 +33,6 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
         var clock = grains.GetGrain<IWorldClockGrain>(toId);
         await clock.AdoptPlayersAsync(players);
 
-        // Places before looks: bringing someone's body in makes them a Home unless theirs is already there.
         var placeIds = plan.PlaceIds?.ToHashSet()
             ?? Movable(town.Places, await grains.HumansAsync(fromId), Names(from)).Where(m => m.Suggested).Select(m => m.Id).ToHashSet();
         var places = town.Places
@@ -70,7 +67,6 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
         return toId;
     }
 
-    /// <summary>The Places in this World a Move can bring along.</summary>
     public async Task<List<MovablePlace>> MovablePlacesAsync(Guid fromId)
     {
         var town = await grains.GetGrain<IPlacesGrain>(fromId).GetSnapshotAsync();
@@ -79,7 +75,6 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
 
     private static readonly HashSet<string> Seeded = PlaceSeeds.Public().Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Places someone made, rather than the town seeding or drawing them; only humans' Homes, Personas furnish theirs again.</summary>
     public static List<MovablePlace> Movable(IEnumerable<Place> places, IReadOnlySet<Guid> humans, IReadOnlyDictionary<Guid, string> names)
     {
         var movable = new List<MovablePlace>();
@@ -102,7 +97,6 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
         return movable;
     }
 
-    /// <summary>The Place as it was made: who was in it, knocked, held keys, worked or lived along there stays behind.</summary>
     public static Place Fresh(Place p, IReadOnlySet<Guid> carried)
     {
         p.TalkRoomId = null;
@@ -133,7 +127,6 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
 
     private static Dictionary<Guid, string> Names(PartyInfo party) => party.Participants.ToDictionary(p => p.Id, p => p.Name);
 
-    /// <summary>The CDU is behind every World, not in one: its Company and staff come along, jobs and the secret too.</summary>
     private async Task CarryCduAsync(Guid fromId, Guid toId, HashSet<Guid> carried)
     {
         foreach (var company in (await grains.GetGrain<ICompaniesGrain>(fromId).GetAllAsync()).Where(c => CompanyKinds.IsCdu(c.Kind)))
@@ -149,15 +142,9 @@ public sealed class WorldMove(IGrainFactory grains, PlayerAuto auto, Desks desks
     }
 }
 
-/// <summary>Who comes along, and which of the old World's Relations and Places.</summary>
-/// <param name="ParticipantIds">Null is everyone.</param>
-/// <param name="PlaceIds">Null is the ones someone authored, see <see cref="WorldMove.Movable"/>.</param>
 public sealed record MovePlan(string Name, IReadOnlyCollection<Guid>? ParticipantIds, IReadOnlyCollection<Guid> RelationIds, IReadOnlyCollection<Guid>? PlaceIds);
 
-/// <summary>Where a Place came from: the author, a Player, a Persona, the town growing, or a Player's Home.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PlaceOrigin>))]
 public enum PlaceOrigin { Author, Player, Persona, Opened, Home }
 
-/// <summary>A Place a Move can bring; <paramref name="Suggested"/> when someone authored it.</summary>
-/// <param name="ById">Who made it, or whose Home it is.</param>
 public sealed record MovablePlace(Guid Id, string Name, PlaceOrigin Origin, Guid? ById, string? By, bool Suggested);

@@ -3,11 +3,6 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest;
 
-/// <summary>
-/// The ambient "# Where you stand" block renderer (ADR 0016) — the same helper both the
-/// Decision and Speaking prompts call, so a single test pins the rendered shape both phases
-/// see.
-/// </summary>
 public sealed class StanceBlockTest
 {
     [Fact]
@@ -53,8 +48,6 @@ public sealed class StanceBlockTest
 
         var text = StanceBlock.FormatLine(line);
 
-        // One combined line, not two entries: both the current belief and the earlier
-        // contradicting one are present, joined by a single em-dash clause.
         Assert.StartsWith("Denise exaggerates", text);
         Assert.Contains("you admired her storytelling", text);
         Assert.Contains("—", text);

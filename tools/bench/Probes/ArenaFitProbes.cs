@@ -5,10 +5,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// ADR 0057: does the fit come out of the agent–arena relation, not the room alone? Opposite tastes,
-/// the same three rooms; the judge's p(it lifts them) should rank the rooms differently per persona.
-/// </summary>
 public static class ArenaFitProbes
 {
     private const int Samples = 3;

@@ -6,7 +6,6 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>Stop-signal salience through System One: the score, the clamp, and "let it ride" on any failure.</summary>
 public class PersonaSalienceServiceTest
 {
     private static SelfView MakeSelf() =>

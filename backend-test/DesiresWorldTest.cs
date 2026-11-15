@@ -7,7 +7,6 @@ using PartyTown.World.Economy;
 
 namespace BackendTest;
 
-/// <summary>Desires in a real cluster (ADR 0026): intrinsic ones go per Party, acquired ones crowd out, wanting gets bought.</summary>
 public class DesiresWorldTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly WorldLifeTest.Fixture _fx;

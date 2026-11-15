@@ -7,7 +7,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Promises in a real cluster (ADR 0043): one Desire per promise, lapses that cool, meet-ups on the Calendar.</summary>
 public class PromisesWorldTest : IClassFixture<CduWorldTest.Fixture>
 {
     private readonly CduWorldTest.Fixture _fx;

@@ -9,30 +9,8 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="PersonaDecisionService.ShouldRespondAsync"/> — the per-persona
-/// "should I respond?" evaluator's end-to-end LLM path.
-///
-/// Coverage areas:
-///   - Auto-respond shortcut fires when mentionScore pushes urge total ≥ 0.9 (skips LLM call)
-///   - Well-formed JSON from the LLM is parsed into ShouldRespondResult
-///   - Malformed-but-repairable JSON falls back to JsonRepair and is still parsed
-///   - Completely unparseable JSON fails closed: Respond=false, Reason starts with "Fallback"
-///   - RepairHint injection into the system prompt; bypasses the auto-respond shortcut
-///   - memoryToReference decision→speaking handoff
-///
-/// Pure pre-gate math (mention / question / silence / cold-open scoring) lives in
-/// <see cref="UrgeMath"/> and is covered by <see cref="UrgeMathTest"/>.
-///
-/// Testing strategy:
-///   PersonaDecisionService is a plain class — no Orleans grain, no TestKit silo.
-///   The async path mocks ILlmRouterGrain (→ ILlmEndpointGrain → scripted IAsyncEnumerable).
-///   NullLogger.Instance is used instead of a mock to avoid setting up IsEnabled() on every test.
-/// </summary>
 public class PersonaDecisionServiceTest
 {
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private static SelfView MakeParticipant(string name, Guid? id = null) =>
         new(id ?? Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", null, 0.5, 0.5);
 
@@ -47,10 +25,6 @@ public class PersonaDecisionServiceTest
         Content = content,
     };
 
-    /// <summary>
-    /// Returns an endpoint mock whose GenerateAsync yields a single chunk containing <paramref name="json"/>.
-    /// Used to drive the LLM-path tests without involving a real language model.
-    /// </summary>
     private static Mock<ILlmEndpointGrain> EndpointReturningJson(string json)
     {
         var endpoint = new Mock<ILlmEndpointGrain>();
@@ -81,13 +55,9 @@ public class PersonaDecisionServiceTest
     private PersonaDecisionService MakeServiceWithRouter(Mock<ILlmRouterGrain> router)
         => new PersonaDecisionService(router.Object, NullLogger.Instance);
 
-    // ── ShouldRespondAsync — auto-respond shortcut ────────────────────────────
-
     [Fact]
     public async Task ShouldRespondAsync_DirectMention_AutoRespondsWithoutCallingLlm()
     {
-        // When the persona is directly mentioned (urge.Total ≥ 0.9), the LLM call is skipped
-        // entirely to save a round-trip. This is the "you were directly addressed" fast path.
         var router = new Mock<ILlmRouterGrain>();
         var self = MakeParticipant("Diana");
         var senderId = Guid.NewGuid();
@@ -111,18 +81,13 @@ public class PersonaDecisionServiceTest
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
 
         Assert.True(result.Respond);
-        // Its labels ("Heard my name (urge=1.00)") are for the thought log; Speaking must not read them as a draft.
         Assert.True(result.Shortcut);
         router.Verify(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ── ShouldRespondAsync — LLM decision path ────────────────────────────────
-
     [Fact]
     public async Task ShouldRespondAsync_WellFormedJsonResponse_ParsesDecision()
     {
-        // The LLM returns valid JSON matching the ShouldRespondResult schema. It should be
-        // parsed directly without falling through to JsonRepair.
         var self = MakeParticipant("Eve");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -152,8 +117,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_MalformedJsonResponse_FallsBackToJsonRepair()
     {
-        // The LLM occasionally produces broken JSON (missing quotes, trailing commas, etc.).
-        // JsonRepair should recover it rather than failing closed.
         var self = MakeParticipant("Frank");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -166,13 +129,11 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        // JSON with a trailing comma — invalid syntax but repairable
         var malformed = """{"respond": true, "wouldSay": "Go ahead", "gutReaction": "natural",}""";
 
         var service = MakeService(EndpointReturningJson(malformed));
         var result = await service.ShouldRespondAsync(self, history, participants, 0, null, CancellationToken.None);
 
-        // Repaired JSON should still parse as Respond=true
         Assert.True(result.Respond);
         Assert.False(result.Reason.StartsWith("Fallback"), "Expected repaired JSON, not the fail-closed fallback");
     }
@@ -180,9 +141,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_JsonWrappedInMarkdownCodeFence_ParsesCorrectly()
     {
-        // Observed in production: models (despite schema constraints) frequently wrap their
-        // response in ```json … ``` fences. The first parse fails on the leading backtick,
-        // and JsonRepair also chokes on it — so the decision service must strip fences itself.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -208,11 +166,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_JsonWithStrayDoubleQuoteWrappersOnWouldSay_ParsesCorrectly()
     {
-        // Observed in production traces (log_id 9199): models occasionally treat wouldSay
-        // as a quotation field and wrap the value in literal extra quotes — `"wouldSay": ""xxx""`
-        // — yielding two consecutive `"` that JSON parses as an empty string followed by junk.
-        // JsonRepair doesn't recognise this. LlmJsonParsing.CollapseStrayDoubleQuoteWrappers
-        // strips the outer pair before handing off.
         var self = MakeParticipant("Hana");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -225,8 +178,6 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        // Mirror the exact failure mode from the prod log: gutReaction normal, wouldSay
-        // wrapped in `""…""`, no internal escaping. JsonRepair alone fails here.
         var broken = "{\"gutReaction\": \"Entropy here.\", \"wouldSay\": \"\"Denise, your noise wasn't noise. How do we *invite* it, not dissect?\"\", \"respond\": true}";
 
         var service = MakeService(EndpointReturningJson(broken));
@@ -237,7 +188,6 @@ public class PersonaDecisionServiceTest
             result.Reason.StartsWith("Fallback"),
             $"Expected stray-quote-wrapper repair to parse, not the fail-closed fallback. Got reason: {result.Reason}");
         Assert.Contains("Denise, your noise", result.Instruction);
-        // Outer wrappers stripped — content shouldn't start/end with the literal extra quote.
         Assert.False(result.Instruction.StartsWith("\""),
             $"Expected leading wrapper quote stripped; instruction starts with quote: {result.Instruction}");
     }
@@ -245,9 +195,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_JsonWithRawNewlinesInsideStringValue_ParsesCorrectly()
     {
-        // Second observed failure mode: LLMs emit literal newlines inside a multi-line `reason`
-        // field. JsonRepairSharp does not escape these — the service must normalize control
-        // chars inside string values before handing off to the parser.
         var self = MakeParticipant("Vlad");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -260,7 +207,6 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        // Raw 0x0A inside the "gutReaction" string — exactly the byte that triggered the prod error.
         var broken = "{\"gutReaction\": \"First line.\nSecond line.\", \"respond\": true, \"wouldSay\": \"Reply.\"}";
 
         var service = MakeService(EndpointReturningJson(broken));
@@ -273,8 +219,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_UnparseableJsonResponse_FailsClosedWithRespondFalse()
     {
-        // If even JsonRepair can't recover the response, the service must fail closed:
-        // Respond=false so that a garbled LLM output never causes an unwanted AI turn.
         var self = MakeParticipant("Grace");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -287,7 +231,6 @@ public class PersonaDecisionServiceTest
             new() { MessageId = 1, SenderId = senderId, SenderType = "user", Content = "Hello." }
         };
 
-        // Complete garbage — neither valid JSON nor repairable
         var garbage = "<<<SYSTEM ERROR: upstream provider timeout>>>";
 
         var service = MakeService(EndpointReturningJson(garbage));
@@ -300,8 +243,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_InvokesOnEventCallbackForEachChunk()
     {
-        // The optional onEvent callback must receive a streaming event per LLM token so that
-        // clients can display the persona's "thinking" state in real time.
         var self = MakeParticipant("Henry");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -333,23 +274,15 @@ public class PersonaDecisionServiceTest
             },
             CancellationToken.None);
 
-        // At least one streaming event should have been received during the LLM call
         Assert.NotEmpty(streamingEvents);
         Assert.All(streamingEvents, e => Assert.Equal(MessageStreamEvent.PersonaEvaluationStreaming, e));
 
-        // A terminal completion event must arrive after streaming ends
         Assert.True(completionFired, "Expected a terminal PersonaEvaluationComplete event");
     }
-
-    // ── ShouldRespondAsync — memoryToReference (decision→speaking handoff) ───
 
     [Fact]
     public async Task ShouldRespondAsync_LlmPicksMemory_ReturnsMemoryToReference()
     {
-        // ADR 0015: the decision LLM picks one of the persona's recollections by its
-        // 1-based number in the "# What you remember" block. The index travels forward on
-        // ShouldRespondResult so the pipeline can resolve snippet (speaking phase) and
-        // edge id (strengthening write).
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -383,8 +316,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_LlmPicksIntegerShapedString_ParsesLeniently()
     {
-        // Models drift: a "2" instead of 2 must not fail the whole decision parse (which
-        // would fail closed and mute the persona). The lenient converter reads it as 2.
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -413,9 +344,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_LlmPastesMemoryText_ReadsAsNullPick()
     {
-        // The old contract was "copy the text verbatim" — a model trained on that habit
-        // (or just ignoring the integer schema) must degrade to "no pick", not a parse
-        // failure.
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -444,8 +372,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_OutOfRangePick_ClampsToNull()
     {
-        // An index past the surfaced list (or any pick when nothing was surfaced) is model
-        // noise — it can't key a strengthening write, so it reads as "no pick".
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -474,8 +400,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_RecollectionsRenderAsNumberedList()
     {
-        // The numbered block is the pick-by-index contract's other half: the model can
-        // only answer with a number if the prompt shows numbers.
         var self = MakeParticipant("Kira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -507,9 +431,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_LlmPicksNullMemory_ReturnsNullMemoryToReference()
     {
-        // The schema permits memoryToReference to be null when no memory fits the beat.
-        // Parser must accept null and surface it as a null .NET reference (not "null"
-        // string or empty) so downstream code's null check is correct.
         var self = MakeParticipant("Lev");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -537,9 +458,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_LegacyJsonWithoutMemoryField_DefaultsToNull()
     {
-        // Older traces (and the auto-respond shortcut) omit memoryToReference entirely.
-        // Backward compat: missing field deserialises as null, downstream behavior identical
-        // to an explicit null pick.
         var self = MakeParticipant("Mira");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -565,9 +483,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_AutoRespondShortcut_LeavesMemoryToReferenceNull()
     {
-        // Auto-respond bypasses the decision LLM entirely, so no memory selection ever
-        // happens. The speaking phase will see null and omit the memory block — matching
-        // the shortcut's "react immediately, recall data wasn't loaded" semantics.
         var router = new Mock<ILlmRouterGrain>();
         var self = MakeParticipant("Noor");
         var senderId = Guid.NewGuid();
@@ -588,13 +503,6 @@ public class PersonaDecisionServiceTest
         Assert.Null(result.MemoryToReference);
     }
 
-    // ── ShouldRespondAsync — RepairHint injection ─────────────────────────────
-
-    /// <summary>
-    /// Mock helper that captures the <see cref="LlmGenerationJob"/> handed to GenerateAsync,
-    /// so a test can assert what the model actually saw (e.g., does the system prompt contain
-    /// the repair-hint stanza). Returns the canned JSON regardless of the input.
-    /// </summary>
     private static (Mock<ILlmEndpointGrain> endpoint, List<LlmGenerationJob> capturedJobs) EndpointCapturingJobs(string json)
     {
         var captured = new List<LlmGenerationJob>();
@@ -636,10 +544,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_WithRepairHint_SystemPromptInjectsRepairStanza()
     {
-        // The race trigger sets a repair hint when a relevant message arrived during in-flight
-        // generation but the persona shipped past the point of no return. The next decision
-        // pass should see the hint surfaced in the system prompt so the persona can choose
-        // (in-character) whether to acknowledge.
         var self = MakeParticipant("Jules");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -670,10 +574,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_WithRepairHint_BypassesAutoRespondAndCallsLlm()
     {
-        // Auto-respond shortcut returns canned text and bypasses the system prompt's
-        // repairBlock entirely. When a repair hint is pending, that's wrong: the persona
-        // would barrel through name-mentions ignoring whatever they missed during the
-        // in-flight generation. Instead the slow path runs so the repair stanza injects.
         var self = MakeParticipant("Kai");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>
@@ -695,15 +595,12 @@ public class PersonaDecisionServiceTest
             self, history, participants, 0, null, CancellationToken.None,
             repairHint: hint);
 
-        // LLM was called (we captured a job).
         Assert.Single(jobs);
 
-        // System prompt contains the repair stanza.
         var system = jobs.Single().Messages.Single(m => m.Role == "system").Content;
         Assert.Contains("Just before you spoke", system);
         Assert.Contains("Mira", system);
 
-        // User prompt surfaces the mention cue (so the model still feels the pull of being named).
         var user = jobs.Single().Messages.Single(m => m.Role == "user").Content;
         Assert.Contains("(They said your name.)", user);
     }
@@ -711,7 +608,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_WindingDown_BypassesAutoRespondAndCallsLlm()
     {
-        // A fizzling conversation (ADR 0021): being named no longer forces a reply, the LLM may let it rest.
         var self = MakeParticipant("Kai");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView> { AsView(self), UserPv(senderId, "User") };
@@ -732,8 +628,6 @@ public class PersonaDecisionServiceTest
     [Fact]
     public async Task ShouldRespondAsync_NoMention_UserPromptOmitsMentionCue()
     {
-        // The mention cue is mention-score-gated. A neutral message must not get a fake
-        // "they said your name" cue or every prompt becomes the same.
         var self = MakeParticipant("Lara");
         var senderId = Guid.NewGuid();
         var participants = new List<ParticipantView>

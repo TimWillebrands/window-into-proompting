@@ -8,10 +8,8 @@ using PartyTown.World.Work;
 
 namespace PartyTown.World;
 
-/// <summary>Hands a Player's character to the agent stack and back (ADR 0037): only the Default Driver moves, ownership stays.</summary>
 public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<PlayerAuto> logger)
 {
-    /// <summary>What a new Player's sheet says until they describe their character.</summary>
     public const string HumanSheet = "A human visiting this world.";
 
     private const int MaxLines = 40;
@@ -25,15 +23,12 @@ public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<Play
         Output only the description.
         """;
 
-    /// <summary>The sheet written for them, kept for next time; null before their first time on auto.</summary>
     public async Task<string?> SheetAsync(Guid playerId)
         => (await grains.GetGrain<IPersonaGrain>(playerId).GetPersona()).SystemPrompt is { Length: > 0 } sheet && sheet != HumanSheet ? sheet : null;
 
-    /// <summary>What they were asked to go after, until it's done, fades or is replaced.</summary>
     public async Task<string?> MissionAsync(Guid partyId, Guid playerId)
         => (await Desires(partyId, playerId).GetAsync()).Acquired.FirstOrDefault(IsMission)?.Text;
 
-    /// <param name="mission">Replaces any running mission; blank clears it. Taking over ends it.</param>
     public async Task SetAsync(Guid partyId, Guid playerId, bool on, string? mission)
     {
         var party = grains.GetGrain<IPartyGrain>(partyId);
@@ -74,7 +69,6 @@ public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<Play
         if (DesireRules.Parse(next, kind, DesireSource.Mission, DateTimeOffset.UtcNow) is { } desire) await desires.AddAsync(desire);
     }
 
-    /// <summary>Their look, job and public lines. The sheet is public, so DMs stay out of it.</summary>
     public async Task<string> EvidenceAsync(Guid partyId, Guid playerId, string name)
     {
         var parts = new List<string> { $"Name: {name}" };
@@ -97,7 +91,6 @@ public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<Play
         return string.Join("\n\n", parts);
     }
 
-    /// <summary>Who they've been so far, read off their trace; with no model, one line the distilling fleshes out.</summary>
     private async Task<string> WriteSheetAsync(Guid partyId, PartyParticipant link)
     {
         try
@@ -116,13 +109,11 @@ public sealed class PlayerAuto(IGrainFactory grains, IWorldLlm llm, ILogger<Play
 
 public static class PlayerAutoExtensions
 {
-    /// <summary>Everyone a human owns or drives here; see <see cref="AccessRules.Humans"/>.</summary>
     public static async Task<IReadOnlySet<Guid>> HumansAsync(this IGrainFactory grains, Guid partyId)
         => AccessRules.Humans(
             (await grains.GetGrain<IPartyGrain>(partyId).GetParty()).Participants,
             await grains.GetGrain<IWorldClockGrain>(partyId).GetClaimedAsync());
 
-    /// <summary>Owned by a human, driven by the agent.</summary>
     public static async Task<bool> IsOnAutoAsync(this IGrainFactory grains, Guid partyId, Guid playerId)
         => (await grains.GetGrain<IPartyGrain>(partyId).GetParty()).Participants.Any(p => p.Id == playerId && p.Driver == DriverKind.LLM)
             && await grains.GetGrain<IWorldClockGrain>(partyId).IsClaimedAsync(playerId);

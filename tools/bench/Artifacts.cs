@@ -3,22 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace PartyTown.Bench;
 
-/// <summary>
-/// A single timestamped observation a probe records about the slice under design — an urge
-/// breakdown, a parsed decision, a raw stream, whatever the probe wants visible in the
-/// artifact. <see cref="Data"/> is serialized as-is (anonymous objects, records, dictionaries).
-/// </summary>
 public sealed record Observation(DateTimeOffset At, string Label, object? Data);
 
-/// <summary>
-/// The deliverable of a probe run (ADR 0011): the scenario inputs that were observed plus the
-/// LLM calls captured by <see cref="LlmCallRecorder"/>. Not a pass/fail — a structured record
-/// for a human to read on the console and an agent to diff across iterations. Written to
-/// <c>bench-runs/&lt;probe&gt;/&lt;timestamp&gt;.json</c> and rendered to stdout.
-/// </summary>
 public sealed class ProbeArtifact(string probe, DateTimeOffset startedAt)
 {
-    // Guarded: an abandoned probe task (post-timeout) may still Observe while Write serializes.
     private readonly List<Observation> _observations = [];
     private readonly Lock _gate = new();
 
@@ -43,8 +31,6 @@ public sealed class ProbeArtifact(string probe, DateTimeOffset startedAt)
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    /// <summary>Writes the artifact to <c>bench-runs/&lt;probe&gt;/&lt;yyyyMMdd-HHmmss&gt;.json</c>
-    /// (cwd-relative) and returns the path.</summary>
     public string Write()
     {
         var dir = Path.Combine("bench-runs", Probe);
@@ -56,8 +42,6 @@ public sealed class ProbeArtifact(string probe, DateTimeOffset startedAt)
         return path;
     }
 
-    /// <summary>Renders the artifact to the console for the human: full prompts per LLM call
-    /// (the whole point — see what the prompt became), compact one-line JSON per observation.</summary>
     public void Render(string artifactPath)
     {
         var line = new string('─', 76);

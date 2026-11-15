@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Ties (ADR 0021): closeness from shared talk calibrates intimacy.</summary>
 public class TiesTest
 {
     private static readonly Guid Me = Guid.NewGuid();

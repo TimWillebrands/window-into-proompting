@@ -29,7 +29,6 @@ public class OpenRouterEndpointGrain(
     {
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
         var providers = await configGrain.GetProvidersAsync();
-        // TODO: also filter by IsEnabled (see OllamaEndpointGrain.RefreshConfigAsync).
         _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "openrouter");
         if (_config is null)
             logger.LogWarning("OpenRouterEndpointGrain {Id}: no config found", this.GetPrimaryKey());
@@ -108,7 +107,6 @@ public class OpenRouterEndpointGrain(
             cancellationToken));
     }
 
-    /// <summary>Cloud providers aren't pinged; a failed call benches them instead.</summary>
     public Task<string?> PingAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
 
     public async Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default)
@@ -155,8 +153,6 @@ public class OpenRouterEndpointGrain(
 
     public async Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        // Official model listing (the old unofficial /api/frontend/models/find endpoint was
-        // removed upstream and now 404s, which made the router drop this provider entirely).
         var url = $"{BaseUrl.TrimEnd('/')}/models";
 
         try

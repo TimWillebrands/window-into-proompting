@@ -4,33 +4,27 @@ import { toMs } from '../places-lib';
 import { entrance, pathIn, type Scene, type Slot } from './scene';
 
 export const STEP_MS = 280;
-/** A beat standing in the doorway, coming in or going out. */
 export const DOOR_PAUSE_MS = 700;
 
 export interface Walk {
     path: Pt[];
     startedAt: number;
-    /** Out through the door, toward another Place. */
     out?: boolean;
 }
 
-/** Through the door at walking pace, but never more than half the trip. */
 const doorWalkMs = (path: Pt[], trip: number) =>
     Math.max(1, Math.min(Math.max(1, path.length - 1) * STEP_MS, trip / 2));
 
 export interface Pose {
     tile: Pt;
     moving: boolean;
-    /** Where it ends up (seat height and facing). */
     slot?: Slot;
-    /** Next tile while moving, for facing. */
     toward?: Pt;
 }
 
 const sitsDown = (b: Body) =>
     b.posture === 'Sitting' || b.posture === 'Lying' || b.posture === 'Walking';
 
-/** Where each Body in (or walking to a spot in) this Place should end up: seats first for sitters, then standing room. */
 export function targets(
     scene: Scene,
     placeId: string | undefined,
@@ -68,7 +62,6 @@ export function targets(
     return out;
 }
 
-/** Where a Body is drawn now: walking within the Place, through the door, or settled on its slot. */
 export function poseOf(
     b: Body,
     scene: Scene,
@@ -88,7 +81,6 @@ export function poseOf(
         const start = toMs(b.departedAt);
         const end = toMs(b.arriveAt);
         if (leaving) {
-            // Planned once from where they stood, so the walk doesn't speed up as it goes.
             let walk = walks.get(id);
             if (!walk?.out || walk.startedAt !== start) {
                 const from =
@@ -141,7 +133,6 @@ export const round = (p: Pt): Pt => ({
     y: Math.round(p.y),
 });
 
-/** Position along a tile path at t ∈ [0, 1], and the tile it's heading for. */
 export function along(path: Pt[], t: number): Pose {
     if (path.length === 0) return { tile: { x: 0, y: 0 }, moving: false };
     if (path.length === 1 || t >= 1)

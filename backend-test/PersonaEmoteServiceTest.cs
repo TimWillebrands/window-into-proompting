@@ -7,22 +7,6 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="PersonaEmoteService"/> — the abandonment-line generator that
-/// produces an in-character italic action when the stop-signal race cancels an
-/// in-flight generation.
-///
-/// Coverage:
-///   • Empty draft → cheap canned <see cref="PersonaEmoteService.DecisionPhaseFallback"/>
-///     (no LFM call burned when there's nothing to summarize).
-///   • Well-formed model output is sanitized (markdown fences stripped, quotes stripped,
-///     length-clamped) and returned.
-///   • Routing failure → <see cref="PersonaEmoteService.GenerationFailureFallback"/>.
-///   • Generation exception → <see cref="PersonaEmoteService.GenerationFailureFallback"/>.
-///   • Empty/whitespace model output → <see cref="PersonaEmoteService.GenerationFailureFallback"/>
-///     (cancel path must always produce a renderable line).
-///   • Routing requests <see cref="JobComplexity.CharacterThoughts"/> (cheap-model lane).
-/// </summary>
 public class PersonaEmoteServiceTest
 {
     private static SelfView MakeSelf() =>
@@ -63,10 +47,7 @@ public class PersonaEmoteServiceTest
     [Fact]
     public async Task GenerateAbandonmentEmoteAsync_EmptyDraft_ReturnsDecisionPhaseFallbackWithoutLlmCall()
     {
-        // Decision-phase cancel: nothing has been "drafted" yet so there's nothing to summarize.
-        // Expectation: skip the LFM call and return the canned line.
         var router = new Mock<ILlmRouterGrain>(MockBehavior.Strict);
-        // Strict: any RouteAsync invocation will throw — proves we didn't call it.
 
         var service = new PersonaEmoteService(router.Object, NullLogger.Instance);
         var result = await service.GenerateAbandonmentEmoteAsync(
@@ -97,7 +78,6 @@ public class PersonaEmoteServiceTest
     [Fact]
     public async Task GenerateAbandonmentEmoteAsync_StripsMarkdownFenceAndQuotes()
     {
-        // Models occasionally wrap output in fences or quotes despite the "no quotes" cue.
         var service = MakeService("```\n\"*falls quiet, listening*\"\n```");
         var result = await service.GenerateAbandonmentEmoteAsync(
             MakeSelf(),
@@ -112,7 +92,6 @@ public class PersonaEmoteServiceTest
     [Fact]
     public async Task GenerateAbandonmentEmoteAsync_CollapsesMultilineToSingleLine()
     {
-        // Emotes are one beat. Multi-line output is collapsed so the chat doesn't get a paragraph.
         var service = MakeService("*sets the cup down*\n\nAnd that's all\nI'll say.");
         var result = await service.GenerateAbandonmentEmoteAsync(
             MakeSelf(),
@@ -173,7 +152,7 @@ public class PersonaEmoteServiceTest
         {
             await Task.Yield();
             throw new InvalidOperationException("upstream broke");
-#pragma warning disable CS0162 // Unreachable code — required to make the method an iterator.
+#pragma warning disable CS0162
             yield break;
 #pragma warning restore CS0162
         }
@@ -182,8 +161,6 @@ public class PersonaEmoteServiceTest
     [Fact]
     public async Task GenerateAbandonmentEmoteAsync_EmptyOutput_ReturnsLiteralFallback()
     {
-        // Cancel path MUST produce a renderable line. If the model returns nothing, fall
-        // back to the literal so the chat doesn't get an empty-content emote.
         var service = MakeService("   \n  ");
         var result = await service.GenerateAbandonmentEmoteAsync(
             MakeSelf(),

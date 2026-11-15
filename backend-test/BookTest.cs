@@ -3,7 +3,6 @@ using PartyTown.World.Work.Markets;
 
 namespace BackendTest;
 
-/// <summary>Ghost fills on real quotes (ADR 0030): what a Trade costs, what a Mark shows, what only the Market can do.</summary>
 public class BookTest
 {
     private const long Now = 1_000;

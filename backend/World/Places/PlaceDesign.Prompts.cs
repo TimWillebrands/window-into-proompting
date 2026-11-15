@@ -4,7 +4,6 @@ namespace PartyTown.World.Places;
 
 public static partial class PlaceDesign
 {
-    /// <summary>A whole indoor design that checks out; the guide shows it and a test keeps it true.</summary>
     public const string IndoorExample = """
         {"name": "the Groove Cellar", "at": "at", "description": "a record shop that turned into a listening room, warm and a bit dusty", "purpose": "where people dig through records and stay for one more side",
          "spots": [{"id": "crates", "name": "the record crates", "at": "at", "capacity": 3, "seat": false, "poses": ["lean"]},
@@ -19,7 +18,6 @@ public static partial class PlaceDesign
                    "floor": "#8a5a3c", "wall": "#d9cbb0", "accent": "#7a2f3d", "floorStyle": "planks", "wallStyle": "panel", "light": "warm", "ambience": "dust"}}
         """;
 
-    /// <summary>A whole outdoor design that checks out.</summary>
     public const string OutdoorExample = """
         {"name": "the Wishing Garden", "at": "in", "description": "a walled garden behind the canal houses, with a pond and a tree full of paper wishes", "purpose": "where people sit by the pond and leave a wish",
          "spots": [{"id": "pond", "name": "the bench by the pond", "at": "on", "capacity": 2, "seat": true, "poses": ["lounge"]},
@@ -34,7 +32,6 @@ public static partial class PlaceDesign
                    "ambience": "petals"}}
         """;
 
-    /// <summary>The catalogue by group; ★ marks things that come with something to do.</summary>
     public static string CatalogueText()
     {
         var sb = new StringBuilder();

@@ -3,7 +3,6 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>Realtime snapshot keeps each Room's newest messages; MessageId is per Room.</summary>
 public class SnapshotMessagesTest
 {
     private static List<ChatMessage> Room(Guid id, int count) =>

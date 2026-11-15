@@ -6,7 +6,6 @@ using PartyTown.Services.Auth;
 
 namespace PartyTown.Services.Analytics;
 
-/// <summary>PostHog wiring: off unless POSTHOG_PROJECT_TOKEN and POSTHOG_HOST are set.</summary>
 public static class PostHogAnalytics
 {
     private const string SessionHeader = "X-POSTHOG-SESSION-ID";
@@ -29,12 +28,10 @@ public static class PostHogAnalytics
             options.SuperProperties["environment"] = environment;
         }));
 
-        // A disabled client warns on every call.
         if (!enabled) builder.Logging.AddFilter("PostHog", LogLevel.Error);
         else builder.Services.AddSingleton<ILoggerProvider, PostHogErrorLoggerProvider>();
     }
 
-    /// <summary>A signed-in action: with consent the person is the verified Clerk id, without it only an unlinkable count.</summary>
     public static void Track(this IPostHogClient posthog, HttpContext context, string name, Dictionary<string, object> properties)
     {
         context.Items[TrackedKey] = true;
@@ -42,7 +39,6 @@ public static class PostHogAnalytics
         else posthog.Capture(name, Anonymized(properties));
     }
 
-    /// <summary>Every API write an action didn't already name itself becomes one <c>api_action</c>.</summary>
     private static void TrackApiAction(IPostHogClient posthog, HttpContext context, TimeSpan elapsed)
     {
         if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)
@@ -62,7 +58,6 @@ public static class PostHogAnalytics
         posthog.Track(context, "api_action", properties);
     }
 
-    /// <summary>After auth, so a consenting user's exceptions carry their Clerk id; anyone else's stay personless.</summary>
     public static void UsePostHogAnalytics(this WebApplication app)
     {
         var posthog = app.Services.GetRequiredService<IPostHogClient>();
@@ -78,7 +73,6 @@ public static class PostHogAnalytics
             {
                 var properties = new Dictionary<string, object>
                 {
-                    // The template, as the real path holds ids.
                     ["path"] = (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "unmatched",
                     ["method"] = context.Request.Method,
                 };
@@ -91,7 +85,6 @@ public static class PostHogAnalytics
         });
     }
 
-    /// <summary>Any id but the shared World's can lead back to a person, so it goes.</summary>
     private static Dictionary<string, object> Anonymized(Dictionary<string, object> properties)
     {
         var kept = properties
@@ -103,7 +96,6 @@ public static class PostHogAnalytics
 
     private static bool Consented(HttpContext context) => context.Request.Cookies[ConsentCookie] == "1";
 
-    /// <summary>The header is client input, so only a well-formed id gets through.</summary>
     private static Dictionary<string, object> WithSession(HttpContext context, Dictionary<string, object> properties)
     {
         if (Guid.TryParse(context.Request.Headers[SessionHeader].ToString(), out var session))

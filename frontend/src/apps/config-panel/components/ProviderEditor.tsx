@@ -16,7 +16,6 @@ import {
     selectStyle,
 } from './constants';
 
-/** Claude takes effort low/medium/high; the token budgets are llama.cpp's. */
 const CLAUDE_EFFORTS = REASONING_EFFORTS.filter((r) =>
     [0, 2, 3, 4].includes(r.value),
 );
@@ -46,7 +45,6 @@ export default function ProviderEditor({
     });
 
     const configuredTailnets = useGetLlmConfigTailnets().data?.data ?? [];
-    // A saved Tailnet stays listed if its config is gone, so saving won't silently drop it.
     const tailnets = [
         ...new Set([
             ...configuredTailnets,
@@ -72,7 +70,6 @@ export default function ProviderEditor({
                 !CLAUDE_EFFORTS.some((r) => r.value === form.reasoningEffort)
                     ? 0
                     : form.reasoningEffort,
-            // Claude can't serve /systemone, so it never keeps Decisions.
             supportedComplexities:
                 type === 'anthropic'
                     ? (form.supportedComplexities ?? 1) & ~DECISIONS || 1

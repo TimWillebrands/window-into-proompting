@@ -11,14 +11,12 @@ import {
 import type { Mind } from './cdu.ts';
 import type { Model } from './meter.ts';
 
-/** With a provider, the model is Pi's own from that built-in provider, reached through the Meter. */
 export type MeterModel = Model & { reasoning?: boolean; provider?: string; tier?: 'free' | 'small' | 'capable' };
 
 export interface PiOptions {
     repo: string;
     agentDir: string;
     meterUrl: string;
-    /** The env var holding the tab token, so it's never written to disk. */
     tabEnv: string;
     models: MeterModel[];
     model?: string;
@@ -27,7 +25,6 @@ export interface PiOptions {
     soul: string;
 }
 
-/** Pi's models.json: every model goes through the Meter with the tab as its key; built-in providers keep their quirks. */
 export function piModels(options: Pick<PiOptions, 'meterUrl' | 'tabEnv' | 'models'>) {
     const apiKey = `$${options.tabEnv}`;
     const providers: Record<string, unknown> = {};
@@ -49,7 +46,6 @@ export function piModels(options: Pick<PiOptions, 'meterUrl' | 'tabEnv' | 'model
             })),
         };
     }
-    // The Meter's context and output figures override the built-in ones: a small window makes Pi compact early, which keeps every call cheap.
     for (const id of new Set(options.models.flatMap((m) => (m.provider ? [m.provider] : [])))) {
         const overrides = Object.fromEntries(options.models.filter((m) => m.provider === id).map((m) => [m.id, { contextWindow: m.context, maxTokens: m.output }]));
         providers[id] = { baseUrl: options.meterUrl, apiKey, compat: { maxTokensField: 'max_tokens' }, modelOverrides: overrides };
@@ -57,7 +53,6 @@ export function piModels(options: Pick<PiOptions, 'meterUrl' | 'tabEnv' | 'model
     return { providers };
 }
 
-/** Pi's mcp.json: the live database over stdio, its tools declared directly. */
 export function piMcp(databaseUrlEnv?: string) {
     if (!databaseUrlEnv) return { mcpServers: {} };
     return {
@@ -73,7 +68,6 @@ export function piMcp(databaseUrlEnv?: string) {
     };
 }
 
-/** The CDU's mind: one Pi session, resumed across restarts, with its soul appended to Pi's own prompt. */
 export async function createPiMind(options: PiOptions): Promise<Mind> {
     mkdirSync(options.agentDir, { recursive: true });
     writeFileSync(path.join(options.agentDir, 'models.json'), JSON.stringify(piModels(options), null, 2));
@@ -108,7 +102,6 @@ export async function createPiMind(options: PiOptions): Promise<Mind> {
     });
     await session.bindExtensions({});
 
-    // Whoever wakes it picks the mind; a turn without a pick wakes the first, the cheapest on the list.
     const wake = async (id?: string) => {
         const pick = options.models.find((m) => m.id === id) ?? chosen;
         if (session.model?.id === pick.id) return;

@@ -8,10 +8,8 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>What people say they'll do is a Desire of theirs, and a set-day meet-up a Gathering (ADR 0043).</summary>
 public class PromisesTest
 {
-    // Saturday 21:25 in Amsterdam winter time.
     private static readonly DateTimeOffset Sat = new(2026, 11, 7, 21, 25, 0, TimeSpan.FromHours(1));
     private static readonly Guid Pieter = Guid.NewGuid();
 
@@ -173,7 +171,6 @@ public class PromisesTest
         Assert.Equal(DesireSource.Promise, handles[chat].Source);
         Assert.Equal(DesireSource.Promise, handles[anne].Source);
         Assert.Equal(DesireSource.Promise, handles[place].Source);
-        // Four promise keys plus the two wants on the mind; the set-day one doesn't press.
         Assert.Equal(6, handles.Count);
     }
 
@@ -264,7 +261,6 @@ public class PromisesTest
     }
 }
 
-/// <summary>Owing and wanting share one handle on Initiative (ADR 0026, 0043).</summary>
 public class InitiativeHandleTest
 {
     private static LifeContext Ctx(IReadOnlyDictionary<Guid, Desire>? wanted)
@@ -363,7 +359,6 @@ public class InitiativeHandleTest
     }
 }
 
-/// <summary>Happenings land at real Places and matter most to whoever's near (ADR 0043).</summary>
 public class HappeningsTest
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 8, 9, 30, 0, TimeSpan.Zero);

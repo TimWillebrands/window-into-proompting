@@ -3,7 +3,6 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Self;
 
-/// <summary>Per-Party cache of <see cref="VoiceWear"/> over recent persona lines across all Rooms and DMs (key = Party id).</summary>
 public sealed class WorldVoiceGrain : Grain, IWorldVoiceGrain
 {
     private const int PerRoom = 25;
@@ -46,7 +45,6 @@ public sealed class WorldVoiceGrain : Grain, IWorldVoiceGrain
             .Where(m => m.SenderType == "assistant" && m.Kind is null && !string.IsNullOrWhiteSpace(m.Content))
             .Select(m => new VoiceLine(m.SendAt ?? 0, roomNames.GetValueOrDefault(m.ChatGroupId, "?"),
                 names.GetValueOrDefault(m.SenderId, "?"), m.Content!, m.SenderId));
-        // The Board is where much of the talk happens; its posts and replies wear words out too.
         var board = (await GrainFactory.GetGrain<IBoardGrain>(this.GetPrimaryKey()).GetThreadsAsync())
             .SelectMany(t => t.Replies.Select(r => new VoiceLine(r.CreatedAt, $"Board \"{t.Title}\"", r.AuthorName, r.Body, r.AuthorId))
                 .Prepend(new VoiceLine(t.CreatedAt, $"Board \"{t.Title}\"", t.AuthorName, t.Body, t.AuthorId)))
@@ -63,11 +61,9 @@ public interface IWorldVoiceGrain : IGrainWithGuidKey
 {
     [Alias("GetReportAsync")] Task<VoiceWearReport> GetReportAsync();
     [Alias("GetLinesAsync")] Task<List<VoiceLine>> GetLinesAsync(int limit);
-    /// <summary>World-worn words plus this speaker's own over-used ones.</summary>
     [Alias("GetStaleWordsAsync")] Task<List<string>> GetStaleWordsAsync(Guid speakerId);
     [Alias("GetOwnLinesAsync")] Task<List<VoiceLine>> GetOwnLinesAsync(Guid speakerId, int limit);
 }
 
-/// <summary>A recent persona line across Rooms and DMs, for inspection and the lifelikeness bench.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Self.VoiceLine")]
 public sealed record VoiceLine([property: Id(0)] long Ts, [property: Id(1)] string Room, [property: Id(2)] string Speaker, [property: Id(3)] string Text, [property: Id(4)] Guid SpeakerId);

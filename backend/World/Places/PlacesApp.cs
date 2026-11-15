@@ -4,7 +4,6 @@ using PartyTown.World.Apps;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Places: the physical layer. Where your Body is, who's around, walking, talking out loud.</summary>
 public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) : IWorldApp
 {
     public string Id => "places";
@@ -27,7 +26,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var nearby = others.Where(o => o.SpotId == self.SpotId && !o.IsWalking).ToList();
         if (!self.IsWalking && here?.TalkRoomId is { } talkRoomId && others.Count > 0)
         {
-            // Only what you heard (Earshot): talk at other spots reaches you as tone, below.
             var recent = await grains.GetGrain<IChatGroupGrain>(talkRoomId).GetRecentMessagesAsync(8);
             var fresh = recent
                 .Where(m => m.HeardBy is not { } heard || heard.Contains(ctx.Self.Id))
@@ -42,7 +40,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             var last = fresh.LastOrDefault();
             if (nearby.Count > 0 && last?.SenderId != ctx.Self.Id)
             {
-                // Someone right next to you outpulls a screen (ADR 0021); being named is what makes it urgent.
                 var priority = 2 + (last is not null && ctx.Mentions(last.Content) ? 3 : 0);
                 affordances.Add(new Affordance(Id, await TalkLabelAsync(ctx, nearby, last), priority, talkRoomId, "say"));
                 var confidant = nearby[Random.Shared.Next(nearby.Count)];
@@ -65,14 +62,12 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             }
         }
 
-        // Something just happened a short walk away: curiosity, the explore pull (ADR 0043).
         if (!self.IsWalking && ctx.Happenings?.FirstOrDefault(h => h is { Near: HappeningNear.Nearby, PlaceId: not null } && HappeningRules.IsFresh(h, ctx.Now)) is { } news
             && snapshot.Places.FirstOrDefault(p => p.Id == news.PlaceId) is { } scene && !scene.IsClosed())
             affordances.Add(new Affordance(Id, $"Go see what's going on {news.Where} ({Self.Hooks.Like(news.Text)})", 1, scene.Id, "go"));
 
         if (!self.IsWalking)
         {
-            // No musical chairs: right after a walk, stay put; otherwise one person to go over to, at most.
             if (!JustWalked(ctx))
             {
                 if (others.Where(o => o.SpotId != self.SpotId && !o.IsWalking).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } o)
@@ -81,21 +76,18 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 if (nearby.Count == 0 && here?.Spots.Where(s => s.Id != self.SpotId).OrderBy(_ => Random.Shared.Next()).FirstOrDefault() is { } spot)
                     affordances.Add(new Affordance(Id, $"Move over to {spot.Name}{PoseHint(spot)}", 0, here.Id, $"spot:{spot.Id}"));
             }
-            // Getting comfortable where you are: one solo pose the spot affords (ADR 0025).
             if (self.Pose is null && here?.Spots.FirstOrDefault(s => s.Id == self.SpotId) is { Poses.Count: > 0 } mine)
             {
                 var pose = mine.Poses[Random.Shared.Next(mine.Poses.Count)];
                 affordances.Add(new Affordance(Id, $"Get comfortable: {Poses.Describe(pose, mine, null)}", 0, here.Id, $"pose:{pose}"));
             }
 
-            // Care is capped: only the one thing here that needs it most is offered (spec: decay feeds talk, not housework).
             var nowMs = ctx.Now.ToUnixTimeMilliseconds();
             if (here?.Furni.Select(f => (Furni: f, Care: FurniRules.CareFor(f, nowMs)))
                     .Where(x => x.Care is not null)
                     .OrderBy(x => FurniRules.Condition(x.Furni, nowMs))
                     .FirstOrDefault() is { Care: { } care } worst)
                 affordances.Add(new Affordance(Id, care.Label, care.Priority, here.Id, $"care:{worst.Furni.Id}"));
-            // Things to do here (ADR 0049): the one at your elbow first, one across the room; what someone left is the hook.
             var open = (here?.Furni ?? new()).Where(f => Features.Fresh(f, ctx.Self.Id, nowMs)).OrderBy(_ => Random.Shared.Next()).ToList();
             foreach (var (f, close) in open.Where(f => f.SpotId == self.SpotId).Take(1).Select(f => (f, true))
                          .Concat(open.Where(f => f.SpotId != self.SpotId).Take(1).Select(f => (f, false))))
@@ -113,13 +105,10 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         }
 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
-        // Away at a Locale (ADR 0027): you're there for a reason, so no restlessness, and leaving means leaving it.
         var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
-        // How this place sits with them (ADR 0057) sets how soon getting out pulls.
         var restless = stayed > ArenaFit.Restless(ctx.Fit is { } fit && fit.PlaceId == self.PlaceId ? fit.Better : null) && !awayHere;
         if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
         else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.LivesIn(ctx.Self.Id) == true ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
-        // A Gathering at a Place you said you'd come to (spec phase 7): be there, then talk.
         var nowMsG = ctx.Now.ToUnixTimeMilliseconds();
         foreach (var g in (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
                      .Where(g => g.PlaceId is not null && g.Status == GatheringStatus.Started && nowMsG - g.StartsAt < 45 * 60_000 && g.AttendeeIds.Contains(ctx.Self.Id)))
@@ -136,7 +125,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             }
         }
 
-        // Talk here going round in circles or fizzling: leaving is the natural move (eb's thermostat read).
         var stale = !self.IsWalking && here?.TalkRoomId is { } roomForRead
             && (await grains.GetGrain<Self.IConversationThermostatGrain>(roomForRead).GetReadAsync()).Stale;
         if (stale)
@@ -147,7 +135,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         }
 
         var elsewhere = new List<string>();
-        // Your own District in full; others collapse to a line each (ADR 0027), so the list doesn't grow with the city.
         var myDistrict = here?.DistrictId ?? snapshot.Places.FirstOrDefault(p => p.Id == self.CameFrom)?.DistrictId ?? Districts.Centre;
         var further = new List<(Place Place, List<string> There)>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
@@ -157,7 +144,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             var keyed = place.Keyholders.Contains(ctx.Self.Id);
             if (place.IsClosed() && !place.Hosts().Contains(ctx.Self.Id) && !keyed && !place.Allowed.Contains(ctx.Self.Id))
             {
-                // Someone else's Home or private Place: go if invited, else knock when they're in and awake.
                 var hosts = snapshot.Bodies.Where(b => place.Hosts().Contains(b.ParticipantId)).ToList();
                 var owner = hosts.FirstOrDefault(b => b is { IsWalking: false, Asleep: false } && b.PlaceId == place.Id) ?? hosts.FirstOrDefault();
                 var ownerName = owner?.Name.Split(' ')[0] ?? "someone";
@@ -175,7 +161,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 }
                 else if (!self.IsWalking && owner is not null && owner.PlaceId != place.Id && await CloseToAsync(ctx, owner.ParticipantId))
                 {
-                    // People close to the host feel the door even when it's shut; strangers never knew it was there.
                     var door = place.Kind == PlaceKinds.Home ? $"{ownerName}'s place" : place.Name;
                     sb.AppendLine($"{door} is locked; {ownerName} is out.");
                     affordances.Add(new Affordance(Id, $"Go by {door} anyway (it's locked)", 0, place.Id, "knock"));
@@ -190,14 +175,12 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             }
             var name = PlacesGrain.WhereName(place, ctx.Self.Id);
             elsewhere.Add(there.Count == 0 ? $"{name}: nobody" : $"{name}: {string.Join(", ", there)}");
-            // An empty place still has something going for it: what there is to do there.
             var todo = there.Count > 0 || mine ? null
                 : place.Furni.Where(f => Features.Fresh(f, ctx.Self.Id, ctx.Now.ToUnixTimeMilliseconds())).OrderBy(_ => Random.Shared.Next()).FirstOrDefault();
             var label = mine ? "Head home"
                 : there.Count == 0 ? $"Go to {name}{(todo is null ? string.Empty : $" (to {Features.Lower(todo.Do!)})")}"
                 : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
             if (keyed) label += " (you have a key)";
-            // Restlessness: been in one place long enough and getting out pulls, even to an empty café.
             var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go"));
         }
@@ -208,7 +191,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var offscreen = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.AwayAs is not null && !b.IsWalking).Select(b => $"{b.Name} ({b.AwayAs})").ToList();
         if (offscreen.Count > 0) sb.AppendLine($"Away, offscreen: {string.Join(", ", offscreen)}.");
 
-        // Hosting a closed Place: who's at the door, and (at your own place) who you could have over.
         if (!self.IsWalking && here?.Hosts().Contains(ctx.Self.Id) == true)
         {
             foreach (var visitor in await places.GetKnocksAsync(ctx.Self.Id))
@@ -218,7 +200,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                     : $"{ctx.NameOf(visitor)} is knocking at your door.");
                 affordances.Add(new Affordance(Id, $"Let {ctx.NameOf(visitor)} in", 3, visitor, "letin"));
             }
-            // Making it yours: stances and interests end up on the walls (the intent is what goes up).
             if (here.LivesIn(ctx.Self.Id))
             {
                 var decor = here.Furni.Where(f => f.Kind == FurniKinds.Decor).ToList();
@@ -226,7 +207,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 affordances.Add(new Affordance(Id, "Put something new up in your place, something that's you", decor.Count < 2 ? 1 : 0, here.Id, "decorate"));
             }
 
-            // Having people over is for your own place; a workplace's door is the author's (ADR 0041).
             var away = snapshot.Bodies.Where(b => b.ParticipantId != ctx.Self.Id && b.PlaceId != here.Id && !b.Asleep && !here.Guests.Contains(b.ParticipantId) && !here.Hosts().Contains(b.ParticipantId)).ToList();
             if (away.Count > 0 && here.Keyed())
             {
@@ -238,12 +218,10 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         return new AppPerception(Id, "Places (where your body is)", sb.ToString().TrimEnd(), affordances);
     }
 
-    /// <summary>What there is to say to someone next to you: what they said, a story of yours, or what they're up to.</summary>
     private async Task<string> TalkLabelAsync(LifeContext ctx, List<Body> nearby, PartyTown.Model.ChatMessage? last)
     {
         if (last is { Content.Length: > 0 }) return Self.Hooks.PickUp(ctx.NameOf(last.SenderId), last.Content);
         var who = string.Join(", ", nearby.Take(3).Select(o => o.Name));
-        // Something that just happened here is shared news, fresher than anything from your own day (ADR 0043).
         if (HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "say", ctx.Now) is { } saw) return Self.Hooks.Saw(who, saw.Text);
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         if (Self.Hooks.Pick(openers) is { } story) return Self.Hooks.Tell(who, story);
@@ -252,7 +230,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             : Self.Hooks.Ask(who, null);
     }
 
-    /// <summary>A partner first, then whoever you're closest to; otherwise anyone.</summary>
     private async Task<Body> WhoToInviteAsync(LifeContext ctx, List<Body> away)
     {
         var book = await grains.GetGrain<Relations.IRelationsGrain>(ctx.PartyId).GetAsync();
@@ -329,7 +306,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 if (done is null) return null;
                 if (done.Take.Length > 0)
                 {
-                    // What they come away with: something to tell, a lift, and a memory that's tied to the Place.
                     var self = grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id));
                     await self.AddOpenerAsync($"{done.Take} ({done.Thing}, {done.Place})");
                     await self.ShiftValenceAsync(0.6, done.Place);
@@ -350,7 +326,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             {
                 if (await places.MoveAsync(ctx.Self.Id, target, verb[5..]) is null) return null;
                 var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == target);
-                // A solo pose named in the intent ("lean on the railing") is struck on arrival; pair poses are the Ties' to offer.
                 var spot = place?.Spots.FirstOrDefault(s => s.Id == verb[5..]);
                 var pose = spot is null ? null : Poses.FromIntent(intent, Poses.Allowed(spot, company: false));
                 var posed = pose is null ? null : await places.SetPoseAsync(ctx.Self.Id, pose, null);
@@ -366,7 +341,6 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         }
     }
 
-    /// <summary>Other Districts: one line and one tram per District, toward where people are.</summary>
     internal static (string? Line, List<Affordance> Go) FurtherAway(string appId, IEnumerable<(Place Place, List<string> There)> further, IReadOnlyList<District> districts)
     {
         var parts = new List<string>();
@@ -385,11 +359,9 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         return (parts.Count == 0 ? null : $"Further away, a tram ride — {string.Join("; ", parts)}.", go);
     }
 
-    /// <summary>" (to lean or perch)" for spots that afford poses.</summary>
     internal static string PoseHint(Spot spot)
         => spot.Poses.Count == 0 ? string.Empty : $" (to {string.Join(" or ", spot.Poses.Take(2).Select(p => p.Replace('-', ' ')))})";
 
-    /// <summary>Walked within the last two own actions (or the last 15 min).</summary>
     internal static bool JustWalked(LifeContext ctx)
         => ctx.RecentOwn.Take(2).Any(a => a.App == "places" && a.Action == "walk"
             && ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(a.Ts) < TimeSpan.FromMinutes(15));

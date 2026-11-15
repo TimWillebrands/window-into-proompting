@@ -5,7 +5,6 @@ import { CATALOGUE } from './catalogue.gen';
 import PlaceScene from './PlaceScene';
 import type { PropDef, SceneDef } from './scene';
 
-/** Review gallery (ADR 0027): every catalogue model in a row, by day and night; footprints show as their tiles. */
 function gallery(): Omit<SceneDef, 'id'> {
     const width = 26;
     const props: PropDef[] = [];

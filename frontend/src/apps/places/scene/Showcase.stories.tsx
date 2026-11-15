@@ -5,7 +5,6 @@ import '../places.css';
 import PlaceScene from './PlaceScene';
 import type { SceneDef } from './scene';
 
-/** What a design can be now (ADR 0049): sets, styles, light, ambience, own models, things to do. */
 type Def = Omit<SceneDef, 'id'>;
 
 const cellar: Def = {
@@ -176,7 +175,6 @@ const camp: Def = {
     ambience: 'fireflies',
 };
 
-/** A design as an agent sent it over MCP: its own models, four things to do. */
 const sterrenwacht = {
     map: [
         '####ww##ww####',
@@ -470,7 +468,6 @@ const sterrenwachtPlace = placeOf(
     'sterrenwacht',
     {
         ...sterrenwacht,
-        // The server stores the rows joined.
         map: (sterrenwacht.map as unknown as string[]).join('\n'),
     },
     ['telescope', 'armchairs', 'orrery', 'shelves'],

@@ -3,7 +3,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
-/// <summary>Rest decides what a Life thread came to (ADR 0052): System One reads what they remember against each thread and the Preoccupation.</summary>
 public sealed class ThreadReview(IGrainFactory grains, ISystemOneJudge judge, WorldMemory memory, ILogger<ThreadReview> logger)
 {
     public const double Closed = 0.7;
@@ -30,11 +29,9 @@ public sealed class ThreadReview(IGrainFactory grains, ISystemOneJudge judge, Wo
         }
     }
 
-    /// <summary>Threads, then the Preoccupation: what a review reads.</summary>
     public static List<string> Open(IEnumerable<string> threads, string? preoccupation)
         => threads.Append(preoccupation ?? string.Empty).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList();
 
-    /// <summary>Settled and contradicted ones, by what they remember; nothing remembered or no answer leaves all open.</summary>
     public static async Task<(List<string> Settled, List<string> Contradicted)> JudgeAsync(
         ISystemOneJudge judge, string name, IReadOnlyList<string> memories, IReadOnlyList<string> threads, string? preoccupation, CancellationToken ct)
     {

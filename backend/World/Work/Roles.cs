@@ -11,11 +11,9 @@ public enum PlaceRole
     Owner = 3,
 }
 
-/// <summary>Standing in a Place (ADR 0026, after Pageau's centre and margin): derived each time, never stored.</summary>
 public static class Roles
 {
     public const int RegularDays = 3;
-    /// <summary>Someone who came in this recently is someone staff greet.</summary>
     public static readonly TimeSpan JustCameIn = TimeSpan.FromMinutes(10);
 
     public static PlaceRole Of(Place place, Guid who, Occupation? job, IReadOnlyDictionary<Guid, int> visitDays)
@@ -25,7 +23,6 @@ public static class Roles
         return visitDays.GetValueOrDefault(place.Id) >= RegularDays ? PlaceRole.Regular : PlaceRole.Newcomer;
     }
 
-    /// <summary>One plain line for "Right now"; null when there's nothing to say (your own Home, a Locale, first-timers).</summary>
     public static string? Line(Place place, PlaceRole role) => (place.Kind, role) switch
     {
         (PlaceKinds.Home, _) or (PlaceKinds.Locale, _) => null,
@@ -35,7 +32,6 @@ public static class Roles
         _ => null,
     };
 
-    /// <summary>Who just came into the Place staff are working in: greet-worthy, not staff, not you.</summary>
     public static IEnumerable<Body> NewArrivals(PlacesSnapshot places, Guid placeId, Guid self, long now)
         => places.Bodies.Where(b => b.ParticipantId != self && b.PlaceId == placeId && !b.IsWalking && b.AwayAs is null
             && now - b.ArrivedAt <= JustCameIn.TotalMilliseconds);

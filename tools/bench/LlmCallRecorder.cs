@@ -5,21 +5,6 @@ using PartyTown.Grains.Generation;
 
 namespace PartyTown.Bench;
 
-/// <summary>
-/// Silo-wide incoming grain call filter that records every <see cref="LlmGenerationJob"/>
-/// flowing into any <see cref="ILlmEndpointGrain"/>. This is how probes capture the exact
-/// composed prompts without touching the services that build them (ADR 0011). The call
-/// proceeds untouched — unlike the test suite's FanoutInterceptor, nothing is short-circuited.
-/// </summary>
-/// <remarks>
-/// Two dispatch shapes carry a job, and both must be unwrapped:
-///   • <c>CompleteOneShotAsync</c> arrives as a direct call on <see cref="ILlmEndpointGrain"/>
-///     with the job as argument 0.
-///   • <c>GenerateAsync</c> returns <c>IAsyncEnumerable</c>, so Orleans dispatches it through
-///     <c>IAsyncEnumerableGrainExtension.StartEnumeration</c> — the real invocation (and its
-///     job argument) is wrapped in argument 1 as a nested <see cref="IInvokable"/>. Matching only
-///     the direct shape silently misses every streamed generation, which is the common path.
-/// </remarks>
 public sealed class LlmCallRecorder : IIncomingGrainCallFilter
 {
     public sealed record Recorded(
@@ -51,8 +36,6 @@ public sealed class LlmCallRecorder : IIncomingGrainCallFilter
         await context.Invoke();
         sw.Stop();
 
-        // For streamed GenerateAsync the elapsed time covers StartEnumeration setup only — the
-        // tokens are pulled by the caller via later MoveNext calls. One-shot calls are fully timed.
         _calls.Enqueue(new Recorded(
             Interlocked.Increment(ref _seq),
             method,
@@ -68,7 +51,6 @@ public sealed class LlmCallRecorder : IIncomingGrainCallFilter
     {
         var req = context.Request;
 
-        // Direct non-streaming completion on the endpoint grain (CompleteOneShotAsync).
         if (context.InterfaceMethod?.DeclaringType == typeof(ILlmEndpointGrain)
             && req.GetArgumentCount() > 0
             && req.GetArgument(0) is LlmGenerationJob oneShot)
@@ -76,7 +58,6 @@ public sealed class LlmCallRecorder : IIncomingGrainCallFilter
             return (oneShot, context.InterfaceMethod.Name);
         }
 
-        // Streamed GenerateAsync, wrapped in the async-enumerable extension's StartEnumeration.
         if (context.Grain is ILlmEndpointGrain
             && context.InterfaceMethod?.Name == "StartEnumeration"
             && req.GetArgumentCount() >= 2

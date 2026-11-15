@@ -9,12 +9,10 @@ public sealed record CduSpeaker(string Id, string Name);
 
 public sealed record CduCommit(string Sha, string Subject, string Author);
 
-/// <summary>The Agora as the CDU last saw it. State is OPEN, MERGED or CLOSED; Checks none, pending, passing or failing.</summary>
 public sealed record CduPr(int Number, string Url, string Title, string State, string Head, string Checks);
 
 public sealed record CduAllowance(double Usd, double CapUsd);
 
-/// <summary>A mind the CDU can be woken with. Tier is free, small or capable; prices are USD per million tokens.</summary>
 public sealed record CduModel(string Id, string Label, string? Tier, double In, double Out);
 
 public sealed record CduTrunk(string? Head, List<CduCommit> Ahead);
@@ -27,7 +25,6 @@ public sealed record CduStatus(
     bool Awake, string? Hearing, int Queued, string Model, CduTrunk? Trunk, CduPr? Pr, CduAllowance? Allowance,
     long Lines, long News, CduTurn? Last, List<CduModel>? Models = null);
 
-/// <summary>A transcript line or a piece of news, numbered for reading by cursor.</summary>
 public sealed record CduEntry(long N, long At, string Kind, string Text, JsonElement? Data)
 {
     public string? Str(string name) => Data is { ValueKind: JsonValueKind.Object } d && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -39,18 +36,15 @@ public sealed record CduEntry(long N, long At, string Kind, string Text, JsonEle
     public bool Flag(string name) => Data is { ValueKind: JsonValueKind.Object } d && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
 }
 
-/// <summary>Refused by the CDU, or the CDU couldn't be reached; only a refusal carries a status.</summary>
 public sealed class CduException(string message, int? status = null) : Exception(message)
 {
     public int? Status => status;
 }
 
-/// <summary>The World's one door to the CDU (ADR 0039). The tide calls return at once; what came of them is news.</summary>
 public interface ICdu
 {
     bool Enabled { get; }
     Task<CduStatus> StatusAsync(CancellationToken ct);
-    /// <summary>Model is the mind the speaker chose; null wakes the cheapest.</summary>
     Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, string? model, CancellationToken ct);
     Task<List<CduEntry>> LinesAsync(long after, CancellationToken ct);
     Task<List<CduEntry>> NewsAsync(long after, CancellationToken ct);
@@ -58,7 +52,6 @@ public interface ICdu
     Task TideOutAsync(CancellationToken ct);
 }
 
-/// <summary>Cdu:Url, Cdu:Token and optionally Cdu:Tailnet, as a provider reaches its machine (ADR 0033).</summary>
 public sealed class HttpCdu(IConfiguration config, Tailnets tailnets) : ICdu
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);

@@ -7,36 +7,30 @@ export const toMs = (v: number | string | null | undefined) =>
     v == null ? 0 : Number(v);
 
 let skew = 0;
-/** Server clock minus ours, from a snapshot's `now` and when it landed; walk timings are server times. */
 export const setServerClock = (server: number, receivedAt: number) => {
     skew = server - receivedAt;
 };
 export const serverNow = () => Date.now() + skew;
 
-/** Where a Body counts as being: its destination once it's heading somewhere. */
 export const bodyPlaceId = (b: Body) => b.destPlaceId ?? b.placeId;
 
 export const bodySpotId = (b: Body) => b.destSpotId ?? b.spotId;
 
-/** Bodies at (or on their way to) a Place. */
 export const bodiesIn = (bodies: Body[], placeId: string | undefined) =>
     bodies.filter((b) => bodyPlaceId(b) === placeId);
 
-/** Lives there (ADR 0035): the owner until they've moved out, plus anyone who moved in. */
 export const livesIn = (place: Place, who: string | null) =>
     !!who &&
     place.kind === 'home' &&
     ((place.ownerId === who && !place.vacated) ||
         (place.housemates ?? []).includes(who));
 
-/** A workplace behind a door (ADR 0041): staffed, staff only or by appointment. */
 export const workplaceDoor = (place: Place) =>
     place.kind === 'public' &&
     !place.private &&
     (place.access === 'staff' || place.access === 'appointment') &&
     (place.staff ?? []).length > 0;
 
-/** Who decides who comes in: who lives there, a private Place's maker, a workplace's staff. */
 export const hosts = (place: Place, who: string | null) =>
     livesIn(place, who) ||
     (!!place.private && place.madeBy === who) ||
@@ -54,7 +48,6 @@ export const placeLabel = (
                 .replace(/^the /, '')
                 .replace(/^./, (c) => c.toUpperCase());
 
-/** Others' Homes, private Places and workplace doors: hosts, keys, guests and the access list. */
 export const mayEnter = (place: Place, viewerId: string | null) =>
     (place.kind !== 'home' && !place.private && !workplaceDoor(place)) ||
     hosts(place, viewerId) ||
@@ -62,17 +55,14 @@ export const mayEnter = (place: Place, viewerId: string | null) =>
     (!!viewerId && (place.guests ?? []).includes(viewerId)) ||
     (!!viewerId && (place.allowed ?? []).includes(viewerId));
 
-/** "arriving in 42s" while walking; null when settled. */
 export function walkingText(b: Body, now: number): string | null {
     if (!b.destPlaceId) return null;
     const left = Math.max(0, Math.ceil((toMs(b.arriveAt) - now) / 1000));
     return left === 0 ? 'arriving…' : `arriving in ${left}s`;
 }
 
-/** Offscreen Locales (ADR 0027) are never drawn or entered. */
 export const isLocale = (p: Place) => p.kind === 'locale';
 
-/** "Denise — at work, the office in Zuid" per Body away at a Locale, with who it is (to visit them). */
 export function awayLines(
     bodies: Body[],
     places: Place[],
@@ -93,7 +83,6 @@ export function awayLines(
     });
 }
 
-/** One Growing row: how close a Locale is to opening (at `openAt` footfall), and who's pulling. */
 export function growingSummary(row: GrowthRow, openAt: number) {
     const footfall = Number(row.footfall);
     const ready = !row.missing;
@@ -108,7 +97,6 @@ export function growingSummary(row: GrowthRow, openAt: number) {
     };
 }
 
-/** Ordered for the Navigator: public Places first, then the viewer's Home. */
 export const navigatorPlaces = (places: Place[], viewerId: string | null) => {
     const rank = (p: Place) =>
         p.kind === 'public' ? 0 : livesIn(p, viewerId) ? 1 : 2;
@@ -126,7 +114,6 @@ const AVATAR_COLOURS = [
     '#a1887f',
 ];
 
-/** Stable colour per Participant until real Appearances exist. */
 export function avatarColour(id: string | undefined): string {
     let h = 0;
     for (const c of id ?? '') h = (h * 31 + c.charCodeAt(0)) | 0;
@@ -153,7 +140,6 @@ const DECOR: Record<string, string> = {
     guitar: '🎸',
 };
 
-/** Icon per furni kind, worse-looking when it needs care. */
 export function furniIcon(f: FurniView): string {
     const bad = Number(f.condition ?? 1) < 0.35;
     switch (f.kind) {
@@ -178,12 +164,10 @@ export function furniIcon(f: FurniView): string {
     }
 }
 
-/** Place talk carries its Earshot; null heardBy means everyone heard (Rooms, DMs, old lines). */
 export type Heard = { heardBy?: string[] | null; volume?: string | null };
 
 export const volumeOf = (m: object) => (m as Heard).volume ?? 'talk';
 
-/** Whether the viewer heard a line; the author's all-ears switch hears everything. */
 export const canHear = (
     m: object,
     viewerId: string | null,
@@ -197,7 +181,6 @@ export type EarshotRun<M> =
     | { heard: true; line: M }
     | { heard: false; lines: M[] };
 
-/** Talk as the viewer got it: lines they heard, and each run they didn't folded into one. */
 export function earshotRuns<M extends object>(
     lines: M[],
     viewerId: string | null,
@@ -213,7 +196,6 @@ export function earshotRuns<M extends object>(
     return out;
 }
 
-/** The shape of talk you can't make out: same rhythm, no words. */
 export const scribble = (text: string | null | undefined) =>
     (text ?? '')
         .split(/\s+/)
@@ -224,7 +206,6 @@ export const scribble = (text: string | null | undefined) =>
         )
         .join(' ');
 
-/** A Place's icon in the Navigator and on its nameplate, from its scene or what it's called. */
 export function placeIcon(place: Place, viewerId: string | null): string {
     if (place.kind === 'home')
         return livesIn(place, viewerId)
@@ -257,7 +238,6 @@ export function placeIcon(place: Place, viewerId: string | null): string {
     );
 }
 
-/** Habbo navigator occupancy: how full a Place is, for the bar's colour. */
 export function occupancy(
     place: Place,
     count: number,

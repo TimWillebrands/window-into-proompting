@@ -10,7 +10,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>A local provider is Offline while it can't be reached, and only a connection failure says so (ADR 0040).</summary>
 public class ProviderAvailabilityTest : TestKitBase
 {
     private sealed class Server(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler

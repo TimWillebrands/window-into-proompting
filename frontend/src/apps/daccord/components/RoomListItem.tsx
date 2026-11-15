@@ -2,7 +2,6 @@ interface RoomListItemProps {
     name: string;
     sub?: string;
     emoji: string;
-    /** Tailwind gradient classes incl. `dark:` */
     badgeGradient: string;
     onClick?: () => void;
     active?: boolean;

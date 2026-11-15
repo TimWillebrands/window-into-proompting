@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Chat attention: the live exchange is held, scrolled-up history isn't.</summary>
 public class ChatAttentionTest
 {
     private static readonly long T0 = 10_000_000_000;
@@ -15,7 +14,6 @@ public class ChatAttentionTest
     [Fact]
     public void FirstChatInAWhile_HoldsOnlyWhatIsOnScreen()
     {
-        // Yesterday's long exchange, then one fresh line today.
         var history = At(0, 1, 2, 3, 4, 5, 6, 7, 1440);
 
         var (held, hidden) = ChatAttention.Window(history);
@@ -31,7 +29,6 @@ public class ChatAttentionTest
 
         var (held, hidden) = ChatAttention.Window(history);
 
-        // Exchange starts at minute 120 (index 2); everything above it fits on screen.
         Assert.Equal(10, held.Count);
         Assert.Equal(0, hidden);
     }

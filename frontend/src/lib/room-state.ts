@@ -1,5 +1,3 @@
-// Room realtime state: pure envelope reduction + generation-phase selector. No socket, no store.
-
 export interface ChatMessageMetadata {
     provider: string | null;
     modelName: string | null;
@@ -17,11 +15,6 @@ export interface RealtimeChatMessage {
     sendAt: number | null;
     metadata: ChatMessageMetadata | null;
     generationEvents: Array<{ event: string; data: string; at: number }>;
-    /**
-     * Discriminator for special message variants. Currently:
-     *   "emote" — race-cancelled abandonment line (italic action, no bubble chrome).
-     * null/undefined for normal messages.
-     */
     kind?: string | null;
 }
 
@@ -33,16 +26,10 @@ export interface DeclinedDecision {
     timestamp: number;
 }
 
-/**
- * One stop-signal race outcome from a PersonaGrain. Mirrors backend RaceEvaluation
- * exactly. Surfaced into the thought log with kind = `race-${outcome}` so the user
- * can see when in-flight generations are cancelled, ship past PNR, or let-it-ride.
- */
 export interface RaceEvaluation {
     personaId: string;
     personaName: string;
     triggeredByMessageId: number;
-    /** "cancel-decision" | "cancel-generation" | "past-pnr" | "continue" */
     outcome: string;
     salience: number | null;
     cancelScore: number | null;
@@ -107,7 +94,6 @@ const appendOrUpdateMessage = (
     return nextMessages;
 };
 
-/** Apply `update` to one Room, tracking its high-water sequence. */
 const withRoom = (
     rooms: Record<string, ChatGroupRealtimeState>,
     chatGroupId: string,
@@ -129,19 +115,12 @@ const withRoom = (
     };
 };
 
-/** Fold one party envelope into the Room map; returns the same object when it doesn't concern a Room. */
 export const reduceRooms = (
     rooms: Record<string, ChatGroupRealtimeState>,
     envelope: PartyRealtimeEnvelope,
     now: number = Date.now(),
 ): Record<string, ChatGroupRealtimeState> => {
     if (envelope.type === 'party.snapshot') {
-        // Snapshot now carries the two thought-log auxiliary streams alongside
-        // messages — pre-gate skips (skipObvious-shaped, mapped into the same
-        // DeclinedDecision lane the live `declined` event feeds) and race outcomes.
-        // Without these the thought log on reload only shows persisted-message
-        // appraisals; every "negative" beat (skip / race-cancel / past-pnr / continue)
-        // would silently disappear.
         const payload = envelope.data as {
             chatGroupId?: string;
             messages?: RealtimeChatMessage[];
@@ -187,8 +166,6 @@ export const reduceRooms = (
     }
 
     if (envelope.type === 'party.race.evaluation') {
-        // Stop-signal race outcome from PersonaGrain. Accumulate into thoughtLog
-        // alongside go/skip entries so race activity is visible in the sidebar.
         const payload = envelope.data as {
             chatGroupId?: string;
             evaluation?: RaceEvaluation;
@@ -207,7 +184,6 @@ export const reduceRooms = (
     }
 
     if (envelope.type === 'party.turn.skipped') {
-        // Live skip, same lane as the snapshot's: the thought log and Messenger's "seen" line read it.
         const payload = envelope.data as {
             chatGroupId?: string;
             skipped?: {
@@ -397,7 +373,6 @@ export const reduceRooms = (
                     ],
                 };
             } else if (payload.event === 'appraisal') {
-                // Accumulate appraisal chunks for realtime display
                 nextMessage = {
                     ...baseMessage,
                     appraisal: `${baseMessage.appraisal ?? ''}${payload.data ?? ''}`,
@@ -407,7 +382,6 @@ export const reduceRooms = (
                     ],
                 };
             } else if (payload.event === 'appraisalComplete') {
-                // Replace accumulated chunks with clean parsed JSON
                 nextMessage = {
                     ...baseMessage,
                     appraisal: payload.data ?? null,
@@ -417,7 +391,6 @@ export const reduceRooms = (
                     ],
                 };
             } else if (payload.event === 'attend') {
-                // First event that carries the real persona ID — use it as senderId
                 nextMessage = {
                     ...baseMessage,
                     senderId: payload.data ?? baseMessage.senderId,
@@ -427,9 +400,6 @@ export const reduceRooms = (
                     ],
                 };
             } else if (payload.event === 'retry') {
-                // Backend is about to retry generation after a transient failure.
-                // Clear any partial content/reasoning we buffered during the failed
-                // attempt so the next stream starts from a clean slate.
                 nextMessage = {
                     ...baseMessage,
                     content: '',
@@ -441,11 +411,6 @@ export const reduceRooms = (
                     ],
                 };
             } else if (payload.event === 'declined') {
-                // Persona decided not to respond — capture decision then remove phantom message.
-                // Authoritative personaId lives in the payload JSON; the phantom's senderId is
-                // a fallback only — the persisted slot's SenderId is cleared to Guid.Empty on
-                // decline (see ChatGroupGenerationStoppedEvent), so falling through to it
-                // surfaced "00000000" entries in the thought log.
                 const phantom = prev.messages.find(
                     (m) => m.messageId === messageId,
                 );
@@ -456,9 +421,7 @@ export const reduceRooms = (
                     declinedReason = parsed.reason ?? null;
                     declinedPersonaId =
                         parsed.personaId ?? parsed.PersonaId ?? '';
-                } catch {
-                    /* ignore */
-                }
+                } catch {}
                 const declined: DeclinedDecision = {
                     personaId: declinedPersonaId || phantom?.senderId || '',
                     reason: declinedReason,
@@ -553,7 +516,6 @@ export const phaseOf = (
 
     const personaName = attendEvent.data;
 
-    // Check if still in the appraisal phase (has appraisal chunks but no appraisalComplete yet)
     const hasAppraisalComplete = events.some(
         (e) => e.event === 'appraisalComplete',
     );

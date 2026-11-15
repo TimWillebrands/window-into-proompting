@@ -3,18 +3,14 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
-/// <summary>What a Book holds of one Instrument (ADR 0030).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.Position")]
 public sealed class Position
 {
     [Id(0)] public string InstrumentId { get; set; } = string.Empty;
     [Id(1)] public string Title { get; set; } = string.Empty;
     [Id(2)] public double Units { get; set; }
-    /// <summary>Everything paid for the units still held, fees included.</summary>
     [Id(3)] public double Cost { get; set; }
-    /// <summary>Price it could be sold at now.</summary>
     [Id(4)] public double Mark { get; set; }
-    /// <summary>False once a read failed: the Mark is old, nothing more.</summary>
     [Id(5)] public bool Fresh { get; set; } = true;
 
     public double Value => Units * Mark;
@@ -25,17 +21,14 @@ public enum TradeSide
 {
     Buy = 0,
     Sell = 1,
-    /// <summary>Paid out by the Market, not chosen.</summary>
     Settled = 2,
 }
 
-/// <summary>One buy, sell or Settlement in a Book, with the Thesis behind it.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.Trade")]
 public sealed class Trade
 {
     [Id(0)] public Guid Id { get; set; }
     [Id(1)] public long At { get; set; }
-    /// <summary>Null for a Settlement: nobody chose it.</summary>
     [Id(2)] public Guid? TraderId { get; set; }
     [Id(3)] public string? TraderName { get; set; }
     [Id(4)] public string InstrumentId { get; set; } = string.Empty;
@@ -44,16 +37,12 @@ public sealed class Trade
     [Id(7)] public double Units { get; set; }
     [Id(8)] public double Price { get; set; }
     [Id(9)] public double Fee { get; set; }
-    /// <summary>Profit or loss this closed; null for a buy.</summary>
     [Id(10)] public double? Realized { get; set; }
     [Id(11)] public string? Thesis { get; set; }
-    /// <summary>On a question: the chance the trader gave it of paying out, 0..1.</summary>
     [Id(12)] public double? Forecast { get; set; }
-    /// <summary>Brier score of <see cref="Forecast"/>, once the Market settled it.</summary>
     [Id(13)] public double? Score { get; set; }
 }
 
-/// <summary>A Company's ghost money. Real prices, pretend fills; never touches a Wallet.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.Book")]
 public sealed class Book
 {
@@ -61,17 +50,13 @@ public sealed class Book
     [Id(1)] public double Cash { get; set; }
     [Id(2)] public List<Position> Positions { get; set; } = new();
     [Id(3)] public List<Trade> Trades { get; set; } = new();
-    /// <summary>Local day the day's opening value belongs to.</summary>
     [Id(4)] public string? Day { get; set; }
     [Id(5)] public double DayOpen { get; set; }
-    /// <summary>Direction of the big move already told today: -1, 0 or 1.</summary>
     [Id(6)] public int ToldToday { get; set; }
 
     public double Value => Cash + Positions.Sum(p => p.Value);
 }
 
-/// <summary>What someone wants to do; the fill comes from the quote, not from them.</summary>
-/// <param name="Share">Buy: part of the Book's value. Sell: part of the Position. 0..1.</param>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.TradeOrder")]
 public sealed record TradeOrder(
     [property: Id(0)] string InstrumentId,
@@ -82,28 +67,23 @@ public sealed record TradeOrder(
     [property: Id(5)] string? Thesis,
     [property: Id(6)] double? Forecast);
 
-/// <summary>A Trade, or why there wasn't one.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.TradeResult")]
 public sealed record TradeResult([property: Id(0)] Trade? Trade, [property: Id(1)] string? Refusal)
 {
     public static TradeResult No(string why) => new(null, why);
 }
 
-/// <summary>What a refresh turned up that someone should hear about.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.BookNews")]
 public sealed record BookNews(
     [property: Id(0)] List<Trade> Settled,
-    /// <summary>Today's move as a fraction, the first time it crosses the line; null otherwise.</summary>
     [property: Id(1)] double? BigMove)
 {
     public bool Any => Settled.Count > 0 || BigMove is not null;
 }
 
-/// <summary>Pure rules of a Book (ADR 0030): how Trades fill, Positions mark and Settlements pay.</summary>
 public static class BookRules
 {
     public const double FeeRate = 0.001;
-    /// <summary>No single Instrument may take more of the Book than this.</summary>
     public const double MaxShare = 0.25;
     public const double BigMoveLine = 0.05;
     public const int MaxTrades = 200;
@@ -111,7 +91,6 @@ public static class BookRules
 
     public static Book Open(double capital) => new() { Capital = capital, Cash = capital };
 
-    /// <summary>Buys fill at the ask, sells at the bid, plus a fee: a round trip always costs.</summary>
     public static TradeResult Apply(Book book, Quote quote, TradeOrder order, long now)
     {
         if (quote.Settled is not null || !quote.Open) return TradeResult.No($"The market for {quote.Title} isn't open.");
@@ -171,7 +150,6 @@ public static class BookRules
         }), null);
     }
 
-    /// <summary>Takes in a read: marks what answered, pays out what settled, and leaves the rest stale.</summary>
     public static BookNews Mark(Book book, IReadOnlyList<Quote> quotes, DateTimeOffset local, long now)
     {
         var day = local.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -203,7 +181,6 @@ public static class BookRules
         var proceeds = position.Units * payout;
         book.Cash += proceeds;
         book.Positions.Remove(position);
-        // Hold every forecast on this Instrument against what the Market said.
         foreach (var trade in book.Trades.Where(t => t.InstrumentId == position.InstrumentId && t.Forecast is not null && t.Score is null))
             trade.Score = Brier(trade.Forecast!.Value, payout);
         return Record(book, new Trade
@@ -225,7 +202,6 @@ public static class BookRules
 
     public static double Brier(double forecast, double outcome) => (forecast - outcome) * (forecast - outcome);
 
-    /// <summary>Mean Brier of one trader's settled forecasts (lower is better); null before any have settled.</summary>
     public static double? ScoreOf(Book book, Guid? traderId)
     {
         var scores = book.Trades.Where(t => t.Score is not null && (traderId is null || t.TraderId == traderId)).Select(t => t.Score!.Value).ToList();

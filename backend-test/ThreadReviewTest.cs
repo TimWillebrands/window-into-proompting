@@ -4,7 +4,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>What the World says closes a Life thread (ADR 0052): read at rest against what they remember, gone by the next Day.</summary>
 public class ThreadReviewTest
 {
     private static readonly DateTimeOffset Tomorrow = new(2026, 11, 12, 7, 0, 0, TimeSpan.Zero);
@@ -15,7 +14,6 @@ public class ThreadReviewTest
     private const string OnMind = "The staging numbers have to be ready before Justin's call on Monday.";
     private const string NoStaging = "You asked the CDU for the staging numbers; it said there is no staging environment and never was.";
 
-    /// <summary>System One that says yes to a statement when <c>yes</c> does, no to the rest, and remembers what it was shown.</summary>
     private sealed class FakeJudge(Func<string, bool> yes) : ISystemOneJudge
     {
         public string? State { get; private set; }

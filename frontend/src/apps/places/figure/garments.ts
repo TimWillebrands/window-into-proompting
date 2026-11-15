@@ -15,7 +15,6 @@ import {
     type V3,
 } from './sdf';
 
-/** Folds: soft creases, stronger where cloth bunches. */
 const folds = (x: number, y: number, z: number, s: number, amp: number) =>
     amp === 0
         ? 0
@@ -23,7 +22,6 @@ const folds = (x: number, y: number, z: number, s: number, amp: number) =>
           (noise(x * s, y * s * 2.4, z * s) +
               0.5 * noise(x * s * 2.1 + 7, y * s * 3.2, z * s * 2.1));
 
-/** The solid of a top; layer pushes it out over what's under it. */
 export function topField(
     a: Anatomy,
     doc: TopDoc,
@@ -33,7 +31,6 @@ export function topField(
     const { H } = a;
     const e = (0.0075 + layer * 0.0085) * H;
     const loose = doc.fit * 0.032 * H;
-    // Hem height as a place on the torso: cropped under the bust, hips, then past the crotch.
     const hemT =
         doc.hem <= 0.5
             ? mix(0.62, 0.12, doc.hem / 0.5)
@@ -91,22 +88,17 @@ export function topField(
     const open = doc.open;
     const dress = hemT < 0;
     return (x, y, z) => {
-        // Always clears the waistband, which is why tops hang over bottoms.
         const growT =
             e +
             0.012 * H * smooth(shoulderY - 0.1 * H, shoulderY - 0.2 * H, y) +
             loose * (0.5 + 0.8 * smooth(shoulderY, hemY, y));
         const growS = e + loose * 0.9;
-        // The hip joints bulge past the chest, so the shell takes in the tops of the legs.
         const thigh = (x > 0 ? a.legL : a.legR).d(x, y, z) - growT;
         let d = smin(a.chest(x, y, z) - growT, thigh, 0.03 * H);
-        // Wraps what's beneath it, however baggy; a short sleeve still stops short of a long one under it.
         const reach = x > 0 ? a.armL : a.armR;
         const onArm = reach.d(x, y, z) < 0.06 * H && reach.t > sleeve;
-        // Blended: a hard min flickers between the two shells' folds, and that shades as speckle.
         if (!onArm) d = smin(d, over(x, y, z) - e - 0.004 * H, a.soft * 1.5);
         if (dress) {
-            // Past the crotch the torso loft caps, so hang a tube off the hips.
             const below = Math.max(0, a.torso.a[1] + 0.08 * H - y);
             const tube =
                 Math.hypot(x / 1.05, (z + 0.004 * H) / 0.78) -
@@ -145,7 +137,6 @@ export function topField(
     };
 }
 
-/** The solid of trousers or a skirt. */
 export function bottomField(a: Anatomy, doc: BottomDoc): Field {
     const { H } = a;
     const e = 0.009 * H;
@@ -180,7 +171,6 @@ export function bottomField(a: Anatomy, doc: BottomDoc): Field {
                 depth;
             const leg = x > 0 ? a.legL : a.legR;
             const thigh = leg.d(x, y, z, 0.012 * H);
-            // Something under it, so a short skirt stays decent on the stairs.
             const shorts = sint(
                 sint(
                     a.trunk(x, y, z) - 0.008 * H,
@@ -206,7 +196,6 @@ export function bottomField(a: Anatomy, doc: BottomDoc): Field {
     const endT = mix(0.12, 1.02, doc.length);
     return (x, y, z) => {
         const leg = x > 0 ? a.legL : a.legR;
-        // The grow depends on t, read from a first pass.
         leg.d(x, y, z);
         const t = leg.t;
         const flare = doc.flare * 0.05 * H * smooth(a.knee - 0.05, 1, t);
@@ -215,7 +204,6 @@ export function bottomField(a: Anatomy, doc: BottomDoc): Field {
         const cut = (t - endT) * leg.length;
         let d = sint(legD, cut, a.soft);
         d = smin(d, a.chest(x, y, z) - e - loose * 0.2, 0.03 * H);
-        // Two legs stay two legs, however baggy.
         d = a.apart(d, x, y);
         const bunch = smooth(endT - 0.25, endT, t);
         d += folds(x, y, z, foldS, fold * (0.5 + bunch * 1.2));
@@ -235,9 +223,7 @@ export function legwearField(a: Anatomy, doc: LegwearDoc): Field {
 
 export interface ShoeFields {
     field: Field;
-    /** Colour zone at a point: 0 upper, 1 sole, 2 trim. */
     zone: (x: number, y: number, z: number) => number;
-    /** Height the sole adds under the foot. */
     lift: number;
 }
 

@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027: a District's streets are built, not designed, and always pass the design check.</summary>
 public class DistrictSceneTest
 {
     private static Place Venue(string name, string archetype) => new()

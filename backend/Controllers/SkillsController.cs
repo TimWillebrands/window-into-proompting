@@ -8,7 +8,6 @@ using PartyTown.World.Skills;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Skills (ADR 0054): what each Persona knows how to do, who they are (Intrinsic) and what doing taught them (Acquired).</summary>
 [ApiController]
 public sealed class SkillsController(IGrainFactory grains) : ControllerBase
 {
@@ -21,7 +20,6 @@ public sealed class SkillsController(IGrainFactory grains) : ControllerBase
         return Ok(cast.Select((c, i) => new SkillSummary(c.Id, c.Name, views[i].Where(s => s.Intrinsic).ToList(), views[i].Where(s => !s.Intrinsic).ToList())).ToList());
     }
 
-    /// <summary>Author a Persona's Intrinsic Skills; from then on the sheet no longer rewrites them.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("personas/{personaId:guid}/skills")]
     [ProducesResponseType<List<Skill>>(StatusCodes.Status200OK)]
@@ -32,7 +30,6 @@ public sealed class SkillsController(IGrainFactory grains) : ControllerBase
         return Ok(await grains.GetGrain<IIntrinsicSkillsGrain>(personaId).SetAsync(request.Select(r => New(r, SkillSource.Authored, practice: 30)).ToList()));
     }
 
-    /// <summary>Give a Participant an Acquired Skill in this Party, as if they'd picked it up already.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/skills/{participantId:guid}")]
     [ProducesResponseType<SkillView>(StatusCodes.Status200OK)]
@@ -43,7 +40,6 @@ public sealed class SkillsController(IGrainFactory grains) : ControllerBase
         return Ok(await Skills(partyId, participantId).AddAsync(New(request, SkillSource.Authored, practice: SkillRules.Learns)));
     }
 
-    /// <summary>Forget an Acquired Skill; what taught it can teach it again.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("worlds/{partyId:guid}/skills/{participantId:guid}/{skillId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -51,7 +47,6 @@ public sealed class SkillsController(IGrainFactory grains) : ControllerBase
     public async Task<ActionResult> Forget(Guid partyId, Guid participantId, Guid skillId)
         => await Skills(partyId, participantId).RemoveAsync(skillId) is null ? NotFound() : NoContent();
 
-    /// <summary>Promotion: an Acquired Skill becomes part of who the Persona is, in every Party.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/skills/{participantId:guid}/{skillId:guid}/promote")]
     [ProducesResponseType<List<Skill>>(StatusCodes.Status200OK)]

@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>move_home: a Home gets a new address and part of town, keeping its layout.</summary>
 public partial class WorldLifeTest
 {
     [Fact]

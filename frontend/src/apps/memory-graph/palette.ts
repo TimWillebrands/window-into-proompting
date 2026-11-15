@@ -1,4 +1,3 @@
-/// <summary>Per-person hues; picked to stay apart from the Event amber and Concept teal.</summary>
 export const PERSON_PALETTE = [
     '#7B5CC4',
     '#D2477A',

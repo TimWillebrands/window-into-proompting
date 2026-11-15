@@ -8,7 +8,6 @@ using PartyTown.World.Desires;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Desires (ADR 0026): what each Persona wants, who they are (Intrinsic) and what play gave them (Acquired).</summary>
 [ApiController]
 public sealed class DesiresController(IGrainFactory grains) : ControllerBase
 {
@@ -21,13 +20,11 @@ public sealed class DesiresController(IGrainFactory grains) : ControllerBase
         return Ok(cast.Select((c, i) => new DesireSummary(c.Id, c.Name, views[i].Intrinsic, views[i].Acquired)).ToList());
     }
 
-    /// <summary>Author a Persona's Intrinsic Desires; from then on the sheet no longer rewrites them.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("personas/{personaId:guid}/desires")]
     public async Task<ActionResult<List<Desire>>> SetIntrinsic(Guid personaId, [FromBody] List<DesireRequest> request)
         => Ok(await grains.GetGrain<IIntrinsicDesiresGrain>(personaId).SetAsync(request.Select(r => New(r, DesireSource.Authored)).ToList()));
 
-    /// <summary>Give a Participant an Acquired Desire in this Party.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/desires/{participantId:guid}")]
     public async Task<ActionResult<Desire>> AddAcquired(Guid partyId, Guid participantId, [FromBody] DesireRequest request)
@@ -43,7 +40,6 @@ public sealed class DesiresController(IGrainFactory grains) : ControllerBase
     public async Task<ActionResult> SetStatus(Guid partyId, Guid participantId, Guid desireId, [FromBody] DesireStatusRequest request)
         => await Desires(partyId, participantId).MarkAsync(desireId, request.Status) ? NoContent() : NotFound();
 
-    /// <summary>Promotion: an Acquired Desire becomes part of who the Persona is, in every Party.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("worlds/{partyId:guid}/desires/{participantId:guid}/{desireId:guid}/promote")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

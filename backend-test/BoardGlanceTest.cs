@@ -3,7 +3,6 @@ using PartyTown.World.Apps;
 
 namespace BackendTest;
 
-/// <summary>The Board closed: only what's new and what concerns you reaches the Persona.</summary>
 public class BoardGlanceTest
 {
     private static readonly Guid Me = Guid.NewGuid();

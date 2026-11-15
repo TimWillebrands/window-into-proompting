@@ -8,11 +8,6 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
 
-/// <summary>
-/// Event-sourced grain that owns the message log for a single chat group.
-/// Keyed by chat group GUID. Publishes stream events to the parent party's stream
-/// so existing WebSocket subscriptions continue to work.
-/// </summary>
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
 public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
@@ -20,13 +15,10 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 {
     private string? _kind;
 
-    /// <summary>Past this, a line nobody finished their turn on is let go: the human has moved on.</summary>
     private static readonly TimeSpan OwedFor = TimeSpan.FromMinutes(10);
 
-    /// <summary>A skip that means Reflex sent, or already sent, the quick line (ADR 0031).</summary>
     private const string Promised = "reflex: " + World.Reflex.ReflexVerdict.Holding;
 
-    /// <summary>Process state, not history: who still owes a human an answer here.</summary>
     private readonly OwedAnswers _owed = new(OwedFor);
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -39,7 +31,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
             return;
         }
 
-        // Self-initialize from registry
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         var partyId = await registry.GetPartyForChatGroup(this.GetPrimaryKey());
         if (partyId is null)
@@ -51,9 +42,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var chatGroups = await partyGrain.GetChatGroups();
         var thisChatGroup = chatGroups.FirstOrDefault(g => g.Id == this.GetPrimaryKey());
 
-        // Seed Room membership from the Party's current participant set, ids only.
-        // Driver overrides start empty — by default every Persona's Effective Driver
-        // in this Room equals its Participant's Default Driver.
         var seedIds = new HashSet<Guid>(party.Participants.Select(p => p.Id));
 
         RaiseEvent(new ChatGroupInitializedEvent
@@ -95,7 +83,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return Task.FromResult(State.Messages.Any(m => m.SenderId == senderId && IsOpen(m) && (m.SendAt ?? 0) >= since));
     }
 
-    /// <summary>An open slot older than this is a turn that died without an outcome, not one still being spoken.</summary>
     private static readonly TimeSpan OpenTurnHolds = TimeSpan.FromMinutes(3);
 
     public Task<List<ChatMessage>> GetRecentMessagesAsync(int count)
@@ -116,7 +103,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var slot = State.Messages.FirstOrDefault(m => m.MessageId == turnId);
         if (slot is null || !IsOpen(slot))
         {
-            // Deleted mid-generation (Reprompt truncation) or already closed — first outcome wins.
             logger.LogDebug("Turn {TurnId} in chat group {ChatGroupId} not open; dropping {Outcome}",
                 turnId, this.GetPrimaryKey(), outcome.GetType().Name);
             return;
@@ -149,7 +135,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return last is null ? Task.CompletedTask : NotifyAllParticipantsAsync(last);
     }
 
-    /// <summary>A reserved slot no outcome has touched yet.</summary>
     private static bool IsOpen(ChatMessage slot)
         => string.IsNullOrEmpty(slot.Content) && slot.Error is null && slot.Appraisal is null;
 
@@ -180,7 +165,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 
     public async Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds)
     {
-        // Room ⊆ Party: ids outside the Party cast never enter the Room.
         var party = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetParty();
         var cast = party.Participants.Select(p => p.Id).ToHashSet();
         var next = new HashSet<Guid>(State.ParticipantIds);
@@ -189,8 +173,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return State.ParticipantIds;
     }
 
-    // Orleans serializes the return value across the grain boundary, so an in-grain
-    // defensive copy would be wasted work.
     public Task<IReadOnlySet<Guid>> GetParticipantIdsAsync()
         => Task.FromResult<IReadOnlySet<Guid>>(State.ParticipantIds);
 
@@ -203,7 +185,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return RoomCast.Create(cast, State.ParticipantIds, State.DriverOverrides, await KindAsync());
     }
 
-    /// <summary>Kind never changes after creation; read once per activation.</summary>
     private async Task<string> KindAsync()
         => _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
             .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
@@ -281,7 +262,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return message;
     }
 
-    /// <summary>A line a human typed is owed an answer by everyone who takes a turn on it.</summary>
     private async Task OweAsync(ChatMessage line)
     {
         try
@@ -300,7 +280,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    /// <summary>A human's line every listener let pass: the keenest of them answers it, once (ADR 0031).</summary>
     private async Task AnswerOwedAsync()
     {
         if (!_owed.AnyDue) return;
@@ -321,7 +300,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         }
     }
 
-    /// <summary>Someone's turn is open after this line: what they say may yet answer it.</summary>
     private bool TurnOpenAfter(int lineId)
     {
         var since = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)OpenTurnHolds.TotalMilliseconds;
@@ -419,10 +397,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
     }
 
-    /// <summary>
-    /// Race-cancelled draft becomes an in-character emote (<c>Kind="emote"</c>) in its slot.
-    /// Not fanned out — others see it in history on their next beat.
-    /// </summary>
     private async Task MarkGenerationCancelledAsEmoteAsync(
         int messageId,
         string emoteContent,
@@ -534,12 +508,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync()
         => Task.FromResult<IReadOnlyList<SkippedTurn>>(State.SkippedTurns.ToList());
 
-    /// <summary>
-    /// Persist one stop-signal race outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>.
-    /// Mirrors <see cref="RecordSkippedTurnAsync"/> shape so the thought-log papertrail
-    /// can show race activity (cancel-decision / cancel-generation / past-pnr / continue)
-    /// alongside go and skip entries.
-    /// </summary>
     public async Task RecordRaceEvaluationAsync(
         Guid personaId,
         string personaName,
@@ -561,9 +529,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         });
         await ConfirmEvents();
 
-        // Live update: surface the race outcome to subscribed UIs immediately. Persistence
-        // (above) is for replay/reload — without the stream event the thought log wouldn't
-        // refresh until the next page load.
         var raced = State.RaceEvaluations.LastOrDefault();
         if (raced is not null)
         {
@@ -582,12 +547,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     public Task<int> CountTrailingAssistantMessagesAsync()
         => Task.FromResult(Services.ResponsePipeline.UrgeMath.CountExchangeRounds(State.Messages));
 
-    /// <summary>
-    /// Fan out a message notification to every Participant in this Room (except the sender).
-    /// No Effective-Driver filter is applied here: the User-Effective short-circuit lives in
-    /// PersonaGrain so the single rule for "User-driven personas don't run Decide/Speak"
-    /// has one home, not many. Fire-and-forget because PersonaGrain re-enters this grain.
-    /// </summary>
     private Task NotifyAllParticipantsAsync(ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         var chatGroupId = this.GetPrimaryKey();
@@ -605,14 +564,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         return Task.CompletedTask;
     }
 
-    /// <summary>Everyone here but the sender who heard it (Earshot).</summary>
     private List<Guid> ListenersOf(ChatMessage line)
         => State.ParticipantIds
             .Where(id => id != line.SenderId)
             .Where(id => line.HeardBy is not { } heard || heard.Contains(id))
             .ToList();
 
-    /// <summary>Place talk only: who hears this sender right now (ADR 0020). Null elsewhere.</summary>
     private async Task<World.Places.EarshotResult?> EarshotOfAsync(Guid senderId)
     {
         if (await KindAsync() != ChatGroupKinds.Place) return null;
@@ -633,7 +590,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
 [Alias("backend.IChatGroupGrain")]
 public interface IChatGroupGrain : IGrainWithGuidKey
 {
-    /// <summary>Last <paramref name="count"/> completed messages (no reserved slots, no failures).</summary>
     [Alias("GetRecentMessagesAsync")]
     Task<List<ChatMessage>> GetRecentMessagesAsync(int count);
 
@@ -649,53 +605,36 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
 
-    /// <summary>Reserve a Persona's turn slot; end it with exactly one <see cref="EndTurnAsync"/>. <paramref name="urge"/> is how keen they were.</summary>
     [Alias("BeginTurnAsync")]
     Task<int> BeginTurnAsync(Guid personaId, int? triggeredByMessageId = null, double? urge = null);
 
-    /// <summary>Close a turn. Idempotent: a missing (deleted) or already-closed slot is a no-op.
-    /// Only <see cref="TurnOutcome.Spoke"/> fans out.</summary>
     [Alias("EndTurnAsync")]
     Task EndTurnAsync(int turnId, TurnOutcome outcome);
 
-    /// <summary>Re-offer the latest message to the cast (Proceed / after Reprompt truncation).</summary>
     [Alias("ContinueAsync")]
     Task ContinueAsync();
 
-    /// <summary>Replace the Room's membership wholesale (ids only).</summary>
     [Alias("SetParticipantIdsAsync")]
     Task SetParticipantIdsAsync(IReadOnlySet<Guid> participantIds);
 
-    /// <summary>The Personas currently in this Room. Driver is *not* carried here —
-    /// it lives on the Participant (Default Driver) and the Room override map.</summary>
     [Alias("GetParticipantIdsAsync")]
     Task<IReadOnlySet<Guid>> GetParticipantIdsAsync();
 
-    /// <summary>Add Personas to the Room; ids not in the Party cast are dropped. Returns membership.</summary>
     [Alias("JoinAsync")]
     Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds);
 
-    /// <summary>The sparse per-Persona Driver override map for this Room. A missing
-    /// entry means the Participant's Default Driver applies.</summary>
     [Alias("GetDriverOverridesAsync")]
     Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync();
 
-    /// <summary>Present Participants with Effective Drivers and library data — the one
-    /// place consumers learn who is here and who drives them.</summary>
     [Alias("GetCastAsync")]
     Task<RoomCast> GetCastAsync();
 
-    /// <summary>Set the Driver override for one Persona in this Room.</summary>
     [Alias("SetDriverOverrideAsync")]
     Task SetDriverOverrideAsync(Guid personaId, DriverKind kind);
 
-    /// <summary>Clear the Driver override for one Persona — falls back to the
-    /// Participant's Default Driver.</summary>
     [Alias("ClearDriverOverrideAsync")]
     Task ClearDriverOverrideAsync(Guid personaId);
 
-    /// <summary>Replace the Room's Driver override map wholesale in one event +
-    /// one storage write. Empty map clears all overrides.</summary>
     [Alias("SetDriverOverridesAsync")]
     Task SetDriverOverridesAsync(IReadOnlyDictionary<Guid, DriverKind> overrides);
 
@@ -719,7 +658,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetSkippedTurnsAsync")]
     Task<IReadOnlyList<SkippedTurn>> GetSkippedTurnsAsync();
 
-    /// <summary>This sender has a turn open here right now: a reply already on its way.</summary>
     [Alias("IsAnsweringAsync")]
     Task<bool> IsAnsweringAsync(Guid senderId);
 
@@ -744,16 +682,12 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("NotifyStreamChunkAsync")]
     Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt);
 
-    /// <summary>History before a message; with a <paramref name="listener"/>, only Place talk they heard (Earshot).</summary>
     [Alias("GetMessagesUntilAsync")]
     Task<List<ChatMessage>> GetMessagesUntilAsync(int messageId, Guid? listener = null);
 
-    /// <summary>AI rounds in the current exchange (<see cref="Services.ResponsePipeline.UrgeMath.CountExchangeRounds"/>).</summary>
     [Alias("CountTrailingAssistantMessagesAsync")]
     Task<int> CountTrailingAssistantMessagesAsync();
 }
-
-// ── State ──
 
 [GenerateSerializer, Alias(nameof(ChatGroupState))]
 public sealed record class ChatGroupState
@@ -767,8 +701,6 @@ public sealed record class ChatGroupState
     [Id(2)]
     public int NextMessageId { get; set; }
 
-    /// <summary>Personas currently in this Room. Membership only; Driver lives on the
-    /// Participant (Party scope) or in <see cref="DriverOverrides"/> (Room scope).</summary>
     [Id(3)]
     public HashSet<Guid> ParticipantIds { get; set; } = new();
 
@@ -778,20 +710,12 @@ public sealed record class ChatGroupState
     [Id(5)]
     public string? Scenario { get; set; }
 
-    /// <summary>Persona-turn skips (no slot reserved, no LLM call). Drives papertrail's
-    /// reactions-under-each-message tree without bloating the message log.</summary>
     [Id(6)]
     public List<SkippedTurn> SkippedTurns { get; set; } = [];
 
-    /// <summary>Stop-signal race outcomes per (persona, triggering message). Drives the
-    /// race section of the thought-log: shows when an in-flight generation was cancelled,
-    /// shipped past PNR, or let-it-ride. Includes salience scores when the race went
-    /// through the LFM2 classifier.</summary>
     [Id(7)]
     public List<RaceEvaluation> RaceEvaluations { get; set; } = [];
 
-    /// <summary>Sparse per-Persona Driver override map. A missing entry means the
-    /// Participant's Default Driver applies for that Persona in this Room.</summary>
     [Id(8)]
     public Dictionary<Guid, DriverKind> DriverOverrides { get; set; } = new();
 
@@ -866,8 +790,6 @@ public sealed record class ChatGroupState
         target.SenderId = @event.SenderId;
         target.SendAt = @event.SendAt;
         target.Metadata = @event.Metadata;
-        // Slot-reserve already records this; preserve the slot value when present and
-        // only overwrite if the event carries one (legacy events leave it null).
         if (@event.TriggeredByMessageId.HasValue)
             target.TriggeredByMessageId = @event.TriggeredByMessageId;
         target.HeardBy = @event.HeardBy;
@@ -879,8 +801,6 @@ public sealed record class ChatGroupState
         var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
         if (target is null) return;
 
-        // Preserve the slot's reserved SenderId — papertrail needs it to resolve the
-        // persona name for "declined" entries. (Earlier code wiped it to Guid.Empty.)
         target.Appraisal = @event.Appraisal;
         target.SendAt = @event.SendAt;
         if (@event.TriggeredByMessageId.HasValue)
@@ -901,9 +821,6 @@ public sealed record class ChatGroupState
         var target = Messages.FirstOrDefault(m => m.MessageId == @event.MessageId);
         if (target is null) return;
 
-        // Treat the cancelled slot as a real (emote) message: real Content + Kind tag,
-        // appraisal preserved for the thought log, no Error so the frontend doesn't show
-        // the red error chrome.
         target.Content = @event.Content;
         target.Kind = "emote";
         target.Appraisal = @event.Appraisal;
@@ -920,7 +837,6 @@ public sealed record class ChatGroupState
     {
         Messages.RemoveAll(m => m.MessageId > @event.MessageId);
         NextMessageId = Messages.Count > 0 ? Messages.Max(m => m.MessageId) : 0;
-        // Skips referencing now-deleted triggers would dangle; drop them.
         SkippedTurns.RemoveAll(s => s.TriggeredByMessageId > @event.MessageId);
     }
 
@@ -971,9 +887,6 @@ public sealed record class ChatGroupState
     }
 }
 
-/// <summary>A persona-turn that ended in <c>IsObviousSkip</c>: no slot, no LLM call.
-/// Lives in <see cref="ChatGroupState.SkippedTurns"/> so the papertrail can show all
-/// reactions to a triggering message, not just the ones that produced output.</summary>
 [GenerateSerializer, Alias(nameof(SkippedTurn))]
 public sealed record class SkippedTurn
 {
@@ -985,34 +898,21 @@ public sealed record class SkippedTurn
     [Id(5)] public long SendAt { get; set; }
 }
 
-/// <summary>One stop-signal race outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>.
-/// Persisted alongside <see cref="SkippedTurn"/> so the thought-log can render the full
-/// taxonomy of persona reactions: go (Message.Appraisal), decline (Message.Appraisal stop=true),
-/// skip (SkippedTurn), race (this).</summary>
 [GenerateSerializer, Alias(nameof(RaceEvaluation))]
 public sealed record class RaceEvaluation
 {
     [Id(0)] public Guid PersonaId { get; set; }
     [Id(1)] public string PersonaName { get; set; } = string.Empty;
     [Id(2)] public int TriggeredByMessageId { get; set; }
-    /// <summary>One of: <c>cancel-decision</c>, <c>cancel-generation</c>, <c>past-pnr</c>, <c>continue</c>.</summary>
     [Id(3)] public string Outcome { get; set; } = string.Empty;
-    /// <summary>LFM2 salience score (0..1). Null for branches that didn't call the classifier
-    /// (decision-phase cancel, past-PNR).</summary>
     [Id(4)] public double? Salience { get; set; }
-    /// <summary>Computed <c>salience × (1 − impulsivity) × (1 − commitmentProgress)</c>.
-    /// Null for branches that didn't compute it.</summary>
     [Id(5)] public double? CancelScore { get; set; }
     [Id(6)] public long SendAt { get; set; }
 }
 
-// ── Events ──
-
 [GenerateSerializer, Alias(nameof(ChatGroupEvent))]
 public abstract record class ChatGroupEvent;
 
-/// <summary>Raised once when a Room is first created. Sets the parent party, seeds
-/// membership from the Party's Participants (ids only), and marks initialized.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupInitializedEvent))]
 public sealed record class ChatGroupInitializedEvent : ChatGroupEvent
 {
@@ -1021,21 +921,18 @@ public sealed record class ChatGroupInitializedEvent : ChatGroupEvent
     [Id(3)] public string? Scenario { get; set; }
 }
 
-/// <summary>Raised when the chat group's scenario (free-text setting/context) is set or updated.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupScenarioSetEvent))]
 public sealed record class ChatGroupScenarioSetEvent : ChatGroupEvent
 {
     [Id(0)] public string? Scenario { get; set; }
 }
 
-/// <summary>Raised when the Room's membership is replaced wholesale (ids only).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupParticipantIdsSetEvent))]
 public sealed record class ChatGroupParticipantIdsSetEvent : ChatGroupEvent
 {
     [Id(0)] public HashSet<Guid> ParticipantIds { get; set; } = new();
 }
 
-/// <summary>Raised when a Driver override is set for one Persona in this Room.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupDriverOverrideSetEvent))]
 public sealed record class ChatGroupDriverOverrideSetEvent : ChatGroupEvent
 {
@@ -1043,23 +940,18 @@ public sealed record class ChatGroupDriverOverrideSetEvent : ChatGroupEvent
     [Id(1)] public DriverKind Kind { get; set; }
 }
 
-/// <summary>Raised when a Driver override is cleared — the Persona falls back to its
-/// Participant's Default Driver.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupDriverOverrideClearedEvent))]
 public sealed record class ChatGroupDriverOverrideClearedEvent : ChatGroupEvent
 {
     [Id(0)] public Guid PersonaId { get; set; }
 }
 
-/// <summary>Raised when the Room's Driver override map is replaced wholesale — one
-/// event per PUT instead of an N+M storm of per-key set/clear events.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupDriverOverridesReplacedEvent))]
 public sealed record class ChatGroupDriverOverridesReplacedEvent : ChatGroupEvent
 {
     [Id(0)] public Dictionary<Guid, DriverKind> Overrides { get; set; } = new();
 }
 
-/// <summary>Raised when a new message is sent (by a user or persona). Appends to the message log and advances the message counter.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupUserMessageEvent))]
 public sealed record class ChatGroupUserMessageEvent : ChatGroupEvent
 {
@@ -1067,7 +959,6 @@ public sealed record class ChatGroupUserMessageEvent : ChatGroupEvent
     [Id(2)] public ChatMessage Message { get; set; } = new();
 }
 
-/// <summary>Raised when an LLM generation finishes successfully. Fills in the content, reasoning, and appraisal fields on a previously sent message.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationCompletedEvent))]
 public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
 {
@@ -1079,12 +970,10 @@ public sealed record class ChatGroupGenerationCompletedEvent : ChatGroupEvent
     [Id(5)] public long SendAt { get; set; }
     [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
     [Id(7)] public int? TriggeredByMessageId { get; set; }
-    /// <summary>Place talk Earshot; null = everyone (Rooms, DMs, legacy events).</summary>
     [Id(8)] public List<Guid>? HeardBy { get; set; }
     [Id(9)] public string? Volume { get; set; }
 }
 
-/// <summary>Raised when a persona decides not to respond after reserving a message slot. Clears the message content and resets the sender.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationStoppedEvent))]
 public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
 {
@@ -1094,7 +983,6 @@ public sealed record class ChatGroupGenerationStoppedEvent : ChatGroupEvent
     [Id(3)] public int? TriggeredByMessageId { get; set; }
 }
 
-/// <summary>Raised when LLM generation fails with an error. Records the error on the message for client display.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationFailedEvent))]
 public sealed record class ChatGroupGenerationFailedEvent : ChatGroupEvent
 {
@@ -1103,14 +991,12 @@ public sealed record class ChatGroupGenerationFailedEvent : ChatGroupEvent
     [Id(2)] public long SendAt { get; set; }
 }
 
-/// <summary>Raised when a single message is deleted by a user.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessageDeletedEvent))]
 public sealed record class ChatGroupMessageDeletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
 }
 
-/// <summary>Raised to atomically reserve a unique message ID slot for a persona about to generate.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessageSlotReservedEvent))]
 public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
 {
@@ -1120,16 +1006,12 @@ public sealed record class ChatGroupMessageSlotReservedEvent : ChatGroupEvent
     [Id(3)] public int? TriggeredByMessageId { get; set; }
 }
 
-/// <summary>Raised when all messages after a given ID are deleted (used by reprompt to trim and regenerate).</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessagesAfterDeletedEvent))]
 public sealed record class ChatGroupMessagesAfterDeletedEvent : ChatGroupEvent
 {
     [Id(0)] public int MessageId { get; set; }
 }
 
-/// <summary>Raised when a persona is notified of a message but pre-gate (<c>IsObviousSkip</c>)
-/// elects not to deliberate. No message slot is reserved and no LLM call is made;
-/// recording the skip preserves the causal record for the papertrail.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupPersonaSkippedEvent))]
 public sealed record class ChatGroupPersonaSkippedEvent : ChatGroupEvent
 {
@@ -1141,10 +1023,6 @@ public sealed record class ChatGroupPersonaSkippedEvent : ChatGroupEvent
     [Id(5)] public long SendAt { get; set; }
 }
 
-/// <summary>Raised when the stop-signal race in <c>PersonaGrain</c> evaluates a new message
-/// against an in-flight generation. One event per (persona, in-flight generation, new
-/// triggering message) — surfaces the race in the user-facing thought log instead of
-/// leaving it in OTel spans only.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupPersonaRaceEvaluationEvent))]
 public sealed record class ChatGroupPersonaRaceEvaluationEvent : ChatGroupEvent
 {
@@ -1157,10 +1035,6 @@ public sealed record class ChatGroupPersonaRaceEvaluationEvent : ChatGroupEvent
     [Id(6)] public long SendAt { get; set; }
 }
 
-/// <summary>Raised when the stop-signal race elects to cancel an in-flight generation.
-/// Replaces the would-be <c>ChatGroupGenerationFailedEvent("cancelled")</c> with an
-/// in-character abandonment line ("emote") so the chat reads as character behaviour
-/// rather than an error.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupGenerationCancelledAsEmoteEvent))]
 public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupEvent
 {
@@ -1171,10 +1045,6 @@ public sealed record class ChatGroupGenerationCancelledAsEmoteEvent : ChatGroupE
     [Id(4)] public long SendAt { get; set; }
 }
 
-/// <summary>One historical chat message being bulk-imported. Caller assigns sender,
-/// timestamp, and kind. <see cref="ChatMessage.MessageId"/> is assigned by the state
-/// projection at apply time, not by the caller.</summary>
-/// <summary>Journal-only: Rooms filled by the retired importer (ADR 0022) still replay.</summary>
 [GenerateSerializer, Alias(nameof(ImportedMessage))]
 public sealed record class ImportedMessage
 {
@@ -1187,10 +1057,6 @@ public sealed record class ImportedMessage
     [Id(6)] public ChatMessageMetadata? Metadata { get; set; }
 }
 
-/// <summary>Raised when a batch of historical messages is bulk-imported. Single event
-/// per import so the journaled-grain round-trip cost stays O(1). Messages are appended
-/// in array order with sequential <see cref="ChatMessage.MessageId"/> values starting
-/// from the current <see cref="ChatGroupState.NextMessageId"/>.</summary>
 [GenerateSerializer, Alias(nameof(ChatGroupMessagesImportedEvent))]
 public sealed record class ChatGroupMessagesImportedEvent : ChatGroupEvent
 {

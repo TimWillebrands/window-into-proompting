@@ -4,13 +4,9 @@ export interface StubRoom {
     description: string;
     online: number;
     members: number;
-    /** Tailwind classes including `dark:` variants. Used as part of `bg-gradient-to-br …`. */
     gradient: string;
-    /** Tailwind classes for the small round badge (lighter chunk of same palette). */
     badgeGradient: string;
-    /** emoji avatar for the round badge */
     emoji: string;
-    /** category bucket */
     category: 'featured' | 'popular' | 'recent';
 }
 
@@ -164,7 +160,6 @@ export const ALL_STUB_ROOMS: StubRoom[] = [
     ...RECENT_ROOMS,
 ];
 
-/** Fixed gradient palette for "Your Rooms" — cycled deterministically per real chat-group. */
 export const REAL_ROOM_GRADIENTS: Array<{
     gradient: string;
     badgeGradient: string;

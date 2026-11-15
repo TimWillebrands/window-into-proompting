@@ -77,11 +77,8 @@ interface Props {
     allEars?: boolean;
     onBodyClick?: (participantId: string) => void;
     onSpotClick?: (spotId: string) => void;
-    /** Pin the hour (previews); defaults to the local clock. */
     hour?: number;
-    /** Overlaid on the view: nameplate, caption, action dock. */
     hud?: ReactNode;
-    /** Arranging a Home: click a thing to pick it, then a tile to put it there. */
     arrange?: {
         selected: string | null;
         onPick: (furniId: string) => void;
@@ -91,7 +88,6 @@ interface Props {
 
 const MIN_HEIGHT = 240;
 
-/** The 3D view of one Place (ADR 0023): scene from its map and prefabs, Bodies walking about, talk in bubbles. */
 export default function PlaceScene(props: Props) {
     const { place, furni } = props;
     const scene = useMemo(() => sceneFor(place), [place]);
@@ -128,7 +124,6 @@ export default function PlaceScene(props: Props) {
                 className="pl-view"
                 style={{
                     width: '100%',
-                    // Fill whatever height the window has left; scroll only below the minimum.
                     flex: `1 0 ${MIN_HEIGHT}px`,
                     minHeight: MIN_HEIGHT,
                     background: sky.backdrop,
@@ -201,7 +196,6 @@ export default function PlaceScene(props: Props) {
     );
 }
 
-/** A thing with something to do (ADR 0049). */
 const isDoable = (f: FurniView) =>
     !!f.useLabel && (f as { gives?: string | null }).gives != null;
 
@@ -220,7 +214,6 @@ function useHour(pinned?: number) {
     return pinned ?? hour;
 }
 
-/** Whether you're in, or on your way to, the Place on view. */
 const isMine = ({ bodies, playerId, place }: Props) =>
     bodies.some(
         (b) =>
@@ -228,7 +221,6 @@ const isMine = ({ bodies, playerId, place }: Props) =>
             (b.destPlaceId ?? b.placeId) === place.id,
     );
 
-/** The camera starts on you if you're here, else the scene's focus, else its middle. */
 function focusOf(scene: Scene, { bodies, playerId, place }: Props): Pt {
     const me = bodies.find(
         (b) =>
@@ -241,7 +233,6 @@ function focusOf(scene: Scene, { bodies, playerId, place }: Props): Pt {
     return f ? { x: f[0], y: f[1] } : { x: scene.w / 2, y: scene.h / 2 };
 }
 
-/** Habbo's angle: 2:1 dimetric, looking from +x, +z. Rooms fit the view; outdoors stays close and pans. */
 function Rig({
     scene,
     width,
@@ -257,15 +248,12 @@ function Rig({
     zoomBy: number;
     recentre: number;
     focus: Pt;
-    /** Flips when you head here: then the camera finds you. */
     mine: boolean;
 }) {
     const cam = useRef<THREE.OrthographicCamera>(null);
-    // Controls must drive this camera, which only exists after the first commit.
     const [camera, setCamera] = useState<THREE.OrthographicCamera | null>(null);
     useEffect(() => setCamera(cam.current), []);
     const controls = useRef<React.ComponentRef<typeof MapControls>>(null);
-    // Read, not watched: walking to another spot shouldn't undo the user's pan and zoom.
     const at = useRef(focus);
     at.current = focus;
     // biome-ignore lint/correctness/useExhaustiveDependencies: recentre and mine are triggers
@@ -319,7 +307,6 @@ function Rig({
         c.updateProjectionMatrix();
         const ctl = controls.current;
         if (ctl) {
-            // Wheel zoom stays within the same range as the +/− buttons, around the fitted view.
             ctl.minZoom = zoom * 0.4;
             ctl.maxZoom = zoom * 2.5;
             ctl.target.copy(target);
@@ -398,7 +385,6 @@ const sunlitMat = new THREE.MeshBasicMaterial({
     blending: THREE.AdditiveBlending,
 });
 const clearMats = new Map<number, THREE.Material>();
-/** Shared per opacity, so a rebuild (a model landing) doesn't free and recompile its shader. */
 function clearMat(opacity: number): THREE.Material {
     let m = clearMats.get(opacity);
     if (!m) {
@@ -425,7 +411,6 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         onBodyClick,
     } = props;
     const ground = useMemo(() => buildGround(scene), [scene]);
-    // Catalogue models load lazily; a landing one rebuilds what drew its stand-in.
     const meshes = useMeshVersion();
     // biome-ignore lint/correctness/useExhaustiveDependencies: meshes bumps when a model lands
     const statics = useMemo(
@@ -459,7 +444,6 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
             view: byId.get(p.furniId ?? ''),
         }));
     }, [scene, furniKey]);
-    // One build per thing, so each can be picked when arranging.
     // biome-ignore lint/correctness/useExhaustiveDependencies: meshes bumps when a model lands
     const furniBuilt = useMemo(
         () =>
@@ -486,7 +470,6 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
         () => [...scene.props.filter((p) => !p.furniId), ...placed],
         [scene, placed],
     );
-    // Things where they stand now block walking and standing room.
     const walkable = useMemo(() => withFurni(scene, placed), [scene, placed]);
     const hoverAt = useRef<(tile: Pt | null) => void>(() => {});
     const tileOf = (e: ThreeEvent<PointerEvent | MouseEvent>): Pt => ({
@@ -496,7 +479,6 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
 
     return (
         <>
-            {/* Pointer tiles come off one flat quad, not every triangle in the Place. */}
             {/* biome-ignore lint/a11y/noStaticElementInteractions: a three.js mesh, not DOM */}
             <mesh
                 position={[scene.w / 2, 0, scene.h / 2]}
@@ -614,7 +596,6 @@ function World(props: Props & { scene: Scene; sky: Sky }) {
     );
 }
 
-/** A prop's prefab, variant and world position. */
 function placement(
     scene: Scene,
     p: PlacedProp,
@@ -711,7 +692,6 @@ function Sign({ w, h, text, bg, fg, matrix }: Built['signs'][number]) {
     );
 }
 
-/** Parts that move: flickering lamps, smoke, a jukebox's lights, ducks, and whatever a model tags (spin, bob, sway, pulse, flame, twinkle). */
 function Tagged({
     tag,
     geometry,
@@ -803,7 +783,6 @@ function Tagged({
     );
 }
 
-/** Lamps light the night (and rooms always), a handful at a time. */
 function PropLights({
     scene,
     props,
@@ -841,7 +820,6 @@ function PropLights({
     );
 }
 
-/** Ripples in two colours with a glint, in world space so tiles meet. */
 function waterMaterial() {
     const time = uniform(0);
     const deep = uniform(new THREE.Color());
@@ -890,7 +868,6 @@ const AIR: Record<
         n: number;
         size: number;
         colours: string[];
-        /** Units per second, down is negative. */
         fall: number;
         drift: number;
         top: number;
@@ -966,7 +943,6 @@ const AIR: Record<
     },
 };
 
-/** Small things in the air (a scene's `ambience`): one draw call, moved on the CPU. */
 function Ambience({
     kind,
     scene,
@@ -1000,7 +976,6 @@ function Ambience({
         }
         const at = new THREE.InstancedBufferAttribute(pos, 3);
         at.setUsage(THREE.DynamicDrawUsage);
-        // Sized points are instanced quads under WebGPU: one Sprite drawn n times.
         const material = new PointsNodeMaterial({
             sizeAttenuation: false,
             transparent: true,
@@ -1018,7 +993,6 @@ function Ambience({
     }, [spec, scene.w, scene.h]);
     useEffect(() => () => made?.material.dispose(), [made]);
     if (made && spec) {
-        // Sized in screen pixels, which the pixel look draws at PIXEL_DPR.
         made.material.size = (spec.size * PIXEL_DPR) / dpr;
         made.material.opacity = spec.glow ? (night ? 1 : 0.5) : 0.85;
     }
@@ -1044,7 +1018,6 @@ function Ambience({
     return <primitive object={made.sprite} />;
 }
 
-/** The tile under the pointer; only this re-renders as the mouse moves. */
 function Hover({
     scene,
     at,
@@ -1067,7 +1040,6 @@ function Hover({
         tile.x < scene.w &&
         tile.y < scene.h &&
         !scene.blocked.has(`${tile.x},${tile.y}`);
-    // Always mounted: unmounting frees its shader, and the next hover recompiles it.
     return (
         <mesh
             visible={shown}
@@ -1087,7 +1059,6 @@ function Hover({
     );
 }
 
-/** Draws, too small to see, each material kind that otherwise first shows mid-visit (someone walking in, your beacon), so its shader is compiled up front instead of stalling that moment. */
 function Warmup() {
     const materials = useMemo(
         () => [...avatarMaterials(), hoverMat, beaconMat, basicMat],
@@ -1134,7 +1105,6 @@ interface BodiesProps {
     onBodyClick?: (participantId: string) => void;
 }
 
-/** Everyone here or passing through the door, with their talk overhead. */
 function Bodies({
     scene,
     place,
@@ -1159,7 +1129,6 @@ function Bodies({
             id ? byId.get(id) : undefined;
     }, [places]);
 
-    // A Body whose slot moved walks there from where it's drawn now.
     useEffect(() => {
         for (const [id, slot] of slots) {
             const from = shown.current.get(id);
@@ -1250,7 +1219,6 @@ function Bodies({
 }
 
 const looks = new Map<string, Look>();
-/** Same look, same object, so a Person only re-renders when someone changes clothes. */
 function stableLook(look: Look): Look {
     const k = JSON.stringify(look);
     const hit = looks.get(k);
@@ -1259,7 +1227,6 @@ function stableLook(look: Look): Look {
     return look;
 }
 
-/** One avatar; reads its state every frame, so talk and moves elsewhere don't re-render it. */
 const Person = memo(function Person({
     id,
     look,
@@ -1293,7 +1260,6 @@ const Person = memo(function Person({
 
 const BEACON = 'beacon';
 
-/** Where you'll stand once you get here: a soft pulsing ring while you're on your way. */
 function Beacon({ tile, ground }: { tile: Pt; ground: number }) {
     const ref = useRef<THREE.Mesh>(null);
     useFrame(({ clock }) => {
@@ -1318,7 +1284,6 @@ function Beacon({ tile, ground }: { tile: Pt; ground: number }) {
 
 const NO_LINES: RealtimeChatMessage[] = [];
 
-/** Finished lines in a Place's talk, latest few; tokens still streaming in don't re-render the scene. */
 function useSpoken(roomId: string): RealtimeChatMessage[] {
     return useStoreWithEqualityFn(
         useRealtimeStore,
@@ -1346,7 +1311,6 @@ const sameLines = (a: RealtimeChatMessage[], b: RealtimeChatMessage[]) =>
             m.sendAt === b[i].sendAt,
     );
 
-/** World points the DOM labels follow: avatars' heads and things that want attention. */
 interface Overlay {
     anchors: Map<string, (v: THREE.Vector3) => boolean>;
     labels: Map<string, HTMLElement>;
@@ -1354,7 +1318,6 @@ interface Overlay {
 
 const OverlayContext = createContext<Overlay | null>(null);
 
-/** A point on an avatar (or anything) its label tracks; hidden when an ancestor is. */
 function Anchor({ id, y }: { id: string; y: number }) {
     const overlay = useContext(OverlayContext);
     const ref = useRef<THREE.Group>(null);
@@ -1398,7 +1361,6 @@ function FurniAnchors({ props }: { props: PlacedProp[] }) {
     return null;
 }
 
-/** Moves every label onto its anchor's screen point, once per frame; no React renders. */
 function Projector() {
     const overlay = useContext(OverlayContext);
     const v = useMemo(() => new THREE.Vector3(), []);
@@ -1420,7 +1382,6 @@ function Projector() {
     return null;
 }
 
-/** Re-renders when the next bubble is due to go, not every second. */
 function useBubbleClock(spoken: RealtimeChatMessage[]): number {
     const [, setTick] = useState(0);
     useEffect(() => {
@@ -1438,7 +1399,6 @@ function useBubbleClock(spoken: RealtimeChatMessage[]): number {
     return serverNow();
 }
 
-/** One ref callback per label, so re-renders don't drop and re-add it. */
 function useTrack(overlay: Overlay) {
     const refs = useRef(new Map<string, (el: HTMLDivElement | null) => void>());
     return (id: string) => {
@@ -1454,7 +1414,6 @@ function useTrack(overlay: Overlay) {
     };
 }
 
-/** Names, talk bubbles and ❗ markers over the scene, as plain DOM (crisp over the pixels). */
 function Labels({
     place,
     bodies,
@@ -1466,7 +1425,6 @@ function Labels({
     const spoken = useSpoken(place.talkRoomId ?? '');
     const now = useBubbleClock(spoken);
     const recent = spoken.filter((m) => now - toMs(m.sendAt) < BUBBLE_MS);
-    // Age at first sight, fixed: a changed animation-delay would jump a running fade ahead.
     const ages = useRef(new Map<number, number>());
     const ageOf = (m: RealtimeChatMessage) => {
         let a = ages.current.get(m.messageId);
@@ -1538,7 +1496,6 @@ function Labels({
                                         className={`pl-bubble${volume === 'shout' ? ' pl-bubble--shout' : volume === 'whisper' ? ' pl-bubble--whisper' : ''}${heard ? '' : ' pl-bubble--muffled'}`}
                                         style={{
                                             borderLeftColor: look.top,
-                                            // Fades as it ages; a late mount starts part-way through.
                                             animationDelay: `0s, ${-ageOf(m)}ms`,
                                         }}
                                     >

@@ -28,7 +28,6 @@ import MemoryGraphSidePanel from './MemoryGraphSidePanel';
 import { KIND_COLOUR, STANCE_COLOUR } from './palette';
 import type { EnrichedMemoryNode, MemoryGraphData } from './types';
 
-// force-graph touches `window` at module load → defer until mounted in the browser.
 const MemoryGraphCanvas = lazy(() => import('./MemoryGraphCanvas'));
 
 export default function MemoryGraphApp() {
@@ -43,7 +42,6 @@ function MemoryGraphInner() {
     const partyId = WORLD_ID;
     const queryClient = useQueryClient();
 
-    // Snapshot + manual refresh: no focus refetches while the user inspects the graph.
     const snapshotOptions = {
         query: {
             staleTime: Number.POSITIVE_INFINITY,

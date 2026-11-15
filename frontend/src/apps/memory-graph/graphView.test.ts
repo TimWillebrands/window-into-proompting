@@ -26,7 +26,6 @@ const link = (
     extra: Partial<EnrichedMemoryLink> = {},
 ) => ({ source, target, kind, ...extra }) as EnrichedMemoryLink;
 
-// Hana remembers e1+e2, Vlad e2+e3; "lisp" spans e1+e2, "tea" only e3.
 const graph: EnrichedMemoryGraph = {
     nodes: [
         node(hana, 'Participant', { label: 'Hana' }),

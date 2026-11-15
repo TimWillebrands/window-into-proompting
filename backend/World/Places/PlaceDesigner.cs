@@ -3,14 +3,12 @@ using Orleans.Concurrency;
 
 namespace PartyTown.World.Places;
 
-/// <summary>A design that checked out: the model's JSON, the scene as stored, and its spots.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.PlaceDraft")]
 public sealed record PlaceDraft([property: Id(0)] string Json, [property: Id(1)] string Scene, [property: Id(2)] List<Spot> Spots, [property: Id(3)] List<Feature> Features)
 {
     public JsonObject Doc => JsonNode.Parse(Json) as JsonObject ?? new JsonObject();
 }
 
-/// <summary>Designs Places away from the Places grain, so a slow model never holds the World up.</summary>
 [StatelessWorker]
 public sealed class PlaceDesignerGrain(IWorldLlm llm, ILogger<PlaceDesignerGrain> logger) : Grain, IPlaceDesignerGrain
 {
@@ -21,11 +19,9 @@ public sealed class PlaceDesignerGrain(IWorldLlm llm, ILogger<PlaceDesignerGrain
 [Alias("PartyTown.World.Places.IPlaceDesignerGrain")]
 public interface IPlaceDesignerGrain : IGrainWithIntegerKey
 {
-    /// <param name="home">Require the Home spots (sofa, desk, kitchen, bed).</param>
     [Alias("DesignAsync")] Task<PlaceDraft?> DesignAsync(string brief, bool outdoor, List<string> placesNow, bool home);
 }
 
-/// <summary>Making Places without holding the Places grain: read, design elsewhere, then apply.</summary>
 public static class PlaceMaking
 {
     public static async Task<Place?> CreatePlaceAsync(IGrainFactory grains, Guid partyId, Guid? madeBy, string text, bool outdoor)
@@ -36,7 +32,6 @@ public static class PlaceMaking
         return draft is null ? null : await places.CreatePlaceAsync(madeBy, text, draft);
     }
 
-    /// <summary>A Home or public Place anew; null for a Locale or when the design never checked out.</summary>
     public static async Task<Place?> RedesignAsync(IGrainFactory grains, Guid partyId, Guid placeId, string text, string? name, bool outdoor)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);

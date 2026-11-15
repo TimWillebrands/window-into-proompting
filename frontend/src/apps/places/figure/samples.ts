@@ -22,7 +22,6 @@ const face = (o: Partial<FigureDoc['face']> = {}): FigureDoc['face'] => ({
     ...o,
 });
 
-/** A scene kid, an emo, a skater and a pop-punk girl. */
 export const SAMPLES: FigureDoc[] = [
     {
         body: {

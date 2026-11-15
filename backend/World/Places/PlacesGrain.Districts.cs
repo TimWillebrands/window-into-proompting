@@ -1,6 +1,5 @@
 namespace PartyTown.World.Places;
 
-/// <summary>Districts (ADR 0027): parts of the city; crossing between them is a tram ride.</summary>
 public sealed partial class PlacesGrain
 {
     private static readonly TimeSpan BetweenDistricts = TimeSpan.FromSeconds(45);
@@ -37,7 +36,6 @@ public sealed partial class PlacesGrain
         return true;
     }
 
-    /// <summary>A Home moves house: new name and/or District, layout and things kept.</summary>
     public async Task<Place?> MoveHomeAsync(Guid placeId, string? name, string? district)
     {
         if (Find(placeId) is not { Kind: PlaceKinds.Home } home) return null;
@@ -52,7 +50,6 @@ public sealed partial class PlacesGrain
     private string DistrictName(string? id)
         => state.State.Districts.FirstOrDefault(d => d.Id == id)?.Name ?? "another part of town";
 
-    /// <summary>Worlds from before Districts: everything drawn is in the centre.</summary>
     private bool BackfillDistricts()
     {
         var changed = false;
@@ -66,7 +63,6 @@ public sealed partial class PlacesGrain
             place.DistrictId = Districts.Centre;
             changed = true;
         }
-        // Locales whose name says where they are ("… in Amsterdam-Zuid") go there.
         foreach (var locale in state.State.Places.Where(p => p is { DistrictId: null, Kind: PlaceKinds.Locale }))
             if (Districts.FromName(locale.Name) is { } said)
             {
@@ -76,7 +72,6 @@ public sealed partial class PlacesGrain
         return changed;
     }
 
-    /// <summary>Synchronous resolve-or-create, for activation backfills (saved by the caller).</summary>
     private string DistrictFor(string name)
     {
         var slug = Districts.Slug(name);

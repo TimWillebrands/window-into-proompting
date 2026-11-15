@@ -1,4 +1,3 @@
-/** Raw realtime envelopes relevant to World Apps (world.* + new chat messages). */
 export interface WorldEnvelope {
     type: string;
     data: unknown;
@@ -20,7 +19,6 @@ export const worldBus = {
     },
 };
 
-/** Payload of a world.* envelope: `{ partyId, kind, payload }`. */
 export interface WorldEventData<T = unknown> {
     partyId: string;
     kind: string;

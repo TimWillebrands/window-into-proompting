@@ -23,11 +23,9 @@ const heading: React.CSSProperties = {
     textShadow: '0 1px 2px rgba(0,0,0,0.3)',
 };
 
-/** One screen for models: the providers, how personas are split over them, and who is pinned. */
 export default function ModelsSection() {
     const providersQuery = useGetLlmConfigProviders();
     const routesQuery = useGetLlmConfigPersonaRoutes();
-    // The router pings every 30s; polling a bit faster shows a box coming back soon after.
     const availabilityQuery = useGetLlmConfigProvidersAvailability({
         query: { refetchInterval: 15_000 },
     });

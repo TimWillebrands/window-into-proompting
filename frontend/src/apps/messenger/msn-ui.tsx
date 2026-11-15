@@ -7,7 +7,6 @@ import Portrait from '../../components/Portrait';
 
 export type BuddyStatus = 'online' | 'away' | 'busy' | 'afk' | 'offline';
 
-/** AFK when a human's gone quiet; Busy while acting; Away when tied up offscreen or their social battery is nearly empty (ADR 0021). */
 export const statusOf = (
     life: LifeSummary | undefined,
     self?: SelfSummary,
@@ -40,7 +39,6 @@ export const STATUS_LABEL: Record<BuddyStatus, string> = {
     offline: 'Offline',
 };
 
-/** Classic MSN buddy glyph tinted by presence. */
 export function BuddyIcon({
     status,
     size = 16,
@@ -91,7 +89,6 @@ export function BuddyIcon({
     );
 }
 
-/** Display picture with the glossy MSN frame. */
 export function DisplayPicture({
     who,
     size,
@@ -142,7 +139,6 @@ const EMOTICONS: Array<[RegExp, string]> = [
 const emoticonize = (text: string) =>
     EMOTICONS.reduce((acc, [re, to]) => acc.replace(re, to), text);
 
-/** Plain text with *emotes* in italics and text emoticons swapped for glyphs. */
 export function MsnText({ text }: { text: string }) {
     const parts = emoticonize(text).split(/(\*[^*\n]+\*)/g);
     return (
@@ -180,7 +176,6 @@ export function shortTime(ms: number): string {
         : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
 }
 
-/** Group header with the MSN collapse triangle. */
 export function GroupHeader({
     label,
     count,
@@ -243,7 +238,6 @@ const loadSeen = (): Record<string, number> => {
     }
 };
 
-/** Per-DM "read up to" timestamps, kept in localStorage. */
 export const useMessengerSeen = create<SeenStore>((set, get) => ({
     seen: typeof localStorage === 'undefined' ? {} : loadSeen(),
     markSeen: (chatGroupId, at) => {
@@ -251,9 +245,7 @@ export const useMessengerSeen = create<SeenStore>((set, get) => ({
         const seen = { ...get().seen, [chatGroupId]: at };
         try {
             localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
-        } catch {
-            /* storage full or blocked */
-        }
+        } catch {}
         set({ seen });
     },
 }));

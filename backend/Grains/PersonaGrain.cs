@@ -4,14 +4,6 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace PartyTown.Grains;
 
-/// <summary>
-/// Grain that stores a single persona's data and reacts to messages. Thin Orleans
-/// shell over persisted persona state + a per-activation <see cref="InFlightStore"/> +
-/// the DI-injected <see cref="RaceTrigger"/> and <see cref="ResponsePipeline"/>.
-///
-/// Marked [Reentrant] so multiple concurrent NotifyMessageAsync calls don't deadlock,
-/// and so CancelGenerationAsync can interrupt an in-flight NotifyMessageAsync.
-/// </summary>
 [Reentrant]
 public sealed class PersonaGrain(
     [PersistentState(stateName: "persona", storageName: "personas")]
@@ -101,10 +93,6 @@ public sealed class PersonaGrain(
     public Task DeletePersona() =>
         state.ClearStateAsync();
 
-    /// <summary>
-    /// Called by ChatGroupGrain when a new message arrives in the chat group.
-    /// Delegates race evaluation + per-turn orchestration to the injected services.
-    /// </summary>
     public async Task NotifyMessageAsync(Guid chatGroupId, ChatMessage triggeringMessage, CancellationToken ct = default)
     {
         if (triggeringMessage.SenderId == this.GetPrimaryKey()) return;
@@ -136,9 +124,6 @@ public sealed class PersonaGrain(
     }
 }
 
-/// <summary>
-/// Grain contract for managing a single persona.
-/// </summary>
 [Alias("backend.IPersonaGrain")]
 public interface IPersonaGrain : IGrainWithGuidKey
 {
@@ -172,11 +157,9 @@ public interface IPersonaGrain : IGrainWithGuidKey
     [Alias("CancelGenerationAsync")]
     Task CancelGenerationAsync();
 
-    /// <summary>A human's line everyone here let pass: answer it, declining isn't on offer (ADR 0031).</summary>
     [Alias("AnswerAsync")]
     Task AnswerAsync(Guid chatGroupId, ChatMessage line);
 
-    /// <summary>Speak unprompted in a Room/DM with the given intent (ADR 0018 Initiative).</summary>
     [Alias("InitiateAsync")]
     Task<string?> InitiateAsync(Guid chatGroupId, string intent, string? feeling);
 }

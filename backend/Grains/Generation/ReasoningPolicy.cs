@@ -4,23 +4,18 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.Grains.Generation;
 
-/// <summary>How long a local model may reason before answering; budgets match llama.cpp's web UI.</summary>
 public enum ReasoningEffort
 {
-    /// <summary>Send nothing: the server and model decide.</summary>
     Default = 0,
     Off = 1,
     Low = 2,
     Medium = 3,
     High = 4,
-    /// <summary>Thinking on, no token cap.</summary>
     Max = 5,
 }
 
-/// <summary>Adds llama.cpp's reasoning fields; the OpenAI SDK has none and drops patched ones.</summary>
 public sealed class ReasoningPolicy(ReasoningEffort effort) : PipelinePolicy
 {
-    /// <summary>Tokens of reasoning allowed; the budget is what works on models without native levels.</summary>
     private int? Budget => effort switch
     {
         ReasoningEffort.Off => 0,

@@ -21,7 +21,6 @@ using PartyTown.World.Work.Practices;
 
 namespace BackendTest;
 
-/// <summary>Companies and Practices in a real cluster (ADR 0030), at noon, with a human in the cast.</summary>
 public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
 {
     private readonly Fixture _fx;
@@ -223,7 +222,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
 
     private PartyTown.World.Places.IPlacesGrain Places(Guid partyId) => _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlacesGrain>(partyId);
 
-    /// <summary>Books, starts and lets the walking finish; a human walks over by hand, as they would.</summary>
     private async Task<PracticeSession> RunUntilStartedAsync(Guid partyId, Guid client, Guid practitioner, bool clientWalksOver = true)
     {
         var (session, refusal) = await Booking.BookAsync(partyId, client, practitioner, "stuck at work", DateTimeOffset.UtcNow);
@@ -252,7 +250,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
     public async Task Session_IsOrdinaryPlaceTalk_SoEarshotDecidesWhoHearsIt(bool atTheirSpot)
     {
         var (partyId, denise, pieter, player) = await _fx.CreateWorldAsync();
-        // An office: its desks have room for a third person, a clinic's reception doesn't.
         await PractiseAsync(partyId, pieter, workplace: "Pieter's office");
         var session = await RunUntilStartedAsync(partyId, player, pieter);
         Assert.True(session.Opened);
@@ -260,7 +257,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         Assert.Equal(ChatGroupKinds.Place, room.Kind);
 
         var coach = (await Places(partyId).GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter);
-        // An office has a door (ADR 0041): the one overhearing is someone it lets in.
         await Places(partyId).SetAccessAsync(coach.PlaceId, PartyTown.World.Places.PlaceAccess.Staff, new List<Guid> { denise });
         if (atTheirSpot) await Places(partyId).JoinAsync(denise, pieter);
         else await Places(partyId).MoveAsync(denise, coach.PlaceId, "window");
@@ -389,7 +385,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         Assert.Equal("say hello to everyone", session.Reason);
     }
 
-    /// <summary>A Market that answers from a table; removing a quote is a failed read.</summary>
     public sealed class FakeMarket : IMarketFeed
     {
         public static readonly ConcurrentDictionary<string, Quote> Quotes = new();
@@ -403,11 +398,9 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         public Task<List<Quote>> QuotesAsync(IReadOnlyList<string> ids, CancellationToken ct)
             => Task.FromResult(ids.Where(Quotes.ContainsKey).Select(id => Copy(Quotes[id])).ToList());
 
-        // Feeds answering by id carry no name, as Kraken's does.
         private static Quote Copy(Quote q) => new() { Id = q.Id, Bid = q.Bid, Ask = q.Ask, Open = q.Open, Settled = q.Settled };
     }
 
-    /// <summary>Voices the pick <see cref="MenuJudge"/> makes from <see cref="Choose"/>, and answers the Apps' structured calls.</summary>
     public sealed class Scripted : IWorldLlm
     {
         public static volatile string? Choose;
@@ -427,7 +420,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
         }
     }
 
-    /// <summary>Around midday on a Monday, so nobody sleeps through a test run at night; moved by hand so walks can finish.</summary>
     public sealed class Noon : TimeProvider
     {
         private static readonly DateTimeOffset Start = new(2026, 11, 2, 12, 0, 0, TimeSpan.Zero);
@@ -457,7 +449,6 @@ public class RealWorkWorldTest : IClassFixture<RealWorkWorldTest.Fixture>
 
         public Task DisposeAsync() => Cluster.DisposeAsync().AsTask();
 
-        /// <summary>Two Personas and a human, who differ only by Driver.</summary>
         public async Task<(Guid PartyId, Guid Denise, Guid Pieter, Guid Player)> CreateWorldAsync()
         {
             var (partyId, denise, pieter, player) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());

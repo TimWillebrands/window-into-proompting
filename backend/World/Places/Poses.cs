@@ -1,6 +1,5 @@
 namespace PartyTown.World.Places;
 
-/// <summary>Hang-out poses (IMVU-style): how a Body holds itself at a spot. Solo ones are afforded per spot; pair ones need someone at your spot.</summary>
 public static class Poses
 {
     public const string Lean = "lean";
@@ -16,12 +15,10 @@ public static class Poses
     public const string HighFive = "high-five";
     public const string HoldHands = "hold-hands";
 
-    /// <summary>Anywhere, no spot needed.</summary>
     public static readonly string[] Anywhere = { Think, Wave };
     public static readonly string[] Pair = { Hug, SlowDance, HighFive, HoldHands };
     public static readonly string[] Sitting = { Lounge, Perch, CrossLegged };
 
-    /// <summary>Momentary poses wear off by themselves.</summary>
     public static TimeSpan? Lasts(string pose) => pose switch
     {
         Hug or HighFive or Wave => TimeSpan.FromSeconds(20),
@@ -36,7 +33,6 @@ public static class Poses
         _ => current,
     };
 
-    /// <summary>What a Body may do at a spot: the spot's own poses, the anywhere ones, and pair ones when someone shares the spot (slow dance only where dancing is).</summary>
     public static List<string> Allowed(Spot spot, bool company)
     {
         var all = spot.Poses.Concat(Anywhere).ToList();
@@ -45,7 +41,6 @@ public static class Poses
         return all.Distinct().ToList();
     }
 
-    /// <summary>"leaning on the bridge", "slow-dancing with Denise by the jukebox".</summary>
     public static string Describe(string pose, Spot spot, string? with)
     {
         var at = $"{spot.At} {spot.Name}";
@@ -67,7 +62,6 @@ public static class Poses
         };
     }
 
-    /// <summary>A pose named in a Life intent ("lean on the railing and watch the boats").</summary>
     public static string? FromIntent(string? intent, IReadOnlyCollection<string> allowed)
     {
         if (string.IsNullOrWhiteSpace(intent)) return null;
@@ -90,7 +84,6 @@ public static class Poses
         return cues.FirstOrDefault(c => allowed.Contains(c.Pose) && c.Words.Any(t.Contains)).Pose;
     }
 
-    /// <summary>Give spots without poses the seeded ones for their id; true when any changed.</summary>
     public static bool Fill(IEnumerable<Spot> spots)
     {
         var changed = false;
@@ -102,7 +95,6 @@ public static class Poses
         return changed;
     }
 
-    /// <summary>Which seeded spots afford which poses, for Places stored before poses existed.</summary>
     public static readonly Dictionary<string, string[]> BySpotId = new()
     {
         ["counter"] = new[] { Lean },

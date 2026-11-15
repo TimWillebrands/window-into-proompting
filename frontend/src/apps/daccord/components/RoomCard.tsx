@@ -6,7 +6,6 @@ interface RoomCardProps {
     emoji: string;
     online: number;
     members: number;
-    /** Tailwind gradient classes (light + dark via `dark:` prefixes) */
     gradient: string;
     onClick?: () => void;
     disabled?: boolean;
@@ -46,12 +45,10 @@ export default function RoomCard({
                 aria-hidden
                 className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/30 blur-2xl"
             />
-            {/* Legibility overlay — keeps white text readable across any gradient */}
             <span
                 aria-hidden
                 className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-black/30 to-black/55"
             />
-            {/* XP-glass top sheen */}
             <span
                 aria-hidden
                 className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[28px] bg-gradient-to-b from-white/35 via-white/10 to-transparent"

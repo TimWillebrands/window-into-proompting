@@ -4,7 +4,6 @@ import { usePlayerAccount, useSetAuto } from '../../lib/world';
 
 const MAX_MISSION = 160;
 
-/** Hands your character to the agent, who lives it like any Persona until you take it back. */
 export default function AutoApp() {
     const { account } = usePlayerAccount();
     const setAuto = useSetAuto();

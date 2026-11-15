@@ -6,7 +6,6 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Places: where every Body is (ADR 0020). Place talk uses the Room message routes.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/places")]
 public sealed class PlacesController(IGrainFactory grains, Actors actors) : ControllerBase
@@ -16,13 +15,11 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
     public async Task<ActionResult<PlacesSnapshot>> GetPlaces(Guid partyId)
         => Ok(await Places(partyId).GetSnapshotAsync());
 
-    /// <summary>The one-line Situation a Participant's prompts get.</summary>
     [AllowAnonymous]
     [HttpGet("situation/{participantId:guid}")]
     public async Task<ActionResult<SituationResponse>> GetSituation(Guid partyId, Guid participantId)
         => Ok(new SituationResponse(await Places(partyId).GetSituationAsync(participantId)));
 
-    /// <summary>Walk a Body (default: the Player) to a Place and optionally a spot.</summary>
     [HttpPost("move")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<Body>> Move(Guid partyId, [FromBody] MoveBodyRequest request)
@@ -32,7 +29,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return body is null ? Conflict("Can't go there (private, full, or unknown).") : Ok(body);
     }
 
-    /// <summary>Walk over to someone (default: as the Player); someone away at a Locale gets it opened for the visit.</summary>
     [HttpPost("join")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<Body>> Join(Guid partyId, [FromBody] JoinBodyRequest request)
@@ -42,20 +38,17 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return body is null ? Conflict("Can't get to them right now.") : Ok(body);
     }
 
-    /// <summary>Use or care for a furni where the Body (default: the Player) is.</summary>
     [HttpPost("furni")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FurniActionResponse>> ActOnFurni(Guid partyId, [FromBody] FurniActionRequest request)
     {
         var who = await actors.ActAsync(User, partyId, request.ParticipantId);
-        // A thing to do (ADR 0049) gives a Take; typed words are the Player's own to leave.
         if (!request.Care && await Doing.DoAsync(grains, partyId, who, null, request.PlaceId, request.FurniId, null, request.Text, DateTimeOffset.UtcNow) is { } did)
             return Ok(new FurniActionResponse(did.Summary));
         var done = await Places(partyId).ActOnFurniAsync(who, request.PlaceId, request.FurniId, request.Care, request.Text);
         return done is null ? Conflict("Not here, or nothing to do with it right now.") : Ok(new FurniActionResponse(done));
     }
 
-    /// <summary>Set the volume of the Player's next line in Place talk (whisper needs an addressee at their spot).</summary>
     [HttpPost("voice")]
     public async Task<ActionResult> SetVoice(Guid partyId, [FromBody] VoiceRequest request)
     {
@@ -65,13 +58,11 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return NoContent();
     }
 
-    /// <summary>Talk the Participant noticed but couldn't make out (tone, maybe their name).</summary>
     [AllowAnonymous]
     [HttpGet("overheard/{participantId:guid}")]
     public async Task<ActionResult<List<Overheard>>> GetOverheard(Guid partyId, Guid participantId)
         => Ok(await Places(partyId).GetOverheardAsync(participantId));
 
-    /// <summary>Knock on someone's Home or a closed workplace (default: as the Player). 409 when nobody's in to answer.</summary>
     [HttpPost("knock")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Knock(Guid partyId, [FromBody] KnockRequest request)
@@ -80,7 +71,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).KnockAsync(who, request.HomeId) ? NoContent() : Conflict("Nobody's home (or they're asleep).");
     }
 
-    /// <summary>Let a knocker in, or invite someone over (default host: the Player).</summary>
     [HttpPost("let-in")]
     public async Task<ActionResult> LetIn(Guid partyId, [FromBody] LetInRequest request)
     {
@@ -88,7 +78,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).LetInAsync(who, request.VisitorId) ? NoContent() : Conflict("No home to let them into.");
     }
 
-    /// <summary>Put something up in your own Home (default: the Player). 409 when not home or over today's allowance.</summary>
     [HttpPost("decorate")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FurniActionResponse>> Decorate(Guid partyId, [FromBody] DecorateRequest request)
@@ -99,7 +88,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return done is null ? Conflict("Only at home, and at most two new things a day.") : Ok(new FurniActionResponse(done));
     }
 
-    /// <summary>The Player's tab is idle (Body dozes) or back.</summary>
     [HttpPost("idle")]
     public async Task<ActionResult> SetIdle(Guid partyId, [FromBody] IdleRequest request)
     {
@@ -108,7 +96,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return NoContent();
     }
 
-    /// <summary>Set a look by hand (default: the Player's own). Unknown keys or values keep the current choice.</summary>
     [HttpPut("appearance")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Appearance>> SetAppearance(Guid partyId, [FromBody] AppearanceRequest request)
@@ -117,12 +104,10 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).SetAppearanceAsync(who, request.Picked) is { } look ? Ok(look) : NotFound();
     }
 
-    /// <summary>The palette a look is chosen from, field by field.</summary>
     [AllowAnonymous]
     [HttpGet("appearance/options")]
     public ActionResult<AppearanceField[]> GetAppearanceOptions() => Ok(AppearanceRules.Fields);
 
-    /// <summary>Change a look from words ("dye my hair pink"); the LLM maps it onto the palette.</summary>
     [HttpPost("restyle")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RestyleResult>> Restyle(Guid partyId, [FromBody] TextRequest request)
@@ -132,7 +117,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).RestyleAsync(who, request.Text) is { } r ? Ok(r) : Conflict("Couldn't restyle right now.");
     }
 
-    /// <summary>Strike a pose at your spot (null pose ends it); pair poses take someone at the same spot.</summary>
     [HttpPost("pose")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<FurniActionResponse>> Pose(Guid partyId, [FromBody] PoseRequest request)
@@ -142,7 +126,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return done is null ? Conflict("That pose isn't possible here.") : Ok(new FurniActionResponse(done));
     }
 
-    /// <summary>Add a thing to a Place; its 3D model is generated shortly after.</summary>
     [HttpPost("things")]
     public async Task<ActionResult<FurniView>> AddThing(Guid partyId, [FromBody] ThingRequest request)
     {
@@ -150,7 +133,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).AddThingAsync(request.PlaceId, await actors.ActAsync(User, partyId, request.OwnerId), request.Text) is { } f ? Ok(f) : NotFound();
     }
 
-    /// <summary>Move or turn a thing (owners; default: the Player). Null tile hands it back to the scene.</summary>
     [HttpPost("things/arrange")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Arrange(Guid partyId, [FromBody] ArrangeRequest request)
@@ -168,7 +150,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).RemoveThingAsync(who, request.PlaceId, request.FurniId) ? NoContent() : Conflict("Not yours to take down.");
     }
 
-    /// <summary>Author: generate a thing's model again.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("things/remodel")]
     public async Task<ActionResult> Remodel(Guid partyId, [FromBody] ThingRefRequest request)
@@ -177,7 +158,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return Accepted();
     }
 
-    /// <summary>Wall and floor colours of a Place you own or made (hex, null = the scene's).</summary>
     [HttpPost("style")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> SetStyle(Guid partyId, [FromBody] PlaceStyleRequest request)
@@ -186,7 +166,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).SetPlaceStyleAsync(who, request.PlaceId, request.Wall, request.Floor) ? NoContent() : Conflict("Not yours to restyle.");
     }
 
-    /// <summary>Design a new public Place from a description (LLM, validated). 409 when it couldn't be made.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("create")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -197,7 +176,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
             ? Ok(p) : Conflict("Couldn't design that one (or there are too many made Places).");
     }
 
-    /// <summary>Author: design a Home or public Place anew from a description, outdoors for a camp; same id, people and keys. 409 when it couldn't be made.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{placeId:guid}/redesign")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -209,7 +187,6 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
             ? Ok(p) : Conflict("A Locale, or couldn't design that one.");
     }
 
-    /// <summary>Author: a workplace's door (open, appointment or staff) and who else may come in (ADR 0041). Anyone no longer allowed goes home.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("{placeId:guid}/access")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -220,14 +197,12 @@ public sealed class PlacesController(IGrainFactory grains, Actors actors) : Cont
         return await Places(partyId).SetAccessAsync(placeId, request.Access, request.Allowed ?? new List<Guid>()) is { } place ? Ok(place) : NotFound();
     }
 
-    /// <summary>Author: remove a generated Place; anyone there goes home.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("{placeId:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> RemovePlace(Guid partyId, Guid placeId)
         => await Places(partyId).RemovePlaceAsync(placeId) ? NoContent() : NotFound();
 
-    /// <summary>Author: let Personas pick their look again (all, or one), each seeing the others'.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("redress")]
     public async Task<ActionResult> Redress(Guid partyId, [FromQuery] Guid? participantId)

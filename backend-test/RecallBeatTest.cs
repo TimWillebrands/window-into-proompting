@@ -4,7 +4,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>Each half of a beat's recall fails on its own; cancellation still propagates.</summary>
 public class RecallBeatTest
 {
     private static readonly BeatAnchors At = new(Guid.NewGuid(), Guid.NewGuid(), new[] { Guid.NewGuid() }, "lisp", Guid.NewGuid());

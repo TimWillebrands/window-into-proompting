@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-/** One material's worth of a catalogue model, transforms baked, bottom-centre at the origin. */
 export interface MeshGroup {
     material: string;
     colour: string;
@@ -11,7 +10,6 @@ export interface MeshGroup {
     geometry: THREE.BufferGeometry;
 }
 
-/** A catalogue model (ADR 0027) normalised for the prefab pipeline: grouped by material, in model units. */
 export interface CatalogueMesh {
     groups: MeshGroup[];
     size: THREE.Vector3;
@@ -26,7 +24,6 @@ const bump = () => {
     for (const l of listeners) l();
 };
 
-/** The model if loaded; starts loading it otherwise. */
 export function meshNow(url: string): CatalogueMesh | undefined {
     const m = meshes.get(url);
     if (m === undefined) {
@@ -41,7 +38,6 @@ export function meshNow(url: string): CatalogueMesh | undefined {
     return typeof m === 'string' ? undefined : m;
 }
 
-/** Bumps when a model lands, so builds that skipped it run again. */
 export const useMeshVersion = () =>
     useSyncExternalStore(
         (l) => {
@@ -51,7 +47,6 @@ export const useMeshVersion = () =>
         () => version,
     );
 
-/** Bake world transforms, split by material, flat-shade, and sit the model on the floor at the origin. */
 export function normalise(root: THREE.Object3D): CatalogueMesh {
     root.updateMatrixWorld(true);
     const byMaterial = new Map<
@@ -106,7 +101,6 @@ export function normalise(root: THREE.Object3D): CatalogueMesh {
     return { groups, size: box.getSize(new THREE.Vector3()) };
 }
 
-/** Positions and normals of vertices [start, start + count) of a non-indexed geometry. */
 function slice(g: THREE.BufferGeometry, start: number, count: number) {
     const out = new THREE.BufferGeometry();
     for (const name of ['position', 'normal']) {
@@ -127,7 +121,6 @@ function slice(g: THREE.BufferGeometry, start: number, count: number) {
     return out;
 }
 
-/** Uniform scale that fits a model inside [w, h, d] tiles; h 0 = only the footprint counts. */
 export function fitScale(size: THREE.Vector3, fit: [number, number, number]) {
     const [w, h, d] = fit;
     const s = Math.min(

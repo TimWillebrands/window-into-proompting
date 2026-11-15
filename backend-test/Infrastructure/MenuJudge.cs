@@ -2,7 +2,6 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest.Infrastructure;
 
-/// <summary>System One for World tests: Life picks the option whose label contains <paramref name="wanted"/>, else rests; other questions get no answer.</summary>
 public sealed class MenuJudge(Func<string?> wanted) : ISystemOneJudge
 {
     public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)

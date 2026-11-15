@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027: the Day's stretches away from home, and when a Body follows them.</summary>
 public class WhereaboutsTest
 {
     [Fact]
@@ -65,7 +64,6 @@ public class WhereaboutsTest
         Assert.Equal(PlacesGrain.ErrandMove.Stay, PlacesGrain.ErrandStep(away, stretch, "d", false, false));
         Assert.Equal(PlacesGrain.ErrandMove.Return, PlacesGrain.ErrandStep(away, null, "d", false, false));
 
-        // A shift moved it on (GoAwayAsync clears AwayByDay), so the Day leaves it alone.
         var atWork = new Body { PlaceId = Guid.NewGuid(), AwayAs = "working", AwayByDay = false };
         Assert.Equal(PlacesGrain.ErrandMove.Stay, PlacesGrain.ErrandStep(atWork, null, "d", false, false));
     }

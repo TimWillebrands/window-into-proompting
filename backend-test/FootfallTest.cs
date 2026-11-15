@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027 footfall: one Persona can't change the world; shared life over days can.</summary>
 public class FootfallTest
 {
     private static readonly Guid Office = Guid.NewGuid();

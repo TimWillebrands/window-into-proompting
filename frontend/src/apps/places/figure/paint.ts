@@ -24,7 +24,6 @@ const shade = (hex: Hex, k: number) => {
     return `rgb(${rgb.join(',')})`;
 };
 
-/** Runs f with drawing clipped to a panel and the origin at its top left. */
 function inPanel(ctx: Ctx, p: Panel, f: (w: number, h: number) => void) {
     const r = px(ctx, p);
     ctx.save();
@@ -129,7 +128,6 @@ function pattern(ctx: Ctx, pat: PatternDoc) {
         inPanel(ctx, p, (w, h) => tile(ctx, w, h, pat, size));
     for (const p of ['armL', 'armR', 'legL', 'legR'] as const)
         inPanel(ctx, p, (w, h) => {
-            // Bands run round a limb: turn the panel so its length is the pattern's height.
             ctx.save();
             ctx.translate(w, 0);
             ctx.rotate(Math.PI / 2);
@@ -140,7 +138,6 @@ function pattern(ctx: Ctx, pat: PatternDoc) {
 
 export type Images = Map<string, HTMLImageElement>;
 
-/** Rasterises inline SVG through an <img>, which can't run scripts or fetch anything. */
 export function loadPrints(svgs: string[]): Promise<Images> {
     const out: Images = new Map();
     return Promise.all(
@@ -189,7 +186,6 @@ function prints(
                 const size = w * (0.18 + p.size * 0.42);
                 ctx.drawImage(img, w / 2 - size / 2, cy - size / 2, size, size);
             } else {
-                // Along the limb, sitting on its outside.
                 const size = h * (0.35 + p.size * 0.4);
                 ctx.save();
                 ctx.translate(w * 0.32, h * 0.5);
@@ -242,7 +238,6 @@ export interface ClothInfo {
     H: number;
 }
 
-/** A top's atlas: colour, pattern, prints, then construction: cuffs, hems, pockets, zips. */
 export function paintTop(
     ctx: Ctx,
     doc: TopDoc,
@@ -287,7 +282,6 @@ export function paintTop(
             if (p === 'front') {
                 const mid = w / 2;
                 if (doc.hood && !doc.open) {
-                    // Kangaroo pocket.
                     const top = yOf(info.bellyY + 0.035 * info.H, h);
                     const bot = h - band;
                     const half = w * 0.2;
@@ -464,7 +458,6 @@ export function paintBottom(
         });
     for (const p of ['legL', 'legR'] as const)
         inPanel(ctx, p, (w, h) => {
-            // angle 0 (panel middle) is the front of the leg.
             line(
                 ctx,
                 [

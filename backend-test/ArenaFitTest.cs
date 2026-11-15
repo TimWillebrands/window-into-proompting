@@ -2,7 +2,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0057: a Place's feel in facts, damped by how expected it is, and how soon it makes you restless.</summary>
 public class ArenaFitTest
 {
     private static Place Room(string? scene = null, params Furni[] furni) => new()

@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Money, the catalog and how wanting a thing becomes buying it (ADR 0024).</summary>
 public class EconomyTest
 {
     [Theory]

@@ -13,8 +13,6 @@ import {
     WALKABLE,
 } from './scene';
 
-/** Authored scenes (ADR 0023): draw the map, drop props by name, pin the backend's spots and furni. */
-
 const cafe: SceneDef = {
     id: 'cafe',
     floor: '#b98a5a',
@@ -269,7 +267,6 @@ const FABRICS = [
     '#e07a5f',
 ];
 
-/** Each Home looks a bit different, stable per Place. */
 function homeFor(place: Place): SceneDef {
     const r = rng(hash(place.id ?? ''));
     const fabric = pick(r, FABRICS);
@@ -295,7 +292,6 @@ function homeFor(place: Place): SceneDef {
     };
 }
 
-/** A plain room for a Place nobody drew: one prop per spot, guessed from its name. */
 export function generateScene(place: Place): SceneDef {
     const spots = place.spots ?? [];
     const cols = Math.max(2, Math.ceil(spots.length / 2));
@@ -351,7 +347,6 @@ function baseDef(place: Place): SceneDef {
             return generateScene(place);
         }
     }
-    // An opened Locale draws from its archetype's kit (ADR 0027).
     if (place.archetype && KIT_SCENES[place.archetype])
         return {
             ...variedKit(KIT_SCENES[place.archetype], place.id ?? ''),
@@ -364,7 +359,6 @@ function baseDef(place: Place): SceneDef {
 
 const parsed = new Map<string, Scene>();
 
-/** Parsed scene for a Place, cached per Place and its spots. */
 export function sceneFor(place: Place): Scene {
     const k = `${place.id}:${place.scene}:${place.archetype}:${place.wallColour}:${place.floorColour}:${place.customScene?.length}:${(place.spots ?? []).map((s) => s.id).join(',')}`;
     const hit = parsed.get(k);
@@ -374,7 +368,6 @@ export function sceneFor(place: Place): Scene {
         parsed.set(k, s);
         return s;
     } catch {
-        // A made scene that names something this client can't draw still gets a room.
         const s = parse(generateScene(place));
         parsed.set(k, s);
         return s;
@@ -388,7 +381,6 @@ function parse(def: SceneDef): Scene {
             { ...f, p: f.p ?? FURNI_PREFAB[id] ?? id },
         ]),
     );
-    // A scene's own models sit beside the library, under their own names.
     const own: Record<string, Prefab> = {};
     for (const [name, m] of Object.entries(def.models ?? {})) {
         const prefab = prefabOf(m as Model);
@@ -404,7 +396,6 @@ function parse(def: SceneDef): Scene {
         },
         def.models ? { ...PREFABS, ...own } : PREFABS,
     );
-    // Tag the furni placements so state can find them.
     const ids = Object.keys(furniProps);
     const first = s.props.length - ids.length;
     ids.forEach((id, i) => {
@@ -415,7 +406,6 @@ function parse(def: SceneDef): Scene {
 
 const models = new Map<string, Prefab>();
 
-/** A generated model (backend ThingModel) as a prefab. */
 export function modelPrefab(json: string): Prefab | null {
     const hit = models.get(json);
     if (hit) return hit;
@@ -428,7 +418,6 @@ export function modelPrefab(json: string): Prefab | null {
     }
 }
 
-/** Every furni of a Place where it stands: the owner's spot if they moved it, else pinned by the scene, else loose; drawn from its model when it has one. */
 export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
     const byId = new Map(furni.map((f) => [f.furniId ?? '', f]));
     const moved = (f?: FurniView) => f?.tileX != null && f.tileZ != null;
@@ -463,7 +452,6 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
         });
     }
     return placed.map((p) => {
-        // A catalogue model picked for this thing (ADR 0027) wins over its kind and a generated model.
         const cat = byId.get(p.furniId ?? '')?.prefab;
         if (cat && PREFABS[cat])
             return {
@@ -486,7 +474,6 @@ export function placeFurni(scene: Scene, furni: FurniView[]): PlacedProp[] {
     });
 }
 
-/** Where furni the scene didn't pin go: wall decor on back walls, the rest on free floor near the walls. */
 export function placeLoose(scene: Scene, furni: FurniView[]): PlacedProp[] {
     const pinned = new Set(scene.props.map((p) => p.furniId).filter(Boolean));
     const loose = furni.filter((f) => !pinned.has(f.furniId ?? ''));

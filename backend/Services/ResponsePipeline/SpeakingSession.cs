@@ -10,16 +10,6 @@ namespace PartyTown.Services.ResponsePipeline;
 
 public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<ParticipantView> allParticipants)
 {
-    /// <summary>
-    /// Generates a response for a specific persona.
-    /// <paramref name="memoryToReference"/> is the single recollection the decision phase
-    /// picked to carry into this beat (or null). Rendered at the recency position of the
-    /// system prompt so it's the last thing the model sees before drafting — the contract
-    /// is "decision selects, speaking executes".
-    /// <paramref name="gutReaction"/> is the decision phase's in-character first reaction;
-    /// it rides the final turn-guidance message so the speaking model refines a felt
-    /// moment instead of re-deriving one from cold history.
-    /// </summary>
     public async Task<SpeakingResult> GenerateResponseOnlyAsync(
         SelfView persona,
         IReadOnlyList<ChatMessage> history,
@@ -35,9 +25,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         bool inPerson = false)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
-        // Build sender-name lookup once. ParticipantView is a struct, so
-        // FirstOrDefault would return default(struct) on miss (Name = null,
-        // typed non-nullable) — robust dictionary lookup avoids that footgun.
         var nameById = allParticipants.ToDictionary(p => p.Id, p => p.Name);
         var messages = new List<LlmChatMessage>
         {
@@ -49,7 +36,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             }
         };
 
-        // A declined or failed turn leaves an empty message: nothing was said, so the speaker doesn't see one.
         messages.AddRange(history.Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(message => new LlmChatMessage
         {
             Role = message.SenderId == persona.Id ? "assistant" : "user",
@@ -61,10 +47,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             Name = message.SenderId.ToString()
         }));
 
-        // Recency-position handoff from the decision step. Gut reaction and draft carry the
-        // decision's lived read of the beat; the picked memory is restated here as well —
-        // the system-prompt block alone proved droppable by smaller models (bench: pick
-        // made, utterance generic), and this final message is the strongest recency slot.
         var guidanceParts = new List<string>();
         if (!string.IsNullOrWhiteSpace(gutReaction))
             guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
@@ -72,9 +54,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             guidanceParts.Add($"What you mean to get across: {turnInstruction.Trim()} Say it your own way, and leave out whatever you already said lately.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
         {
-            // Small-model crutch (candidate to gate off for stronger models): repeat the
-            // address cue here, the strongest recency slot, since the system-prompt block alone
-            // let small models recite the memory in third person at a present subject.
             var subjects = PresentSubjectsIn(memoryToReference, others);
             var addressCue = subjects.Count == 0
                 ? string.Empty
@@ -82,12 +61,10 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             guidanceParts.Add($"A memory that may be on your mind: \"{memoryToReference.Trim()}\". Only if it fits what's being said now, work a specific from it in; otherwise leave it.{addressCue}");
         }
         var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
-        // Stale words (ADR 0021) restated at the recency slot: the history full of them outweighs the system block.
         if (avoidWords is { Count: > 0 })
             guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
         var lastOtherName = lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId);
         guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
-        // Last, so nothing above reads as a task to report on: the reply is the line itself.
         guidanceParts.Add(OnlyTheLine(persona.Name, inPerson));
         if (guidanceParts.Count > 0)
         {
@@ -103,8 +80,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         generateSpan?.SetTag("persona.id", persona.Id);
         generateSpan?.SetTag("persona.name", persona.Name);
 
-        // The spoken utterance is what the user reads: CharacterVoice tier, degrading to General
-        // so a General-only setup never mutes every persona.
         var result = await new LlmCall(router, persona: persona.Id).StreamAsync(
             new LlmGenerationJob { Messages = messages }, LlmTiers.Voice, cancellationToken,
             chunk => onEvent(chunk.Type, chunk.Data, false), generateSpan);
@@ -123,23 +98,12 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         };
     }
 
-    /// <summary>Closes the turn guidance: write the message, not notes on how you'll write it.</summary>
     public static string OnlyTheLine(string name, bool inPerson)
     {
         var first = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? name;
         return $"Now reply with only what {first} {(inPerson ? "says out loud" : "sends")}, word for word: no plan, no notes on length, language or wording, no summary of what others said.";
     }
 
-    /// <summary>
-    /// The persona's self-identity block: Bio (the one-liner the Decision phase also sees)
-    /// followed by SystemPrompt (detailed voice/character instructions) — either alone,
-    /// both when present. Speaking used to read SystemPrompt only, so a persona authored
-    /// with just a Bio spoke from a blank identity (name + generic style rules): strong
-    /// models carried the voice anyway, weak models collapsed to assistant register
-    /// (bench: in-character decision, out-of-character utterance). Both phases now anchor
-    /// on the same Bio. Note this is the persona's OWN identity — other participants stay
-    /// names-only in the roster (see the bio-leak note in <see cref="Instruction"/>).
-    /// </summary>
     private static string ComposeIdentity(SelfView self)
     {
         var parts = new List<string>(2);
@@ -150,7 +114,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         return string.Join("\n\n", parts);
     }
 
-    // Other present participants named in the memory text (whole-word, like UrgeMath mentions).
     private static List<string> PresentSubjectsIn(string memory, IEnumerable<ParticipantView> others)
         => others
             .Where(p => !string.IsNullOrWhiteSpace(p.Name) && Regex.IsMatch(
@@ -169,29 +132,14 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 
     private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null, bool inPerson = false)
     {
-        // Names only. Bios used to live here but leaked theme/style across personas:
-        // Hana's "shrine"/"sacred" vocabulary primed Vlad to emit 🌸, address Hana before
-        // she'd spoken, and adopt mystic register. Roster gives identity, not character.
         var othersSection = others.Count == 0
             ? "(no other participants)"
             : string.Join("\n", others.Select(p => Roster.Line(p)));
 
-        // Scenario sits between identity and the participant roster: persona-self comes first
-        // (primacy), the in-fiction setting establishes context, then who else is there.
         var scenarioSection = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
             : $"\n# Scenario\n{scenario.Trim()}\n";
 
-        // Memory block lands LAST in the system prompt (recency-positioned), after the
-        // style rules — so a memory cue isn't drowned by general etiquette and is the
-        // last thing the model sees before reading the conversation history. Decision
-        // phase already picked this single recollection; we don't re-pass the full list,
-        // because the contract is "decision selects, speaking executes". Active framing
-        // ("surfacing for you", "bring it into your reply") invites use rather than just
-        // listing facts. Block omitted entirely when no memory was selected.
-        // Small-model crutch (candidate to gate off for stronger models): when the memory
-        // names a present participant, tell weak models to address them, not recite about them;
-        // suppressed for absent subjects, where third person is correct.
         var presentSubjects = string.IsNullOrWhiteSpace(memoryToReference)
             ? new List<string>()
             : PresentSubjectsIn(memoryToReference, others);
@@ -212,14 +160,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 if it doesn't fit, leave it.{addressLine}
                 """;
 
-        // ADR 0016: ambient Stance block — identity-adjacent orientation toward who's present
-        // and what's live, rendered in both phases (no Decision→Speaking handoff field). Lands
-        // right after the roster, before the generic style rules. Omitted when nothing anchors.
         var stanceSection = StanceBlock.Render(stances);
         var presenceSection = string.IsNullOrWhiteSpace(presence) ? string.Empty : presence.Trim() + "\n";
 
-        // Persona identity block claims the primacy position; chat-style rules land after,
-        // so the model sees who it is before it sees generic etiquette.
         return $"""
 # You are: {self.Name} (ID: {self.Id})
 {LivedSelf.SheetFraming}

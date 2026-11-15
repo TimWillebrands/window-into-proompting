@@ -4,7 +4,6 @@ using PartyTown.World.Work.Companies;
 
 namespace PartyTown.World.Work.Cdu;
 
-/// <summary>A Cytheurgist's desk in a Life (ADR 0039): one move per on-shift turn; the CDU is the only agent.</summary>
 public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) : IWorldApp
 {
     private const int HealthWindow = 300;

@@ -2,11 +2,9 @@ using System.Globalization;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Locales (ADR 0027): named offscreen Places a Body is away at; never drawn, no talk. Plus visit days (ADR 0026 roles).</summary>
 public sealed partial class PlacesGrain
 {
     public const int MaxLocales = 80;
-    /// <summary>The fallback Locale once the cap is reached; never named in prompts.</summary>
     private const string Somewhere = "somewhere";
     private const string WorkSuffix = "'s work";
     private static readonly TimeSpan VisitsKept = TimeSpan.FromDays(7);
@@ -19,7 +17,6 @@ public sealed partial class PlacesGrain
 
     public Task<Guid> NamedLocaleAsync(string name) => MintAsync(name, null, null, match: false);
 
-    /// <summary>A name resolves to a Place by name, by System One judging it means one, or as a new Locale.</summary>
     private async Task<Guid> MintAsync(string name, Guid? forParticipant, string? district, bool match)
     {
         await SyncCastAsync();
@@ -52,7 +49,6 @@ public sealed partial class PlacesGrain
         var place = Resolved(found);
         if (place.Kind != PlaceKinds.Locale)
         {
-            // Drawn workplace: just go there, behind the counter if it has one.
             var there = await MoveAsync(participantId, place.Id, place.Spots.FirstOrDefault(s => s.Staff)?.Id);
             return there is null || activity is null ? there : await SetActivityAsync(participantId, activity, null);
         }
@@ -93,7 +89,6 @@ public sealed partial class PlacesGrain
         var visitors = state.State.Visits.SelectMany(kv => kv.Value.Select(v => (Who: kv.Key, SplitVisit(v).Place)))
             .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Who).Distinct().Count());
         var locales = state.State.Places.Where(p => p is { Kind: PlaceKinds.Locale, SameAs: null } && !Unnamed(p.Name)).ToList();
-        // Every drawn Place, not just this District's: one they can't see gets invented again under a new name.
         var known = state.State.Places.Where(p => p.Kind == PlaceKinds.Public && !p.Private && !p.Dormant)
             .OrderByDescending(p => p.DistrictId == district).ThenByDescending(p => visitors.GetValueOrDefault(p.Id))
             .Concat(locales.Where(p => mine.Contains(p.Id)).Take(3))
@@ -134,7 +129,6 @@ public sealed partial class PlacesGrain
             .GroupBy(v => v.Place).ToDictionary(g => g.Key, g => g.Select(v => v.Day).Distinct().Count()));
     }
 
-    /// <summary>Today's Place for every settled Body; drops days older than a week. True when anything changed.</summary>
     private bool NoteVisits()
     {
         var today = DayKey(0);
@@ -162,10 +156,8 @@ public sealed partial class PlacesGrain
     private string DayKey(int offsetDays)
         => time.GetLocalNow().AddDays(offsetDays).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    /// <summary>"Ana's work" or the fallback: Locales with no name of their own.</summary>
     public static bool Unnamed(string name) => name == Somewhere || name.EndsWith(WorkSuffix, StringComparison.Ordinal);
 
-    /// <summary>"work" for someone becomes "Ana's work"; anything else is kept as said.</summary>
     private string LocaleName(string name, Guid? forParticipant)
     {
         var trimmed = WorldStream.Clip((name ?? string.Empty).Trim().TrimEnd('.'), 60);
@@ -175,7 +167,6 @@ public sealed partial class PlacesGrain
         return trimmed;
     }
 
-    /// <summary>Case-insensitive, "the" optional, other names too; Homes never match (they're named for their owner).</summary>
     private Place? FindByName(string name)
     {
         static string Key(string n) => (n.StartsWith("the ", StringComparison.OrdinalIgnoreCase) ? n[4..] : n).Trim().ToLowerInvariant();
@@ -185,7 +176,6 @@ public sealed partial class PlacesGrain
         return found is null ? null : Resolved(found);
     }
 
-    /// <summary>"You're at work at the office in Zuid", offscreen; generic workplaces don't repeat the name.</summary>
     private string AwaySituation(Body body, Place place)
     {
         var why = body.AwayAs ?? "away";
@@ -194,11 +184,9 @@ public sealed partial class PlacesGrain
         return $"You're {why}{where}{doing}. That's offscreen: nobody in the World sees you there, but your phone works.";
     }
 
-    /// <summary>Naming a Locale in talk is a little footfall (ADR 0027); generic workplaces don't count.</summary>
     private void NoteMentions(Guid speakerId, string content)
         => CreditTalk(Nameable().Where(p => Names(p).Any(n => Mentioned(content, n))).ToList(), new[] { speakerId });
 
-    /// <summary>Each topic names one Place at most: a drawn one before any Locale, then the closest name.</summary>
     public Task NoteTopicsAsync(List<string> topics, List<Guid> speakers)
     {
         var places = Nameable().ToList();
@@ -219,7 +207,6 @@ public sealed partial class PlacesGrain
         => System.Text.RegularExpressions.Regex.Split(s.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
             .Where(w => w.Length >= 3 && !NameStop.Contains(w)).ToList();
 
-    /// <summary>A topic tag names a place when all its words are in the name and it covers at least half of it ("gym", "climbing gym" → "the climbing gym").</summary>
     internal static bool TopicNames(string topic, string placeName)
     {
         var said = NameWords(topic);
@@ -238,7 +225,6 @@ public sealed partial class PlacesGrain
         return (at == 0 || !char.IsLetterOrDigit(content[at - 1])) && (end == content.Length || !char.IsLetterOrDigit(content[end]));
     }
 
-    /// <summary>Seeded Places stored before ADR 0026 get their purpose and staff spots.</summary>
     private bool BackfillPurposes()
     {
         var seeds = PlaceSeeds.Public().ToDictionary(p => p.Name);

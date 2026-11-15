@@ -1,7 +1,5 @@
-/** Same-origin path for PostHog; obvious names like /posthog get blocked. */
 export const PROXY_PATH = '/party-line';
 
-/** Our auth stays here; Origin makes PostHog redirect asset requests to its login. */
 const DROPPED_REQUEST_HEADERS = [
     'authorization',
     'connection',
@@ -12,7 +10,6 @@ const DROPPED_REQUEST_HEADERS = [
     'referer',
 ];
 
-/** fetch has already decompressed the body, and PostHog gets no cookies on our domain. */
 const DROPPED_RESPONSE_HEADERS = [
     'content-encoding',
     'content-length',
@@ -22,7 +19,6 @@ const DROPPED_RESPONSE_HEADERS = [
 const assetHost = (host: string) =>
     host.replace('.i.posthog.com', '-assets.i.posthog.com');
 
-/** Forwards the PostHog path upstream; null for every other request. */
 export const proxyPostHog = async (
     request: Request,
     host: string | undefined,
@@ -38,7 +34,6 @@ export const proxyPostHog = async (
     for (const name of DROPPED_REQUEST_HEADERS) headers.delete(name);
 
     const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
-    // Concatenated, not new URL(path, base): a //host path must not swap the upstream.
     const response = await send(`${upstream}${path}${url.search}`, {
         method: request.method,
         headers,

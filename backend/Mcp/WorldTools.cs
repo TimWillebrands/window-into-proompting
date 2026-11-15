@@ -17,12 +17,10 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.Mcp;
 
-/// <summary>Living in the World as a Player (ADR 0046): walk, talk, DM, the Board, and the CDU as spectators see it.</summary>
 [McpServerToolType]
 public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, IEnumerable<IWorldApp> apps, Cytheurgy cdu, Desks desks)
 {
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
-    /// <summary>Set by Guard before each tool runs.</summary>
     private Guid World { get; set; }
     private IPlacesGrain Places => grains.GetGrain<IPlacesGrain>(World);
     private IPartyGrain Party => grains.GetGrain<IPartyGrain>(World);

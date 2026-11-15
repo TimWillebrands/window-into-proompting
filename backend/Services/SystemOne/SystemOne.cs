@@ -8,11 +8,6 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.Services.SystemOne;
 
-/// <summary>
-/// System One port (ADR 0019): fast, calibrated judgements over a state — typed questions in,
-/// probabilities out, no prose. The relevance-realization calls that only need to *weigh*
-/// (which affordance, is this memorable) go here; generation stays with the LLM (System Two).
-/// </summary>
 public interface ISystemOneJudge
 {
     Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct);
@@ -20,36 +15,30 @@ public interface ISystemOneJudge
 
 public static class SystemOneJudgeExtensions
 {
-    /// <summary>The judge for a call about one Persona: their Decisions Route first, then the pool (ADR 0034).</summary>
     public static ISystemOneJudge For(this ISystemOneJudge judge, Guid persona)
         => judge is ProviderJudge routed ? routed.ForPersona(persona) : judge;
 }
 
 public abstract record SystemOneQuestion(string Instructions);
 
-/// <summary>Yes/no statement → probability it is true.</summary>
 public sealed record NoulQuestion(string Instructions) : SystemOneQuestion(Instructions);
 
-/// <summary>Pick one option → probability per option. Keys are option names, values optional descriptions.</summary>
 public sealed record ChoiceQuestion(string Instructions, IReadOnlyDictionary<string, string?> Options) : SystemOneQuestion(Instructions);
 
 public sealed class SystemOneAnswers
 {
-    /// <summary>The judge that answered, when it says so: its numbers are only comparable with its own.</summary>
     public string? Model { get; set; }
     public Dictionary<string, double> Nouls { get; } = new();
     public Dictionary<string, Dictionary<string, double>> Choices { get; } = new();
 
     public double Noul(string key, double fallback) => Nouls.TryGetValue(key, out var p) ? p : fallback;
 
-    /// <summary>Scales each option's probability by <paramref name="left"/> (0..1) before the draw: what habit or a second thought takes off it.</summary>
     public void Damp(string key, Func<string, double> left)
     {
         if (!Choices.TryGetValue(key, out var probs)) return;
         foreach (var option in probs.Keys.ToList()) probs[option] *= Math.Clamp(left(option), 0, 1);
     }
 
-    /// <summary>Sample a choice from its distribution sharpened by <paramref name="temperature"/> (&lt;1 = greedier).</summary>
     public string? SampleChoice(string key, double temperature = 1.0, Random? random = null)
     {
         if (!Choices.TryGetValue(key, out var probs) || probs.Count == 0) return null;
@@ -65,10 +54,6 @@ public sealed class SystemOneAnswers
     }
 }
 
-/// <summary>
-/// The <c>/v1/systemone</c> wire format, served by TypeSafe Jev, Jev via OpenRouter, or a local decision
-/// model (Cloudflare Clef via llama.cpp). Providers call it through <see cref="ProviderJudge"/>.
-/// </summary>
 public sealed class HttpSystemOneJudge(HttpClient http, string name, string url, string? apiKey, string model, ILogger<HttpSystemOneJudge> logger)
     : ISystemOneJudge
 {
@@ -148,7 +133,6 @@ public sealed class HttpSystemOneJudge(HttpClient http, string name, string url,
     }
 }
 
-/// <summary>System One on the provider layer (ADR 0034): the Decisions tier routes, benches and falls through like any other.</summary>
 public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILogger<ProviderJudge> logger)
     : BackgroundService, ISystemOneJudge
 {
@@ -163,7 +147,6 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
             => judge.AskAsync(persona, state, questions, ct);
     }
 
-    /// <summary>Knows its providers before the world starts, so the first beat routes right.</summary>
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         await RefreshAsync();
@@ -208,7 +191,6 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
         Exception? last = null;
         while (true)
         {
-            // A failing endpoint benches itself, so the next route finds another; the same one again means none is left.
             endpoint ??= _hasProviders ? await TryRouteAsync(router, persona, ct) : null;
             if (endpoint is null || !tried.Add(endpoint)) break;
             try
@@ -222,7 +204,6 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
             }
         }
 
-        // Every decision model failed: a General-tier LLM still beats a failed beat (ADR 0040).
         logger.LogWarning(last, "No decision model answered; emulating System One with an LLM");
         return await emulation.AskAsync(state, questions, ct);
     }
@@ -234,7 +215,6 @@ public sealed class ProviderJudge(IGrainFactory grains, LlmJudge emulation, ILog
     }
 }
 
-/// <summary>System One emulated by one General-tier LLM call asking for probabilities. Less calibrated, same contract.</summary>
 public sealed class LlmJudge(IGrainFactory grains, ILogger<LlmJudge> logger) : ISystemOneJudge
 {
     public async Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)

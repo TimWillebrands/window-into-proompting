@@ -6,7 +6,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>What may be published as a persona's line: never an error placeholder, never the note that steered it. Cases are verbatim from prod.</summary>
 public class VoicedLineTest
 {
     private const string CafeLeak = "Lena asks in Dutch whether I've eaten. Reply in English, short, under 12 words, avoid stale words and \"boat, foam, ferry, real\". I'm tired, cold toast earlier, so admit that lightly.\n\nnothing but cold toast, and that was a crime too";
@@ -79,7 +78,6 @@ public class VoicedLineTest
     [Fact]
     public async Task WorldLlm_JsonFieldHoldingAPlaceholder_IsAFailedParse()
     {
-        // Henkie's Board reply, Sun 10:16: the call succeeded, the body was the placeholder, and it got posted.
         var llm = LlmAnswering("""{"body": "[ERROR: Can't parse response]", "respect": "no"}""");
 
         Assert.Null(await llm.CompleteJsonAsync(JobComplexity.CharacterVoice, "s", "u", default, fields: new[] { "body", "respect" }));
@@ -117,7 +115,6 @@ public class VoicedLineTest
     [Fact]
     public async Task WorldLlm_RamblingIntent_IsAskedOfThePool()
     {
-        // Inês, Sun 18:05: the assigned free model ran on for 5000 chars about messaging Eiko instead, and it got sent to Medevortius.
         var ramble = $$"""{"thought": "I don't message people I've never spoken to.", "intent": "{{new string('x', LifeChoice.MaxIntent + 1)}}"}""";
         var (llm, _, pool) = AssignedThenPool(() => ramble, Voiced);
 

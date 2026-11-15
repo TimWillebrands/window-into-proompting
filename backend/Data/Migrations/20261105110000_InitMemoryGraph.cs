@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace PartyTown.Data.Migrations;
 
-/// <summary>Graph + labels; idempotent because dev volumes already got them from 06-memory-graph.sql.</summary>
 [DbContext(typeof(AppDbContext))]
 [Migration("20261105110000_InitMemoryGraph")]
 public sealed class InitMemoryGraph : Migration

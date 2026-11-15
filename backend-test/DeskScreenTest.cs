@@ -6,7 +6,6 @@ using PartyTown.World.Work.Practices;
 
 namespace BackendTest;
 
-/// <summary>What a trader sees and how an intent becomes an order (ADR 0030); and the job rules around them.</summary>
 public class DeskScreenTest
 {
     private static readonly Guid Ana = Guid.NewGuid();

@@ -5,7 +5,6 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>System One rides the Decisions provider tier: it routes, falls through and turns itself off with the config.</summary>
 public class ProviderJudgeTest
 {
     private const string Answer = """{"answers":{"x":{"type":"noul","noul":0.8}}}""";
@@ -86,7 +85,6 @@ public class ProviderJudgeTest
         Assert.Equal(0.8, answers.Noul("x", 0));
     }
 
-    /// <summary>The General tier answers like the emulated judge would: plain JSON probabilities.</summary>
     private Mock<ILlmEndpointGrain> EmulationAnswers(string json = """{"x":0.3}""")
     {
         var llm = new Mock<ILlmEndpointGrain>();

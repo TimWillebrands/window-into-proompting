@@ -1,17 +1,14 @@
 namespace PartyTown.World.Self;
 
-/// <summary>The persona's own material on every channel's options: System One picks from labels, so none wins on vividness alone.</summary>
 public static class Hooks
 {
     private const int StoryLength = 90;
 
-    /// <summary>One of today's openers, or null when they've all been told.</summary>
     public static string? Pick(IReadOnlyList<string> openers, Random? random = null)
         => openers.Count == 0 ? null : openers[(random ?? Random.Shared).Next(openers.Count)];
 
     public static string Like(string story) => WorldStream.Clip(story, StoryLength);
 
-    /// <summary>Openers an acted-on label carried: once told, on any channel, they're told.</summary>
     public static List<string> Told(string label, IEnumerable<string> openers)
         => openers.Where(o => !string.IsNullOrWhiteSpace(o) && label.Contains(Like(o), StringComparison.Ordinal)).ToList();
 
@@ -25,7 +22,6 @@ public static class Hooks
 
     public static string Tell(string who, string story) => $"Tell {who}, right here, about something from your own day (like: {Like(story)})";
 
-    /// <summary>Something that just happened where they both are: shared news, not one person's story.</summary>
     public static string Saw(string who, string what) => $"Say something to {who} about what just happened here ({Like(what)})";
 
     public static string PostAbout(string where, string what) => $"Post on Partyboard about what just happened {where} (you saw it: {Like(what)})";
@@ -36,13 +32,10 @@ public static class Hooks
     public static string Diary(string? onYourMind)
         => onYourMind is null ? "Write in your diary and take some time to reflect" : $"Write in your diary about what's on your mind (like: {Like(onYourMind)})";
 
-    /// <summary>Doing nothing in particular is doing what the day has you doing.</summary>
     public static string Rest(string? beat)
         => beat is null ? "Do nothing for now" : $"Do nothing in particular, just carry on with your day ({Like(beat)})";
 
-    /// <summary>On shift, doing nothing is idling at work, not the evening the day had planned.</summary>
     public const string RestOnShift = "Do nothing in particular for a moment; you're still on shift";
 
-    /// <summary>A shift outranks the day's plan, which may predate it.</summary>
     public const string ShiftWins = "You're on shift right now: that wins over whatever your day had planned for this hour.";
 }

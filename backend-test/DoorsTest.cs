@@ -4,7 +4,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Workplace doors (ADR 0041): pure rules for who's behind one.</summary>
 public class PlaceAccessTest
 {
     private static readonly Guid Denise = Guid.NewGuid();
@@ -67,10 +66,8 @@ public class PlaceAccessTest
     public void APractice_OpensAsAClinic() => Assert.Equal("clinic", Kits.FromName("a counselling practice on the Herengracht"));
 }
 
-/// <summary>Workplace doors in a running World (ADR 0041).</summary>
 public partial class PlacesTest
 {
-    /// <summary>An office Denise works at (noon, on shift); Pieter's at home.</summary>
     private async Task<(Guid PartyId, Guid Denise, Guid Pieter, Place Office)> OfficeAsync(string archetype = "office", string name = "the Works office")
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
@@ -230,7 +227,6 @@ public partial class PlacesTest
     }
 }
 
-/// <summary>System Two's say on System One's pick (ADR 0034).</summary>
 public class LifeChoiceTest
 {
     [Theory]

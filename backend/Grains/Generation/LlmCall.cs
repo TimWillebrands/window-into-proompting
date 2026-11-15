@@ -5,18 +5,10 @@ using PartyTown.Model;
 
 namespace PartyTown.Grains.Generation;
 
-/// <summary>A finished streamed call: accumulated text, the endpoint's attribution, the tier that served it.</summary>
 public sealed record LlmCallResult(string Content, string Reasoning, ChatMessageMetadata? Attribution, JobComplexity Served);
 
-/// <summary>
-/// One LLM call over the router seam: tier fallback, best-effort attribution, stream accumulation.
-/// Callers bring the job and their tier order; they no longer route or loop chunks themselves.
-/// With <paramref name="persona"/>, that persona's assigned providers win, and the pool keeps them on one provider.
-/// </summary>
 public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid? persona = null)
 {
-    /// <summary>Route to the first tier with a provider not in <paramref name="exclude"/>; <paramref name="tiers"/> is preference order.
-    /// Throws the last tier's <see cref="InvalidOperationException"/> when none has one.</summary>
     public async Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(
         IReadOnlyList<JobComplexity> tiers, CancellationToken ct, IReadOnlySet<ILlmEndpointGrain>? exclude = null)
     {
@@ -39,9 +31,6 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
         }
     }
 
-    /// <summary>Route, stream and accumulate. <paramref name="onChunk"/> sees every raw chunk;
-    /// the job is re-tagged with the tier that served it; provider/model land on <paramref name="span"/>.
-    /// A provider that fails before its first chunk is skipped for the next one, so the caller never sees it.</summary>
     public async Task<LlmCallResult> StreamAsync(
         LlmGenerationJob job,
         IReadOnlyList<JobComplexity> tiers,
@@ -91,10 +80,6 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
         }
     }
 
-    /// <summary>
-    /// One-shot completion for batch work: re-routes each attempt (so the router can bench a failing
-    /// provider), treats empty content as transient, backs off 5s × attempt. Returns null when every attempt failed.
-    /// </summary>
     public async Task<string?> CompleteAsync(
         LlmGenerationJob job, IReadOnlyList<JobComplexity> tiers, string label, CancellationToken ct, int attempts = 3)
     {
@@ -104,7 +89,6 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
             {
                 var (endpoint, served) = await RouteAsync(tiers, ct);
                 var raw = (await endpoint.CompleteOneShotAsync(job with { JobComplexity = served }, ct)).Trim();
-                // reasoning models occasionally spend the whole turn thinking and return no content
                 if (raw.Length > 0 || attempt >= attempts) return raw;
                 logger?.LogWarning("LLM call {Label}: empty content, attempt {Attempt}", label, attempt);
             }
@@ -132,13 +116,11 @@ public sealed class LlmCall(ILlmRouterGrain router, ILogger? logger = null, Guid
         }
         catch
         {
-            // Attribution is instrumentation; never fail a call over it.
             return null;
         }
     }
 }
 
-/// <summary>Tier orders: rest-path work degrades in cost, never in function; race-path work never leaves its tier.</summary>
 public static class LlmTiers
 {
     public static readonly JobComplexity[] General = { JobComplexity.General };

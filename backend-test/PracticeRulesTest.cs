@@ -3,14 +3,12 @@ using PartyTown.World.Work.Practices;
 
 namespace BackendTest;
 
-/// <summary>When Sessions happen and end, and how they read (ADR 0030).</summary>
 public class PracticeRulesTest
 {
     private static readonly TimeSpan Offset = TimeSpan.FromHours(1);
     private static readonly Guid Coach = Guid.NewGuid();
     private static readonly Guid Client = Guid.NewGuid();
 
-    // 2026-10-19 is a Monday.
     private static DateTimeOffset At(int day, int hour, int minute = 0) => new(2026, 10, 19 + day, hour, minute, 0, Offset);
 
     private static Occupation Job() => new() { Title = "career coach", Workplace = "the office", Days = Shifts.Weekdays, Start = 9 * 60, End = 17 * 60 };

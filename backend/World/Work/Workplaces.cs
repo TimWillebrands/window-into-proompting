@@ -3,10 +3,8 @@ using PartyTown.World.Economy;
 
 namespace PartyTown.World.Work;
 
-/// <summary>What a shift does in the World (ADR 0026): the Body goes to work and comes back, the Wallet gets paid.</summary>
 public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
 {
-    /// <summary>Carries out one clock step; returns the Activity to log, or null when nothing happened.</summary>
     public async Task<WorldActivity?> ApplyAsync(Guid partyId, CastMember who, ShiftChange change)
     {
         if (change.Job is not { } job || change.Record is not { } record) return null;
@@ -23,7 +21,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
             {
                 var pay = await PayAsync(partyId, who.Id, job, record);
                 await LeaveAsync(partyId, who.Id, job);
-                // A shift worked teaches the craft (ADR 0054); a Practice's Sessions teach it instead.
                 if (job.Practice is null && !string.IsNullOrWhiteSpace(job.Title))
                     await Skills.Practising.NoteAsync(grains, partyId, who.Id, Skills.Practising.Work(job.Title, $"worked a shift as {job.Title} at {job.Workplace}"), logger);
                 return Activity(who, "finish", $"finished work at {job.Workplace} (+{pay} credits)");
@@ -34,7 +31,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         return null;
     }
 
-    /// <summary>Walking out mid-shift: paid for the time worked.</summary>
     public async Task<int> LeaveEarlyAsync(Guid partyId, Guid who, Occupation job, ShiftRecord record)
     {
         var pay = await PayAsync(partyId, who, job, record);
@@ -44,7 +40,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
 
     private async Task<int> PayAsync(Guid partyId, Guid who, Occupation job, ShiftRecord record)
     {
-        // A Practice lives on its Fees (ADR 0030).
         if (job.Practice is not null || record.StartedAt is not { } from || record.EndedAt is not { } to) return 0;
         var key = WorldKeys.Life(partyId, who);
         var wallet = grains.GetGrain<IWalletGrain>(key);
@@ -55,7 +50,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         return pay;
     }
 
-    /// <summary>Onscreen: walk to a Staff spot and work. Offscreen: away at the workplace's Locale (ADR 0027).</summary>
     public async Task GoAsync(Guid partyId, Guid who, Occupation job)
     {
         try
@@ -66,7 +60,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         catch (Exception ex) { logger.LogWarning(ex, "Going to work failed for {Who}", who); }
     }
 
-    /// <summary>Into the job's work clothes, when it has any; the shift doesn't wait for ones still being made.</summary>
     private async Task ChangeForWorkAsync(Guid partyId, Guid who, Occupation job)
     {
         if (job.Clothes is not { OwnClothes: false } clothes) return;
@@ -74,7 +67,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         catch (Exception ex) { logger.LogWarning(ex, "Changing for work failed for {Who}", who); }
     }
 
-    /// <summary>A day worked at an offscreen Locale is footfall toward Opening it (ADR 0027); once a day counts.</summary>
     private async Task AnchorAsync(Guid partyId, Guid who, Occupation job)
     {
         if (job.PlaceId is not null || job.LocaleId is not { } localeId) return;
@@ -82,7 +74,6 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
         catch (Exception ex) { logger.LogDebug(ex, "Work footfall failed for {Who}", who); }
     }
 
-    /// <summary>Onscreen workers stay where they are, just off duty; offscreen ones come back.</summary>
     private async Task LeaveAsync(Guid partyId, Guid who, Occupation job)
     {
         try

@@ -2,7 +2,6 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>Pure tests for <see cref="RoomCast"/> — the Effective Driver rule's single home.</summary>
 public class RoomCastTest
 {
     private static readonly Guid Vlad = Guid.NewGuid();
@@ -27,7 +26,6 @@ public class RoomCastTest
     [Fact]
     public void UserDefault_OverriddenToLlm_SpeaksWithFullLibraryPayload()
     {
-        // CONTEXT.md's own example: Vlad-as-LLM in the kitchen though he's normally the User.
         var cast = Cast(new[] { Vlad, Denise }, new() { [Vlad] = DriverKind.LLM });
 
         var self = cast.Speaker(Vlad);

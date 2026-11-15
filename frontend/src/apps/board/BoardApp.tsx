@@ -24,19 +24,15 @@ import { useBoardActions } from './useBoardActions';
 import './board.css';
 import Portrait from '../../components/Portrait';
 
-/** Posts rendered before "show older posts". */
 const PAGE = 30;
 
 interface BoardAppProps {
-    /** Post to show; set by toasts / World Monitor. */
     threadId?: string;
-    /** Focus the composer on open. */
     compose?: boolean;
 }
 
 type Tab = 'timeline' | 'you';
 
-/** Partyboard: the World's social feed. Hyves on the outside, a timeline on the inside. */
 export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const { windowId } = useWindowInstance();
     const setWindowProps = useDesktopStore((s) => s.setWindowProps);
@@ -52,7 +48,6 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const [tab, setTab] = useState<Tab>('timeline');
     const [limit, setLimit] = useState(PAGE);
 
-    // Highlight against where you were when you opened the app; catch up when you leave.
     const storedSince = useBoardSeen((s) => s.since);
     const catchUp = useBoardSeen((s) => s.catchUp);
     const [since] = useState(storedSince);
@@ -88,7 +83,6 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     );
     const feed = tab === 'you' ? yours : threads;
 
-    // "N new posts" pill: activity that arrived while you were scrolled down.
     const [topSeenAt, setTopSeenAt] = useState(() =>
         Math.max(0, ...threads.map((t) => ms(t.lastActivityAt))),
     );
@@ -106,7 +100,6 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const toTop = () =>
         scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Deep link: show it on the timeline, then let go so the window can be used normally.
     const focusId =
         threadId && threads.some((t) => t.id === threadId)
             ? threadId
@@ -276,7 +269,6 @@ function TabButton({
     );
 }
 
-/** Element width; drives the narrow layout (no container queries needed). */
 function useWidth(ref: RefObject<HTMLElement | null>) {
     const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
     useEffect(() => {

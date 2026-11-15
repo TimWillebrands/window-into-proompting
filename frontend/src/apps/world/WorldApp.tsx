@@ -44,7 +44,6 @@ const APPS: Record<string, { icon: string; label: string }> = {
     world: { icon: '📣', label: 'World' },
 };
 
-/** Actions that read better than their App (ADR 0055). */
 const ACTIONS: Record<string, { icon: string; label: string }> = {
     rest: { icon: '💤', label: 'Rest' },
     offstage: { icon: '🎬', label: 'Off-screen' },
@@ -58,7 +57,6 @@ const appMeta = (a: WorldActivity) =>
           ? { icon: '⚠️', label: APPS[a.app ?? '']?.label ?? a.app ?? '?' }
           : (APPS[a.app ?? ''] ?? { icon: '❔', label: a.app ?? '?' });
 
-/** Re-renders on an interval so relative times stay fresh. */
 function useNow(ms = 15000) {
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
@@ -81,7 +79,6 @@ function relTime(ts: number | string | null | undefined, now: number) {
 const sectionHeader =
     'bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px] flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]';
 
-/** World Monitor — Task Manager for the World clock, Lives and the Activity feed. */
 export default function WorldApp() {
     const statusQuery = useGetWorldsPartyIdSuspense(WORLD_ID);
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
@@ -97,7 +94,6 @@ export default function WorldApp() {
         (selvesQuery.data?.data ?? []).map((s) => [s.personaId, s]),
     );
 
-    // Lives refresh on activity events too; status only on clock.
     const busyCount = lives.filter((l) => l.busy).length;
     const nameById = new Map(lives.map((l) => [l.personaId, l.name]));
 
@@ -212,7 +208,6 @@ function StatusBar({ children }: { children: ReactNode[] }) {
 
 const usd = (n: number) => `$${n < 1 ? n.toFixed(3) : n.toFixed(2)}`;
 
-/** LLM spend across providers, polled. */
 function SpendCell() {
     const signedIn = usePlayerSession((s) => !!s.userId);
     const usageQuery = useGetLlmConfigUsage({
@@ -241,8 +236,6 @@ function SpendCell() {
     );
 }
 
-/** Author-announced Happening: everyone perceives and remembers it. */
-/** Invite a library Persona to move into the World. */
 function InviteBar({ residentIds }: { residentIds: string[] }) {
     const personas = useGetPersona();
     const [pick, setPick] = useState('');
@@ -565,7 +558,6 @@ function ClockBar({ status }: { status: WorldStatus }) {
     );
 }
 
-/** The persona's lived self (ADR 0021): mood, what they're doing offscreen, what's going on in their life. */
 function SelfLines({ self }: { self: SelfSummary }) {
     const asleep = self.doing === 'Asleep';
     const battery = Number(self.battery ?? 1);
@@ -868,11 +860,9 @@ function ActivityFeed({
                 setWindowProps('board', (p) => ({ ...p, threadId: target }));
             };
         }
-        // Memory captures target the room/DM they came from.
         if (a.app === 'messenger' || a.app === 'memory') {
             const dm = dms.find((d) => d.chatGroupId === target);
             if (dm) return () => openDirectChat(dm.chatGroupId, dm.withName);
-            // Someone else's DM: read along without being part of it.
             if (a.app !== 'messenger' || !a.withPersonaId) return null;
             const pair = `${a.personaName} & ${nameById.get(a.withPersonaId) ?? 'someone'}`;
             return () =>

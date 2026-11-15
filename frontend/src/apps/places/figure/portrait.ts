@@ -13,30 +13,23 @@ import { loadPrints } from './paint';
 import { Puppet } from './puppet';
 import { compiled, svgsOf } from './runtime';
 
-/** Display picture edge whose pixels match the scenes' (ADR 0023). */
 const SHOWN = 72;
-/** Pixels drawn across. */
 const GRID = SHOWN * PIXEL_DPR;
-/** Square edge of the image: the grid blown up unsmoothed, so every use is pixelated. */
 const SIZE = GRID * 4;
-/** Bump when framing or lighting changes: old pictures are thrown away. */
 const VERSION = 2;
 const SHELF = 'portraits';
 const KEEP = 256;
 const INK = 1.1;
-/** Head heights the frame spans, and how far above the head bone it centres. */
 const SPAN = 2.1;
 const LIFT = 0.28;
 const TURN = 0.3;
 const FOV = 18;
-/** How far a backdrop fades from their top toward white. */
 const PALE = 0.62;
 
 const STYLES = ['short', 'long', 'curly', 'bun', 'ponytail', 'bob', 'afro'];
 const TOPS = ['tshirt', 'hoodie', 'shirt', 'sweater', 'jacket'];
 const NATURAL_HAIR = ['black', 'brown', 'blonde', 'red', 'grey'];
 
-/** A stable look for someone without a Body yet, from any string. */
 export function seededAppearance(seed: string): Appearance {
     let h = 2166136261;
     for (let i = 0; i < seed.length; i++)
@@ -67,7 +60,6 @@ interface Stage {
 
 let stage: Promise<Stage> | null = null;
 
-/** One small renderer for every portrait, however many are on screen. */
 function theStage(): Promise<Stage> {
     stage ??= setStage();
     stage.catch(() => {
@@ -107,7 +99,6 @@ const pngOf = (canvas: HTMLCanvasElement) =>
         ),
     );
 
-/** Head and shoulders, standing as they stand, smiling. */
 async function draw(doc: FigureDoc): Promise<Blob> {
     const [c, images, { renderer, scene, camera, picture, pen }] =
         await Promise.all([
@@ -139,7 +130,6 @@ async function draw(doc: FigureDoc): Promise<Blob> {
         scene.background = new THREE.Color(doc.top.color).lerp(WHITE, PALE);
         setInk(INK, GRID, GRID);
         renderer.render(scene, camera);
-        // A WebGPU canvas won't drawImage; its own encoder snapshots it, if called in the same task.
         const frame = await createImageBitmap(await pngOf(renderer.domElement));
         pen.clearRect(0, 0, SIZE, SIZE);
         pen.drawImage(frame, 0, 0, SIZE, SIZE);
@@ -163,7 +153,6 @@ async function shelfKey(doc: string) {
     return `/portraits/${VERSION}/${hex}`;
 }
 
-/** The picture from the browser's shelf, or drawn and shelved; a shelf that won't open just means drawing. */
 async function shelved(doc: FigureDoc, id: string): Promise<Blob> {
     const shelf = await caches.open(SHELF).catch(() => null);
     const key = shelf ? await shelfKey(id).catch(() => null) : null;
@@ -179,7 +168,6 @@ async function shelved(doc: FigureDoc, id: string): Promise<Blob> {
 
 const urls = new Map<string, Promise<string>>();
 
-/** A picture of someone's Figure as an object URL; the key is the doc, so a change of clothes is a new picture. */
 export function portrait(
     appearance: Appearance | null | undefined,
     seed: string,

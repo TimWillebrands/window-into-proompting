@@ -8,7 +8,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>The endpoint grain honours its provider's Tailnet for both generation and the model list.</summary>
 public class OllamaEndpointTailnetTest : TestKitBase
 {
     private const string Reply =

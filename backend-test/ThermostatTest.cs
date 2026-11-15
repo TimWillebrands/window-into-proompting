@@ -2,7 +2,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Conversation thermostat (ADR 0021): only a sustained heavy streak cues a change of register.</summary>
 public class ThermostatTest
 {
     [Fact]

@@ -4,7 +4,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Earshot keys off spots: talk = your spot, shout = the Place, whisper = one addressee.</summary>
 public class EarshotTest
 {
     private static readonly Guid Cafe = Guid.NewGuid();
@@ -30,7 +29,6 @@ public class EarshotTest
     {
         Assert.Equal(new[] { _hana.ParticipantId, _denise.ParticipantId }.Order(),
             Earshot.Hearers(All, _denise, Volumes.Whisper, _hana.ParticipantId).Order());
-        // Whispering to someone across the room just reaches your spot.
         Assert.DoesNotContain(_pieter.ParticipantId, Earshot.Hearers(All, _denise, Volumes.Whisper, _pieter.ParticipantId));
     }
 

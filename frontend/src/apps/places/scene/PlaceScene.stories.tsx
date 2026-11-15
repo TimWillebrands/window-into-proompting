@@ -4,7 +4,6 @@ import '../places.css';
 import PlaceScene from './PlaceScene';
 import type { SceneDef } from './scene';
 
-/** Catalogue prototype (ADR 0027, issue 06): Kenney models next to the primitive prefabs they'd replace. */
 const office: Omit<SceneDef, 'id'> = {
     map: `
         ##ww####ww####

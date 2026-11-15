@@ -96,7 +96,6 @@ export function SessionList({ sessions }: { sessions: SessionSummary[] }) {
     );
 }
 
-/** Books the next free slot; on a person's page the Practitioner is already known. */
 export function BookForm({ practitionerId }: { practitionerId?: string }) {
     const { practices, people } = useWork();
     const book = usePostWorldsPartyIdPracticesParticipantIdSessions(

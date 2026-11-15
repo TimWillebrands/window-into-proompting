@@ -1,7 +1,6 @@
 import { compileFigure, type Detail } from './compile';
 import type { FigureDoc } from './doc';
 
-/** Compiles Figures off the main thread: fields and surface nets are the expensive part. */
 self.onmessage = (
     e: MessageEvent<{ id: number; doc: FigureDoc; detail: Detail }>,
 ) => {

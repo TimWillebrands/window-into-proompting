@@ -4,7 +4,6 @@ import '../places.css';
 import { KIT_SCENES } from './kits';
 import PlaceScene from './PlaceScene';
 
-/** How each kind of Locale looks once it opens (ADR 0027): kit scenes, spots pinned. */
 const opened = (archetype: string): Place => {
     const def = KIT_SCENES[archetype];
     return {

@@ -28,7 +28,6 @@ var backend = builder
     .WithEndpoint(name: "orleans-silo", port: 11111, targetPort: 11111, scheme: "tcp", isProxied: false)
     .WithEndpoint(name: "orleans-gateway", port: 30000, targetPort: 30000, scheme: "tcp", isProxied: false);
 
-// Optional dev knobs passed through from the shell (System One / model overrides, ADR 0019).
 foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "OPENROUTER_MODEL",
              "SYSTEM_ONE_OPENROUTER", "SYSTEM_ONE_OPENROUTER_MODEL" })
 {
@@ -36,7 +35,6 @@ foreach (var name in new[] { "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "OPENROUTER_M
         backend.WithEnvironment(name, value);
 }
 
-// Optional: production's Tailnet sidecar (ADR 0033), on when the shell has a key. Loopback only: SOCKS5 here has no auth.
 if (Environment.GetEnvironmentVariable("TS_AUTHKEY") is { Length: > 0 } tailscaleKey)
 {
     builder.AddContainer("tailscale", "tailscale/tailscale", "v1.104.4")
@@ -50,7 +48,6 @@ if (Environment.GetEnvironmentVariable("TS_AUTHKEY") is { Length: > 0 } tailscal
     backend.WithEnvironment("Tailnets__home", "socks5://127.0.0.1:1055");
 }
 
-// Optional: the CDU (ADR 0039), on when user-secrets or the shell name its model upstream. Local Ollama works.
 if (builder.Configuration["CDU_UPSTREAM_URL"] is { Length: > 0 } cduUpstream)
 {
     var cduToken = builder.Configuration["CDU_TOKEN"] ?? "cdu-dev";
@@ -106,7 +103,6 @@ var frontend = builder
     })
     .WithUrlForEndpoint("http", u => u.DisplayText = "Open Partytown");
 
-// One switch for both sides, from user-secrets or the shell: the browser gets the token, its same-origin proxy the host.
 if (builder.Configuration["POSTHOG_PROJECT_TOKEN"] is { Length: > 0 } posthogToken
     && builder.Configuration["POSTHOG_HOST"] is { Length: > 0 } posthogHost)
 {

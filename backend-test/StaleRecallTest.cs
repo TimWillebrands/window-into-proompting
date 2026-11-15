@@ -2,7 +2,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Stale-word habituation on recall (ADR 0021).</summary>
 public class StaleRecallTest
 {
     private static readonly string[] Stale = { "tin", "lid" };

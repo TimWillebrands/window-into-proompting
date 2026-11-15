@@ -19,7 +19,6 @@ const said = (err: unknown) =>
     (err instanceof ProblemDetailsError ? err.detail || err.title : null) ||
     'That did not work. Try again?';
 
-/** First stop for a signed-in human with no Player yet: pick who you'll be here, new or someone already living here. */
 export default function CreateCharacterScreen() {
     const createPlayer = useCreatePlayer();
     const takePersona = useTakePersona();

@@ -14,7 +14,6 @@ import { SkillsPanel } from './SkillsPanel';
 import { WantsPanel } from './WantsPanel';
 import { useRefreshWork, useWork } from './work-context';
 
-/** The front page: everyone, what they do, and how today went. */
 export function PeoplePage() {
     const { people, workOf, go } = useWork();
     const working = people.filter((p) => p.title).length;
@@ -148,7 +147,6 @@ export function PersonPage({ person }: { person: JobSummary }) {
 
 type Mode = 'job' | 'company' | 'practice';
 
-/** One form for what someone does: a job, a place at a Company, or their own Practice. */
 function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
     const { companies } = useWork();
     const refresh = useRefreshWork();
@@ -210,7 +208,6 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
             });
         } else {
             const job = { title, workplace, days, hours };
-            // A plain edit keeps the Company or Practice, so leaving one means clearing it first.
             const leaving = work.kind === 'company' || work.kind === 'practice';
             const clearing = leaving
                 ? clear.mutateAsync({ partyId, participantId })

@@ -87,15 +87,12 @@ export default function DiscoverFeed({
 
     return (
         <div className="flex-1 overflow-y-auto px-6 py-5 dark:text-slate-100">
-            {/* Hero banner — XP Bliss-inspired sky/grass with proper cloud SVGs */}
             <section className="relative mb-6 overflow-hidden rounded-[28px] shadow-[0_14px_30px_-8px_rgba(46,92,202,0.45),0_4px_8px_-2px_rgba(0,0,0,0.15)] ring-1 ring-white/50">
-                {/* XP-glass top sheen on hero */}
                 <span
                     aria-hidden
                     className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1/3 bg-gradient-to-b from-white/30 to-transparent"
                 />
                 <div className="relative flex h-40 @[520px]:h-52 items-end p-4 @[520px]:p-6 text-white">
-                    {/* Sky layer */}
                     <div
                         aria-hidden
                         className="absolute inset-x-0 top-0 h-[68%]"
@@ -104,7 +101,6 @@ export default function DiscoverFeed({
                                 'linear-gradient(to bottom, #2c6dc9 0%, #4d92e0 45%, #87bcec 85%, #b8dcf3 100%)',
                         }}
                     />
-                    {/* Rolling grass with curved horizon */}
                     <svg
                         role="presentation"
                         className="absolute inset-x-0 top-[60%] h-[42%] w-full"
@@ -130,7 +126,6 @@ export default function DiscoverFeed({
                         />
                     </svg>
 
-                    {/* Cloud SVGs (proper bumpy shapes) */}
                     <svg
                         role="presentation"
                         className="absolute left-6 top-5 h-8 w-28 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]"
@@ -165,7 +160,6 @@ export default function DiscoverFeed({
                         />
                     </svg>
 
-                    {/* Sparkle cluster */}
                     <span
                         aria-hidden
                         className="absolute right-8 top-14 text-3xl text-yellow-300 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]"
@@ -202,7 +196,6 @@ export default function DiscoverFeed({
                 </div>
             </section>
 
-            {/* Featured */}
             <SectionHeader title="Featured Community" />
             <div className="mb-6 grid grid-cols-1 gap-4 @[520px]:grid-cols-2">
                 {FEATURED_ROOMS.map((r) => (
@@ -220,7 +213,6 @@ export default function DiscoverFeed({
                 ))}
             </div>
 
-            {/* Popular */}
             <SectionHeader title="Popular Right Now" />
             <div className="mb-6 grid grid-cols-1 gap-4 @[520px]:grid-cols-2">
                 {POPULAR_ROOMS.map((r) => (
@@ -238,7 +230,6 @@ export default function DiscoverFeed({
                 ))}
             </div>
 
-            {/* Recent stubs */}
             <SectionHeader title="Recently Added" />
             <div className="mb-6 grid grid-cols-1 gap-4 @[520px]:grid-cols-2 @[800px]:grid-cols-3">
                 {RECENT_ROOMS.map((r) => (
@@ -256,7 +247,6 @@ export default function DiscoverFeed({
                 ))}
             </div>
 
-            {/* Your real rooms (joinable) */}
             {realRooms.length > 0 && (
                 <>
                     <SectionHeader title="Rooms You've Joined" />
@@ -284,7 +274,6 @@ export default function DiscoverFeed({
                 </>
             )}
 
-            {/* Create-room CTA — opens the modal */}
             <SectionHeader title="Start Your Own Room" />
             <div className="mb-10 flex flex-col items-start gap-3 rounded-3xl bg-white/70 dark:bg-slate-800/70 p-5 shadow-[0_8px_24px_-8px_rgba(46,92,202,0.25)] ring-1 ring-white/60 dark:ring-slate-700 backdrop-blur-xl">
                 <p className="text-[13px] text-slate-700 dark:text-slate-300">

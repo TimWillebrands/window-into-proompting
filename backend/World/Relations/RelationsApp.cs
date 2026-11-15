@@ -9,10 +9,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Relations;
 
-/// <summary>
-/// Relations changing in play (ADR 0035): asked in person, between two people at the same spot, and a yes is needed.
-/// The asking stays private; only what comes of it is public.
-/// </summary>
 public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = null) : IWorldApp
 {
     private const string Action = "relation";
@@ -69,7 +65,6 @@ public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = nul
         return offers;
     }
 
-    /// <summary>A key comes up in person; a sour one needs settling wherever you are.</summary>
     private async Task<List<Affordance>> KeyOffersAsync(LifeContext ctx, RelationBook book, PlacesSnapshot snapshot, Body me, long now)
     {
         var self = ctx.Self.Id;
@@ -142,7 +137,6 @@ public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = nul
         }
     }
 
-    /// <summary>Across the room is close enough to decide: they go over, and it's said if they're already there.</summary>
     private async Task SayInPersonAsync(LifeContext ctx, Guid other, string intent, string? thought)
     {
         await SayAsync(ctx, other, intent, thought);
@@ -152,7 +146,6 @@ public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = nul
             await places.JoinAsync(ctx.Self.Id, other);
     }
 
-    /// <summary>Only the two of them hold on to this; a Happening would tell everyone.</summary>
     private void Remember(LifeContext ctx, Guid other, string what, Guid placeId)
     {
         if (memory is null) return;
@@ -184,7 +177,6 @@ public sealed class RelationsApp(IGrainFactory grains, WorldMemory? memory = nul
         }
     }
 
-    /// <summary>Said low, when they're right there; otherwise the answer stands on its own.</summary>
     private async Task SayAsync(LifeContext ctx, Guid other, string intent, string? thought)
     {
         var places = grains.GetGrain<IPlacesGrain>(ctx.PartyId);

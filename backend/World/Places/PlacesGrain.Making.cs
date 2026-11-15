@@ -6,14 +6,11 @@ namespace PartyTown.World.Places;
 [GenerateSerializer, Alias("PartyTown.World.Places.RestyleResult")]
 public sealed record RestyleResult([property: Id(0)] Appearance Look, [property: Id(1)] string Done);
 
-/// <summary>Customisation and making (ADR 0023): poses, restyling, generated things and Places, arranging a Home.</summary>
 public sealed partial class PlacesGrain
 {
     public const int MaxMadePlaces = 12;
     private readonly Queue<(Guid PlaceId, string FurniId, string Description)> _models = new();
     private bool _modelling;
-
-    // ---- Poses ----
 
     public async Task<string?> SetPoseAsync(Guid participantId, string? pose, Guid? with)
     {
@@ -58,7 +55,6 @@ public sealed partial class PlacesGrain
         if (!b.IsWalking) b.Posture = Poses.PostureOf(pose, b.Posture);
     }
 
-    /// <summary>Drop a pose, and the partner's side of a pair pose.</summary>
     private void EndPose(Body b)
     {
         if (b.Pose is null) return;
@@ -80,8 +76,6 @@ public sealed partial class PlacesGrain
         }
     }
 
-    // ---- Looks ----
-
     public async Task<RestyleResult?> RestyleAsync(Guid participantId, string intent)
     {
         if (string.IsNullOrWhiteSpace(intent) || !state.State.Bodies.TryGetValue(participantId, out var body)) return null;
@@ -93,7 +87,6 @@ public sealed partial class PlacesGrain
         return await WearAsync(participantId, json, await DrawPrintsAsync(FigureDesign.Clean(json["design"])));
     }
 
-    /// <summary>A look someone designed elsewhere (picks, summary, design), cleaned; prints come drawn, as inline SVG.</summary>
     public async Task<RestyleResult?> DressAsync(Guid participantId, string look)
     {
         if (System.Text.Json.Nodes.JsonNode.Parse(look) is not System.Text.Json.Nodes.JsonObject json) return null;
@@ -119,8 +112,6 @@ public sealed partial class PlacesGrain
         await PublishAsync(body);
         return new RestyleResult(after, $"changes their look: {changes}");
     }
-
-    // ---- Work clothes ----
 
     public async Task<bool> ChangeForWorkAsync(Guid participantId, WorkClothes clothes)
     {
@@ -150,10 +141,8 @@ public sealed partial class PlacesGrain
         return true;
     }
 
-    /// <summary>Their own look: worn, or waiting while they're in work clothes.</summary>
     private static Appearance OwnLook(Body body) => body.OwnLook ?? body.Appearance ?? AppearanceRules.Default(body.ParticipantId);
 
-    /// <summary>A change to how someone looks lands on their own look; in work clothes it shows after work.</summary>
     private static void SetOwn(Body body, Appearance look)
     {
         if (body.WorkClothes is { } clothes)
@@ -164,11 +153,8 @@ public sealed partial class PlacesGrain
         else body.Appearance = look;
     }
 
-    // ---- Things ----
-
     public Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description) => PutThingAsync(placeId, ownerId, description, null, null);
 
-    /// <summary>A thing with its model already made (<see cref="ThingModel.Clean"/>): no catalogue, no LLM.</summary>
     public Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model, Offer? offer = null)
         => PutThingAsync(placeId, ownerId, description, model, offer);
 
@@ -194,7 +180,6 @@ public sealed partial class PlacesGrain
         return View(place, furni, now);
     }
 
-    /// <summary>Most asked-for first ("3× a bike poster"), then newest.</summary>
     public Task<List<string>> GetCatalogueMissesAsync()
         => Task.FromResult(Enumerable.Reverse(state.State.CatalogueMisses)
             .Select((m, i) => (Text: m, Count: state.State.MissCounts.GetValueOrDefault(m, 1), Order: i))
@@ -215,7 +200,6 @@ public sealed partial class PlacesGrain
         }
     }
 
-    /// <summary>A catalogue model the description names; System One picks among close ones (or none), else the best word match.</summary>
     private async Task<string?> FromCatalogueAsync(string description)
     {
         var candidates = CatalogueMatch.Candidates(description, CatalogueMatch.Catalogue);
@@ -243,7 +227,6 @@ public sealed partial class PlacesGrain
         }
     }
 
-    /// <summary>Author: make a thing's model again.</summary>
     public Task RemodelAsync(Guid placeId, string furniId)
     {
         if (Find(placeId) is { } place && place.Furni.FirstOrDefault(f => f.Id == furniId) is { } furni)
@@ -270,7 +253,6 @@ public sealed partial class PlacesGrain
         }
     }
 
-    /// <summary>The catalogue first (no LLM); otherwise one LLM call: a few coloured primitives, cleaned to fit a tile. The kind's prefab stands in until (or unless) it lands.</summary>
     private async Task ModelAsync(Guid placeId, string furniId, string description)
     {
         try
@@ -298,7 +280,6 @@ public sealed partial class PlacesGrain
         }
     }
 
-    /// <summary>Owners (and the author, <see cref="Guid.Empty"/>) arrange things: a tile and quarter turns, or back to the scene's choice with null.</summary>
     public async Task<bool> ArrangeAsync(Guid participantId, Guid placeId, string furniId, int? x, int? z, int rot)
     {
         if (Find(placeId) is not { } place || place.Furni.FirstOrDefault(f => f.Id == furniId) is not { } furni) return false;
@@ -338,9 +319,6 @@ public sealed partial class PlacesGrain
     private static string? Hex(string? c)
         => c is { Length: 7 } && c[0] == '#' && c.Skip(1).All(Uri.IsHexDigit) ? c.ToLowerInvariant() : null;
 
-    // ---- Places ----
-
-    /// <summary>A public Place from a finished design (<see cref="IPlaceDesignerGrain"/>).</summary>
     public async Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, PlaceDraft draft)
     {
         if (string.IsNullOrWhiteSpace(description)) return null;
@@ -395,8 +373,6 @@ public sealed partial class PlacesGrain
         return $"finishes {title} {AtName(place, Guid.Empty)}";
     }
 
-    /// <summary>Author: take a generated Place down; anyone there walks home.</summary>
-    /// <summary>Their Body, Home and visit history go; guests there go to their own Homes.</summary>
     public async Task RemoveParticipantAsync(Guid participantId)
     {
         await SettleAsync();

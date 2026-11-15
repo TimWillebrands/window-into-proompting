@@ -4,10 +4,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Relations;
 
-/// <summary>
-/// One Party's Relations (key = Party id, ADR 0035): the one place a pair's facts are written, so both sides agree.
-/// Drives Places for living together; Places never calls back.
-/// </summary>
 public sealed class RelationsGrain(
     [PersistentState(stateName: "relations", storageName: "parties")]
     IPersistentState<RelationBook> state,
@@ -110,7 +106,6 @@ public sealed class RelationsGrain(
         return true;
     }
 
-    /// <summary>Got what they wanted: nothing left to want about that door.</summary>
     private async Task SettleWantsAsync(Guid who, Guid placeId)
     {
         var desires = GrainFactory.GetGrain<Desires.IDesiresGrain>(WorldKeys.Life(this.GetPrimaryKey(), who));
@@ -154,7 +149,6 @@ public sealed class RelationsGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>A yes takes effect; false when things changed since the asking and it no longer can.</summary>
     private async Task<bool> ApplyAsync(RelationAsk ask, long now)
     {
         var between = Book.CurrentBetween(ask.FromId, ask.ToId);
@@ -207,27 +201,16 @@ public sealed class RelationsGrain(
 [Alias("PartyTown.World.Relations.IRelationsGrain")]
 public interface IRelationsGrain : IGrainWithGuidKey
 {
-    /// <summary>Read-only; interleaves so grains this one calls can read it back.</summary>
     [AlwaysInterleave, Alias("GetAsync")] Task<RelationBook> GetAsync();
-    /// <summary>Author: state what a pair is, or was with <paramref name="past"/>. Replaces their current kind and story.</summary>
     [Alias("DeclareAsync")] Task<Relation?> DeclareAsync(Guid aId, Guid bId, RelationKind kind, string? story, bool past);
-    /// <summary>Their current Relation becomes a past one, and a shared Home splits.</summary>
     [Alias("EndAsync")] Task<bool> EndAsync(Guid aId, Guid bId);
-    /// <summary>Author: strike it, as if it never was.</summary>
     [Alias("ForgetAsync")] Task<bool> ForgetAsync(Guid relationId);
-    /// <summary>Author: the other one moves in with <paramref name="hostId"/>; null splits a shared Home.</summary>
     [Alias("SetHomeAsync")] Task<bool> SetHomeAsync(Guid relationId, Guid? hostId);
-    /// <summary>Author: a Home designed from <paramref name="description"/>, owned by the host; the Homes they had are removed.</summary>
     [Alias("NewHomeAsync")] Task<bool> NewHomeAsync(Guid relationId, Guid hostId, string description);
     [Alias("AskAsync")] Task<bool> AskAsync(Guid fromId, Guid toId, AskKind kind, Guid? placeId = null, string? about = null);
-    /// <summary>It's the host's to give: no yes needed, and what both wanted about that door is settled.</summary>
     [Alias("GiveKeyAsync")] Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId);
-    /// <summary>Given back, or with <paramref name="taken"/> taken back, which stings.</summary>
     [Alias("DropKeyAsync")] Task<bool> DropKeyAsync(Guid holderId, Guid hostId, Guid placeId, bool taken);
-    /// <summary>The Ask as it stands after answering; null when none is open.</summary>
     [Alias("AnswerAsync")] Task<RelationAsk?> AnswerAsync(Guid fromId, Guid toId, bool yes);
-    /// <summary>Author: Relations brought from another World, kind, story and dates kept; nobody lives together yet.</summary>
     [Alias("AdoptAsync")] Task AdoptAsync(List<Relation> relations);
-    /// <summary>Someone left the World: what they were part of is over.</summary>
     [Alias("LeaveAsync")] Task LeaveAsync(Guid participantId);
 }

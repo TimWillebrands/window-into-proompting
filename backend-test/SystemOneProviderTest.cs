@@ -12,7 +12,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>A decision call uses the provider's URL, key, Tailnet, bench and capture, the same as a generation.</summary>
 public class SystemOneProviderTest : TestKitBase
 {
     private const string Answer = """{"answers":{"x":{"type":"noul","noul":0.8}}}""";
@@ -173,7 +172,6 @@ public class SystemOneProviderTest : TestKitBase
     }
 }
 
-/// <summary>System One's env chain becomes Decisions providers once, in its old order, and Control Panel owns them after.</summary>
 public class DecisionProviderSeedTest : TestKitBase
 {
     private static LlmOptions OptionsFrom(params (string Key, string Value)[] env)

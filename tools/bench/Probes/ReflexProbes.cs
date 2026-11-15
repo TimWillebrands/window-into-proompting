@@ -9,10 +9,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// Instrument (ADR 0031): how real System One answers Reflex across channels, before and after the landscape.
-/// Calibration lives here: if p compresses, the Torn margin and the pulls have to be read against this.
-/// </summary>
 public static class ReflexProbes
 {
     private sealed record Scenario(string Name, Percept Percept, Sense Sense);

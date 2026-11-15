@@ -7,14 +7,12 @@ import type {
 export type ConceptMode = 'shared' | 'all' | 'none';
 
 export interface ViewFilters {
-    /// <summary>Participant node id whose memories to show; null = everyone.</summary>
     lens: string | null;
     concepts: ConceptMode;
     showStances: boolean;
 }
 
 export interface MemoryView extends EnrichedMemoryGraph {
-    /// <summary>Visible-link count per node id — drives Concept size and label priority.</summary>
     degree: Map<string, number>;
 }
 
@@ -35,7 +33,6 @@ export function indexGraph(graph: EnrichedMemoryGraph): GraphIndex {
     return { byId, outgoing, incoming };
 }
 
-/// <summary>The drawable subgraph: lens + concept threshold + stances; ABOUT→Participant stays panel-only.</summary>
 export function buildView(
     graph: EnrichedMemoryGraph,
     filters: ViewFilters,
@@ -107,7 +104,6 @@ export function buildView(
     return { nodes, links, degree };
 }
 
-/// <summary>The node, its direct neighbours, and the topics of any memories among them.</summary>
 export function neighbourhood(
     view: EnrichedMemoryGraph,
     id: string,
@@ -129,7 +125,6 @@ export function neighbourhood(
     return ids;
 }
 
-/// <summary>Case-insensitive hit on labels, Event descriptions and Recollection snippets; null when the query is blank.</summary>
 export function searchMatches(
     graph: EnrichedMemoryGraph,
     query: string,
@@ -151,7 +146,6 @@ export function searchMatches(
     return hits;
 }
 
-// force-graph swaps link endpoints for node objects once the simulation starts.
 export function endpointId(end: unknown): string {
     return typeof end === 'object' && end !== null
         ? (end as { id: string }).id

@@ -3,10 +3,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// Conversation thermostat (ADR 0021), key = Room/DM or Board thread id. System One reads the last lines once per new message:
-/// heavy? circling? fizzling? re-confirming settled plans? A sustained heavy streak becomes a cue to lighten, change subject or drift off.
-/// </summary>
 public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<ConversationThermostatGrain> logger)
     : Grain, IConversationThermostatGrain
 {
@@ -85,14 +81,12 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
         }
         catch (Exception ex)
         {
-            // Don't retry the same message on every call: a slow judge would queue every persona behind 8 s.
             _lastMessageId = last;
             logger.LogDebug(ex, "Thermostat read failed for {Room}", this.GetPrimaryKey());
         }
     }
 }
 
-/// <summary>Pure thermostat rules.</summary>
 public static class Thermostat
 {
     public const double HeavyThreshold = 0.6;
@@ -106,7 +100,6 @@ public static class Thermostat
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
 
-    /// <summary>A Board thread has run its course when it's only acknowledging or re-confirming; staying on one topic is what threads are for.</summary>
     public static bool RunItsCourse(ThermostatRead read) => read.Fizzling >= FizzlingThreshold || read.Reconfirming >= ReconfirmingThreshold;
 
     public static string? Cue(int heavyStreak, double circling, double fizzling = 0, double reconfirming = 0)
@@ -129,11 +122,8 @@ public static class Thermostat
 public interface IConversationThermostatGrain : IGrainWithGuidKey
 {
     [Alias("GetCueAsync")] Task<string?> GetCueAsync();
-    /// <summary>The last System One read; <see cref="ThermostatRead.Stale"/> = circling, fizzling or re-confirming settled plans (Places foregrounds leaving).</summary>
     [Alias("GetReadAsync")] Task<ThermostatRead> GetReadAsync();
-    /// <summary>True while the last read found the talk fizzling, circling or re-confirming; the name-mention auto-reply is off then.</summary>
     [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
-    /// <summary>The same read over a Board thread (key = thread id): its post and latest replies (ADR 0043).</summary>
     [Alias("GetThreadReadAsync")] Task<ThermostatRead> GetThreadReadAsync(Guid partyId);
 }
 

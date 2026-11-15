@@ -42,6 +42,8 @@ jobs:
       - run: npm install -g pnpm@10.8.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: node ../tools/lint/no-comments.mjs ..
+      - run: node ../tools/lint/no-markdown.mjs
       - run: pnpm exec tsc --noEmit
       - run: pnpm test
       - run: pnpm build

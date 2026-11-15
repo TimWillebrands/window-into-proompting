@@ -26,7 +26,6 @@ export function sourceLabel(source: string | null | undefined): string {
     return (source && SOURCE_LABEL[source]) ?? 'Room';
 }
 
-// Backend stores ids; names come from REST. Legacy Events lacking `source` get one inferred.
 export function enrichGraph(
     graph: MemoryGraphData,
     directory: NameDirectory,
@@ -69,7 +68,6 @@ export function enrichGraph(
                 return { ...node, source, label: where, where };
             }
             case 'Participant': {
-                // Id grammar: `part:<personaGuid>:<partyGuid>`.
                 const personaId = stripPrefix(node.id, 'part:')?.split(':')[0];
                 const name = personaId
                     ? personasById.get(personaId)
@@ -93,7 +91,6 @@ export function enrichGraph(
         }
     });
 
-    // Generated DTO types decimals as `number | string`; normalise once here.
     const links: EnrichedMemoryLink[] = graph.links.map((link) => ({
         ...link,
         weight: toNumber(link.weight),

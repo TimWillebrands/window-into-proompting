@@ -1,6 +1,5 @@
 namespace PartyTown.World.Places;
 
-/// <summary>Workplace doors (ADR 0041): staff come and go, the author's access list too, everyone else knocks.</summary>
 public sealed partial class PlacesGrain
 {
     public async Task WorkAtAsync(Guid participantId, Guid? placeId)
@@ -51,21 +50,18 @@ public sealed partial class PlacesGrain
         await PublishPlaceAsync(place);
     }
 
-    /// <summary>A staffed Place gets its kit's door the first time; after that the door is the author's.</summary>
     private static void SettleDoor(Place place)
     {
         if (place.Access is null && place.Kind == PlaceKinds.Public && place.Staff.Count > 0)
             place.Access = Kits.Of(place.Archetype).Access ?? PlaceAccess.Open;
     }
 
-    /// <summary>Whoever may no longer be there heads home.</summary>
     private async Task ShowOutAsync(Place place)
     {
         foreach (var body in state.State.Bodies.Values.Where(b => (b.DestPlaceId ?? b.PlaceId) == place.Id && !MayEnter(place, b.ParticipantId)).ToList())
             if (state.State.Places.HomeOf(body.ParticipantId) is { } home) await MoveAsync(body.ParticipantId, home.Id, null);
     }
 
-    /// <summary>A workplace door as someone inside sees it: staff notice who doesn't belong, a visitor that they're visiting.</summary>
     private static string? DoorLine(Place place, Guid viewer, IReadOnlyList<Body> others)
     {
         if (!place.IsWorkplaceDoor()) return null;

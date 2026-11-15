@@ -8,7 +8,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Work.Practices;
 
-/// <summary>Practices around you in a Life (ADR 0030). What pulls is judged per person, so no trade needs its own rules.</summary>
 public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Sessions sessions, ILogger<PracticeApp> logger) : IWorldApp
 {
     public const string AppId = "practice";
@@ -35,7 +34,6 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
         {
             var practice = job!.Practice!;
             sb.AppendLine($"- {PracticeRules.Advert(who.Name, job, practice)}");
-            // Nobody hires their own partner: that talk happens at home, unpaid.
             if (balance < practice.Fee || open.Any(s => s.PractitionerId == who.Id) || relations.Partners(ctx.Self.Id, who.Id)) continue;
             if (PracticeRules.Pull(await FitAsync(ctx, who.Id, who.Name, job, practice, ct)) is { } pull)
                 offers.Add(new Affordance(Id, $"Book a session with {who.Name} ({job.Title}, {practice.Fee} credits)", pull, who.Id, "book"));
@@ -52,7 +50,6 @@ public sealed class PracticeApp(IGrainFactory grains, ISystemOneJudge judge, Ses
         return new ActOutcome("book", $"booked a session with {session.PractitionerName} for {at}", null, practitionerId);
     }
 
-    /// <summary>One read a day of whether a Practice speaks to what's going on with them.</summary>
     private async Task<double?> FitAsync(LifeContext ctx, Guid practitionerId, string name, Occupation job, Practice practice, CancellationToken ct)
     {
         var weigh = judge.For(ctx.Self.Id);

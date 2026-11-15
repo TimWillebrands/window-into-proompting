@@ -6,13 +6,10 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Apps;
 
-/// <summary>Resolves author ids to the views a Capture needs (Persona path: LifeContext; Player path: Party cast).</summary>
 public delegate List<ParticipantView> ViewsOf(IEnumerable<Guid> ids);
 
-/// <summary>Partyboard: the World's social feed (Hyves meets Twitter). Short posts, replies under them, Respect!; written in voice, every post a captured moment.</summary>
 public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory memory, ILogger<BoardApp> logger) : IWorldApp
 {
-    /// <summary>Hard cap for posts and replies, persona or Player.</summary>
     public const int MaxLength = 280;
 
     private const string PostShape = """{"post": "<your post, under 280 characters>"}""";
@@ -25,7 +22,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     public string Id => "board";
 
-    /// <summary>Attention key for having the Board open (see <see cref="Self.IPersonaAttentionGrain"/>).</summary>
     public static readonly Guid AttentionKey = new("b0a2d000-0000-4000-8000-000000000001");
 
     private const string Title = "Partyboard (social feed)";
@@ -78,7 +74,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
 
     private const string RanItsCourseNote = "    (this exchange has run its course: only agreeing or saying it again)";
 
-    /// <summary>The Rooms' thermostat over a Board thread (ADR 0043): a reply chain that only re-confirms pulls less, like a circling Room.</summary>
     private async Task<bool> RanItsCourseAsync(LifeContext ctx, BoardThread t)
     {
         if (t.Replies.Count < 3) return false;
@@ -90,10 +85,8 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         }
     }
 
-    /// <summary>A fresh Happening they saw themselves, the one thing from the world worth a post (ADR 0043).</summary>
     private Happening? Witnessed(LifeContext ctx) => HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "post", ctx.Now);
 
-    /// <summary>Partyboard closed: what's new since you last looked, and notifications for what concerns you.</summary>
     private async Task<AppPerception> GlanceAsync(LifeContext ctx, List<BoardThread> all, List<Affordance> affordances)
     {
         var seenAt = ctx.Looks.TryGetValue(AttentionKey, out var look) ? look.At : 0L;
@@ -123,27 +116,22 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         return new AppPerception(Id, Title, sb.ToString().TrimEnd(), affordances);
     }
 
-    /// <summary>"Denise's post "deleted 200 lines…"" / "your post "…"".</summary>
     public static string PostLabel(BoardThread t, Guid self)
         => $"{(t.AuthorId == self ? "your" : $"{t.AuthorName}'s")} post \"{WorldStream.Clip(t.Body, 50)}\"";
 
-    /// <summary>", Respect! from Denise and you" — empty when nobody gave any.</summary>
     public static string RespectNote(IReadOnlyList<BoardRespect> respect, Guid self)
         => respect.Count == 0 ? "" : $", Respect! from {string.Join(", ", respect.Select(r => r.GiverId == self ? "you" : r.GiverName))}";
 
-    /// <summary>Who gave Respect! to your posts or replies since <paramref name="seenAt"/>.</summary>
     public static List<string> RespectSince(IReadOnlyList<BoardThread> all, Guid self, long seenAt)
         => all.SelectMany(t => (t.AuthorId == self ? t.Respect : Enumerable.Empty<BoardRespect>())
                 .Concat(t.Replies.Where(r => r.AuthorId == self).SelectMany(r => r.Respect)))
             .Where(r => r.At > seenAt && r.GiverId != self)
             .Select(r => r.GiverName).Distinct().ToList();
 
-    /// <summary>New posts and replies by others since <paramref name="seenAt"/>.</summary>
     public static (int Threads, int Replies) NewSince(IReadOnlyList<BoardThread> all, Guid self, long seenAt)
         => (all.Count(t => t.AuthorId != self && t.CreatedAt > seenAt),
             all.Sum(t => t.Replies.Count(r => r.AuthorId != self && r.CreatedAt > seenAt)));
 
-    /// <summary>Unseen posts that concern you: a reply after your own word under a post, or your name; newest first.</summary>
     public static IEnumerable<(BoardThread Thread, BoardReply Line, string How)> Notifications(
         IReadOnlyList<BoardThread> all, Guid self, Func<string?, bool> mentions, long seenAt)
     {
@@ -161,7 +149,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         }
     }
 
-    /// <summary>Threads you keep answering, and long ones, pull less: conversations wind down (ADR 0021).</summary>
     public static int ThreadFatigue(IReadOnlyList<Guid> replyAuthors, Guid self)
     {
         var own = replyAuthors.Count(a => a == self);
@@ -169,7 +156,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             + (own >= 4 ? 1 : 0) + (own >= 8 ? 1 : 0);
     }
 
-    /// <summary>Someone named you after your last word here (or in the post itself, if you haven't spoken).</summary>
     private static bool AddressedSinceYou(BoardThread t, LifeContext ctx)
     {
         var lastOwn = t.Replies.FindLastIndex(r => r.AuthorId == ctx.Self.Id);
@@ -177,20 +163,16 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         return t.Replies.Skip(lastOwn + 1).Any(r => r.AuthorId != ctx.Self.Id && ctx.Mentions(r.Body));
     }
 
-    /// <summary>You already read the newest reply here and let it be (maybe with a Respect!).</summary>
     public static bool PassedOn(IEnumerable<WorldActivity> recentOwn, BoardThread t)
         => recentOwn.Any(a => a.App == "board" && a.Action is "pass" or "respect" && a.TargetId == t.Id && a.Ts >= t.LastActivityAt);
 
-    /// <summary>Reply chains die: past this length nobody replies any more.</summary>
     public const int MaxReplies = 25;
 
     public static bool RunItsCourse(int replies) => replies >= MaxReplies;
 
-    /// <summary>Someone else posted since it happened: the news is out, so it's expected, not a pull (it drew four posts at once).</summary>
     public static bool Told(IEnumerable<BoardThread> threads, long since, Guid self)
         => threads.Any(t => t.AuthorId != self && t.CreatedAt >= since);
 
-    /// <summary>A new post seeded by something from your own day, or by what you just saw happen; it pulls harder when you haven't posted lately.</summary>
     public Affordance PostAffordance(IReadOnlyList<string> openers, bool postedLately, Happening? saw = null)
     {
         if (saw is { Where: { } where }) return new Affordance(Id, Self.Hooks.PostAbout(where, saw.Text), postedLately ? 1 : 2, null, "post");
@@ -225,7 +207,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var replyJson = await llm.For(ctx.Self.Id).CompleteJsonAsync(JobComplexity.CharacterVoice, system,
             ReplyUser(Render(target, ctx.Self.Id), intent, thought), ct, 0.9, ["body", "respect"]);
         if (replyJson is null) return null;
-        // A body that's only a note about replying is a failed write, not a choice to pass.
         if (ReplyBody(replyJson) is { } drafted && Services.ResponsePipeline.SpeechCleanup.DropPlanningNote(drafted).Length == 0) return null;
 
         var respected = GivesRespect(replyJson) && RespectTarget(target, ctx.Self.Id) is { } aim
@@ -239,7 +220,6 @@ public sealed class BoardApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         return (await ReplyAsync(ctx.PartyId, threadId, ctx.Self.Id, ctx.Self.Name, await FitAsync(ctx.Self.Id, sayable, ct), ViewsOf(ctx)))?.Outcome;
     }
 
-    /// <summary>System prompt for any Partyboard write: who you are, your day, and what a feed post is.</summary>
     public static string WriterSystem(string identity, string? presence) => $"""
 {identity}
 
@@ -281,20 +261,17 @@ Only reply if it adds something from you: new information, a real disagreement, 
 Output: {ReplyShape}
 """;
 
-    /// <summary>The reply text, or null when the writer chose to let it be.</summary>
     public static string? ReplyBody(System.Text.Json.Nodes.JsonObject json)
         => json["body"]?.ToString().Trim() is { Length: > 0 } body && body != "null" ? body : null;
 
     public static bool GivesRespect(System.Text.Json.Nodes.JsonObject json)
         => json["respect"]?.ToString().Trim().StartsWith("y", StringComparison.OrdinalIgnoreCase) == true;
 
-    /// <summary>What a Respect! from <paramref name="self"/> lands on: the newest reply by someone else, else the post itself.</summary>
     public static (Guid? ReplyId, string Name)? RespectTarget(BoardThread t, Guid self)
         => t.Replies.LastOrDefault(r => r.AuthorId != self) is { } r ? (r.Id, r.AuthorName)
             : t.AuthorId != self ? (null, t.AuthorName)
             : null;
 
-    /// <summary>Your own last posts, newest first: what not to post again.</summary>
     public static List<string> OwnRecent(IReadOnlyList<BoardThread> all, Guid self, DateTimeOffset now)
         => all.Where(t => t.AuthorId == self).OrderByDescending(t => t.CreatedAt).Take(5)
             .Select(t => $"{WorldStream.Ago(t.CreatedAt, now)}: {WorldStream.Clip(t.Body, 200)}").ToList();
@@ -303,7 +280,6 @@ Output: {ReplyShape}
         => all.Where(t => t.AuthorId != self).OrderByDescending(t => t.CreatedAt).Take(6)
             .Select(t => $"{t.AuthorName}: {WorldStream.Clip(t.Body, 120)}").ToList();
 
-    /// <summary>Under the cap: one rewrite by the voice model, then a clip at a sentence or word boundary.</summary>
     private async Task<string> FitAsync(Guid persona, string text, CancellationToken ct)
     {
         if (text.Length <= MaxLength) return text;
@@ -316,7 +292,6 @@ Output: {ReplyShape}
         return ClipToLength(text, MaxLength);
     }
 
-    /// <summary>Cut to <paramref name="max"/>: at the last sentence end if that keeps half, else at a word with an ellipsis.</summary>
     public static string ClipToLength(string text, int max)
     {
         text = text.Trim();
@@ -328,7 +303,6 @@ Output: {ReplyShape}
         return (space > 0 ? head[..space] : head[..(max - 1)]).TrimEnd(',', ';', ':', ' ') + "…";
     }
 
-    /// <summary>Commit a post — the same for a Persona's voiced one and the Player's typed one: store, then remember.</summary>
     public async Task<(BoardThread Thread, ActOutcome Outcome)> PostAsync(
         Guid partyId, Guid authorId, string authorName, string body, ViewsOf viewsOf)
     {
@@ -338,7 +312,6 @@ Output: {ReplyShape}
         return (thread, new ActOutcome("post", $"posted \"{thread.Title}\"", thread.Id));
     }
 
-    /// <summary>Commit a reply; null when the post is gone.</summary>
     public async Task<(BoardThread Thread, ActOutcome Outcome)?> ReplyAsync(
         Guid partyId, Guid threadId, Guid authorId, string authorName, string body, ViewsOf viewsOf)
     {
@@ -349,7 +322,6 @@ Output: {ReplyShape}
         return (thread, new ActOutcome("reply", $"replied to {PostLabel(thread, authorId)}: \"{WorldStream.Clip(body, 140)}\"", thread.Id));
     }
 
-    /// <summary>Give or take back Respect!; a persona who receives one feels it a little. Null when the post is gone.</summary>
     public async Task<BoardThread?> RespectAsync(Guid partyId, Guid threadId, Guid? replyId, Guid giverId, string giverName, bool given)
     {
         var thread = await grains.GetGrain<IBoardGrain>(partyId).RespectAsync(threadId, replyId, giverId, giverName, given);
@@ -374,7 +346,6 @@ Output: {ReplyShape}
         catch (Exception ex) { logger.LogDebug(ex, "Board notify failed for {Thread}", thread.Id); }
     }
 
-    /// <summary>Whom a new post concerns: those already under it, and anyone it names; never its author.</summary>
     public static List<Guid> Concerned(BoardThread thread, Guid authorId, string body, IReadOnlyList<(Guid Id, string Name)> personas)
     {
         var inThread = thread.Replies.Select(r => r.AuthorId).Append(thread.AuthorId).ToHashSet();
@@ -391,7 +362,6 @@ Output: {ReplyShape}
         var sb = new StringBuilder();
         sb.AppendLine($"{(t.AuthorId == self ? "You" : t.AuthorName)} posted{RespectNote(t.Respect, self)}:");
         sb.AppendLine(t.Body);
-        // Whole thread so you see what you already said; older replies by others clipped.
         var recentFrom = t.Replies.Count - 8;
         for (var i = 0; i < t.Replies.Count; i++)
         {
@@ -402,14 +372,12 @@ Output: {ReplyShape}
         return sb.ToString().TrimEnd();
     }
 
-    /// <summary>The post just written becomes an Event recollected by everyone under it.</summary>
     private void CaptureDetached(Guid partyId, BoardThread thread, ViewsOf viewsOf)
     {
         var moment = MomentOf(partyId, thread, viewsOf);
         _ = Task.Run(() => memory.CaptureAsync(moment, CancellationToken.None));
     }
 
-    /// <summary>A post and its replies as a Moment marked at its latest line; <paramref name="viewsOf"/> resolves its authors.</summary>
     public static Moment MomentOf(Guid partyId, BoardThread thread, ViewsOf viewsOf)
     {
         var lines = new List<MomentLine> { new(thread.AuthorId, $"[Partyboard post] {thread.Body}", thread.CreatedAt) };
@@ -419,7 +387,6 @@ Output: {ReplyShape}
     }
 }
 
-/// <summary>Diary: private and reflective. Writing is rest — Consolidation runs alongside.</summary>
 public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory memory) : IWorldApp
 {
     private const string EntryShape = """{"mood": "<one or two words>", "entry": "<the diary entry>"}""";
@@ -434,7 +401,6 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
         var block = last is null
             ? "You haven't written in your diary yet."
             : $"Your last diary entry ({WorldStream.Ago(last.CreatedAt, ctx.Now)}): {WorldStream.Clip(last.Body, 140)}";
-        // Written down is put down (ADR 0050): the same worry with nothing lived since is not a new entry.
         if (!Due(sinceLast, last?.CreatedAt, ctx.Now)) return new AppPerception(Id, "Your diary (private)", block, Array.Empty<Affordance>());
         var priority = sinceLast >= 4 ? 2 : 0;
         var day = await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync();
@@ -443,16 +409,12 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
             new[] { new Affordance(Id, Self.Hooks.Diary(onYourMind), priority, null, "write") });
     }
 
-    /// <summary>Things lived before the diary opens again.</summary>
     public const int Worth = 2;
-    /// <summary>After this long it opens anyway: a day has gone by, even a quiet one.</summary>
     public static readonly TimeSpan Anyway = TimeSpan.FromHours(6);
 
-    /// <summary>Things done since the last entry: resting, looking and the writing itself are nothing to write about, so a quiet night doesn't fill the diary.</summary>
     public static int Lived(IEnumerable<WorldActivity> recentOwn, long? lastEntryAt)
         => recentOwn.Count(a => a.Action is not ("rest" or "diary" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
 
-    /// <summary>Something to write: a first entry, a couple of things lived since the last, or hours gone by.</summary>
     public static bool Due(int lived, long? lastEntryAt, DateTimeOffset now)
         => lastEntryAt is not { } at || lived >= Worth || now.ToUnixTimeMilliseconds() - at >= Anyway.TotalMilliseconds;
 
@@ -482,10 +444,8 @@ Output ONLY JSON: {EntryShape}
         return new ActOutcome("diary", $"wrote in their diary{(mood is null ? "" : $" ({mood})")}{formed}", null);
     }
 
-    /// <summary>What a diary is for; what happened is what did happen, the day's plan ahead hasn't (ADR 0042).</summary>
     public const string WriterRules = "You are writing in your private diary. Nobody else reads it. Be honest with yourself: what actually happened (the ordinary parts too), how you feel about the people around you, what you want. What happened is your day so far, what you did and what you remember; anything still coming up hasn't happened yet. Your own voice, everyday words, first person, 80-180 words.";
 
-    /// <summary>Your last entries, newest first: what you already wrote stands, so the next one doesn't rewrite it.</summary>
     public static List<string> OwnRecent(IReadOnlyList<DiaryEntry> newestFirst, DateTimeOffset now)
         => newestFirst.Take(3).Select(e => $"{WorldStream.Ago(e.CreatedAt, now)}: {WorldStream.Clip(e.Body, 300)}").ToList();
 

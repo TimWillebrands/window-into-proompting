@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Saying you're coming over means walking over (ADR 0021).</summary>
 public class FollowThroughTest
 {
     [Fact]
@@ -24,7 +23,6 @@ public class FollowThroughTest
     }
 }
 
-/// <summary>People settle where they've just arrived (ADR 0021).</summary>
 public class SettlingTest
 {
     private static PartyTown.World.Apps.Affordance Go(int priority = 1, string verb = "go") => new("places", "Head somewhere", priority, null, verb);

@@ -2,34 +2,24 @@ using PartyTown.World.Economy;
 
 namespace PartyTown.World.Desires;
 
-/// <summary>Something a Persona wants (ADR 0026): to have something, or to become someone.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Desires.Desire")]
 public sealed class Desire
 {
     [Id(0)] public Guid Id { get; set; } = Guid.NewGuid();
     [Id(1)] public DesireKind Kind { get; set; }
     [Id(2)] public string Text { get; set; } = string.Empty;
-    /// <summary>A catalog item a having-desire names, so the Wardrobe can foreground it.</summary>
     [Id(3)] public string? ItemKey { get; set; }
-    /// <summary>Whose attention or tie it's about, when it's about someone.</summary>
     [Id(4)] public Guid? TargetId { get; set; }
-    /// <summary>Mimesis: who it was caught from.</summary>
     [Id(5)] public Guid? FromId { get; set; }
     [Id(6)] public DesireSource Source { get; set; }
     [Id(7)] public long Since { get; set; }
     [Id(8)] public long TouchedAt { get; set; }
     [Id(9)] public DesireStatus Status { get; set; }
-    /// <summary>The closed Place it's about, so Relations can foreground the key (ADR 0036).</summary>
     [Id(10)] public Guid? PlaceId { get; set; }
-    /// <summary>Presses on what they do from then; null when it never presses (a want, or a promise for a set day).</summary>
     [Id(11)] public long? DueAt { get; set; }
-    /// <summary>Gone after this, done or not: a promise lapses (ADR 0043).</summary>
     [Id(12)] public long? Until { get; set; }
-    /// <summary>A promise to come over to where the target is: being there keeps it.</summary>
     [Id(13)] public bool Coming { get; set; }
-    /// <summary>Times it was said again since it was made: a restated plan, or a put-off.</summary>
     [Id(14)] public int Again { get; set; }
-    /// <summary>A promise to do something away from the chat is settled off-screen then, done or not (ADR 0055).</summary>
     [Id(15)] public long? SettlesAt { get; set; }
 }
 
@@ -49,9 +39,7 @@ public enum DesireSource
     Sheet = 1,
     Play = 2,
     Mimesis = 3,
-    /// <summary>Given by a Player to their character on auto (ADR 0037).</summary>
     Mission = 4,
-    /// <summary>What they told someone they'd do: being someone who keeps their word (ADR 0043).</summary>
     Promise = 5,
 }
 
@@ -65,14 +53,12 @@ public enum DesireStatus
     Abandoned = 3,
 }
 
-/// <summary>Pure desire rules: fading, what's on your mind, how it reads, what the Wardrobe makes of it.</summary>
 public static class DesireRules
 {
     public const int MaxLines = 2;
     public static readonly TimeSpan FadesAfter = TimeSpan.FromDays(14);
     public static readonly TimeSpan ReviewEvery = TimeSpan.FromHours(12);
 
-    /// <summary>Acquired desires nobody touched in a fortnight fade, and any past its until; intrinsic ones are who you are and stay.</summary>
     public static bool Fades(Desire d, bool intrinsic, DateTimeOffset now)
         => d.Status == DesireStatus.Active && (Lapsed(d, now.ToUnixTimeMilliseconds())
             || !intrinsic && now.ToUnixTimeMilliseconds() - Math.Max(d.TouchedAt, d.Since) > FadesAfter.TotalMilliseconds);
@@ -81,28 +67,21 @@ public static class DesireRules
 
     public static bool IsPromise(Desire d) => d.Source == DesireSource.Promise;
 
-    /// <summary>Due and not lapsed: it pulls on what they do next, whatever else is on their mind.</summary>
     public static bool Pressing(Desire d, long now)
         => d.Status == DesireStatus.Active && d.DueAt is { } due && now >= due && !Lapsed(d, now);
 
-    /// <summary>What's on their mind: active wants, the most recently touched first, at most two. Promises are owed, not wanted.</summary>
     public static List<Desire> OnMind(IEnumerable<Desire> desires)
         => desires.Where(d => d.Status == DesireStatus.Active && !IsPromise(d))
             .OrderByDescending(d => Math.Max(d.TouchedAt, d.Since))
             .Take(MaxLines)
             .ToList();
 
-    /// <summary>"# What you want lately" as plain lines; empty when nothing is wanted.</summary>
     public static string Render(IEnumerable<Desire> desires)
     {
         var lines = OnMind(desires).Select(d => $"- {Sentence(d.Text)}").ToList();
         return lines.Count == 0 ? string.Empty : $"# What you want lately\n{string.Join("\n", lines)}\n";
     }
 
-    /// <summary>
-    /// What an option toward someone pulls with (ADR 0026, 0043): a promise due to them first, also through their chat and,
-    /// for a come-over, where they are; then a want on their mind about them (its target, or a cast name in its text).
-    /// </summary>
     public static Dictionary<Guid, Desire> People(IEnumerable<Desire> desires, IEnumerable<(Guid Id, string Name)> cast,
         long? now = null, Func<Guid, Guid?>? chatWith = null, Func<Guid, Guid?>? placeOf = null)
     {
@@ -134,7 +113,6 @@ public static class DesireRules
         if (first.Length >= 3 && first != name) yield return first;
     }
 
-    /// <summary>An option as the chooser reads it: one toward someone you owe or want something from says so.</summary>
     public static string Toward(string label, Desire? about) => about switch
     {
         null => label,
@@ -142,11 +120,9 @@ public static class DesireRules
         _ => $"{label} (toward what you want: {WorldStream.Clip(about.Text, 80)})",
     };
 
-    /// <summary>The having-desire the shops can answer: active, naming a catalog item you don't own yet.</summary>
     public static Desire? Shopping(IEnumerable<Desire> desires, IReadOnlyCollection<string> owned)
         => OnMind(desires).FirstOrDefault(d => d.Kind == DesireKind.Having && d.ItemKey is { } key && !owned.Contains(key));
 
-    /// <summary>A distilled desire, or null for "none"/empty. Having-desires get a catalog item when they name one.</summary>
     public static Desire? Parse(string? text, DesireKind kind, DesireSource source, DateTimeOffset now)
     {
         text = text?.Trim().Trim('"');

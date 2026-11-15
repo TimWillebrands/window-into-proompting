@@ -11,7 +11,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Mimetic desire (ADR 0026): caught from people you know, capped hard, and sometimes a rivalry.</summary>
 public class MimesisTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly WorldLifeTest.Fixture _fx;

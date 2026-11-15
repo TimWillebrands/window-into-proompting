@@ -7,7 +7,6 @@ using PartyTown.World.Relations;
 
 namespace BackendTest;
 
-/// <summary>Relations in a real cluster (ADR 0035): sharing a Home, splitting it, and asking for a yes.</summary>
 public partial class PlacesTest
 {
     private IRelationsGrain Relations(Guid partyId) => _fx.GrainFactory.GetGrain<IRelationsGrain>(partyId);

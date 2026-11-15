@@ -3,22 +3,18 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Openings (ADR 0027): a Locale becomes a drawn Place from a kit, keeping its id; the author can close it again.</summary>
 public sealed partial class PlacesGrain
 {
     public const int MaxOpened = 24;
-    /// <summary>Visit days someone needs at a Locale before a visit there can open it.</summary>
     public const int RegularDays = 2;
 
     public async Task<Place?> OpenAsync(Guid localeId, string? archetype, string reason)
     {
         await SettleAsync();
         if (Find(localeId) is not { Kind: PlaceKinds.Locale, SameAs: null } place || place.Name == Somewhere) return null;
-        // One a world-day for footfall and visits; the author and a planned get-together aren't held to it.
         var budgeted = reason is not ("author" or "gathering");
         if (budgeted && state.State.LastOpenedDay == DayKey(0)) return null;
         if (state.State.Places.Count(p => p.OpenedAt is not null && p.Kind == PlaceKinds.Public) >= MaxOpened) return null;
-        // Only the author opens a second of something on purpose; anything else that's already drawn folds into it.
         if (reason != "author" && await AlreadyDrawnAsync(place) is { } drawn)
         {
             await FoldAsync(place, drawn);
@@ -45,7 +41,6 @@ public sealed partial class PlacesGrain
         foreach (var body in Occupants(place.Id)) await PublishAsync(body);
         await SyncTalkRoomAsync(place.Id);
         var where = place.DistrictId == Districts.Centre ? string.Empty : $" in {DistrictName(place.DistrictId)}";
-        // Footfall opening a Place is news; an author setting one up isn't, and a Happening reaches everyone's memory.
         if (reason != "author") _ = GrainFactory.GetGrain<IWorldClockGrain>(PartyId).AnnounceAsync($"{Capital(place.Name)}{where} is on the map now.");
         logger.LogInformation("Opened {Place} as {Archetype} ({Reason})", place.Name, kit.Archetype, reason);
         await EnsureStreetsAsync(place.DistrictId);
@@ -92,7 +87,6 @@ public sealed partial class PlacesGrain
 
     private static bool IsStreets(Place p) => p.Scene == "district";
 
-    /// <summary>Once a District has two opened venues it gets its own streets (ADR 0027), redrawn as venues open and close.</summary>
     private async Task EnsureStreetsAsync(string? districtId)
     {
         if (districtId is null or Districts.Centre) return;
@@ -123,7 +117,6 @@ public sealed partial class PlacesGrain
 
     public static readonly TimeSpan GoesQuiet = TimeSpan.FromDays(7);
 
-    /// <summary>Opened a week ago or more, and nobody's been there or named it in a week. Never deleted; any visit or mention wakes it.</summary>
     internal static bool IsDormant(Place place, long now, IEnumerable<(Guid Place, string Day)> visits, string since)
         => place is { OpenedAt: { } opened, Kind: PlaceKinds.Public }
             && now - opened >= GoesQuiet.TotalMilliseconds
@@ -138,7 +131,6 @@ public sealed partial class PlacesGrain
         foreach (var place in state.State.Places) place.Dormant = IsDormant(place, now, visits, since);
     }
 
-    /// <summary>Someone who was away here is now simply here: at work behind the counter, otherwise wherever there's room.</summary>
     private void Arrive(Body body, Place place)
     {
         var working = body.AwayAs is "at work" or "working";
@@ -152,14 +144,12 @@ public sealed partial class PlacesGrain
         body.CameFrom = null;
     }
 
-    /// <summary>A visit opens a Locale (a concrete plan needs a place): the Player's always, a Persona's only where someone's a regular.</summary>
     private async Task<bool> OpenForVisitAsync(Place locale, bool byPlayer)
     {
         var regulars = state.State.Visits.Count(kv => kv.Value.Select(SplitVisit).Count(v => v.Place == locale.Id) >= RegularDays);
         return (byPlayer || regulars > 0) && await OpenAsync(locale.Id, null, byPlayer ? "player" : "visit") is not null;
     }
 
-    /// <summary>System One picks the kit when the name doesn't say; a plain room otherwise.</summary>
     private async Task<string?> ClassifyAsync(string name)
     {
         try

@@ -4,7 +4,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Relations;
 
-/// <summary>What two people are or were to each other (ADR 0035): a shared fact, where a Tie is how one of them feels.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Relations.Relation")]
 public sealed class Relation
 {
@@ -12,12 +11,9 @@ public sealed class Relation
     [Id(1)] public Guid AId { get; set; }
     [Id(2)] public Guid BId { get; set; }
     [Id(3)] public RelationKind Kind { get; set; }
-    /// <summary>Their own words, second person: "you dated in high school". Null reads from the kind.</summary>
     [Id(4)] public string? Story { get; set; }
     [Id(5)] public long Since { get; set; }
-    /// <summary>Null while it's current.</summary>
     [Id(6)] public long? EndedAt { get; set; }
-    /// <summary>They share a Home; Places holds who lives where.</summary>
     [Id(7)] public bool LiveTogether { get; set; }
 }
 
@@ -32,7 +28,6 @@ public enum RelationKind
     Other = 4,
 }
 
-/// <summary>One person asking another to change what they are: it needs a yes.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Relations.RelationAsk")]
 public sealed class RelationAsk
 {
@@ -41,10 +36,8 @@ public sealed class RelationAsk
     [Id(2)] public Guid ToId { get; set; }
     [Id(3)] public AskKind Kind { get; set; }
     [Id(4)] public long At { get; set; }
-    /// <summary>Null until answered.</summary>
     [Id(5)] public bool? Yes { get; set; }
     [Id(6)] public long? AnsweredAt { get; set; }
-    /// <summary>Keys: which Place, and what it's called.</summary>
     [Id(7)] public Guid? PlaceId { get; set; }
     [Id(8)] public string? About { get; set; }
 }
@@ -59,7 +52,6 @@ public enum AskKind
     Key = 3,
 }
 
-/// <summary>Every Relation in one Party, past ones included, and the Asks still in play.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Relations.RelationBook")]
 public sealed class RelationBook
 {
@@ -67,7 +59,6 @@ public sealed class RelationBook
     [Id(1)] public List<RelationAsk> Asks { get; set; } = new();
 }
 
-/// <summary>Pure relation rules: who counts as what, what may be asked, how it reads.</summary>
 public static class RelationRules
 {
     public static readonly TimeSpan AskLasts = TimeSpan.FromDays(1);
@@ -76,7 +67,6 @@ public static class RelationRules
     public static readonly TimeSpan MarryAfter = TimeSpan.FromDays(14);
     public const double WarmEnough = 0.2;
     public const double Strained = -0.2;
-    /// <summary>Exchanges before someone's Relations are yours to know without them being around.</summary>
     public const double KnownAfter = 10;
     private const int MaxLines = 3;
 
@@ -108,11 +98,9 @@ public static class RelationRules
     private static bool Pair(RelationAsk ask, Guid a, Guid b)
         => (ask.FromId == a && ask.ToId == b) || (ask.FromId == b && ask.ToId == a);
 
-    /// <summary>One open Ask per pair, and no asking the same thing again right after.</summary>
     public static bool MayAsk(this RelationBook book, Guid from, Guid to, AskKind kind, long now)
         => from != to && !book.Asks.Any(a => Pair(a, from, to) && (a.IsOpen(now) || (a.Kind == kind && now - a.At < AskAgainAfter.TotalMilliseconds)));
 
-    /// <summary>What <paramref name="me"/> could ask <paramref name="other"/> now: Ties have to agree both ways, and nobody asks a human.</summary>
     public static List<AskKind> Askable(RelationBook book, Guid me, Guid other, TieRead mine, TieRead theirs, bool otherIsHuman, bool mutualClosest, long now)
     {
         var asks = new List<AskKind>();
@@ -132,7 +120,6 @@ public static class RelationRules
         return asks.Where(k => book.MayAsk(me, other, k, now)).ToList();
     }
 
-    /// <summary>Ending it takes one person, and only once things have gone sour.</summary>
     public static bool MayBreakUp(RelationBook book, Guid me, Guid other, TieRead mine)
         => book.Partners(me, other) && mine.Warmth <= Strained;
 
@@ -165,7 +152,6 @@ public static class RelationRules
         _ => $"{name} said no when you asked them to marry you.",
     };
 
-    /// <summary>The public side of a yes, for the activity feed.</summary>
     public static string Done(AskKind kind, string name, string? about = null) => kind switch
     {
         AskKind.GoOut => $"is now with {name}",
@@ -174,7 +160,6 @@ public static class RelationRules
         _ => $"is marrying {name}",
     };
 
-    /// <summary>What this is to the two of them, second person.</summary>
     public static string Line(Relation r)
     {
         var line = r.Story ?? (r.Kind, r.IsCurrent()) switch
@@ -191,7 +176,6 @@ public static class RelationRules
         return r.LiveTogether ? $"{line}; you live together" : line;
     }
 
-    /// <summary>How anyone else knows it; null keeps it between them: past ones, and the kind with no name.</summary>
     public static string? Known(Relation r, string name) => !r.IsCurrent() ? null : r.Kind switch
     {
         RelationKind.Together => $"with {name}",
@@ -201,7 +185,6 @@ public static class RelationRules
         _ => null,
     };
 
-    /// <summary>The pair's own lines, current first; null when they're nothing to each other.</summary>
     public static string? Standing(RelationBook book, Guid viewer, Guid other)
     {
         var lines = book.Relations.Where(r => r.Involves(viewer) && r.Involves(other))
@@ -210,8 +193,6 @@ public static class RelationRules
         return lines.Count == 0 ? null : string.Join("; ", lines);
     }
 
-    /// <summary>One person as <paramref name="viewer"/> sees them: what's between the two, and what they'd know of the rest.</summary>
-    /// <param name="present">They're here in person; otherwise only people you know well come with their Relations.</param>
     public static Acquaintance Seen(RelationBook book, Guid viewer, Guid other, string name, Tie? tie, Func<Guid, string?> firstNameOf, bool present = true)
     {
         var aware = present || tie?.Exchanges >= KnownAfter;

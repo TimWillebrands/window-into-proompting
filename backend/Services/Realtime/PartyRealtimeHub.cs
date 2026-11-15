@@ -21,7 +21,6 @@ public sealed class PartyRealtimeHub(
     private static readonly IReadOnlyCollection<Guid> Nobody = Array.Empty<Guid>();
 
     private readonly ConcurrentDictionary<Guid, StreamFanoutSession<PartyStreamEvent>> sessions = new();
-    // DM membership never changes after creation, and generation deltas would otherwise look it up per token.
     private readonly ConcurrentDictionary<Guid, IReadOnlyCollection<Guid>?> roomMembers = new();
 
     public Task HandleConnectionAsync(Guid partyId, WebSocket socket, Viewer viewer, CancellationToken cancellationToken)
@@ -42,7 +41,6 @@ public sealed class PartyRealtimeHub(
 
     private IStreamProvider Streams() => clusterClient.GetStreamProvider(PartyStreamIds.Provider);
 
-    /// <summary>One snapshot frame per Room: messages plus the thought-log streams (skips, race outcomes).</summary>
     private async Task<IReadOnlyList<RealtimeFrame>> PartySnapshotAsync(Guid partyId, Viewer viewer)
     {
         var messages = await grainFactory.GetGrain<IPartyGrain>(partyId).DownloadMessages();
@@ -58,7 +56,6 @@ public sealed class PartyRealtimeHub(
         return frames;
     }
 
-    /// <summary>Resolves a frame's facts once, so the per-client check stays synchronous.</summary>
     private async Task<Func<Viewer, bool>> AudienceAsync(Guid partyId, RealtimeFrame frame)
     {
         var members = frame.Data is IRoomFrame room ? await PrivateMembersAsync(partyId, room.ChatGroupId) : null;
@@ -66,7 +63,6 @@ public sealed class PartyRealtimeHub(
         return viewer => FeedPrivacy.CanSee(viewer, frame, members, humans);
     }
 
-    /// <summary>A Room we can't place is hidden from everyone: unknown must not mean public.</summary>
     private async Task<IReadOnlyCollection<Guid>?> PrivateMembersAsync(Guid partyId, Guid chatGroupId)
     {
         if (chatGroupId == Guid.Empty) return null;

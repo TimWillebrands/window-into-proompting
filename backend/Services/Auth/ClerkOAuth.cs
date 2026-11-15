@@ -7,30 +7,22 @@ using Microsoft.Extensions.Options;
 
 namespace PartyTown.Services.Auth;
 
-/// <summary>The MCP endpoint as agents see it (ADR 0046).</summary>
 public sealed class McpOptions
 {
-    /// <summary>Public URL of the endpoint, the OAuth resource; tokens must name it in aud. Null derives it per request (dev).</summary>
     public string? Resource { get; set; }
-    /// <summary>Clerk's Frontend API URL, the authorization server agents sign in at.</summary>
     public string? AuthorizationServer { get; set; }
-    /// <summary>Pins the tools to one World; null follows the current one.</summary>
     public Guid? World { get; set; }
 }
 
-/// <summary>An agent's OAuth access token, as Clerk vouches for it.</summary>
 public sealed record OAuthGrant(string UserId, string ClientId, IReadOnlyList<string> Audience)
 {
-    /// <summary>Granted for this endpoint: aud names it, or no resource is pinned (dev).</summary>
     public bool Fits(string? resource) => resource is null || Audience.Contains(resource);
 }
 
-/// <summary>Asks Clerk about OAuth access tokens, opaque or JWT; asking catches revocation, a signature can't.</summary>
 public sealed class ClerkOAuthTokens(HttpClient http, IOptions<ClerkOptions> clerk, ILogger<ClerkOAuthTokens> logger)
 {
     public const string VerifyUrl = "https://api.clerk.com/v1/oauth_applications/access_tokens/verify";
 
-    /// <summary>oat_ opaque tokens, or JWTs typed as access tokens (RFC 9068); Clerk session JWTs aren't.</summary>
     public static bool IsOAuth(string token)
         => TokenTypeHelper.GetTokenType(token) == TokenType.OAuthToken || JwtType(token) is "at+jwt" or "application/at+jwt";
 
@@ -47,7 +39,6 @@ public sealed class ClerkOAuthTokens(HttpClient http, IOptions<ClerkOptions> cle
         return Grant(await response.Content.ReadFromJsonAsync<JsonObject>(ct));
     }
 
-    /// <summary>Clerk's verify answer as a grant; null when revoked, expired or without a user.</summary>
     public static OAuthGrant? Grant(JsonObject? body)
     {
         if (body is null || Flag(body["revoked"]) || Flag(body["expired"])) return null;

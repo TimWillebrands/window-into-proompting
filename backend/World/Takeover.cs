@@ -3,10 +3,8 @@ using PartyTown.Services.Auth;
 
 namespace PartyTown.World;
 
-/// <summary>Playing as a Persona already here (ADR 0059): who's free to take.</summary>
 public static class Takeover
 {
-    /// <summary>LLM-driven, unowned, and in no DM with a human, whose private words the taker would read.</summary>
     public static List<PartyParticipant> Free(IEnumerable<PartyParticipant> cast, IEnumerable<Guid> claimed, IEnumerable<ChatGroupInfo> groups)
     {
         var people = cast.ToList();

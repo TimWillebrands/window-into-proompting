@@ -43,7 +43,6 @@ import { ArrangeTools, MakerTools, PoseBar } from './PlaceTools';
 
 const PlaceScene = lazy(() => import('./scene/PlaceScene'));
 
-/** three.js needs WebGL2; without it the 2D canvas draws the Place. */
 const webgl2 = (() => {
     try {
         return !!document.createElement('canvas').getContext('webgl2');
@@ -83,7 +82,6 @@ const panel = {
     borderColor: '#7f9db9 #fff #fff #7f9db9',
 } as const;
 
-/** Places: where every Body is. Text-only until the iso renderer (spec phase 5). */
 export default function PlacesApp() {
     const playerId = usePlayerId();
     const queryClient = useQueryClient();
@@ -104,7 +102,6 @@ export default function PlacesApp() {
         return () => disconnectPartyRealtime(WORLD_ID);
     }, [connectPartyRealtime, disconnectPartyRealtime]);
 
-    // The first Body event refetches at once; a burst behind it (everyone settling) gets one more, not one each.
     const cooling = useRef<ReturnType<typeof setTimeout> | null>(null);
     const again = useRef(false);
     useEffect(
@@ -121,7 +118,6 @@ export default function PlacesApp() {
         const event = envelope.data as WorldEventData<Body>;
         const kind = event.kind;
         if (kind !== 'body' && kind !== 'place') return;
-        // The push carries the whole Body: show the move now, the refetch just confirms it.
         if (kind === 'body') void patchBody(event.payload);
         if (cooling.current) {
             again.current = true;
@@ -187,7 +183,6 @@ export default function PlacesApp() {
 
 const ALL_EARS_KEY = 'proompting.places.allEars';
 
-/** Author switch: hear every line in a Place regardless of Earshot. Remembered per browser. */
 function useAllEars(): [boolean, (on: boolean) => void] {
     const [on, setOn] = useState(false);
     useEffect(
@@ -203,7 +198,6 @@ function useAllEars(): [boolean, (on: boolean) => void] {
     ];
 }
 
-/** The clock, once a second while `on`; only the component that shows a countdown re-renders. */
 function useTicker(on: boolean) {
     const [now, setNow] = useState(serverNow);
     useEffect(() => {
@@ -215,13 +209,11 @@ function useTicker(on: boolean) {
     return now;
 }
 
-/** Your Body as the move endpoint returned it, so the view answers the click before the refetch lands. */
 function usePatchBody() {
     const queryClient = useQueryClient();
     return async (body: Body | null | undefined) => {
         if (!body?.participantId) return;
         const queryKey = getGetWorldsPartyIdPlacesQueryKey(WORLD_ID);
-        // A refetch already in flight predates the move; let it land on top and you'd turn back.
         await queryClient.cancelQueries({ queryKey });
         queryClient.setQueryData(
             queryKey,
@@ -235,7 +227,6 @@ function usePatchBody() {
                         ),
                     },
                 },
-            // Its `now` is still the old one; keep the time it came with.
             { updatedAt: queryClient.getQueryState(queryKey)?.dataUpdatedAt },
         );
     };
@@ -452,7 +443,6 @@ function PlaceView({
     const [laptopOpen, setLaptopOpen] = useState(() => drosteDepth() > 0);
     const [profileId, setProfileId] = useState<string | null>(null);
     const profiled = allBodies.find((b) => b.participantId === profileId);
-    // Crossing the room to another spot still counts as here: you keep hearing and talking.
     const amHere =
         !!me &&
         me.placeId === place.id &&
@@ -503,7 +493,6 @@ function PlaceView({
         });
 
     const walk = async (placeId: string, spotId: string | null) => {
-        // Across the room needs no answer to start walking; between Places waits for the timings.
         if (me && placeId === me.placeId && spotId && !travelling)
             await patchBody({
                 ...me,
@@ -520,7 +509,6 @@ function PlaceView({
                 data: { placeId, spotId, participantId: playerId },
             },
             {
-                // The generated type only knows the 409; a 200 carries the Body.
                 onSuccess: (res) => patchBody((res as { data?: Body }).data),
                 onError: () =>
                     queryClient.invalidateQueries({
@@ -539,7 +527,6 @@ function PlaceView({
     const onSpot =
         amHere || canGo ? (spotId: string) => goTo(spotId) : undefined;
     const here = bodies.length;
-    // Knocks and who-is-this float over the view, so the view never changes size under you.
     const pops =
         knockers.length > 0 || profiled ? (
             <div className="pl-pops">
@@ -758,7 +745,6 @@ function PlaceView({
                 </>
             )}
             <div className="pl-lower" data-tab={tab}>
-                {/* Narrow windows show one of the two at a time. */}
                 <div className="pl-tabs" role="tablist">
                     <button
                         type="button"
@@ -901,7 +887,6 @@ function PlaceView({
     );
 }
 
-/** You, between Places: where to, how far along, and the way back. */
 function Travel({
     me,
     places,
@@ -953,7 +938,6 @@ function Travel({
     );
 }
 
-/** Who someone is at a glance: their look, what they're doing, their mood. */
 function BodyProfile({
     body,
     isMe,
@@ -962,7 +946,6 @@ function BodyProfile({
 }: {
     body: Body;
     isMe: boolean;
-    /** Your own look, or anyone's in the author's All ears mode. */
     canEdit: boolean;
     onClose: () => void;
 }) {
@@ -1042,7 +1025,6 @@ function BodyProfile({
     );
 }
 
-/** Pick a look from the palette; each change saves at once. */
 function LookEditor({ body }: { body: Body }) {
     const fields =
         useGetWorldsPartyIdPlacesAppearanceOptions(WORLD_ID).data?.data;
@@ -1120,7 +1102,6 @@ function LookEditor({ body }: { body: Body }) {
 
 const DROSTE_MAX = 3;
 
-/** How many laptops deep this desktop is (0 = the real one). */
 const drosteDepth = () =>
     typeof window === 'undefined'
         ? 0
@@ -1128,7 +1109,6 @@ const drosteDepth = () =>
               new URLSearchParams(window.location.search).get('droste') ?? 0,
           );
 
-/** Your laptop shows the desktop, which shows Places, which shows you at your laptop… */
 function Droste({ onClose }: { onClose: () => void }) {
     const depth = drosteDepth();
     const src = useMemo(() => {
@@ -1178,7 +1158,6 @@ function Droste({ onClose }: { onClose: () => void }) {
     );
 }
 
-/** Put something up at home, in your own words (2 a day). */
 function DecorateForm({ playerId }: { playerId: string | null }) {
     const decorate = usePostWorldsPartyIdPlacesDecorate();
     const [text, setText] = useState('');
@@ -1228,7 +1207,6 @@ function FurniRow({
     furni: FurniView;
     canAct: boolean;
     playerId: string | null;
-    /** The laptop at home opens the desktop (the Droste easter egg). */
     onOpen?: () => void;
 }) {
     const act = usePostWorldsPartyIdPlacesFurni();
@@ -1246,7 +1224,6 @@ function FurniRow({
             },
         });
     const careWord = furni.careLabel?.split(' ')[0];
-    // A thing to do (ADR 0049): the offer is its name, and what it gave shows once done.
     const thing = furni;
     const doable = thing.gives != null && !!furni.useLabel;
     const left = thing.leaves ? thing.takes?.at(-1) : undefined;
@@ -1387,7 +1364,6 @@ function BodyChip({
     );
 }
 
-/** Speech between the Bodies here. Everyone in the Place hears it (Earshot is phase 6). */
 function PlaceTalk({
     shown: visible,
     roomId,
@@ -1395,7 +1371,6 @@ function PlaceTalk({
     nearby,
     allEars,
 }: {
-    /** False while a narrow window shows the Spots tab instead. */
     shown: boolean;
     roomId: string;
     playerId: string | null;
@@ -1406,7 +1381,6 @@ function PlaceTalk({
     const { messages, phaseByPersona } = useRoomConversation(WORLD_ID, roomId);
     const speaking = [...phaseByPersona.values()]
         .filter((p) => p.phase === 'typing' || p.phase === 'streaming')
-        // The attend event carries the persona id, not the name.
         .map((p) => p.personaName ?? '')
         .map(
             (id) =>
@@ -1423,7 +1397,6 @@ function PlaceTalk({
     const [draft, setDraft] = useState('');
     const [volume, setVolume] = useState<'talk' | 'whisper' | 'shout'>('talk');
     const [to, setTo] = useState<string>('');
-    // Follow new talk only while you're at the bottom; scroll just the log, never the page.
     const logRef = useRef<HTMLDivElement>(null);
     const atEnd = useRef(true);
     // biome-ignore lint/correctness/useExhaustiveDependencies: re-run as lines and typing arrive, and when the tab comes back

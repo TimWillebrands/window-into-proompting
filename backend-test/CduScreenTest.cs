@@ -5,7 +5,6 @@ using PartyTown.World.Work.Companies;
 
 namespace BackendTest;
 
-/// <summary>What a Cytheurgist sees and how the CDU's news becomes the World's (ADR 0039): facts from git and GitHub, not its say-so.</summary>
 public class CduScreenTest
 {
     private static readonly Company Shop = new() { Id = Guid.NewGuid(), Name = "Vormwerk", Mandate = "keeps the Forms", Kind = CompanyKinds.Cdu };

@@ -115,7 +115,6 @@ describe('compileFigure', () => {
         for (let i = 0; i < positions.length; i += 3)
             if (Math.abs(positions[i]) > 0.25)
                 lowest = Math.min(lowest, positions[i + 1]);
-        // The long sleeve under it runs to the wrist; the tee stops well above the elbow.
         expect(lowest).toBeGreaterThan(0.74);
     });
 
@@ -141,7 +140,6 @@ describe('compileFigure', () => {
                     if (tri.some((v) => l.positions[v * 3 + 1] > below))
                         continue;
                     const xs = tri.map((v) => l.positions[v * 3]);
-                    // A triangle crossing the middle is a web between the legs.
                     expect(
                         Math.min(...xs) < 0 && Math.max(...xs) > 0,
                         l.name,
@@ -198,7 +196,6 @@ describe('compileFigure', () => {
     });
 });
 
-/** Half widths and depths of a bare body, plus how far the chest stands out. */
 function shapeOf(look: Partial<Look>, body: Partial<BodyDoc> = {}) {
     const doc = figureDoc({ ...LOOK, ...look });
     const b = { ...doc.body, ...body };

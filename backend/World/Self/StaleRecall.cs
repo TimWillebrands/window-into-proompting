@@ -3,10 +3,6 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// Habituation for recall (ADR 0021): memories and stances made of words that have gone stale step back,
-/// so a world-wide storyline stops resurfacing every beat. At most one stale item stays when there's enough else.
-/// </summary>
 public static class StaleRecall
 {
     public const int KeepFresh = 3;

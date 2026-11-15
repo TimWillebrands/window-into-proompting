@@ -15,14 +15,12 @@ using PartyTown.Services.Auth;
 
 namespace BackendTest;
 
-/// <summary>The MCP endpoint's sign-in, as an agent meets it (ADR 0046).</summary>
 public sealed class McpEndpointTest : IAsyncLifetime
 {
     private const string Resource = "https://proompting.party/api/mcp";
     private const string Issuer = "https://clerk.proompting.party";
     private IHost _host = null!;
     private HttpClient _http = null!;
-    /// <summary>What the fake Clerk says about the token it's asked about.</summary>
     private JsonObject? _clerkSays;
     private int _clerkAsked;
 
@@ -57,7 +55,6 @@ public sealed class McpEndpointTest : IAsyncLifetime
                 });
             })).StartAsync();
         _http = _host.GetTestClient();
-        // As kamal-proxy hands it over: TLS ended, the scheme in a header.
         _http.BaseAddress = new Uri("http://proompting.party");
         _http.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
     }
@@ -163,7 +160,6 @@ public sealed class McpEndpointTest : IAsyncLifetime
         return req;
     }
 
-    /// <summary>The JSON-RPC result, whether it came as plain JSON or one SSE event.</summary>
     private static JsonNode Result(string body)
     {
         var json = body.TrimStart().StartsWith('{')

@@ -3,7 +3,6 @@ using PartyTown.World.Skills;
 
 namespace BackendTest;
 
-/// <summary>Skill rules (ADR 0054): levels from practice, rust, keys, and which Skill a moment touches.</summary>
 public class SkillsTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-11-12T12:00:00Z");

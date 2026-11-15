@@ -11,7 +11,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>Who may act, speak and read: pure rules, no cluster.</summary>
 public class AccessRulesTest
 {
     private static readonly Guid Me = Guid.NewGuid();

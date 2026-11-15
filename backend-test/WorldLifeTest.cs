@@ -16,7 +16,6 @@ using PartyTown.World.Apps;
 
 namespace BackendTest;
 
-/// <summary>A whole Life turn (ADR 0018) in a real cluster: perceive Apps → choose → act, with a scripted model.</summary>
 public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly Fixture _fx;
@@ -83,7 +82,6 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     {
         var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
         ScriptedLlm.ChooseOptionContaining = "Plan a get-together";
-        // Real clock: within 90 min of her bedtime nobody plans (GatheringRules.MayPlan).
         var day = await _fx.GrainFactory.GetGrain<PartyTown.World.Self.IPersonaSelfGrain>(WorldKeys.Life(partyId, denise)).GetDayWindowAsync();
         var (bed, wake) = PartyTown.World.Places.Sleep.Window(denise, day.FirstBeatMinute, day.LastBeatMinute);
         var local = DateTimeOffset.Now;
@@ -129,7 +127,6 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         await clock.PulseAsync();
 
         var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
-        // Real clock: at night she sleeps through it instead.
         Assert.True(body.DestPlaceId == cafe.Id || body.PlaceId == cafe.Id || body.Asleep);
         var started = await clock.GetActivitiesAsync(10, null);
         Assert.Contains(started, a => a.Action == "start" && a.Summary.Contains("at the Café"));
@@ -349,7 +346,6 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         Assert.Contains((await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetParty()).Participants, p => p.Id == denise);
     }
 
-    /// <summary>Voices the Initiative pick; <see cref="MenuJudge"/> picks the option matching <see cref="ChooseOptionContaining"/>.</summary>
     public sealed class ScriptedLlm : IWorldLlm
     {
         public static volatile string? ChooseOptionContaining;
@@ -359,10 +355,8 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
 
-        /// <summary>A JSON answer for this system prompt; null falls through to the defaults.</summary>
         public static Func<string, JsonObject?>? Json;
 
-        /// <summary>A JSON answer for this system and user prompt, asked before <see cref="Json"/>.</summary>
         public static Func<string, string, JsonObject?>? JsonWith;
 
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)

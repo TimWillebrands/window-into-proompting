@@ -3,17 +3,14 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Work.Markets;
 
-/// <summary>Pure reading of Polymarket's Gamma API: one question becomes one Quote per outcome.</summary>
 public static class PolymarketQuotes
 {
     private const string Prefix = "pm:";
-    /// <summary>Questions this settled carry no story; ones this wide can't be dealt in.</summary>
     private const double MinMid = 0.03, MaxMid = 0.97, MaxSpread = 0.1;
     private const double FallbackHalfSpread = 0.01;
 
     public static string Id(string market, int outcome) => $"{Prefix}{market}:{outcome.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The Gamma market id behind an Instrument id; null when it's not ours.</summary>
     public static string? MarketOf(string id)
     {
         if (!id.StartsWith(Prefix, StringComparison.Ordinal)) return null;
@@ -21,7 +18,6 @@ public static class PolymarketQuotes
         return end > Prefix.Length ? id[Prefix.Length..end] : null;
     }
 
-    /// <summary>Only the Market settles (ADR 0030): endDate lies both ways, so it's never read.</summary>
     public static List<Quote> Read(JsonNode? market)
     {
         var quotes = new List<Quote>();
@@ -44,7 +40,6 @@ public static class PolymarketQuotes
             {
                 Id = Id(id, i),
                 Title = $"{question} ({MarketText.Clean(outcomes[i], 14)})",
-                // The second outcome is the first one's mirror: buying No is selling Yes.
                 Bid = i == 0 ? bid : 1 - ask,
                 Ask = i == 0 ? ask : 1 - bid,
                 Previous = i == 0 ? before : 1 - before,
@@ -54,12 +49,10 @@ public static class PolymarketQuotes
         return quotes;
     }
 
-    /// <summary>Worth watching: still open, not a foregone conclusion, tight enough to deal in.</summary>
     public static bool Watchable(Quote quote)
         => quote is { Open: true, Settled: null } && quote.Mid is >= MinMid and <= MaxMid && quote.Ask - quote.Bid <= MaxSpread;
 }
 
-/// <summary>Prediction markets through Polymarket's public Gamma API; no key, read-only.</summary>
 public sealed class PolymarketFeed(IHttpClientFactory http, ILogger<PolymarketFeed> logger) : IMarketFeed
 {
     private const string Base = "https://gamma-api.polymarket.com";
@@ -88,7 +81,6 @@ public sealed class PolymarketFeed(IHttpClientFactory http, ILogger<PolymarketFe
         var markets = ids.Select(PolymarketQuotes.MarketOf).OfType<string>().Distinct().ToList();
         if (markets.Count == 0) return new List<Quote>();
         var query = string.Join("&", markets.Select(m => $"id={Uri.EscapeDataString(m)}"));
-        // By id, Gamma silently leaves out closed markets unless asked for only those; a Settlement hides there.
         var both = await Task.WhenAll(
             GetAsync($"/markets?{query}&limit={markets.Count}", ct),
             GetAsync($"/markets?{query}&closed=true&limit={markets.Count}", ct));

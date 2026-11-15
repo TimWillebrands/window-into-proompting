@@ -4,10 +4,8 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Threads close and life brings news (ADR 0055): promises settle off-screen, talk gets ratified, lives happen.</summary>
 public class LoopsCloseTest
 {
-    // Saturday 21:25 in Amsterdam winter time.
     private static readonly DateTimeOffset Sat = new(2026, 11, 7, 21, 25, 0, TimeSpan.FromHours(1));
     private static readonly Guid Denise = Guid.NewGuid();
 

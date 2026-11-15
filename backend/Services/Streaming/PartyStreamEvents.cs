@@ -3,10 +3,6 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.Streaming;
 
-/// <summary>
-/// Internal Orleans stream event for party-level updates.
-/// Transforms grain state changes into realtime envelope payloads via <see cref="PartyRealtimeHub"/>.
-/// </summary>
 [GenerateSerializer, Alias(nameof(PartyStreamEvent))]
 public sealed record class PartyStreamEvent
 {
@@ -25,30 +21,19 @@ public sealed record class PartyStreamEvent
     [Id(4)]
     public MessageStreamEvent? MessageEvent { get; init; }
 
-    /// <summary>Carried for <c>Type == "raceEvaluation"</c>: a single stop-signal race
-    /// outcome from <c>PersonaGrain.RunStopSignalRaceAsync</c>, fanned out to clients so
-    /// the thought-log can render race activity live.</summary>
     [Id(5)]
     public PartyTown.Grains.RaceEvaluation? RaceEvaluation { get; init; }
 
-    /// <summary>Carried for <c>Type == "world"</c>: which World surface changed
-    /// (<c>activity</c>, <c>clock</c>, <c>board</c>, <c>diary</c>, <c>dm</c>).</summary>
     [Id(6)]
     public string? WorldKind { get; init; }
 
-    /// <summary>Carried for <c>Type == "world"</c>: camelCase JSON payload for the client.</summary>
     [Id(7)]
     public string? WorldJson { get; init; }
 
-    /// <summary>Carried for <c>Type == "skippedTurn"</c>: someone let a line go by, and why.</summary>
     [Id(8)]
     public PartyTown.Grains.SkippedTurn? SkippedTurn { get; init; }
 }
 
-/// <summary>
-/// Internal Orleans stream event for per-message generation updates (token chunks, reasoning, completion).
-/// Fanned out to clients subscribed to a specific message's generation lifecycle.
-/// </summary>
 [GenerateSerializer, Alias(nameof(MessageStreamEvent))]
 public sealed record class MessageStreamEvent
 {

@@ -33,7 +33,6 @@ const WorkContext = createContext<Work | null>(null);
 
 const live = { query: { refetchInterval: 30_000 } };
 
-/** One read of the labour market for the whole window, so every page agrees. */
 export function WorkProvider({
     go,
     children,
@@ -72,7 +71,6 @@ export function useWork(): Work {
     return work;
 }
 
-/** Mutation options that re-read everything: a hire changes a person, a Company and the front page. */
 export function useRefreshWork() {
     const queryClient = useQueryClient();
     return {

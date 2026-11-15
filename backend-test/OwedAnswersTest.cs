@@ -12,7 +12,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>A human is never left on read (ADR 0031, #129): the bookkeeping alone, no cluster.</summary>
 public class OwedAnswersTest
 {
     private static readonly Guid Human = Guid.NewGuid();
@@ -143,7 +142,6 @@ public class OwedAnswersTest
     }
 }
 
-/// <summary>The Room settles a human's line (ADR 0031, #129): real grains, Persona turns played by hand.</summary>
 public class OwedAnswersWorldTest(OwedAnswersWorldTest.Fixture fx) : IClassFixture<OwedAnswersWorldTest.Fixture>
 {
     private IGrainFactory Grains => fx.GrainFactory;
@@ -176,7 +174,6 @@ public class OwedAnswersWorldTest(OwedAnswersWorldTest.Fixture fx) : IClassFixtu
         return PersonaCalls.Calls.Where(c => c.Method == "NotifyMessageAsync" && c.Room == room && c.MessageId == line).Select(c => c.PersonaId).ToList();
     }
 
-    /// <summary>What the Response pipeline does when the Decision phase says no.</summary>
     private static async Task DeclineAsync(IChatGroupGrain room, Guid who, int line, double urge)
     {
         var turn = await room.BeginTurnAsync(who, line, urge);
@@ -306,7 +303,6 @@ public class OwedAnswersWorldTest(OwedAnswersWorldTest.Fixture fx) : IClassFixtu
         await NeverAsync(() => Answers(talk).Any());
     }
 
-    /// <summary>Records and swallows Persona turns, so the test plays them by hand.</summary>
     public sealed class PersonaCalls : IIncomingGrainCallFilter
     {
         public record struct Call(Guid PersonaId, string Method, Guid Room, int? MessageId);

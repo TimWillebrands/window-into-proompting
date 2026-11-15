@@ -27,7 +27,6 @@ import { along, findPath } from './path';
 const WALL_H = 72;
 const STEP_MS = 260;
 const BUBBLE_MS = 14_000;
-/** Share of a between-Places walk spent visible in the room you leave / arrive in. */
 const DOORWAY = 0.3;
 
 interface Walk {
@@ -40,15 +39,11 @@ interface Props {
     bodies: Body[];
     furni: FurniView[];
     playerId: string | null;
-    /** Author view: show the words of talk the Player is out of Earshot of. */
     allEars?: boolean;
-    /** Clicked a Body (feet to head). */
     onBodyClick?: (participantId: string) => void;
-    /** Clicked near a spot; null when the click hit nothing walkable. */
     onSpotClick?: (spotId: string) => void;
 }
 
-/** The Habbo-ish room view of one Place. Spots are canonical; every tile here is derived. */
 export default function PlaceCanvas({
     place,
     bodies,
@@ -72,7 +67,6 @@ export default function PlaceCanvas({
     const latest = useRef({ bodies, furni, messages, playerId, allEars });
     latest.current = { bodies, furni, messages, playerId, allEars };
 
-    // Bodies whose target slot changed start a client-side walk from where they're drawn now.
     useEffect(() => {
         const now = Date.now();
         const block = blocked(layout);
@@ -115,7 +109,6 @@ export default function PlaceCanvas({
         return () => cancelAnimationFrame(raf);
     }, [layout, place]);
 
-    /** The Body drawn under the pointer (feet to head), if any. */
     const bodyAt = (e: React.MouseEvent<HTMLCanvasElement>): string | null => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
@@ -180,7 +173,6 @@ export default function PlaceCanvas({
     );
 }
 
-/** Where each Body in (or walking within) this Place should stand. */
 function targets(
     layout: RoomLayout,
     placeId: string | undefined,
@@ -401,7 +393,6 @@ function drawRoom(
     hover: Pt | null,
 ) {
     const wall = WALL_H * scale;
-    // Back walls along the x = 0 and y = 0 edges; the door is a gap in the left wall.
     const corner = toScreen({ x: 0, y: 0 }, scale);
     const right = toScreen({ x: layout.w, y: 0 }, scale);
     const left = toScreen({ x: 0, y: layout.h }, scale);
@@ -608,7 +599,6 @@ function drawBubbles(
         const name = (
             bodies.find((b) => b.participantId === m.senderId)?.name ?? ''
         ).split(' ')[0];
-        // Out of Earshot: the bubble keeps its shape but not its words (spec § Sound).
         const heard = canHear(m, live.playerId, live.allEars);
         const volume = volumeOf(m);
         const text = clip(

@@ -4,11 +4,6 @@ using PartyTown.Configuration;
 
 namespace PartyTown.Grains.Generation;
 
-/// <summary>
-/// Singleton grain (key 0) that persists the list of LLM provider configurations.
-/// Replaces appsettings.json as the runtime source of truth for providers.
-/// Seeds from IOptions<LlmOptions> on first activation for backwards compatibility.
-/// </summary>
 public sealed class LlmProviderConfigGrain(
     [PersistentState(stateName: "llm-providers", storageName: "parties")] IPersistentState<LlmProviderConfigState> state,
     IOptions<LlmOptions> seedOptions,
@@ -53,7 +48,6 @@ public sealed class LlmProviderConfigGrain(
         state.State.Providers[idx] = entry;
         await state.WriteStateAsync();
         await InvalidateRouter();
-        // Push, don't ask: the endpoint must not call back into this grain (non-reentrant).
         await LlmEndpoints.Resolve(GrainFactory, entry.Type, entry.Id).ApplyConfigAsync(entry);
         logger.LogInformation("Updated LLM provider {ProviderId}", entry.Id);
         return entry;
@@ -83,7 +77,6 @@ public sealed class LlmProviderConfigGrain(
             throw new ArgumentException($"Provider {badProvider.ProviderId} not found");
 
         state.State.PersonaRoutes.RemoveAll(r => r.PersonaId == personaId);
-        // One provider per tier; the last one sent wins.
         state.State.PersonaRoutes.AddRange(routes
             .GroupBy(r => r.Tier)
             .Select(g => g.Last() with { PersonaId = personaId }));
@@ -136,7 +129,6 @@ public sealed class LlmProviderConfigGrain(
         logger.LogInformation("Seeded {Count} LLM providers from appsettings", entries.Count);
     }
 
-    /// <summary>Worlds seeded before ADR 0034 have no Decisions provider; without this, Jev would silently go.</summary>
     private async Task SeedDecisionProvidersAsync()
     {
         var entries = seedOptions.Value.DecisionProviders.Select(p => p with { Id = Guid.NewGuid() }).ToList();
@@ -153,7 +145,6 @@ public sealed class LlmProviderConfigGrain(
 [Alias("PartyTown.Grains.Generation.ILlmProviderConfigGrain")]
 public interface ILlmProviderConfigGrain : IGrainWithIntegerKey
 {
-    /// <summary>Interleaves because saving a provider activates its endpoint, which reads this list back.</summary>
     [AlwaysInterleave]
     [Alias("GetProvidersAsync")]
     Task<List<LlmProviderEntry>> GetProvidersAsync();
@@ -170,7 +161,6 @@ public interface ILlmProviderConfigGrain : IGrainWithIntegerKey
     [Alias("GetPersonaRoutesAsync")]
     Task<List<PersonaRoute>> GetPersonaRoutesAsync();
 
-    /// <summary>Replaces all of this persona's routes; an empty list puts them back on the shared pool.</summary>
     [Alias("SetPersonaRoutesAsync")]
     Task<List<PersonaRoute>> SetPersonaRoutesAsync(Guid personaId, List<PersonaRoute> routes);
 }
@@ -185,7 +175,6 @@ public sealed class LlmProviderConfigState
     [Id(3)] public bool DecisionsSeeded { get; set; }
 }
 
-/// <summary>This persona's work at this tier goes to this provider instead of the shared pool.</summary>
 [GenerateSerializer]
 [Alias("PartyTown.Grains.Generation.PersonaRoute")]
 public sealed record class PersonaRoute
@@ -207,14 +196,9 @@ public sealed record class LlmProviderEntry
     [Id(5)] public JobComplexity SupportedComplexities { get; init; } = JobComplexity.General;
     [Id(6)] public TimeSpan? GenerationTimeout { get; init; }
     [Id(7)] public bool IsEnabled { get; init; } = true;
-    /// <summary>Lower routes first; equal priorities split personas by Share. Give a local fallback a higher number.</summary>
     [Id(8)] public int Priority { get; init; }
-    /// <summary>Kept out of the shared pool: only personas assigned to it use it.</summary>
     [Id(9)] public bool Reserved { get; init; }
-    /// <summary>Which configured Tailnet to reach this provider through; null connects directly.</summary>
     [Id(11)] public string? Tailnet { get; init; }
-    /// <summary>How long a local model may reason; a thinking model can spend a minute on one reply.</summary>
     [Id(12)] public ReasoningEffort ReasoningEffort { get; init; }
-    /// <summary>Its part of the personas, relative to the pool providers at its Priority (ADR 0048).</summary>
     [Id(13)] public int Share { get; init; } = Shares.Default;
 }

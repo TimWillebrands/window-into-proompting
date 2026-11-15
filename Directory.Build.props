@@ -1,0 +1,11 @@
+<Project>
+
+  <PropertyGroup>
+    <NoCommentsAnalyzer>$(MSBuildThisFileDirectory)tools/analyzers/NoComments/NoComments.csproj</NoCommentsAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'NoComments' And Exists('$(NoCommentsAnalyzer)')">
+    <ProjectReference Include="$(NoCommentsAnalyzer)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" IsAspireProjectResource="false" />
+  </ItemGroup>
+
+</Project>

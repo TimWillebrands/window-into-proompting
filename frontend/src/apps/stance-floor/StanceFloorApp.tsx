@@ -11,14 +11,6 @@ import {
 import { StanceOrigin, StanceTargetKind } from '../../api/model';
 import { WORLD_ID } from '../../lib/world';
 
-/**
- * Stance Floor — the curator's debug surface for ADR 0016. Author an Acquired Stance from
- * one Persona toward another Participant, a Concept, or themselves, and watch the append-only
- * log: every write adds an edge, latest-wins per target (the current one is highlighted), and
- * history stays visible. Consolidation v1 (#89) added the run button (sleep on the
- * unconsolidated Recollections now), per-edge attribution (who wrote it, under which run),
- * and one-click retract — a neutralizing append, never a delete.
- */
 export default function StanceFloorApp() {
     const partyId = WORLD_ID;
     const personasQuery = useGetPersona();
@@ -39,7 +31,6 @@ export default function StanceFloorApp() {
             className="app-surface flex h-full"
             style={{ background: 'transparent', fontSize: 12 }}
         >
-            {/* Author column */}
             <div
                 className="xp-glass-panel flex flex-col"
                 style={{
@@ -85,7 +76,6 @@ export default function StanceFloorApp() {
                 )}
             </div>
 
-            {/* Stance log */}
             <div className="flex-1" style={{ overflowY: 'auto', padding: 8 }}>
                 {sourceId ? (
                     <StanceLog
@@ -122,11 +112,6 @@ export default function StanceFloorApp() {
     );
 }
 
-/**
- * Curator trigger for Consolidation v1: one click walks the persona's unconsolidated
- * Recollections (one LLM call, in rest) and auto-appends the crystallised Stances — they
- * show up in the log with a `consolidation` badge, retractable like anything else.
- */
 function ConsolidatePanel({
     partyId,
     sourceId,
@@ -141,8 +126,6 @@ function ConsolidatePanel({
         usePostPartiesPartyIdMemoryParticipantsPersonaIdConsolidate({
             mutation: {
                 onSuccess: async (res) => {
-                    // 200 carries the run result; the error shape (ProblemDetails) only
-                    // reaches onSuccess in theory, but the union forces the narrowing.
                     const r = res.data;
                     setReport(
                         !r || !('runId' in r)
@@ -495,10 +478,6 @@ function StanceLog({
     );
 }
 
-/**
- * Attribution per ADR 0016: every append is logged with its writer. Consolidation edges
- * carry the run id that walked the recollections; retract edges point at what they mask.
- */
 function OriginBadge({
     stance,
 }: {
@@ -532,7 +511,6 @@ function OriginBadge({
     }
 }
 
-/** Hostile valences read red, warm ones green, near-zero stays muted. */
 function valenceColour(v: number): string {
     if (v <= -0.25) return '#B22222';
     if (v >= 0.25) return '#1F7A1F';

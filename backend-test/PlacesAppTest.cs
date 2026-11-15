@@ -5,7 +5,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Places perception rules that keep Life from playing musical chairs.</summary>
 public class PlacesAppTest
 {
     private static LifeContext With(params WorldActivity[] recent) => new(

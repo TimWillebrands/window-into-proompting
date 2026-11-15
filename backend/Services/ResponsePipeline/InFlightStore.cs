@@ -3,18 +3,8 @@ using System.Text;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Race-relevant state for one in-flight generation. Mutated in place as the work
-/// progresses through Decision → Generation → done. <see cref="Snapshot"/> takes a
-/// consistent read under lock for the race trigger; mutations from the streaming
-/// loop also acquire the lock so concurrent reads see coherent (gut, preview, text,
-/// tokens) tuples.
-/// </summary>
 public sealed class InFlightGeneration(CancellationTokenSource cts)
 {
-    // Char-to-token approximation (~4 chars per token, English-leaning). Crude but stable
-    // — the race math only needs this for "are we past PNR yet?" not exact accounting.
-    // Replace with a real tokenizer only if traces show wrong PNR triggers.
     private const int CharsPerTokenEstimate = 4;
 
     public CancellationTokenSource Cts { get; } = cts;
@@ -26,9 +16,6 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
     private readonly StringBuilder _generatedText = new();
     private int _generatedChars;
 
-    // Set by the race when it elects to cancel this generation; consumed in the
-    // OperationCanceledException catch to distinguish race-cancel (→ emote) from
-    // external cancel via PartyGrain.CancelGenerationAsync (→ red error).
     private bool _raceCancelled;
     private string _interruptingMessage = string.Empty;
     private string _interruptingSenderName = string.Empty;
@@ -61,8 +48,6 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
         }
     }
 
-    /// <summary>Stop-signal race lost: record the interrupter, then cancel — in that order, so
-    /// the pipeline's catch routes to the emote path.</summary>
     public void CancelForRace(string interruptingMessage, string interruptingSenderName)
     {
         lock (_lock)
@@ -103,28 +88,14 @@ public readonly record struct InFlightSnapshot(
     string InterruptingMessage,
     string InterruptingSenderName);
 
-/// <summary>
-/// Per-PersonaGrain in-flight generation tracker. One instance per activation.
-/// Thread-safe — ConcurrentDictionary operations are lock-free for readers.
-/// </summary>
 public sealed class InFlightStore
 {
-    // Keyed per *generation* (chatGroupId, messageId), not per chat group. Earlier
-    // (per-chat-group) keying caused message N+1 to cancel message N's still-running
-    // decision/speaking, surfacing as a phantom "cancelled" appraisal on legitimate work
-    // and an empty assistant slot for any persona slow enough to overlap a follow-up.
     private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), InFlightGeneration> _inFlight = new();
 
-    // Levelt-style repair hints, keyed by chat group. Set when a new message arrives
-    // during in-flight generation and the race elects NOT to cancel (either past PNR
-    // or salience didn't justify interruption). Consumed once on the next decision pass
-    // for that chat group, then cleared regardless of decision outcome.
     private readonly ConcurrentDictionary<Guid, RepairHint> _pendingRepairByGroup = new();
 
-    // Who is mid-read per chat group: a newer line supersedes the older read.
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _reading = new();
 
-    /// <summary>Spend <paramref name="lag"/> reading; false when a newer line in the group took over.</summary>
     public async Task<bool> ReadAsync(Guid chatGroupId, TimeSpan lag, CancellationToken ct)
     {
         using var mine = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -146,7 +117,6 @@ public sealed class InFlightStore
         }
     }
 
-    /// <summary>Register a new in-flight generation. Returns the created record.</summary>
     public InFlightGeneration Register(Guid chatGroupId, int messageId, CancellationTokenSource cts)
     {
         var inFlight = new InFlightGeneration(cts);
@@ -154,14 +124,12 @@ public sealed class InFlightStore
         return inFlight;
     }
 
-    /// <summary>Remove an in-flight generation and dispose its CTS.</summary>
     public void Remove(Guid chatGroupId, int messageId)
     {
         if (_inFlight.TryRemove((chatGroupId, messageId), out var gen))
             gen.Cts.Dispose();
     }
 
-    /// <summary>Snapshot all in-flight generations for a chat group.</summary>
     public IReadOnlyList<(int messageId, InFlightGeneration gen)> SnapshotForChatGroup(Guid chatGroupId)
     {
         return _inFlight
@@ -170,19 +138,16 @@ public sealed class InFlightStore
             .ToList();
     }
 
-    /// <summary>Consume and clear any pending repair hint for a chat group.</summary>
     public RepairHint? ConsumeRepairHint(Guid chatGroupId)
     {
         return _pendingRepairByGroup.TryRemove(chatGroupId, out var hint) ? hint : null;
     }
 
-    /// <summary>Set a repair hint for a chat group.</summary>
     public void SetRepairHint(Guid chatGroupId, RepairHint hint)
     {
         _pendingRepairByGroup[chatGroupId] = hint;
     }
 
-    /// <summary>Cancel every in-flight generation. Idempotent w.r.t. disposed CTSes.</summary>
     public Task CancelAllAsync()
     {
         foreach (var gen in _inFlight.Values)

@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace BackendTest.Fakes;
 
-/// <summary>Minimal SOCKS5 proxy standing in for the Tailscale sidecar; answers HTTP itself instead of dialling out.</summary>
 public sealed class FakeSocksProxy : IAsyncDisposable
 {
     public const byte Succeeded = 0, HostUnreachable = 4;
@@ -14,16 +13,13 @@ public sealed class FakeSocksProxy : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _loop;
 
-    /// <summary>Reply to CONNECT; null never answers, like a dial to a sleeping peer.</summary>
     public byte? Reply { get; init; } = Succeeded;
 
     public string Body { get; init; } = "{}";
     public string ContentType { get; init; } = "application/json";
 
-    /// <summary>Hosts as received: a name here proves DNS was left to the sidecar.</summary>
     public List<string> Connects { get; } = new();
 
-    /// <summary>Each HTTP request as received, head then body.</summary>
     public List<string> Requests { get; } = new();
 
     public string Url => $"socks5://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
@@ -31,7 +27,6 @@ public sealed class FakeSocksProxy : IAsyncDisposable
     public FakeSocksProxy()
     {
         _listener.Start();
-        // Runs to its first await here, so a pending accept exists before the ctor returns and Stop() can only cancel it.
         _loop = AcceptAsync();
     }
 
@@ -45,7 +40,6 @@ public sealed class FakeSocksProxy : IAsyncDisposable
                 _ = ServeFireAndForgetAsync(client);
             }
         }
-        // Backstop: between accepts the listener can die before the loop observes the token.
         catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException or InvalidOperationException) { }
 
         async Task ServeFireAndForgetAsync(TcpClient client)
@@ -54,7 +48,6 @@ public sealed class FakeSocksProxy : IAsyncDisposable
             {
                 await ServeAsync(client);
             }
-            // Shutdown races can fault a client mid-serve; swallow them so the discarded task never faults unobserved.
             catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or InvalidOperationException) { }
         }
     }

@@ -14,7 +14,6 @@ using PartyTown.World.Reflex;
 
 namespace BackendTest;
 
-/// <summary>Reflex in a real cluster (ADR 0031): a scripted System One, real grains, across channels.</summary>
 public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexWorldTest.Fixture>
 {
     private IGrainFactory Grains => fx.GrainFactory;
@@ -148,7 +147,6 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
         await Grains.GetGrain<IPlacesGrain>(party).SetActivityAsync(denise, "working on something", TimeSpan.FromMinutes(5));
         var asked = ScriptedJudge.Asked;
 
-        // Habituated repeats from a stranger under load: the filter, not the model, drops these.
         for (var i = 0; i < 6; i++)
             await Reflex(party, denise).PerceiveAsync(new Percept(PerceptKind.Line, hana, "Hana", false, "anyway", Guid.NewGuid()));
 
@@ -338,7 +336,6 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
         ScriptedJudge.Pick(ReflexOptions.Brief);
         await Reflex(party, denise).PerceiveAsync(Dm(hana, dm.Id, human: true));
 
-        // With no model here the line stays in retries for seconds, so it's still in flight for this.
         await Reflex(party, denise).NoteSpokeAsync(dm.Id);
 
         Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
@@ -395,7 +392,6 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
         await TestWait.UntilAsync(async () => (await places.GetSnapshotAsync()).Places.First(p => p.Id == home.Id).Guests.Contains(hana), TimeSpan.FromSeconds(5));
     }
 
-    /// <summary>One script at a time: tests in a class run in sequence.</summary>
     public sealed class ScriptedJudge : ISystemOneJudge
     {
         private static Dictionary<string, double>? _weights;
@@ -464,7 +460,6 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
     }
 }
 
-/// <summary>A clock parked at midday, so nobody in a test is ever asleep.</summary>
 public sealed class Noon : TimeProvider
 {
     public static readonly Noon Instance = new();
@@ -478,7 +473,6 @@ public sealed class Noon : TimeProvider
     public override DateTimeOffset GetUtcNow() => Midday.AddTicks(Interlocked.Read(ref _ticks));
 }
 
-/// <summary>Polls for something that happens off the call path.</summary>
 internal static class TestWait
 {
     public static async Task UntilAsync(Func<Task<bool>> done, TimeSpan within)

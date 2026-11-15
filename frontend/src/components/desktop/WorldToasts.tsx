@@ -1,6 +1,5 @@
 import { useWorldToasts } from '../../lib/world';
 
-/** XP tray balloons above the taskbar: someone in the World reached out to you. */
 export default function WorldToasts() {
     const toasts = useWorldToasts((s) => s.toasts);
     const dismiss = useWorldToasts((s) => s.dismiss);

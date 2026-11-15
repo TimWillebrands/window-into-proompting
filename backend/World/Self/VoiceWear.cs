@@ -2,41 +2,28 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.World.Self;
 
-/// <summary>One spoken line, as the wear analysis sees it.</summary>
 public readonly record struct Utterance(Guid SpeakerId, string Text);
 
-/// <summary>What's gone stale: shared words worn out across the world, and one speaker's own tics.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Self.VoiceWearReport")]
 public sealed record VoiceWearReport
 {
-    /// <summary>Words several speakers keep reaching for (the world's monoculture).</summary>
     [Id(0)] public List<string> WornWords { get; init; } = new();
 
-    /// <summary>Per speaker: own over-used words.</summary>
     [Id(1)] public Dictionary<Guid, List<string>> OwnWords { get; init; } = new();
 
-    /// <summary>Per speaker: share of recent lines that open with an *action*.</summary>
     [Id(2)] public Dictionary<Guid, double> StageDirectionRate { get; init; } = new();
 
-    /// <summary>Per speaker: average line length in words.</summary>
     [Id(3)] public Dictionary<Guid, double> AverageWords { get; init; } = new();
 
-    /// <summary>Per speaker: share of lines opening with someone's name ("Denise, …").</summary>
     [Id(4)] public Dictionary<Guid, double> VocativeRate { get; init; } = new();
 
-    /// <summary>Per speaker: share of lines that mostly restate one of their previous 5.</summary>
     [Id(5)] public Dictionary<Guid, double> RepeatRate { get; init; } = new();
 
-    /// <summary>Per speaker: an emoji or emoticon on half their lines or more (a signature tic).</summary>
     [Id(6)] public Dictionary<Guid, string> SignatureMark { get; init; } = new();
 
     public static readonly VoiceWearReport Empty = new();
 }
 
-/// <summary>
-/// Anti-convergence signal: personas drift into one shared literary register ("load-bearing", "seam",
-/// "lantern"). Deterministic counts over recent lines, no LLM.
-/// </summary>
 public static partial class VoiceWear
 {
     private const int MinWordLength = 3;
@@ -53,7 +40,6 @@ public static partial class VoiceWear
         return m.Success && firstNames.Contains(m.Groups[1].Value.ToLowerInvariant());
     }
 
-    /// <summary>Share of the shorter line's content words found in the other.</summary>
     public static double Overlap(IReadOnlyList<string> a, IReadOnlyList<string> b)
     {
         var (sa, sb) = (a.ToHashSet(), b.ToHashSet());
@@ -61,7 +47,6 @@ public static partial class VoiceWear
         return smaller < 3 ? 0 : sa.Intersect(sb).Count() / (double)smaller;
     }
 
-    /// <summary>Lowercased content words (no stopwords, no name words) of one text.</summary>
     public static List<string> ContentWords(string text, IEnumerable<string>? names = null)
     {
         var nameWords = (names ?? Array.Empty<string>())
@@ -142,7 +127,6 @@ public static partial class VoiceWear
         };
     }
 
-    /// <summary>Prompt lines for one speaker; empty when nothing is worn.</summary>
     public static IReadOnlyList<string> RenderFor(VoiceWearReport report, Guid speakerId)
     {
         var lines = new List<string>();
@@ -165,7 +149,6 @@ public static partial class VoiceWear
         return lines;
     }
 
-    /// <summary>Your own latest lines, wherever you said them, so you don't repeat yourself across Rooms.</summary>
     public static string RenderOwnRecent(IReadOnlyList<VoiceLine> own, DateTimeOffset now)
     {
         if (own.Count == 0) return string.Empty;
@@ -205,7 +188,6 @@ public static partial class VoiceWear
         "off", "per", "via", "etc", "i'm", "i'd", "it's", "don", "won", "isn", "aren", "also", "just", "into", "with",
         "from", "that", "this", "they", "them", "what", "when", "then", "than", "your", "have", "been", "were",
         "will", "would", "could", "should", "there", "their", "about", "still", "here", "back", "only", "even",
-        // Dutch grammar: always expected, so never a motif (it was being banned from Dutch speech).
         "aan", "achter", "al", "alle", "alleen", "alles", "als", "altijd", "ben", "bij", "binnen", "daar", "dan", "dat", "deze",
         "die", "dit", "doe", "doen", "doet", "door", "echt", "een", "eens", "eigen", "eigenlijk", "even", "gaan", "gaat", "geen",
         "gewoon", "had", "hadden", "heb", "hebben", "hebt", "heeft", "hem", "het", "hier", "hij", "hoe", "hun", "iemand", "iets",

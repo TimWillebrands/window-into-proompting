@@ -5,7 +5,6 @@ import { usePlayerId, WORLD_ID } from '../../lib/world';
 const IDLE_AFTER_MS = 5 * 60_000;
 const HEARTBEAT_MS = 60_000;
 
-/** Hidden or untouched tab: the Body dozes; input heartbeats ≤1/min, ten quiet minutes and the server sends them home AFK. */
 export function usePlayerIdle() {
     const playerId = usePlayerId();
     const idle = useRef(false);

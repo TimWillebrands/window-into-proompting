@@ -12,7 +12,6 @@ import { useIsAdmin, WORLD_ID } from '../../lib/world';
 import { skillLabel } from './jobs-lib';
 import { Card, Empty } from './parts';
 
-/** What one person knows how to do (ADR 0054): who they are (intrinsic) and what doing taught them (acquired). */
 export function SkillsPanel({
     participantId,
     name,

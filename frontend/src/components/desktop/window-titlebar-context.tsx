@@ -26,7 +26,6 @@ export function useWindowTitleBarSlot() {
     return useContext(WindowTitleBarContext);
 }
 
-/** Apps call this hook to push live JSX into their hosting window's title bar. */
 export function useSetWindowTitleBar(node: ReactNode) {
     const slot = useContext(WindowTitleBarContext);
     useEffect(() => {

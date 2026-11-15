@@ -8,7 +8,6 @@ export interface Entry {
     data?: Record<string, unknown>;
 }
 
-/** Numbered entries read by cursor, kept as JSONL so the World's cursor survives a restart. */
 export class Feed {
     private entries: Entry[] = [];
     private n = 0;

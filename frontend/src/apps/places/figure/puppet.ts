@@ -13,7 +13,6 @@ interface RawClip {
 const RAW = clips as unknown as Record<string, RawClip>;
 const PELVIS_REST = 0.917;
 const PELVIS_BACK = 0.05;
-/** Poses a second when ticked, like frames of a sprite sheet. */
 const POSE_FPS = 12;
 
 function rigClip(name: string, pelvisScale: number): THREE.AnimationClip {
@@ -34,14 +33,12 @@ function rigClip(name: string, pelvisScale: number): THREE.AnimationClip {
     return new THREE.AnimationClip(name, src.duration, tracks);
 }
 
-/** Drives one Figure: clips from the rig library, moves from data, cross-faded. */
 export class Puppet {
     private mixer: THREE.AnimationMixer;
     private actions = new Map<string, THREE.AnimationAction>();
     private current: THREE.AnimationAction | null = null;
     private name = '';
     private moves: Record<string, MoveDoc>;
-    /** Time not yet shown; starts a frame in, so the first tick poses. */
     private due = 1 / POSE_FPS;
 
     constructor(
@@ -71,7 +68,6 @@ export class Puppet {
         return a;
     }
 
-    /** Height of the hips above the feet in a clip or move. */
     hips(name: string): number {
         const raw = RAW[name]?.tracks['pelvis.position'];
         if (raw && !(name in this.moves))
@@ -79,7 +75,6 @@ export class Puppet {
         return PELVIS_REST * this.figure.pelvisScale;
     }
 
-    /** How far a clip sits the hips behind the feet. */
     reach(name: string): number {
         const raw = RAW[name]?.tracks['pelvis.position'];
         if (!raw || name in this.moves) return 0;
@@ -92,7 +87,6 @@ export class Puppet {
             next.reset().play();
             if (this.current) {
                 this.current.crossFadeTo(next, fade, false);
-                // Walking cycles line up with whichever foot they had.
             }
             this.current = next;
             this.name = name;
@@ -104,7 +98,6 @@ export class Puppet {
         this.mixer.update(dt);
     }
 
-    /** Advances in whole pose frames, so limbs step instead of glide. */
     tick(dt: number) {
         this.due += dt;
         const frames = Math.floor(this.due * POSE_FPS);

@@ -4,11 +4,9 @@ import { PROXY_PATH } from './posthog-proxy';
 
 const token = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN as string | undefined;
 
-/** The backend reads this same cookie: without it, its events are anonymized. */
 const CONSENT_COOKIE = 'analytics_consent';
 const YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
-/** Browser only and opt-in, so SSR, stories and tests never touch PostHog. */
 export const analyticsAvailable = typeof window !== 'undefined' && !!token;
 
 export interface AnalyticsUser {
@@ -32,7 +30,6 @@ const readConsent = () =>
 
 export const consentDecided = () => !!readConsent();
 
-/** Same id the backend captures under; reset only on sign-out, or anonymous visitors churn ids. */
 const applyUser = () => {
     if (currentUser) {
         posthog.identify(currentUser.id, {
@@ -44,7 +41,6 @@ const applyUser = () => {
     }
 };
 
-/** Nothing loads before this: no script, no cookies, no requests. */
 const start = () => {
     if (!loaded) {
         posthog.init(token as string, {
@@ -53,7 +49,6 @@ const start = () => {
             defaults: '2026-05-30',
             capture_exceptions: true,
             opt_out_persistence_by_default: true,
-            // Lets backend events join this browser's session and replay.
             tracing_headers: [window.location.hostname],
         });
         posthog.register({ environment: import.meta.env.MODE });
@@ -62,7 +57,6 @@ const start = () => {
     posthog.opt_in_capturing({ captureEventName: false });
     posthog.capture('app_opened');
     capturing = true;
-    // Clerk isn't loaded on a reload yet, and null here would wipe a stored identity.
     if (currentUser) applyUser();
 };
 
@@ -87,7 +81,6 @@ export const syncAnalyticsUser = (user: AnalyticsUser | null) => {
     if (capturing) applyUser();
 };
 
-/** UI-only actions; anything that reaches the API is captured by the backend instead. */
 export const track = (event: string, properties?: Record<string, unknown>) => {
     if (capturing) posthog.capture(event, properties);
 };

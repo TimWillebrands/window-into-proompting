@@ -14,22 +14,18 @@ import { pixelGrid, snapToPixel } from './pixel';
 
 export interface AvatarState {
     pose: Pose;
-    /** World height under the feet. */
     ground: number;
     asleep: boolean;
     lying: boolean;
     phone: boolean;
     talking: boolean;
-    /** Hang-out pose from the backend (lean, lounge, perch, dance, lie, cross-legged, think, wave, hug, slow-dance, high-five, hold-hands); null = plain. */
     hangout?: string | null;
-    /** World tile of the pair-pose partner, to face and step toward. */
     partner?: Pt | null;
 }
 
 interface Props {
     look: Look;
     isMe: boolean;
-    /** Read every frame; no React re-render while walking. */
     state: () => AvatarState | null;
     onClick?: () => void;
     children?: React.ReactNode;
@@ -41,17 +37,13 @@ export const SCENE_QUALITY: Quality = {
     face: 256,
 };
 
-/** Ink line width in pixels of the pixel look. */
 const INK = 1.1;
-/** Seconds a walk cycle is sped up by: steps are quick in a small town. */
 const WALK_SPEED = 2.1;
 const BLINK_EVERY = 4.2;
-/** Sit toward the front of a seat, so long legs clear it. */
 const SEAT_EDGE = 0.2;
 
 const buffer = new THREE.Vector2();
 
-/** Shown facing in eighths of a turn, like sprites; pair poses keep theirs exact. */
 const EIGHTH = Math.PI / 4;
 
 const turnTo = (from: number, to: number, k: number) => {
@@ -77,20 +69,17 @@ const blobMat = new THREE.MeshBasicMaterial({
 const phoneGeo = new THREE.BoxGeometry(0.028, 0.062, 0.008);
 const phoneMat = new THREE.MeshBasicMaterial({ color: '#9cc7ff' });
 
-/** One of each kind of material an avatar draws with, to compile before anyone walks in. */
 export const avatarMaterials = (): THREE.Material[] => [
     meRingMat,
     blobMat,
     phoneMat,
 ];
 
-/** Compiles the skinned Figure shaders up front, too small to see. */
 export function AvatarWarmup() {
     const group = useMemo(() => warmupMeshes(), []);
     return <primitive object={group} scale={0.0001} />;
 }
 
-/** What the Body is doing this frame, as a clip or move name. */
 function animation(
     s: AvatarState,
     named: string | null,
@@ -109,7 +98,6 @@ function animation(
     return s.talking ? 'talk' : 'stand';
 }
 
-/** A person: a compiled Figure, with clips and moves picked from the Body's state. */
 export default function Avatar({
     look,
     isMe,
@@ -160,7 +148,6 @@ export default function Avatar({
             !lying &&
             (seat !== undefined || (named !== null && SEATED.has(named)));
 
-        // Facing: the way you walk, your partner, or your slot.
         let target = facing.current;
         const partner = named && PAIRED.has(named) ? s.partner : null;
         let side = 1;
@@ -173,7 +160,6 @@ export default function Avatar({
             const dx = partner.x - pose.tile.x;
             const dz = partner.y - pose.tile.y;
             const to = Math.atan2(dx, dz);
-            // Holding hands: side by side, both toward the camera.
             target =
                 named === 'hold-hands'
                     ? Math.sin(to + Math.PI / 2) + Math.cos(to + Math.PI / 2) >=
@@ -194,14 +180,12 @@ export default function Avatar({
         p?.play(name, moving ? 0.14 : 0.3, moving ? WALK_SPEED : 1);
         p?.tick(dt);
 
-        // Where the feet go.
         let x = pose.tile.x + 0.5;
         let z = pose.tile.y + 0.5;
         let y = s.ground + (figure?.lift ?? 0);
         if (sitting && p) {
             const hips = seat ?? s.ground + (named === 'perch' ? 0.5 : 0.1);
             y = hips - p.hips(name) + 0.06;
-            // The sit clip leans the hips back off the feet, so bring them over the seat.
             const forward =
                 p.reach(name) + (seat === undefined ? 0 : SEAT_EDGE);
             x += Math.sin(f) * forward;
@@ -222,7 +206,6 @@ export default function Avatar({
             x += Math.sin(f) * 0.34;
             z += Math.cos(f) * 0.34;
         }
-        // Stairs and seats ease; a jump (arriving, door) doesn't.
         if (moving || Math.abs(height.current - y) > 1) height.current = y;
         else
             height.current +=
@@ -234,7 +217,6 @@ export default function Avatar({
         if (figure) figure.group.rotation.x = lying ? -Math.PI / 2 : 0;
         if (phone.current) phone.current.visible = s.phone && !lying && !named;
 
-        // Blink every few seconds; talk with the mouth; smile when dancing.
         const blinking = (t / BLINK_EVERY) % 1 < 0.035 || s.asleep;
         const speaking = s.talking && !s.asleep;
         const col = blinking
@@ -266,7 +248,6 @@ export default function Avatar({
         // biome-ignore lint/a11y/noStaticElementInteractions: a three.js group, not DOM
         <group
             ref={root}
-            // Hidden until its first frame places it, so its label doesn't flash at the origin.
             visible={false}
             onClick={(e) => {
                 e.stopPropagation();

@@ -14,7 +14,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>A provider on a Tailnet goes through that Tailnet's sidecar, and a dead path fails over like a dead host.</summary>
 public class TailnetsTest
 {
     private const string Completion =

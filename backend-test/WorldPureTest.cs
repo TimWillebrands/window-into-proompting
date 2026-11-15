@@ -6,7 +6,6 @@ using PartyTown.World.Apps;
 
 namespace BackendTest;
 
-/// <summary>Pure pieces of the World (ADR 0018): keys, formatting, Board→capture mapping, DM urge.</summary>
 public class WorldPureTest
 {
     [Fact]

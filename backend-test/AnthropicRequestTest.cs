@@ -4,7 +4,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>Jobs map onto Messages shapes the API accepts.</summary>
 public class AnthropicRequestTest
 {
     private static LlmChatMessage Msg(string role, string content) => new() { Role = role, Content = content };

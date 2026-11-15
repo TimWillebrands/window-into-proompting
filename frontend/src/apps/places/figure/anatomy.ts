@@ -17,7 +17,6 @@ import { curveOf, joint, type Posed } from './skeleton';
 export interface Anatomy {
     H: number;
     headH: number;
-    /** Centre of the head. */
     headC: V3;
     torso: Loft;
     neck: Loft;
@@ -27,27 +26,20 @@ export interface Anatomy {
     legR: Loft;
     footL: Loft;
     footR: Loft;
-    /** Torso with bust and seat. */
     chest: Field;
-    /** Torso, neck, arms and legs blended. */
     trunk: Field;
     head: Field;
-    /** Skull only, for hair to grow from. */
     skull: Field;
     handL: Field;
     handR: Field;
-    /** Softness of cut edges: a hem can't be crisper than the grid it's sampled on. */
     soft: number;
     crotchY: number;
-    /** Cuts a field apart below the crotch: legs fused in the mesh stretch into webs when they part. */
     apart: (d: number, x: number, y: number, depth?: number) => number;
-    /** Where the elbow sits on the arm, the knee on the leg (0..1). */
     elbow: number;
     knee: number;
     waistT: number;
 }
 
-/** Blended solid of a chest, with a seat, and a bust only on a body that has one. */
 function torsoField(torso: Loft, body: BodyDoc, H: number): Field {
     const c = curveOf(body);
     const bust = smooth(0.3, 0.9, body.curve);
@@ -171,7 +163,6 @@ function headFields(
     return { head, skull };
 }
 
-/** The bare body as fields, shaped by its sliders and hung on the bind pose. */
 export function anatomy(
     posed: Posed,
     body: BodyDoc,
@@ -183,9 +174,7 @@ export function anatomy(
     const c = curveOf(body);
     const muscle = body.muscle ?? 0.3;
     const belly = body.belly ?? 0.1;
-    // A big belly comes with weight everywhere; a small one is just a belly.
     const weight = 1 + belly * belly * 0.2;
-    // Half widths: a straight body is widest at the chest, an hourglass at the hips.
     const hipW =
         0.076 * H * mix(0.86, 1.2, body.hips) * mix(1, 1.2, c) * thick * weight;
     const waistW = mix(0.073, 0.058, c) * H * thick * (1 + belly * 0.5);
@@ -288,7 +277,6 @@ export function anatomy(
             Math.hypot(k[0] - a[0], k[1] - a[1], k[2] - a[2]) /
             Math.hypot(f[0] - a[0], f[1] - a[1], f[2] - a[2]);
         const r = thick * H * weight * (1 + muscle * 0.1);
-        // The thigh's outer edge is the hip line: fixed radii would give everyone an hourglass flare.
         const top = Math.max(
             hipW * 1.02 - posed.p.hipX,
             0.036 * H * thick * weight * (1 + c * 0.5),
@@ -349,7 +337,6 @@ export function anatomy(
         d = smin(d, (x > 0 ? left : right).loft.d(x, y, z), kArm);
         d = smin(d, (x > 0 ? legL : legR).loft.d(x, y, z), kLeg);
         d = smin(d, (x > 0 ? footL : footR).d(x, y, z), 0.03 * H);
-        // Deeper than the cloth over it, or the two inner faces fight for the same pixels.
         return apart(d, x, y, 1.7);
     };
 

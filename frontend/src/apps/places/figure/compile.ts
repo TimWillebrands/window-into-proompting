@@ -15,14 +15,10 @@ export interface Layer {
     name: string;
     kind: LayerKind;
     color: Hex;
-    /** Which garment to paint on this layer's atlas. */
     paint?: 'top' | 'outer' | 'under' | 'bottom' | 'legwear';
     frame?: PanelFrame;
-    /** Glossy highlight, 0..1. */
     shine?: number;
-    /** Skin shows through: no culling under it, no ink line. */
     sheer?: boolean;
-    /** Holes painted in: cut them, don't blend. */
     holes?: boolean;
     opacity?: number;
     positions: Float32Array;
@@ -30,16 +26,13 @@ export interface Layer {
     indices: Uint32Array;
     skinIndex: Uint16Array;
     skinWeight: Float32Array;
-    /** Linear RGB, occlusion baked in. */
     colors: Float32Array;
     uvs?: Float32Array;
 }
 
 export interface Compiled {
     layers: Layer[];
-    /** Local translation and rotation per bone. */
     bones: { t: V3; q: [number, number, number, number] }[];
-    /** How high the soles lift the whole Figure. */
     lift: number;
     pelvisScale: number;
     height: number;
@@ -49,7 +42,6 @@ export interface Compiled {
 }
 
 export interface Detail {
-    /** Cell size for the body, in tiles. */
     voxel: number;
 }
 
@@ -71,7 +63,6 @@ function skinned(surface: Surface, skinner: Skinner) {
     return { skinIndex, skinWeight };
 }
 
-/** Drops triangles entirely inside something worn over them: no poke-through, fewer polys. */
 function cull(s: Surface, cover: Field | null, margin: number): Surface {
     if (!cover) return s;
     const hidden = new Uint8Array(s.positions.length / 3);
@@ -130,7 +121,6 @@ function capField(a: Anatomy): Field {
     };
 }
 
-/** Turns a Figure doc into mesh buffers. Pure, so it can run in a worker. */
 export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
     const posed: Posed = poseFor(doc.body);
     const a = anatomy(posed, doc.body, doc.face, detail.voxel);
@@ -150,7 +140,6 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
         extra?: Partial<Layer>,
     ) => {
         const colors = extra?.colors ?? white(s);
-        // Shade by what's crowding the surface; self-shadowing from the field itself.
         const dark = occlusion(s, shadowField, 0.05 * H, a.crotchY);
         for (let i = 0; i < dark.length; i++) {
             const k = 1 - dark[i] * 0.62;
@@ -174,10 +163,8 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
     const min: V3 = [-wide, -0.12 * H, -0.22 * H];
     const max: V3 = [wide, H * 1.02, 0.24 * H];
 
-    // Outermost first, so each layer can cull against what's over it.
     const shoes = shoeFields(a, doc.shoes);
     const bottom = bottomField(a, doc.bottom);
-    // Each layer wraps what's beneath it, so build inside out; polygonise outside in, to cull against what's over it.
     let beneath: Field = bottom;
     const tops = [doc.under, doc.top, doc.outer]
         .filter((t) => !!t)
@@ -240,7 +227,6 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
             frame: topFrame,
             ...seeThrough(top),
         });
-        // Skin shows through sheer cloth, so it can't be culled.
         if (!isSheer(top)) over.push(f);
     });
 
@@ -251,7 +237,6 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
             [0.3 * H, 0.72 * H, max[2]],
             h,
         );
-        // Tops hang over the waistband.
         const frame: PanelFrame = { y0: 0.05 * H, y1: 0.67 * H };
         const kept = cull(s, unite(over.slice(1)), 0.002 * H);
         push('bottom', 'cloth', '#ffffff', unwrap(a, kept, frame), skinner, {
@@ -349,7 +334,6 @@ export function compileFigure(doc: FigureDoc, detail: Detail): Compiled {
             '#ffffff',
             surface,
             {
-                // Long hair rides the shoulders, not the skull.
                 weigh(_x, y, _z, into, weights, at) {
                     const k = smooth(neckY - 0.03 * H, chinY + 0.04 * H, y);
                     into[at] = head;

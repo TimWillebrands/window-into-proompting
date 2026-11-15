@@ -5,19 +5,8 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.Memory;
 
-/// <summary>
-/// LLM-side of moment capture: one call extracts a neutral Event description and the
-/// Concept / Participant tags this Event is *about*; a second batched call extracts every
-/// present Participant's Recollection snippet at once. Stateless and side-effect free —
-/// the repository owns persistence.
-/// </summary>
 public interface IMemoryExtractor
 {
-    /// <param name="existingConcepts">
-    /// Display labels of Concepts already in the graph. Passed so the extractor reuses an
-    /// existing tag when one fits instead of minting a near-duplicate ("lisp" vs
-    /// "common lisp"). May be empty.
-    /// </param>
     Task<EventExtraction?> ExtractEventAsync(
         ChatMessage sourceMessage,
         string sourceAuthorName,
@@ -27,13 +16,6 @@ public interface IMemoryExtractor
         Func<Guid, string> resolveAuthorName,
         CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Extract one Recollection snippet per target in a single LLM call, each carrying the
-    /// salience weight ("how much would this stick, a day later?") emitted by that same
-    /// call (ADR 0015). Returns a map keyed by <see cref="RecollectionTarget.PersonaId"/>;
-    /// a target the model declined (null / missing / unparseable) is simply absent from
-    /// the map. Empty input → empty map, no call.
-    /// </summary>
     Task<IReadOnlyDictionary<Guid, RecollectionDraft>> ExtractRecollectionsAsync(
         IReadOnlyList<RecollectionTarget> targets,
         ChatMessage sourceMessage,
@@ -43,20 +25,15 @@ public interface IMemoryExtractor
         CancellationToken cancellationToken);
 }
 
-/// <inheritdoc cref="IMemoryExtractor"/>
 public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtractor> logger) : IMemoryExtractor
 {
     private const int MaxContextMessages = 8;
     private const int MaxMessageChars = 500;
     private const int MaxSnippetChars = 500;
-    // Below this the snippet is effectively the old NONE judgement: no edge gets written.
     private const double MinPersistedWeight = 0.05;
     private const int MaxDescriptionChars = 500;
     private const int MaxConceptsPerEvent = 8;
     internal const int MaxConceptNameChars = 64;
-    // Cap how many existing tags we paste into the event-extraction prompt. Concept count
-    // is small today; once it grows past this, switch the repository-side fetch to a
-    // prefix/fuzzy match instead of "all names" (see ADR 0014).
     private const int MaxExistingConceptsInPrompt = 60;
 
     public async Task<EventExtraction?> ExtractEventAsync(
@@ -73,9 +50,6 @@ public sealed class MemoryExtractor(IGrainFactory grains, ILogger<MemoryExtracto
         var participantRoster = string.Join("\n", presentParticipants.Select(p =>
             $"- {p.Name} (id: {p.Id})"));
 
-        // Match-or-mint: hand the model the existing Concept vocabulary so it reuses a tag
-        // when one fits rather than fragmenting reality ("lisp" / "common lisp" / "lisp
-        // programming"). NormaliseConceptName stays the dedup backstop on the write side.
         var conceptGuidance = existingConcepts.Count == 0
             ? $"- concepts: 0..{MaxConceptsPerEvent} short topic tags (one or two lowercase words). Subjects discussed or invoked. NOT names of people. Empty array if none."
             : $"- concepts: 0..{MaxConceptsPerEvent} short topic tags (one or two lowercase words). Subjects discussed or invoked. NOT names of people. REUSE one of the existing tags below verbatim when it fits the subject; only mint a new tag when none fit. Empty array if none.\nExisting tags: {string.Join(", ", existingConcepts.Take(MaxExistingConceptsInPrompt))}";
@@ -223,22 +197,9 @@ The marked moment:
 
         var (endpoint, complexity) = await RouteExtractionAsync(cancellationToken);
 
-        // One call covers every Participant. The model keys its output by name; we map back
-        // to PersonaId via the target list. Observer-verb framing ("you saw / heard") doesn't
-        // fit the Participant who SPOKE the marked moment — the model declines because
-        // nothing was "observed". So each target is tagged SPEAKER / OBSERVER inline and the
-        // prompt asks for first-person ("you said…") framing for the speaker.
         var roster = string.Join("\n", targets.Select(t =>
             $"- {t.Name} [{(t.IsSpeaker ? "SPEAKER" : "OBSERVER")}]"));
 
-        // The weight rides this same call (ADR 0015): "how much would this stick, a day
-        // later?" replaces the binary NONE judgement — null IS the weight-0 case.
-        //
-        // Perspective rules are the load-bearing part of this prompt. Each snippet is later
-        // read back by ITS person in a fresh context, so "you" must mean exactly that person
-        // and everyone else must be named — a stray "I"/"me" is unattributable later, and a
-        // swapped subject inverts who did what ("You offered me coffee" stored for the
-        // person who was INVITED). The worked example pins the direction.
         var system = $$"""
 You summarize what each named person would actually remember from one moment in a group chat — one short memory per person, from THAT person's point of view.
 
@@ -317,8 +278,6 @@ The marked moment:
             return empty;
         }
 
-        // First name wins on a duplicate — matches the per-persona behaviour where each name
-        // got its own call. Case-insensitive so the model's casing drift doesn't drop a hit.
         var byName = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         foreach (var t in targets)
         {
@@ -354,12 +313,6 @@ The marked moment:
         return result;
     }
 
-    /// <summary>
-    /// One roster entry's value → draft, or null when declined. Accepts the schema'd
-    /// object shape and, as drift tolerance, a bare snippet string (weight defaults to
-    /// <see cref="SalienceMath.DefaultWeight"/> — the old un-weighted behaviour). Weight ≈ 0
-    /// is the NONE judgement: no edge gets written.
-    /// </summary>
     private RecollectionDraft? ParseDraft(JsonElement value)
     {
         string? snippet;
@@ -407,7 +360,6 @@ The marked moment:
         return new RecollectionDraft(Truncate(snippet, MaxSnippetChars), weight);
     }
 
-    /// <summary>Memory extraction runs in rest, off the beat path: cheap tier, degrading to General (ADR 0015).</summary>
     private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteExtractionAsync(CancellationToken cancellationToken)
         => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger).RouteAsync(LlmTiers.Thoughts, cancellationToken);
 

@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>One story per recall slot, and "you told X" memories say so (ADR 0021).</summary>
 public class RecallVarietyTest
 {
     private static readonly string[] Names = { "Lena Brandt", "Denise", "Pieter Voss", "Eiko Tanaka" };
@@ -38,7 +37,6 @@ public class RecallVarietyTest
     [Fact]
     public void Apply_SlotHoldsTheLatestTelling_AtTheStrongestPlace()
     {
-        // Yusuf's radiator: the strong, older telling said "we'll see"; the latest said the visit is booked.
         var now = DateTimeOffset.UtcNow;
         RecalledMemory M(string s, double salience, int minutesAgo) => new(Guid.NewGuid(), s, salience, 0, null, now.AddMinutes(-minutesAgo), salience);
         var beat = new RecallBeat(new[]

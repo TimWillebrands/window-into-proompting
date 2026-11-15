@@ -9,7 +9,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>Tier fallback, accumulation and the JSON parse ladder — the bits every LLM caller used to copy.</summary>
 public class LlmCallTest
 {
     private static async IAsyncEnumerable<LlmGenerationEvent> Chunks(
@@ -183,7 +182,6 @@ public class LlmCallTest
     {
         var dead = BrokenEndpoint();
         var router = new Mock<ILlmRouterGrain>();
-        // A benched provider alone in its tier still routes, so the call has to step past it itself.
         router.Setup(r => r.RouteAsync(JobComplexity.CharacterVoice, It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(dead.Object);
         router.Setup(r => r.RouteAsync(JobComplexity.General, It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(Endpoint().Object);
 

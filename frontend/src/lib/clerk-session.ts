@@ -9,7 +9,6 @@ const clerk = () =>
         ? undefined
         : (window as unknown as { Clerk?: ClerkGlobal }).Clerk;
 
-/** A fresh session token, which also renews the cookie the WebSocket handshake carries. */
 export const sessionToken = async (): Promise<string | null> => {
     try {
         return (await clerk()?.session?.getToken()) ?? null;

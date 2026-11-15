@@ -13,7 +13,6 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>Endpoint grains aren't reentrant, so only a real cluster shows a decision getting past a stuck generation.</summary>
 public class EndpointInterleavingTest : IAsyncLifetime
 {
     private static readonly FakeSocksProxy Sidecar = new() { Reply = null };

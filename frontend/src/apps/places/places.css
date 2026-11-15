@@ -1,5 +1,3 @@
-/* Places: XP Luna as a game shell (Habbo navigator, IMVU action dock). Classes are pl-*. */
-
 .pl-app {
     --pl-blue: #245edb;
     --pl-blue-2: #3f8cf3;
@@ -24,7 +22,6 @@
     font-size: 11px;
 }
 
-/* Navigator: the Explorer task pane */
 .pl-nav {
     width: 220px;
     flex-shrink: 0;
@@ -130,7 +127,6 @@
 .pl-you--going {
     background: linear-gradient(180deg, #7cc8ff, var(--pl-blue-2));
 }
-/* Habbo navigator occupancy: green, then yellow, then red */
 .pl-occ {
     display: flex;
     align-items: center;
@@ -164,7 +160,6 @@
     color: var(--pl-muted);
 }
 
-/* The stage */
 .pl-stage {
     display: flex;
     min-width: 0;
@@ -192,7 +187,6 @@
     margin: 0;
     opacity: 0.9;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
-    /* One line, so the header (and the view under it) is the same height everywhere. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -204,7 +198,6 @@
     flex-shrink: 0;
 }
 
-/* Buttons: glossy XP pills */
 .pl-btn {
     display: inline-flex;
     align-items: center;
@@ -276,7 +269,6 @@
     font-size: 10px;
 }
 
-/* Cards */
 .pl-card {
     border-radius: 6px;
     background: #fff;
@@ -296,7 +288,6 @@
     color: var(--pl-blue-deep);
 }
 
-/* The 3D view and its HUD */
 .pl-view {
     position: relative;
     border-radius: 8px;
@@ -352,7 +343,6 @@
     backdrop-filter: blur(4px);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-    /* One line over the scene; the rest on hover. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -385,7 +375,6 @@
     position: absolute;
     top: 8px;
     left: 50%;
-    /* translate, not transform: the slide-in animates transform. */
     translate: -50% 0;
     display: flex;
     align-items: center;
@@ -446,7 +435,6 @@
     height: 100%;
     border-radius: 3px;
     background: linear-gradient(90deg, #5ec8ff, #9ff0a8);
-    /* Ticks once a second; the transition fills the gaps. */
     transition: width 1s linear;
 }
 .pl-clamp {
@@ -486,7 +474,6 @@
     filter: brightness(1.15);
 }
 
-/* IMVU-style action dock */
 .pl-dock {
     position: absolute;
     left: 50%;
@@ -550,7 +537,6 @@
     background: #b8c6e6;
 }
 
-/* Overhead labels and bubbles (positioned by the scene every frame) */
 .pl-labels {
     position: absolute;
     inset: 0;
@@ -606,7 +592,6 @@
     line-height: 1.3;
     box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
     text-align: left;
-    /* Delays are set inline: pop now, age from when it was said (14s, BUBBLE_MS). */
     animation:
         pl-pop 0.25s ease-out,
         pl-age 14s linear forwards;
@@ -692,7 +677,6 @@
     }
 }
 
-/* Spots and people: a fixed-height strip, so switching or moving never resizes the view */
 .pl-lower {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
@@ -846,7 +830,6 @@
     margin-left: auto;
 }
 
-/* Chat */
 .pl-chat {
     display: flex;
     flex-direction: column;

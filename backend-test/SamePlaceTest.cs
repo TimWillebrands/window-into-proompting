@@ -4,7 +4,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>One place, many names: new names resolve to a Place already there, talk credits it, and a duplicate folds instead of opening.</summary>
 public partial class PlacesTest
 {
     private static readonly string[] SomeDistricts = { "the centre", "Amstelveen" };

@@ -2,11 +2,6 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>
-/// Pure tests for <see cref="CastMember.Create"/> and the
-/// <see cref="CastMember.ToView"/> / <see cref="CastMember.ToSelfView"/> projections.
-/// No grain dependency, no TestCluster.
-/// </summary>
 public class CastMemberTest
 {
     private static Persona LibraryPersona(Guid id, string libraryName, string bio = "lib bio") =>
@@ -15,7 +10,6 @@ public class CastMemberTest
     [Fact]
     public void Create_UserLinkWithLibraryHit_CarriesJoin_ForLlmOverrides()
     {
-        // A Room override can make a User default LLM-Effective; it must speak as itself.
         var id = Guid.NewGuid();
         var link = new PartyParticipant { Id = id, Name = "Vlad", Driver = DriverKind.User };
 
@@ -46,9 +40,6 @@ public class CastMemberTest
     [Fact]
     public void Create_LlmLinkWithLibraryHit_FullJoin_NameComesFromLink()
     {
-        // Name on the join is the per-Party display name from the link, NOT the library
-        // entry's library name. Locks the deliberate behaviour change from the old
-        // BuildGenerationParticipantsAsync which used the library entry's name.
         var id = Guid.NewGuid();
         var link = new PartyParticipant { Id = id, Name = "Vlad in this Party", Driver = DriverKind.LLM };
         var lib = LibraryPersona(id, "Vlad-library-name", bio: "broody");
@@ -67,9 +58,6 @@ public class CastMemberTest
     [Fact]
     public void Create_LlmLinkWithLibraryMiss_ReturnsSparseLlmDefault()
     {
-        // Defensive fallback for an LLM link without a library entry (deleted Persona,
-        // race during reload, etc.). Sparse, but still LLM-default — the pipeline can
-        // skip it via the User-Effective short-circuit only if explicitly overridden.
         var id = Guid.NewGuid();
         var link = new PartyParticipant { Id = id, Name = "Mystery", Driver = DriverKind.LLM };
 
@@ -87,9 +75,6 @@ public class CastMemberTest
     [Fact]
     public void ToView_CarriesSuppliedEffectiveDriver_NotDefault()
     {
-        // The Effective Driver is resolved at the call site (PersonaGrain consulting the
-        // Room override map). The CastMember does not "know" it; ToView accepts the
-        // resolved value verbatim.
         var id = Guid.NewGuid();
         var link = new PartyParticipant { Id = id, Name = "Vlad", Driver = DriverKind.LLM };
         var c = CastMember.Create(link, LibraryPersona(id, "Vlad"));

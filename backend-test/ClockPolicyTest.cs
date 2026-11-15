@@ -3,7 +3,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>World clock rules as pure functions — no cluster, no timers.</summary>
 public class ClockPolicyTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeMilliseconds(10_000_000_000);

@@ -16,7 +16,6 @@ import { PeoplePage, PersonPage } from './PeoplePages';
 import { PracticesPage } from './PracticesPage';
 import { useWork, WorkProvider } from './work-context';
 
-/** Work & Wants (ADR 0026, 0030): who does what, the Companies they trade for, the Practices they run. */
 export default function JobsApp({ page, id }: { page?: string; id?: string }) {
     const { setWindowProps } = useDesktopContext();
     const { windowId } = useWindowInstance();
@@ -61,7 +60,6 @@ function Page({ here }: { here: WorkPlace }) {
     return <PeoplePage />;
 }
 
-/** The XP Explorer task pane: a group per page, and the workplaces' doors. */
 function TaskPane({ here }: { here: WorkPlace }) {
     const { people, companies, practices, go } = useWork();
     const at = (page: WorkPlace['page'], id?: string) =>

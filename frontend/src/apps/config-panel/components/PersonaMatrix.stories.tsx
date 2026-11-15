@@ -83,7 +83,6 @@ export const OnlyPinned: Story = {
     },
 };
 
-/** Opus is benched: Vlad's voice is on the split until it's back. */
 export const PinnedModelIsAway: Story = {
     args: { assignments: assignmentsFor(['opus']) },
 };

@@ -6,14 +6,12 @@ using Anthropic.Models.Beta.Messages;
 
 namespace PartyTown.Grains.Generation;
 
-/// <summary>Maps a provider-neutral job onto the Claude Messages API.</summary>
 public static class AnthropicRequest
 {
     public const string DefaultBaseUrl = "https://api.anthropic.com";
     public const int OneShotMaxTokens = 16000;
     public const int StreamMaxTokens = 64000;
 
-    /// <summary>Marks a later system message, which Claude only takes as a user turn on every model.</summary>
     public const string DirectionPrefix = "[Stage direction for you, not said aloud]\n";
 
     private const string ContinueTurn = "Continue.";
@@ -25,7 +23,6 @@ public static class AnthropicRequest
 
     public sealed record Turn(string Role, string Content);
 
-    /// <summary>Leading system → top-level system; later system → direction; roles merged; always starts and ends on user.</summary>
     public static (string? System, IReadOnlyList<Turn> Turns) ToTurns(IReadOnlyList<LlmChatMessage> messages)
     {
         var leading = messages.TakeWhile(m => m.Role == "system").Select(m => m.Content).ToList();
@@ -40,7 +37,6 @@ public static class AnthropicRequest
                 turns.Add(new Turn(role, content));
         }
 
-        // A leading assistant turn is rejected and a trailing one reads as a prefill, a 400 on current models.
         if (turns.Count == 0 || turns[0].Role == "assistant") turns.Insert(0, new Turn("user", ContinueTurn));
         if (turns[^1].Role == "assistant") turns.Add(new Turn("user", ContinueTurn));
 
@@ -48,7 +44,6 @@ public static class AnthropicRequest
         return (system.Length == 0 ? null : system, turns);
     }
 
-    /// <summary>The job's JSON schema in the subset structured outputs accepts, or null when it has none.</summary>
     public static JsonObject? ToSchema(string? responseFormatJson)
     {
         if (string.IsNullOrWhiteSpace(responseFormatJson)) return null;
@@ -85,13 +80,11 @@ public static class AnthropicRequest
         foreach (var (_, child) in schema.ToList()) Normalise(child);
     }
 
-    /// <summary>Temperature is never sent: the API version this SDK speaks rejects sampling parameters.</summary>
     public static MessageCreateParams Build(LlmGenerationJob job, string model, string? effort, int maxTokens)
     {
         var (system, turns) = ToTurns(job.Messages);
         var schema = ToSchema(job.ResponseFormat ?? job.ModelParameters?.ResponseFormat);
 
-        // Optional fields stay unset: assigning null serialises an explicit null, which the API rejects.
         var request = new MessageCreateParams
         {
             Model = model,
@@ -113,7 +106,6 @@ public static class AnthropicRequest
         ? new BetaAssistantMessageParam { Content = turn.Content }
         : new BetaUserMessageParam { Content = turn.Content };
 
-    /// <summary>Haiku has no server-side refusal fallback.</summary>
     public static bool HasRefusalFallback(string model) => !model.Contains("haiku", StringComparison.OrdinalIgnoreCase);
 
     private static BetaOutputConfig? OutputConfigFor(string? effort, JsonObject? schema)

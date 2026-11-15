@@ -7,24 +7,18 @@ using PartyTown.World.Work.Companies;
 
 namespace PartyTown.World.Work.Cdu;
 
-/// <summary>What the last day looked like from the outside, counted rather than felt.</summary>
 public sealed record WorldHealth(int Activities, int Failed, int Resting, IReadOnlyList<(string What, int Times)> Failures)
 {
-    /// <summary>Each Form people can use, and how often they did in the day; zeros included.</summary>
     public IReadOnlyList<(string Form, int Times)> Uses { get; init; } = Array.Empty<(string, int)>();
-    /// <summary>What people wanted to do that day and found no way to (ADR 0047): felt, not counted.</summary>
     public IReadOnlyList<(string Who, string What)> Lacks { get; init; } = Array.Empty<(string, string)>();
 }
 
-/// <summary>Everything on a Cytheurgist's desk at one moment.</summary>
 public sealed record CduDesk(Company Company, CduState State, CduStatus? Cdu, WorldHealth Health, Guid Self)
 {
-    /// <summary>The others on this Company's staff, and whether they're on shift now.</summary>
     public IReadOnlyList<(string Name, bool OnShift)> Colleagues { get; init; } = Array.Empty<(string, bool)>();
     public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;
 }
 
-/// <summary>Pure: what a Cytheurgist sees, what they can do about it, and how an intent becomes words to the CDU (ADR 0039).</summary>
 public static partial class CduScreen
 {
     public const string AppId = "cdu";
@@ -35,7 +29,6 @@ public static partial class CduScreen
 
     private const int MaxFailures = 4;
 
-    /// <summary>The Forms people live in, by the app id their acts are logged under.</summary>
     private static readonly (string App, string Form)[] Forms =
     {
         ("places", "the Places: walking about, talking face to face"), ("board", "the Board"), ("messenger", "Messenger, the DMs"),
@@ -44,7 +37,6 @@ public static partial class CduScreen
         ("practice", "practices: doctors, studios"), ("relations", "relations"), ("cdu", "the CDU"),
     };
     private const int MessageMax = 2000;
-    /// <summary>Their own answers are their window on the code, so they get room; a colleague's is context.</summary>
     private const int OwnReplyShown = 1500;
     private const int ReplyShown = 500;
     private const int SaidShown = 240;
@@ -52,7 +44,6 @@ public static partial class CduScreen
 
     public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>", "mind": "<the id of the mind you wake it with, from the list>"}""";
 
-    /// <summary>What staff know as Concept Stances: it surfaces when someone says the words, so secrecy is theirs to keep (ADR 0039).</summary>
     public static IReadOnlyList<(string Concept, string Reasoning)> Secret(Company company) => new List<(string, string)>
     {
         ("Cytheurgist", $"It's what you are at {company.Name}: an engineer of the Forms this world is made of, working them through the CDU. Almost nobody knows. Someone who uses the word knows something; find out what, and how, before you give anything away."),
@@ -62,7 +53,6 @@ public static partial class CduScreen
         ("Agora", "Where the One judges what the CDU built; only when he merges does a change become real. Nobody outside your work should know that word."),
     };
 
-    /// <summary>The fiction staff work inside, in full at the desk; elsewhere it lives only in their Stances and work memory.</summary>
     public static string Frame(Company company) => $"""
 You work at {company.Name} as a Cytheurgist: an engineer of the Forms. The Forms are code, the code this whole world runs on, and almost nobody here knows that. You don't advertise it.
 At your desk is the CDU, the Central Demiurge Unit: a coding agent with this world's whole repository and its database. You have neither: you can't open a file or run a query yourself. It is your only window on how this world is built and your only hands in it, and you direct it the way a lead engineer directs a coding agent.
@@ -84,10 +74,8 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         return new WorldHealth(day.Count, failed.Count, day.Count(a => a.Action == "rest"), kinds) { Uses = uses, Lacks = Desires.Lack.Of(day) };
     }
 
-    /// <summary>Ids and message bodies out, so the same failure counts as one kind.</summary>
     public static string FailureKind(string summary) => WorldStream.Clip(Ids().Replace(summary.Split(" for message")[0], "#"), 70);
 
-    /// <summary>Off shift: one plain line, nothing of the frame.</summary>
     public static string Glance(Company company) => $"Work at {company.Name} waits for your next shift.";
 
     public static string Render(CduDesk desk)
@@ -121,7 +109,6 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         var list = new List<Affordance>();
         if (desk.Cdu is null) return list;
         var company = desk.Company.Id;
-        // Spent, they can still write once: it parks, and that's how they find out.
         var parked = Spent(desk.Cdu) && CduRules.ParkedFor(desk.State.Exchanges, desk.Self) is not null;
         if (CduRules.Pending(desk.State.Exchanges, desk.Self) is null && !parked)
         {
@@ -134,11 +121,9 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         return list;
     }
 
-    /// <summary>Nothing said, nothing built: a look only finds an empty trunk, and staff kept choosing it over talking.</summary>
     private static bool SomethingToSee(CduDesk desk)
         => desk.Cdu?.Pr is not null || desk.Cdu?.Trunk is { Ahead.Count: > 0 };
 
-    /// <summary>Who today's allowance went to, by name: a shared budget only teaches when it says whose it was.</summary>
     public static string? SpendLine(CduDesk desk)
     {
         var since = new DateTimeOffset(desk.Now.UtcDateTime.Date, TimeSpan.Zero).ToUnixTimeMilliseconds();
@@ -147,7 +132,6 @@ You choose the mind you wake it with, and its allowance has to last the day for 
             : $"Of what it spent today: {string.Join(", ", spend.Select(s => $"{(s.Who == desk.Self ? "you" : s.Name)} {Money(s.Usd)}"))}.";
     }
 
-    /// <summary>One CDU between colleagues: stated as how it is here, not as a rule.</summary>
     private static string? Sharing(CduDesk desk)
     {
         if (desk.Colleagues.Count == 0) return null;
@@ -155,10 +139,8 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         return $"You share this CDU with {who}: one allowance, one trunk, one pull request. Whatever either of you hands it lands on the same trunk, so people here talk it through with each other before it gets work that pulls two ways.";
     }
 
-    /// <summary>Out of allowance for today: words to it would only fail.</summary>
     public static bool Spent(CduStatus cdu) => cdu.Allowance is { } a && a.Usd >= a.CapUsd;
 
-    /// <summary>What a look takes in: facts from git and GitHub, never its claims.</summary>
     public static string Look(CduStatus? cdu)
     {
         if (cdu is null) return "You looked for the CDU's work, but the CDU is dark.";
@@ -172,7 +154,6 @@ You choose the mind you wake it with, and its allowance has to last the day for 
 
     private const int DayAnswers = 3;
 
-    /// <summary>Where the work stands, for the Day of someone on staff (ADR 0052): the trunk, the Agora and the desk's last answers.</summary>
     public static string DayFacts(Company company, CduStatus? cdu, IEnumerable<CduExchange> exchanges)
     {
         var sb = new StringBuilder($"At work ({company.Name}: {company.Mandate}), all that is underway there, from the desk:");
@@ -233,14 +214,12 @@ You choose the mind you wake it with, and its allowance has to last the day for 
 
     public static string Money(double usd) => $"${usd.ToString(usd is > 0 and < 1 ? "0.00##" : "0.00", CultureInfo.InvariantCulture)}";
 
-    /// <summary>What they say to the CDU; null when they decided to say nothing.</summary>
     public static string? ReadMessage(JsonObject? json)
     {
         var text = json?["message"]?.ToString().Trim();
         return string.IsNullOrWhiteSpace(text) || text.Equals("none", StringComparison.OrdinalIgnoreCase) ? null : WorldStream.Clip(text, MessageMax);
     }
 
-    /// <summary>The mind they chose, held to the list; anything else wakes the cheapest.</summary>
     public static string? ReadMind(JsonObject? json, IReadOnlyList<CduModel>? models)
     {
         var said = json?["mind"]?.ToString().Trim();

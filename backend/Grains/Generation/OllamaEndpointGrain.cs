@@ -34,8 +34,6 @@ public class OllamaEndpointGrain(
     {
         var configGrain = GrainFactory.GetGrain<ILlmProviderConfigGrain>(0);
         var providers = await configGrain.GetProvidersAsync();
-        // TODO: also filter by IsEnabled so disabled providers keep _config null.
-        // Router (LlmRouterGrain) already filters disabled, but LlmConfigController.GetProviderModels bypasses the router.
         _config = providers.FirstOrDefault(p => p.Id == this.GetPrimaryKey() && p.Type == "ollama");
         if (_config is null)
             logger.LogWarning("OllamaEndpointGrain {Id}: no config found", this.GetPrimaryKey());
@@ -163,7 +161,6 @@ public class OllamaEndpointGrain(
         }
     }
 
-    // Pinged every 30s, so an unreachable box can be Offline instead of benched for 10 minutes.
     private Task ReportFailureAsync(Exception ex)
     {
         var router = GrainFactory.GetGrain<ILlmRouterGrain>(0);
@@ -172,7 +169,6 @@ public class OllamaEndpointGrain(
             : router.ReportFailureAsync(this.GetPrimaryKey(), ex.Message);
     }
 
-    /// <summary>Reachable when it lists its models; checks the server, not that the model is there.</summary>
     public async Task<string?> PingAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -222,7 +218,6 @@ public class OllamaEndpointGrain(
         }
     }
 
-    /// <summary>Ollama's own list, else the OpenAI one that llama.cpp and other local servers serve.</summary>
     private async Task<IReadOnlyList<string>> ListModelNamesAsync(HttpClient http, CancellationToken cancellationToken)
     {
         var root = BaseUrl.TrimEnd('/');

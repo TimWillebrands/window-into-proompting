@@ -7,20 +7,14 @@ using PartyTown.Data;
 
 namespace PartyTown.Services.Memory;
 
-/// <summary>Event vertex properties — the anchor lives on the Event, no Room/Message vertices (ADR 0014).</summary>
 internal sealed record EventVertex(
     Guid EventId, string Description, string CreatedAtIso, Guid PartyId, Guid RoomId,
     string Source, int AnchorMessageId, Guid? PlaceId = null);
 
-/// <summary>
-/// The memory graph's write shapes (Event, ABOUT, Concept, RECOLLECTS, HAS_PARTICIPANT): one home
-/// for organic Capture and import seeding. Values are inlined Cypher literals, never cypher() params.
-/// </summary>
 internal static class MemoryGraphWrites
 {
     public static Task CreateEventAsync(AppDbContext db, EventVertex ev, CancellationToken ct)
     {
-        // source names the App (ADR 0018); party_id is the scope key the viz and per-Party walks anchor on.
         var place = ev.PlaceId is { } placeId ? $",\n                place_id: '{placeId}'" : string.Empty;
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
@@ -41,8 +35,6 @@ internal static class MemoryGraphWrites
 
     public static Task AddConceptEdgeAsync(AppDbContext db, Guid eventId, string name, string display, CancellationToken ct)
     {
-        // AGE's Cypher parser doesn't accept `ON CREATE SET`. coalesce() keeps the
-        // first-written display while still setting it on the very first MERGE.
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
@@ -68,12 +60,10 @@ internal static class MemoryGraphWrites
         return ExecuteCypherAsync(db, sql, ct);
     }
 
-    /// <summary>RECOLLECTS edge (ADR 0015 salience substrate); <paramref name="edgeId"/> is its stable identity.</summary>
     public static Task AddRecollectionAsync(
         AppDbContext db, Guid eventId, Guid partyId, Guid personaId,
         Guid edgeId, string snippet, string tsIso, double weight, CancellationToken ct)
     {
-        // recall_count starts 0; last_recalled stays absent until the first pick (absence IS null in AGE).
         var sql = $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (e:Event {event_id: '{{eventId}}'})
@@ -93,9 +83,6 @@ internal static class MemoryGraphWrites
         return ExecuteCypherAsync(db, sql, ct);
     }
 
-    // We bypass EF's ExecuteSqlRawAsync because it routes the SQL through String.Format and
-    // the Cypher payload's literal `{` / `}` break formatting. The raw NpgsqlCommand path
-    // sends the text untouched; we still piggy-back on EF's connection + active transaction.
     internal static async Task ExecuteCypherAsync(AppDbContext db, string sql, CancellationToken ct)
     {
         var conn = (NpgsqlConnection)db.Database.GetDbConnection();
@@ -105,8 +92,6 @@ internal static class MemoryGraphWrites
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    // Cypher single-quoted string literal with backslash-escaping per the openCypher spec.
-    // Keeps untrusted input from terminating the literal or smuggling in a `$cy$` close.
     internal static string CypherStr(string s)
     {
         var sb = new StringBuilder(s.Length + 2);

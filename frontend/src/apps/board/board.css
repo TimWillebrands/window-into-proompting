@@ -1,5 +1,3 @@
-/* Partyboard: a Hyves (2007) skin around a timeline, scoped to .pb */
-
 .pb {
     --pb-blue: #1d5b9e;
     --pb-blue-dark: #143f6e;
@@ -16,7 +14,6 @@
     line-height: 1.45;
 }
 
-/* :where keeps these resets at zero specificity so component classes win. */
 :where(.pb) button {
     font: inherit;
     cursor: pointer;
@@ -30,8 +27,6 @@
     outline: 2px solid var(--pb-orange);
     outline-offset: 1px;
 }
-
-/* ─── Header: blue bar, rounded white logo, tabs ─────────────────────── */
 
 .pb-header {
     background: linear-gradient(
@@ -124,8 +119,6 @@
     text-align: center;
 }
 
-/* ─── Column and gadget boxes ────────────────────────────────────────── */
-
 .pb-column {
     display: flex;
     flex-direction: column;
@@ -162,8 +155,6 @@
     border-radius: 4px;
     background: #f3f7fb;
 }
-
-/* ─── Composer ───────────────────────────────────────────────────────── */
 
 .pb-composer {
     display: flex;
@@ -231,8 +222,6 @@
     color: #b42318;
 }
 
-/* ─── Buttons ────────────────────────────────────────────────────────── */
-
 .pb-btn {
     padding: 3px 12px;
     border: 1px solid #9db6cf;
@@ -274,8 +263,6 @@
 .pb-older {
     align-self: center;
 }
-
-/* ─── Posts ──────────────────────────────────────────────────────────── */
 
 .pb-card {
     overflow: hidden;
@@ -404,8 +391,6 @@
     font-size: 10px;
 }
 
-/* ─── Replies ────────────────────────────────────────────────────────── */
-
 .pb-replies {
     display: flex;
     flex-direction: column;
@@ -452,8 +437,6 @@
 .pb-reply-prompt:hover {
     background: #eaf2fb;
 }
-
-/* ─── New, focus, pill, empty ────────────────────────────────────────── */
 
 .pb-card.pb-new {
     box-shadow: inset 3px 0 0 var(--pb-orange);
@@ -508,8 +491,6 @@
     color: var(--pb-muted);
     text-align: center;
 }
-
-/* ─── Narrow windows ─────────────────────────────────────────────────── */
 
 .pb-narrow .pb-tagline {
     display: none;

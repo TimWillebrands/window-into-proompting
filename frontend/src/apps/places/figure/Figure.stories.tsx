@@ -171,7 +171,6 @@ function Sheet({
     );
 }
 
-/** Real answers to the production prompt, from models that saw nothing else, through the production path. */
 function Designed({
     turn = 0.35,
     answers = designed,
@@ -531,7 +530,6 @@ function Room({ hour = 13 }: { hour?: number }) {
     );
 }
 
-/** One look from four sides, then walking. */
 function Turnaround({ look }: { look: Partial<Look> }) {
     const doc = useMemo(() => figureDoc({ ...LOOK, ...look }), [look]);
     return (
@@ -574,7 +572,6 @@ function Turnaround({ look }: { look: Partial<Look> }) {
     );
 }
 
-/** Hooded feather cloak over a robe in the bottoms' colour, with the staff. */
 export const Cloaked: StoryObj<typeof Turnaround> = {
     render: () => (
         <Turnaround

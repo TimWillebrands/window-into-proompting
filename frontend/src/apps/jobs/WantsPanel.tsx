@@ -12,7 +12,6 @@ import { WORLD_ID } from '../../lib/world';
 import { desireLabel } from './jobs-lib';
 import { Card, Empty } from './parts';
 
-/** One person's wants: who they are (intrinsic) and what play gave them (acquired). */
 export function WantsPanel({
     participantId,
     name,

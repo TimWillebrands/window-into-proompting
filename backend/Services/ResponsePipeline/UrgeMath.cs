@@ -4,18 +4,8 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Pure pre-gate math used by <see cref="PersonaDecisionService"/> and by
-/// <c>PersonaGrain</c>'s pre-gate. Extracted so the grain can short-circuit
-/// without taking a transitive dependency on the LLM-call service.
-/// </summary>
 public static class UrgeMath
 {
-    /// <summary>
-    /// Calculates a response urge score (0.0 - 1.0) from mention detection, silence streak,
-    /// question presence, cold-open (fresh user message into a quiet room), and chattiness-
-    /// weighted chaos.
-    /// </summary>
     public static ResponseUrge CalculateResponseUrge(
         SelfView self,
         IReadOnlyList<ChatMessage> history,
@@ -33,8 +23,6 @@ public static class UrgeMath
         var latest = history[^1];
         var content = latest.Content ?? "";
 
-        // Direct mention: persona name as a whole word (case-insensitive).
-        // Substring matching triggered on "Tim" in "intimate", "optimization", etc.
         if (!string.IsNullOrWhiteSpace(self.Name))
         {
             var mentionRegex = new Regex(
@@ -44,37 +32,25 @@ public static class UrgeMath
                 mentionScore = 1.0;
         }
 
-        // 1:1 thread: every line is addressed to you.
         if (directlyAddressed)
             mentionScore = 1.0;
 
-        // Question detection: does the latest message end with a question mark?
         if (content.TrimEnd().EndsWith('?'))
             questionScore = 0.6;
 
-        // Silence streak: how many AI rounds without this persona responding?
-        // Each round without a response increases urge slightly
         silenceStreakScore = Math.Min(0.4, totalAiRoundsInGroup * 0.1);
 
-        // Cold-open: a fresh user message landing in a quiet room (no AI activity yet).
-        // Without this floor, "hiya" yields urge≈0 and every persona declines with a
-        // politeness-flavoured justification. A bar with a new arrival should produce
-        // at least one reaction.
         if (latest.SenderType == "user" && totalAiRoundsInGroup == 0)
             coldOpenScore = 0.5;
 
-        // Chaos weighted by per-persona chattiness. Replaces pure random with
-        // character-driven variability — a chatty Denise pings more than a brooding Vlad.
         var chaosScore = Random.Shared.NextDouble() * self.Chattiness;
 
         var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore + coldOpenScore);
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, coldOpenScore, chaosScore);
     }
 
-    /// <summary>A line older than this, counted back from the latest one, is no longer the current exchange (ChatAttention's pause).</summary>
     public static readonly TimeSpan ExchangeWindow = World.Self.ChatAttention.SessionGap;
 
-    /// <summary>AI rounds in the current exchange: trailing assistant lines within <see cref="ExchangeWindow"/> of the latest line; stubs skipped.</summary>
     public static int CountExchangeRounds(IReadOnlyList<ChatMessage> history)
     {
         var since = ExchangeSince(history);
@@ -90,7 +66,6 @@ public static class UrgeMath
         return count;
     }
 
-    /// <summary>Own lines in the same trailing run <see cref="CountExchangeRounds"/> counts.</summary>
     public static int CountRecentSelfMessages(IReadOnlyList<ChatMessage> history, Guid selfId)
     {
         var since = ExchangeSince(history);
@@ -107,7 +82,6 @@ public static class UrgeMath
         return count;
     }
 
-    /// <summary>Unix ms where the current exchange starts: <see cref="ExchangeWindow"/> before the latest timed line. Null = no cutoff.</summary>
     private static long? ExchangeSince(IReadOnlyList<ChatMessage> history)
     {
         for (var i = history.Count - 1; i >= 0; i--)
@@ -116,11 +90,6 @@ public static class UrgeMath
         return null;
     }
 
-    /// <summary>
-    /// Net pressure = pull (urge total + chaos bonus) minus push (round penalty +
-    /// self-dominance penalty). Mirrors the bucketed nudge in the LLM-facing prompt.
-    /// Centralised so the pre-gate (PersonaGrain short-circuit) and the prompt agree.
-    /// </summary>
     public static double CalculateNetPressure(ResponseUrge urge, int totalAiRoundsInGroup, int recentSelfMessageCount)
     {
         var roundPenalty = totalAiRoundsInGroup switch
@@ -146,12 +115,6 @@ public static class UrgeMath
         return urge.Total - roundPenalty - selfPenalty + chaosBonus;
     }
 
-    /// <summary>
-    /// True when the math is decisive enough to skip the LLM decision call entirely
-    /// (and skip reserving a thought-log slot). Requires no direct mention, no question,
-    /// and net pressure deep in the "pass" bucket. Cuts the ~1480-thought-per-1480-msgs
-    /// runaway visible in the UI when every persona deliberates on every cascade message.
-    /// </summary>
     public static bool IsObviousSkip(ResponseUrge urge, int totalAiRoundsInGroup, int recentSelfMessageCount)
     {
         if (urge.MentionScore > 0 || urge.QuestionScore > 0)

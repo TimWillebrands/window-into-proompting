@@ -5,10 +5,6 @@ using PartyTown.World.Relations;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// Touch between people at the same spot (ADR 0021): a high-five, a hug, holding hands, a slow dance. Offered only
-/// when the Tie allows it *both ways*, so closeness is earned and mutual. Solo poses stay in Places' own spot intent.
-/// </summary>
 public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
 {
     public string Id => "together";
@@ -44,7 +40,6 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
             var mutual = await myTies.GetClosestAsync() == other.ParticipantId && await theirTies.GetClosestAsync() == ctx.Self.Id;
             var name = ctx.NameOf(other.ParticipantId);
             var nowMs = ctx.Now.ToUnixTimeMilliseconds();
-            // A gesture answers a moment (ADR 0050): they just walked up, or you two are mid-talk; and once is the gesture.
             var moment = Touch.Moment(nowMs, me.ArrivedAt, other.ArrivedAt, Math.Max(mine.LastAt, theirs.LastAt));
             foreach (var p in Touch.Offered(allowed, mine, theirs, ctx.IsHuman(other.ParticipantId), mutual, book.Partners(ctx.Self.Id, other.ParticipantId)))
             {
@@ -71,11 +66,8 @@ public sealed class TogetherApp(IGrainFactory grains) : IWorldApp
     }
 }
 
-/// <summary>Pure: which pair poses a Tie allows, both ways.</summary>
 public static class Touch
 {
-    /// <summary>Pair poses both Ties allow; intimate ones only between mutual closest people or partners, never initiated toward a human.</summary>
-    /// <param name="partners">A current couple skips the closeness earned by talking; only strain holds them back.</param>
     public static List<string> Offered(IReadOnlyCollection<string> allowed, TieRead mine, TieRead theirs, bool otherIsHuman, bool mutualClosest, bool partners = false)
         => allowed.Where(p => (partners ? !Strained(mine) && !Strained(theirs) : Allows(p, mine) && Allows(p, theirs))
             && !(Intimate(p) && (otherIsHuman || !(mutualClosest || partners)))).ToList();
@@ -92,20 +84,15 @@ public static class Touch
         _ => false,
     };
 
-    /// <summary>How long an arrival or an exchange still counts as the moment.</summary>
     public static readonly TimeSpan Fresh = TimeSpan.FromMinutes(5);
-    /// <summary>How long a passing gesture stays done with the same person.</summary>
     public static readonly TimeSpan Again = TimeSpan.FromMinutes(60);
 
-    /// <summary>One of them just got here, or they just spoke.</summary>
     public static bool Moment(long now, long myArrival, long theirArrival, long lastTalked)
         => now - Math.Max(Math.Max(myArrival, theirArrival), lastTalked) < Fresh.TotalMilliseconds;
 
-    /// <summary>When this exact gesture was last made, not merely thought better of.</summary>
     public static long? LastDone(string key, IEnumerable<WorldActivity> recentOwn)
         => recentOwn.Where(a => a.Affordance == key && !SecondThoughts.Is(a)).Select(a => (long?)a.Ts).Max();
 
-    /// <summary>A high-five needs its moment, and a passing gesture isn't repeated within the hour; lasting closeness is neither.</summary>
     public static bool Fits(string pose, bool moment, long? lastDone, long now)
         => Poses.Lasts(pose) is null || ((pose != Poses.HighFive || moment) && !(lastDone is { } at && now - at < Again.TotalMilliseconds));
 

@@ -3,7 +3,6 @@ using PartyTown.World.Reflex;
 
 namespace BackendTest;
 
-/// <summary>Reflex's pure core (ADR 0031): attention filter, landscape, conflict, timing, prospective memory.</summary>
 public class ReflexMathTest
 {
     private static readonly Guid Someone = Guid.NewGuid();

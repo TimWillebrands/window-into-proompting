@@ -5,7 +5,6 @@ using PartyTown.World.Work.Companies;
 
 namespace PartyTown.World.Work.Cdu;
 
-/// <summary>Where the World meets the CDU (ADR 0039): the I/O around <see cref="ICduGrain"/>, the tide, and word reaching staff.</summary>
 public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, WorldMemory memory, IMemoryRepository stances, ILogger<Cytheurgy> logger)
 {
     private static readonly TimeSpan StatusFresh = TimeSpan.FromSeconds(15);
@@ -14,7 +13,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
 
     public bool Enabled => cdu.Enabled;
 
-    /// <summary>Founds a CDU Company with an office of its own; null when the name is taken.</summary>
     public async Task<Company?> FoundAsync(Guid partyId, string name, string mandate)
     {
         var workplace = await desks.OfficeAsync(partyId, name);
@@ -25,7 +23,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         });
     }
 
-    /// <summary>New staff learn the secret as Concept Stances, once; what they do with it is theirs.</summary>
     public async Task KnowAsync(Guid partyId, Company company, Guid participantId, CancellationToken ct)
     {
         var held = (await stances.ListStancesAsync(partyId, participantId, ct))
@@ -39,7 +36,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
-    /// <summary>Null when the CDU can't be reached: a dark desk, not a broken one.</summary>
     public async Task<CduStatus?> StatusAsync(CancellationToken ct, bool fresh = false)
     {
         if (!cdu.Enabled) return null;
@@ -58,7 +54,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
-    /// <summary>Says something to the CDU for a Cytheurgist; null when it couldn't be reached.</summary>
     public async Task<CduExchange?> SayAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model, CancellationToken ct)
     {
         try
@@ -80,7 +75,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
-    /// <summary>Written when the allowance was spent: kept on their desk unsent, and remembered with whose spending it was.</summary>
     public async Task ParkAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model, string? spend)
     {
         await Grain(partyId).SpokeAsync(new CduExchange
@@ -92,7 +86,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
             $"You wrote to the CDU, but it had already spent today's allowance, so it never heard you: your message stays parked on your desk, unsent.{(spend is null ? string.Empty : $" {spend}")}");
     }
 
-    /// <summary>The others on staff and whether they're on shift: who this CDU is shared with.</summary>
     public async Task<List<(string Name, bool OnShift)>> ColleaguesAsync(Guid partyId, Guid companyId, Guid self)
     {
         var others = new List<(string, bool)>();
@@ -101,11 +94,9 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         return others;
     }
 
-    /// <summary>Where the work stands for the Day of someone on staff (ADR 0052); a dark CDU leaves only the desk's answers.</summary>
     public async Task<string> DayFactsAsync(Guid partyId, Company company, CancellationToken ct)
         => CduScreen.DayFacts(company, await StatusAsync(ct, fresh: true), (await Grain(partyId).GetAsync()).Exchanges);
 
-    /// <summary>A look becomes the looker's own work memory: what git and GitHub say, not what the CDU claimed.</summary>
     public async Task<string> LookAsync(Guid partyId, Company company, ParticipantView looker, CancellationToken ct)
     {
         var seen = CduScreen.Look(await StatusAsync(ct, fresh: true));
@@ -113,7 +104,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         return seen;
     }
 
-    /// <summary>One pass for this Party: lines for spectators, news for staff, and the tide on shift edges.</summary>
     public async Task WatchAsync(Guid partyId, CancellationToken ct)
     {
         var companies = (await grains.GetGrain<ICompaniesGrain>(partyId).GetAllAsync()).Where(c => CompanyKinds.IsCdu(c.Kind)).ToList();
@@ -122,7 +112,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         var state = await grain.GetAsync();
         try
         {
-            // A Party new to the CDU starts from now: older news happened to other people.
             if (state is { News: 0, Lines: 0, Exchanges.Count: 0 })
             {
                 if (await StatusAsync(ct, fresh: true) is not { } now) return;
@@ -146,7 +135,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
-    /// <summary>The edge is kept only once the CDU took the call, so a dark CDU gets it again next beat.</summary>
     private async Task TideAsync(Guid partyId, List<Company> companies, bool was, CancellationToken ct)
     {
         var onShift = false;
@@ -167,7 +155,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     private static CduNews Flatten(CduEntry e) => new(
         e.N, e.Kind, e.Text, e.Str("turn"), e.Int("number"), e.Flag("asked"), e.Int("commits") ?? 0, e.Flag("opened"), e.Num("usd"));
 
-    /// <summary>News reaches staff as work memory, never the wider world: the CDU is a secret (ADR 0039).</summary>
     private async Task TellAsync(Guid partyId, List<Company> companies, CduTold word)
     {
         var staff = new List<ParticipantView>();
@@ -206,7 +193,6 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     private ICduGrain Grain(Guid partyId) => grains.GetGrain<ICduGrain>(partyId);
 }
 
-/// <summary>Carries the CDU's news in, outside the World clock so a paused World still shows it working; a stopped one doesn't.</summary>
 public sealed class CduWatch(IGrainFactory grains, Cytheurgy site, ILogger<CduWatch> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(3);

@@ -7,15 +7,12 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
-/// <summary>One numbered line on the screens: something held, or something being watched.</summary>
 public sealed record DeskLine(string InstrumentId, string Title, double Price, double? Previous, Position? Held);
 
-/// <summary>Pure: what a trader sees, and how an intent becomes an order. Facts, not traits (ADR 0026).</summary>
 public static class DeskScreen
 {
     private const int MaxLines = 12;
 
-    /// <summary>Held first, so closing something out is always in reach.</summary>
     public static List<DeskLine> Lines(Company company)
     {
         var quotes = company.Watchlist.ToDictionary(q => q.Id);
@@ -56,7 +53,6 @@ public static class DeskScreen
 
     private static string Price(double price) => price.ToString(price < 10 ? "0.00" : "#,0.00", CultureInfo.InvariantCulture);
 
-    /// <summary>A voiced decision as an order; null when they decided on nothing, or on nonsense.</summary>
     public static TradeOrder? Read(JsonObject? json, IReadOnlyList<DeskLine> lines, string market, Guid traderId, string traderName)
     {
         if (!int.TryParse(Digits(json?["line"]), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number < 1 || number > lines.Count) return null;
@@ -68,7 +64,6 @@ public static class DeskScreen
         };
         if (side is not { } chosen || MarketText.Percent(json?["percent"]) is not { } percent || percent <= 0) return null;
         var thesis = json?["thesis"]?.ToString();
-        // A chance only means something on a question that will settle.
         var chance = market == MarketKinds.Predictions ? MarketText.Percent(json?["chance"]) : null;
         return new TradeOrder(lines[number - 1].InstrumentId, chosen, Math.Min(percent, 100) / 100, traderId, traderName,
             string.IsNullOrWhiteSpace(thesis) ? null : WorldStream.Clip(thesis.Trim(), 300),
@@ -82,7 +77,6 @@ public static class DeskScreen
         : $"sold {DeskRules.Credits(trade.Units * trade.Price)} credits of {trade.Title} for {company.Name} ({DeskRules.Signed(trade.Realized ?? 0)})";
 }
 
-/// <summary>The trading floor in a Life (ADR 0030): the job is the choice, the fill is the Market's. No tools, one structured call.</summary>
 public sealed class DeskApp(IGrainFactory grains, IWorldLlm llm, Desks desks) : IWorldApp
 {
     public const string AppId = "desk";
@@ -94,7 +88,6 @@ public sealed class DeskApp(IGrainFactory grains, IWorldLlm llm, Desks desks) : 
     {
         var view = await grains.GetGrain<IOccupationGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetAsync();
         if (view.Job?.CompanyId is not { } companyId || await Companies(ctx).GetAsync(companyId) is not { Kind: CompanyKinds.Trading } company) return null;
-        // Off shift the book is one line on your mind, not a screen you can work.
         if (!view.OnShift) return new AppPerception(Id, "Work: the book", DeskScreen.Glance(company), new List<Affordance>());
         var lines = DeskScreen.Lines(company);
         var affordances = lines.Count == 0

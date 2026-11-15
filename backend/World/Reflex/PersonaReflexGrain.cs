@@ -7,10 +7,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Reflex;
 
-/// <summary>
-/// A Persona's stimulus-driven attention (key = <c>party:persona</c>, ADR 0031): filter, weigh, then act or put it off.
-/// Not reentrant on purpose: one thing at a time is the bottleneck being modelled, so nothing here may await a caller.
-/// </summary>
 public sealed class PersonaReflexGrain(
     [PersistentState(stateName: "reflex", storageName: "parties")]
     IPersistentState<ReflexState> state,
@@ -43,7 +39,6 @@ public sealed class PersonaReflexGrain(
         var ms = now.ToUnixTimeMilliseconds();
         if (!(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
 
-        // Already in this conversation: it holds the workspace, so no appraisal, just reading time.
         if (p.RoomId is { } room && InExchange(room, ms))
             return ReflexVerdict.Reply(Lag(p, 0), false, "mid-conversation");
         if (p.RoomId is { } heldRoom && state.State.Intentions.FirstOrDefault(i => i.RoomId == heldRoom) is { } held)
@@ -68,7 +63,6 @@ public sealed class PersonaReflexGrain(
 
         var weighed = await WeighAsync(p, sense);
         if (weighed is null) return ReflexVerdict.Through;
-        // The gate gave up waiting and the reply went ahead: acting now would answer twice.
         if (ReflexMath.Late(p, UtcNow.ToUnixTimeMilliseconds()))
         {
             logger.LogInformation("Reflex {Persona} on {Kind} from {From}: too late, the reply went ahead", self.Name, p.Kind, p.FromName);
@@ -147,7 +141,6 @@ public sealed class PersonaReflexGrain(
         var loadTask = LoadAsync(p, now);
         var bookTask = GrainFactory.GetGrain<Relations.IRelationsGrain>(Keys.Party).GetAsync();
         var body = await Places.GetBodyAsync(Keys.Persona);
-        // Sleep has its own rule (ADR 0020): only a human wakes them, and that path is unchanged.
         if (body is { Asleep: true }) return null;
 
         var s = await selfTask;
@@ -161,7 +154,6 @@ public sealed class PersonaReflexGrain(
             new Bond(tie.Exchanges, tie.Warmth, apart), await betweenTask, Relations.RelationRules.Standing(await bookTask, self.Id, p.FromId));
     }
 
-    /// <summary>How much of them is spoken for, as seen from the channel <paramref name="p"/> came in on; null asks in general.</summary>
     private async Task<double> LoadAsync(Percept? p, DateTimeOffset now)
     {
         var key = this.GetPrimaryKeyString();
@@ -175,7 +167,6 @@ public sealed class PersonaReflexGrain(
         return ReflexMath.Load(SelfMath.Availability(s, LocalNow), onShift, body?.AwayAs is not null, occupied, elsewhere);
     }
 
-    /// <summary>What memory says about them, cached: the graph stays off the reflex path most of the time.</summary>
     private async Task<IReadOnlyList<string>> BetweenAsync(Percept p, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
@@ -214,13 +205,11 @@ public sealed class PersonaReflexGrain(
             case ReflexOptions.Now or ReflexOptions.Speak:
                 return ReflexVerdict.Reply(Lag(p, sense.Load), torn, picked);
             case ReflexOptions.Soon:
-                // A human put off still gets the quick line: silence can't be told from a broken app (ADR 0031).
                 await HoldAsync(p, sense, ms, acking: p.FromHuman);
                 if (p.FromHuman) Spawn(() => AckAsync(p, sense), "ack");
                 Log(p, self, "hold", $"saw {Ref(p)}, and is finishing up first");
                 return ReflexVerdict.Taken($"{ReflexVerdict.Holding} finishing up first");
             case ReflexOptions.Brief:
-                // Held before the line goes out: a slow or failed line must not cost them the real answer.
                 await HoldAsync(p, sense, ms, acking: true);
                 Spawn(() => AckAsync(p, sense), "ack");
                 return ReflexVerdict.Taken($"{ReflexVerdict.Holding} a quick line now, properly later");
@@ -245,7 +234,6 @@ public sealed class PersonaReflexGrain(
             ForgetAt = ms + (long)ReflexMath.ForgottenAfter.TotalMilliseconds,
             Acking = acking,
         });
-        // Having put it off, the next line from them is news, not a continuation.
         if (_exchange?.Room == room) _exchange = null;
         await SaveAsync();
     }
@@ -321,7 +309,6 @@ public sealed class PersonaReflexGrain(
         }
         catch (Exception ex) when (i.OwedBy is not null && i.Tries + 1 < ReflexMath.MaxTries)
         {
-            // Owed means owed: a model outage puts it back rather than losing it.
             logger.LogWarning(ex, "Reflex couldn't get back to {From}; trying again", i.FromName);
             i.Tries++;
             i.DueAt = UtcNow.ToUnixTimeMilliseconds() + (long)ReflexMath.BreakpointCheck.TotalMilliseconds;
@@ -333,7 +320,6 @@ public sealed class PersonaReflexGrain(
 
     private static string Ref(Percept p) => p.Kind == PerceptKind.Direct ? $"a message from {ReflexWeighing.First(p.FromName)}" : $"what {ReflexWeighing.First(p.FromName)} said";
 
-    /// <summary>Goes under the channel's own App, so the feed's privacy rules for it apply.</summary>
     private void Log(Percept p, CastMember self, string action, string summary)
     {
         var app = p.Kind switch { PerceptKind.Direct => "messenger", PerceptKind.Line => "rooms", _ => "places" };
@@ -344,7 +330,6 @@ public sealed class PersonaReflexGrain(
         }), "log");
     }
 
-    /// <summary>Detached and non-fatal: speech takes seconds, and this grain must stay free to perceive.</summary>
     private void Spawn(Func<Task> work, string what)
         => _ = RunAsync(work, what);
 
@@ -368,18 +353,13 @@ public sealed class PersonaReflexGrain(
 [Alias("PartyTown.World.Reflex.IPersonaReflexGrain")]
 public interface IPersonaReflexGrain : IGrainWithStringKey
 {
-    /// <summary>Something reached them: the one seam every modality comes through.</summary>
     [Alias("PerceiveAsync")] Task<ReflexVerdict> PerceiveAsync(Percept percept);
-    /// <summary>They spoke in <paramref name="roomId"/>: that holds their focus, and settles what they owed there.</summary>
     [Alias("NoteSpokeAsync")] Task NoteSpokeAsync(Guid roomId);
-    /// <summary>What's still on their mind, for their prompts.</summary>
     [Alias("GetMindAsync")] Task<string> GetMindAsync();
     [Alias("GetIntentionsAsync")] Task<List<Intention>> GetIntentionsAsync();
-    /// <summary>A look at what they've put off; the World clock calls this when one comes due.</summary>
     [Alias("SurfaceAsync")] Task SurfaceAsync();
 }
 
-/// <summary>Reflex for the response pipeline and Life: never fatal, never slower than a bound.</summary>
 public sealed class ReflexGate(IGrainFactory grains, ILogger<ReflexGate> logger)
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(3);

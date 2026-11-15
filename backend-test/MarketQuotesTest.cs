@@ -3,7 +3,6 @@ using PartyTown.World.Work.Markets;
 
 namespace BackendTest;
 
-/// <summary>Reading real Market payloads (ADR 0030); the fixtures keep the shapes the live APIs returned.</summary>
 public class MarketQuotesTest
 {
     private static JsonNode Market(string closed = "false", string? status = null, string active = "true", string accepting = "true",

@@ -6,7 +6,6 @@ import type {
     CduPrSummary,
 } from '../../api/model';
 
-/** Realtime and the first fetch overlap; the CDU's line number says what's already here. */
 export function mergeLines(
     held: CduLineSummary[],
     incoming: CduLineSummary[],
@@ -29,7 +28,6 @@ const PROMPTS: Record<string, string> = {
 
 export const linePrefix = (kind: string) => PROMPTS[kind] ?? '  ';
 
-/** What someone did when they wrote to it, by exchange kind. */
 export const SAID: Record<string, string> = {
     ask: 'asked',
     talk: 'handed it work',
@@ -52,11 +50,9 @@ const CHECKS: Record<string, string> = {
     pending: 'checks running',
 };
 
-/** The PR in a few words: GitHub's state and its checks, nothing the CDU said. */
 export const prLine = (pr: CduPrSummary) =>
     `#${pr.number} ${pr.state.toLowerCase()}, ${CHECKS[pr.checks] ?? 'no checks yet'}`;
 
-/** Where an exchange stands: waiting, silent, or answered, and whether it asked back. */
 export function exchangeWord(e: CduExchangeSummary): string {
     if (e.status === 'queued') return 'waiting for it';
     if (e.status === 'failed') return 'it fell silent';
@@ -71,7 +67,6 @@ export function exchangeWord(e: CduExchangeSummary): string {
 
 export const shortSha = (sha: string) => sha.slice(0, 7);
 
-/** A mind on the ladder: its tier and what it costs per million tokens. */
 export const mindLine = (m: CduModelSummary) =>
     Number(m.in) === 0 && Number(m.out) === 0
         ? `${m.id} · ${m.tier ?? '?'} · free`

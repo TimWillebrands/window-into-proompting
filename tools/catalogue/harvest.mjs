@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Catalogue pipeline (ADR 0027): POLY_PIZZA_KEY=… node tools/catalogue/harvest.mjs search (shortlist to review) | fetch (picks.json → prefabs).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +11,6 @@ const BACKEND = join(ROOT, 'backend/World/Places/prefabs.json');
 const API = 'https://api.poly.pizza/v1.1';
 const CREATORS = { Kenney: 'kenney', Quaternius: 'quaternius', 'Kay Lousberg': 'kay-lousberg' };
 const PREFIX = { kenney: 'k-', quaternius: 'q-', 'kay-lousberg': 'kl-' };
-/** Real-world metres per model unit; furniture kits are modelled small. Buildings fit their footprint instead. */
 const UNIT = { kenney: 2, quaternius: 1, 'kay-lousberg': 1 };
 const MAX_TRIS = 3000;
 
@@ -70,13 +68,11 @@ async function fetchPicks() {
         const creator = CREATORS[m.Creator.Username];
         if (!creator || !String(m.Licence).startsWith('CC0')) throw new Error(`${pick.id}: only whitelisted CC0 models`);
         const base = pick.name.replace(/^[a-z]+-/, '');
-        // The prefix says whose model it is (k- Kenney, kl- Kay Lousberg, q- Quaternius), whatever picks.json guessed.
         pick.name = `${PREFIX[creator]}${base}`;
         const file = `${pick.file ?? base}.glb`;
         const res = await fetch(m.Download, { headers: { 'User-Agent': 'Mozilla/5.0 proompting-catalogue' } });
         if (!res.ok) throw new Error(`${pick.id}: download HTTP ${res.status}`);
         const glb = Buffer.from(await res.arrayBuffer());
-        // Colour must live in the materials: the client draws flat vertex colours and drops textures.
         if (textured(glb)) {
             console.log(`✗ ${pick.name} (${m.Title}) is textured; pick a flat-coloured model instead`);
             continue;
@@ -95,7 +91,6 @@ async function fetchPicks() {
     writeBackend(entries);
 }
 
-/** Draft entry: size and fit from the measured box unless picks.json says otherwise. */
 function prefabFor(pick, creator, file, box, meta) {
     const building = /building/i.test(meta.Category ?? '');
     const unit = UNIT[creator];
@@ -126,7 +121,6 @@ ${body}
 `);
 }
 
-/** prefabs.json keeps primitives first, then the catalogue in picks order (the frontend test checks both lists match). */
 function writeBackend(entries) {
     const raw = readFileSync(BACKEND, 'utf8');
     const prefixes = Object.values(PREFIX);
@@ -141,8 +135,6 @@ function writeBackend(entries) {
 const gltfOf = (glb) => JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'));
 
 const textured = (glb) => (gltfOf(glb).materials ?? []).some((m) => m.pbrMetallicRoughness?.baseColorTexture);
-
-// ---- GLB measuring: world-space box of every mesh, node transforms applied ----
 
 function measure(glb) {
     const gltf = gltfOf(glb);
@@ -183,7 +175,6 @@ function local(node) {
     ];
 }
 
-/** Column-major 4×4 product a·b. */
 function mul(a, b) {
     const out = new Array(16).fill(0);
     for (let c = 0; c < 4; c++)

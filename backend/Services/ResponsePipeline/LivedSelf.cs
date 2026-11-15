@@ -2,17 +2,14 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>Shared prompt text for the Lived self (ADR 0021): a person with a sheet, not a sheet with a name.</summary>
 public static class LivedSelf
 {
-    /// <summary>Sits above the persona's own description so the sheet reads as background, not a script.</summary>
     public const string SheetFraming = """
         What follows describes you: background, not a script. You're a whole person and more than this
         description: you have off days, ordinary opinions, contradictions and interests nobody wrote down.
         Your traits show sideways and only sometimes; never perform them, and never reuse its example lines or catchphrases.
         """;
 
-    /// <summary>How people actually talk in a chat app; replaces the generic etiquette block.</summary>
     public const string ChatStyle = """
         You're typing in a chat app on your computer. Never acknowledge being an AI or playing a role.
 
@@ -32,7 +29,6 @@ public static class LivedSelf
         These are notes on how you talk, not topics: never mention them or talk about your own wording.
         """;
 
-    /// <summary>Place talk: out loud, face to face, somewhere real; replaces <see cref="ChatStyle"/> there.</summary>
     public const string InPersonStyle = """
         You're here in person, talking out loud with the people around you. Never acknowledge being an AI or playing a role.
 
@@ -54,7 +50,6 @@ public static class LivedSelf
         """;
 }
 
-/// <summary>Who else is in the conversation, one line each; people are just people, whoever drives them.</summary>
 public static class Roster
 {
     public static string Line(ParticipantView p) => p.Driver == DriverKind.System ? $"- {p.Name} (narrator)" : $"- {p.Name}";

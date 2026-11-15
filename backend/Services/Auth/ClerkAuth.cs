@@ -18,7 +18,6 @@ public sealed class ClerkOptions
     public string[] AdminUserIds { get; set; } = Array.Empty<string>();
 }
 
-/// <summary>Verifies Clerk session tokens from the bearer header or the __session cookie.</summary>
 public sealed class ClerkAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -30,7 +29,6 @@ public sealed class ClerkAuthHandler(
     public const string Scheme = "Clerk";
     public const string SessionCookie = "__session";
 
-    /// <summary>ASP.NET's cookie parser, because the SDK's splits on commas and throws on valueless cookies.</summary>
     public static string? ReadToken(HttpRequest request)
     {
         var header = request.Headers.Authorization.ToString();
@@ -53,13 +51,11 @@ public sealed class ClerkAuthHandler(
         }
         catch (TokenVerificationException ex)
         {
-            // Expiry is routine: tokens live a minute and a stale cookie just means anonymous.
             Logger.LogDebug(ex, "Clerk token rejected");
             return AuthenticateResult.Fail("Invalid session token.");
         }
     }
 
-    /// <summary>An agent's OAuth access token (ADR 0046): only the MCP endpoint takes one, and only one granted for it.</summary>
     private async Task<AuthenticateResult> OAuthAsync(string token)
     {
         if (!Request.Path.StartsWithSegments(ClerkAuth.McpPath)) return AuthenticateResult.Fail("OAuth tokens only reach the MCP endpoint.");
@@ -82,14 +78,10 @@ public static class ClerkAuth
     public const string UserIdClaim = "clerk_user_id";
     public const string AdminRole = "admin";
     public const string AdminPolicy = "Admin";
-    /// <summary>The agent app an OAuth token was granted to.</summary>
     public const string OAuthClientClaim = "oauth_client_id";
-    /// <summary>Where agents connect, below the /api path base.</summary>
     public const string McpPath = "/mcp";
-    /// <summary>McpAuth forwards sign-in to Clerk; a refusal answers like an MCP server, pointing at where to sign in.</summary>
     public const string McpPolicy = "Mcp";
 
-    /// <summary>Closed by default: every endpoint needs sign-in unless marked AllowAnonymous.</summary>
     public static IServiceCollection AddClerkAuth(this IServiceCollection services, IConfiguration config)
     {
         services.AddOptions<ClerkOptions>()
@@ -121,13 +113,10 @@ public static class ClerkAuth
 
 public sealed class ForbiddenActorException(string message) : Exception(message);
 
-/// <summary>Signed in, but hasn't made a character in this World yet.</summary>
 public sealed class NoPlayerException() : Exception("Create your character first.");
 
-/// <summary>The caller's Player is on auto, so the agent acts for them.</summary>
 public sealed class OnAutoException() : Exception("Your character is on auto.");
 
-/// <summary>Turns an identity refusal from deep in an action into a 403 or 409.</summary>
 public sealed class ForbiddenActorFilter : IExceptionFilter
 {
     public void OnException(ExceptionContext context)

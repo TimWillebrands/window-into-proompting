@@ -20,11 +20,9 @@ type WebGPURendererParameters = NonNullable<
     ConstructorParameters<typeof WebGPURenderer>[0]
 >;
 
-/** The light's colour, shadowed; three's typings leave it off point lights. */
 const colorOf = (node: PointLightNode | SpotLightNode) =>
     (node as unknown as { colorNode: Node }).colorNode;
 
-/** Set to `webgl` in localStorage to skip WebGPU; without WebGPU three falls back to WebGL2 by itself. */
 const FORCE_KEY = 'places.renderer';
 
 const forceWebGL = () => {
@@ -35,7 +33,6 @@ const forceWebGL = () => {
     }
 };
 
-/** Light pools fall off in whole stops, so lamps draw rings, not mush. */
 const stops = (falloff: Node) =>
     falloff
         .lessThanEqual(0)
@@ -64,7 +61,6 @@ class SteppedPointLightNode extends PointLightNode {
     }
 }
 
-/** Spot cones step in thirds as well. */
 class SteppedSpotLightNode extends SpotLightNode {
     setupDirect(builder: NodeBuilder) {
         const { direction, falloff } = falloffOf(this, builder);
@@ -81,7 +77,6 @@ class SteppedSpotLightNode extends SpotLightNode {
     }
 }
 
-/** The renderer every Places canvas draws with: WebGPU where there is one, WebGL2 otherwise, lit the house way. */
 export async function placesRenderer(
     params: WebGPURendererParameters,
 ): Promise<WebGPURenderer> {
@@ -92,13 +87,11 @@ export async function placesRenderer(
     const lights = renderer.library.lightNodes as WeakMap<object, unknown>;
     lights.set(PointLight, SteppedPointLightNode);
     lights.set(SpotLight, SteppedSpotLightNode);
-    // Checking every shader stalls on compile; worth it in dev only.
     renderer.debug.checkShaderErrors = import.meta.env.DEV;
     await renderer.init();
     return renderer;
 }
 
-/** A `<Canvas gl>` factory: R3F's defaults, ours on top. */
 export const canvasRenderer =
     (params: WebGPURendererParameters = {}) =>
     (defaults: object) =>

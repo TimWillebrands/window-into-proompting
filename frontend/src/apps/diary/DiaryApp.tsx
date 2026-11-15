@@ -19,7 +19,6 @@ const formatDate = (ts: number | string | undefined) =>
               minute: '2-digit',
           });
 
-/** Diaries — Notepad: read-only view of one persona's private journal. */
 export default function DiaryApp({ personaId }: { personaId?: string }) {
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
     const personas = (livesQuery.data.data ?? []).filter(
@@ -32,7 +31,6 @@ export default function DiaryApp({ personaId }: { personaId?: string }) {
         personaId ?? personas[0]?.personaId ?? null,
     );
 
-    // Follow external opens (World Monitor → Diary) on an already-open window.
     useEffect(() => {
         if (personaId) setSelectedId(personaId);
     }, [personaId]);

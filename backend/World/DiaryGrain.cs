@@ -1,9 +1,5 @@
 namespace PartyTown.World;
 
-/// <summary>
-/// The Diary App's store: one Persona's private journal inside one Party (key = <c>party:persona</c>).
-/// The visible face of rest — entries are written alongside Consolidation.
-/// </summary>
 public sealed class DiaryGrain(
     [PersistentState(stateName: "diary", storageName: "parties")]
     IPersistentState<DiaryState> state)

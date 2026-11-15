@@ -7,10 +7,6 @@ using PartyTown.World.Work;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// ADR 0026: does "# Where you stand" + "# What you owe" ground replies in work and plans without turning every
-/// line into a status report? Same personas, same openers; only the work blocks differ between arms.
-/// </summary>
 public static partial class WorkProbes
 {
     private const int Samples = 3;

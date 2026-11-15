@@ -9,7 +9,6 @@ using PartyTown.World.Work.Practices;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Practices (ADR 0030): set someone up to take Clients, see who's booked, and book as anyone.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
 public sealed class PracticesController(IGrainFactory grains, Sessions sessions, Actors actors) : ControllerBase
@@ -26,7 +25,6 @@ public sealed class PracticesController(IGrainFactory grains, Sessions sessions,
             .ToList());
     }
 
-    /// <summary>"Persona xyz starts as a career coach for logistics". Days like "Mon-Fri"; hours like "09:00-17:00".</summary>
     [HttpPut("practices/{participantId:guid}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -56,7 +54,6 @@ public sealed class PracticesController(IGrainFactory grains, Sessions sessions,
         return Ok((await book.GetSessionsAsync()).OrderByDescending(s => s.StartsAt).Select(s => Of(s, homework)).ToList());
     }
 
-    /// <summary>Book the next free slot with a Practitioner, as any Client.</summary>
     [HttpPost("practices/{participantId:guid}/sessions")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SessionSummary>> Book(Guid partyId, Guid participantId, [FromBody] BookSessionRequest request)
@@ -90,7 +87,6 @@ public sealed record BookSessionRequest(Guid ClientId, string Reason);
 
 public sealed record PracticeSummary(Guid ParticipantId, string Name, string Title, string Workplace, string Days, string Hours, string Field, string Approach, int Fee);
 
-/// <param name="Status">Booked, Running, Done or Missed.</param>
 public sealed record SessionSummary(
     Guid Id, Guid PractitionerId, string PractitionerName, Guid ClientId, string ClientName, string Workplace, string Reason,
     long StartsAt, long? StartedAt, long? EndedAt, string Status, int Fee, bool Paid, string? Homework, bool? HomeworkKept);

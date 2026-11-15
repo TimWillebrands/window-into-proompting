@@ -59,12 +59,6 @@ After any change to the backend HTTP surface (routes, DTOs, status codes, OpenAP
 
 Frontend uses Biome (4-space indent, single quotes, trailing commas) — no Prettier/ESLint. Generated React Query hooks default to `useSuspenseQuery`.
 
-Don't write prose in comments, keep them concise and to the point. Use triple
-slash comments with xml tags for in-code docs.
-Comments and docblocks are 1 line max — if the why needs more, it belongs in
-an ADR, the issue, or a commit message. Sacrifice syntactical correctness
-for readability in writing.
-
 ## Git
 
 Commit straight to `master`, no feature branches (unless asked).

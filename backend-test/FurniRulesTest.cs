@@ -2,7 +2,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Furni decay and actions are pure: condition from timestamps, care capped to what's needed.</summary>
 public class FurniRulesTest
 {
     private const long Hour = 3_600_000;
@@ -72,7 +71,6 @@ public class FurniRulesTest
     }
 }
 
-/// <summary>Waking means getting up: the body leaves the bed for the kitchen, else another free spot.</summary>
 public class GetUpTest
 {
     private static Place Home(params string[] spots) => new() { Kind = PlaceKinds.Home, Spots = spots.Select(s => new Spot { Id = s, Name = s, Capacity = 1 }).ToList() };

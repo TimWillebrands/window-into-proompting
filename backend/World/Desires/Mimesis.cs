@@ -4,15 +4,10 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Desires;
 
-/// <summary>
-/// Mimetic desire (ADR 0026, after Girard): people come to want what people they know have or want. Asked inside
-/// the Moment appraisal's own System One call, voiced only on a hit, and capped hard; a little goes a long way.
-/// </summary>
 public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis> logger)
 {
     private const string Shape = """{"kind": "having or being", "want": "<one short plain line, second person>", "about": "<name of the person it's about, or nobody>"}""";
 
-    /// <summary>Pairs (who might catch, from whom) that clear the caps; the appraisal asks one noul each.</summary>
     public async Task<List<(ParticipantView Who, ParticipantView From)>> EligibleAsync(Guid partyId, IEnumerable<(ParticipantView Who, ParticipantView From)> pairs, DateTimeOffset now)
     {
         var eligible = new List<(ParticipantView, ParticipantView)>();
@@ -33,7 +28,6 @@ public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis
     public static SystemOneQuestion Question(ParticipantView who, ParticipantView from)
         => new NoulQuestion($"{who.Name} came away from this wanting something {from.Name} has or wants.");
 
-    /// <summary>The strongest hit (if any) becomes an Acquired Desire; one per appraisal at most.</summary>
     public async Task CatchAsync(Guid partyId, string transcript, IReadOnlyList<(ParticipantView Who, ParticipantView From)> eligible, SystemOneAnswers answers, IReadOnlyList<ParticipantView> present)
     {
         var hits = eligible.Select(e => (e.Who, e.From, P: answers.Noul(Key(e.Who, e.From), 0)))
@@ -62,7 +56,6 @@ public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis
         }
     }
 
-    /// <summary>Wanting the same person's attention as the one you caught it from: friction both ways, one rivalry per World.</summary>
     private async Task RivalryAsync(Guid partyId, ParticipantView who, ParticipantView from, Desire desire)
     {
         if (desire.TargetId is not { } target) return;
@@ -75,11 +68,9 @@ public sealed class Mimesis(IGrainFactory grains, IWorldLlm llm, ILogger<Mimesis
     }
 }
 
-/// <summary>Pure caps for mimesis: whom you imitate, how often, and how it sours.</summary>
 public static class MimesisRules
 {
     public const double Threshold = 0.7;
-    /// <summary>Exchanges before someone is close enough to imitate ("talked a fair bit").</summary>
     public const double KnowsAt = 10;
     public static readonly TimeSpan CatchEvery = TimeSpan.FromDays(3);
     public static readonly TimeSpan RivalryLasts = TimeSpan.FromDays(3);
@@ -96,7 +87,6 @@ public static class MimesisRules
         => !string.IsNullOrWhiteSpace(about) && about.Contains(name.Split(' ')[0], StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>Per-Party mimesis caps (key = Party id): when each persona last caught a desire, and the one live rivalry.</summary>
 public sealed class MimesisGrain(
     [PersistentState(stateName: "mimesis", storageName: "parties")]
     IPersistentState<MimesisState> state)
@@ -133,11 +123,8 @@ public sealed class MimesisGrain(
 public interface IMimesisGrain : IGrainWithGuidKey
 {
     [Alias("GetCaughtAtAsync")] Task<Dictionary<Guid, long>> GetCaughtAtAsync();
-    /// <summary>Reserve a catch for this persona; false within the cooldown.</summary>
     [Alias("TryCatchAsync")] Task<bool> TryCatchAsync(Guid who);
-    /// <summary>Start a rivalry; false while another one is live.</summary>
     [Alias("TryRivalryAsync")] Task<bool> TryRivalryAsync(Guid a, Guid b);
-    /// <summary>The live rivalry's pair, or empty.</summary>
     [Alias("GetRivalsAsync")] Task<List<Guid>> GetRivalsAsync();
 }
 

@@ -5,15 +5,6 @@ using PartyTown.Services.Seeding;
 
 namespace BackendTest;
 
-/// <summary>
-/// Behavioural tests for <see cref="NarratorSeeder"/>: ensures the singleton library Narrator
-/// Persona exists, and that every existing Party has a Narrator-Participant after back-fill.
-/// Issue #75 / ADR 0012.
-///
-/// One fixture per class, so PersonaRootGrain and PartyRootGrain state persists across the
-/// three tests below. Tests are written to be order-independent (the seeder is idempotent and
-/// each test uses a fresh Party id).
-/// </summary>
 public class NarratorSeederTest : IClassFixture<PartyClusterFixture>
 {
     private readonly PartyClusterFixture _fx;
@@ -50,8 +41,6 @@ public class NarratorSeederTest : IClassFixture<PartyClusterFixture>
     [Fact]
     public async Task RunAsync_BackfillsExistingPartyWithNarratorParticipant()
     {
-        // Simulate a legacy Party that pre-dates this PR: created via AddParty but never
-        // routed through SetParticipants. The seeder must add Narrator on its behalf.
         var partyId = Guid.NewGuid();
         var partyRoot = _fx.GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await partyRoot.AddParty(new PartyInfo { Id = partyId, Name = "legacy-party" });

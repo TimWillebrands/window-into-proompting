@@ -8,7 +8,6 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>AI rounds count the current exchange, not the Room's lifetime (#128).</summary>
 public class ExchangeRoundsTest
 {
     private static readonly Guid Alice = Guid.NewGuid();
@@ -20,18 +19,14 @@ public class ExchangeRoundsTest
         MessageId = id, SenderId = sender, SenderType = type, Content = content, SendAt = at,
     };
 
-    /// <summary>Alice and Bob alternating, one line every <paramref name="gap"/>, starting at <paramref name="from"/>.</summary>
     private static List<ChatMessage> Alternating(int count, TimeSpan gap, long from, int firstId = 1)
         => Enumerable.Range(0, count)
             .Select(i => Line(firstId + i, i % 2 == 0 ? Alice : Bob, from + (long)(gap.TotalMilliseconds * i)))
             .ToList();
 
-    // ── The count ──
-
     [Fact]
     public void OldAllAiHistory_CountsOnlyTheCurrentExchange()
     {
-        // Thirty lines at Life tempo: nothing before the latest is within the exchange window.
         var history = Alternating(30, TimeSpan.FromMinutes(30), T0);
 
         Assert.Equal(1, UrgeMath.CountExchangeRounds(history));
@@ -50,7 +45,6 @@ public class ExchangeRoundsTest
     [Fact]
     public void LinesAFewMinutesApart_StayOneExchange()
     {
-        // Life adds a line every few minutes: no long gap, but only the window counts.
         var history = Alternating(40, TimeSpan.FromMinutes(4), T0);
 
         var window = (int)(UrgeMath.ExchangeWindow / TimeSpan.FromMinutes(4)) + 1;
@@ -74,8 +68,6 @@ public class ExchangeRoundsTest
         Assert.Equal(8, UrgeMath.CountExchangeRounds(history));
     }
 
-    // ── Both counters agree ──
-
     [Fact]
     public void GrainAndPipelineSnapshot_CountTheSameHistory()
     {
@@ -98,12 +90,10 @@ public class ExchangeRoundsTest
         for (var i = 1; i <= 10; i++) Spoke(i % 2 == 0 ? Alice : Bob, T0 + (long)TimeSpan.FromMinutes(30 * i).TotalMilliseconds);
         var quick = T0 + (long)TimeSpan.FromHours(8).TotalMilliseconds;
         for (var i = 0; i < 4; i++) Spoke(i % 2 == 0 ? Alice : Bob, quick + i * 10_000L);
-        // A declined turn and an open slot sit in the log as empty stubs.
         state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = room, SenderId = Alice, SenderType = "assistant" });
         state.Apply(new ChatGroupGenerationStoppedEvent { MessageId = state.NextMessageId, SendAt = quick + 50_000 });
         state.Apply(new ChatGroupMessageSlotReservedEvent { ChatGroupId = room, SenderId = Bob, SenderType = "assistant" });
 
-        // What ChatGroupGrain.CountTrailingAssistantMessagesAsync counts over, and the pipeline's GetMessagesUntilAsync snapshot.
         var grain = UrgeMath.CountExchangeRounds(state.Messages);
         var openSlot = state.NextMessageId;
         var snapshot = state.Messages.Where(m => m.MessageId < openSlot).OrderBy(m => m.MessageId).Select(m => m with { }).ToList();
@@ -112,8 +102,6 @@ public class ExchangeRoundsTest
         Assert.Equal(4, grain);
         Assert.Equal(grain, pipeline);
     }
-
-    // ── Places ──
 
     [Fact]
     public void Place_OldAiLines_UnnamedLineIsNoObviousSkip()
@@ -144,8 +132,6 @@ public class ExchangeRoundsTest
 
         Assert.True(UrgeMath.IsObviousSkip(urge, rounds, recentSelf));
     }
-
-    // ── Persona-to-Persona DMs ──
 
     [Fact]
     public async Task Dm_OldAllAiHistory_IsNotExhausted()
@@ -192,7 +178,6 @@ public class ExchangeRoundsTest
         chatGroup.Verify(g => g.BeginTurnAsync(Alice, trigger.MessageId, It.IsAny<double?>()), Times.Once);
     }
 
-    /// <summary>A DM between Alice and Bob whose grain counts rounds the way ChatGroupGrain does.</summary>
     private static Mock<IChatGroupGrain> DmChatGroup(List<ChatMessage> history)
     {
         Assert.Equal(Bob, history[^1].SenderId);
@@ -219,7 +204,6 @@ public class ExchangeRoundsTest
         return chatGroup;
     }
 
-    /// <summary>Alice hears the trigger; past the pre-gate the turn is cancelled, all that matters is whether it began.</summary>
     private static Task HandleAsync(Mock<IChatGroupGrain> chatGroup, ChatMessage trigger)
     {
         var pipeline = new ResponsePipeline(

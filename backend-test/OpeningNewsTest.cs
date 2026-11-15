@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Openings as news (ADR 0027): a Happening reaches everyone's memory, so only footfall earns one.</summary>
 public class OpeningNewsTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly WorldLifeTest.Fixture _fx;

@@ -5,10 +5,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World;
 
-/// <summary>
-/// Automatic Capture for a Party's chats (ADR 0018), key = Party id: on each clock tick, a Room/DM/Place talk
-/// that went quiet becomes one remembered moment, gated by System One. Owns the per-thread lull cursors.
-/// </summary>
 public sealed class LullCaptureGrain(
     [PersistentState(stateName: "lullcapture", storageName: "parties")]
     IPersistentState<LullCaptureState> state,
@@ -30,7 +26,6 @@ public sealed class LullCaptureGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>Automatic Capture: a conversation that went quiet becomes one remembered moment.</summary>
     public async Task SweepAsync()
     {
         var now = DateTimeOffset.UtcNow;
@@ -55,7 +50,6 @@ public sealed class LullCaptureGrain(
                     break;
             }
         }
-        // Only cursor moves are worth a storage write; most ticks change nothing here.
         if (moved) await state.WriteStateAsync();
     }
 
@@ -92,7 +86,6 @@ public sealed class LullCaptureGrain(
         }
     }
 
-    /// <summary>Capture as relevance realization: System One judges whether the span is worth a memory at all.</summary>
     private async Task<bool> IsMemorableAsync(List<ChatMessage> context, List<ParticipantView> present)
     {
         var names = present.ToDictionary(p => p.Id, p => p.Name);
@@ -118,9 +111,7 @@ public sealed class LullCaptureGrain(
 [Alias("PartyTown.World.ILullCaptureGrain")]
 public interface ILullCaptureGrain : IGrainWithGuidKey
 {
-    /// <summary>One pass over the Party's chats: seed new ones, capture the lulled.</summary>
     [Alias("SweepAsync")] Task SweepAsync();
-    /// <summary>Takes over cursors from the World clock's older state; existing ones win.</summary>
     [Alias("AdoptCursorsAsync")] Task AdoptCursorsAsync(Dictionary<Guid, int> cursors);
 }
 

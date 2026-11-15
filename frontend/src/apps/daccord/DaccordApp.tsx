@@ -46,9 +46,6 @@ export default function DaccordApp() {
         [setWindowProps, windowId],
     );
     const exitRoom = useCallback(() => {
-        // Prefer consuming the existing browser entry (so forward re-enters).
-        // On a deep-link reload there is no entry to consume — fall back to
-        // a replace so we don't pollute history.
         if (typeof window !== 'undefined' && window.history.length > 1) {
             router.history.back();
         } else {
@@ -80,7 +77,6 @@ export default function DaccordApp() {
     const chatGroups = useMemo(() => {
         const raw = chatGroupsQuery.data?.data;
         if (!Array.isArray(raw)) return [];
-        // DMs are Rooms too (kind "dm") but belong to Messenger.
         const mapped = raw.flatMap((g) =>
             g.id && g.name && g.kind !== 'dm' && g.kind !== 'place'
                 ? [
@@ -128,7 +124,6 @@ export default function DaccordApp() {
             : 'Failed to create room.'
         : null;
 
-    // Push search bar into the window title bar (only when on the hub view).
     const titleBarNode = useMemo(() => {
         if (view.kind !== 'hub') return null;
         return (
@@ -163,7 +158,6 @@ export default function DaccordApp() {
                     onCreateRoom={() => setCreateOpen(true)}
                 />
                 <main className="flex flex-1 min-w-0 flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
-                    {/* Glass header — back button + room title */}
                     <div className="flex items-center gap-2 px-4 py-2">
                         <button
                             type="button"

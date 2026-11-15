@@ -9,12 +9,10 @@ export interface Pr {
     url: string;
     title: string;
     state: 'OPEN' | 'MERGED' | 'CLOSED';
-    /** The head commit the checks are for. */
     head: string;
     checks: Checks;
 }
 
-/** The Agora, as far as the tide needs it. */
 export interface GitHub {
     view(number: number): Promise<Pr>;
     create(head: string, base: string, title: string, body: string): Promise<Pr>;
@@ -33,7 +31,6 @@ export type TideOut = { kind: 'calm' } | { kind: 'opened' | 'updated'; pr: Pr; c
 export interface Verdict {
     kind: 'merged' | 'closed';
     pr: Pr;
-    /** Where closed work was kept. */
     tag?: string;
 }
 
@@ -43,7 +40,6 @@ export interface TideOptions {
     github: GitHub;
     base?: string;
     branch?: string;
-    /** The PR this tide is out as, from the last run. */
     pr?: number | null;
     onPr?: (pr: number | null) => void;
     now?: () => number;
@@ -56,7 +52,6 @@ const Close = '<!-- /cdu:commits -->';
 export const prTitle = (commits: Commit[]) =>
     commits.length === 1 ? commits[0].subject : `${commits[0].subject} (+${commits.length - 1} more)`;
 
-/** The commit list is the service's; anything the CDU wrote around it stays. */
 export function prBody(commits: Commit[], before = ''): string {
     const list = `${Open}\n${commits.map((c) => `- ${c.sha.slice(0, 7)} ${c.subject} (asked by ${c.author})`).join('\n')}\n${Close}`;
     const start = before.indexOf(Open);
@@ -65,7 +60,6 @@ export function prBody(commits: Commit[], before = ''): string {
     return `${list}\n\nThe CDU's trunk, out with the tide at the end of a shift. Each commit is authored by the Cytheurgist who asked for it.`;
 }
 
-/** The PR's checks in one word; anything still running is pending, any failure is failing. */
 export function checksOf(rollup: Array<Record<string, unknown>> | undefined): Checks {
     if (!rollup || rollup.length === 0) return 'none';
     const bad = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE', 'ERROR']);
@@ -74,7 +68,6 @@ export function checksOf(rollup: Array<Record<string, unknown>> | undefined): Ch
     return 'passing';
 }
 
-/** The trunk and how it meets master: in at shift start, out as the one PR at shift end, reset on any verdict. */
 export class Tide {
     readonly repo: string;
     readonly base: string;
@@ -109,7 +102,6 @@ export class Tide {
         this.onPr(pr);
     }
 
-    /** A clone with a trunk, made on first start and kept on the volume after. */
     async ensure() {
         if (!existsSync(path.join(this.repo, '.git'))) await must('git', ['clone', this.origin, this.repo]);
         await this.git('fetch', 'origin');
@@ -118,7 +110,6 @@ export class Tide {
         else await this.git('checkout', '-B', Trunk, `origin/${this.base}`);
     }
 
-    /** Who the next commits are by; the committer stays the CDU. */
     async author(name: string, email: string) {
         await this.git('config', 'user.name', name);
         await this.git('config', 'user.email', email);
@@ -136,7 +127,6 @@ export class Tide {
         }) : [];
     }
 
-    /** What the trunk holds that master doesn't. */
     ahead() {
         return this.log(`origin/${this.base}..${Trunk}`);
     }
@@ -145,13 +135,11 @@ export class Tide {
         return this.log(`${sha}..${Trunk}`);
     }
 
-    /** A file as master has it: what the One merged, not what the trunk holds. */
     async show(file: string): Promise<string | null> {
         const ran = await run('git', ['-C', this.repo, 'show', `origin/${this.base}:${file}`]);
         return ran.code === 0 ? ran.stdout : null;
     }
 
-    /** Shift start: the trunk rebased on master. A conflict is left for the CDU, its trunk untouched. */
     async in(): Promise<TideIn> {
         await this.git('fetch', 'origin');
         await this.git('checkout', Trunk);
@@ -163,7 +151,6 @@ export class Tide {
         return { kind: 'rebased', ahead: (await this.ahead()).length };
     }
 
-    /** Shift end: the trunk out as the one PR, opened or brought up to date. */
     async out(): Promise<TideOut> {
         const commits = await this.ahead();
         if (commits.length === 0) return { kind: 'calm' };
@@ -178,12 +165,10 @@ export class Tide {
         return { kind: 'opened', pr, commits };
     }
 
-    /** The open PR as it stands, or null when the tide is in. */
     look(): Promise<Pr | null> {
         return this.openPr ? this.github.view(this.openPr) : Promise.resolve(null);
     }
 
-    /** Any verdict on the open PR resets the trunk to master; closed work is kept as a tag first. */
     async verdict(): Promise<Verdict | null> {
         const pr = await this.look();
         if (!pr || pr.state === 'OPEN') return null;
@@ -205,7 +190,6 @@ export class Tide {
     }
 }
 
-/** GitHub through the `gh` CLI, with whatever token it was given. */
 export class GhCli implements GitHub {
     private readonly repo: string;
 

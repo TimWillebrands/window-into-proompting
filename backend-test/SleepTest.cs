@@ -2,7 +2,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>When Bodies sleep: a stable chronotype per Persona, or their day's first beat as waking.</summary>
 public class SleepTest
 {
     [Fact]
@@ -32,6 +31,6 @@ public class SleepTest
         var (bed, wake) = Sleep.Window(Guid.Empty, firstBeat: 6 * 60, lastBeat: 23 * 60 + 45);
 
         Assert.Equal(6 * 60, wake);
-        Assert.Equal(15, bed); // 23:45 + 30 min, past midnight
+        Assert.Equal(15, bed);
     }
 }

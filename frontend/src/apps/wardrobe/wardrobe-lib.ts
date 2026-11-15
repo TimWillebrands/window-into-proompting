@@ -2,7 +2,6 @@ import type { Appearance } from '../../api/model/appearance';
 import type { ShopItem } from '../../api/model/shopItem';
 import { paletteHex } from '../places/iso/appearance';
 
-/** Catalogue tabs, in shop-floor order. */
 export const TABS: {
     id: string;
     label: string;
@@ -22,7 +21,6 @@ export const inTab = (item: ShopItem, tab: string) => {
     return !t || t.slots.length === 0 || t.slots.includes(item.slot);
 };
 
-/** Haircuts and dye are done to you, never owned or given. */
 export const isService = (item: ShopItem) =>
     item.slot === 'hair' || item.slot === 'hairStyle';
 
@@ -85,7 +83,6 @@ const SHOE: Record<string, string> = {
     loafers: '👞',
 };
 
-/** The big icon on an item's tile. */
 export function itemIcon(item: ShopItem): string {
     const p = item.picks ?? {};
     switch (item.slot) {
@@ -108,13 +105,11 @@ export function itemIcon(item: ShopItem): string {
     }
 }
 
-/** The swatch behind the icon: the item's own colour where it has one. */
 export function itemColour(item: ShopItem): string {
     const p = item.picks ?? {};
     return paletteHex(p.top ?? p.bottom ?? p.shoes ?? p.hair, '#e8dff5');
 }
 
-/** Design slots a shop slot replaces, as the backend's FigureDesign does when you buy it. */
 const REPLACES: Record<string, string[]> = {
     top: ['top', 'under', 'outer'],
     bottom: ['bottom'],
@@ -123,7 +118,6 @@ const REPLACES: Record<string, string[]> = {
     hairStyle: ['hair'],
 };
 
-/** A look with items tried on over it; later items win per appearance key. */
 export function tryOn(
     base: Appearance | null | undefined,
     items: ShopItem[],
@@ -139,7 +133,6 @@ export function tryOn(
     return look as Appearance;
 }
 
-/** One try-on per slot: picking another top swaps the top. */
 export function toggleTry(tried: ShopItem[], item: ShopItem): ShopItem[] {
     if (tried.some((t) => t.key === item.key))
         return tried.filter((t) => t.key !== item.key);

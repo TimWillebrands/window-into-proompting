@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.World.Places;
 
-/// <summary>A thing's words against the catalogue (ADR 0027): a model whose head noun the description names, best overlap first.</summary>
 public static partial class CatalogueMatch
 {
     private static readonly string[] Prefixes = { "k-", "kl-", "q-" };
@@ -18,7 +17,6 @@ public static partial class CatalogueMatch
     public static IReadOnlyList<PrefabInfo> Catalogue
         => PlaceDesign.Prefabs.Values.Where(p => Prefixes.Any(x => p.Name.StartsWith(x, StringComparison.Ordinal))).ToList();
 
-    /// <summary>Up to <paramref name="take"/> catalogue models whose head noun ("plant" of k-potted-plant) the description names.</summary>
     public static List<PrefabInfo> Candidates(string description, IEnumerable<PrefabInfo> catalogue, int take = 5)
     {
         var said = Words(description).ToHashSet();

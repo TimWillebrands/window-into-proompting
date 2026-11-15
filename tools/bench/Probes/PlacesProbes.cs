@@ -5,10 +5,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// Places phase 3 (ADR 0020): does a Body make replies more grounded? Same personas,
-/// same day, same lines — only the "Where you are" Situation differs between arms.
-/// </summary>
 public static partial class PlacesProbes
 {
     private const int Samples = 3;
@@ -26,7 +22,6 @@ public static partial class PlacesProbes
         ("home", "You're at home (a small apartment), sitting on the sofa, on your phone, texting. Nobody else is home. You've been at home for 3 h."),
     };
 
-    /// <summary>Stale shared metaphors seen in the live world run (spec § Decisions so far).</summary>
     private static readonly string[] Stale = { "lantern", "cathedral", "load-bearing", "scaffolding", "foundation", "floor plan", "seam" };
 
     [Probe("Places A/B: Speaking phase with vs without the Situation line. 2 personas × 3 openers × 2 situations, 3 samples each; counts concrete/situational and stale-metaphor words.")]

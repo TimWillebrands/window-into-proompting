@@ -11,7 +11,6 @@ import { WORLD_ID } from '../../lib/world';
 
 type Cached = { data?: BoardThread[] } | undefined;
 
-/** Post, reply and Respect! for the Player; Respect! flips locally before the server answers. */
 export function useBoardActions(
     playerId: string | null,
     playerName: string | null,

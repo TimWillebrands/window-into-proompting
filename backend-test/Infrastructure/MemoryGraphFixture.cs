@@ -4,7 +4,6 @@ using PartyTown.Data;
 
 namespace BackendTest.Infrastructure;
 
-/// <summary>Integration tests' Postgres+AGE: the shared Testcontainers one (<see cref="AgeDb"/>), or <c>PARTYTOWN_TEST_CONN</c> when set.</summary>
 public sealed class MemoryGraphFixture : IAsyncLifetime
 {
     public string ConnectionString { get; private set; } = string.Empty;
@@ -40,7 +39,6 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            // Same migrations as backend boot, so tests run against the indexed schema; no-op once applied.
             await MemoryGraphSchema.EnsureAsync(probe);
             IsAvailable = true;
         }
@@ -51,7 +49,6 @@ public sealed class MemoryGraphFixture : IAsyncLifetime
         }
     }
 
-    /// <summary>Same database with Postgres session settings applied, e.g. to force a plan.</summary>
     public IDbContextFactory<AppDbContext> FactoryWith(string sessionOptions) => new TestDbContextFactory(
         new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(new NpgsqlConnectionStringBuilder(ConnectionString) { Options = sessionOptions }.ConnectionString)
