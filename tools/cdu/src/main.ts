@@ -8,7 +8,6 @@ import { Feed } from './feed.ts';
 import { createPiMind, type MeterModel } from './pi.ts';
 import { GhCli, Tide } from './tide.ts';
 
-// Pi can crash the process from a tool (pi #10585): die loudly and let the container restart us.
 process.on('uncaughtException', (error) => {
     console.error('uncaught, restarting:', error);
     process.exit(1);

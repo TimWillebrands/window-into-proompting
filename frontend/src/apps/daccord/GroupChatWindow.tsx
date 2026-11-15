@@ -74,14 +74,11 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     const [inputValue, setInputValue] = useState('');
     const [selectedPersonaId, setSelectedPersonaId] = useState('');
 
-    // Participant management – backed by actual party state
     const [participantPersonaIds, setParticipantPersonaIds] = useState<
         string[]
     >([]);
     const [savedParticipantPersonaIds, setSavedParticipantPersonaIds] =
         useState<string[]>([]);
-    // Tracks which chatGroupId we've already seeded participant state for —
-    // resets when the user switches rooms so per-room cast loads correctly.
     const initializedForChatGroupId = useRef<string | null>(null);
     const lastSavedUserPersonaId = useRef<string | null>(null);
 
@@ -110,10 +107,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
             chatGroupId,
         );
 
-    // Seed participant state from per-room server data on first load. Membership
-    // (ids only) comes from the participants endpoint; the user-driven Persona is
-    // resolved from the Room's Driver override map (any entry with kind="User"
-    // means that Persona is User-Effective in this Room).
     useEffect(() => {
         if (initializedForChatGroupId.current === chatGroupId) return;
         if (chatGroupParticipantsQuery.data.status !== 200) return;
@@ -122,8 +115,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         const overrides = chatGroupDriverOverridesQuery.data.data ?? [];
         const userOverride = overrides.find((o) => o.kind === DriverKind.User);
         const userId = userOverride?.personaId ?? '';
-        // Narrator (System-driven) is hard-filtered: PartyGrain keeps it in the cast
-        // server-side, but it never appears in the AI-toggle UI.
         const aiIds = ids.filter(
             (id) => id !== userId && id !== NARRATOR_PERSONA_ID,
         );
@@ -184,8 +175,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         usePutPartyIdChatGroupsChatGroupIdParticipants({
             mutation: {
                 onSuccess: (_data, variables) => {
-                    // Strip the user-Persona id from the AI cast — the User-driven
-                    // Persona is set separately via the driver-overrides endpoint.
                     const userId = lastSavedUserPersonaId.current ?? '';
                     const ids = (variables.data.participantIds ?? []).filter(
                         (id): id is string =>
@@ -245,8 +234,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         }
     }, [isNearBottom, unreadCount]);
 
-    // Keep selected persona in sync: auto-select first promptable persona if current selection is unavailable.
-    // Wait for the per-chat-group seed to land first so we don't race over a freshly-loaded user-persona.
     useEffect(() => {
         if (initializedForChatGroupId.current !== chatGroupId) return;
         if (partyDetailsQuery.data.status !== 200) return;
@@ -269,8 +256,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         chatGroupId,
     ]);
 
-    // The user-driven Persona is both membership and a Driver override (kind=User) so the
-    // Response pipeline short-circuits; other Personas' overrides are kept.
     const saveRoomCast = useCallback(
         (aiPersonaIds: string[], userPersonaId: string) => {
             const participantIds = userPersonaId
@@ -341,7 +326,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
         [messages],
     );
 
-    // Detect appraisal stop directed at the user's persona that hasn't been responded to yet
     const pendingInstruction = useMemo(
         () => pendingInstructionFor(uniqueMessages, selectedPersonaId),
         [uniqueMessages, selectedPersonaId],
@@ -358,7 +342,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     ]);
 
     const partyPersonas = partyDetailsQuery.data.data.personaParticipants;
-    // Narrator is System-driven; never offer it as a User-driver sender option.
     const promptablePersonas = partyPersonas.filter(
         (p) =>
             p.id !== NARRATOR_PERSONA_ID &&
@@ -378,10 +361,7 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
             className="app-surface flex h-full"
             style={{ background: 'transparent' }}
         >
-            {/* Main chat column — the room header (name, scenario, connection)
-                lives in DaccordApp; this column is just messages + composer. */}
             <div className="flex-1 flex flex-col min-w-0 h-full">
-                {/* Message area */}
                 <div className="flex-1 flex flex-col min-h-0">
                     <div
                         ref={scrollRef}
@@ -498,7 +478,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                             : null}
                     </div>
 
-                    {/* Unread indicator */}
                     {!isNearBottom && unreadCount > 0 ? (
                         <div
                             className="flex items-center justify-between px-2 py-1"
@@ -526,7 +505,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                         </div>
                     ) : null}
 
-                    {/* Input area */}
                     <form
                         className="p-2 space-y-1"
                         style={{
@@ -673,7 +651,6 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                 </div>
             </div>
 
-            {/* Right sidebar: participants + thoughts */}
             <ParticipantsSidebar
                 personas={partyPersonas}
                 participantPersonaIds={participantPersonaIds}
@@ -743,15 +720,11 @@ function ParticipantsSidebar({
     onReset: () => void;
 }) {
     const participantSet = new Set(participantPersonaIds);
-    // All library Personas are LLM-driven by definition; the user-driven Persona is
-    // expressed as a Driver override on the Room, not as a Persona-library flag.
     const aiPersonas = personas;
     const userPersona = personas.find((p) => p.id === selectedPersonaId);
     const totalActive =
         participantPersonaIds.length + (selectedPersonaId ? 1 : 0);
 
-    // Roster shows only the room's cast by default; the full persona library is
-    // one click away. An empty roster opens the library so there's something to add.
     const [libraryOpen, setLibraryOpen] = useState(false);
     const showLibrary = libraryOpen || participantPersonaIds.length === 0;
     const visibleAiPersonas = showLibrary
@@ -762,24 +735,10 @@ function ParticipantsSidebar({
           });
     const hiddenCount = aiPersonas.length - visibleAiPersonas.length;
 
-    // The Thought Log is curator telemetry — collapsed by default so the room
-    // opens as a chat, not a debug console.
     const [thoughtsOpen, setThoughtsOpen] = useState(false);
 
     const decidingPhases = livePhases.filter((p) => p.phase === 'deciding');
 
-    // Combined thought log: "go" decisions from persisted messages + "skip" decisions
-    // captured at runtime + stop-signal "race" outcomes streamed live.
-    //
-    // Each entry carries a `kind` discriminator so the renderer can colour-code variants:
-    //   go               — persona decided to speak (LLM said yes)
-    //   decline          — persona decided NOT to speak (LLM said no)
-    //   skip-obvious     — pre-gate skip (math decisive, no LLM call)
-    //   race-cancel-decision   — race killed an in-flight decision phase
-    //   race-cancel-generation — race killed an in-flight generation
-    //   race-past-pnr          — past PNR; ship-as-is, repair queued
-    //   race-continue          — race let it ride
-    //   emote            — race-cancelled message that shipped as an in-character emote
     const thoughtLog = useMemo(() => {
         type LogEntry = {
             key: string;
@@ -803,8 +762,6 @@ function ParticipantsSidebar({
 
         const entries: LogEntry[] = [];
 
-        // Decisions persisted on messages: appraisal.stop discriminates go vs decline.
-        // Race-cancelled messages get kind=emote (the appraisal carries raceCancelled=true).
         for (const msg of allMessages) {
             const raw = parseAppraisal(msg.appraisal);
             if (!raw) continue;
@@ -831,7 +788,6 @@ function ParticipantsSidebar({
             });
         }
 
-        // Pre-gate skips streamed via the declined event (ephemeral, in-memory).
         for (const d of declinedDecisions) {
             const persona = personas.find((p) => p.id === d.personaId);
             entries.push({
@@ -848,8 +804,6 @@ function ParticipantsSidebar({
             });
         }
 
-        // Race outcomes from the stop-signal classifier. Use sendAt for sorting since
-        // race events can fire multiple times per triggering message.
         for (const r of raceEvaluations) {
             const persona = personas.find((p) => p.id === r.personaId);
             const kind: LogEntry['kind'] =
@@ -928,11 +882,9 @@ function ParticipantsSidebar({
                 overflow: 'hidden',
             }}
         >
-            {/* ── Participants section ── */}
             <div style={{ overflow: 'hidden auto' }}>
                 {sectionLabel(`Participants — ${totalActive}`)}
 
-                {/* AI list */}
                 {visibleAiPersonas.map((persona) => {
                     const id = persona.id ?? '';
                     const isActive = participantSet.has(id);
@@ -997,7 +949,6 @@ function ParticipantsSidebar({
                     );
                 })}
 
-                {/* Library toggle — reveal/hide personas not in this room */}
                 {(hiddenCount > 0 || libraryOpen) &&
                     participantPersonaIds.length > 0 && (
                         <button
@@ -1012,7 +963,6 @@ function ParticipantsSidebar({
                         </button>
                     )}
 
-                {/* User row */}
                 {userPersona && (
                     <>
                         <div
@@ -1058,7 +1008,6 @@ function ParticipantsSidebar({
                     </>
                 )}
 
-                {/* Inline status / save controls */}
                 {participantPersonaIds.length === 0 &&
                     aiPersonas.length > 0 && (
                         <div
@@ -1110,7 +1059,6 @@ function ParticipantsSidebar({
                 )}
             </div>
 
-            {/* ── Thought Log section (collapsed by default) ── */}
             <div
                 style={{
                     borderTop: '2px solid #ACA899',
@@ -1174,7 +1122,6 @@ function ParticipantsSidebar({
 
                 {thoughtsOpen && (
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {/* Live: personas currently deciding */}
                         {decidingPhases.map((phase) => {
                             const personaId = phase.personaName;
                             const persona = personas.find(
@@ -1238,7 +1185,6 @@ function ParticipantsSidebar({
                             );
                         })}
 
-                        {/* Settled decisions (go + skip), newest first */}
                         {thoughtLog.length === 0 &&
                         decidingPhases.length === 0 ? (
                             <div
@@ -1254,8 +1200,6 @@ function ParticipantsSidebar({
                             </div>
                         ) : (
                             thoughtLog.map((entry) => {
-                                // Per-variant colour: green = go, amber = decline/skip,
-                                // red = race-cancel, purple = past-pnr/continue/emote.
                                 const variantStyle = (() => {
                                     switch (entry.kind) {
                                         case 'go':
@@ -1456,9 +1400,6 @@ function ChatBubble({
     const userPersonaName =
         personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
 
-    // Race-cancelled message — shipped as an in-character abandonment line. Render
-    // as a plain italic beat (grey, no avatar/bubble, no error chrome) so it reads as
-    // character behaviour rather than a system error or a normal speech turn.
     if (message.kind === 'emote') {
         return (
             <div
@@ -1894,11 +1835,10 @@ function StreamingIndicator({
         );
     }
     if (info.phase === 'deciding') {
-        // deciding phases are shown in the sidebar Thoughts tab, not inline
         return null;
     }
     if (info.phase === 'typing' || info.phase === 'streaming') {
-        const personaId = info.personaName; // actually the ID from attend event
+        const personaId = info.personaName;
         const resolvedName =
             personas?.find((p) => p.id === personaId)?.name ??
             personaId.slice(0, 8);
@@ -1979,7 +1919,6 @@ function StreamingIndicator({
     );
 }
 
-/** sendAt is unix ms; ISO strings still accepted. */
 function formatTime(at: number | string | null | undefined): string {
     if (!at) return '';
     try {

@@ -3,7 +3,6 @@ using PartyTown.World.Apps;
 
 namespace BackendTest;
 
-/// <summary>Partyboard as a feed: the 280 cap, Respect! targeting and notifications, title-less posts.</summary>
 public class PartyboardTest
 {
     private static readonly Guid Me = Guid.NewGuid();

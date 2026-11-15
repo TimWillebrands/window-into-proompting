@@ -714,19 +714,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A workplace **Place** has one **Door**, its staff (from **Occupations**) and an access list; a workplace has no **Keys**.
 - An **Arrival** seeds one **Participant**'s **Nurture** and may add to other **Participants**' **Nurture** in the same **Party**.
 
-## Example dialogue
-
-> **Dev:** When the human sends a message in a **Room**, what's the sender on that message?
-> **Tim:** A **Participant** — specifically the one whose **Driver** is `User`. The human acts *through* a Persona; there's no separate "user message" path.
->
-> **Dev:** So a **Persona** can be in multiple **Parties** with different Drivers in each?
-> **Tim:** Yes — same Persona, different Participants. The Driver lives on the Participant. Each Participant has its own per-Party Memories too, so the same Persona will "remember" different things depending on which Party you meet them in.
->
-> **Dev:** If I delete a **Persona** from the library, what happens to a **Room** that had them as cast?
-> **Tim:** That's an ambiguity worth flagging — see below.
-
 ## Flagged ambiguities
 
 - **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Room** — resolved: **Room** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
-- ~~**`IsUser` flag** on `PartyParticipant` is the storage form of **Default Driver**~~ — **resolved by [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md)**: storage migrated to `enum DriverKind` (`User | LLM | System`) when the third kind arrived alongside the Narrator.
 - **Persona deletion semantics** are not yet defined. If a Persona is deleted from the library, what happens to Participants referencing it (and to the messages they sent)? Soft-delete with tombstones? Hard delete with orphaned messages? Block deletion while participating? **Undecided.** Not blocking today — only set when this feature is built.

@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Work.Markets;
 
-/// <summary>Pure reading of Kraken's public API: euro pairs, quoted with a real bid and ask.</summary>
 public static class KrakenQuotes
 {
     private const string Prefix = "kr:";
@@ -12,11 +11,9 @@ public static class KrakenQuotes
 
     public static string? PairOf(string id) => id.StartsWith(Prefix, StringComparison.Ordinal) ? id[Prefix.Length..] : null;
 
-    /// <summary>Kraken calls bitcoin XBT and dogecoin XDG; people don't.</summary>
     public static string Display(string wsname)
         => wsname.Replace("XBT/", "BTC/", StringComparison.Ordinal).Replace("XDG/", "DOGE/", StringComparison.Ordinal);
 
-    /// <summary>Pair key → display name for the coins a focus names, or the majors when it names none.</summary>
     public static Dictionary<string, string> Pairs(JsonNode? result, string? focus)
     {
         var euro = (result as JsonObject ?? new JsonObject())
@@ -28,7 +25,6 @@ public static class KrakenQuotes
         return picked.ToDictionary(p => p.Key, p => p.Value);
     }
 
-    /// <summary>One Ticker entry; null when it has no usable bid or ask.</summary>
     public static Quote? Read(string pair, JsonNode? ticker, string? title = null)
     {
         var ask = MarketText.Number(ticker?["a"]?[0]);
@@ -42,7 +38,6 @@ public static class KrakenQuotes
     }
 }
 
-/// <summary>Crypto through Kraken's public API; no key, read-only. Trades all night, unlike the people watching it.</summary>
 public sealed class KrakenFeed(IHttpClientFactory http, ILogger<KrakenFeed> logger) : IMarketFeed
 {
     private const string Base = "https://api.kraken.com/0/public";

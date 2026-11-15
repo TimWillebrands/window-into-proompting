@@ -2,17 +2,14 @@ using PartyTown.World.Places;
 
 namespace PartyTown.World.Economy;
 
-/// <summary>Something wearable you can buy: a garment (style + colour) or a service, as Appearance picks.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Economy.ShopItem")]
 public sealed record ShopItem(
     [property: Id(0)] string Key,
     [property: Id(1)] string Slot,
     [property: Id(2)] string Name,
     [property: Id(3)] int Price,
-    /// <summary>What wearing it sets, as <c>SetAppearanceAsync</c> keys: {topStyle: hoodie, top: navy}.</summary>
     [property: Id(4)] Dictionary<string, string> Picks);
 
-/// <summary>Pure money rules (ADR 0024): means, pay, the catalog and how money reads in a prompt.</summary>
 public static class Money
 {
     public const string Tight = "tight";
@@ -36,10 +33,8 @@ public static class Money
     public const int OpensAt = 9;
     public const int ClosesAt = 21;
 
-    /// <summary>Shops keep hours: buying and presents happen in the day, changing clothes any time.</summary>
     public static bool ShopsOpen(DateTimeOffset localNow) => localNow.Hour >= OpensAt && localNow.Hour < ClosesAt;
 
-    /// <summary>One short line for "Right now"; silent when money isn't on your mind.</summary>
     public static string? Cue(int balance, string? means, bool paidToday, bool employed = false)
     {
         var pay = DailyPay(means);
@@ -49,7 +44,6 @@ public static class Money
         return null;
     }
 
-    /// <summary>Money and fresh gifts as lines for "Right now"; empty when there's nothing to say.</summary>
     public static string Render(WalletView wallet, DateTimeOffset now)
     {
         var lines = new List<string>();
@@ -59,12 +53,10 @@ public static class Money
         return lines.Count == 0 ? string.Empty : $"# Money and things\n{string.Join("\n", lines)}\n";
     }
 
-    /// <summary>Most likely means from a System One choice; getting by when unsure.</summary>
     public static string MeansFrom(IReadOnlyDictionary<string, double>? choice)
         => choice is { Count: > 0 } && choice.MaxBy(c => c.Value) is { Value: >= 0.4 } top && AllMeans.Contains(top.Key) ? top.Key : GettingBy;
 }
 
-/// <summary>What the shops sell, built from the Appearance palette so new palette values are buyable automatically.</summary>
 public static class Catalog
 {
     private static readonly Dictionary<string, int> TopPrices = new()
@@ -143,7 +135,6 @@ public static class Catalog
 
     private static string An(string word) => "aeiou".Contains(char.ToLowerInvariant(word[0])) ? "an" : "a";
 
-    /// <summary>The item for a key; v1 keys ("top:red") read as the plain garment they were (a red T-shirt).</summary>
     public static ShopItem? Find(string key)
     {
         if (ByKey.TryGetValue(key, out var item)) return item;
@@ -153,13 +144,10 @@ public static class Catalog
             : null;
     }
 
-    /// <summary>The current key for a stored one (v1 keys migrate), or null when it's gone from the palette.</summary>
     public static string? Normalize(string key) => Find(key)?.Key;
 
-    /// <summary>Hair dye and haircuts are services: you get them done, you don't own them.</summary>
     public static bool IsService(ShopItem item) => item.Slot is "hair" or "hairStyle";
 
-    /// <summary>The keys of what someone is wearing now (body: skin, build, eyes, facial hair are never for sale).</summary>
     public static List<string> Wearing(Appearance look)
     {
         var keys = new List<string>
@@ -171,21 +159,17 @@ public static class Catalog
         return keys;
     }
 
-    /// <summary>Today's window display for one person: a stable handful, different per day and per person.</summary>
     public static List<ShopItem> InTheShops(Guid personaId, string dayKey, IReadOnlyCollection<string> owned, int count = 5)
     {
         var rng = new Random(HashCode.Combine(personaId, dayKey));
         return All.Where(i => !owned.Contains(i.Key)).OrderBy(_ => rng.Next()).Take(count).ToList();
     }
 
-    /// <summary>The item an intent names, by word overlap with the item names; null when none is clearly meant.</summary>
     public static ShopItem? Match(string intent, IReadOnlyList<ShopItem> options)
     {
         var words = Words(intent);
-        // The thing ("scarf", "hoodie") outweighs the colour, which several slots share.
         var scored = options.Select(o => (Item: o, Score: Words(o.Name).Where(words.Contains).Sum(w => AppearanceRules.Colours.Contains(w) || AppearanceRules.Hairs.Contains(w) ? 1 : 2), Extra: Words(o.Name).Count(w => !words.Contains(w))))
             .Where(x => x.Score > 0).OrderByDescending(x => x.Score).ThenBy(x => x.Extra).ToList();
-        // "Black jeans" means the plain ones, not the skinny ones.
         return scored.Count == 0 || (scored.Count > 1 && scored[0].Score == scored[1].Score && scored[0].Extra == scored[1].Extra) ? null : scored[0].Item;
     }
 

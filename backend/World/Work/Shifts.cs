@@ -4,33 +4,23 @@ using PartyTown.World.Economy;
 
 namespace PartyTown.World.Work;
 
-/// <summary>A Participant's job in one Party (ADR 0026): what, where, when. Party-scoped, never on the Persona.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Occupation")]
 public sealed class Occupation
 {
     [Id(0)] public string Title { get; set; } = string.Empty;
-    /// <summary>Plain name of the workplace ("the Café", "the office in Zuid").</summary>
     [Id(1)] public string Workplace { get; set; } = string.Empty;
-    /// <summary>Set when the workplace is a Place in this Party: the job happens onscreen.</summary>
     [Id(2)] public Guid? PlaceId { get; set; }
-    /// <summary>Offscreen workplace as a Places Locale (ADR 0027), once resolved.</summary>
     [Id(3)] public Guid? LocaleId { get; set; }
-    /// <summary>Workdays as a bitmask over <see cref="DayOfWeek"/> (bit 0 = Sunday).</summary>
     [Id(4)] public int Days { get; set; } = Shifts.Weekdays;
-    /// <summary>Local minutes since midnight; a shift never wraps past midnight.</summary>
     [Id(5)] public int Start { get; set; } = 9 * 60;
     [Id(6)] public int End { get; set; } = 17 * 60;
-    /// <summary>The Company this job is at (ADR 0030); never alongside a Practice.</summary>
     [Id(7)] public Guid? CompanyId { get; set; }
-    /// <summary>Set when this job sells Sessions (ADR 0030); then it pays by Fee, not by shift.</summary>
     [Id(8)] public Practices.Practice? Practice { get; set; }
-    /// <summary>What this job has them wear; null until designed, or made again for a new title.</summary>
     [Id(9)] public Places.WorkClothes? Clothes { get; set; }
 
     public bool Onscreen => PlaceId is not null;
 }
 
-/// <summary>One day's shift as it actually went.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.ShiftRecord")]
 public sealed class ShiftRecord
 {
@@ -51,7 +41,6 @@ public enum ShiftStatus
     Missed = 3,
 }
 
-/// <summary>What the clock should do about someone's job this pulse.</summary>
 [GenerateSerializer]
 public enum ShiftStep
 {
@@ -61,12 +50,10 @@ public enum ShiftStep
     Miss,
 }
 
-/// <summary>Pure shift rules (ADR 0026): when work happens, what it pays, how it reads in a prompt.</summary>
 public static class Shifts
 {
     public const int Weekdays = 0b0111110;
     public const int EveryDay = 0b1111111;
-    /// <summary>Past this, turning up counts as late.</summary>
     public const int GraceMinutes = 10;
 
     private static readonly string[] Short = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
@@ -80,7 +67,6 @@ public static class Shifts
     public static bool During(Occupation job, DateTimeOffset local)
         => WorksOn(job, local.DayOfWeek) && Minute(local) >= job.Start && Minute(local) < job.End;
 
-    /// <summary>The one transition due now, given today's record (null = not started today).</summary>
     public static ShiftStep Step(Occupation job, ShiftRecord? record, DateTimeOffset local, bool asleep)
     {
         var today = DayKey(local);
@@ -92,13 +78,10 @@ public static class Shifts
         return ShiftStep.None;
     }
 
-    /// <summary>Pull taken off everything but work while on shift: other things wait, they're not forbidden.</summary>
     public static int Damping(string appId, bool onShift) => onShift && !IsWork(appId) ? 1 : 0;
 
-    /// <summary>The Apps that are the job itself, so a shift doesn't damp them.</summary>
     public static bool IsWork(string appId) => appId is WorkApp.AppId or Companies.DeskApp.AppId or Practices.PracticeApp.AppId or Cdu.CduScreen.AppId;
 
-    /// <summary>Hourly rate so five 8-hour shifts pay what a week of flat daily pay did (ADR 0024).</summary>
     public static double HourlyRate(string? means) => Money.DailyPay(means) * 7 / 40.0;
 
     public static int Pay(string? means, long startedAt, long endedAt)
@@ -114,16 +97,13 @@ public static class Shifts
         return string.Join(", ", Enumerable.Range(0, 7).Select(d => (d + 1) % 7).Where(d => (days & (1 << d)) != 0).Select(d => Short[d]));
     }
 
-    /// <summary>"barista at the Café (Mon–Fri 09:00–17:00)".</summary>
     public static string Describe(Occupation job)
         => $"{job.Title} at {job.Workplace} ({DaysText(job.Days)} {Clock(job.Start)}–{Clock(job.End)})";
 
-    /// <summary>Today's shift as a fixed beat for the Day generator; null on a day off.</summary>
     public static string? FixedToday(Occupation? job, DateTimeOffset local)
         => job is null || !WorksOn(job, local.DayOfWeek) ? null
             : $"work as {job.Title} at {job.Workplace} {Clock(job.Start)}–{Clock(job.End)}";
 
-    /// <summary>Work as one plain fact for "Right now"; null when work isn't near.</summary>
     public static string? Line(Occupation? job, ShiftRecord? today, DateTimeOffset local, bool atWork)
     {
         if (job is null) return null;
@@ -143,7 +123,6 @@ public static class Shifts
         return line;
     }
 
-    /// <summary>"Mon-Fri", "weekdays", "Tue, Thu, Sat", "every day" → bitmask; weekdays when unreadable.</summary>
     public static int ParseDays(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return Weekdays;
@@ -153,7 +132,6 @@ public static class Shifts
         if (t.Contains("weekday")) return Weekdays;
         var found = Regex.Matches(t, "sun|mon|tue|wed|thu|fri|sat").Select(m => Array.FindIndex(Short, s => s.Equals(m.Value, StringComparison.OrdinalIgnoreCase))).ToList();
         if (found.Count == 0) return Weekdays;
-        // "mon-fri" or "mon–sat" is a range; anything else is a list.
         if (found.Count == 2 && Regex.IsMatch(t, "[a-z]{3}\\w*\\s*[-–to]+\\s*[a-z]{3}"))
         {
             var mask = 0;
@@ -167,7 +145,6 @@ public static class Shifts
         return found.Aggregate(0, (m, d) => m | (1 << d));
     }
 
-    /// <summary>"09:00-17:00", "9-17", "7am to 3pm" → minutes; null when unreadable or wrapping midnight.</summary>
     public static (int Start, int End)? ParseHours(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -186,10 +163,8 @@ public static class Shifts
     }
 }
 
-/// <summary>Pure: keeping a job's workplace in step with Places.</summary>
 public static class WorkRules
 {
-    /// <summary>Editing hours keeps what the job is; naming a Company or Practice replaces the other (ADR 0030).</summary>
     public static void Carry(Occupation next, Occupation? previous)
     {
         if (next.CompanyId is not null) next.Practice = null;
@@ -197,14 +172,12 @@ public static class WorkRules
         else (next.CompanyId, next.Practice) = (previous?.CompanyId, previous?.Practice);
     }
 
-    /// <summary>The same job keeps its work clothes; a new title leaves them to be made again.</summary>
     public static void CarryClothes(Occupation next, Occupation? previous)
     {
         if (next.Clothes is null && Places.WorkClothesRules.Fits(previous?.Clothes, next.Title)) next.Clothes = previous!.Clothes;
         if (next.Clothes is { } c && !Places.WorkClothesRules.Fits(c, next.Title)) next.Clothes = null;
     }
 
-    /// <summary>Public → onscreen, Locale → offscreen (an Opened place Closed again); the name follows renames.</summary>
     public static void Sync(Occupation job, Places.Place place)
     {
         if (place.Kind == Places.PlaceKinds.Public)

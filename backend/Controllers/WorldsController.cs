@@ -9,7 +9,6 @@ using PostHog;
 
 namespace PartyTown.Controllers;
 
-/// <summary>The Worlds there are, as the login screen offers them: which is current, which are stopped, moving to a new one.</summary>
 [ApiController]
 [Route("worlds")]
 public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPostHogClient posthog) : ControllerBase
@@ -20,12 +19,10 @@ public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPost
     [HttpGet]
     public async Task<ActionResult<WorldList>> GetWorlds()
     {
-        // A fresh database has no Party until something asks for the root; the login screen is that something.
         if (!await Root.HasPartyId(Guid.Empty)) await Root.AddParty(new PartyInfo { Id = Guid.Empty, Name = "Default Party" });
         return Ok(new WorldList((await Root.GetWorldsAsync()).Select(Tile).ToList(), Actors.IsAdmin(User)));
     }
 
-    /// <summary>Everyone picked moves to a new World with the Relations picked; this one stops and the new one is current.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [AllowWhenStopped]
     [HttpPost("{partyId:guid}/move")]
@@ -42,13 +39,11 @@ public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPost
         return Ok(await TileAsync(toId));
     }
 
-    /// <summary>The Places a Move out of this World can bring: made ones and humans' Homes, the authored ones suggested.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpGet("{partyId:guid}/movable-places")]
     public async Task<ActionResult<List<MovablePlace>>> GetMovablePlaces(Guid partyId)
         => Ok(await move.MovablePlacesAsync(partyId));
 
-    /// <summary>Stop a World or start it again; starting again leaves its clock paused.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [AllowWhenStopped]
     [HttpPut("{partyId:guid}/stopped")]
@@ -61,7 +56,6 @@ public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPost
         return Ok(await TileAsync(partyId));
     }
 
-    /// <summary>The World new visitors and MCP agents land in.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("current")]
     [ProducesResponseType<WorldTile>(StatusCodes.Status200OK)]
@@ -80,14 +74,10 @@ public sealed class WorldsController(IGrainFactory grains, WorldMove move, IPost
     }
 }
 
-/// <param name="Humans">Players at the keyboard; Players on auto count as people only.</param>
 public sealed record WorldTile(Guid Id, string Name, bool Stopped, bool Current, int People, int Humans);
 
 public sealed record WorldList(List<WorldTile> Worlds, bool IsAdmin);
 
-/// <param name="ParticipantIds">Who comes along; null is everyone.</param>
-/// <param name="RelationIds">Relations, from this World's, that come along with their story.</param>
-/// <param name="PlaceIds">Places from movable-places that come along; null is the suggested ones.</param>
 public sealed record MoveWorldRequest(string? Name, List<Guid>? ParticipantIds, List<Guid>? RelationIds, List<Guid>? PlaceIds);
 
 public sealed record SetWorldStoppedRequest(bool Stopped);

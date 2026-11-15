@@ -8,16 +8,11 @@ using PartyTown.World.Desires;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// What's done off-screen is settled off-screen (ADR 0055): a promise to do something nobody can watch being done is
-/// settled at its time, done or not by who the promiser is, and both of them learn how it ended. Detached and non-fatal.
-/// </summary>
 public sealed class OffStage(ISystemOneJudge judge, IWorldLlm llm, WorldMemory memory, IGrainFactory grains, ILogger<OffStage> logger)
 {
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<Guid, byte> _settling = new();
 
-    /// <summary>Settles each of their promises whose time has come; fire-and-forget.</summary>
     public void SettleDue(Guid partyId, Guid personaId, IEnumerable<Desire> acquired)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -42,14 +37,12 @@ public sealed class OffStage(ISystemOneJudge judge, IWorldLlm llm, WorldMemory m
 
         var answers = await judge.For(personaId).AskAsync($"{WorldLlm.Identity(self)}\n\n{said}",
             new Dictionary<string, SystemOneQuestion> { ["done"] = new NoulQuestion(OffStageRules.Done(self.Name)) }, cts.Token);
-        // Drawn, not argmaxed: who they are makes it likelier, never certain.
         var p = answers.Noul("done", 0.5);
         var done = Random.Shared.NextDouble() < p;
         var json = await llm.For(personaId).CompleteJsonAsync(JobComplexity.General, OffStageRules.Brief(done), said, cts.Token, 0.9, ["outcome"]);
         if (OffStageRules.Outcome(json?["outcome"]?.ToString()) is not { } outcome) return;
 
         var desires = grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, personaId));
-        // Kept or called off in talk while this was being read: that already settled it.
         if ((await desires.GetAsync()).Acquired.FirstOrDefault(d => d.Id == promise.Id) is not { Status: DesireStatus.Active }) return;
         if (!await desires.MarkAsync(promise.Id, done ? DesireStatus.Fulfilled : DesireStatus.Abandoned)) return;
         if (!done)
@@ -61,7 +54,6 @@ public sealed class OffStage(ISystemOneJudge judge, IWorldLlm llm, WorldMemory m
             PersonaId = personaId, PersonaName = self.Name, App = "life", Action = OffStageRules.Action, Summary = outcome, WithPersonaId = holder.Id,
         };
         await clock.RecordAsync(activity);
-        // Word gets around: both of them know how it ended, so neither asks again.
         var present = new List<ParticipantView> { new(self.Id, self.Name, self.DefaultDriver), new(holder.Id, holder.Name, holder.DefaultDriver) };
         _ = memory.CaptureAsync(new Moment(partyId, MomentSources.World, activity.Id,
             new List<MomentLine> { new(Narrator.PersonaId, OffStageRules.Line(self.Name, outcome), activity.Ts) }, 0, present), CancellationToken.None);
@@ -70,12 +62,10 @@ public sealed class OffStage(ISystemOneJudge judge, IWorldLlm llm, WorldMemory m
     }
 }
 
-/// <summary>Pure rules for settling a promise off-screen (ADR 0055).</summary>
 public static class OffStageRules
 {
     public const string Action = "offstage";
 
-    /// <summary>The promise as the judge and the narrator read it; a put-off counts.</summary>
     public static string Said(string promiser, string holder, Desire promise)
     {
         var again = promise.Again switch { 0 => string.Empty, 1 => " They said it again once since.", _ => $" They said it again {promise.Again} times since." };
@@ -95,13 +85,11 @@ No moral, no feelings, no reasons. Start with a past-tense verb about them, with
 Output ONLY JSON: {"{"}"outcome": "<one or two sentences>"{"}"}
 """;
 
-    /// <summary>The narrator's answer, trimmed; null when there's nothing usable.</summary>
     public static string? Outcome(string? raw)
     {
         var text = raw?.Trim().Trim('"').Trim();
         return string.IsNullOrWhiteSpace(text) || text.Length < 8 ? null : WorldStream.Clip(text, 300);
     }
 
-    /// <summary>How it's remembered by both.</summary>
     public static string Line(string promiser, string outcome) => $"[Settled off-screen] {promiser} {outcome}";
 }

@@ -6,7 +6,6 @@ using PartyTown.World.Reflex;
 
 namespace BackendTest;
 
-/// <summary>How the seam behaves for its callers: a failing Reflex never costs a reply; a burst gets one reply (ADR 0031).</summary>
 public class ReflexGateTest
 {
     private static readonly Percept Line = new(PerceptKind.Direct, Guid.NewGuid(), "Hana", false, "hi", Guid.NewGuid());

@@ -10,7 +10,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Keys (ADR 0036): pure rules for who's close enough, and when it's turned sour.</summary>
 public class KeyRulesTest
 {
     private static readonly Guid Mara = Guid.NewGuid();
@@ -85,7 +84,6 @@ public class KeyRulesTest
     }
 }
 
-/// <summary>Keys in a real cluster (ADR 0036): the door gets felt, a want forms there, and it's acted on.</summary>
 public partial class PlacesTest
 {
     private async Task<(Guid PartyId, Guid Denise, Guid Pieter, Place Studio)> CoupleWithStudioAsync()
@@ -106,7 +104,6 @@ public partial class PlacesTest
         await BodyOf(partyId, a);
     }
 
-    /// <summary>Host out at the Café, two tries at the locked door: enough for a key to come up.</summary>
     private async Task<(Guid PartyId, Guid Denise, Guid Pieter, Place Studio)> DoorInTheWayAsync()
     {
         var (partyId, denise, pieter, studio) = await CoupleWithStudioAsync();

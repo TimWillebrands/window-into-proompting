@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Sharing a Home (ADR 0035): moving in, moving back, and what's left when someone leaves the World.</summary>
 public sealed partial class PlacesGrain
 {
 
@@ -42,7 +41,6 @@ public sealed partial class PlacesGrain
         return home;
     }
 
-    /// <summary>Author: a Home or public Place gets a finished design (<see cref="IPlaceDesignerGrain"/>), same id, people, keys and things.</summary>
     public async Task<Place?> RedesignPlaceAsync(Guid placeId, PlaceDraft draft, string? name)
     {
         await SettleAsync();
@@ -57,7 +55,6 @@ public sealed partial class PlacesGrain
             bed.Seat = true;
         }
 
-        // Designs don't say who works where: a spot keeping its id stays a staff spot.
         foreach (var spot in draft.Spots) spot.Staff = place.Spots.FirstOrDefault(s => s.Id == spot.Id)?.Staff ?? false;
         place.Scene = "custom";
         place.CustomScene = draft.Scene;
@@ -84,7 +81,6 @@ public sealed partial class PlacesGrain
         await PublishPlaceAsync(place);
         foreach (var body in state.State.Bodies.Values.Where(b => b.PlaceId == placeId || b.DestPlaceId == placeId).ToList())
             await PublishAsync(body);
-        // The bed keeps its prefab: sleepers lie on its seats.
         foreach (var furni in renamed.Where(f => f.Kind != FurniKinds.Bed)) QueueModel(place, furni, furni.Name);
         return place;
     }
@@ -92,7 +88,6 @@ public sealed partial class PlacesGrain
 
     private List<string> PublicNames() => state.State.Places.Where(p => p.Kind == PlaceKinds.Public).Select(p => p.Name).ToList();
 
-    /// <summary>The design's words for the standing things; the ones it renamed, models cleared.</summary>
     private static List<Furni> NameThings(Place home, JsonObject design)
     {
         var renamed = new List<Furni>();
@@ -140,7 +135,6 @@ public sealed partial class PlacesGrain
         return Task.FromResult(lines.Count == 0 ? string.Empty : $"# Keys\n{string.Join("\n", lines.Select(l => $"- {l}"))}\n");
     }
 
-    /// <summary>Having to deal with the door is when wanting a key comes up.</summary>
     private void NoteDoorstep(Place place, Guid visitor)
     {
         var now = Now();
@@ -149,7 +143,6 @@ public sealed partial class PlacesGrain
             _ = keyWants.ConsiderAsync(PartyId, new Relations.Door(place.Id, place.Name, host, visitor, place.DoorstepsLately(visitor, now)));
     }
 
-    /// <summary>Straight there, no walk: the Place they were in is going.</summary>
     private async Task RelocateAsync(Body body, Place to)
     {
         body.PlaceId = to.Id;
@@ -199,14 +192,12 @@ public sealed partial class PlacesGrain
         return true;
     }
 
-    /// <summary>Someone who was there goes; someone away at a Locale finds out on the way back.</summary>
     private async Task WalkOverAsync(Guid who, Place from, Place to)
     {
         if (state.State.Bodies.TryGetValue(who, out var body) && (body.DestPlaceId ?? body.PlaceId) == from.Id)
             await MoveAsync(who, to.Id, null);
     }
 
-    /// <summary>Housemates drop off when they've left the World, or the owner has; whoever remains gets their own Home back.</summary>
     private bool ReleaseHousemates(IReadOnlySet<Guid> present)
     {
         var changed = false;
@@ -227,7 +218,6 @@ public sealed partial class PlacesGrain
     private Place? OwnHome(Guid ownerId)
         => state.State.Places.FirstOrDefault(p => p.Kind == PlaceKinds.Home && p.OwnerId == ownerId);
 
-    /// <summary>They gave theirs up for a built Home: a plain one again, as for anyone new.</summary>
     private Place? NewHome(Guid who)
     {
         if (!state.State.Bodies.TryGetValue(who, out var body)) return null;
@@ -237,7 +227,6 @@ public sealed partial class PlacesGrain
         return home;
     }
 
-    /// <summary>A built Home keeps the name it was given.</summary>
     private void RenameHome(Place home)
     {
         if (home.CustomScene is not null) return;

@@ -12,7 +12,6 @@ using PostHog;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Relations (ADR 0035), author side: past ones stay between the pair, so reading is admin too.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/relations")]
 [Authorize(Policy = ClerkAuth.AdminPolicy)]
@@ -24,7 +23,6 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
     public async Task<ActionResult<List<Relation>>> GetRelations(Guid partyId)
         => Ok((await Relations(partyId).GetAsync()).Relations);
 
-    /// <summary>Closed Places and who's been at their doors: moments this week, keys, and what each side wants.</summary>
     [HttpGet("doors")]
     public async Task<ActionResult<List<DoorRow>>> GetDoors(Guid partyId)
     {
@@ -45,7 +43,6 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
         return Ok(rows.OrderByDescending(r => r.HasKey).ThenByDescending(r => r.Doorsteps).ToList());
     }
 
-    /// <summary>State what two people are, or with <c>Past</c> what they were.</summary>
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Relation>> Declare(Guid partyId, [FromBody] DeclareRelationRequest request)
@@ -57,7 +54,6 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
         return Ok(relation);
     }
 
-    /// <summary>It's over: stays on record as past, and a shared Home splits.</summary>
     [HttpPost("{relationId:guid}/end")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -67,21 +63,18 @@ public sealed class RelationsController(IGrainFactory grains, IPostHogClient pos
         return relation is not null && await Relations(partyId).EndAsync(relation.AId, relation.BId) ? NoContent() : NotFound();
     }
 
-    /// <summary>Move in with <c>HostId</c>; null splits a shared Home. 409 when one of them already shares another.</summary>
     [HttpPut("{relationId:guid}/home")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> SetHome(Guid partyId, Guid relationId, [FromBody] RelationHomeRequest request)
         => await Relations(partyId).SetHomeAsync(relationId, request.HostId) ? NoContent() : Conflict();
 
-    /// <summary>A Home designed from a description, owned by <c>HostId</c>. The Homes they had are removed. 409 when the design fails or someone else lives there.</summary>
     [HttpPost("{relationId:guid}/home/new")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> NewHome(Guid partyId, Guid relationId, [FromBody] NewHomeRequest request)
         => await Relations(partyId).NewHomeAsync(relationId, request.HostId, request.Description) ? NoContent() : Conflict();
 
-    /// <summary>Strike it, as if it never was.</summary>
     [HttpDelete("{relationId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -1,12 +1,10 @@
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>The generator's user message: the seed, a random Draw, and the World the newcomer lands in.</summary>
 public static class PersonaBrief
 {
     private const string World = "Amsterdam, today.";
     private const int BioChars = 140;
 
-    /// <summary>Independent calls can't see each other's dice, and left alone they all write someone guarded and wry.</summary>
     public static readonly string[] Temperaments =
     [
         "warm, nosy, talks to anyone",

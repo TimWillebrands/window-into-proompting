@@ -16,7 +16,6 @@ import { RelationKind } from '../../api/model';
 import { WORLD_ID } from '../../lib/world';
 import { inOrder, isCurrent, KINDS, summary } from './relations-lib';
 
-/** Relations (ADR 0035), author side: what people are to each other, and who lives together. */
 export default function RelationsApp() {
     return (
         <div className="app-surface" style={{ padding: 8, overflow: 'auto' }}>
@@ -28,7 +27,6 @@ export default function RelationsApp() {
     );
 }
 
-/** Who's been at which door this week, who holds a key, and what's starting to be wanted. */
 function Doors() {
     const doors =
         useGetWorldsPartyIdRelationsDoorsSuspense(WORLD_ID).data.data ?? [];

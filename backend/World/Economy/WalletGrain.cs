@@ -4,10 +4,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Economy;
 
-/// <summary>
-/// One participant's money and wardrobe in a Party (ADR 0024), key = <c>party:participant</c>.
-/// Paid once per day by their means; owns the clothes they've bought or been given.
-/// </summary>
 public sealed class WalletGrain(
     [PersistentState(stateName: "wallet", storageName: "parties")]
     IPersistentState<WalletState> state,
@@ -65,7 +61,6 @@ public sealed class WalletGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>First use: means, a starting balance and a wardrobe of what they're wearing. Then payday once a day.</summary>
     private async Task EnsureAsync()
     {
         var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -86,7 +81,6 @@ public sealed class WalletGrain(
         if (state.State.PaidDay != today)
         {
             state.State.PaidDay = today;
-            // People with a job are paid per shift (ADR 0026); flat daily pay is for everyone else.
             if (!state.State.Employed)
             {
                 await PostAsync(Money.DailyPay(state.State.Means), "payday");
@@ -140,12 +134,9 @@ public sealed class WalletGrain(
 public interface IWalletGrain : IGrainWithStringKey
 {
     [Alias("GetAsync")] Task<WalletView> GetAsync();
-    /// <summary>False (and nothing changes) when they can't afford it.</summary>
     [Alias("SpendAsync")] Task<bool> SpendAsync(int amount, string reason);
     [Alias("EarnAsync")] Task EarnAsync(int amount, string reason);
-    /// <summary>Employed people are paid per shift, not daily (ADR 0026).</summary>
     [Alias("SetEmployedAsync")] Task SetEmployedAsync(bool employed);
-    /// <summary>Own a catalog item; with a giver it's also a gift note until seen.</summary>
     [Alias("AddToWardrobeAsync")] Task AddToWardrobeAsync(string key, Guid? fromId, string? fromName);
 }
 
@@ -157,7 +148,6 @@ public sealed record WalletView(
     [property: Id(3)] bool PaidToday,
     [property: Id(4)] List<string> Wardrobe,
     [property: Id(5)] List<LedgerEntry> Ledger,
-    /// <summary>Gifts from the last 12 hours.</summary>
     [property: Id(6)] List<GiftNote> NewGifts,
     [property: Id(7)] bool Employed = false);
 

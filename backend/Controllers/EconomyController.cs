@@ -9,7 +9,6 @@ using PartyTown.World.Economy;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Money and wardrobes (ADR 0024): everyone's wallet, today's shop, and buying/wearing/gifting for the Player.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
 public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe, Actors actors) : ControllerBase
@@ -24,7 +23,6 @@ public sealed class EconomyController(IGrainFactory grains, WardrobeApp wardrobe
         return Ok(cast.Select((c, i) => Summary(c.Id, c.Name, wallets[i], looks)).ToList());
     }
 
-    /// <summary>What's in the shops today for one participant (their own window display).</summary>
     [AllowAnonymous]
     [HttpGet("wallets/{participantId:guid}/shop")]
     public async Task<ActionResult<List<ShopItem>>> GetShop(Guid partyId, Guid participantId)
@@ -97,5 +95,4 @@ public sealed record WalletSummary(
     List<ShopItem> Wardrobe,
     List<LedgerEntry> Ledger,
     List<GiftSummary> NewGifts,
-    /// <summary>Catalog keys of what they have on right now.</summary>
     List<string> Wearing);

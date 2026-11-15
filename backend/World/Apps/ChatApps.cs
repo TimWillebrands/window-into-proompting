@@ -5,7 +5,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Apps;
 
-/// <summary>D'Accord Rooms: synchronous group talk. Initiative opens a line; the pipeline does the rest.</summary>
 public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
 {
     public string Id => "rooms";
@@ -25,13 +24,11 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
                 elsewhere.Add((room, await grain.GetRecentMessagesAsync(2), others));
                 continue;
             }
-            // A Room where someone else drives this Persona isn't theirs to speak in.
             if ((await grain.GetDriverOverridesAsync()).TryGetValue(ctx.Self.Id, out var driver) && driver != DriverKind.LLM) continue;
             mine.Add((room, await grain.GetRecentMessagesAsync(ChatAttention.MaxHeld + ChatAttention.ReadBack)));
         }
         if (mine.Count == 0 && elsewhere.Count == 0) return null;
 
-        // Gatherings this Persona said they'd attend that are happening now.
         var nowMs = ctx.Now.ToUnixTimeMilliseconds();
         var happeningNow = (await grains.GetGrain<ICalendarGrain>(ctx.PartyId).GetGatheringsAsync())
             .Where(g => g.Status == GatheringStatus.Started && nowMs - g.StartsAt < 45 * 60_000 && g.AttendeeIds.Contains(ctx.Self.Id))
@@ -42,7 +39,6 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         var scrollable = new List<(ChatGroupInfo Room, bool Unread)>();
         foreach (var (room, recent) in mine.OrderByDescending(r => happeningNow.ContainsKey(r.Room.Id)).ThenByDescending(r => LastAt(r.Room, r.Recent)).Take(4))
         {
-            // Once you've spoken there since it started, you've shown up — it's an ordinary room again.
             if (happeningNow.TryGetValue(room.Id, out var gathering)
                 && recent.Any(m => m.SenderId == ctx.Self.Id && (m.SendAt ?? 0) >= gathering.StartsAt))
                 happeningNow.Remove(room.Id);
@@ -58,14 +54,12 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
                 sb.AppendLine($"#{room.Name}{scenario}: empty, nobody has said anything yet.");
             else if (glance.Held.Count > 0)
             {
-                // In the middle of it, or just caught up: the lines are in mind.
                 sb.AppendLine($"#{room.Name}{scenario} ({(glance.InExchange ? "you're in this conversation" : "you just caught up on it")}, last active {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}):");
                 foreach (var m in glance.Held.TakeLast(glance.InExchange ? 5 : 12))
                     sb.AppendLine($"  {(m.SenderId == ctx.Self.Id ? "you" : ctx.NameOf(m.SenderId))}: {WorldStream.Clip(m.Content, 140)}");
             }
             else
             {
-                // Not open: a badge, and a preview only where someone named you.
                 sb.AppendLine(glance.Unread == 0
                     ? $"#{room.Name}{scenario}: you spoke last, {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}"
                     : $"#{room.Name}{scenario}: {glance.Unread} new message{(glance.Unread == 1 ? "" : "s")} since you last spoke, latest {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}");
@@ -75,9 +69,7 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
             if (glance.MoreAbove && ctx.ReadFrom(room.Id) is null && last is not null) scrollable.Add((room, glance.Unread > 0));
 
             if (last?.SenderId == ctx.Self.Id || happeningNow.ContainsKey(room.Id)) continue;
-            // A reply of theirs already on its way here: the line isn't waiting on them.
             if (await grains.GetGrain<IChatGroupGrain>(room.Id).IsAnsweringAsync(ctx.Self.Id)) continue;
-            // A circling or fizzling room (thermostat, ADR 0021) pulls less: people drift elsewhere.
             var stale = last is not null && (await grains.GetGrain<Self.IConversationThermostatGrain>(room.Id).GetReadAsync()).Stale;
             if (stale) sb.AppendLine("  (this conversation has run its course: going round in circles or just re-confirming)");
             var priority = 1 + (last is not null && ctx.Mentions(last.Content) ? 2 : 0) - (stale ? 2 : 0);
@@ -89,7 +81,6 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
         if (scrollable.OrderByDescending(r => r.Unread).ThenBy(_ => Random.Shared.Next()).FirstOrDefault() is { Room: not null } scroll)
             affordances.Add(new Affordance(Id, $"Catch up on what's been said in #{scroll.Room.Name}", scroll.Unread ? 1 : 0, scroll.Room.Id, "scroll", Look: true));
 
-        // Places you're not in yet: the arena extends past your current rooms.
         foreach (var (room, recent, others) in elsewhere.OrderByDescending(r => LastAt(r.Room, r.Recent)).Take(2))
         {
             var who = string.Join(", ", others.Take(3).Select(ctx.NameOf));
@@ -124,15 +115,12 @@ public sealed class RoomsApp(IGrainFactory grains) : IWorldApp
     }
 }
 
-/// <summary>Messenger: synchronous 1:1. DM threads are Rooms with a two-person cast (ADR 0018).</summary>
-/// <summary>Texting manners: one follow-up after a while, then wait.</summary>
 public static class MessengerManners
 {
     public static readonly TimeSpan FollowUpAfter = TimeSpan.FromHours(3);
 
     public static bool MayFollowUp(int unanswered, TimeSpan since) => unanswered == 1 && since >= FollowUpAfter;
 
-    /// <summary>A chat that ended settled or fizzling has nothing to chase, unless you owe them something.</summary>
     public static bool Chase(bool settled, bool owed) => owed || !settled;
 }
 
@@ -162,7 +150,6 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             var lastAt = DateTimeOffset.FromUnixTimeMilliseconds(last.SendAt ?? 0);
             if (ctx.Now - lastAt < FreshThread) recentlyTalked.Add(otherId);
 
-            // Only a chat you're in the middle of, or just scrolled through, is in mind; the rest is a notification.
             var who = $"{other}{(ctx.IsHuman(otherId) ? " (a real human)" : "")}{(afk.Contains(otherId) ? " (AFK: away from the keyboard, won't see it for a while)" : "")}";
             if (glance.Held.Count > 0)
             {
@@ -176,13 +163,10 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
                 sb.AppendLine($"Chat with {who}: you wrote last, {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)}: \"{WorldStream.Clip(last.Content, 80)}\"");
             if (glance.MoreAbove && ctx.ReadFrom(dm.Id) is null) scrollable.Add((dm, other, last.SenderId != ctx.Self.Id));
 
-            // A waiting human pulls hard; persona threads already get live replies from the pipeline.
-            // Someone in the same Place gets talked to out loud, not texted (Places co-presence rule).
             if (last.SenderId != ctx.Self.Id && await grains.GetGrain<IChatGroupGrain>(dm.Id).IsAnsweringAsync(ctx.Self.Id))
                 sb.AppendLine($"  (you're already answering {other})");
             else if (last.SenderId != ctx.Self.Id)
             {
-                // A persona chat that has run its course doesn't need the last word (ADR 0021).
                 var done = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
                 if (done) sb.AppendLine("  (this chat has run its course; it's fine to leave it here)");
                 affordances.Add(new Affordance(Id, $"Reply to {other} in Messenger (they wrote {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})",
@@ -190,13 +174,11 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             }
             else
             {
-                // Unanswered: people double-text at most once, and only after a while (ADR 0021).
                 waitingOn.Add(otherId);
                 var unanswered = recent.AsEnumerable().Reverse().TakeWhile(m => m.SenderId == ctx.Self.Id).Count();
                 sb.AppendLine($"  (you're waiting on {other}{(unanswered >= 2 ? "; you've already followed up, so leave it with them" : "")})");
                 if (MessengerManners.MayFollowUp(unanswered, ctx.Now - lastAt) && !nearby.Contains(otherId) && !afk.Contains(otherId))
                 {
-                    // The thermostat reads this path too (ADR 0043): a chat that ended on settled plans isn't chased again.
                     var settled = !ctx.IsHuman(otherId) && (await grains.GetGrain<Self.IConversationThermostatGrain>(dm.Id).GetReadAsync()).Stale;
                     if (MessengerManners.Chase(settled, ctx.Owes(otherId)))
                         affordances.Add(new Affordance(Id, $"Follow up with {other} (no answer to your message from {WorldStream.Ago(last.SendAt ?? 0, ctx.Now)})", 0, otherId, "open"));
@@ -206,12 +188,10 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
             }
         }
 
-        // One chat worth scrolling back through: the one with something new in it, else any.
         if (scrollable.OrderByDescending(c => c.Unread).ThenBy(_ => Random.Shared.Next()).FirstOrDefault() is { Dm: not null } scroll)
             affordances.Add(new Affordance(Id, $"Scroll back through your chat with {scroll.Other} to see what you talked about before",
                 0, scroll.Dm.Id, "scroll", Look: true));
 
-        // Only people they know: a stranger, the human above all, is met in person first.
         var known = await Acquaintances.KnownAsync(grains, ctx.PartyId, ctx.Self.Id);
         var newContacts = ctx.Others
             .Where(c => known.Contains(c.Id) && !recentlyTalked.Contains(c.Id) && !nearby.Contains(c.Id) && !waitingOn.Contains(c.Id) && !afk.Contains(c.Id))
@@ -227,7 +207,6 @@ public sealed class MessengerApp(IGrainFactory grains) : IWorldApp
         return new AppPerception(Id, "Messenger (private 1:1 chats)", sb.ToString().TrimEnd(), affordances);
     }
 
-    /// <returns>Who's in the same Place, and who's AFK.</returns>
     private async Task<(HashSet<Guid> Nearby, HashSet<Guid> Afk)> CoPresentAsync(LifeContext ctx)
     {
         var bodies = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Bodies;

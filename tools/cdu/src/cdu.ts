@@ -10,7 +10,6 @@ export interface Speaker {
     name: string;
 }
 
-/** ask: a question, nothing changes. talk: a brief for work. answer: a reply to its own question. */
 export type TurnKind = 'ask' | 'talk' | 'answer';
 
 export interface Turn {
@@ -18,30 +17,23 @@ export interface Turn {
     from: Speaker;
     text: string;
     kind: TurnKind;
-    /** The mind whoever spoke chose to wake it with; unset wakes the cheapest. */
     model?: string;
     status: 'queued' | 'working' | 'done' | 'failed';
     at: number;
     doneAt?: number;
-    /** What it said back. Its words, not a fact. */
     reply?: string;
-    /** Its reply ends on a question for whoever spoke. */
     asked?: boolean;
     commits: Commit[];
-    /** Spent on this turn, from the Meter. */
     usd?: number;
     error?: string;
 }
 
-/** The agent behind the CDU: Pi in production, a fake in tests. */
 export interface Mind {
     readonly model: string;
     think(text: string, onEvent: (event: Record<string, unknown>) => void, model?: string): Promise<string>;
-    /** Master's soul changed; it applies from the next waking. */
     resoul?(soul: string): Promise<void>;
 }
 
-/** A mind it can be woken with: free previews, small models, capable ones. */
 export interface MindChoice {
     id: string;
     label: string;
@@ -57,19 +49,15 @@ export interface Allowance {
 
 export interface CduState {
     turns: Turn[];
-    /** Facts for its next waking. */
     notes: string[];
     pr: number | null;
-    /** The PR as last looked at, so status doesn't ask GitHub. */
     seen: Pr | null;
-    /** The last checks reported, per head commit. */
     checked: { head: string; checks: Checks } | null;
     soul: string | null;
 }
 
 export const emptyState = (): CduState => ({ turns: [], notes: [], pr: null, seen: null, checked: null, soul: null });
 
-/** A JSON file holding what must survive a restart. */
 export class Store {
     readonly state: CduState;
     private readonly path?: string;
@@ -91,7 +79,6 @@ const MaxText = 4000;
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
-/** Its reply asks something when the last paragraph holds a question. */
 export function asks(reply: string): boolean {
     const last = reply.trim().split(/\n\s*\n/).pop() ?? '';
     return last.includes('?');
@@ -99,7 +86,6 @@ export function asks(reply: string): boolean {
 
 export const emailOf = (who: Speaker) => `${who.name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'someone'}@cytheurgists.proompting.party`;
 
-/** What the CDU hears when it wakes: who speaks, what they say, and what happened while it slept. */
 export function compose(turn: Turn, notes: string[]): string {
     const does = { ask: 'asks you a question', talk: 'hands you work', answer: 'answers you' }[turn.kind];
     const said = `${turn.from.name}, a Cytheurgist, ${does}:\n\n${turn.text}`;
@@ -114,14 +100,11 @@ export interface CduOptions {
     news: Feed;
     store: Store;
     allowance?: () => Promise<Allowance | null>;
-    /** The minds it can be woken with, cheapest first, as the Meter lists them. */
     models?: MindChoice[];
-    /** Where the soul lives in the repo. */
     soulPath?: string;
     now?: () => number;
 }
 
-/** One being, one queue: turns and the tide take their turn, so git is never touched twice at once. */
 export class Cdu {
     readonly lines: Feed;
     readonly news: Feed;
@@ -149,7 +132,6 @@ export class Cdu {
         this.models = options.models ?? [];
         this.soulPath = options.soulPath ?? 'tools/cdu/soul/APPEND_SYSTEM.md';
         this.now = options.now ?? Date.now;
-        // A turn cut off by a crash or restart is over: it won't finish now.
         for (const turn of this.state.turns.filter((t) => t.status === 'queued' || t.status === 'working')) {
             Object.assign(turn, { status: 'failed', error: 'the CDU restarted before it finished' });
         }
@@ -166,7 +148,6 @@ export class Cdu {
         return next;
     }
 
-    /** Resolves once everything queued so far is done. */
     idle(): Promise<void> {
         return this.chain.then(() => {});
     }
@@ -221,7 +202,6 @@ export class Cdu {
         });
     }
 
-    /** Shift start: any verdict first, then the trunk onto master, then master's soul. */
     tideIn() {
         return this.enqueue(async () => {
             await this.settle();
@@ -239,7 +219,6 @@ export class Cdu {
         });
     }
 
-    /** Shift end: the trunk out to the Agora, when it holds anything. */
     tideOut() {
         return this.enqueue(async () => {
             const result = await this.tide.out();
@@ -254,7 +233,6 @@ export class Cdu {
         });
     }
 
-    /** Looks at the Agora: a verdict resets the trunk; checks are told once per head commit. */
     watch() {
         if (this.watching) return Promise.resolve();
         this.watching = true;

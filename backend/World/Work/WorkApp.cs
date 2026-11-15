@@ -3,10 +3,6 @@ using PartyTown.World.Apps;
 
 namespace PartyTown.World.Work;
 
-/// <summary>
-/// Work in a Life (ADR 0026). The clock starts and ends shifts; this App only offers what a shift affords:
-/// get on with it, get back to it, or walk out early.
-/// </summary>
 public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorldApp
 {
     public const string AppId = "work";
@@ -30,12 +26,10 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
         {
             if (atWork)
             {
-                // At a CDU Company the work is the CDU desk's moves (ADR 0039); a bare "work" would swallow them.
                 if (!await KeepsTheCduAsync(ctx, job))
                     affordances.Add(new Affordance(Id, $"Get on with work ({job.Title})", 2, job.PlaceId, "work"));
                 if (job.PlaceId is { } studio && await MayMakeAsync(ctx, studio))
                     affordances.Add(new Affordance(Id, "Finish a piece at the easel (say in a few words what it is)", 3, studio, "make"));
-                // Staff are the centre of a Place (ADR 0026): someone who just came in is theirs to greet.
                 if (job.PlaceId is { } placeId && await GreetAsync(ctx, placeId) is { } greet) affordances.Add(greet);
             }
             else
@@ -93,14 +87,12 @@ public sealed class WorkApp(IGrainFactory grains, Workplaces workplaces) : IWorl
         return arrival is null ? null : new Affordance(Id, $"Greet {ctx.NameOf(arrival.ParticipantId)}, who just came in (you work here)", 2, talkRoomId, "greet");
     }
 
-    /// <summary>A view copy, so Openings and renames show now, not at the next shift edge.</summary>
     private async Task SyncAsync(LifeContext ctx, Occupation job)
     {
         var places = (await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetSnapshotAsync()).Places;
         if (places.FirstOrDefault(p => p.Id == (job.PlaceId ?? job.LocaleId)) is { } place) WorkRules.Sync(job, place);
     }
 
-    /// <summary>Whether the Body is at the workplace: the Place onscreen, the Locale offscreen.</summary>
     private async Task<bool> AtWorkAsync(LifeContext ctx, Occupation job)
         => (job.PlaceId ?? job.LocaleId) is { } where && await grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId).GetPlaceOfAsync(ctx.Self.Id) == where;
 

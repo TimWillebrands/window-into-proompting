@@ -5,12 +5,9 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.World.Places;
 
-/// <summary>A 3D model as data (ADR 0049): coloured shapes, grouped and repeated, cleaned so any model's output draws sanely on its footprint.</summary>
 public static partial class ThingModel
 {
-    /// <summary>Parts as written, groups included.</summary>
     public const int MaxParts = 64;
-    /// <summary>Shapes drawn once repeats are counted.</summary>
     public const int MaxDrawn = 320;
     public const int MaxSide = 3;
     private static readonly string[] Shapes = { "box", "cyl", "cone", "ball", "dome", "capsule", "gable", "wedge", "pyramid", "ring", "lathe", "extrude", "tube", "sign", "group", "use" };
@@ -30,8 +27,6 @@ public static partial class ThingModel
         public Func<string, bool> Known = _ => false;
     }
 
-    /// <summary>Normalised model JSON, or null when nothing usable came back.</summary>
-    /// <param name="known">Extra prefab names a `use` may name, beside the catalogue.</param>
     public static string? Clean(JsonNode? raw, Func<string, bool>? known = null) => CleanObject(raw, known)?.ToJsonString();
 
     public static JsonObject? CleanObject(JsonNode? raw, Func<string, bool>? known = null)
@@ -115,7 +110,6 @@ public static partial class ThingModel
         var reach = budget.Reach;
         var wide = reach * 2;
 
-        // Repeats first: they decide how much of the budget this part takes.
         var mine = 1;
         if (p["array"] is JsonObject array && Num(array["n"]) is { } an && an >= 2)
         {
@@ -234,7 +228,6 @@ public static partial class ThingModel
         return true;
     }
 
-    /// <summary>Hex, a palette name, or a `$tint`; the fallback otherwise.</summary>
     private static string Colour(JsonNode? n, string fallback, bool tints = true)
     {
         var s = n?.ToString().Trim();
@@ -266,7 +259,6 @@ public static partial class ThingModel
     private static List<double[]>? Points(JsonNode? n, int dims, int max)
         => n is JsonArray a ? a.Take(max).Select(q => Nums(q, dims)).OfType<double[]>().ToList() : null;
 
-    /// <summary>The whole format, for whoever models: an LLM in the World or an agent over MCP.</summary>
     public static string Prompt => $$$"""
         You make 3D models for a cosy low-poly world out of coloured shapes. Keep it simple if you like: a handful of boxes and cylinders is a fine model.
         Units: one floor tile is 1 wide (x) by 1 deep (z), centred on 0,0; y is up from the floor. A person is about 1.1 tall, a chair seat 0.45, a table 0.75. The front faces +z.

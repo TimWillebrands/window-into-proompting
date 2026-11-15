@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Snapshot how much separate casts have grown into each other; appends to tools/lived-self/out/casts.jsonl.
+USAGE = """Snapshot how much separate casts have grown into each other; appends to tools/lived-self/out/casts.jsonl.
 
 Usage: PGPASSWORD=... tools/lived-self/casts.py casts.json [base-url]
 casts.json maps cast name to persona ids; anyone unlisted is "old".
@@ -7,7 +7,7 @@ casts.json maps cast name to persona ids; anyone unlisted is "old".
 import collections, json, pathlib, subprocess, sys, time, urllib.request
 
 root = pathlib.Path(__file__).resolve().parents[2]
-if len(sys.argv) < 2: sys.exit(__doc__)
+if len(sys.argv) < 2: sys.exit(USAGE)
 casts_file = pathlib.Path(sys.argv[1])
 base = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:5072/api"
 party = "00000000-0000-0000-0000-000000000000"

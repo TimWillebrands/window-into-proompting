@@ -5,18 +5,14 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>One prefab the client can draw (shared with the frontend, which tests it stays in sync).</summary>
 public sealed record PrefabInfo(string Name, int[] Size, bool Solid, bool Wall, int Seats, string About);
 
-/// <summary>Something to do at a Place, pinned to a thing in its scene (ADR 0049).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Feature")]
 public sealed record Feature([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string SpotId,
     [property: Id(3)] string Do, [property: Id(4)] string Gives, [property: Id(5)] bool Leaves);
 
-/// <summary>A design looked over: the draft when it works, what's wrong when it doesn't, what was mended, and the map with everything on it.</summary>
 public sealed record DesignCheck(PlaceDraft? Draft, List<string> Errors, List<string> Notes, string Preview);
 
-/// <summary>Generated Places (ADR 0023, 0049): someone designs spots and a scene; this mends what it can, checks it draws and every spot can be reached.</summary>
 public static partial class PlaceDesign
 {
     public const int MaxSide = 30;
@@ -63,7 +59,6 @@ public static partial class PlaceDesign
         ["ambience"] = new[] { "dust", "fireflies", "snow", "rain", "leaves", "petals", "embers", "bubbles", "confetti" },
     };
 
-    /// <summary>What people call things, onto what the catalogue calls them.</summary>
     private static readonly Dictionary<string, string> Aliases = new()
     {
         ["couch"] = "sofa", ["settee"] = "sofa", ["bookshelf"] = "books", ["bookcase"] = "books", ["shelves"] = "shelf", ["tree"] = "elm", ["oak"] = "elm",
@@ -79,11 +74,9 @@ public static partial class PlaceDesign
         ["pinball"] = "arcade", ["notice-board"] = "noticeboard", ["blackboard"] = "chalkboard", ["menu"] = "chalkboard", ["cart"] = "coffee-cart",
     };
 
-    /// <summary>A stored scene's tile map, row by row; empty for a hand-made scene.</summary>
     public static List<string> MapRows(string? stored)
         => stored is null ? new List<string>() : Rows(JsonNode.Parse(stored)?["map"]) ?? new List<string>();
 
-    /// <summary>Rows as strings, from a string or an array of strings, padded to one width.</summary>
     public static List<string>? Rows(JsonNode? map)
     {
         var rows = map switch
@@ -101,7 +94,6 @@ public static partial class PlaceDesign
         return rows.Select(r => r.PadRight(w)).ToList();
     }
 
-    /// <summary>The map as cells, with what blocks walking; null when there's no map.</summary>
     private sealed class Grid
     {
         public required List<string> Rows;
@@ -151,8 +143,6 @@ public static partial class PlaceDesign
     private static (int W, int D) Footprint(PrefabInfo info, JsonObject prop)
         => (int)(Num(prop["rot"]) ?? 0) % 2 == 0 ? (info.Size[0], info.Size[1]) : (info.Size[1], info.Size[0]);
 
-    /// <summary>What's wrong with a scene for these spots; empty when it draws and every spot has room and a way in.</summary>
-    /// <param name="own">The scene's own models, beside the catalogue.</param>
     public static List<string> Check(JsonObject scene, IReadOnlyList<Spot> spots, IReadOnlyDictionary<string, PrefabInfo>? own = null)
     {
         var errors = new List<string>();
@@ -215,7 +205,6 @@ public static partial class PlaceDesign
         return start;
     }
 
-    /// <summary>" (did you mean sofa, k-lounge-sofa?)" for a name the catalogue doesn't have.</summary>
     private static string Suggest(string name, IEnumerable<string> names)
     {
         var close = Closest(name, names).Take(3).ToList();
@@ -241,7 +230,6 @@ public static partial class PlaceDesign
         return d[a.Length, b.Length];
     }
 
-    /// <summary>Mends what has one obvious fix, and says so: near-miss prefab names, things on walls, spots on furniture, unknown styles.</summary>
     private static void Mend(JsonObject scene, IReadOnlyList<Spot> spots, IReadOnlyDictionary<string, PrefabInfo> prefabs, List<string> notes)
     {
         foreach (var (key, allowed) in Styles)
@@ -259,7 +247,6 @@ public static partial class PlaceDesign
         var props = scene["props"] as JsonArray ?? new JsonArray();
         foreach (var prop in props.OfType<JsonObject>())
         {
-            // "prefab"/"name" for "p", "x"/"z" for "at": common slips.
             if (prop["p"] is null && (prop["prefab"] ?? prop["type"]) is { } named) prop["p"] = named.ToString();
             if (prop["at"] is null && Num(prop["x"]) is { } x0 && Num(prop["z"] ?? prop["y"]) is { } z0) prop["at"] = new JsonArray((int)x0, (int)z0);
             var name = prop["p"]?.ToString() ?? string.Empty;
@@ -275,7 +262,6 @@ public static partial class PlaceDesign
             }
             if (!prefabs.TryGetValue(name, out var info) || Pair(prop["at"]) is not var (px, pz)) continue;
             var (sw, sd) = Footprint(info, prop);
-            // On a wall tile: step onto the floor next to it (wall things hang on the wall behind their tile).
             if (grid.IsWall(px, pz) && sw == 1 && sd == 1)
             {
                 var to = new[] { (px, pz + 1), (px + 1, pz), (px, pz - 1), (px - 1, pz) }.FirstOrDefault(t => grid.In(t.Item1, t.Item2) && Walkable.Contains(grid.Ground[t.Item1, t.Item2]), (-1, -1));
@@ -292,13 +278,11 @@ public static partial class PlaceDesign
                         if (grid.In(px + dx, pz + dz)) grid.Blocked[px + dx, pz + dz] = true;
         }
 
-        // A solid thing on the only way in would shut the Place; nothing to mend there, Check says so.
         var reach = Reachable(Entrances(scene, grid), grid.Blocked, grid.W, grid.H);
         if (scene["spots"] is not JsonObject spotDefs) scene["spots"] = spotDefs = new JsonObject();
         foreach (var spot in spots)
         {
             var given = spotDefs[spot.Id] is JsonObject def ? Pair(def["at"]) : Pair(spotDefs[spot.Id]);
-            // No tile given: next to the first thing tagged with this spot.
             given ??= props.OfType<JsonObject>().Where(p => p["spot"]?.ToString() == spot.Id).Select(p => Pair(p["at"])).FirstOrDefault(p => p is not null);
             if (given is not var (sx, sz)) continue;
             if (grid.In(sx, sz) && reach[sx, sz]) { if (spotDefs[spot.Id] is not JsonObject) spotDefs[spot.Id] = new JsonObject { ["at"] = new JsonArray(sx, sz) }; continue; }
@@ -315,7 +299,6 @@ public static partial class PlaceDesign
         }
     }
 
-    /// <summary>The scene's own models, cleaned in place; what they're like as prefabs.</summary>
     private static Dictionary<string, PrefabInfo> OwnModels(JsonObject scene, List<string> errors, List<string> notes)
     {
         var own = new Dictionary<string, PrefabInfo>();
@@ -337,7 +320,6 @@ public static partial class PlaceDesign
         return own;
     }
 
-    /// <summary>Things to do, lifted out of the props: the designer's own first, then what the catalogue's things afford, up to <see cref="MaxFeatures"/>.</summary>
     public static List<Feature> Featurize(JsonObject scene, IReadOnlyList<Spot> spots)
     {
         var features = new List<Feature>();
@@ -368,7 +350,6 @@ public static partial class PlaceDesign
             props.Remove(prop);
             features.Add(new Feature(id, name, spot, offer.Do, offer.Gives, offer.Leaves));
         }
-        // Whatever wasn't picked keeps no stray keys the client doesn't read.
         foreach (var prop in props.OfType<JsonObject>())
             foreach (var key in new[] { "do", "gives", "leaves" }) prop.Remove(key);
         if (features.Count > 0) scene["furni"] = furni;
@@ -385,7 +366,6 @@ public static partial class PlaceDesign
     private static string Slug(string s)
         => new string(s.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
 
-    /// <summary>The map with props lettered and spots numbered, and a key underneath: what a designer without eyes gets to look at.</summary>
     public static string Preview(JsonObject scene, IReadOnlyList<Spot> spots, IReadOnlyDictionary<string, PrefabInfo>? own = null)
     {
         var prefabs = own is null ? Prefabs : new Dictionary<string, PrefabInfo>(Prefabs.Concat(own).GroupBy(p => p.Key).Select(g => g.Last()));
@@ -448,15 +428,12 @@ public static partial class PlaceDesign
     private static readonly string[] HomeSpots = { "sofa", "desk", "kitchen", "bed" };
     public static readonly string[] HomeThings = { FurniKinds.Plant, FurniKinds.Coffee, FurniKinds.Cups, FurniKinds.Laptop, FurniKinds.Bed };
 
-    /// <summary>What a Home's design must hold, for how many live there.</summary>
     public static string HomeRules(int living)
         => $"It's a home {(living <= 1 ? "one person lives" : $"{living} people live")} in. Spots must include these ids, plus up to two more: {string.Join(", ", HomeSpots)}. Leave out the bed, laptop, coffee maker, dishes and plant: they get placed next to their spots. Add \"things\": {{{string.Join(", ", HomeThings.Select(t => $"\"{t}\": \"...\""))}}}, what each of those is here, with where it is (\"the dented kettle on the camping stove\").";
 
     public static string? MissingHomeSpots(IReadOnlyList<Spot> spots)
         => HomeSpots.Except(spots.Select(s => s.Id)).ToList() is { Count: > 0 } missing ? $"spots must include: {string.Join(", ", missing)}" : null;
 
-    /// <summary>Asks the designer until the scene checks out, three tries at most; null when it never does.</summary>
-    /// <param name="rule">What's wrong with these spots beyond the scene check; null when they're fine.</param>
     public static async Task<PlaceDraft?> DesignAsync(IWorldLlm llm, ILogger logger, string brief, bool outdoor, IReadOnlyList<string> placesNow, Func<IReadOnlyList<Spot>, string?>? rule = null)
     {
         var first = $"Design: {brief}\nPlaces that already exist: {string.Join(", ", placesNow)}";
@@ -480,14 +457,12 @@ public static partial class PlaceDesign
         return null;
     }
 
-    /// <summary>A design as a draft, or what's wrong with it; the same check whoever designed it.</summary>
     public static (PlaceDraft? Draft, List<string> Errors) Validate(JsonObject? json, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
     {
         var check = Inspect(json, outdoor, rule);
         return (check.Draft, check.Errors);
     }
 
-    /// <summary>Mend, check, and lift out the things to do; the preview comes back either way.</summary>
     public static DesignCheck Inspect(JsonObject? json, bool outdoor, Func<IReadOnlyList<Spot>, string?>? rule = null)
     {
         var notes = new List<string>();
@@ -506,7 +481,6 @@ public static partial class PlaceDesign
         return new DesignCheck(new PlaceDraft(json.ToJsonString(), Store(scene), spots, features), errors, notes, preview);
     }
 
-    /// <summary>The scene as stored: map rows joined, the rest as the model gave it.</summary>
     public static string Store(JsonObject scene)
     {
         var copy = (JsonObject)scene.DeepClone();
@@ -514,7 +488,6 @@ public static partial class PlaceDesign
         return copy.ToJsonString();
     }
 
-    /// <summary>Spots from the design, cleaned: kebab ids, sane capacity, known poses.</summary>
     public static List<Spot> SpotsOf(JsonArray? raw)
     {
         var known = new[] { Poses.Lean, Poses.Lounge, Poses.Perch, Poses.Dance, Poses.Lie, Poses.CrossLegged };

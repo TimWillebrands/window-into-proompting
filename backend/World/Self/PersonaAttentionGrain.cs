@@ -1,9 +1,5 @@
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// What a Persona has looked at lately (key = <c>party:persona</c>): opened the Board, scrolled back through a chat.
-/// Apps render in full only what is in mind; everything else reaches the Persona as a notification.
-/// </summary>
 public sealed class PersonaAttentionGrain(
     [PersistentState(stateName: "attention", storageName: "parties")]
     IPersistentState<AttentionState> state)
@@ -29,7 +25,6 @@ public sealed class PersonaAttentionGrain(
 public interface IPersonaAttentionGrain : IGrainWithStringKey
 {
     [Alias("GetLooksAsync")] Task<Dictionary<Guid, AttentionLook>> GetLooksAsync();
-    /// <summary>Looked at <paramref name="target"/> now; for a chat, read back to <paramref name="fromMessageId"/>.</summary>
     [Alias("LookAsync")] Task LookAsync(Guid target, int? fromMessageId);
 }
 

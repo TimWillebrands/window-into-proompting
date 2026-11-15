@@ -2,7 +2,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027: a thing's description picks a catalogue model when it names one; otherwise it's a miss.</summary>
 public class CatalogueMatchTest
 {
     [Theory]

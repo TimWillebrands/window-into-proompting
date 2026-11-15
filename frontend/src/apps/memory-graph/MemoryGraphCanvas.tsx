@@ -50,7 +50,6 @@ export default function MemoryGraphCanvas({
         [view.nodes],
     );
 
-    // Event radius from its strongest Recollection; the ring shows who remembers it.
     const eventStyle = useMemo(() => {
         const styles = new Map<string, EventStyle>();
         for (const link of view.links) {
@@ -66,7 +65,6 @@ export default function MemoryGraphCanvas({
         return styles;
     }, [view.links, colourById]);
 
-    // Defensive copy for force-graph; people pinned on a ring (lens in the middle) so shared memories settle between them.
     const data = useMemo(() => {
         const people = view.nodes.filter(
             (n) => n.kind === 'Participant' && n.id !== lens,
@@ -104,7 +102,6 @@ export default function MemoryGraphCanvas({
             l.kind === 'STANCE' ? 0.08 : l.kind === 'ABOUT' ? 0.25 : 0.06,
         );
         fg.d3ReheatSimulation();
-        // People are pinned, so the frame is known early; refit again once the engine stops.
         const fit = setTimeout(() => fg.zoomToFit(400, 30), 600);
         return () => clearTimeout(fit);
     }, [data]);
@@ -115,7 +112,6 @@ export default function MemoryGraphCanvas({
         [view, focusId],
     );
 
-    // Focus (hover/selection) wins over search so a picked memory still shows who holds it.
     const isLit = (id: string) =>
         focus ? focus.has(id) : !matches || matches.has(id);
 
@@ -124,7 +120,6 @@ export default function MemoryGraphCanvas({
         const node = data.nodes.find((n) => n.id === selectedNodeId);
         const fg = fgRef.current;
         if (!fg || node?.x === undefined || node.y === undefined) return;
-        // Only pan when the pick (e.g. from the inspector) is off-screen.
         const at = fg.graph2ScreenCoords(node.x, node.y);
         const margin = 40;
         if (
@@ -212,7 +207,6 @@ export default function MemoryGraphCanvas({
             linkColor={(link) => {
                 const source = endpointId(link.source);
                 const target = endpointId(link.target);
-                // Focused: only the focus node's own edges, plus its memories' topics.
                 const touches =
                     !focusId ||
                     source === focusId ||
@@ -269,7 +263,6 @@ function drawEvent(
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.fillStyle = KIND_COLOUR.Event;
     ctx.fill();
-    // One ring segment per person who remembers it.
     const owners = style?.rememberedBy ?? [];
     const ring = Math.max(1.4, 2.2 / scale);
     if (owners.length === 0) {
@@ -325,7 +318,6 @@ interface LabelCandidate {
     priority: number;
 }
 
-/// <summary>Lower draws first and wins collisions; null = no label.</summary>
 function labelPriority(
     node: Node,
     s: {
@@ -343,7 +335,6 @@ function labelPriority(
     return (s.narrowed ? 19 : 109) - Math.min(s.degree, 9);
 }
 
-// Screen-constant labels with a paper halo; greedy placement skips any that would overlap.
 function drawLabels(
     ctx: CanvasRenderingContext2D,
     candidates: LabelCandidate[],

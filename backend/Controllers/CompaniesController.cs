@@ -11,7 +11,6 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Companies (ADR 0030): found one, staff it, read its Book, and trade as anyone on the staff.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/companies")]
 public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cytheurgy site, Actors actors) : ControllerBase
@@ -26,7 +25,6 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         return Ok(result);
     }
 
-    /// <summary>Start a Company: "trades AI questions" on predictions, crypto or stocks, with its own office.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost]
     [ProducesResponseType<CompanySummary>(StatusCodes.Status200OK)]
@@ -47,7 +45,6 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         return Ok(Summary(company, new List<ParticipantView>()));
     }
 
-    /// <summary>A trading Company's new focus: what it searches its Market for. The Watchlist is read again at once.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPatch("{companyId:guid}/focus")]
     [ProducesResponseType<CompanySummary>(StatusCodes.Status200OK)]
@@ -61,7 +58,6 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         return await OneAsync(partyId, companyId);
     }
 
-    /// <summary>Put someone on the staff. Days like "Mon-Fri"; hours like "09:00-17:00".</summary>
     [HttpPut("{companyId:guid}/staff/{participantId:guid}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -88,7 +84,6 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         return await OneAsync(partyId, companyId);
     }
 
-    /// <summary>One order as a staff member. Percent is of the Book to buy, of the Position to sell.</summary>
     [HttpPost("{companyId:guid}/trades")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -129,17 +124,12 @@ public sealed class CompaniesController(IGrainFactory grains, Desks desks, Cythe
         t.Id, t.At, t.TraderId, t.TraderName, t.InstrumentId, t.Title, t.Side.ToString(), t.Units, t.Price, t.Fee, t.Realized, t.Thesis, t.Forecast, t.Score);
 }
 
-/// <param name="Market">predictions, crypto or stocks.</param>
-/// <param name="Focus">Search term or coins/tickers; optional except for stocks.</param>
 public sealed record FoundCompanyRequest(string Name, string Mandate, string Market, string? Focus, double? Capital, string? Kind = null);
 
 public sealed record HireRequest(string Title, string? Days, string Hours);
 
-/// <param name="Focus">Search term or coins/tickers; empty for the Market's default.</param>
 public sealed record RefocusRequest(string? Focus);
 
-/// <param name="Side">buy or sell.</param>
-/// <param name="Chance">On a question: percent chance it pays out.</param>
 public sealed record TradeRequest(Guid TraderId, string InstrumentId, string Side, double Percent, string? Thesis, double? Chance);
 
 public sealed record StaffSummary(Guid ParticipantId, string Name, double? Brier);

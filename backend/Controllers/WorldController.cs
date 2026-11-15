@@ -12,10 +12,6 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
-/// <summary>
-/// The World surface of a Party (ADR 0018): clock + activity log, the Player, and the
-/// non-Room Apps (Board, Messenger, Diary). Rooms keep their routes on <see cref="PartyController"/>.
-/// </summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
 public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp> apps, Actors actors, PlayerRemoval removal, PlayerAuto auto, IPostHogClient posthog) : ControllerBase
@@ -35,7 +31,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<WorldStatus>> Update(Guid partyId, [FromBody] UpdateWorldRequest request)
         => Ok(await Clock(partyId).UpdateAsync(request.Running, request.TickSeconds, request.MaxActionsPerHour, request.AmbientMinutes));
 
-    /// <summary>Give one Persona (or a weighted pick) a Life turn right now.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("tick")]
     public async Task<ActionResult<TickResponse>> Tick(Guid partyId, [FromBody] TickRequest request)
@@ -47,7 +42,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<List<WorldActivity>>> GetActivities(Guid partyId, [FromQuery] int limit = 100, [FromQuery] Guid? personaId = null)
         => Ok(await VisibleAsync(partyId, await Clock(partyId).GetActivitiesAsync(limit, personaId)));
 
-    /// <summary>Who lives here and what they're up to.</summary>
     [AllowAnonymous]
     [HttpGet("lives")]
     public async Task<ActionResult<List<LifeSummary>>> GetLives(Guid partyId)
@@ -67,7 +61,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
             .ToList());
     }
 
-    /// <summary>Announce a Happening every Persona will perceive and remember.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("happenings")]
     public async Task<ActionResult<WorldActivity>> Announce(Guid partyId, [FromBody] AnnounceRequest request)
@@ -77,7 +70,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(await Clock(partyId).AnnounceAsync(request.Text.Trim()));
     }
 
-    /// <summary>Invite a library Persona to live in this World (LLM-driven Participant).</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("residents")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -100,12 +92,10 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(new LifeSummary(persona.Id, persona.Name, DriverKind.LLM, persona.Chattiness, false, false, null));
     }
 
-    /// <summary>A Persona moves out: their Participant (and Party-scoped memories' owner) leaves the cast.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("residents/{personaId:guid}")]
     public async Task<ActionResult> Evict(Guid partyId, Guid personaId)
     {
-        // A Player on auto looks like a Persona here, but leaving takes what's theirs and frees their Clerk id.
         if (await Clock(partyId).IsClaimedAsync(personaId))
             return await removal.RemoveAsync(partyId, personaId) ? NoContent() : NotFound();
         var party = grains.GetGrain<IPartyGrain>(partyId);
@@ -120,7 +110,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return NoContent();
     }
 
-    /// <summary>The caller's character here; PlayerId is null until they've made one.</summary>
     [HttpGet("player")]
     public async Task<ActionResult<PlayerResponse>> GetPlayer(Guid partyId)
     {
@@ -131,7 +120,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(new PlayerResponse(id, link?.Name, Actors.IsAdmin(User), link?.Driver == DriverKind.LLM, id is { } own && link?.Driver == DriverKind.LLM ? await auto.MissionAsync(partyId, own) : null, aura));
     }
 
-    /// <summary>How the caller's character comes across to whoever stands right next to them; empty clears it.</summary>
     [HttpPut("player/aura")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PlayerResponse>> SetAura(Guid partyId, [FromBody] SetAuraRequest request)
@@ -142,7 +130,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return await GetPlayer(partyId);
     }
 
-    /// <summary>Hand the caller's character to the agent, or take it back, optionally with a mission for them to go after.</summary>
     [HttpPut("player/auto")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PlayerResponse>> SetAuto(Guid partyId, [FromBody] SetAutoRequest request)
@@ -153,7 +140,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return await GetPlayer(partyId);
     }
 
-    /// <summary>Make the caller's character. 409 when the name is taken.</summary>
     [HttpPost("player")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -166,7 +152,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(new PlayerResponse(id, name, Actors.IsAdmin(User)));
     }
 
-    /// <summary>Personas the caller could play as instead of making someone new (ADR 0059).</summary>
     [HttpGet("player/free")]
     public async Task<ActionResult<List<FreePersona>>> GetFreePersonas(Guid partyId)
     {
@@ -181,7 +166,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(result);
     }
 
-    /// <summary>Play as a Persona already here, from now on. 409 when the caller has a character or they're not free.</summary>
     [HttpPost("player/take")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PlayerResponse>> TakePersona(Guid partyId, [FromBody] TakePersonaRequest request)
@@ -197,14 +181,11 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return await GetPlayer(partyId);
     }
 
-    /// <summary>Remove a human Player and what's theirs. Personas keep their memories.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("players/{playerId:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> RemovePlayer(Guid partyId, Guid playerId)
         => await removal.RemoveAsync(partyId, playerId) ? NoContent() : NotFound();
-
-    // ─── Board ────────────────────────────────────────────────────────────────
 
     [AllowAnonymous]
 
@@ -249,7 +230,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(done.Thread);
     }
 
-    /// <summary>Give (or take back) Respect! on a post, or on one of its replies when <c>ReplyId</c> is set.</summary>
     [HttpPost("board/{threadId:guid}/respect")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<BoardThread>> Respect(Guid partyId, Guid threadId, [FromBody] BoardRespectRequest request)
@@ -263,9 +243,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(t);
     }
 
-    // ─── Messenger ────────────────────────────────────────────────────────────
-
-    /// <summary>DM threads of one Participant (defaults to the Player), newest first.</summary>
     [HttpGet("messenger")]
     public async Task<ActionResult<List<DirectChatSummary>>> GetDirectChats(Guid partyId, [FromQuery] Guid? personaId = null)
     {
@@ -300,15 +277,12 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(chat);
     }
 
-    // ─── Calendar ─────────────────────────────────────────────────────────────
-
     [AllowAnonymous]
 
     [HttpGet("gatherings")]
     public async Task<ActionResult<List<Gathering>>> GetGatherings(Guid partyId)
         => Ok(await grains.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync());
 
-    /// <summary>A human plans a Gathering in a Room; personas see it in their Calendar perception.</summary>
     [HttpPost("gatherings")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Gathering>> PlanGathering(Guid partyId, [FromBody] PlanGatheringRequest request)
@@ -340,7 +314,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(g);
     }
 
-    /// <summary>Author: call a Gathering off.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("gatherings/{gatheringId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -362,8 +335,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         return Ok(done.Gathering);
     }
 
-    // ─── Diary ────────────────────────────────────────────────────────────────
-
     [HttpGet("diary/{personaId:guid}")]
     public async Task<ActionResult<List<DiaryEntry>>> GetDiary(Guid partyId, Guid personaId)
         => Ok(await grains.GetGrain<IDiaryGrain>(WorldKeys.Life(partyId, personaId)).GetEntriesAsync());
@@ -371,7 +342,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     private IWorldClockGrain Clock(Guid partyId) => grains.GetGrain<IWorldClockGrain>(partyId);
     private IBoardGrain Board(Guid partyId) => grains.GetGrain<IBoardGrain>(partyId);
 
-    /// <summary>The Player's act lands in the activity log exactly like a Life turn's.</summary>
     private Task RecordAsync(Guid partyId, Guid actorId, string actorName, string app, ActOutcome outcome)
         => Clock(partyId).RecordAsync(new WorldActivity
         {
@@ -379,7 +349,6 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
             Summary = outcome.Summary, TargetId = outcome.TargetId, WithPersonaId = outcome.WithPersonaId,
         });
 
-    /// <summary>Capture views from the Party cast; unknown authors are someone human.</summary>
     private async Task<ViewsOf> ViewsOfAsync(Guid partyId)
     {
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
@@ -424,5 +393,4 @@ public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid?
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);
 public sealed record OpenDirectChatRequest(Guid WithPersonaId, Guid? FromPersonaId);
 public sealed record DirectChatSummary(Guid ChatGroupId, Guid WithId, string WithName, string? LastMessage, Guid? LastSenderId, long LastAt);
-/// <param name="Afk">A human gone quiet: home, door shut, not available (see <see cref="PlacesGrain.AwayFromKeyboard"/>).</param>
 public sealed record LifeSummary(Guid PersonaId, string Name, DriverKind Driver, double Chattiness, bool Busy, bool IsPlayer, WorldActivity? LastActivity, bool Afk = false);

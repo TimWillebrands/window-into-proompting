@@ -3,10 +3,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Desires;
 
-/// <summary>
-/// Rest decides what wanting came to (ADR 0026), like Consolidation decides what moments meant: in the Diary,
-/// System One reads what they remember against each active desire. Got it → fulfilled; closer → it stays on top.
-/// </summary>
 public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, WorldMemory memory, ILogger<DesireReview> logger)
 {
     public const double Done = 0.7;
@@ -25,7 +21,6 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
             var questions = new Dictionary<string, SystemOneQuestion>();
             for (var i = 0; i < active.Count; i++)
             {
-                // Things are got by buying or being given them; only becoming is judged.
                 if (active[i].ItemKey is null && active[i].PlaceId is null) questions[$"done{i}"] = new NoulQuestion($"{self.Name} has got what they wanted: {active[i].Text}");
                 questions[$"closer{i}"] = new NoulQuestion($"Lately {self.Name} has moved closer to what they want: {active[i].Text}");
             }
@@ -45,7 +40,6 @@ public sealed class DesireReview(IGrainFactory grains, ISystemOneJudge judge, Wo
         }
     }
 
-    /// <summary>Fulfilled when clearly got, still active (touched) when closer, null when nothing moved.</summary>
     public static DesireStatus? Reviewed(double done, double closer)
         => done >= Done ? DesireStatus.Fulfilled : closer >= Progress ? DesireStatus.Active : null;
 }

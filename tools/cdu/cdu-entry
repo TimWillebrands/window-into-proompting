@@ -1,5 +1,4 @@
 #!/bin/bash
-# Keeps the CDU up: Pi can crash its process (pi #10585), and its session and Book are on the volume.
 git config --global user.name CDU
 git config --global user.email cdu@proompting.party
 git config --global --add safe.directory '*'

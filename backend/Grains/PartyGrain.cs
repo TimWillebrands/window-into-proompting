@@ -6,9 +6,6 @@ using PartyTown.Model;
 
 namespace PartyTown.Grains;
 
-// Party = root-of-universe. Owns chat group registry and participants.
-// Messages and generation are owned by ChatGroupGrain and PersonaGrain respectively.
-// The Guid.Empty party is the default universe, auto-initialized on first use.
 [LogConsistencyProvider(ProviderName = "PartyStateStorage")]
 [StorageProvider(ProviderName = "parties")]
 public sealed class PartyGrain(
@@ -48,14 +45,8 @@ public sealed class PartyGrain(
 
     public async Task SetParticipants(List<PartyParticipant> participants)
     {
-        // Party-level participants are the seed cast for newly created chat groups
-        // (see ChatGroupGrain.OnActivateAsync). Existing chat groups own their own
-        // participants list per-room and are not mutated here.
         var normalized = WithNarratorEnforced(participants);
 
-        // No-op short-circuit: NarratorSeeder re-asserts SetParticipants on every Party
-        // at boot. Without this guard, every silo start writes a journal event per party
-        // even when nothing changed — permanent monotonic growth in the event store.
         if (ParticipantsEqual(State.Participants, normalized))
             return;
 
@@ -86,7 +77,6 @@ public sealed class PartyGrain(
 
     public async Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId)
     {
-        // Narrator is enforced on every write; removing it would just re-add it.
         var leaving = State.Participants.FirstOrDefault(p => p.Id == personaId && p.Id != Narrator.PersonaId);
         if (leaving is not null)
             await SetParticipants(State.Participants.Where(p => p.Id != personaId).ToList());
@@ -104,13 +94,6 @@ public sealed class PartyGrain(
         return true;
     }
 
-    /// <summary>
-    /// Invariant: every Party carries the singleton <see cref="Narrator"/> as a
-    /// <see cref="DriverKind.System"/> Participant (ADR 0012, issue #75). Auto-grow it here
-    /// rather than relying on each caller to remember — and normalise the Driver kind back
-    /// to <c>System</c> if a caller mislabels it, so the pipeline-guard invariant holds
-    /// even under sloppy input.
-    /// </summary>
     private static List<PartyParticipant> WithNarratorEnforced(List<PartyParticipant> participants)
     {
         var result = new List<PartyParticipant>(participants.Count + 1);
@@ -119,7 +102,7 @@ public sealed class PartyGrain(
         {
             if (p.Id == Narrator.PersonaId)
             {
-                if (narratorSeen) continue; // de-dupe if caller submitted multiple
+                if (narratorSeen) continue;
                 narratorSeen = true;
                 result.Add(new PartyParticipant
                 {
@@ -170,7 +153,6 @@ public sealed class PartyGrain(
         RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
         await ConfirmEvents();
 
-        // Register mapping so ChatGroupGrain can self-initialize on activation
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
 
@@ -226,8 +208,6 @@ public sealed class PartyGrain(
 
     public async Task RemoveChatGroup(Guid chatGroupId)
     {
-        // Idempotent: removing an unknown/already-removed room is a no-op, so callers
-        // (import rollback) can retry safely.
         if (!State.ChatGroups.Any(g => g.Id == chatGroupId))
             return;
 
@@ -237,8 +217,6 @@ public sealed class PartyGrain(
 
     public async Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario)
     {
-        // Guard membership before raising the event — otherwise an unknown chatGroupId
-        // would persist a no-op event and activate an orphan ChatGroupGrain.
         if (!State.ChatGroups.Any(g => g.Id == chatGroupId))
             return;
 
@@ -261,7 +239,6 @@ public sealed class PartyGrain(
         await GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId).SetScenarioAsync(normalized);
     }
 
-    /// <summary>Newest <see cref="SnapshotPerRoom"/> messages of every Room, for the realtime snapshot.</summary>
     public async Task<List<ChatMessage>> DownloadMessages()
     {
         var rooms = await Task.WhenAll(State.ChatGroups.Select(cg => GrainFactory.GetGrain<IChatGroupGrain>(cg.Id).GetMessagesAsync()));
@@ -270,7 +247,6 @@ public sealed class PartyGrain(
 
     public const int SnapshotPerRoom = 200;
 
-    /// <summary>MessageId counts per Room, so the cap is per Room too; a global cap kept every Room's oldest.</summary>
     public static List<ChatMessage> NewestPerRoom(IEnumerable<IReadOnlyList<ChatMessage>> rooms, int perRoom)
         => rooms.SelectMany(msgs => msgs.OrderBy(m => m.MessageId).TakeLast(perRoom)).ToList();
 
@@ -281,16 +257,11 @@ public sealed class PartyGrain(
         await Task.WhenAll(tasks);
     }
 
-    /// <summary>
-    /// Pure filter for who may have an in-flight pipeline to cancel. System never runs one
-    /// (ADR 0012); a User default can, when a Room override makes it LLM-Effective.
-    /// </summary>
     public static IEnumerable<PartyParticipant> SelectCancelTargets(IEnumerable<PartyParticipant> participants)
         => participants.Where(p => p.Driver != DriverKind.System);
 
     public async Task<IReadOnlyList<CastMember>> GetCastAsync()
     {
-        // Every non-System link needs the join: Room overrides can make a User default speak.
         var library = await Task.WhenAll(State.Participants
             .Where(p => p.Driver != DriverKind.System)
             .Select(p => GrainFactory.GetGrain<IPersonaGrain>(p.Id).GetPersona()));
@@ -318,19 +289,15 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("SetParty")]
     Task SetParty(PartyInfo party);
 
-    /// <summary>Wholesale replace — seeding and the cast editor only; prefer the intent commands.</summary>
     [Alias("SetParticipants")]
     Task SetParticipants(List<PartyParticipant> participants);
 
-    /// <summary>Add Participants not yet in the cast; returns the ones actually added.</summary>
     [Alias("AddParticipantsAsync")]
     Task<List<PartyParticipant>> AddParticipantsAsync(List<PartyParticipant> participants);
 
-    /// <summary>Add or overwrite Participants by id (import re-runs).</summary>
     [Alias("UpsertParticipantsAsync")]
     Task UpsertParticipantsAsync(List<PartyParticipant> participants);
 
-    /// <summary>Remove one Participant; returns it, or null when absent (or the Narrator).</summary>
     [Alias("RemoveParticipantAsync")]
     Task<PartyParticipant?> RemoveParticipantAsync(Guid personaId);
 
@@ -341,16 +308,12 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("CreateChatGroup")]
     Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
 
-    /// <summary>Messenger thread between two Participants; idempotent per pair.</summary>
     [Alias("GetOrCreateDirectChatAsync")]
     Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b);
 
-    /// <summary>Place talk Room for one Place; its cast is synced by the Places grain.</summary>
     [Alias("CreatePlaceRoomAsync")]
     Task<ChatGroupInfo> CreatePlaceRoomAsync(string name);
 
-    /// <summary>Remove a Room from this Party's registry (import rollback). The
-    /// ChatGroupGrain's own journal is wiped separately by the caller.</summary>
     [Alias("RemoveChatGroup")]
     Task RemoveChatGroup(Guid chatGroupId);
 
@@ -363,12 +326,6 @@ public interface IPartyGrain : IGrainWithGuidKey
     [Alias("CancelAllGenerations")]
     Task CancelAllGenerations(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Build the canonical CastMember list for one pipeline run by joining the Party's
-    /// PartyParticipant links against the Persona library. Result lives in process memory;
-    /// not persisted. Consumers project to ParticipantView / SelfView before passing to
-    /// Decision / Speaking / Memory phases.
-    /// </summary>
     [AlwaysInterleave]
     [Alias("GetCastAsync")]
     Task<IReadOnlyList<CastMember>> GetCastAsync();

@@ -235,12 +235,10 @@ export default function DesktopExperience() {
         if (isLoading) return <DesktopWallpaper />;
         if (userId && !playerId) return <CreateCharacterScreen />;
         return (
-            // Keyed so another World starts from a clean desktop.
             <section key={worldId} className="fixed inset-0">
                 <DesktopWallpaper />
                 <DesktopProvider>
                     <DesktopWindowLayer />
-                    {/* Keyed so a new character reopens the socket as that viewer. */}
                     <WorldRealtimeBridge key={playerId ?? 'visitor'} />
                     <WorldToasts />
                 </DesktopProvider>

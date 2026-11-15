@@ -1,11 +1,9 @@
-// Room conversation rules shared by D'Accord and Messenger (a DM is a two-person Room).
 import type {
     ActiveGenerationPhase,
     DeclinedDecision,
     RealtimeChatMessage,
 } from './room-state';
 
-/** A persona turn's appraisal JSON, normalised (older messages used PascalCase keys). */
 export interface Appraisal {
     personaId: string | null;
     reason: string | null;
@@ -32,7 +30,6 @@ export const parseAppraisal = (
     }
 };
 
-/** Latest "stop — your turn" aimed at the human's Persona that no user line has answered yet. */
 export const pendingInstructionFor = (
     messages: readonly RealtimeChatMessage[],
     userPersonaId: string,
@@ -54,8 +51,6 @@ export const pendingInstructionFor = (
     return { instruction, reason };
 };
 
-/** D'Accord bubble rule: no empty in-flight slots; appraisal-only slots live in the Thought Log
- * unless they hand the turn to the human's Persona. */
 export const isShownInRoom = (
     m: RealtimeChatMessage,
     generating: boolean,
@@ -67,11 +62,9 @@ export const isShownInRoom = (
     return !!a?.stop && a.personaId === userPersonaId;
 };
 
-/** Messenger rule: only lines with text, plus persona-side errors. */
 export const isShownInMessenger = (m: RealtimeChatMessage): boolean =>
     !!m.content?.trim() || (!!m.error && m.senderType !== 'user');
 
-/** Who is visibly busy in the Room, by persona: deciding, typing or streaming (latest phase wins). */
 export const phaseByPersona = (
     phases: readonly ActiveGenerationPhase[],
 ): Map<string, ActiveGenerationPhase> => {
@@ -88,7 +81,6 @@ export const phaseByPersona = (
     return map;
 };
 
-/** Persona saw the latest line and means to get back to it (ADR 0031): shown until they next speak. */
 export const heldBy = (
     personaId: string,
     messages: readonly RealtimeChatMessage[],
@@ -106,7 +98,6 @@ export const heldBy = (
     );
 };
 
-/** Messenger's one-line status for the other side: typing beats reading. */
 export const typingState = (
     phases: readonly ActiveGenerationPhase[],
 ): 'typing' | 'reading' | 'idle' =>

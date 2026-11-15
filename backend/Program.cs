@@ -17,9 +17,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Skip Orleans + DB wiring when emitting the OpenAPI document at build time —
-// the GetDocument.Insider tool starts hosted services, and the silo would try
-// to reach Postgres. Controllers + AddOpenApi() are enough for spec emission.
 var openApiBuild = Environment.GetEnvironmentVariable("OPENAPI_GENERATE") == "1";
 
 builder.Services.AddLlmProviderOptions();
@@ -59,15 +56,12 @@ if (!openApiBuild)
             builder.Services.AddSingleton<IStanceConsolidator, StanceConsolidator>();
     builder.Services.AddSingleton<ConsolidationService>();
 
-    // World (ADR 0018): Apps are modes of engagement; Life picks among their Affordances.
     builder.Services.AddSingleton<PartyTown.World.IWorldLlm, PartyTown.World.WorldLlm>();
-    // System One (ADR 0034): the Decisions provider tier; with none answering, LLM emulation (ADR 0040).
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.LlmJudge>();
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.ProviderJudge>();
     builder.Services.AddSingleton<PartyTown.Services.SystemOne.ISystemOneJudge>(sp =>
         sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
-    // The router's bench is the resilience here: retrying a down local judge only adds latency and log noise.
-#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is still marked experimental
+#pragma warning disable EXTEXP0001
     builder.Services.AddHttpClient(PartyTown.Services.SystemOne.HttpSystemOneJudge.ClientName, c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
     builder.Services.AddSingleton<PartyTown.World.WorldMemory>();
@@ -109,20 +103,14 @@ if (!openApiBuild)
     builder.Services.AddSingleton<PartyTown.World.Apps.IWorldApp>(sp => sp.GetRequiredService<PartyTown.World.Economy.WardrobeApp>());
     builder.Services.TryAddSingleton(TimeProvider.System);
 
-    // LLM one-shot calls (memory extraction, stance consolidation) routinely run
-    // longer than Orleans' default 30s response timeout, which would otherwise drop
-    // the in-flight response as expired. Give the grain<->client RPC generous headroom.
     var llmResponseTimeout = TimeSpan.FromMinutes(3);
 
-    // Grain storage JSON must keep default values: enums/bools whose zero differs from the
-    // property initializer (DriverKind.User, IsEnabled=false) otherwise reload as the initializer.
     builder.Services.Configure<Orleans.Serialization.OrleansJsonSerializerOptions>(o =>
         o.JsonSerializerSettings.DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Include);
 
     builder.Host.UseOrleans(siloBuilder =>
     {
         siloBuilder.Configure<SiloMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
-        // Dev restarts kill the silo without a goodbye: declare the old instance dead fast instead of routing to it for minutes.
         if (builder.Environment.IsDevelopment())
             siloBuilder.Configure<ClusterMembershipOptions>(o =>
             {
@@ -170,12 +158,9 @@ if (!openApiBuild)
         siloBuilder.AddActivityPropagation();
     });
 
-    // The co-hosted client (MemoryExtractor / StanceConsolidator call grains via
-    // IGrainFactory) sets the request deadline, so it needs the same headroom.
     builder.Services.Configure<ClientMessagingOptions>(o => o.ResponseTimeout = llmResponseTimeout);
 
     builder.Services.AddHostedService<NarratorSeederHostedService>();
-    // After the silo, before the World: the judge knows its providers before the first beat.
     builder.Services.AddHostedService(sp => sp.GetRequiredService<PartyTown.Services.SystemOne.ProviderJudge>());
     builder.Services.AddHostedService<PartyTown.Grains.Generation.ProviderAvailabilityService>();
     builder.Services.AddHostedService<PartyTown.World.WorldPulseService>();
@@ -195,7 +180,6 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-// The planning-note cut is a heuristic: log each firing to see whether the prompt fix made it redundant.
 var noteLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("PartyTown.SpeechCleanup");
 PartyTown.Services.ResponsePipeline.SpeechCleanup.NoteDropped += (before, after) =>
     noteLog.LogInformation("Planning note cut: {Before} → {After}", PartyTown.World.WorldStream.Clip(before, 240), PartyTown.World.WorldStream.Clip(after, 120));
@@ -221,13 +205,11 @@ app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UsePostHogAnalytics();
-// After auth: a cached response must not skip the sign-in check.
 app.UseOutputCache();
 
 app.MapControllers();
 app.MapPartyMcp();
 
-// Before the silo starts (app.Run): nothing may touch memory ahead of its schema (ADR 0008).
 if (!openApiBuild)
 {
     await using var schema = new Npgsql.NpgsqlConnection(app.Configuration.GetConnectionString("Default"));
@@ -235,7 +217,6 @@ if (!openApiBuild)
     await MemoryGraphSchema.EnsureAsync(schema);
 }
 
-// Dev runs one silo: a predecessor killed without a goodbye still reads Active and gets traffic until probed dead.
 if (!openApiBuild && app.Environment.IsDevelopment())
 {
     try

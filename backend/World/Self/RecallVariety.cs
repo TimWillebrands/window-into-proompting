@@ -3,16 +3,10 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// One story, one slot (ADR 0021): every retelling becomes a new memory, so a favourite story crowds recall and
-/// gets told again. Near-duplicates collapse into the strongest one's slot, holding the latest telling (ADR 0042),
-/// and stories you told someone say so.
-/// </summary>
 public static partial class RecallVariety
 {
     public const double SameStory = 0.5;
 
-    /// <summary>Snippet verbs that say how a memory was made, not what it's about.</summary>
     private static readonly HashSet<string> Framing = new(StringComparer.Ordinal)
     {
         "told", "tell", "tells", "heard", "said", "says", "asked", "asks", "mentioned", "talked", "called", "once",
@@ -22,11 +16,9 @@ public static partial class RecallVariety
         => beat.Memories.Count == 0 ? beat : new RecallBeat(Collapse(beat.Memories, m => m.Snippet, names, m => m.CapturedAt)
             .Select(Annotate).Select(m => Aged(m, now ?? DateTimeOffset.UtcNow)).ToList(), beat.Stances);
 
-    /// <summary>"(2 h ago) …": the model sees which telling is latest and reconciles them itself.</summary>
     public static RecalledMemory Aged(RecalledMemory memory, DateTimeOffset now)
         => memory with { Snippet = $"({WorldStream.Ago(memory.CapturedAt.ToUnixTimeMilliseconds(), now)}) {memory.Snippet}" };
 
-    /// <summary>Near-duplicates share one slot at the first one's place; with <paramref name="at"/>, the slot holds the latest telling (latest wins, as for Stances).</summary>
     public static List<T> Collapse<T>(IReadOnlyList<T> items, Func<T, string> text, IReadOnlyCollection<string> names, Func<T, DateTimeOffset>? at = null)
     {
         var kept = new List<(T Item, List<string> Words, HashSet<string> Pairs)>();
@@ -41,7 +33,6 @@ public static partial class RecallVariety
         return kept.Select(k => k.Item).ToList();
     }
 
-    /// <summary>Adjacent content-word pairs of 4+ letters: "coldest address", "espresso machine".</summary>
     private static HashSet<string> Pairs(List<string> words)
         => words.Zip(words.Skip(1)).Where(p => p.First.Length >= 4 && p.Second.Length >= 4 && p.First != p.Second)
             .Select(p => $"{p.First} {p.Second}").ToHashSet();
@@ -49,7 +40,6 @@ public static partial class RecallVariety
     public static RecalledMemory Annotate(RecalledMemory memory)
         => Told(memory.Snippet) is { } who ? memory with { Snippet = $"{memory.Snippet.TrimEnd()} ({who} already heard this from you)" } : memory;
 
-    /// <summary>Who a "You told X…" memory was told to, or null.</summary>
     public static string? Told(string snippet)
         => YouTold().Match(snippet) is { Success: true } m ? m.Groups[1].Value : null;
 

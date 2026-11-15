@@ -19,7 +19,6 @@ const time = (iso: string) =>
         minute: '2-digit',
     });
 
-/** Ready, Benched until a time, or Offline; the reason sits under the card. */
 function AvailabilityBadge({
     availability,
 }: {
@@ -56,9 +55,7 @@ export default function ProviderCard({
     onToggled,
 }: {
     provider: LlmProviderEntry;
-    /** The whole list, so this card wears the colour the split and the persona table use for it. */
     providers?: LlmProviderEntry[];
-    /** The router's view; omitted while unknown or when the provider is disabled. */
     availability?: ProviderAvailability;
     personaCount?: number;
     onEdit: () => void;

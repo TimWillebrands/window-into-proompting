@@ -1,6 +1,5 @@
 namespace PartyTown.World.Places;
 
-/// <summary>How the LLM is asked for a Figure: what it can write, what numbers mean, what good looks like.</summary>
 public static partial class FigureDesign
 {
     private const string World = """

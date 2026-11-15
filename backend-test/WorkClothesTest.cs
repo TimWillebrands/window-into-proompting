@@ -19,7 +19,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Work clothes: what a job has you wear goes on at the start of a shift and comes off at the end.</summary>
 public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
 {
     private readonly Fixture _fx;
@@ -28,7 +27,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
 
     private static readonly DateTimeOffset Monday9 = new(2026, 10, 19, 9, 0, 0, TimeSpan.FromHours(1));
 
-    /// <summary>Eiko off duty: band tee, skirt, sneakers, her own face and hair, a sketchbook at her hip.</summary>
     private const string EikoOwn = """
         {"picks": {"hair": "black", "hairStyle": "bun", "topStyle": "band-tee", "top": "purple", "bottomStyle": "skirt", "bottom": "white", "shoeStyle": "sneakers", "shoes": "grey"},
          "summary": "Black hair in a bun, a purple band tee and a white skirt, a sketchbook under one arm.",
@@ -38,7 +36,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
           "extras": [{"name": "sketchbook", "socket": "hip-l", "blobs": [{"shape": "capsule", "at": [0.1, 0.2, 0.05], "r": 0.1, "color": "#8a6d4b", "to": [0.1, -0.5, 0.05]}]}]}}
         """;
 
-    /// <summary>Shrine dress as the designer answers it, with things work clothes may not touch.</summary>
     private const string ShrineDress = """
         {"code": "dress", "summary": "In a white kosode and a vermilion hakama, white tabi and straw sandals.",
          "picks": {"topStyle": "shirt", "top": "white", "bottomStyle": "trousers", "bottom": "red", "shoeStyle": "sandals", "shoes": "white", "hair": "pink", "skin": "dark"},
@@ -250,7 +247,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
         public Task Apply(ShiftChange change) => Workplaces.ApplyAsync(PartyId, Self, change);
     }
 
-    /// <summary>Designs shrine dress for the priestess; nothing else is answered.</summary>
     private sealed class Tailor : IWorldLlm
     {
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
@@ -258,7 +254,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
 
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null,
             IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
-            // Named fields become a strict schema in production: only those come back.
             => Task.FromResult(system == FigureDesign.WorkPrompt && user.Contains("priestess")
                 ? fields is null ? Obj(ShrineDress) : new JsonObject { ["code"] = "dress" }
                 : null);
@@ -279,7 +274,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
 
         public Task DisposeAsync() => Cluster.DisposeAsync().AsTask();
 
-        /// <summary>A World with Eiko in her own clothes and a job as priestess at a Place; clothes default to shrine dress.</summary>
         public async Task<World> EikoAtWorkAsync(WorkClothes? clothes = null, bool human = false, bool designed = true)
         {
             var partyId = Guid.NewGuid();

@@ -3,10 +3,8 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.Realtime;
 
-/// <summary>One outgoing frame before sequencing: envelope type + payload.</summary>
 public readonly record struct RealtimeFrame(string Type, IPartyRealtimeData Data);
 
-/// <summary>Pure party stream-event → wire-envelope translation; the hub only sequences and sends.</summary>
 public static class RealtimeTranslation
 {
     public static IReadOnlyList<RealtimeFrame> Party(Guid partyId, PartyStreamEvent evt) => evt.Type switch

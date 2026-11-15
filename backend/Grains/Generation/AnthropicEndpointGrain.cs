@@ -10,10 +10,8 @@ using PartyTown.Observability;
 
 namespace PartyTown.Grains.Generation;
 
-/// <summary>The model declined; retrying the same prompt on it won't help.</summary>
 public sealed class LlmRefusalException(string? category) : Exception($"Claude declined this request ({category ?? "no category"})");
 
-/// <summary>Claude over the official SDK. One grain per provider entry.</summary>
 public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiObservabilityCapture aiObservability)
     : Grain, IAnthropicEndpointGrain
 {
@@ -44,7 +42,6 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiO
     public Task<ChatMessageMetadata> GetAttributionAsync()
         => Task.FromResult(new ChatMessageMetadata { Provider = ProviderType, ModelName = Model });
 
-    /// <summary>Cloud providers aren't pinged; a failed call benches them instead.</summary>
     public Task<string?> PingAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
 
     public Task<string> JudgeAsync(string state, string questionsJson, CancellationToken cancellationToken = default)
@@ -92,7 +89,6 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiO
             await using var events = Client.Beta.Messages.CreateStreaming(request, cancellationToken).GetAsyncEnumerator(cancellationToken);
             while (true)
             {
-                // A catch can't wrap a yield, so failures are caught around the read alone.
                 try
                 {
                     if (!await events.MoveNextAsync()) break;
@@ -105,7 +101,6 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiO
                 var streamEvent = events.Current;
                 if (streamEvent.TryPickStart(out var start))
                 {
-                    // A server-side fallback can answer with another model than the one asked for.
                     model = start.Message.Model.Raw() ?? model;
                     usage = UsageOf(start.Message.Usage);
                 }
@@ -208,13 +203,11 @@ public class AnthropicEndpointGrain(ILogger<AnthropicEndpointGrain> logger, IAiO
         }
     }
 
-    /// <summary>Stop reasons the caller must hear about; a null means the turn finished normally.</summary>
     private static string? StopProblem(string? reason) => reason is "refusal" or "max_tokens" ? reason : null;
 
     private Task ReportFailureAsync(Exception ex)
         => GrainFactory.GetGrain<ILlmRouterGrain>(0).ReportFailureAsync(this.GetPrimaryKey(), Readable(ex).Message);
 
-    /// <summary>SDK messages are bare status codes and its types don't cross the grain boundary; keep the API's own words.</summary>
     private static Exception Readable(Exception ex)
         => ex is AnthropicServiceException { ApiMessage: { Length: > 0 } message } ? new InvalidOperationException($"Claude: {message}") : ex;
 

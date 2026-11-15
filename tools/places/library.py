@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Writes the Places model library (ADR 0049) to the backend and its frontend copy. Run after editing: python3 tools/places/library.py"""
 import json
 import math
 import pathlib
@@ -54,7 +53,6 @@ def model(name, about, parts, size=(1, 1), **o):
 def seat(x, z, h=0.46, face=0): return {"at": [x, z], "h": h, "face": face}
 
 
-# ---- Sets: one prop is a whole place to be ----
 model("dining-set", "round table with four chairs", size=(3, 3), group="sets",
       seats=[seat(1, 0, face=0), seat(1, 2, face=2), seat(0, 1, face=1), seat(2, 1, face=3)],
       parts=[cyl(0.24, 0.03, c="dark-wood"), cyl(0.05, 0.7, c="dark-wood"), cyl(0.62, 0.05, y=0.7, c="$top"),
@@ -84,7 +82,6 @@ model("picnic-table", "picnic table with two benches", size=(2, 2), group="sets"
       parts=[box(1.8, 0.06, 0.7, 0, 0.68, 0, "wood"), box(1.8, 0.05, 0.26, 0, 0.4, -0.62, "wood"), box(1.8, 0.05, 0.26, 0, 0.4, 0.62, "wood"),
              box(0.08, 0.7, 1.5, 0.7, 0, 0, "dark-wood", mirror="x"), box(0.1, 0.06, 1.5, 0.7, 0.36, 0, "dark-wood", mirror="x")])
 
-# ---- Outdoors and nature ----
 model("campfire", "campfire in a ring of stones, lit", group="outdoors",
       parts=[ball(0.09, 0.3, 0.05, 0, "stone", spin=7, squash=0.7),
              box(0.5, 0.08, 0.1, 0, 0.03, 0, "dark-wood", ry=0.5), box(0.5, 0.08, 0.1, 0, 0.09, 0, "dark-wood", ry=-0.7),
@@ -204,7 +201,6 @@ model("swing-bench", "porch swing for two", size=(2, 1), group="outdoors", seats
              {"group": [box(1.5, 0.05, 0.5, 0, 0.42, 0.05, "$seat"), box(1.5, 0.5, 0.05, 0, 0.45, -0.2, "$seat"), cyl(0.008, 1.45, 0.7, 0.45, 0, "iron", mirror="x")], "tag": "sway"}],
       tint={"seat": "sky"})
 
-# ---- Things to do ----
 model("telescope", "brass telescope on a tripod", group="things to do",
       parts=[P("cyl", [0.012, 1.1], (0.22, 0, 0), "dark-wood", rz=0.2, spin=3), ball(0.06, 0, 1.05, 0, "brass"),
              P("cyl", [0.05, 0.07, 0.8], (0, 1.08, -0.1), "brass", rx=1.1), P("cyl", [0.075, 0.1], (0, 1.38, 0.42), "copper", rx=1.1),
@@ -297,7 +293,6 @@ model("turntable", "record player; lift onto a table with y", group="things to d
              P("tube", [[0.2, 0.1, -0.14], [0.2, 0.12, 0], [0.1, 0.1, 0.06]], c="metal", r=0.008)],
       do="Put a record on the turntable", gives="the record they choose, and the first seconds of it")
 
-# ---- Light and atmosphere ----
 model("chandelier", "chandelier hanging overhead", group="light", solid=False,
       parts=[cyl(0.008, 0.5, 0, 2.3, 0, "brass"), ball(0.08, 0, 2.25, 0, "brass"),
              {"group": [P("tube", [[0, 2.22, 0], [0.2, 2.1, 0], [0.34, 2.2, 0]], c="brass", r=0.012), cyl(0.02, 0.08, 0.34, 2.2, 0, "cream"),
@@ -324,7 +319,6 @@ model("server-rack", "humming server rack with blinking lights", group="light",
              box(0.03, 0.03, 0.01, -0.2, 0.25, 0.415, "neon-green", glow=True, tag="twinkle", array={"n": 5, "step": [0, 0.36, 0]}),
              box(0.03, 0.03, 0.01, 0.1, 0.43, 0.415, "amber", glow=True, tag="twinkle", array={"n": 4, "step": [0, 0.36, 0]})])
 
-# ---- Indoors ----
 model("column", "stone column", group="indoors",
       parts=[box(0.5, 0.12, 0.5, 0, 0, 0, "stone"), P("lathe", [[0.2, 0.12], [0.17, 0.3], [0.16, 2.1], [0.2, 2.25]], c="white", sides=10), box(0.5, 0.12, 0.5, 0, 2.25, 0, "stone")])
 model("folding-screen", "three-panel folding screen", group="indoors",
@@ -364,7 +358,6 @@ model("grand-piano", "grand piano with its lid up", size=(2, 2), group="indoors"
              cyl(0.01, 0.5, 0.5, 0.86, -0.2, "brass", rz=0.3)],
       do="Play something on the grand piano", gives="what they play, how far they get, and the note that goes wrong or surprisingly right")
 
-# ---- What existing prefabs afford, so placing one is enough ----
 DEFAULTS = {
     "piano": {"do": "Play something on the piano", "gives": "what they play, how far they get before a wrong note, and which key sticks"},
     "books": {"do": "Pull a book off the shelf", "gives": "the book: its title, and the line on the page it falls open at"},
@@ -408,7 +401,6 @@ doc = {"palette": PALETTE, "groups": GROUPS, "defaults": DEFAULTS, "models": MOD
 text = json.dumps(doc, indent=1, ensure_ascii=False) + "\n"
 for path in OUT:
     path.write_text(text)
-# The frontend copy goes through Biome like everything else there.
 import subprocess
 subprocess.run(["pnpm", "exec", "biome", "format", "--write", "src/apps/places/scene/library.json"], cwd=ROOT / "frontend", capture_output=True)
 print(f"{len(MODELS)} models, {len(DEFAULTS)} defaults, {len(PALETTE)} colours")

@@ -1,7 +1,6 @@
 import type { Appearance } from '../../../api/model/appearance';
 import type { FigureDoc } from '../figure/doc';
 
-/** Palette names (backend AppearanceRules) → pixel colours. */
 export const SKIN: Record<string, string> = {
     light: '#f6d7bf',
     fair: '#f1c9a5',
@@ -55,26 +54,19 @@ export interface Look {
     top: string;
     bottom: string;
     accessory: string;
-    /** tshirt, hoodie, shirt, sweater, jacket, dress, tank, suit. */
     topStyle: string;
-    /** trousers, jeans, shorts, skirt. */
     bottomStyle: string;
     shoes: string;
-    /** sneakers, skate-shoes, hi-tops, boots, platforms, heels, sandals, loafers. */
     shoeStyle: string;
-    /** none, knee-socks, striped-socks, tights, fishnets. */
     legwear: string;
     facialHair: string;
     build: string;
-    /** straight, athletic, lanky, stocky, heavyset, pear, hourglass. */
     bodyType: string;
     height: string;
     eyes: string;
-    /** What the LLM designed, slot by slot, over the palette picks. */
     design?: Partial<FigureDoc>;
 }
 
-/** The stored Design, as far as it parses; palette picks carry on without it. */
 function designOf(a: Appearance | null | undefined): Look['design'] {
     if (!a?.design) return undefined;
     try {
@@ -107,7 +99,6 @@ export const lookOf = (
     design: designOf(a),
 });
 
-/** Hair and accessory over a head of radius r at (x, y). */
 export function drawHead(
     ctx: CanvasRenderingContext2D,
     look: Look,
@@ -184,7 +175,6 @@ export function drawHead(
     }
 }
 
-/** A scarf sits on the shoulders, drawn after the torso. */
 export function drawScarf(
     ctx: CanvasRenderingContext2D,
     look: Look,
@@ -198,7 +188,6 @@ export function drawScarf(
     ctx.fillRect(x - w / 2, y, w, h);
 }
 
-/** A palette name as its colour (cloth, hair, skin or eyes), for swatches outside the figure. */
 export const paletteHex = (name: string | undefined, fallback = '#9aa3b5') =>
     (name && (CLOTH[name] ?? HAIR[name] ?? SKIN[name] ?? EYES[name])) ||
     fallback;

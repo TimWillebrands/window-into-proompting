@@ -2,7 +2,6 @@ import type { Pt } from '../iso/iso';
 import { findPath } from '../iso/path';
 import { type Prefab, type Seat, turn, turned } from './prefab';
 
-/** What a map cell is made of. */
 export type Ground =
     | 'void'
     | 'floor'
@@ -62,7 +61,6 @@ export const AMBIENCES = [
     'confetti',
 ] as const;
 
-/** A canal house's look; anything left out is rolled from its position. */
 export interface HouseStyle {
     sign?: string;
     awning?: string;
@@ -79,46 +77,32 @@ export interface Cell {
 }
 
 export interface PropDef {
-    /** Prefab name. */
     p: string;
-    /** First (back) tile of the footprint. */
     at: [number, number];
     rot?: number;
-    /** Lift, e.g. a machine on a counter. */
     y?: number;
     tint?: Record<string, string>;
     text?: string;
-    /** Its seats belong to this spot. */
     spot?: string;
 }
 
-/** A Place's look, authored as an ASCII map plus props (ADR 0023). Spots are the backend's; this only places them. */
 export interface SceneDef {
     id: string;
     outdoor?: boolean;
-    /** One row per z, one char per x; see LEGEND (scenes can add their own). */
     map: string;
     legend?: Record<string, Cell>;
     props?: PropDef[];
-    /** Where each backend spot is; Bodies stand around it, or on the seats of props tagged with it. */
     spots: Record<string, { at: [number, number]; r?: number }>;
-    /** Where furni stand, by furni id; unlisted ones go near their spot. */
     furni?: Record<string, Omit<PropDef, 'p'> & { p?: string }>;
-    /** Tile you appear on coming from a scene (by scene id); `*` for anywhere else. */
     entrances?: Record<string, [number, number]>;
     floor?: string;
     wall?: string;
-    /** A second colour: carpet, stage, wall panelling and stripes. */
     accent?: string;
     floorStyle?: (typeof FLOOR_STYLES)[number];
     wallStyle?: (typeof WALL_STYLES)[number];
-    /** How the room is lit, whatever the hour. */
     light?: (typeof LIGHT_MOODS)[number];
-    /** Small things in the air. */
     ambience?: (typeof AMBIENCES)[number];
-    /** Prefabs only this scene has, by name (backend ThingModel). */
     models?: Record<string, unknown>;
-    /** Where the camera starts. */
     focus?: [number, number];
 }
 
@@ -173,7 +157,6 @@ export const WALKABLE: ReadonlySet<Ground> = new Set([
 
 const BACK: ReadonlySet<Ground> = new Set(['wall', 'window', 'door', 'house']);
 
-/** Ground top height: water sits lower, bridges a bit higher. */
 export const TOP: Record<Ground, number> = {
     void: 0,
     floor: 0,
@@ -202,9 +185,7 @@ export const TOP: Record<Ground, number> = {
 
 export interface Slot {
     tile: Pt;
-    /** Seat height when it's a seat. */
     h?: number;
-    /** Quarter turns to face (0 = +z). */
     face?: number;
     seat?: boolean;
 }
@@ -212,10 +193,8 @@ export interface Slot {
 export interface PlacedProp extends PropDef {
     prefab: Prefab;
     rot: number;
-    /** Footprint after rotation. */
     size: [number, number];
     seed: number;
-    /** Set for backend furni. */
     furniId?: string;
 }
 
@@ -231,7 +210,6 @@ export interface Scene {
 
 export const key = (p: Pt) => `${p.x},${p.y}`;
 
-/** The map's rows, trimmed of the template literal's blank first and last lines. */
 export function rows(map: string): string[] {
     const lines = map.split('\n');
     while (lines.length && lines[0].trim() === '') lines.shift();
@@ -264,7 +242,6 @@ export function parseScene(
     const props: PlacedProp[] = [];
     const isWall = (x: number, z: number) =>
         ['wall', 'window'].includes(cells[z]?.[x]?.ground ?? 'void');
-    /** Wall props face away from their wall: the top one is rot 0, the left one rot 1. */
     const wallRot = (x: number, z: number, rot: number) => {
         const top = isWall(x, z - 1);
         const left = isWall(x - 1, z);
@@ -344,7 +321,6 @@ export function footprint(p: PlacedProp): Pt[] {
     return out;
 }
 
-/** A prefab seat in world tiles, rotated with its prop. */
 export function seatSlot(p: PlacedProp, seat: Seat): Slot {
     const [sw, sd] = p.prefab.size ?? [1, 1];
     const [lx, lz] = turn(
@@ -365,7 +341,6 @@ export function seatSlot(p: PlacedProp, seat: Seat): Slot {
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 
-/** Quarter turn that best faces from a tile toward a point. */
 export function faceTowards(from: Pt, to: Pt): number {
     const dx = to.x - from.x;
     const dz = to.y - from.y;
@@ -377,10 +352,8 @@ export function faceTowards(from: Pt, to: Pt): number {
 export const groundAt = (s: Scene, t: Pt): Ground =>
     s.cells[Math.round(t.y)]?.[Math.round(t.x)]?.ground ?? 'void';
 
-/** Height Bodies stand at on a tile. */
 export const standHeight = (s: Scene, t: Pt) => TOP[groundAt(s, t)] ?? 0;
 
-/** A wall or house is cut away when it's in front of something walkable (the camera looks from +x, +z). */
 export function isFront(s: Scene, x: number, z: number): boolean {
     const g = (dx: number, dz: number) =>
         s.cells[z + dz]?.[x + dx]?.ground ?? 'void';
@@ -392,7 +365,6 @@ export function isFront(s: Scene, x: number, z: number): boolean {
     );
 }
 
-/** Where a back wall or house faces: toward its walkable neighbour (+z or +x), else null. */
 export function facing(s: Scene, x: number, z: number): 'z' | 'x' | null {
     const g = (dx: number, dz: number) =>
         s.cells[z + dz]?.[x + dx]?.ground ?? 'void';
@@ -402,7 +374,6 @@ export function facing(s: Scene, x: number, z: number): 'z' | 'x' | null {
     return null;
 }
 
-/** The tile Bodies use coming from (or going to) another Place: by its id, else its scene, else `*`. */
 export function entrance(
     s: Scene,
     otherScene?: string | null,
@@ -429,7 +400,6 @@ const connected = (p: Pt[]) =>
             Math.abs(t.x - p[i - 1].x) + Math.abs(t.y - p[i - 1].y) === 1,
     );
 
-/** A* on the scene grid, memoised: Bodies walking in and out ask every frame. Seats inside furniture are slid into from the nearest free tile. */
 export function pathIn(s: Scene, from: Pt, to: Pt): Pt[] {
     const k = `${s.def.id}:${s.blocked.size}:${key(from)}>${key(to)}`;
     const hit = paths.get(k);
@@ -463,7 +433,6 @@ export function pathIn(s: Scene, from: Pt, to: Pt): Pt[] {
     return p;
 }
 
-/** The scene with things standing where they are now: their tiles blocked, standing room on them dropped. */
 export function withFurni(s: Scene, placed: PlacedProp[]): Scene {
     const extra = placed
         .filter((p) => p.prefab.solid !== false && !p.prefab.wall)
@@ -483,7 +452,6 @@ export function withFurni(s: Scene, placed: PlacedProp[]): Scene {
     return { ...s, blocked, spots };
 }
 
-/** Nearest spot to a clicked tile, within a few tiles. */
 export function spotNear(s: Scene, t: Pt): string | null {
     let best: string | null = null;
     let bestD = 3.5;

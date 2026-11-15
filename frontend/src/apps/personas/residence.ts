@@ -12,18 +12,15 @@ import { WORLD_ID } from '../../lib/world';
 const NARRATOR_ID = '0000aaaa-0000-0000-0000-00000000a17e';
 const HUMAN_PROMPT = 'A human visiting this world.';
 
-/** Narrator is always there; humans arrive as Players. */
 export function canMoveIn(persona: Persona): boolean {
     return persona.id !== NARRATOR_ID && persona.systemPrompt !== HUMAN_PROMPT;
 }
 
-/** Ids of everyone in the World's cast. */
 export function useResidents(): Set<string> {
     const lives = useGetWorldsPartyIdLivesSuspense(WORLD_ID).data.data ?? [];
     return new Set(lives.map((l) => l.personaId));
 }
 
-/** Moves Personas in and out; Lives and the hire list follow. */
 export function useResidency() {
     const queryClient = useQueryClient();
     const refresh = () =>

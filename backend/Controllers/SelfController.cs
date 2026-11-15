@@ -8,7 +8,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.Controllers;
 
-/// <summary>The Lived self of each resident (ADR 0021): their day, mood, battery, and the world's stale words.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
 public sealed class SelfController(IGrainFactory grains) : ControllerBase

@@ -12,7 +12,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>What actually goes over the wire for each reasoning level.</summary>
 public class LlmReasoningTest
 {
     private sealed class Capture : HttpMessageHandler

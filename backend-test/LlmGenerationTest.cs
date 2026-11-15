@@ -5,7 +5,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>How an LLM call ended decides what PostHog shows: done, stopped by its caller, timed out, or failed and why.</summary>
 public class LlmGenerationTest
 {
     private static readonly LlmGeneration Call = new(Array.Empty<LlmChatMessage>(), "", "ollama", "d1:3b", "http://localhost:11434", Streamed: false);

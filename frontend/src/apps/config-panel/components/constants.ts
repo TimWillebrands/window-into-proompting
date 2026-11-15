@@ -27,7 +27,6 @@ export const REASONING_EFFORTS = [
     { value: 5, label: 'Max', hint: 'no limit, can take minutes' },
 ] as const;
 
-/** Router states from `ProviderState` (ADR 0040), indexed by its number. */
 export const PROVIDER_STATES = [
     { label: 'Ready', color: '#afa', border: 'rgba(60,180,60,0.5)' },
     { label: 'Benched', color: '#fd8', border: 'rgba(255,190,60,0.55)' },
@@ -37,7 +36,6 @@ export const PROVIDER_STATES = [
 export const BENCHED = 1;
 export const OFFLINE = 2;
 
-/** Backend provider types (`LlmEndpoints.Resolve`); a key means the editor asks for one. */
 export const PROVIDER_TYPES = {
     ollama: {
         label: 'Local server',
@@ -97,7 +95,6 @@ export const inputStyle: React.CSSProperties = {
 
 export const selectStyle: React.CSSProperties = inputStyle;
 
-/** Categorical hues, fixed order, validated on the light sheet; a provider keeps its slot. */
 export const SERIES = [
     '#2a78d6',
     '#eb6834',
@@ -115,7 +112,6 @@ export const seriesColor = (providers: LlmProviderEntry[], id?: string) => {
     return SERIES[index] ?? SERIES_OTHER;
 };
 
-/** The model without its vendor path: what fits a table cell. */
 export const shortModel = (p?: LlmProviderEntry) =>
     p?.modelName?.split('/').pop() ?? p?.baseUrl ?? 'No model';
 
@@ -142,6 +138,5 @@ export const SECTIONS = [
 export const SECTION_NAMES: Record<string, string> = {
     home: 'Control Panel',
     'llm-providers': 'Language Models',
-    // Old history entries from when this was its own screen.
     'persona-models': 'Language Models',
 };

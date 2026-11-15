@@ -55,7 +55,6 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
         };
     });
 
-    // Pinned (left) vs system (right) split — react-xp shows the pinned column on the left and a "system menu" panel on the right.
     const pinned = items;
 
     return (

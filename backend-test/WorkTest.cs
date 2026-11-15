@@ -3,12 +3,10 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Jobs happen in time (ADR 0026): when shifts start and end, what they pay, how they read.</summary>
 public class WorkTest
 {
     private static readonly TimeSpan Offset = TimeSpan.FromHours(1);
 
-    // 2026-10-19 is a Monday.
     private static DateTimeOffset At(int day, int hour, int minute = 0) => new(2026, 10, 19 + day, hour, minute, 0, Offset);
 
     private static Occupation Barista(Guid? placeId = null) => new()

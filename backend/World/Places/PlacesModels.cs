@@ -1,90 +1,57 @@
 namespace PartyTown.World.Places;
 
-/// <summary>Physical location in the World (ADR 0020). Spots are canonical; tiles are presentation.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Place")]
 public sealed class Place
 {
     [Id(0)] public Guid Id { get; set; }
     [Id(1)] public string Name { get; set; } = string.Empty;
-    /// <summary><c>public</c>, <c>home</c> or <c>locale</c> (offscreen, ADR 0027).</summary>
     [Id(2)] public string Kind { get; set; } = PlaceKinds.Public;
-    /// <summary>Home owner; null for public Places.</summary>
     [Id(3)] public Guid? OwnerId { get; set; }
     [Id(4)] public string Description { get; set; } = string.Empty;
     [Id(5)] public List<Spot> Spots { get; set; } = new();
-    /// <summary>Place talk Room, created on first entry.</summary>
     [Id(6)] public Guid? TalkRoomId { get; set; }
     [Id(7)] public List<Furni> Furni { get; set; } = new();
-    /// <summary>Home only: who's been let in or invited; cleared when the owner leaves.</summary>
     [Id(8)] public List<Guid> Guests { get; set; } = new();
-    /// <summary>Home only: who's knocking, and since when.</summary>
     [Id(9)] public Dictionary<Guid, long> Knocks { get; set; } = new();
-    /// <summary>Which client scene draws it (ADR 0023): lobby, cafe, centre, home; unknown ones get a generated room.</summary>
     [Id(10)] public string? Scene { get; set; }
-    /// <summary>Preposition: "at the Café", "in the city centre".</summary>
     [Id(11)] public string At { get; set; } = "at";
-    /// <summary>A generated Place's scene (ADR 0023 format, JSON); wins over <see cref="Scene"/>.</summary>
     [Id(12)] public string? CustomScene { get; set; }
-    /// <summary>Who had a public Place made (a shop, a bar); not an owner like a Home's.</summary>
     [Id(13)] public Guid? MadeBy { get; set; }
-    /// <summary>Owner's choice of wall and floor colour (hex); null = the scene's.</summary>
     [Id(14)] public string? WallColour { get; set; }
     [Id(15)] public string? FloorColour { get; set; }
-    /// <summary>What it's for, one plain line (ADR 0026): "where people get coffee and linger".</summary>
     [Id(16)] public string? Purpose { get; set; }
-    /// <summary>Which part of the city it's in (ADR 0027); null for a Locale nobody has placed yet.</summary>
     [Id(17)] public string? DistrictId { get; set; }
-    /// <summary>When a Locale was Opened into this Place (ADR 0027); null for seeded, made and home Places.</summary>
     [Id(18)] public long? OpenedAt { get; set; }
-    /// <summary>The kit it opened from: office, bar, park…</summary>
     [Id(19)] public string? Archetype { get; set; }
-    /// <summary>Last time someone named it in talk; keeps a quiet Place awake.</summary>
     [Id(20)] public long? MentionedAt { get; set; }
-    /// <summary>Opened, then nobody went or talked about it for a week (ADR 0027): kept, but not offered. Set on each snapshot.</summary>
     [Id(21)] public bool Dormant { get; set; }
-    /// <summary>Home only: who moved in with the owner (ADR 0035).</summary>
     [Id(22)] public List<Guid> Housemates { get; set; } = new();
-    /// <summary>Home only: the owner lives elsewhere now; kept empty for if they come back.</summary>
     [Id(23)] public bool Vacated { get; set; }
-    /// <summary>Not a Home, but closed like one: its owner (<see cref="MadeBy"/>) lets people in or invites them.</summary>
     [Id(24)] public bool Private { get; set; }
-    /// <summary>Closed Places: who holds a key and comes and goes, whoever's in (ADR 0036).</summary>
     [Id(25)] public List<Guid> Keyholders { get; set; } = new();
-    /// <summary>Closed Places: when each person last had to deal with the door, newest last.</summary>
     [Id(26)] public Dictionary<Guid, List<long>> Doorsteps { get; set; } = new();
-    /// <summary>A workplace's door (ADR 0041), one of <see cref="PlaceAccess"/>; null = open, until its staff settle it.</summary>
     [Id(27)] public string? Access { get; set; }
-    /// <summary>Who works here, from their Occupations; they host its door.</summary>
     [Id(28)] public List<Guid> Staff { get; set; } = new();
-    /// <summary>The author's access list: people who aren't staff but come and go anyway.</summary>
     [Id(29)] public List<Guid> Allowed { get; set; } = new();
-    /// <summary>The last Happening here, news to whoever's around while it's fresh (ADR 0043).</summary>
     [Id(30)] public string? Lately { get; set; }
     [Id(31)] public long LatelyAt { get; set; }
-    /// <summary>Other names System One judged to mean this Place; they resolve here.</summary>
     [Id(32)] public List<string> AlsoCalled { get; set; } = new();
-    /// <summary>A Locale judged the same as this Place at its Opening: it never opens, and resolves there.</summary>
     [Id(33)] public Guid? SameAs { get; set; }
 }
 
-/// <summary>Who a workplace lets in (ADR 0041).</summary>
 public static class PlaceAccess
 {
     public const string Open = "open";
-    /// <summary>Staff, the access list, and whoever has a Session or a Gathering there.</summary>
     public const string Appointment = "appointment";
-    /// <summary>Staff and the access list; anyone else knocks.</summary>
     public const string Staff = "staff";
 
     public static readonly string[] All = { Open, Appointment, Staff };
 
     public static bool IsKnown(string? access) => access is Open or Appointment or Staff;
 
-    /// <summary>A workplace behind a door: staffed, and not open.</summary>
     public static bool Shut(Place place)
         => place.Kind == PlaceKinds.Public && (place.Access is Appointment or Staff) && place.Staff.Count > 0;
 
-    /// <summary>"staff only", "by appointment", for prompts and the author.</summary>
     public static string Words(string? access) => access switch
     {
         Staff => "staff only",
@@ -93,7 +60,6 @@ public static class PlaceAccess
     };
 }
 
-/// <summary>Who lives in a Home (ADR 0035): the owner until they've moved out, plus anyone who moved in.</summary>
 public static class Homes
 {
     public static IEnumerable<Guid> Living(this Place place)
@@ -105,16 +71,12 @@ public static class Homes
 
     public static bool LivesIn(this Place place, Guid who) => place.Living().Contains(who);
 
-    /// <summary>You knock or get invited.</summary>
     public static bool IsClosed(this Place place) => place.Kind == PlaceKinds.Home || place.Private || PlaceAccess.Shut(place);
 
-    /// <summary>Closed the way a Home is: its hosts can hand out Keys (ADR 0036). A workplace's door is the author's.</summary>
     public static bool Keyed(this Place place) => place.Kind == PlaceKinds.Home || place.Private;
 
-    /// <summary>A workplace behind a door, which its staff answer.</summary>
     public static bool IsWorkplaceDoor(this Place place) => !place.Keyed() && PlaceAccess.Shut(place);
 
-    /// <summary>Who decides who comes in.</summary>
     public static IEnumerable<Guid> Hosts(this Place place)
         => place.Kind == PlaceKinds.Home ? place.Living()
             : place.Private && place.MadeBy is { } owner ? new[] { owner }
@@ -123,7 +85,6 @@ public static class Homes
 
     public static Place? HomeOf(this IEnumerable<Place> places, Guid who) => places.FirstOrDefault(p => p.LivesIn(who));
 
-    /// <summary>Someone had to deal with the door: knocked, got invited, found it locked.</summary>
     public static void NoteDoorstep(this Place place, Guid who, long now)
     {
         var moments = place.Doorsteps.TryGetValue(who, out var known) ? known : place.Doorsteps[who] = new List<long>();
@@ -131,14 +92,12 @@ public static class Homes
         if (moments.Count > MaxDoorsteps) moments.RemoveAt(0);
     }
 
-    /// <summary>How often that's been lately.</summary>
     public static int DoorstepsLately(this Place place, Guid who, long now)
         => place.Doorsteps.GetValueOrDefault(who)?.Count(at => now - at < DoorstepsLast.TotalMilliseconds) ?? 0;
 
     private const int MaxDoorsteps = 8;
     private static readonly TimeSpan DoorstepsLast = TimeSpan.FromDays(7);
 
-    /// <summary>"Mara's place", "Mara and Lena's place".</summary>
     public static string Named(IReadOnlyList<string> people)
     {
         var first = people.Select(n => n.Split(' ')[0]).ToList();
@@ -146,11 +105,9 @@ public static class Homes
     }
 }
 
-/// <summary>A part of the city that holds Places (ADR 0027): "the centre", "Zuid".</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.District")]
 public sealed class District
 {
-    /// <summary>Slug: centre, zuid, de-pijp.</summary>
     [Id(0)] public string Id { get; set; } = string.Empty;
     [Id(1)] public string Name { get; set; } = string.Empty;
 }
@@ -161,7 +118,6 @@ public static class Districts
 
     public static District Seed() => new() { Id = Centre, Name = "the centre" };
 
-    /// <summary>"Amsterdam Zuid" → "amsterdam-zuid"; letters and digits only, dashed.</summary>
     public static string Slug(string name)
     {
         var trimmed = name.Trim();
@@ -170,14 +126,12 @@ public static class Districts
         return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    /// <summary>"the office in Amsterdam-Zuid" → "Amsterdam-Zuid": a capitalised place after a final "in"; null otherwise.</summary>
     public static string? FromName(string name)
     {
         var m = System.Text.RegularExpressions.Regex.Match(name, @"\bin\s+((?:\p{Lu}[\p{L}'’]*)(?:[\s-]\p{Lu}[\p{L}'’]*)*)\s*$");
         return m.Success ? m.Groups[1].Value : null;
     }
 
-    /// <summary>"zuid" and "amsterdam-zuid" are one District: every word of the shorter slug is in the longer.</summary>
     public static bool Same(string a, string b)
     {
         if (a == b) return true;
@@ -185,12 +139,10 @@ public static class Districts
         return short_.Length >= 4 && short_.Split('-').All(long_.Split('-').Contains);
     }
 
-    /// <summary>Two drawn Places in different Districts are a tram ride apart; unplaced Locales are never.</summary>
     public static bool Apart(Place a, Place b)
         => a.DistrictId is { } x && b.DistrictId is { } y && x != y;
 }
 
-/// <summary>A named place to be inside a Place: "the window table". What Personas reason in.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Spot")]
 public sealed class Spot
 {
@@ -198,11 +150,8 @@ public sealed class Spot
     [Id(1)] public string Name { get; set; } = string.Empty;
     [Id(2)] public int Capacity { get; set; } = 2;
     [Id(3)] public bool Seat { get; set; }
-    /// <summary>Preposition for "sitting on the sofa" / "in the kitchen".</summary>
     [Id(4)] public string At { get; set; } = "at";
-    /// <summary>Poses this spot affords beyond standing or sitting (see <see cref="Poses"/>).</summary>
     [Id(5)] public List<string> Poses { get; set; } = new();
-    /// <summary>Behind the counter: where someone working here stands (ADR 0026).</summary>
     [Id(6)] public bool Staff { get; set; }
 }
 
@@ -216,7 +165,6 @@ public enum Posture
     Lying,
 }
 
-/// <summary>A Participant's physical presence: exactly one, always in exactly one Place.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Body")]
 public sealed class Body
 {
@@ -225,44 +173,28 @@ public sealed class Body
     [Id(2)] public Guid PlaceId { get; set; }
     [Id(3)] public string SpotId { get; set; } = string.Empty;
     [Id(4)] public Posture Posture { get; set; } = Posture.Standing;
-    /// <summary>What the Body is busy with, third person ("on their phone, texting"); null when idle.</summary>
     [Id(5)] public string? Activity { get; set; }
     [Id(6)] public Guid? DestPlaceId { get; set; }
     [Id(7)] public string? DestSpotId { get; set; }
     [Id(8)] public long? DepartedAt { get; set; }
     [Id(9)] public long? ArriveAt { get; set; }
     [Id(10)] public bool IsHuman { get; set; }
-    /// <summary>When the Body settled where it is; drives restlessness.</summary>
     [Id(11)] public long ArrivedAt { get; set; }
-    /// <summary>When <see cref="Activity"/> wears off.</summary>
     [Id(12)] public long? ActivityUntil { get; set; }
     [Id(13)] public bool Asleep { get; set; }
-    /// <summary>Woken in the night (a human's message); stays up until then.</summary>
     [Id(14)] public long? WokenUntil { get; set; }
     [Id(15)] public Appearance? Appearance { get; set; }
-    /// <summary>How the Body is holding itself at its spot (see <see cref="Poses"/>); null = plain standing or sitting.</summary>
     [Id(16)] public string? Pose { get; set; }
-    /// <summary>The other Body in a pair pose (a hug, a slow dance).</summary>
     [Id(17)] public Guid? PoseWith { get; set; }
-    /// <summary>When a momentary pose (hug, high five) ends.</summary>
     [Id(18)] public long? PoseUntil { get; set; }
-    /// <summary>Why the Body is at a Locale ("at work"); null when not away.</summary>
     [Id(19)] public string? AwayAs { get; set; }
-    /// <summary>The Place it left to go away, to return to.</summary>
     [Id(20)] public Guid? CameFrom { get; set; }
-    /// <summary>Sent away by its Day's whereabouts (not a shift); only then does the Day bring it back.</summary>
     [Id(21)] public bool AwayByDay { get; set; }
-    /// <summary>"yyyy-MM-dd:startMinute" of the last stretch it went away for, so it goes once per stretch.</summary>
     [Id(22)] public string? AwayStretch { get; set; }
-    /// <summary>Their Persona's Aura, for whoever stands at the same spot.</summary>
     [Id(23)] public string? Aura { get; set; }
-    /// <summary>A human gone quiet ten minutes: walked home, shut the door, AFK in Messenger.</summary>
     [Id(24)] public bool Afk { get; set; }
-    /// <summary>The Place it last walked away from, for "you came over from" (ADR 0057).</summary>
     [Id(25)] public Guid? LeftFrom { get; set; }
-    /// <summary>The work clothes on now; null off duty.</summary>
     [Id(26)] public WorkClothes? WorkClothes { get; set; }
-    /// <summary>Their own look, waiting while they're in work clothes; changes to how they look land here.</summary>
     [Id(27)] public Appearance? OwnLook { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
@@ -274,7 +206,6 @@ public sealed class PlacesSnapshot
     [Id(0)] public List<Place> Places { get; set; } = new();
     [Id(1)] public List<Body> Bodies { get; set; } = new();
     [Id(2)] public long Now { get; set; }
-    /// <summary>Furni as the rules read them now, so clients never re-implement decay.</summary>
     [Id(3)] public List<FurniView> Furni { get; set; } = new();
     [Id(4)] public List<District> Districts { get; set; } = new();
 }
@@ -293,17 +224,13 @@ public sealed class FurniView
     [Id(8)] public string? UseLabel { get; set; }
     [Id(9)] public bool On { get; set; }
     [Id(10)] public string? Style { get; set; }
-    /// <summary>Generated 3D model (parts JSON, see <see cref="ThingModel"/>); null = drawn from its kind.</summary>
     [Id(11)] public string? Model { get; set; }
     [Id(12)] public int? TileX { get; set; }
     [Id(13)] public int? TileZ { get; set; }
     [Id(14)] public int Rot { get; set; }
-    /// <summary>Catalogue prefab name; null = drawn from its kind or <see cref="Model"/>.</summary>
     [Id(15)] public string? Prefab { get; set; }
-    /// <summary>A Feature's brief for what doing it gives.</summary>
     [Id(16)] public string? Gives { get; set; }
     [Id(17)] public bool Leaves { get; set; }
-    /// <summary>What people came away with or left, latest last.</summary>
     [Id(18)] public List<Take> Takes { get; set; } = new();
 }
 
@@ -312,18 +239,12 @@ public sealed class PlacesState
 {
     [Id(0)] public List<Place> Places { get; set; } = new();
     [Id(1)] public Dictionary<Guid, Body> Bodies { get; set; } = new();
-    /// <summary>When the next rule-based mishap (a machine breaking) may happen; 0 = not scheduled.</summary>
     [Id(2)] public long NextMishapAt { get; set; }
-    /// <summary>Per participant: "placeId:yyyy-MM-dd" for each local day they spent time there; last 7 days.</summary>
     [Id(3)] public Dictionary<Guid, List<string>> Visits { get; set; } = new();
     [Id(4)] public List<District> Districts { get; set; } = new();
-    /// <summary>Thing descriptions the catalogue had nothing for (newest last): what to curate next.</summary>
     [Id(5)] public List<string> CatalogueMisses { get; set; } = new();
-    /// <summary>Local day of the last Opening that wasn't the author's: one a world-day (ADR 0027).</summary>
     [Id(6)] public string? LastOpenedDay { get; set; }
-    /// <summary>How often each catalogue miss came up: recurring ones are what to curate first.</summary>
     [Id(7)] public Dictionary<string, int> MissCounts { get; set; } = new();
-    /// <summary>The one-time sweep folding Locales that were already drawn Places has run.</summary>
     [Id(8)] public bool SameSwept { get; set; }
 }
 
@@ -334,7 +255,6 @@ public static class PlaceKinds
     public const string Locale = "locale";
 }
 
-/// <summary>The Places a World starts with, and the Home template.</summary>
 public static class PlaceSeeds
 {
     public static List<Place> Public() => new List<Place>
@@ -402,7 +322,6 @@ public static class PlaceSeeds
         },
     });
 
-    /// <summary>An offscreen Place (ADR 0027): one spot, never drawn, no talk Room.</summary>
     public static Place Locale(string name) => new()
     {
         Id = Guid.NewGuid(), Name = name, Kind = PlaceKinds.Locale, Description = name,

@@ -11,21 +11,17 @@ namespace PartyTown.Grains.Generation;
 
 public static class LlmEndpointGrainUtils
 {
-    /// <summary>Failures that won't fix themselves on retry: bad key, no credit, unknown model, host down.</summary>
     public static bool IsHardFailure(Exception ex) => ex switch
     {
-        // The SDK's retry policy aggregates connection failures, each a status-less ClientResultException.
         AggregateException aggregate => aggregate.InnerExceptions.Any(IsHardFailure),
         System.ClientModel.ClientResultException { Status: 401 or 402 or 403 or 404 } => true,
         System.ClientModel.ClientResultException { InnerException: HttpRequestException } => true,
         HttpRequestException => true,
         Anthropic.Exceptions.AnthropicUnauthorizedException or Anthropic.Exceptions.AnthropicForbiddenException or Anthropic.Exceptions.AnthropicIOException => true,
-        // Claude reports an empty balance as a 400, not a 402.
         Anthropic.Exceptions.AnthropicBadRequestException { ApiMessage: { } message } => message.Contains("credit balance", StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 
-    /// <summary>The provider said slow down (a free model's quota, a busy key): it will fix itself, just not this minute.</summary>
     public static bool IsRateLimited(Exception ex) => ex switch
     {
         AggregateException aggregate => aggregate.InnerExceptions.Any(IsRateLimited),
@@ -35,10 +31,8 @@ public static class LlmEndpointGrainUtils
         _ => false,
     };
 
-    /// <summary>Failures that should route callers elsewhere for a while: hard ones and rate limits.</summary>
     public static bool Benches(Exception ex) => IsHardFailure(ex) || IsRateLimited(ex);
 
-    /// <summary>Never reached the server: a down box or a dead Tailnet path, not a refusal.</summary>
     public static bool IsUnreachable(Exception ex) => ex switch
     {
         AggregateException aggregate => aggregate.InnerExceptions.Any(IsUnreachable),
@@ -51,7 +45,6 @@ public static class LlmEndpointGrainUtils
 
     private static readonly TimeSpan JudgeTimeout = TimeSpan.FromSeconds(20);
 
-    /// <summary>One System One call, captured like a generation; decisions sit on the beat path, so it gets a short deadline.</summary>
     public static async Task<string> JudgeAsync(
         ILogger logger,
         HttpClient http,
@@ -103,7 +96,6 @@ public static class LlmEndpointGrainUtils
         }
     }
 
-    /// <summary>The <c>/systemone</c> answer's own token count; null when it has none.</summary>
     public static LlmUsage? JudgeUsage(string response)
     {
         try
@@ -119,7 +111,6 @@ public static class LlmEndpointGrainUtils
         }
     }
 
-    /// <summary>Pass a stream through, telling the router when it dies of a hard failure or a rate limit.</summary>
     public static async IAsyncEnumerable<LlmGenerationEvent> ReportingHardFailures(
         IAsyncEnumerable<LlmGenerationEvent> inner,
         Func<Exception, Task> report,
@@ -176,7 +167,6 @@ public static class LlmEndpointGrainUtils
                     .GetAsyncEnumerator(cancellationToken);
                 while (true)
                 {
-                    // A catch can't wrap a yield, so failures are caught around the read alone.
                     try
                     {
                         if (!await updates.MoveNextAsync()) break;
@@ -261,7 +251,6 @@ public static class LlmEndpointGrainUtils
 
         try
         {
-            // Cheap models occasionally return an empty completion; one retry recovers nearly all of them.
             for (var attempt = 0; attempt < 2 && string.IsNullOrWhiteSpace(text); attempt++)
             {
                 if (attempt > 0) logger.LogWarning("LLM one-shot returned empty content; retrying once");
@@ -325,13 +314,6 @@ public static class LlmEndpointGrainUtils
             Temperature = mp?.Temperature is null ? null : (float)mp.Temperature.Value
         };
 
-        // ResponseFormat can be set on either LlmGenerationJob (top-level, the modern
-        // shape used by structured-output callers like PersonaDecisionService and the
-        // import scene map) or LlmModelParameters (legacy). Top-level takes precedence.
-        // Historical footgun: pre-fix, only the nested ModelParameters slot was wired
-        // through, so all callers using the top-level field had their JSON schemas
-        // silently dropped — output happened to mostly parse because JsonRepair caught
-        // it, but strict schemas weren't actually enforced.
         var responseFormatJson = parameters.ResponseFormat ?? mp?.ResponseFormat;
         if (TryGetJsonSchemaResponseFormat(responseFormatJson, out var responseFormat))
         {

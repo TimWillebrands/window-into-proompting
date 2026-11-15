@@ -1,6 +1,5 @@
 import type { FaceDoc } from './doc';
 
-/** Head space (±0.5 head heights, y from the head's centre) → canvas pixels. */
 const px = (size: number) => ({
     x: (u: number) => (u + 0.5) * size,
     y: (v: number) => (1 - (v + 0.55)) * size,
@@ -8,11 +7,8 @@ const px = (size: number) => ({
 });
 
 export interface FaceFrame {
-    /** 1 open, 0 shut. */
     open: number;
-    /** 0 shut, 1 wide. */
     talk: number;
-    /** -1..1 on top of the resting set. */
     smile: number;
 }
 
@@ -120,7 +116,6 @@ function eye(
         ctx.fillRect(-w * 1.1, -h * 1.3, w * 2.2, h * 0.55);
         ctx.restore();
     }
-    // Upper lid carries the look: liner, wing, lashes.
     const liner = s(0.008 + e.liner * 0.03);
     ctx.strokeStyle = e.linerColor;
     ctx.fillStyle = e.linerColor;
@@ -401,7 +396,6 @@ function facialHair(ctx: CanvasRenderingContext2D, doc: FaceDoc, size: number) {
     }
 }
 
-/** Paints a whole face over skin; the head's texture. */
 export function drawFace(
     ctx: CanvasRenderingContext2D,
     doc: FaceDoc,

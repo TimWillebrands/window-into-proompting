@@ -2,7 +2,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>Recall ranking and Stance projection rules (ADR 0015/0016) without Postgres.</summary>
 public class MemoryProjectionTest
 {
     private static readonly DateTimeOffset T0 = DateTimeOffset.Parse("2026-10-01T12:00:00Z");
@@ -50,7 +49,6 @@ public class MemoryProjectionTest
     [Fact]
     public void QuotaUnion_SmallLimit_KeepsTheLatestMoments()
     {
-        // Life's case: every cast member is an anchor, so nearly all memories are "relevant" and old strong ones won every slot.
         var strong = Enumerable.Range(0, 8).Select(i => Cand($"strong{i}", 0.9 - i * 0.01, 600 + i * 60, true));
         var latest = Enumerable.Range(0, 6).Select(i => Cand($"latest{i}", 0.55 - i * 0.05, 2 + i * 10, i % 2 == 0));
 
@@ -62,7 +60,6 @@ public class MemoryProjectionTest
     [Fact]
     public void QuotaUnion_RecentArm_RanksOnlyTheLastFewMoments()
     {
-        // A heavy memory from yesterday doesn't beat this hour's moments for the recency slots.
         var rows = new[]
         {
             Cand("topic", 0.9, 1, true),

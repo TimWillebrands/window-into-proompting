@@ -42,7 +42,6 @@ function worker(): Worker | null {
 
 const cache = new Map<string, Promise<Compiled>>();
 
-/** Mesh buffers for a doc: compiled once, in a worker, however many people wear it. */
 export function compiled(doc: FigureDoc, detail: Detail): Promise<Compiled> {
     const key = `${detail.voxel}:${JSON.stringify(doc)}`;
     const hit = cache.get(key);
@@ -71,7 +70,6 @@ export interface Quality extends Detail {
     face: number;
 }
 
-/** The Figure for a doc; the last one stays up until the next is ready, so a change of clothes doesn't blink. */
 export function useFigure(
     doc: FigureDoc,
     quality: Quality,

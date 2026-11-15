@@ -5,7 +5,6 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>Pure stream-event → envelope translation (no socket, no cluster).</summary>
 public class RealtimeTranslationTest
 {
     private static readonly Guid Party = Guid.NewGuid();

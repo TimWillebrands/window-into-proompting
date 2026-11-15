@@ -7,7 +7,6 @@ const need = (name: string) => {
     return value;
 };
 
-// The CDU's tab: a daily allowance that exists from the start, so nothing has to open it.
 const tabs: Tab[] = process.env.METER_TAB_TOKEN
     ? [{
         token: process.env.METER_TAB_TOKEN,

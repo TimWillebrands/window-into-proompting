@@ -6,7 +6,6 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Apps;
 
-/// <summary>Calendar: plan Gatherings in Rooms and say you'll come. Anticipation as an Affordance.</summary>
 public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
 {
     private const int MaxUpcoming = 3;
@@ -30,12 +29,10 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             var who = string.Join(", ", g.AttendeeIds.Where(id => id != ctx.Self.Id).Select(ctx.NameOf).Take(4));
             sb.AppendLine($"- {When(g.StartsAt, ctx.Now)}: \"{g.Title}\" {g.Where}, hosted by {(g.HostId == ctx.Self.Id ? "you" : g.HostName)}"
                 + $"{(who.Length > 0 ? $" — {who} going" : "")}{(going ? " (you're going)" : "")}");
-            // Something that starts after your bedtime isn't yours to say yes to.
             if (!going && !Places.Sleep.IsNight(LocalMinute(DateTimeOffset.FromUnixTimeMilliseconds(g.StartsAt)), bed, wake))
                 affordances.Add(new Affordance(Id, $"Say you'll come to \"{g.Title}\" ({When(g.StartsAt, ctx.Now)})", 1, g.Id, "rsvp"));
         }
 
-        // One get-together at a time, and only with an evening left: you don't plan a second one on the way to the first.
         var goingSoon = upcoming.Any(g => g.AttendeeIds.Contains(ctx.Self.Id) && g.StartsAt - nowMs < TimeSpan.FromHours(2).TotalMilliseconds);
         if (upcoming.Count < MaxUpcoming && !goingSoon && GatheringRules.MayPlan(LocalMinute(ctx.Now), bed, wake))
         {
@@ -45,7 +42,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
                     myRooms.Add(room);
             foreach (var room in myRooms.OrderBy(_ => Random.Shared.Next()).Take(1))
                 affordances.Add(new Affordance(Id, $"Plan a get-together in #{room.Name} for later", 0, room.Id, "plan"));
-            // Meeting in person: a public Place (ADR 0020).
             var placesGrain = grains.GetGrain<Places.IPlacesGrain>(ctx.PartyId);
             var snapshot = await placesGrain.GetSnapshotAsync();
             var publicPlaces = snapshot.Places.Where(p => p.Kind == Places.PlaceKinds.Public && !p.Dormant && !p.Private && upcoming.All(g => g.PlaceId != p.Id)).ToList();
@@ -54,7 +50,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
                 var place = publicPlaces[Random.Shared.Next(publicPlaces.Count)];
                 affordances.Add(new Affordance(Id, $"Plan to meet people {place.At} {place.Name} later", 0, place.Id, "plan-place"));
             }
-            // Or somewhere offscreen you're a regular at (ADR 0027); it opens when the get-together starts.
             var regular = (await placesGrain.GetVisitDaysAsync(ctx.Self.Id))
                 .Where(v => v.Value >= Places.PlacesGrain.RegularDays)
                 .Select(v => snapshot.Places.FirstOrDefault(p => p.Id == v.Key))
@@ -95,7 +90,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
             : (await PlanAtPlaceAsync(ctx.PartyId, ctx.Self.Id, ctx.Self.Name, title, meetAt, startsAt, ctx.Now)).Outcome;
     }
 
-    /// <summary>Commit a Gathering at a Place: when it's due, attendees walk there (ADR 0020).</summary>
     public async Task<(Gathering Gathering, ActOutcome Outcome)> PlanAtPlaceAsync(
         Guid partyId, Guid hostId, string hostName, string title, Places.Place place, long startsAt, DateTimeOffset now)
     {
@@ -103,7 +97,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" {place.At} {place.Name} for {When(startsAt, now)}", null));
     }
 
-    /// <summary>Commit a Gathering — Persona-titled or Player-typed alike.</summary>
     public async Task<(Gathering Gathering, ActOutcome Outcome)> PlanAsync(
         Guid partyId, Guid hostId, string hostName, string title, ChatGroupInfo room, long startsAt, DateTimeOffset now)
     {
@@ -111,7 +104,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         return (planned, new ActOutcome("plan", $"planned \"{planned.Title}\" in #{room.Name} for {When(startsAt, now)}", room.Id));
     }
 
-    /// <summary>Commit an RSVP; null when the Gathering is gone.</summary>
     public async Task<(Gathering Gathering, ActOutcome Outcome)?> RsvpAsync(Guid partyId, Guid gatheringId, Guid personaId, bool going)
     {
         var g = await grains.GetGrain<ICalendarGrain>(partyId).RsvpAsync(gatheringId, personaId, going);
@@ -126,7 +118,6 @@ public sealed class CalendarApp(IGrainFactory grains, IWorldLlm llm) : IWorldApp
         return local.Hour * 60 + local.Minute;
     }
 
-    /// <summary>The persona's bed and wake minute, as Places keeps them (ADR 0020).</summary>
     private async Task<(int Bed, int Wake)> SleepWindowAsync(LifeContext ctx)
     {
         try

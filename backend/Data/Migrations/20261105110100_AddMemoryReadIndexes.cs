@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace PartyTown.Data.Migrations;
 
-/// <summary>Only what RecallBeat's plans use; non-unique, so existing data can never fail it.</summary>
 [DbContext(typeof(AppDbContext))]
 [Migration("20261105110100_AddMemoryReadIndexes")]
 public sealed class AddMemoryReadIndexes : Migration

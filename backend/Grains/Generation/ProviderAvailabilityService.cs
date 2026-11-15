@@ -1,6 +1,5 @@
 namespace PartyTown.Grains.Generation;
 
-/// <summary>Has the router ping every provider on a timer, so Offline is known before a call hits it (ADR 0040).</summary>
 public sealed class ProviderAvailabilityService(IGrainFactory grains, ILogger<ProviderAvailabilityService> logger) : BackgroundService
 {
     private static readonly TimeSpan Every = TimeSpan.FromSeconds(30);

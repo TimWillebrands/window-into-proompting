@@ -3,7 +3,6 @@ import type { ModelAssignment } from '../../../api/model/modelAssignment';
 import type { Persona } from '../../../api/model/persona';
 import type { PersonaRoute } from '../../../api/model/personaRoute';
 
-/** Story data: half the personas on Haiku, half on Nemotron, a local box behind them, two decision models, Opus for pins. */
 export const providers: LlmProviderEntry[] = [
     {
         id: 'haiku',
@@ -88,7 +87,6 @@ const HOMES: Record<string, string> = {
     [NOBODY]: 'haiku',
 };
 
-/** What the router would answer for the data above; `down` providers send their personas elsewhere. */
 export const assignmentsFor = (down: string[] = []): ModelAssignment[] =>
     Object.entries(HOMES).flatMap(([personaId, home]) =>
         ([1, 2, 4, 8] as const).map((tier) => {
@@ -96,7 +94,6 @@ export const assignmentsFor = (down: string[] = []): ModelAssignment[] =>
                 routes.find((r) => r.personaId === personaId && r.tier === tier)
                     ?.providerId ?? null;
             const up = (id: string | null) => !!id && !down.includes(id);
-            // Decisions take turns over their pool; the rest keep one home.
             const pool =
                 tier === 8
                     ? ['jev', 'd1']

@@ -1,6 +1,5 @@
 namespace PartyTown.World.Places;
 
-/// <summary>How a Body looks: named picks from fixed palettes, plus what an LLM designed beyond them (ADR 0028).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Appearance")]
 public sealed class Appearance
 {
@@ -10,7 +9,6 @@ public sealed class Appearance
     [Id(3)] public string Top { get; set; } = "red";
     [Id(4)] public string Bottom { get; set; } = "navy";
     [Id(5)] public string Accessory { get; set; } = "none";
-    /// <summary>Dressed by the Persona from their bio (vs. the stable default).</summary>
     [Id(6)] public bool FromBio { get; set; }
     [Id(7)] public string TopStyle { get; set; } = "tshirt";
     [Id(8)] public string BottomStyle { get; set; } = "trousers";
@@ -21,19 +19,14 @@ public sealed class Appearance
     [Id(13)] public string Eyes { get; set; } = "dark";
     [Id(14)] public string ShoeStyle { get; set; } = "sneakers";
     [Id(15)] public string Legwear { get; set; } = "none";
-    /// <summary>The Figure as designed, slot by slot over the picks (<see cref="FigureDesign"/>).</summary>
     [Id(16)] public string? Design { get; set; }
-    /// <summary>One plain line of what you'd notice; gone once a pick outdates it.</summary>
     [Id(17)] public string? Summary { get; set; }
     [Id(18)] public string BodyType { get; set; } = "straight";
-    /// <summary>A Player's own look: going on auto doesn't get them dressed from their bio.</summary>
     [Id(19)] public bool Kept { get; set; }
 
-    /// <summary>A separate copy; every field is a value or a string.</summary>
     public Appearance Copy() => (Appearance)MemberwiseClone();
 }
 
-/// <summary>One choosable part of a look, for editors and prompts.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.AppearanceField")]
 public sealed record AppearanceField([property: Id(0)] string Key, [property: Id(1)] string Label, [property: Id(2)] string[] Options);
 
@@ -74,7 +67,6 @@ public static class AppearanceRules
         new("height", "Height", Heights),
     };
 
-    /// <summary>A stable look from the id until (or unless) the Persona dresses themselves.</summary>
     public static Appearance Default(Guid id)
     {
         var b = id.ToByteArray();
@@ -117,7 +109,6 @@ public static class AppearanceRules
         _ => string.Empty,
     };
 
-    /// <summary>Accept choices only where they're on the palette; keep <paramref name="fallback"/>'s otherwise.</summary>
     public static Appearance Merge(Appearance fallback, IReadOnlyDictionary<string, string?> picked, bool fromBio = true)
     {
         string Pick(string key)
@@ -154,7 +145,6 @@ public static class AppearanceRules
         return merged;
     }
 
-    /// <summary>What changed, in words: "pink hair, a hoodie".</summary>
     public static string Changes(Appearance before, Appearance after)
     {
         var parts = new List<string>();

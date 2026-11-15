@@ -10,22 +10,6 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="ResponsePipeline"/> — the per-turn orchestration extracted
-/// from <c>PersonaGrain</c>. Covers the eight scenarios from issue #63:
-///
-///   • Pre-gate obvious-skip → RecordSkippedTurnAsync, no slot, no LLM
-///   • Self-fan-out → early return, no side effects
-///   • Decision returns Respond=false → Declined outcome + PersonaDeclined event
-///   • Decision + Speaking happy path → Spoke outcome with expected appraisal
-///   • Speaking retry on transient failure → ResetGeneratedText + GenerationRetry event
-///   • Race-cancel during Speaking → Interrupted outcome (emote)
-///   • External cancel (race-cancelled NOT set) → Failed("cancelled")
-///   • Repair hint consumed once on decision pass, cleared regardless of decision
-///
-/// Strategy: pure unit tests. Real <see cref="InFlightStore"/>; Mock chat group, grain
-/// factory, router, persona root, memory repo. Pattern follows <see cref="RaceTriggerTest"/>.
-/// </summary>
 public class ResponsePipelineTest
 {
     private const string PersonaName = "Alice";
@@ -42,11 +26,6 @@ public class ResponsePipelineTest
         Content = content,
     };
 
-    /// <summary>
-    /// Fixture bundling the pipeline + the mocks the test typically inspects.
-    /// Mocks are loose so tests assert what they care about and don't drown in
-    /// "no setup found" failures for unused paths.
-    /// </summary>
     private sealed record Fixture(
         ResponsePipeline Pipeline,
         InFlightStore Store,
@@ -137,12 +116,12 @@ public class ResponsePipelineTest
             memoryRepo.Object,
             NullLoggerFactory.Instance,
             NullLogger<ResponsePipeline>.Instance,
-            reflex: reflex);
+            reflex: reflex,
+            backoff: SpeakingBackoff.None);
 
         return new Fixture(pipeline, store, chatGroup, factory, router, personaRoot, memoryRepo, outcomes);
     }
 
-    /// <summary>Router whose endpoint streams a single chunk of canned JSON/text.</summary>
     private static void WireRouter(Mock<ILlmRouterGrain> router, params string[] scriptedChunks)
     {
         var endpoint = new Mock<ILlmEndpointGrain>();
@@ -154,11 +133,6 @@ public class ResponsePipelineTest
             .ReturnsAsync(endpoint.Object);
     }
 
-    /// <summary>
-    /// Wire the router so each successive call returns an endpoint streaming the next
-    /// canned response. Use when the pipeline makes multiple LLM calls in a single
-    /// HandleAsync (e.g. decision + speaking).
-    /// </summary>
     private static void WireRouterSequence(Mock<ILlmRouterGrain> router, params string[] perCallContent)
     {
         var endpoints = perCallContent.Select(content =>
@@ -213,19 +187,13 @@ public class ResponsePipelineTest
         yield break;
     }
 
-    // ── 1. Pre-gate obvious-skip ──────────────────────────────────────────────
-
     [Fact]
     public async Task HandleAsync_PreGateObviousSkip_RecordsSkippedTurnAndSkipsLlm()
     {
-        // Arrange: deep into a heated AI-vs-AI cascade — rounds=5, recentSelf=2.
-        // No mention, no question → IsObviousSkip math drops below -0.4 deterministically.
         var fx = BuildFixture();
         var otherSenderId = Guid.NewGuid();
         var triggering = Msg(otherSenderId, "carry on without me");
 
-        // History with two trailing self-assistant messages so recentSelfCount=2.
-        // Last message must not mention persona or end with '?' so urge stays low.
         var assistantHistory = new List<ChatMessage>
         {
             new() { MessageId = 10, SenderId = otherSenderId, SenderType = "user", Content = "hi all" },
@@ -236,7 +204,6 @@ public class ResponsePipelineTest
             .ReturnsAsync(assistantHistory);
         fx.ChatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(5);
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -245,8 +212,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert: persona persisted the skip into the papertrail but reserved no slot
-        // and made no LLM call.
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             PersonaId, PersonaName, triggering.MessageId,
             It.IsAny<double>(), It.IsAny<string>()), Times.Once);
@@ -255,18 +220,12 @@ public class ResponsePipelineTest
             It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ── 2. Self-fan-out ───────────────────────────────────────────────────────
-
     [Fact]
     public async Task HandleAsync_SelfFanout_NoSideEffects()
     {
-        // Arrange: triggering message comes from the persona itself. Pipeline must
-        // bail before touching the chat group — even reading history would be wasted
-        // work, and any state mutation here risks Vlad ruminating on Vlad's last line.
         var fx = BuildFixture();
         var triggering = Msg(PersonaId, "I am the only voice in this room");
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -275,8 +234,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert: not even the read-only history fetch happens — defense-in-depth means
-        // "do nothing observable", not "do nothing harmful".
         fx.ChatGroup.Verify(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()), Times.Never);
         fx.ChatGroup.Verify(g => g.RecordSkippedTurnAsync(
             It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<int>(),
@@ -286,14 +243,9 @@ public class ResponsePipelineTest
             It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ── 3. Decision returns Respond=false ─────────────────────────────────────
-
     [Fact]
     public async Task HandleAsync_DecisionDeclines_MarksStoppedWithDeclinedAppraisal()
     {
-        // Arrange: decision LLM returns respond=false with a gut reaction.
-        // History: a single user msg that does NOT mention persona — urge stays low so
-        // the LLM decision call fires (not the auto-respond shortcut).
         var fx = BuildFixture();
         var declineJson = """{"gutReaction":"not interested","memoryToReference":null,"wouldSay":"","respond":false}""";
         WireRouter(fx.Router, declineJson);
@@ -308,7 +260,6 @@ public class ResponsePipelineTest
             .Callback<int, MessageStreamEvent>((_, evt) => declinedEvents.Add(evt))
             .Returns(Task.CompletedTask);
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -317,8 +268,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert: declined → no message body written, papertrail carries the appraisal
-        // JSON in the shape PartyController.TryParseAppraisal expects.
         var capturedAppraisal = Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes)).Appraisal;
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.IsAny<double?>()), Times.Once);
         Assert.NotNull(capturedAppraisal);
@@ -326,11 +275,8 @@ public class ResponsePipelineTest
         Assert.Contains("\"stop\":true", capturedAppraisal);
         Assert.Contains("not interested", capturedAppraisal);
 
-        // PersonaDeclinedResponse event fired with done=true.
         Assert.Contains(declinedEvents, e => e.Event == MessageStreamEvent.PersonaDeclinedResponse && e.Done);
     }
-
-    // ── Reflex (ADR 0031) ─────────────────────────────────────────────────────
 
     [Fact]
     public async Task HandleAsync_ReflexTakesIt_NoSlotNoLlm_ReasonInTheThoughtLog()
@@ -406,8 +352,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(PersonaId, triggering.MessageId, It.Is<double?>(u => u > 0)), Times.Once);
     }
 
-    // ── A human is never left on read (ADR 0031, #129) ────────────────────────
-
     [Fact]
     public async Task AnswerAsync_TheDecisionPhaseDeclines_TheyAnswerAnyway_FromTheirReaction()
     {
@@ -430,7 +374,6 @@ public class ResponsePipelineTest
                     });
                 return ep.Object;
             });
-        // Deep in a cascade, so the pre-gate alone would have dropped it.
         var line = Msg(Guid.NewGuid(), "bet nobody here can name a bread");
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage>
@@ -473,14 +416,9 @@ public class ResponsePipelineTest
         fx.ChatGroup.Verify(g => g.BeginTurnAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<double?>()), Times.Never);
     }
 
-    // ── 4. Decision + Speaking happy path ─────────────────────────────────────
-
     [Fact]
     public async Task HandleAsync_HappyPath_AppendsMessageWithAppraisal()
     {
-        // Arrange: decision LLM says respond=true with a clear instruction; speaking
-        // LLM streams the literal reply. the Spoke outcome should carry the
-        // speaking content + the appraisal JSON shape (personaId/instruction/reason/stop).
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"I have thoughts","memoryToReference":null,"wouldSay":"Bring it.","respond":true}""";
         var speakingText = "Bring it. Let's roll.";
@@ -491,7 +429,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -500,7 +437,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert: terminal write happened with expected appraisal shape and the speaking text.
         var spoke = Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes));
         var capturedAppraisal = spoke.Appraisal;
         Assert.Equal(speakingText, spoke.Content);
@@ -511,19 +447,12 @@ public class ResponsePipelineTest
         Assert.Contains("\"stop\":false", capturedAppraisal);
     }
 
-    // ── 5. Speaking-phase retry on transient failure ──────────────────────────
-
     [Fact]
     public async Task HandleAsync_SpeakingFailsOnce_RetriesAndAccumulatesFromFreshStream()
     {
-        // Arrange: decision succeeds; speaking endpoint streams "partial" then throws on
-        // first attempt and emits "recovered content" cleanly on second. The retry must
-        // restream from a fresh buffer (Spoke content is exactly "recovered
-        // content", not "partialrecovered content") and fire a GenerationRetry event.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"sure","memoryToReference":null,"wouldSay":"on it.","respond":true}""";
 
-        // Decision endpoint → single canned JSON; speaking endpoint → fail-then-succeed.
         var decisionEp = new Mock<ILlmEndpointGrain>();
         decisionEp.Setup(e => e.GetAttributionAsync())
             .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "decider" });
@@ -557,7 +486,6 @@ public class ResponsePipelineTest
             .Callback<int, MessageStreamEvent>((_, evt) => streamEvents.Add(evt))
             .Returns(Task.CompletedTask);
 
-        // Act — generous timeout for the 2s retry delay.
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await fx.Pipeline.HandleAsync(
             MakePersona(),
@@ -567,23 +495,14 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: cts.Token);
 
-        // Assert: retry happened, final content is from the fresh stream (not concatenated).
         Assert.Equal("recovered content", Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes)).Content);
         Assert.Contains(streamEvents, e => e.Event == MessageStreamEvent.GenerationRetry);
         Assert.Equal(2, speakingCall);
     }
 
-    // ── 6. Race-cancel during Speaking → emote ────────────────────────────────
-
     [Fact]
     public async Task HandleAsync_RaceCancelDuringSpeaking_GeneratesEmote()
     {
-        // Arrange: decision succeeds; speaking endpoint blocks indefinitely. While the
-        // pipeline is mid-stream, an external task (simulating RaceTrigger.EvaluateAsync
-        // firing from a sibling NotifyMessageAsync) marks the in-flight as race-cancelled
-        // and trips the CTS. The pipeline's OperationCanceledException catch must route
-        // to the emote path: PersonaEmoteService is invoked, the Interrupted outcome
-        // is called, and the emote appraisal carries raceCancelled=true.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"jumping in","memoryToReference":null,"wouldSay":"hold on, I","respond":true}""";
         var emoteText = "*pulls back, listening instead*";
@@ -621,8 +540,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Act: start the pipeline; once speaking has begun, simulate the race trigger
-        // tripping inFlight + CTS from outside.
         var pipelineTask = fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId,
@@ -639,7 +556,6 @@ public class ResponsePipelineTest
 
         await pipelineTask.WaitAsync(TimeSpan.FromSeconds(5));
 
-        // Assert
         var interrupted = Assert.IsType<TurnOutcome.Interrupted>(Assert.Single(fx.Outcomes));
         var capturedAppraisal = interrupted.Appraisal;
         Assert.Equal(emoteText, interrupted.Emote);
@@ -647,15 +563,9 @@ public class ResponsePipelineTest
         Assert.Contains("\"raceCancelled\":true", capturedAppraisal);
     }
 
-    // ── 7. External cancel (race-cancelled NOT set) ───────────────────────────
-
     [Fact]
     public async Task HandleAsync_ExternalCancelDuringSpeaking_MarksFailedWithCancelled()
     {
-        // Arrange: decision succeeds; speaking hangs; the *caller's* CTS is tripped
-        // (simulating PartyGrain.CancelGenerationAsync via PersonaGrain.CancelGenerationAsync).
-        // RaceCancelled flag is NOT set → catch routes to Failed("cancelled"),
-        // not the emote path.
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"about to","memoryToReference":null,"wouldSay":"writing...","respond":true}""";
 
@@ -679,7 +589,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Act: cancel 100ms into the hanging speaking phase.
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
         await fx.Pipeline.HandleAsync(
@@ -690,18 +599,12 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: cts.Token);
 
-        // Assert: failure surfaced as "cancelled", emote path not taken.
         Assert.Equal("cancelled", Assert.IsType<TurnOutcome.Failed>(Assert.Single(fx.Outcomes)).Error);
     }
-
-    // ── 8. Repair hint consumed once on decision pass ─────────────────────────
 
     [Fact]
     public async Task HandleAsync_RepairHintPresent_ConsumedAndClearedAfterDecisionPass()
     {
-        // Arrange: pre-seed a repair hint into the store for this chat group.
-        // Run a decline-path pipeline (cheap, exercises decision phase end-to-end).
-        // After: the hint must no longer be in the store regardless of decision outcome.
         var fx = BuildFixture();
         var chatGroupId = Guid.NewGuid();
         var hint = new RepairHint(MissedMessageId: 42, MissedSenderName: "Mira", MissedContent: "you missed this");
@@ -715,12 +618,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Sanity-check the hint is there before HandleAsync — using ConsumeRepairHint
-        // would clear it, so use a peek-by-setting-it-back pattern.
-        // (InFlightStore has no peek; assert by re-seeding immediately if the pre-condition matters.)
-        // Instead: trust SetRepairHint and assert post-condition only.
-
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId,
@@ -729,20 +626,13 @@ public class ResponsePipelineTest
             fx.Store,
             CancellationToken.None);
 
-        // Assert: pipeline ran decline path, AND the hint has been consumed (store no longer holds it).
         Assert.IsType<TurnOutcome.Declined>(Assert.Single(fx.Outcomes));
         Assert.Null(fx.Store.ConsumeRepairHint(chatGroupId));
     }
 
-    // ── 9. Stance floor: ambient block in both phases (ADR 0016) ─────────────
-
     [Fact]
     public async Task HandleAsync_WithStances_RendersWhereYouStandInBothPrompts()
     {
-        // Arrange: stance recall surfaces two latest-wins lines. Both the Decision and the
-        // Speaking system prompts must carry the ambient "# Where you stand" block verbatim —
-        // no selection mechanic, no handoff field (ADR 0016: an orientation you speak from,
-        // not a callback you weave in).
         var fx = BuildFixture();
         fx.MemoryRepo.Setup(m => m.RecallStancesAsync(
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(),
@@ -756,7 +646,6 @@ public class ResponsePipelineTest
         var decisionJson = """{"gutReaction":"oh, this again","memoryToReference":null,"wouldSay":"Heard this one before.","respond":true}""";
         var speakingText = "Heard this one before.";
 
-        // Endpoints that capture the job handed to each phase.
         var capturedJobs = new List<LlmGenerationJob>();
         var routeCall = 0;
         fx.Router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
@@ -779,7 +668,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -788,8 +676,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert: two LLM calls (decision, speaking); each system prompt carries the block
-        // and both lines, strongest-felt intact.
         Assert.Equal(2, capturedJobs.Count);
         foreach (var job in capturedJobs)
         {
@@ -799,7 +685,6 @@ public class ResponsePipelineTest
             Assert.Contains("Lisp is elegant", systemPrompt);
         }
 
-        // Recall was scoped to the triggering message's text and capped at 5 (the ~5-line cap).
         fx.MemoryRepo.Verify(m => m.RecallStancesAsync(
             It.IsAny<Guid>(), PersonaId, It.IsAny<IReadOnlyList<Guid>>(),
             triggering.Content!, 5, It.IsAny<CancellationToken>()), Times.Once);
@@ -808,8 +693,6 @@ public class ResponsePipelineTest
     [Fact]
     public async Task HandleAsync_NoStances_OmitsWhereYouStandBlock()
     {
-        // Arrange: default fixture (stance recall returns empty). The block must be absent —
-        // an empty floor never reads as "you stand for nothing".
         var fx = BuildFixture();
         var decisionJson = """{"gutReaction":"hm","memoryToReference":null,"wouldSay":"Sure.","respond":true}""";
 
@@ -835,7 +718,6 @@ public class ResponsePipelineTest
         fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage> { triggering });
 
-        // Act
         await fx.Pipeline.HandleAsync(
             MakePersona(),
             chatGroupId: Guid.NewGuid(),
@@ -844,7 +726,6 @@ public class ResponsePipelineTest
             store: fx.Store,
             ct: CancellationToken.None);
 
-        // Assert
         Assert.Equal(2, capturedJobs.Count);
         Assert.All(capturedJobs, job =>
             Assert.DoesNotContain("# Where you stand",
@@ -854,7 +735,6 @@ public class ResponsePipelineTest
     [Fact]
     public async Task HandleAsync_TalkTouchingASkill_RendersTheKnowHowInBothPrompts()
     {
-        // ADR 0054: one Skill the live exchange touches, the same block in Decision and Speaking; none when it doesn't.
         var fx = BuildFixture();
         var skills = new Mock<PartyTown.World.Skills.ISkillsGrain>();
         skills.Setup(g => g.GetAsync()).ReturnsAsync(new List<PartyTown.World.Skills.SkillView>

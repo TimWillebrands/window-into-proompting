@@ -4,7 +4,6 @@ using PartyTown.World.Work.Cdu;
 
 namespace PartyTown.Controllers;
 
-/// <summary>The CDU for spectators (ADR 0039): who spoke to it, what it said, its trunk and its PR. The One judges on GitHub.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/cdu")]
 public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site) : ControllerBase
@@ -28,7 +27,6 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
             status?.Models?.Select(m => new CduModelSummary(m.Id, m.Label, m.Tier, m.In, m.Out)).ToList() ?? new List<CduModelSummary>()));
     }
 
-    /// <summary>The CDU's transcript so far; realtime frames carry what comes after.</summary>
     [AllowAnonymous]
     [HttpGet("lines")]
     [ProducesResponseType<List<CduLineSummary>>(StatusCodes.Status200OK)]

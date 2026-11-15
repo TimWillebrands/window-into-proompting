@@ -37,7 +37,6 @@ export default function DaccordSidebar({
     return (
         <aside className="relative flex h-full w-14 @[640px]:w-[300px] shrink-0 flex-col overflow-hidden bg-gradient-to-b from-blue-500 via-blue-600 to-indigo-700 dark:from-indigo-950 dark:via-slate-900 dark:to-purple-950 text-slate-800 dark:text-slate-100 p-1.5 @[640px]:p-2 gap-2">
             <div className="relative z-10 flex flex-1 min-h-0 gap-1.5">
-                {/* Server rail — saturated strip w/ glassy icon buttons */}
                 <div className="flex w-11 shrink-0 flex-col items-center gap-2.5 py-2">
                     {SERVER_RAIL.map((s) => (
                         <button
@@ -51,7 +50,6 @@ export default function DaccordSidebar({
                     ))}
                 </div>
 
-                {/* Right column — white panel w/ wave bleeding from bottom */}
                 <div className="relative hidden @[640px]:flex flex-1 min-w-0 flex-col gap-1 overflow-hidden rounded-3xl bg-gradient-to-b from-white via-white to-blue-50/80 dark:from-slate-800/90 dark:to-slate-900/80 px-2 py-3 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70">
                     <WaveDecoration variant="panel" />
                     <div className="relative z-10 flex flex-1 min-h-0 flex-col gap-1 overflow-y-auto pr-1">
@@ -144,7 +142,6 @@ export default function DaccordSidebar({
                 </div>
             </div>
 
-            {/* Profile dock — white pill floating over purple wave */}
             <div className="relative z-10 flex items-center gap-2 overflow-hidden rounded-3xl bg-white/95 dark:bg-slate-800/90 p-2 shadow-[0_14px_32px_-10px_rgba(46,46,148,0.55)] ring-1 ring-white/80 backdrop-blur-xl">
                 <span
                     aria-hidden

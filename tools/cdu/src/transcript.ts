@@ -10,7 +10,6 @@ const clip = (text: string) => (text.length > MaxLine ? `${text.slice(0, MaxLine
 
 type Args = Record<string, unknown> | undefined;
 
-/** What a tool call was about, in one line: the command, the path, or its arguments. */
 export function describe(tool: string, args: Args, root = ''): string {
     const strip = (p: string) => (root && p.startsWith(`${root}/`) ? p.slice(root.length + 1) : p);
     const target = args?.command ?? args?.path ?? args?.file_path ?? args?.pattern;
@@ -18,7 +17,6 @@ export function describe(tool: string, args: Args, root = ''): string {
     return args && Object.keys(args).length > 0 ? `${tool} ${JSON.stringify(args)}` : tool;
 }
 
-/** Pi session events as readable lines: deltas joined, each tool once, failures and retries said. */
 export class Transcript {
     private buffer = '';
     private bufferKind: LineKind = 'say';
@@ -61,7 +59,6 @@ export class Transcript {
         return parts.flatMap((p) => this.line(p));
     }
 
-    /** Some models think inline, between think tags: those lines are thoughts, not speech. */
     private line(raw: string): Line[] {
         let text = raw;
         let kind = this.thinking ? 'thought' : this.bufferKind;
@@ -77,7 +74,6 @@ export class Transcript {
         return text.trim() ? [{ kind: kind as LineKind, text: clip(text.trim()) }] : [];
     }
 
-    /** Whatever is still mid-line, as a line of its own. */
     flush(): Line[] {
         const text = this.buffer;
         this.buffer = '';
@@ -85,5 +81,4 @@ export class Transcript {
     }
 }
 
-/** What it said, without any inline thinking a model left in it. */
 export const spoken = (reply: string) => reply.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim();

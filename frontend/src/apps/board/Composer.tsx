@@ -6,7 +6,6 @@ interface Props {
     playerId: string | null;
     placeholder: string;
     submitLabel: string;
-    /** Resolves when posted; rejects with the reason to show. */
     onSubmit: (body: string) => Promise<unknown>;
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
     compact?: boolean;
@@ -14,7 +13,6 @@ interface Props {
     onCancel?: () => void;
 }
 
-/** Wie Wat Waar? box: grows with the text, counts down to 280, Ctrl+Enter posts. */
 export default function Composer({
     playerId,
     placeholder,
@@ -115,7 +113,6 @@ export default function Composer({
     );
 }
 
-/** Twitter-style ring that fills up; shows the number once you're close. */
 function CountRing({ left }: { left: number }) {
     const r = 9;
     const circumference = 2 * Math.PI * r;

@@ -9,13 +9,9 @@ export interface MemoryGraphData {
     links: MemoryGraphLink[];
 }
 
-// react-force-graph mutates rendered node objects (x/y/vx/vy). Keep the enriched shape
-// distinct from the wire DTO so rendering state never round-trips back to the backend.
 export interface EnrichedMemoryNode extends MemoryGraphNode {
     label: string;
-    /// <summary>Event only: where it happened, e.g. "Board · Ginkgo".</summary>
     where?: string;
-    /// <summary>Participant only: stable per-person hue.</summary>
     colour?: string;
 }
 

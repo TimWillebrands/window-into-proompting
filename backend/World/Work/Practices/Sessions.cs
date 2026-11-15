@@ -9,14 +9,12 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Practices;
 
-/// <summary>A Session in the World (ADR 0030): the booking, getting two people together, and the bill. Life and HTTP both book through here.</summary>
 public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessions> logger)
 {
     private const string Shape = """{"homework": "<one concrete thing for the client to do, or none>", "days": "<days until it's due>", "kept": "<yes or no: did they do what they were going to do last time; none if there was nothing>"}""";
     private static readonly TimeSpan CloseBudget = TimeSpan.FromSeconds(90);
     private readonly ConcurrentDictionary<Guid, byte> _stepping = new();
 
-    /// <summary>A booking, or why not. The same rules whoever is driving either side.</summary>
     public async Task<(PracticeSession? Session, string? Refusal)> BookAsync(Guid partyId, Guid clientId, Guid practitionerId, string reason, DateTimeOffset now)
     {
         if (clientId == practitionerId) return (null, "You can't book yourself.");
@@ -42,7 +40,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         }), null);
     }
 
-    /// <summary>The clock's step: starts what's due and closes what's over, whether or not anyone picks it.</summary>
     public async Task StepAsync(Guid partyId, DateTimeOffset now)
     {
         if (!_stepping.TryAdd(partyId, 0)) return;
@@ -63,7 +60,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         finally { _stepping.TryRemove(partyId, out _); }
     }
 
-    /// <summary>The Client joins the Practitioner, by the same rules as anyone joining anyone; a Locale opens as for a Gathering.</summary>
     private async Task StartAsync(Guid partyId, PracticeSession session, DateTimeOffset now)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);
@@ -77,7 +73,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         await places.OpenAsync(where, null, "gathering");
         await places.ExpectAsync(where, session.PractitionerId, new List<Guid> { session.ClientId });
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
-        // Humans come themselves, as with Gatherings; a Persona's post is where a shift would put them.
         bool Llm(Guid id) => cast.FirstOrDefault(c => c.Id == id)?.DefaultDriver == DriverKind.LLM;
         if (Llm(session.PractitionerId)) await places.GoAwayAsync(session.PractitionerId, where, "working");
         if (Llm(session.ClientId)) await places.JoinAsync(session.ClientId, session.PractitionerId);
@@ -85,12 +80,10 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
             await RecordAsync(partyId, session, "start", $"has {session.ClientName} in for a session at {session.Workplace}");
     }
 
-    /// <summary>Once they're in Earshot, whoever an LLM drives says the first thing; two humans just talk.</summary>
     private async Task OpenIfTogetherAsync(Guid partyId, PracticeSession session)
     {
         var snapshot = await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync();
         if (!PracticeRules.Together(snapshot.Bodies, session.PractitionerId, session.ClientId)) return;
-        // Wherever they actually met; a Place only gets its talk room once someone's there.
         var here = snapshot.Bodies.First(b => b.ParticipantId == session.ClientId).PlaceId;
         if (snapshot.Places.FirstOrDefault(p => p.Id == here)?.TalkRoomId is not { } talkRoom) return;
         var from = (await grains.GetGrain<IChatGroupGrain>(talkRoom).GetRecentMessagesAsync(1)).LastOrDefault()?.MessageId ?? -1;
@@ -114,7 +107,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
             await MissAsync(partyId, session, now);
             return;
         }
-        // Flip first: a crash after this can lose Homework, never charge twice.
         if (!await grains.GetGrain<ISessionsGrain>(partyId).EndAsync(session.Id, SessionStatus.Done, now.ToUnixTimeMilliseconds())) return;
         var paid = await ChargeAsync(partyId, session);
         await PractiseAsync(partyId, session);
@@ -126,7 +118,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Homework failed for session {Session}", session.Id); }
     }
 
-    /// <summary>A Session run is the Practitioner's craft practised (ADR 0054), keyed like a shift of the same job.</summary>
     private async Task PractiseAsync(Guid partyId, PracticeSession session)
     {
         try
@@ -173,7 +164,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
         await RecordAsync(partyId, session, "missed", $"didn't get to see {session.ClientName}");
     }
 
-    /// <summary>What the two of them said since it started; anyone else at the Spot isn't part of the Session.</summary>
     private async Task<List<ChatMessage>> LinesAsync(PracticeSession session)
     {
         if (session.TalkRoomId is not { } talkRoom) return new List<ChatMessage>();
@@ -183,7 +173,6 @@ public sealed class Sessions(IGrainFactory grains, IWorldLlm llm, ILogger<Sessio
             .ToList();
     }
 
-    /// <summary>The log says a Session happened, never what was said in it.</summary>
     private Task RecordAsync(Guid partyId, PracticeSession session, string action, string summary)
         => grains.GetGrain<IWorldClockGrain>(partyId).RecordAsync(new WorldActivity
         {

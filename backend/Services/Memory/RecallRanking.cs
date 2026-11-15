@@ -1,35 +1,22 @@
 namespace PartyTown.Services.Memory;
 
-/// <summary>One fetched RECOLLECTS row before ranking; <see cref="Relevant"/> = matched an anchor leg.</summary>
 internal readonly record struct RecallCandidate(string Key, RecalledMemory Memory, bool Relevant);
 
-/// <summary>
-/// Recall's C# half (ADR 0015) as pure functions: dedup the UNION's per-leg rows, then the
-/// two-arm quota union. Scores come in from <see cref="SalienceMath.Score"/>; nothing here re-scores.
-/// </summary>
 internal static class RecallRanking
 {
-    /// <summary>Relevant-arm quota: structural tension, not a merged formula — keeps a serendipity budget on hot topics.</summary>
     public const int RelevantArmSlots = 5;
-    /// <summary>Most newest edges the recency arm ever ranks; also the anchorless query's LIMIT.</summary>
     public const int CandidatePool = 50;
-    /// <summary>Newest edges the recency arm ranks per slot it fills: recent means the last few moments, not the strongest of days.</summary>
     public const int RecentPoolPerSlot = 3;
 
-    /// <summary>Relevant arm's share: at most half the slots (rounded up), so recent ⇄ relevant stays a tension at small limits.</summary>
     public static int RelevantSlots(int limit) => Math.Min(RelevantArmSlots, (Math.Max(0, limit) + 1) / 2);
 
-    /// <summary>How many newest edges the recency arm ranks to fill <paramref name="slots"/>.</summary>
     public static int RecentPool(int slots) => Math.Min(CandidatePool, Math.Max(1, slots) * RecentPoolPerSlot);
 
-    /// <summary>How far back recall reaches: the now is what matters; Ties, Relations and Stances carry what lasts.</summary>
     public static readonly TimeSpan Horizon = TimeSpan.FromDays(3);
 
-    /// <summary>Only memories inside the <see cref="Horizon"/> come to mind.</summary>
     public static List<RecallCandidate> Fresh(IEnumerable<RecallCandidate> rows, DateTimeOffset now)
         => rows.Where(r => now - r.Memory.CapturedAt < Horizon).ToList();
 
-    /// <summary>Same edge from several legs → one candidate; relevance wins.</summary>
     public static List<RecallCandidate> Dedup(IEnumerable<RecallCandidate> rows)
     {
         var byKey = new Dictionary<string, RecallCandidate>(StringComparer.Ordinal);
@@ -47,10 +34,6 @@ internal static class RecallRanking
         return order.Select(k => byKey[k]).ToList();
     }
 
-    /// <summary>
-    /// Relevant arm takes up to <see cref="RelevantSlots"/>; the recency arm (newest <see cref="RecentPool"/>)
-    /// fills the rest; both salience-ranked, then merged by salience so the prompt never shows which arm surfaced what.
-    /// </summary>
     public static IReadOnlyList<RecalledMemory> QuotaUnion(IReadOnlyList<RecallCandidate> candidates, int limit)
     {
         var relevantArm = candidates
@@ -61,7 +44,6 @@ internal static class RecallRanking
             .ToList();
         var taken = relevantArm.Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
 
-        // A relevant edge that missed the relevant quota still competes here — never duplicated.
         var recentArm = candidates
             .Where(c => !taken.Contains(c.Key))
             .OrderByDescending(c => c.Memory.CapturedAt)

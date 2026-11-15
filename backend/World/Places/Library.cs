@@ -3,11 +3,9 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>What doing something with a thing asks and gives (ADR 0049).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Offer")]
 public sealed record Offer([property: Id(0)] string Do, [property: Id(1)] string Gives, [property: Id(2)] bool Leaves);
 
-/// <summary>The model library (ADR 0049): models as data, a palette, and what things afford; shared with the client as library.json.</summary>
 public static class Library
 {
     private static readonly Lazy<JsonObject> Doc = new(() =>
@@ -32,15 +30,12 @@ public static class Library
         return offers;
     });
 
-    /// <summary>Named colours a model may use instead of hex.</summary>
     public static IReadOnlyDictionary<string, string> Palette => Colours.Value;
 
     public static IReadOnlyDictionary<string, JsonObject> Models => ByName.Value;
 
-    /// <summary>What a prefab affords by default, so placing one is enough.</summary>
     public static IReadOnlyDictionary<string, Offer> Offers => Offered.Value;
 
-    /// <summary>Prefab names by group, for the design guide; library models carry their own group.</summary>
     public static IEnumerable<(string Group, List<string> Names)> Groups()
     {
         foreach (var (group, names) in Doc.Value["groups"]!.AsObject())

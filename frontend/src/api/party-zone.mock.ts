@@ -63,8 +63,6 @@ const queryResult = <T>(data: T) => ({
     ...suspenseQueryResult(data),
 });
 
-// ---------- Fixtures (overridable via storybook parameters or beforeEach) ----------
-
 export const mockPersonas: Persona[] = [
     {
         id: 'persona-1',
@@ -148,7 +146,6 @@ export const mockPersonaRoutes: PersonaRoute[] = [
     { personaId: mockPersonas[0].id, tier: 2, providerId: 'prov-3' },
 ];
 
-/** Every persona on the split, alternating its two models; the first one's voice is pinned. */
 export const mockAssignments: ModelAssignment[] = [
     { id: '00000000-0000-0000-0000-000000000000', home: 'prov-2' },
     ...mockPersonas.map((p, i) => ({
@@ -175,8 +172,6 @@ export const mockProviderModels = [
     'llama3.1:70b',
     'qwen2.5-coder:32b',
 ];
-
-// ---------- Hook overrides — shadow exports from `./party-zone` ----------
 
 export const useGetPersonaSuspense = fn(() =>
     suspenseQueryResult({
@@ -216,9 +211,6 @@ export const useGetPartyIdChatGroupsSuspense = fn(() =>
     }),
 );
 
-// Hand-crafted dataset covering all six node kinds and all four edge kinds so the
-// MemoryGraphApp story exercises every code path in the visual encoding without
-// standing up Postgres+AGE.
 export const mockMemoryGraph: MemoryGraphDto = {
     nodes: [
         { id: 'room:cg-1', kind: 'Room' },
@@ -355,7 +347,6 @@ export const useGetLlmConfigTailnets = fn(() =>
     }),
 );
 
-// Chat-window hooks (GroupChatWindow consumers)
 export const useGetPartyIdSuspense = fn(() =>
     suspenseQueryResult({
         data: {
@@ -385,8 +376,6 @@ export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = fn(
     () => noopMutationResult(),
 );
 
-// Stance floor (ADR 0016). Two appends toward Vlad show latest-wins: the newer edge is
-// current, the older one is dimmed history.
 export const mockStances: StanceRecord[] = [
     {
         id: 'stance-2',

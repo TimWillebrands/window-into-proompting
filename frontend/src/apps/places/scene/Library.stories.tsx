@@ -5,7 +5,6 @@ import PlaceScene from './PlaceScene';
 import { LIBRARY, PREFABS } from './prefabs';
 import type { PropDef, SceneDef } from './scene';
 
-/** Review gallery (ADR 0049): every library model on its footprint, in rows. */
 function gallery(names: string[], width = 24): Omit<SceneDef, 'id'> {
     const props: PropDef[] = [];
     let x = 1;

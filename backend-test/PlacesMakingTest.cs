@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0023 making and customising: poses, restyling, generated things and Places, arranging.</summary>
 public partial class PlacesTest
 {
     private static JsonObject Obj(string json) => JsonNode.Parse(json)!.AsObject();

@@ -7,7 +7,6 @@ export default function ProfilePanel() {
         <aside className="relative hidden @[1000px]:flex h-full w-[300px] shrink-0 flex-col gap-2 overflow-hidden bg-gradient-to-b from-blue-600 via-indigo-600 to-fuchsia-700 dark:from-sky-950 dark:via-indigo-950 dark:to-purple-950 p-2 text-slate-800 dark:text-slate-100">
             <WaveDecoration variant="panel" />
 
-            {/* Profile hero card */}
             <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-300 via-blue-300 to-indigo-400 dark:from-sky-800 dark:via-blue-900 dark:to-indigo-900 p-5 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.45)] ring-1 ring-white/60">
                 <span
                     aria-hidden
@@ -46,7 +45,6 @@ export default function ProfilePanel() {
                 </div>
             </section>
 
-            {/* Members + activity floating plate */}
             <div className="relative flex flex-1 min-h-0 flex-col gap-4 overflow-hidden rounded-3xl bg-gradient-to-b from-white/90 to-white/75 dark:from-slate-800/80 dark:to-slate-900/70 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.4)] ring-1 ring-white/70 backdrop-blur-xl">
                 <span
                     aria-hidden

@@ -2,19 +2,15 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Reflex;
 
-/// <summary>What a Persona has to go on in the moment; all of it is cheap to read.</summary>
-/// <param name="Between">What's between them and whoever this is, as remembered.</param>
 public sealed record Sense(
     string Name, string? Bio, string? Doing, string? Mood, double Load, double Battery, Bond Bond, IReadOnlyList<string> Between, string? Standing = null);
 
-/// <summary>The System One half of Reflex (ADR 0031): a Percept and a Sense in, a question over what to do out.</summary>
 public static class ReflexWeighing
 {
     public const string Key = "act";
 
     public static string First(string name) => name.Split(' ')[0];
 
-    /// <summary>Options fit the channel: you can put off a message, not someone standing in front of you.</summary>
     public static IReadOnlyDictionary<string, string?> Options(Percept p, string name)
     {
         var from = First(p.FromName);
@@ -33,7 +29,6 @@ public static class ReflexWeighing
                 [ReflexOptions.Listen] = $"{name} listens and says nothing",
                 [ReflexOptions.Move] = $"{name} moves away from {from}",
             },
-            // Across the room, a hello is a wave or a walk over: a line said here wouldn't reach them.
             PerceptKind.Arrival when !p.Near => new Dictionary<string, string?>
             {
                 [ReflexOptions.GoOver] = $"{name} goes over to say hi to {from}",
@@ -72,7 +67,6 @@ public static class ReflexWeighing
 
     public static string Question(string name) => $"What does {name}, being who they are, most plausibly do about this right now?";
 
-    /// <summary>Says what happened, in plain words; the model only sees this and the state around it.</summary>
     public static string Event(Percept p, string name)
     {
         var who = First(p.FromName);
@@ -124,7 +118,6 @@ public static class ReflexWeighing
         => new Dictionary<string, SystemOneQuestion> { [Key] = new ChoiceQuestion(Question(name), Options(p, name)) };
 }
 
-/// <summary>What Reflex asks System Two to say: the turn instruction for each thing it does out loud.</summary>
 public static class ReflexVoice
 {
     public static string Ack(string? doing)

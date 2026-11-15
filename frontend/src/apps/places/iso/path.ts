@@ -2,7 +2,6 @@ import type { Pt } from './iso';
 
 const key = (p: Pt) => `${p.x},${p.y}`;
 
-/** 4-neighbour A* on a w×h grid; start and goal are always allowed. Falls back to a straight hop. */
 export function findPath(
     from: Pt,
     to: Pt,
@@ -50,7 +49,6 @@ export function findPath(
     return [from, to];
 }
 
-/** Position along a tile path at progress t ∈ [0, 1], interpolated between tiles. */
 export function along(path: Pt[], t: number): Pt {
     if (path.length === 0) return { x: 0, y: 0 };
     if (path.length === 1 || t <= 0) return path[0];

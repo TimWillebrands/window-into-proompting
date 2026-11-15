@@ -5,10 +5,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// Conversations move moods (ADR 0021): when a Moment closes, System One asks per present persona whether it
-/// left them better or worse off, and nudges their Self's valence. Detached and non-fatal.
-/// </summary>
 public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains, ILogger<MomentAppraisal> logger, Desires.Mimesis? mimesis = null)
 {
     private const int MaxLines = 14;
@@ -35,12 +31,10 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
         return room is null ? "a conversation" : room.Kind == "dm" ? $"your chat with {room.Name}" : $"#{room.Name}";
     }
 
-    /// <param name="who">Personas who took a recollection away from it.</param>
     public async Task AppraiseAsync(Moment moment, IReadOnlySet<Guid> who)
     {
         var personas = moment.Present.Where(p => p.Driver == DriverKind.LLM && who.Contains(p.Id)).ToList();
         if (personas.Count == 0) return;
-        // Only what's new since this thread's last appraisal: a Board thread re-captures on every reply.
         var lines = Appraisal.Unseen(moment.Lines, appraised.GetValueOrDefault(moment.ThreadId));
         if (lines.Count < Appraisal.MinNewLines) return;
         appraised[moment.ThreadId] = Appraisal.Key(moment.Lines[^1]);
@@ -51,7 +45,6 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
             var transcript = string.Join("\n", lines.TakeLast(MaxLines)
                 .Select(l => $"{names.GetValueOrDefault(l.SenderId, "Someone")}: {WorldStream.Clip(l.Text, 240)}"));
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            // Three-way choices, not nouls: decision models compress p, and "about the same" absorbs the neutral mass.
             var speakers = lines.Select(l => l.SenderId).ToHashSet();
             var pairs = personas
                 .SelectMany(p => moment.Present.Where(q => q.Id != p.Id && speakers.Contains(q.Id) && q.Driver != DriverKind.System).Select(q => (p, q)))
@@ -61,7 +54,6 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
                 p => (SystemOneQuestion)new ChoiceQuestion($"How did this conversation leave {p.Name}'s mood, compared to before it?", Moods));
             foreach (var (p, q) in pairs)
                 questions[$"{p.Id:N}-{q.Id:N}"] = new ChoiceQuestion($"By the end of this, how did {p.Name} feel toward {q.Name}?", Closeness);
-            // Mimesis (ADR 0026) rides the same call: one noul per pair that clears its caps.
             var mimetic = mimesis is null ? new() : await mimesis.EligibleAsync(moment.PartyId, pairs.Where(x => x.q.Driver == DriverKind.LLM), DateTimeOffset.UtcNow);
             foreach (var (p, q) in mimetic) questions[Desires.Mimesis.Key(p, q)] = Desires.Mimesis.Question(p, q);
             var answers = await judge.AskAsync(transcript, questions, cts.Token);
@@ -81,14 +73,12 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
     }
 }
 
-/// <summary>Pure: a mood choice distribution → p(better) on the 0..1 scale <see cref="SelfMath.Shift"/> expects.</summary>
 public static class Appraisal
 {
     public const int MinNewLines = 2;
 
     public static string Key(MomentLine line) => $"{line.SenderId:N}|{line.At}|{line.Text.GetHashCode()}";
 
-    /// <summary>Lines after the last appraised one; all of them when it's not in this window.</summary>
     public static IReadOnlyList<MomentLine> Unseen(IReadOnlyList<MomentLine> lines, string? lastKey)
     {
         if (lastKey is null) return lines;

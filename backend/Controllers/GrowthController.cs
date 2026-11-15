@@ -7,7 +7,6 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
-/// <summary>World growth (ADR 0027): footfall on Locales and Openings, for the author's Growing panel.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}/growth")]
 public sealed class GrowthController(IGrainFactory grains) : ControllerBase
@@ -42,13 +41,11 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
         return Ok(new GrowthReport(await growth.GetAutoAsync(), FootfallMath.OpenAt, rows, opened));
     }
 
-    /// <summary>Thing descriptions the catalogue had no model for, newest first: what to curate next.</summary>
     [AllowAnonymous]
     [HttpGet("catalogue-misses")]
     public async Task<ActionResult<List<string>>> GetCatalogueMisses(Guid partyId)
         => Ok(await grains.GetGrain<IPlacesGrain>(partyId).GetCatalogueMissesAsync());
 
-    /// <summary>Author: open a Locale now, from its name's kit (or a given archetype).</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("open/{localeId:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -58,21 +55,18 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
         return place is null ? Conflict("Not a Locale, or the world has opened enough for now.") : Ok(place);
     }
 
-    /// <summary>Author: a Place or Locale is someone's now, under a new name if given. <c>Private</c> sends everyone else home.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("claim/{placeId:guid}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Place>> Claim(Guid partyId, Guid placeId, [FromBody] ClaimPlaceRequest request)
         => await grains.GetGrain<IPlacesGrain>(partyId).ClaimAsync(placeId, request.MadeBy, request.Name, request.Private) is { } place ? Ok(place) : NotFound();
 
-    /// <summary>Author veto: an opened Place goes back offscreen.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("close/{placeId:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Close(Guid partyId, Guid placeId)
         => await grains.GetGrain<IPlacesGrain>(partyId).CloseAsync(placeId) ? NoContent() : Conflict("Only opened Places can close.");
 
-    /// <summary>Author: open Locales that pass the gates automatically (one a day), or only log them.</summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("auto")]
     public async Task<ActionResult> SetAuto(Guid partyId, [FromBody] GrowthAutoRequest request)
@@ -82,12 +76,10 @@ public sealed class GrowthController(IGrainFactory grains) : ControllerBase
     }
 }
 
-/// <summary>One Locale's footfall: how close it is to opening and who's pulling it there.</summary>
 public sealed record GrowthRow(
     Guid LocaleId, string Name, string? District, double Footfall, int People, int Days,
     string? Missing, List<string> Contributors, string? WouldOpenOn);
 
-/// <summary>A Locale opened in the last week, which the author can still close.</summary>
 public sealed record OpenedRow(Guid PlaceId, string Name, string? District, string? Archetype, long OpenedAt);
 
 public sealed record GrowthReport(bool Auto, double OpenAt, List<GrowthRow> Rows, List<OpenedRow> Opened);

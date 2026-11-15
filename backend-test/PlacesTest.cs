@@ -8,7 +8,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>Places phase 1: one Body per Participant, walking takes time, Place talk cast follows occupants.</summary>
 public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
 {
     private readonly Fixture _fx;
@@ -86,7 +85,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         _fx.Time.Advance(TimeSpan.FromMinutes(10));
         Assert.Contains("You came over from your place 10 min ago.", await places.GetSituationAsync(denise));
 
-        // Moving within a Place isn't getting somewhere.
         var at = (await places.GetBodyAsync(denise))!.SpotId;
         var spot = cafe.Spots.First(s => s.Id != at).Id;
         await places.MoveAsync(denise, cafe.Id, spot);
@@ -261,7 +259,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         Assert.Equal("kitchen", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).SpotId);
     }
 
-    /// <summary>How far to push the clock to reach a local minute-of-day next.</summary>
     private TimeSpan UntilLocal(int minuteOfDay)
     {
         var local = _fx.Time.GetLocalNow();
@@ -288,7 +285,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         Assert.Contains("at Pieter's place", await places.GetSituationAsync(denise));
         Assert.Empty(await places.GetKnocksAsync(pieter));
 
-        // When the owner leaves, the door closes behind them.
         var cafe = snapshot.Places.Single(p => p.Name == "the Café");
         await places.MoveAsync(pieter, cafe.Id, null);
         await places.MoveAsync(denise, cafe.Id, null);
@@ -473,7 +469,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
 
         public async Task<(Guid PartyId, Guid Denise, Guid Pieter)> CreateWorldAsync()
         {
-            // Every world starts at local noon, so earlier tests' nights don't send everyone to bed.
             var local = Time.GetLocalNow();
             var toNoon = (12 * 60 - (local.Hour * 60 + local.Minute) + 1440) % 1440;
             Time.Advance(TimeSpan.FromMinutes(toNoon == 0 ? 1440 : toNoon));
@@ -514,17 +509,14 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         }
     }
 
-    /// <summary>System One a test scripts by question; "same place" is fixed.</summary>
     public sealed class ScriptedJudge : PartyTown.Services.SystemOne.ISystemOneJudge
     {
         public static readonly ScriptedJudge Instance = new();
-        /// <summary>Unscripted, it answers nothing, so callers keep their own fallbacks.</summary>
         public Func<string, double>? Noul { get; set; }
 
         public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
         {
             var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
-            // Same place: one whose name holds the name said, else somewhere else (the last option).
             if (questions.TryGetValue("same", out var same) && same is PartyTown.Services.SystemOne.ChoiceQuestion options)
             {
                 var said = System.Text.RegularExpressions.Regex.Match(state, "\"(?:the )?([^\"]+)\"").Groups[1].Value;
@@ -538,7 +530,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         }
     }
 
-    /// <summary>World LLM a test scripts by system prompt; anything unscripted gets null (as the old mock did).</summary>
     public sealed class ScriptedLlm : PartyTown.World.IWorldLlm
     {
         public static readonly ScriptedLlm Instance = new();
@@ -556,7 +547,6 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
         }
     }
 
-    /// <summary>Wall clock the test can push forward; shared because the silo is in-proc.</summary>
     public sealed class ManualTime : TimeProvider
     {
         public static readonly ManualTime Instance = new();

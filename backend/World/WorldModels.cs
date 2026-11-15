@@ -4,7 +4,6 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.World;
 
-/// <summary>One thing a Persona (or the Player) did somewhere in the World — the activity log line.</summary>
 [GenerateSerializer, Alias("PartyTown.World.WorldActivity")]
 public sealed record class WorldActivity
 {
@@ -12,22 +11,15 @@ public sealed record class WorldActivity
     [Id(1)] public long Ts { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     [Id(2)] public Guid PersonaId { get; init; }
     [Id(3)] public string PersonaName { get; init; } = string.Empty;
-    /// <summary>App id: rooms, messenger, board, diary, life (rest/errors).</summary>
     [Id(4)] public string App { get; init; } = string.Empty;
-    /// <summary>Short verb: say, dm, post, reply, diary, rest, capture, error.</summary>
     [Id(5)] public string Action { get; init; } = string.Empty;
     [Id(6)] public string Summary { get; init; } = string.Empty;
-    /// <summary>The Initiative thought that led here; null for non-Life activity.</summary>
     [Id(7)] public string? Thought { get; init; }
-    /// <summary>Room/DM/thread the activity happened in, for click-through; a Happening's Place.</summary>
     [Id(8)] public Guid? TargetId { get; init; }
-    /// <summary>The other party of a 1:1 act (DM partner).</summary>
     [Id(9)] public Guid? WithPersonaId { get; init; }
-    /// <summary>Key of the Affordance acted on or thought better of; null outside Initiative.</summary>
     [Id(10)] public string? Affordance { get; init; }
 }
 
-/// <summary>Clock + budget snapshot for the World control surface.</summary>
 [GenerateSerializer, Alias("PartyTown.World.WorldStatus")]
 public sealed record class WorldStatus
 {
@@ -46,7 +38,6 @@ public static class WorldStream
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Push a World surface change onto the Party stream (→ realtime hub "world.{kind}").</summary>
     public static Task PublishWorldAsync(this IStreamProvider provider, Guid partyId, string kind, object payload)
         => provider
             .GetStream<PartyStreamEvent>(PartyStreamIds.PartyEventsNamespace, PartyStreamIds.PartyEventId(partyId))

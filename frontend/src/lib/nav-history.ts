@@ -27,7 +27,6 @@ export const useNavHistoryStore = create<NavHistoryState & NavHistoryActions>(
             if (get().isNavigating) return;
             const { stack, index } = get();
 
-            // Skip if same as current
             const current = stack[index];
             if (current) {
                 if (
@@ -44,7 +43,6 @@ export const useNavHistoryStore = create<NavHistoryState & NavHistoryActions>(
                     return;
             }
 
-            // Truncate forward history on new push
             const newStack = stack.slice(0, index + 1).concat(entry);
             set({ stack: newStack, index: newStack.length - 1 });
         },

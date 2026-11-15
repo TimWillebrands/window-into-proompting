@@ -116,7 +116,6 @@ export default function MessengerApp() {
                     'linear-gradient(180deg, #d7e5fa 0%, #eef4fd 90px, #ffffff 160px)',
             }}
         >
-            {/* Me header */}
             <div
                 className="flex items-center gap-2 px-2 pt-2 pb-2"
                 style={{ borderBottom: '1px solid #b9cdea' }}
@@ -152,7 +151,6 @@ export default function MessengerApp() {
                 </div>
             </div>
 
-            {/* Search */}
             <div className="px-2 py-[5px]" style={{ background: '#eef4fd' }}>
                 <input
                     type="search"
@@ -168,7 +166,6 @@ export default function MessengerApp() {
                 />
             </div>
 
-            {/* Lists */}
             <div
                 className="flex-1 overflow-y-auto pb-2"
                 style={{ background: '#fff' }}
@@ -289,7 +286,6 @@ export default function MessengerApp() {
                 )}
             </div>
 
-            {/* Footer */}
             <div
                 className="flex items-center justify-between px-2 py-[3px]"
                 style={{
@@ -325,7 +321,6 @@ function ContactRow({
     onOpen: () => void;
 }) {
     const status = statusOf(life, self);
-    // Their offscreen day is the personal message; World activity when there's no day yet.
     const note = self?.doing ?? life.lastActivity?.summary;
     return (
         <button

@@ -5,13 +5,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>
-/// Consolidation v1 (ADR 0016, #89) end-to-end against the dev Postgres+AGE stack:
-/// recollections → run → auto-appended Stances with run attribution → watermark advance →
-/// idempotent re-run, plus the gauge trigger and the retract round-trip. The LLM proposer is
-/// stubbed by <see cref="FakeStanceConsolidator"/> so only orchestration + persistence are
-/// under test.
-/// </summary>
 public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
     : IClassFixture<MemoryGraphFixture>
 {
@@ -31,7 +24,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         await CaptureForAsync(partyId, roomId, hana, "you watched Vlad mock your demo", 0.8);
         await CaptureForAsync(partyId, roomId, hana, "you heard Vlad apologise, badly", 0.6);
 
-        // The fake crystallises one belief toward Vlad and one toward a concept.
         var consolidator = new FakeStanceConsolidator(_ => new[]
         {
             new StanceProposal(StanceTargetKind.Participant, vladId, null, null,
@@ -49,10 +41,8 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         Assert.NotNull(run.Watermark);
         var batch = Assert.Single(consolidator.SeenBatches);
         Assert.Equal(2, batch.Count);
-        // Oldest-first: the walk feeds the proposer in capture order.
         Assert.Contains("mock", batch[0].Snippet);
 
-        // Auto-append landed with full attribution: origin + the run id that walked them.
         var stances = await repo.ListStancesAsync(partyId, hana.Id, CancellationToken.None);
         Assert.Equal(2, stances.Count);
         Assert.All(stances, s =>
@@ -62,18 +52,15 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
             Assert.True(s.IsCurrent);
         });
 
-        // The appended belief renders in `# Where you stand` when Vlad is present.
         var lines = await repo.RecallStancesAsync(
             partyId, hana.Id, new[] { hana.Id, vladId }, "anything", 5, CancellationToken.None);
         Assert.Contains(lines, l => l.Reasoning.Contains("tears things down"));
 
-        // Idempotent over consumed Recollections: nothing new past the watermark, no LLM call.
         var rerun = await service.RunAsync(partyId, subject, roster, CancellationToken.None);
         Assert.Equal(0, rerun.RecollectionsWalked);
         Assert.Equal(0, rerun.StancesAppended);
         Assert.Equal(1, consolidator.Calls);
 
-        // New experience after the watermark is the only thing the next run walks.
         await CaptureForAsync(partyId, roomId, hana, "you saw Vlad defend your demo to a stranger", 0.7);
         var third = await service.RunAsync(partyId, subject, roster, CancellationToken.None);
         Assert.Equal(1, third.RecollectionsWalked);
@@ -101,7 +88,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal(1, run.RecollectionsWalked);
         Assert.Equal(0, run.StancesAppended);
 
-        // Slept on, nothing crystallised — but the experience is consumed all the same.
         var rerun = await service.RunAsync(
             partyId, subject, Array.Empty<ConsolidationRosterEntry>(), CancellationToken.None);
         Assert.Equal(0, rerun.RecollectionsWalked);
@@ -123,7 +109,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         var consolidator = new FakeStanceConsolidator(_ => Array.Empty<StanceProposal>());
         var service = MakeService(repo, consolidator);
 
-        // 4 × 0.7 = 2.8 < 3.0 — not enough unprocessed experience to sleep on.
         for (var i = 0; i < 4; i++)
         {
             await CaptureForAsync(partyId, roomId, hana, $"below-threshold-{i}", 0.7);
@@ -132,14 +117,12 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         Assert.Empty(below);
         Assert.Equal(0, consolidator.Calls);
 
-        // One more notable moment tips Σ weight to 3.5 ≥ 3.0: the run fires without a curator.
         await CaptureForAsync(partyId, roomId, hana, "the-tipping-moment", 0.7);
         var tripped = await service.RunWhereGaugeExceededAsync(partyId, subjects, roster, CancellationToken.None);
         var run = Assert.Single(tripped);
         Assert.Equal(5, run.RecollectionsWalked);
         Assert.Equal(1, consolidator.Calls);
 
-        // Consumed: the gauge reads zero again until new experience accumulates.
         var again = await service.RunWhereGaugeExceededAsync(partyId, subjects, roster, CancellationToken.None);
         Assert.Empty(again);
     }
@@ -153,7 +136,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         var roomId = Guid.NewGuid();
         var hana = new ParticipantView(Guid.NewGuid(), "Hana", Driver: DriverKind.LLM);
         var vlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
-        // Hana first: her failing run must not abort the pass before Vlad's.
         var subjects = new[]
         {
             new ConsolidationSubject(hana.Id, "Hana", null),
@@ -176,12 +158,10 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         var results = await service.RunWhereGaugeExceededAsync(
             partyId, subjects, Array.Empty<ConsolidationRosterEntry>(), CancellationToken.None);
 
-        // Vlad's run completed despite Hana's failure; both were attempted.
         var run = Assert.Single(results);
         Assert.Equal(vlad.Id, run.PersonaId);
         Assert.Equal(2, consolidator.Calls);
 
-        // Hana's watermark stayed put — her batch is retried on the next gauge trip.
         var hanaBatch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, hana.Id, CancellationToken.None);
         Assert.Equal(5, hanaBatch.Items.Count);
         var vladBatch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, vlad.Id, CancellationToken.None);
@@ -204,8 +184,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
             => new(null, new[] { new UnconsolidatedRecollection(Guid.NewGuid(), "x", ts, 0.5) });
 
         await repo.MarkConsolidatedAsync(partyId, personaId, Through(later), CancellationToken.None);
-        // A slower run finishing out of order must not move the watermark backward and
-        // re-queue Recollections the faster run already walked.
         await repo.MarkConsolidatedAsync(partyId, personaId, Through(earlier), CancellationToken.None);
 
         var batch = await repo.GetUnconsolidatedRecollectionsAsync(partyId, personaId, CancellationToken.None);
@@ -227,19 +205,15 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
             valence: -0.9, reasoning: "Vlad is a fraud", attribution: null, CancellationToken.None);
 
-        // Sanity: the junk belief renders before the retract.
         var before = await repo.RecallStancesAsync(partyId, author, present, "n/a", 5, CancellationToken.None);
         Assert.Contains(before, l => l.Reasoning.Contains("fraud"));
 
         var retractId = await repo.RetractStanceAsync(partyId, author, junkId, CancellationToken.None);
         Assert.NotNull(retractId);
 
-        // Latest-wins reflects the retract immediately: the target renders nothing.
         var after = await repo.RecallStancesAsync(partyId, author, present, "n/a", 5, CancellationToken.None);
         Assert.Empty(after);
 
-        // History preserved, fully attributed: the retract edge is current and points at the
-        // junk edge; the junk edge survives unflagged.
         var all = await repo.ListStancesAsync(partyId, author, CancellationToken.None);
         Assert.Equal(2, all.Count);
         var retract = Assert.Single(all, s => s.Id == retractId);
@@ -250,7 +224,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         var junk = Assert.Single(all, s => s.Id == junkId);
         Assert.False(junk.IsCurrent);
 
-        // Unknown edge / wrong author: a silent null, nothing written.
         Assert.Null(await repo.RetractStanceAsync(partyId, author, Guid.NewGuid(), CancellationToken.None));
         Assert.Null(await repo.RetractStanceAsync(partyId, Guid.NewGuid(), junkId, CancellationToken.None));
     }
@@ -283,8 +256,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         Assert.Empty(lines);
     }
 
-    // ─── plumbing ──────────────────────────────────────────────────────────────────────────
-
     private void RequireDevStack()
     {
         if (!fixture.IsAvailable)
@@ -300,10 +271,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
     private static ConsolidationService MakeService(MemoryRepository repo, IStanceConsolidator consolidator)
         => new(repo, consolidator, NullLogger<ConsolidationService>.Instance);
 
-    /// <summary>
-    /// Capture one Event whose sole Recollection lands on <paramref name="participant"/> —
-    /// the minimal way to grow an unconsolidated pile through the real write path.
-    /// </summary>
     private async Task CaptureForAsync(
         Guid partyId, Guid roomId, ParticipantView participant,
         string snippet, double weight)
@@ -326,7 +293,6 @@ public sealed class ConsolidationIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal(new[] { participant.Id }, result.RecollectionPersonaIds);
     }
 
-    /// <summary>Deterministic proposer: records what each run walked, proposes via the factory.</summary>
     private sealed class FakeStanceConsolidator(
         Func<IReadOnlyList<UnconsolidatedRecollection>, IReadOnlyList<StanceProposal>> propose)
         : IStanceConsolidator

@@ -5,43 +5,19 @@ using PartyTown.Grains.Generation;
 
 namespace BackendTest.Fakes;
 
-/// <summary>
-/// Stateful fake <see cref="IOllamaEndpointGrain"/> for use across multiple test classes.
-///
-/// Simulates pressure tracking and streaming behaviour of a real endpoint grain without
-/// involving HTTP or a real LLM backend. Supports two usage modes:
-///
-///   • Auto-mode (via <see cref="GenerateAsync"/>): pressure increments on entry and
-///     decrements on exit, matching the real grain's contract. Use <see cref="TotalJobsReceived"/>
-///     to assert routing decisions.
-///
-///   • Manual-mode (via <see cref="HoldSlot"/> / <see cref="ReleaseSlot"/>): deterministic
-///     pressure control for distribution tests that don't want to race real async completion.
-///
-/// Register on a TestKit silo via <see cref="RegisterOn"/>, then use <see cref="Reference"/>
-/// to compare routing outcomes (Castle proxies break GetPrimaryKey — compare by reference).
-///
-/// Fault injection modes (mutually exclusive, applied via fluent setters before RegisterOn):
-///   • <see cref="Choke"/>: every GenerateAsync call throws immediately.
-///   • <see cref="FailFirstNAttempts"/>: first N calls throw, subsequent calls succeed.
-///   • <see cref="FailAfterChunks"/>: stream N chunks then throw mid-stream.
-/// </summary>
 public sealed class FakeEndpointGrain
 {
     private int _activeGenerations;
     private readonly List<LlmModel> _models;
     private readonly List<LlmGenerationEvent> _scriptedChunks;
 
-    // ── fault injection ──────────────────────────────────────────────────────
     private bool _choked;
     private int _failFirstN;
-    private int _failAfterChunks = -1; // -1 = no mid-stream error
+    private int _failAfterChunks = -1;
     private int _callCount;
 
     public Guid Id { get; }
-    /// <summary>Number of GenerateAsync calls that completed successfully (not faulted before yielding).</summary>
     public int TotalJobsReceived { get; private set; }
-    /// <summary>Total GenerateAsync invocations including fault-injected failures.</summary>
     public int TotalAttempts => Volatile.Read(ref _callCount);
     public IOllamaEndpointGrain Reference { get; private set; } = null!;
 
@@ -68,21 +44,13 @@ public sealed class FakeEndpointGrain
         ];
     }
 
-    // ── fault injection setters ───────────────────────────────────────────────
-
-    /// <summary>Every GenerateAsync call throws <see cref="InvalidOperationException"/>.</summary>
     public FakeEndpointGrain Choke() { _choked = true; return this; }
 
-    /// <summary>First <paramref name="n"/> GenerateAsync calls throw; subsequent calls succeed.</summary>
     public FakeEndpointGrain FailFirstNAttempts(int n) { _failFirstN = n; return this; }
 
-    /// <summary>Yields <paramref name="n"/> chunks then throws mid-stream.</summary>
     public FakeEndpointGrain FailAfterChunks(int n) { _failAfterChunks = n; return this; }
 
-    /// <summary>What a ping answers: null when reachable, else why not. Settable between pings.</summary>
     public string? Unreachable { get; set; }
-
-    // ── grain interface ───────────────────────────────────────────────────────
 
     public Task<IReadOnlyList<LlmModel>> GetModelsAsync(CancellationToken _)
         => Task.FromResult<IReadOnlyList<LlmModel>>(_models);
@@ -96,7 +64,6 @@ public sealed class FakeEndpointGrain
     {
         var callIndex = Interlocked.Increment(ref _callCount);
 
-        // whole-call faults: throw before yielding anything
         if (_choked)
             throw new InvalidOperationException($"FakeEndpointGrain {Id:N} is choked");
 

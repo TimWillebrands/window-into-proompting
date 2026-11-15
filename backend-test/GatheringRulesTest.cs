@@ -2,7 +2,6 @@ using PartyTown.World;
 
 namespace BackendTest;
 
-/// <summary>Gatherings keep feast time: they start on time or not at all, end, and fit the host's waking hours.</summary>
 public class GatheringRulesTest
 {
     private const long Min = 60_000;

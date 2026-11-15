@@ -82,7 +82,6 @@ export const useRealtimeStoreActions = fn(() => ({
     disconnectPartyRealtime: fn(),
 }));
 
-// Stub the underlying zustand store too — anything calling .getState() etc.
 export const useRealtimeStore = Object.assign(
     fn((selector?: (state: unknown) => unknown) =>
         selector ? selector({}) : {},

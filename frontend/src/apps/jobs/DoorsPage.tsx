@@ -11,7 +11,6 @@ import { DOORS, doorOf, workplacesOf } from './jobs-lib';
 import { Card, Empty, Field, Jump, PageHead, Refusal } from './parts';
 import { useWork } from './work-context';
 
-/** Workplace doors (ADR 0041): who may walk in besides the staff. */
 export function DoorsPage() {
     const places =
         useGetWorldsPartyIdPlacesSuspense(WORLD_ID, {

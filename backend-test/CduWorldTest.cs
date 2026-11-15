@@ -21,7 +21,6 @@ using PartyTown.World.Work.Markets;
 
 namespace BackendTest;
 
-/// <summary>A CDU Company in a real cluster (ADR 0039), against a fake CDU: Life moves it, the CDU reports, shifts drive the tide.</summary>
 public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
 {
     private readonly Fixture _fx;
@@ -326,7 +325,6 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
             await Self(partyId, denise).GetPresenceAsync(withDay: true);
             await Self(partyId, pieter).GetPresenceAsync(withDay: true);
 
-            // Both know the office as a place they go; only staff are told where the work stands.
             var here = Scripted.Days.Where(d => d.User.Contains(company.Name)).ToList();
             var day = Assert.Single(here, d => d.System.Contains("You are Denise."));
             Assert.Contains("If \"At work\" is given, that is where their job stands", day.System);
@@ -417,13 +415,11 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         }
     }
 
-    /// <summary>Voices the pick <see cref="MenuJudge"/> makes from <see cref="Choose"/>, and voices the desk's structured calls.</summary>
     public sealed class Scripted : IWorldLlm
     {
         public static volatile string? Choose;
         public static volatile string Message = "Keep the doors shut";
         public static volatile string Mind = "big-one";
-        /// <summary>Every Day call, as the Day was asked to be written and what it was handed.</summary>
         public static readonly ConcurrentQueue<(string System, string User)> Days = new();
 
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)

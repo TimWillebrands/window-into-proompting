@@ -81,22 +81,18 @@ export default function WaveDecoration({
                             />
                         </linearGradient>
                     </defs>
-                    {/* faint echo wash high above main wave */}
                     <path
                         d="M-40,640 C 70,580 160,700 320,610 L320,660 C 200,720 80,640 -40,700 Z"
                         fill={`url(#${gradC})`}
                     />
-                    {/* main wave — bottom flourish only */}
                     <path
                         d="M-40,700 C 60,630 140,750 220,680 C 270,640 300,650 340,640 L340,820 L-40,820 Z"
                         fill={`url(#${gradA})`}
                     />
-                    {/* crest sheen */}
                     <path
                         d="M-40,700 C 60,630 140,750 220,680 C 270,640 300,650 340,640 L340,740 C 250,720 150,790 60,750 Z"
                         fill={`url(#${gradB})`}
                     />
-                    {/* highlight ribbons inside wave */}
                     <path
                         d="M-20,760 C 80,700 180,810 340,720"
                         fill="none"

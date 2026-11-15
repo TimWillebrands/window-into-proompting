@@ -4,7 +4,6 @@ using PartyTown.Services.Auth;
 
 namespace PartyTown.Mcp;
 
-/// <summary>The MCP endpoint agents connect to with their human's Clerk sign-in (ADR 0046).</summary>
 public static class PartyMcp
 {
     public const string Instructions =
@@ -29,7 +28,6 @@ public static class PartyMcp
         return services;
     }
 
-    /// <summary>kamal-proxy ends TLS; its X-Forwarded-Proto makes the sign-in links agents get https.</summary>
     public static IApplicationBuilder UseProxiedScheme(this IApplicationBuilder app)
     {
         var options = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedProto };

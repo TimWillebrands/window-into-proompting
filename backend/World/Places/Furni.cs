@@ -1,47 +1,31 @@
 namespace PartyTown.World.Places;
 
-/// <summary>A placed object with state (spec phase 4). Decay is computed from timestamps, never ticked.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Furni")]
 public sealed class Furni
 {
     [Id(0)] public string Id { get; set; } = string.Empty;
-    /// <summary>One of <see cref="FurniKinds"/>.</summary>
     [Id(1)] public string Kind { get; set; } = string.Empty;
-    /// <summary>How it's referred to, with where it is: "the plant by the window".</summary>
     [Id(2)] public string Name { get; set; } = string.Empty;
     [Id(3)] public string SpotId { get; set; } = string.Empty;
-    /// <summary>Last watered/cleaned/fixed.</summary>
     [Id(4)] public long TendedAt { get; set; }
     [Id(5)] public bool Broken { get; set; }
     [Id(6)] public int Dirty { get; set; }
     [Id(7)] public long? OnUntil { get; set; }
-    /// <summary>What it's doing while on, e.g. the song on the jukebox.</summary>
     [Id(8)] public string? Playing { get; set; }
     [Id(9)] public string? PlayedBy { get; set; }
-    /// <summary>Decor only: poster, painting, plant, rug, lamp, books, guitar, photo or thing.</summary>
     [Id(10)] public string? Style { get; set; }
-    /// <summary>Generated 3D model (parts JSON, see <see cref="ThingModel"/>).</summary>
     [Id(11)] public string? Model { get; set; }
-    /// <summary>Where its owner put it; null = the scene decides.</summary>
     [Id(12)] public int? TileX { get; set; }
     [Id(13)] public int? TileZ { get; set; }
-    /// <summary>Quarter turns.</summary>
     [Id(14)] public int Rot { get; set; }
-    /// <summary>Who it belongs to (put up, bought, made).</summary>
     [Id(15)] public Guid? OwnerId { get; set; }
-    /// <summary>A catalogue model it's drawn as (ADR 0027), picked from its description; wins over <see cref="Model"/>.</summary>
     [Id(16)] public string? Prefab { get; set; }
-    /// <summary>A <see cref="FurniKinds.Feature"/>'s something to do, as you'd tell someone: "Look through the telescope".</summary>
     [Id(17)] public string? Do { get; set; }
-    /// <summary>What doing it gives, as a brief for whoever writes the Take.</summary>
     [Id(18)] public string? Gives { get; set; }
-    /// <summary>What people do here stays for the next visitor to find.</summary>
     [Id(19)] public bool Leaves { get; set; }
-    /// <summary>What people came away with, latest last.</summary>
     [Id(20)] public List<Take> Takes { get; set; } = new();
 }
 
-/// <summary>What one person came away with from a Feature (ADR 0049).</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Take")]
 public sealed class Take
 {
@@ -62,26 +46,21 @@ public static class FurniKinds
     public const string Bed = "bed";
     public const string Decor = "decor";
     public const string Easel = "easel";
-    /// <summary>Something to do, designed with the Place (ADR 0049).</summary>
     public const string Feature = "feature";
 }
 
-/// <summary>Things to do at a Place (ADR 0049): who's offered what, and how it reads.</summary>
 public static class Features
 {
     public const int KeptTakes = 8;
-    /// <summary>Done it, and it's not offered again for a while: the telescope isn't a slot machine.</summary>
     public static readonly TimeSpan Again = TimeSpan.FromHours(20);
     public static readonly TimeSpan MarksLast = TimeSpan.FromDays(7);
 
     public static bool Fresh(Furni f, Guid who, long now)
         => f.Do is not null && !f.Takes.Any(t => t.By == who && now - t.At < Again.TotalMilliseconds);
 
-    /// <summary>What others left here that a visitor finds, latest first.</summary>
     public static IEnumerable<Take> Marks(Furni f, Guid viewer, long now)
         => f.Leaves ? f.Takes.Where(t => t.By != viewer && now - t.At < MarksLast.TotalMilliseconds).Reverse() : Enumerable.Empty<Take>();
 
-    /// <summary>"Look through the telescope" → "looks through the telescope".</summary>
     public static string Third(string what)
     {
         var text = what.Trim().TrimEnd('.');
@@ -98,10 +77,8 @@ public static class Features
         return third + rest;
     }
 
-    /// <summary>"Look through the telescope" → "look through the telescope", for the middle of a sentence.</summary>
     public static string Lower(string what) => what.Length == 0 ? what : char.ToLowerInvariant(what[0]) + what[1..].TrimEnd('.');
 
-    /// <summary>The furni a design's features become, keeping what was left at the ones that stay.</summary>
     public static void Apply(Place place, IReadOnlyList<Feature> features, long now)
     {
         var before = place.Furni.Where(f => f.Kind == FurniKinds.Feature).ToDictionary(f => f.Id);
@@ -116,7 +93,6 @@ public static class Features
     }
 }
 
-/// <summary>Making a Home yours (spec phase 8): what someone puts up, from their own words.</summary>
 public static class Decor
 {
     public const int PerDay = 2;
@@ -134,14 +110,12 @@ public static class Decor
         ("guitar", new[] { "guitar", "piano", "keyboard", "instrument", "ukulele" }),
     };
 
-    /// <summary>The style a description reads as; "thing" when nothing matches.</summary>
     public static string StyleOf(string description)
     {
         var lower = description.ToLowerInvariant();
         return Styles.FirstOrDefault(s => s.Words.Any(w => lower.Contains(w))).Style ?? "thing";
     }
 
-    /// <summary>"I'll hang a vintage Bowie poster over the sofa." → "a vintage Bowie poster over the sofa".</summary>
     public static string Label(string description)
     {
         var t = System.Text.RegularExpressions.Regex.Replace(description.Trim(),
@@ -151,23 +125,18 @@ public static class Decor
         return WorldStream.Clip(t.Length > 0 ? t : description, 60);
     }
 
-    /// <summary>How many were put up since local midnight.</summary>
     public static int PlacedToday(IEnumerable<Furni> furni, long now, long localMidnight)
         => furni.Count(f => f.Kind == FurniKinds.Decor && f.TendedAt >= localMidnight && f.TendedAt <= now);
 }
 
-/// <summary>What one use or care action asks of the Places grain.</summary>
 public sealed record FurniAction(string Label, int Priority, bool Care);
 
-/// <summary>Furni behaviour as pure functions: condition, how it reads, what it affords, what acting does.</summary>
 public static class FurniRules
 {
-    /// <summary>A houseplant goes days between waterings; at a day, every home's plant asked for water every morning.</summary>
     public static readonly TimeSpan PlantDriesIn = TimeSpan.FromDays(4);
     public static readonly TimeSpan SongLasts = TimeSpan.FromMinutes(20);
     public const int CupsPileUpAt = 3;
 
-    /// <summary>0 = needs care badly, 1 = fine.</summary>
     public static double Condition(Furni f, long now) => f.Kind switch
     {
         FurniKinds.Plant => Math.Clamp(1 - (now - f.TendedAt) / PlantDriesIn.TotalMilliseconds, 0, 1),
@@ -178,7 +147,6 @@ public static class FurniRules
 
     public static bool IsOn(Furni f, long now) => f.OnUntil > now;
 
-    /// <summary>A short clause when it's worth noticing; null when unremarkable.</summary>
     public static string? Notable(Furni f, long now)
     {
         var c = Condition(f, now);
@@ -194,7 +162,6 @@ public static class FurniRules
         };
     }
 
-    /// <summary>The care this needs now, if any. Priority grows as it gets worse.</summary>
     public static FurniAction? CareFor(Furni f, long now)
     {
         var c = Condition(f, now);
@@ -207,7 +174,6 @@ public static class FurniRules
         };
     }
 
-    /// <summary>Something you can do with it for its own sake.</summary>
     public static FurniAction? UseOf(Furni f, long now) => f.Kind switch
     {
         FurniKinds.Coffee when !f.Broken => new FurniAction($"Make yourself a coffee at {f.Name}", 0, false),
@@ -216,7 +182,6 @@ public static class FurniRules
         _ => null,
     };
 
-    /// <summary>Apply care. Returns the activity line ("waters the plant…").</summary>
     public static string Tend(Furni f, long now)
     {
         switch (f.Kind)
@@ -227,7 +192,6 @@ public static class FurniRules
         }
     }
 
-    /// <summary>Apply a use; <paramref name="cups"/> is this Place's cups, which a coffee dirties.</summary>
     public static string? Use(Furni f, Furni? cups, long now, string by, string? intent)
     {
         switch (f.Kind)
@@ -245,7 +209,6 @@ public static class FurniRules
         }
     }
 
-    /// <summary>What the Body shows while doing it.</summary>
     public static string BusyWith(Furni f, bool care) => (f.Kind, care) switch
     {
         (FurniKinds.Plant, _) => "watering the plant",
@@ -257,7 +220,6 @@ public static class FurniRules
 
     public static bool Breakable(Furni f) => f.Kind is FurniKinds.Coffee or FurniKinds.Lamp && !f.Broken;
 
-    /// <summary>The song, from the intent if it names one ("put on 'Heroes' by Bowie"), else something.</summary>
     internal static string SongFrom(string? intent)
     {
         if (!string.IsNullOrWhiteSpace(intent))
@@ -274,7 +236,6 @@ public static class FurniRules
         "a cheesy summer hit", "a sad piano track",
     };
 
-    /// <summary>Things to do at the hand-drawn Places, pinned by id in the client's scenes.</summary>
     public static List<Furni> SeededFeatures(Place place, long now)
     {
         Furni F(string id, string prefab, string name, string spot)
@@ -293,7 +254,6 @@ public static class FurniRules
         };
     }
 
-    /// <summary>Furni a Place starts with, by template; existing Places get them on first activation.</summary>
     public static List<Furni> SeedFor(Place place, long now)
     {
         Furni F(string id, string kind, string name, string spot) => new() { Id = id, Kind = kind, Name = name, SpotId = spot, TendedAt = now };

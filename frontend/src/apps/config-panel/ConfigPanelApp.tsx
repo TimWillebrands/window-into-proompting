@@ -54,7 +54,6 @@ export default function ConfigPanelApp() {
                 overflow: 'hidden',
             }}
         >
-            {/* Navigation toolbar */}
             <div
                 className="xp-glass-panel"
                 style={{
@@ -109,9 +108,7 @@ export default function ConfigPanelApp() {
                 </div>
             </div>
 
-            {/* Body */}
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* Sidebar */}
                 <div
                     className="xp-glass-panel"
                     style={{
@@ -179,7 +176,6 @@ export default function ConfigPanelApp() {
                     </nav>
                 </div>
 
-                {/* Main content */}
                 <div
                     style={{
                         flex: 1,

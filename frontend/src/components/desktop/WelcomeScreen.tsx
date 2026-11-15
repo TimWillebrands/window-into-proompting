@@ -23,7 +23,6 @@ interface LoginShellProps {
     children: ReactNode;
 }
 
-/** The XP login frame: greeting on the left, choices on the right. */
 export function LoginShell({ prompt, blurb, children }: LoginShellProps) {
     return (
         <div
@@ -72,7 +71,6 @@ export function LoginShell({ prompt, blurb, children }: LoginShellProps) {
     );
 }
 
-/** Current first, then the running ones, the stopped last. */
 const inOrder = (worlds: WorldTile[]) =>
     [...worlds].sort(
         (a, b) =>
@@ -88,7 +86,6 @@ const caption = (w: WorldTile) =>
         .filter(Boolean)
         .join(' · ');
 
-/** XP-style login: click a World like a user name, then sign in or look around. Admins stop, switch and move Worlds here. */
 export default function WelcomeScreen() {
     const signedIn = usePlayerSession((s) => !!s.userId);
     const visit = usePlayerSession((s) => s.visit);

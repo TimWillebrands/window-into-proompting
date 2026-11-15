@@ -27,7 +27,6 @@ import {
 interface MessengerChatWindowProps {
     chatGroupId?: string;
     withName?: string;
-    /** Read-only view of a DM the player isn't part of (opened from World Monitor). */
     spectate?: boolean;
 }
 
@@ -114,7 +113,6 @@ function Conversation({
         () => allMessages.filter(isShownInMessenger),
         [allMessages],
     );
-    // Spectating: the two people in the thread, in order of first appearance.
     const spectators = useMemo(
         () => [...new Set(messages.map((m) => m.senderId))],
         [messages],
@@ -138,7 +136,6 @@ function Conversation({
         .reverse()
         .find((m) => !isMine(m) && m.sendAt)?.sendAt;
 
-    // Opening the window counts as reading it.
     const markSeen = useMessengerSeen((s) => s.markSeen);
     const lastSendAt = messages[messages.length - 1]?.sendAt ?? 0;
     // biome-ignore lint/correctness/useExhaustiveDependencies: re-mark when a message lands or a stream ends
@@ -210,7 +207,6 @@ function Conversation({
                     'linear-gradient(180deg, #dbe7fb 0%, #eaf1fc 60px, #f3f7fd 100%)',
             }}
         >
-            {/* To: header */}
             <div
                 className="flex items-center gap-1 px-2 py-[5px]"
                 style={{
@@ -239,7 +235,6 @@ function Conversation({
             </div>
 
             <div className="flex min-h-0 flex-1 gap-2 p-2">
-                {/* Left: history + compose */}
                 <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
                     <div
                         ref={scrollRef}
@@ -288,7 +283,6 @@ function Conversation({
                         })}
                     </div>
 
-                    {/* Compose */}
                     {spectate ? (
                         <div
                             className="px-2 py-2 text-center"
@@ -397,7 +391,6 @@ function Conversation({
                     )}
                 </div>
 
-                {/* Right: display pictures */}
                 <div className="flex flex-col justify-between">
                     <DisplayPicture
                         who={withId ?? spectators[0] ?? withName}
@@ -410,7 +403,6 @@ function Conversation({
                 </div>
             </div>
 
-            {/* Status bar */}
             <div
                 className="flex items-center gap-1 truncate px-2 py-[3px]"
                 style={{

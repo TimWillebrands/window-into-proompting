@@ -33,7 +33,6 @@ const ramp = (() => {
     return t;
 })();
 
-/** Toon shading with a soft rim and a painted-on gloss, so bodies lift off busy floors. */
 class FigureToonMaterial extends MeshToonNodeMaterial {
     shine = uniform(0);
 
@@ -55,7 +54,6 @@ class FigureToonMaterial extends MeshToonNodeMaterial {
             .add(
                 diffuseColor.rgb.mul(0.5).add(0.09).mul(gloss).mul(this.shine),
             );
-        // Black clothes keep their folds: lift the deepest shadows a little.
         return max(lit, vec3(0.018, 0.016, 0.024).add(lit.mul(0.9)));
     }
 }
@@ -69,15 +67,12 @@ function toon(
     return m;
 }
 
-/** Line width in framebuffer pixels over the framebuffer size. */
 const inkWidth = uniform(new THREE.Vector2(1.4 / 800, 1.4 / 600));
 
-/** Sets the ink line for the current canvas: constant on screen at any zoom. */
 export function setInk(pixels: number, width: number, height: number) {
     inkWidth.value.set(pixels / width, pixels / height);
 }
 
-/** The mesh again, inside out and pushed along its screen normals. */
 class InkMaterial extends MeshBasicNodeMaterial {
     setupVertex(builder: NodeBuilder): Node {
         const clip = super.setupVertex(builder);
@@ -88,14 +83,12 @@ class InkMaterial extends MeshBasicNodeMaterial {
             .mul(inkWidth)
             .mul(2)
             .mul(clip.w);
-        // Behind everything: on bumpy cloth the hull would otherwise speckle through at grazing angles.
         return vec4(clip.xy.add(out), clip.z.add(clip.w.mul(0.0003)), clip.w);
     }
 }
 
 const ink = new InkMaterial({ color: '#1b1420', side: THREE.BackSide });
 
-/** Atlas columns: open, blink, talk a little, talk wide. Rows: neutral, smiling. */
 const FACE_COLS = 4;
 const FACE_ROWS = 2;
 const FRAMES: FaceFrame[] = [
@@ -179,9 +172,7 @@ export interface FigureObject {
     bones: THREE.Bone[];
     byName: Map<string, THREE.Bone>;
     pelvisScale: number;
-    /** Height the soles add. */
     lift: number;
-    /** Picks the face: column of the atlas and whether they're smiling. */
     face(col: number, smiling: boolean): void;
     dispose(): void;
 }
@@ -191,7 +182,6 @@ const shineOf = (layer: Layer) =>
     layer.shine ??
     (layer.kind === 'skin' || layer.kind === 'head' ? SHINES[1] : SHINES[0]);
 
-/** One skinned mesh per shader variant, to compile before anyone walks in. */
 export function warmupMeshes(): THREE.Group {
     const group = new THREE.Group();
     const bone = new THREE.Bone();
@@ -238,14 +228,11 @@ export function warmupMeshes(): THREE.Group {
 }
 
 export interface FigureOptions {
-    /** Texture size for each garment. */
     cloth: number;
-    /** Face cell size. */
     face: number;
     images: Images;
 }
 
-/** Skinned meshes on one shared skeleton, from compiled buffers. */
 export function figureObject(
     c: Compiled,
     doc: FigureDoc,
@@ -320,7 +307,6 @@ export function figureObject(
             line.bind(skeleton, new THREE.Matrix4());
         }
     }
-    // The mixer's "original state" is the clips' T rest, not the bind pose.
     BONES.forEach((b, i) => {
         bones[i].quaternion.fromArray(b.q);
         if (b.name === 'pelvis') bones[i].position.fromArray(b.t);

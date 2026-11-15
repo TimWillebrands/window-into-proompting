@@ -4,9 +4,7 @@ import http from 'node:http';
 export interface Model {
     id: string;
     label: string;
-    /** USD per million input tokens. */
     in: number;
-    /** USD per million output tokens. */
     out: number;
     context: number;
     output: number;
@@ -20,9 +18,7 @@ export interface Tab {
     usd: number;
     tokens: number;
     calls: number;
-    /** Resets the tally at UTC midnight; capUsd is then the day's allowance. */
     daily?: boolean;
-    /** The UTC day a daily tally is for. */
     day?: string;
 }
 
@@ -31,7 +27,6 @@ interface Usage {
     completion_tokens?: number;
     total_tokens?: number;
     cost?: number;
-    /** OpenCode's own figures: a Go subscription bills cost 0 and counts its allowance here. */
     opencode?: { allowance?: number; list_cost?: number };
 }
 
@@ -40,11 +35,8 @@ export interface MeterOptions {
     key: string;
     secret: string;
     models: Model[];
-    /** Answers with the money left, OpenRouter's /key shape; unset means unknown. */
     balanceUrl?: string;
-    /** Tabs that exist from the start, such as the CDU's daily allowance. */
     tabs?: Tab[];
-    /** Where tallies are kept, so a restart doesn't refill an allowance. */
     statePath?: string;
     now?: () => number;
 }
@@ -55,13 +47,11 @@ export const overCap = (tab: Tab) => tab.usd >= tab.capUsd || tab.tokens >= tab.
 
 export const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-/** A daily tab on a new day starts from nothing. */
 export function roll(tab: Tab, day: string) {
     if (!tab.daily || tab.day === day) return;
     Object.assign(tab, { usd: 0, tokens: 0, calls: 0, day });
 }
 
-/** Declared tabs keep their caps from config and their tallies from the last run; a daily tab no longer declared is gone, so rotating its token retires it. */
 export function restore(declared: Tab[], kept: Tab[]): Map<string, Tab> {
     const tabs = new Map(kept.filter((t) => !t.daily).map((t) => [t.token, t]));
     const before = new Map(kept.map((t) => [t.token, t]));
@@ -72,7 +62,6 @@ export function restore(declared: Tab[], kept: Tab[]): Map<string, Tab> {
     return tabs;
 }
 
-/** What a call used up: OpenCode's allowance figure, else the upstream's cost, else tokens at list price. */
 export function costOf(usage: Usage, model: Model): number {
     const opencode = usage.opencode?.allowance ?? usage.opencode?.list_cost;
     if (typeof opencode === 'number') return opencode;
@@ -80,7 +69,6 @@ export function costOf(usage: Usage, model: Model): number {
     return ((usage.prompt_tokens ?? 0) * model.in + (usage.completion_tokens ?? 0) * model.out) / 1_000_000;
 }
 
-/** Output tokens a call may use, so one call can't run far past the cap; null leaves the request alone. */
 export function outputCap(tab: Tab, model: Model): number {
     const byTokens = tab.capTokens - tab.tokens;
     const byMoney = model.out > 0 ? ((tab.capUsd - tab.usd) * 1_000_000) / model.out : Number.POSITIVE_INFINITY;
@@ -93,7 +81,6 @@ export function tally(tab: Tab, usage: Usage, model: Model) {
     tab.calls += 1;
 }
 
-/** Last usage block in an SSE body; providers send it on the final chunk. */
 export function usageIn(line: string): Usage | null {
     if (!line.startsWith('data:') || !line.includes('"usage"')) return null;
     try {
@@ -103,7 +90,6 @@ export function usageIn(line: string): Usage | null {
     }
 }
 
-/** Headers an upstream needs from the caller, such as OpenCode's per-conversation routing. */
 const Passed = ['x-opencode-session'];
 
 const passed = (req: http.IncomingMessage) =>
@@ -136,7 +122,6 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer | null> {
     return Buffer.concat(chunks);
 }
 
-/** Holds the real key, allows known models, stops a tab at its cap; a tab holder can read its tab, never raise it. */
 export function createMeter(options: MeterOptions) {
     const now = options.now ?? Date.now;
     const tabs = restore(options.tabs ?? [], load(options.statePath));
@@ -167,7 +152,6 @@ export function createMeter(options: MeterOptions) {
         const model = models.get(String(body.model));
         if (!model) return refuse(res, 403, `model not allowed: ${body.model}`);
         if (body.stream) body.stream_options = { include_usage: true };
-        // OpenRouter's own field for reporting cost; other upstreams may reject what they don't know.
         if (options.upstream.includes('openrouter.ai')) body.usage = { include: true };
         const cap = outputCap(tab, model);
         for (const field of ['max_tokens', 'max_completion_tokens']) {
@@ -227,7 +211,6 @@ export function createMeter(options: MeterOptions) {
         return typeof left === 'number' ? left : null;
     };
 
-    // The secret is what keeps a tab holder from raising its own cap.
     const admin = http.createServer(async (req, res) => {
         if (req.headers['x-meter-secret'] !== options.secret) return refuse(res, 401, 'no');
         const [, what, token, action] = (req.url ?? '').split('/');

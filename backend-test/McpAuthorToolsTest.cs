@@ -9,7 +9,6 @@ using PartyTown.World.Relations;
 
 namespace BackendTest;
 
-/// <summary>The author's tools: a Persona's sheet and who lives with whom, for admins.</summary>
 public partial class WorldLifeTest
 {
     private AuthorTools AuthorToolsFor(Guid partyId) => new(_fx.GrainFactory, Options.Create(new McpOptions { World = partyId }));

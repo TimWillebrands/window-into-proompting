@@ -4,7 +4,6 @@ import {
 } from '@tanstack/react-router';
 import LZString from 'lz-string';
 
-/// <summary>Query param holding the lz-compressed desktop layout.</summary>
 export const PACKED_KEY = 'd';
 
 const DESKTOP_KEYS = [
@@ -20,7 +19,6 @@ type Search = Record<string, unknown>;
 let lastParse: { str: string; out: Search } | null = null;
 let lastStringify: { key: string; out: string } | null = null;
 
-/// <summary>Desktop layout → one compressed `d` param, everything else stays plain.</summary>
 export function stringifySearch(search: Search): string {
     const key = JSON.stringify(search);
     if (lastStringify?.key === key) return lastStringify.out;
@@ -42,7 +40,6 @@ export function stringifySearch(search: Search): string {
     return out;
 }
 
-/// <summary>Inverse of stringifySearch; legacy uncompressed URLs still parse.</summary>
 export function parseSearch(str: string): Search {
     if (lastParse?.str === str) return lastParse.out;
 
@@ -57,9 +54,7 @@ export function parseSearch(str: string): Search {
             if (desktop && typeof desktop === 'object') {
                 out = { ...rest, ...desktop };
             }
-        } catch {
-            // Corrupt `d`: fall back to an empty desktop via schema defaults.
-        }
+        } catch {}
     }
 
     lastParse = { str, out };

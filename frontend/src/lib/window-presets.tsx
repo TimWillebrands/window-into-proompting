@@ -126,7 +126,6 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         icon: '⚙️',
         component: ConfigPanelApp,
         initialPosition: { x: 120, y: 60 },
-        // The persona table has a column per kind of work.
         initialSize: { width: 900, height: 640 },
     },
     {
@@ -135,7 +134,6 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
         icon: '🧠',
         component: MemoryGraphApp,
         initialPosition: { x: 320, y: 180 },
-        // Force-graph needs canvas room — bigger default than the standard 640x480.
         initialSize: { width: 960, height: 640 },
     },
     {
@@ -161,7 +159,6 @@ interface DesktopIconEntry {
     label: string;
     icon: string;
     windowId: string;
-    /** Who sees it; unset means visitors too. */
     access?: 'member' | 'admin';
 }
 

@@ -60,7 +60,6 @@ export default function PersonaEditor({
                     queryClient.invalidateQueries({
                         queryKey: getGetPersonaQueryKey(),
                     }),
-                    // Lives show chattiness.
                     queryClient.invalidateQueries({
                         queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
                     }),
@@ -120,7 +119,6 @@ export default function PersonaEditor({
     return (
         <form
             className="space-y-3"
-            // Off-step legacy dial values must not block saving.
             noValidate
             onSubmit={(event) => {
                 event.preventDefault();
@@ -362,7 +360,6 @@ function DialSlider({
                 <input
                     id={id}
                     type="range"
-                    // Integer percent steps: float steps trip step-mismatch validation.
                     min={0}
                     max={100}
                     step={5}

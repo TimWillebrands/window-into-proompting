@@ -17,7 +17,6 @@ interface WindowFrameProps {
     onMinimize: () => void;
     onMaximize?: () => void;
     onClose: () => void;
-    /** Class added to the title bar element so an external drag handler (e.g. react-rnd) can target it. */
     dragHandleClassName?: string;
     children: ReactNode;
 }

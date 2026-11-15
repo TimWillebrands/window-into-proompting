@@ -4,19 +4,6 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>
-/// Grain-level tests for <see cref="ChatGroupGrain"/> fanout, running against a real
-/// Orleans <see cref="Orleans.TestingHost.TestCluster"/>. Calls to <c>IPersonaGrain</c>
-/// are intercepted by <see cref="FanoutInterceptor"/> — the real persona body never
-/// executes, so these tests are pure fanout assertions (not end-to-end feedback loop).
-/// End-to-end loop coverage lives in <c>PersonaGrainFeedbackTest</c> and
-/// <c>SimulatorTest</c>.
-///
-/// Invariants asserted:
-///   • Fanout count = |participants| × triggering messages (no drops, no dupes)
-///   • Every participant is notified with the triggering message id
-///   • Non-reentrant ChatGroupGrain does not deadlock under concurrent sends
-/// </summary>
 public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
 {
     private readonly ChatGroupClusterFixture _fx;
@@ -27,11 +14,6 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         FanoutInterceptor.Reset();
     }
 
-    /// <summary>
-    /// Fanout from ChatGroupGrain is fire-and-forget — the notify calls may not have
-    /// reached the incoming filter by the time <c>SendNewMessageAsync</c> returns.
-    /// Poll with a bounded timeout so the test is deterministic without arbitrary sleeps.
-    /// </summary>
     private static async Task WaitForFanoutAsync(int expected, int timeoutMs = 2000)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -82,9 +64,6 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
     [Fact]
     public async Task AppendMessage_FromAssistant_ReFansOutToAllParticipants()
     {
-        // Desired: when a persona's turn ends Spoke, ChatGroupGrain
-        // re-fans out so the OTHER personas can evaluate the new assistant message.
-        // This is the feedback loop; every append should produce another round of fanout.
         var (_, chatGroupId, participants) = await _fx.CreatePartyWithChatGroupAsync("Alice", "Bob");
         var chatGroup = _fx.GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId);
 
@@ -92,7 +71,6 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await WaitForFanoutAsync(participants.Count);
         var initialCount = FanoutInterceptor.Calls.Count;
 
-        // Simulate Alice responding: reserve a slot, then append.
         var alice = participants[0];
         var slotId = await chatGroup.BeginTurnAsync(alice.Id);
         await chatGroup.EndTurnAsync(slotId, new TurnOutcome.Spoke("Alice says hi", null, null, null));

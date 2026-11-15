@@ -2,7 +2,6 @@ using PartyTown.World.Desires;
 
 namespace BackendTest;
 
-/// <summary>Wanting (ADR 0026): what's on the mind, how it reads, when it fades, what the shops make of it.</summary>
 public class DesiresTest
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 19, 12, 0, 0, TimeSpan.Zero);

@@ -9,7 +9,7 @@
         "start": "node src/main.ts",
         "meter": "node src/meter-main.ts",
         "test": "node --test test/*.test.ts",
-        "check": "tsc"
+        "check": "tsc && node ../lint/no-comments.mjs . && node ../lint/no-markdown.mjs"
     },
     "dependencies": {
         "@earendil-works/pi-coding-agent": "1.5.0"

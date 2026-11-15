@@ -6,10 +6,6 @@ using PartyTown.Services.Auth;
 
 namespace PartyTown.Services.Realtime;
 
-/// <summary>
-/// Fans one Orleans stream out to N WebSocket clients: subscribes on the first client, unsubscribes on the
-/// last, answers pings, numbers frames. Channel specifics come in as translate + snapshot + audience.
-/// </summary>
 internal sealed class StreamFanoutSession<TEvent>(
     IAsyncStream<TEvent> stream,
     Func<TEvent, IReadOnlyList<RealtimeFrame>> translate,
@@ -37,7 +33,6 @@ internal sealed class StreamFanoutSession<TEvent>(
         }
         catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
         {
-            // A tab closing or reloading mid-frame is a normal goodbye, not an error.
             logger.LogDebug(ex, "Realtime client went away");
         }
         catch (Exception ex)

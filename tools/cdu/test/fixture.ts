@@ -9,7 +9,6 @@ process.env.GIT_COMMITTER_EMAIL = 'cdu@proompting.party';
 
 export const git = (dir: string, ...args: string[]) => must('git', ['-C', dir, '-c', 'user.name=Tim', '-c', 'user.email=tim@example.com', ...args]);
 
-/** An origin with a master, and a desk where the One lands changes on it. */
 export async function world() {
     const root = mkdtempSync(path.join(tmpdir(), 'cdu-'));
     const origin = path.join(root, 'origin.git');
@@ -28,7 +27,6 @@ export async function world() {
         await git(desk, 'commit', '-q', '-m', message);
         await git(desk, 'push', '-q', 'origin', 'HEAD:master');
     };
-    /** What the One does on GitHub when merging: the tide branch lands on master. */
     const merge = async (branch: string) => {
         await git(desk, 'fetch', '-q', 'origin');
         await git(desk, 'reset', '-q', '--hard', `origin/${branch}`);
@@ -37,7 +35,6 @@ export async function world() {
     return { root, origin, desk, repo: path.join(root, 'repo'), land, merge };
 }
 
-/** GitHub in memory: PRs open when created, and the test plays the One. */
 export class FakeGitHub implements GitHub {
     prs = new Map<number, Pr & { body: string; base: string; branch: string }>();
     private n = 0;

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Bakes Quaternius' Universal Animation Library (CC0) into the Figure rig: node tools/figure/bake-rig.mjs <UAL1_Standard.glb>
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,7 +44,6 @@ gltf.nodes.forEach((n, i) => {
     for (const c of n.children ?? []) parents.set(c, i);
 });
 const r3 = (v) => Math.round(v * 1e4) / 1e4;
-// Parents first, so a bone's parent index is always lower.
 const order = [];
 const visit = (i) => {
     if (joints.has(i)) order.push(i);
@@ -76,7 +74,6 @@ const lerpKey = (track, time) => {
     return out.map((v) => v / len);
 };
 
-/** Drops keys a straight line between their neighbours reproduces. */
 function thin(times, keys) {
     const keep = [0];
     for (let i = 1; i < keys.length - 1; i++) {

@@ -5,13 +5,10 @@ import type { BoardReply } from '../../api/model/boardReply';
 import type { BoardRespect } from '../../api/model/boardRespect';
 import type { BoardThread } from '../../api/model/boardThread';
 
-/** Post and reply length cap, enforced by the backend too. */
 export const MAX_BODY = 280;
 
-/** Unix-ms timestamp from the API's `number | string` long. */
 export const ms = (v: number | string | undefined) => Number(v ?? 0);
 
-/** Re-render tick so relative times stay fresh. */
 export function useNow(intervalMs = 30_000) {
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
@@ -21,7 +18,6 @@ export function useNow(intervalMs = 30_000) {
     return now;
 }
 
-/** Feed-style short times: "just now", "5m", "3h", "yesterday", "4d", then a date. */
 export function relativeTime(at: number, now: number) {
     const s = Math.max(0, Math.round((now - at) / 1000));
     if (s < 45) return 'just now';
@@ -38,7 +34,6 @@ export function relativeTime(at: number, now: number) {
     });
 }
 
-/** Tooltip date: "Wed 21 Oct 2026, 15:04". */
 export function fullDate(at: number) {
     return new Date(at).toLocaleString('en-GB', {
         weekday: 'short',
@@ -50,11 +45,9 @@ export function fullDate(at: number) {
     });
 }
 
-/** Feed order: newest activity first, so a post with fresh replies comes back up. */
 export const sortFeed = (threads: BoardThread[]) =>
     [...threads].sort((a, b) => ms(b.lastActivityAt) - ms(a.lastActivityAt));
 
-/** Why a bumped post is back on top: its newest reply, when that's newer than the post. */
 export function bumpedBy(t: BoardThread) {
     const last = t.replies?.[t.replies.length - 1];
     return last && ms(last.createdAt) > ms(t.createdAt) ? last : undefined;
@@ -65,7 +58,6 @@ export const hasRespectFrom = (
     id: string | null,
 ) => !!id && (respect ?? []).some((r) => r.giverId === id);
 
-/** "Respect! from Denise, Pieter and you". */
 export function respectLabel(
     respect: BoardRespect[] | undefined,
     playerId: string | null,
@@ -81,7 +73,6 @@ export function respectLabel(
     return `Respect! from ${list}`;
 }
 
-/** The Player took part: wrote the post, replied under it, or is named in it. */
 export function involvesPlayer(
     t: BoardThread,
     playerId: string | null,
@@ -99,7 +90,6 @@ export function involvesPlayer(
     );
 }
 
-/** Newest moment anything happened to the Player's own lines: a reply under their post or a Respect!. */
 export function playerActivityAt(t: BoardThread, playerId: string | null) {
     if (!playerId) return 0;
     const own = (lines: { authorId?: string; respect?: BoardRespect[] }[]) =>
@@ -117,7 +107,6 @@ export function playerActivityAt(t: BoardThread, playerId: string | null) {
     return Math.max(0, ...own([t]), ...own(t.replies ?? []), ...replies);
 }
 
-/** Lines by others newer than the cursor: what to highlight as new. */
 export const isNewLine = (
     line: Pick<BoardReply, 'authorId' | 'createdAt'>,
     playerId: string | null,
@@ -125,12 +114,10 @@ export const isNewLine = (
 ) => line.authorId !== playerId && ms(line.createdAt) > since;
 
 interface SeenStore {
-    /** When the Player last caught up; newer lines by others show as new. */
     since: number;
     catchUp: (at: number) => void;
 }
 
-/** Per-browser "last caught up" cursor. */
 export const useBoardSeen = create<SeenStore>()(
     persist(
         (set) => ({
@@ -141,5 +128,4 @@ export const useBoardSeen = create<SeenStore>()(
     ),
 );
 
-/** Count down to the cap; negative means over. */
 export const remaining = (text: string) => MAX_BODY - text.trim().length;

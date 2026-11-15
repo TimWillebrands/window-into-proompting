@@ -7,36 +7,13 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="SpeakingSession"/> — the single-use streaming pump that drives one
-/// LLM response for a specific persona.
-///
-/// Coverage areas:
-///   • Content and reasoning chunks are accumulated into separate StringBuilders and returned
-///     in <see cref="SpeakingResult"/> (the two token types must not bleed into each other)
-///   • <c>onEvent</c> is called once per chunk (including a terminal <c>isDone=true</c> event
-///     after the stream ends)
-///   • Cancellation propagates: a cancelled token causes <see cref="OperationCanceledException"/>
-///     and no further chunks are emitted after the cancel point
-///   • Router exceptions bubble up to the caller (PersonaGrain owns retry)
-///
-/// Testing strategy:
-///   SpeakingSession is a plain class with no Orleans dependency, so no TestKit silo is needed.
-///   ILlmRouterGrain and ILlmEndpointGrain are mocked with Moq. Scripted IAsyncEnumerable
-///   implementations supply deterministic chunk sequences.
-/// </summary>
 public class SpeakingSessionTest
 {
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private static SelfView MakeParticipant(string name) =>
         new(Guid.NewGuid(), name, DriverKind.LLM, $"Test bio for {name}", $"You are {name}.", 0.5, 0.5);
 
     private static ParticipantView AsView(SelfView s) => new(s.Id, s.Name, s.Driver);
 
-    /// <summary>
-    /// Builds a mocked router that routes to the given endpoint grain mock.
-    /// </summary>
     private static Mock<ILlmRouterGrain> RouterFor(Mock<ILlmEndpointGrain> endpoint)
     {
         var router = new Mock<ILlmRouterGrain>();
@@ -46,9 +23,6 @@ public class SpeakingSessionTest
         return router;
     }
 
-    /// <summary>
-    /// Builds an endpoint mock whose GenerateAsync yields the provided scripted chunks.
-    /// </summary>
     private static Mock<ILlmEndpointGrain> EndpointWith(
         IEnumerable<LlmGenerationEvent> chunks)
     {
@@ -72,13 +46,9 @@ public class SpeakingSessionTest
         }
     }
 
-    // ── Content / reasoning accumulation ─────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_AccumulatesContentAndReasoningSeparately()
     {
-        // ContentChunk tokens go to SpeakingResult.Message; ReasoningChunk tokens go to
-        // SpeakingResult.Reasoning. The two streams must not bleed into each other.
         var chunks = new[]
         {
             new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "Hello"),
@@ -97,13 +67,9 @@ public class SpeakingSessionTest
         Assert.Equal("because reasons", result.Reasoning);
     }
 
-    // ── onEvent callbacks ─────────────────────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_InvokesOnEventForEachChunkThenDone()
     {
-        // onEvent must be called once per chunk with isDone=false, then a final call with
-        // isDone=true carrying the GenerationComplete event type after the stream exhausts.
         var chunks = new[]
         {
             new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "A"),
@@ -121,7 +87,6 @@ public class SpeakingSessionTest
             (type, data, done) => { events.Add((type, data, done)); return Task.CompletedTask; },
             CancellationToken.None);
 
-        // 3 chunk events + 1 terminal event
         Assert.Equal(4, events.Count);
         Assert.All(events.Take(3), e => Assert.False(e.done));
         var terminal = events[^1];
@@ -132,8 +97,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_EmptyStream_StillFiresTerminalEvent()
     {
-        // Even with no chunks, the terminal GenerationComplete event must be emitted so that
-        // downstream clients can close their generation subscription.
         var endpoint = EndpointWith([]);
         var persona = MakeParticipant("Charlie");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -150,14 +113,9 @@ public class SpeakingSessionTest
         Assert.Equal(string.Empty, result.Reasoning);
     }
 
-    // ── Cancellation ─────────────────────────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_CancelledToken_ThrowsOperationCancelledException()
     {
-        // A pre-cancelled token must surface as OperationCanceledException. The scripted
-        // async enumerable checks ThrowIfCancellationRequested() before the first yield, so
-        // no chunks are emitted and onEvent is never called.
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -174,15 +132,12 @@ public class SpeakingSessionTest
                 (t, d, done) => { events.Add((t, d, done)); return Task.CompletedTask; },
                 cts.Token));
 
-        // No events should have been emitted before the cancellation
         Assert.Empty(events);
     }
 
     [Fact]
     public async Task GenerateResponseOnlyAsync_CancelledMidStream_StopsAfterCancelPoint()
     {
-        // When cancelled after the first chunk, subsequent chunks must not reach onEvent.
-        // This verifies that no partial results leak out after cancellation.
         using var cts = new CancellationTokenSource();
 
         var endpoint = new Mock<ILlmEndpointGrain>();
@@ -200,7 +155,6 @@ public class SpeakingSessionTest
                 (t, d, done) => { events.Add((t, d, done)); return Task.CompletedTask; },
                 cts.Token));
 
-        // Only the first chunk should have been received before cancellation
         Assert.Single(events);
         Assert.Equal("first", events[0].Item2);
     }
@@ -211,17 +165,11 @@ public class SpeakingSessionTest
     {
         yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "first");
         await Task.Yield();
-        cts.Cancel(); // Cancel after yielding the first chunk
+        cts.Cancel();
         ct.ThrowIfCancellationRequested();
-        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "second"); // unreachable
+        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, "second");
     }
 
-    // ── Scenario rendering ────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Captures the LlmGenerationJob passed to the endpoint so tests can assert on the
-    /// rendered system prompt without coupling to the streaming pump.
-    /// </summary>
     private static (Mock<ILlmEndpointGrain> endpoint, Func<LlmGenerationJob?> getJob) CapturingEndpoint()
     {
         LlmGenerationJob? captured = null;
@@ -275,8 +223,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_WhitespaceScenario_OmitsScenarioSection()
     {
-        // Whitespace-only scenario must be treated as "no scenario" so we don't emit an
-        // empty heading that confuses the model.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -292,14 +238,9 @@ public class SpeakingSessionTest
         Assert.DoesNotContain("# Scenario", systemMessage.Content);
     }
 
-    // ── Memory cue from decision phase ───────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_WithMemoryToReference_RendersMemoryBlockAtRecencyPosition()
     {
-        // The decision phase picked a memory; the speaking phase must render it as a
-        // dedicated block AFTER the # Style section so it lands in the recency slot of the
-        // system prompt — the last thing the model sees before the conversation history.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -316,7 +257,6 @@ public class SpeakingSessionTest
         Assert.Contains("# A memory surfacing for you", systemContent);
         Assert.Contains("you watched Denise pivot toward CTO ambition", systemContent);
 
-        // Recency check: memory block must come after the Style block, not before.
         var styleIdx = systemContent.IndexOf("# Style", StringComparison.Ordinal);
         var memoryIdx = systemContent.IndexOf("# A memory surfacing for you", StringComparison.Ordinal);
         Assert.True(styleIdx >= 0, "Expected # Style block in system prompt");
@@ -327,8 +267,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_NullMemoryToReference_OmitsMemoryBlock()
     {
-        // No memory selected → no block. Avoids priming the model with an empty "memory"
-        // heading that would otherwise invite confabulation.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -348,7 +286,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_WhitespaceMemoryToReference_OmitsMemoryBlock()
     {
-        // Same as null — a whitespace-only memory string must not produce an empty heading.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Eiko");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -365,15 +302,9 @@ public class SpeakingSessionTest
         Assert.DoesNotContain("# A memory surfacing for you", systemContent);
     }
 
-    // ── Identity composition (Bio + SystemPrompt unification) ────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_BioOnly_RendersBioAsIdentity()
     {
-        // A persona authored with just a Bio (SystemPrompt null — the persona-library
-        // default and the bench cast shape) must still speak from that identity. Before
-        // unification the speaking phase read SystemPrompt only, so Bio-only personas ran
-        // with a blank identity block and weak models collapsed to assistant register.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = new SelfView(Guid.NewGuid(), "Vlad", DriverKind.LLM,
             Bio: "A centuries-old vampire, world-weary and dry.",
@@ -389,8 +320,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_BioAndSystemPrompt_RendersBoth()
     {
-        // Both fields present → Bio (the one-liner the decision phase also anchors on)
-        // followed by SystemPrompt (detailed voice instructions). Same identity, richer detail.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = new SelfView(Guid.NewGuid(), "Vlad", DriverKind.LLM,
             Bio: "A centuries-old vampire.",
@@ -403,21 +332,15 @@ public class SpeakingSessionTest
         var systemContent = getJob()!.Messages[0].Content;
         Assert.Contains("A centuries-old vampire.", systemContent);
         Assert.Contains("Speak in short, dry sentences.", systemContent);
-        // Bio anchors first — it's the shared identity line across both phases.
         Assert.True(
             systemContent.IndexOf("A centuries-old vampire.", StringComparison.Ordinal) <
             systemContent.IndexOf("Speak in short, dry sentences.", StringComparison.Ordinal),
             "Expected Bio before SystemPrompt in the identity block");
     }
 
-    // ── Decision→speaking handoff (turn-guidance message) ────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_WithGutReactionAndInstruction_RendersBothInGuidance()
     {
-        // The decision phase's gut reaction travels with the draft so the speaking model
-        // refines a felt moment instead of re-deciding from cold history. Both land in the
-        // final system message — the strongest recency slot.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -436,9 +359,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_WithPickedMemory_RestatesMemoryInGuidance()
     {
-        // The picked memory is restated in the final guidance message, not only in the
-        // system-prompt block — the block alone proved droppable by smaller models
-        // (bench: pick made, utterance generic).
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -453,12 +373,9 @@ public class SpeakingSessionTest
         Assert.Contains("Rise & Grind", guidance.Content);
     }
 
-    // ── Address-the-person cue (memory subject present in the room) ──────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemorySubjectPresent_RendersAddressCueInBlockAndGuidance()
     {
-        // A memory about a present participant must cue speaking TO them, in both the memory block and the guidance message.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var denise = MakeParticipant("Denise");
@@ -480,7 +397,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemorySubjectAbsent_OmitsAddressCue()
     {
-        // Cue must never fire for a memory about someone absent — third person is correct there.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var hana = MakeParticipant("Hana");
@@ -500,7 +416,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_MemoryNamesSelfOnly_OmitsAddressCue()
     {
-        // Only OTHER present participants trigger the cue — not the persona's own name.
         var (endpoint, getJob) = CapturingEndpoint();
         var vlad = MakeParticipant("Vlad");
         var hana = MakeParticipant("Hana");
@@ -518,7 +433,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_NoHandoffFields_GuidanceCarriesLengthCueThenOnlyTheLine()
     {
-        // Nothing to hand off → the trailing system message is the length cue (ADR 0021), closed by the output contract.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -535,7 +449,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_Guidance_EndsOnOnlyTheLine_AndNeverCallsTheIntentADraft()
     {
-        // Prod: "Draft of what you'd say … refine" got Haiku critiquing the draft aloud before the line.
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Yusuf Halloran");
         var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
@@ -566,13 +479,9 @@ public class SpeakingSessionTest
         Assert.Equal(expected, result.Message);
     }
 
-    // ── Tier routing fallback ─────────────────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_NoCharacterVoiceProvider_FallsBackToGeneral()
     {
-        // A setup with only General-capable providers must not mute speaking: the session
-        // retries the route at General (mirrors MemoryExtractor.RouteExtractionAsync).
         var (endpoint, getJob) = CapturingEndpoint();
         var router = new Mock<ILlmRouterGrain>();
         router
@@ -594,15 +503,9 @@ public class SpeakingSessionTest
         router.Verify(r => r.RouteAsync(JobComplexity.General, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    // ── Error propagation ─────────────────────────────────────────────────────
-
     [Fact]
     public async Task GenerateResponseOnlyAsync_RouterThrows_ExceptionBubblesUp()
     {
-        // SpeakingSession does not retry — exceptions from the router propagate directly.
-        // PersonaGrain is responsible for retry/backoff logic. (InvalidOperationException
-        // on the CharacterVoice route triggers the General fallback; when that fails too,
-        // the exception surfaces.)
         var router = new Mock<ILlmRouterGrain>();
         router
             .Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
@@ -619,7 +522,6 @@ public class SpeakingSessionTest
     [Fact]
     public async Task GenerateResponseOnlyAsync_DropsEmptyMessages_SoNoPhantomSenderReachesTheModel()
     {
-        // A declined turn leaves an empty message; once its sender left the room it rendered as an empty "Unknown".
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Denise");
         var anne = MakeParticipant("Anne");

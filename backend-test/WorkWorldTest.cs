@@ -7,7 +7,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>A shift in a real cluster (ADR 0026): the Body goes to work, the Wallet is paid per shift.</summary>
 public class WorkWorldTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly WorldLifeTest.Fixture _fx;
@@ -57,7 +56,6 @@ public class WorkWorldTest : IClassFixture<WorldLifeTest.Fixture>
         var occupation = _fx.GrainFactory.GetGrain<IOccupationGrain>(WorldKeys.Life(partyId, denise));
         await occupation.SetAsync(new Occupation { Title = "clerk", Workplace = "the office in Zuid" });
 
-        // Clock not running during the shift: nothing to miss.
         Assert.Equal(ShiftStep.None, (await occupation.StepAsync(Monday9.AddHours(9), asleep: true)).Step);
 
         var tuesday = Monday9.AddDays(1);

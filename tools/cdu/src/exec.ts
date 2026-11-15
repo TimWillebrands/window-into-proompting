@@ -12,7 +12,6 @@ export interface RunOptions {
     input?: string;
 }
 
-/** Runs a program without a shell; never throws on a non-zero exit. */
 export function run(cmd: string, args: string[], options: RunOptions = {}): Promise<Ran> {
     return new Promise((resolve, reject) => {
         const stdin = options.input === undefined ? 'ignore' : 'pipe';
@@ -28,7 +27,6 @@ export function run(cmd: string, args: string[], options: RunOptions = {}): Prom
     });
 }
 
-/** Like run, but a non-zero exit is an error carrying what it said. */
 export async function must(cmd: string, args: string[], options: RunOptions = {}): Promise<string> {
     const ran = await run(cmd, args, options);
     if (ran.code !== 0) throw new Error(`${cmd} ${args.join(' ')}: ${(ran.stderr || ran.stdout).trim().slice(-800)}`);

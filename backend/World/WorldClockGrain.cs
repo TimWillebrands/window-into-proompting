@@ -7,11 +7,6 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.World;
 
-/// <summary>
-/// A Party's World clock (ADR 0018). Pulsed by <see cref="WorldPulseService"/>; on each due tick
-/// hands the turn to one idle Persona's Life and has <see cref="LullCaptureGrain"/> sweep for lulls.
-/// Owns the activity log and the hourly action budget. Worlds start paused.
-/// </summary>
 public sealed class WorldClockGrain(
     [PersistentState(stateName: "worldclock", storageName: "parties")]
     IPersistentState<WorldClockState> state,
@@ -29,9 +24,7 @@ public sealed class WorldClockGrain(
     private const string AmbientShape = """{"happening": "<one or two sentences>"}""";
 
     private readonly Dictionary<Guid, DateTimeOffset> _busy = new();
-    /// <summary>The kinds of Happening last let loose; per activation, so a deploy may repeat one.</summary>
     private readonly Queue<int> _kindsLately = new();
-    /// <summary>Same for own Happenings (ADR 0055).</summary>
     private readonly Queue<int> _ownKindsLately = new();
 
     private Guid PartyId => this.GetPrimaryKey();
@@ -61,7 +54,6 @@ public sealed class WorldClockGrain(
         await CaptureLullsAsync();
         await StartDueGatheringsAsync(now);
         await StepShiftsAsync(now);
-        // Detached: a slow Market or a Session's LLM calls must never hold up the tick.
         if (desks is not null) _ = desks.RefreshAsync(PartyId, now);
         if (sessions is not null) _ = sessions.StepAsync(PartyId, now);
         if (!ClockPolicy.WithinBudget(state.State.ActionTimes, state.State.MaxActionsPerHour, now)) return;
@@ -71,7 +63,6 @@ public sealed class WorldClockGrain(
             state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
             _ = AmbientHappeningAsync();
         }
-        // Life brings its own news (ADR 0055); the one ambient switch turns it off too.
         (var ownDue, state.State.LastOwnAt) = ClockPolicy.Ambient(state.State.LastOwnAt, state.State.AmbientMinutes > 0 ? Self.OwnHappenings.EveryMinutes : 0, now);
         if (ownDue)
         {
@@ -131,7 +122,6 @@ public sealed class WorldClockGrain(
         return true;
     }
 
-    /// <summary>Detached: Reflex calls back here, and this grain must never wait on it.</summary>
     private async Task SurfaceDueAsync(DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
@@ -172,7 +162,6 @@ public sealed class WorldClockGrain(
         };
         await RecordAsync(happening);
 
-        // At a Place, it's news there and in its District (ADR 0043); anywhere else, everyone lived through it.
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
         var around = cast.Select(c => c.Id).ToHashSet();
         if (placeId is { } at)
@@ -214,7 +203,6 @@ public sealed class WorldClockGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>Makes this Clerk user's character; null when someone in the cast already has that name.</summary>
     public async Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name)
     {
         if (state.State.PlayersByClerkId.TryGetValue(clerkUserId, out var existing)) return existing;
@@ -235,7 +223,6 @@ public sealed class WorldClockGrain(
         return id;
     }
 
-    /// <summary>Makes a free Persona this Clerk user's character (ADR 0059); false when they have one or that Persona isn't free.</summary>
     public async Task<bool> TakePersonaAsync(string clerkUserId, Guid personaId)
     {
         if (state.State.PlayersByClerkId.ContainsKey(clerkUserId)) return false;
@@ -252,7 +239,6 @@ public sealed class WorldClockGrain(
         return true;
     }
 
-    /// <summary>Drops a removed Player's ownership and everything the clock kept about them.</summary>
     public async Task ForgetPlayerAsync(Guid participantId)
     {
         foreach (var owner in state.State.PlayersByClerkId.Where(kv => kv.Value == participantId).Select(kv => kv.Key).ToList())
@@ -265,7 +251,6 @@ public sealed class WorldClockGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>Hands the lull sweep to <see cref="LullCaptureGrain"/>; cursors once kept here move over on first sweep.</summary>
     private async Task CaptureLullsAsync()
     {
         var capture = GrainFactory.GetGrain<ILullCaptureGrain>(PartyId);
@@ -285,7 +270,6 @@ public sealed class WorldClockGrain(
         state.State.LastActedAt[personaId] = now.ToUnixTimeMilliseconds();
         state.State.ActionTimes.Add(now.ToUnixTimeMilliseconds());
 
-        // Detached: the Life turn can run for a minute; its continuation interleaves back here.
         _ = RunLifeAsync(personaId, nudge);
     }
 
@@ -298,7 +282,6 @@ public sealed class WorldClockGrain(
         }
         catch (Exception ex)
         {
-            // Players see this as an error in Activity, so it is one.
             logger.LogError(ex, "Life turn failed for persona {PersonaId}", personaId);
             var info = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetParty();
             activity = new WorldActivity
@@ -320,7 +303,6 @@ public sealed class WorldClockGrain(
         catch { return 1; }
     }
 
-    /// <param name="forced">A turn asked for by hand always lands on someone.</param>
     private async Task<Guid?> PickPersonaAsync(DateTimeOffset now, bool forced = false)
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
@@ -328,7 +310,6 @@ public sealed class WorldClockGrain(
         var personas = cast.Where(c => c.DefaultDriver == DriverKind.LLM && c.Id != Narrator.PersonaId).ToList();
         var candidates = personas.Where(c => !IsBusy(c.Id, now) && !asleep.Contains(c.Id)).ToList();
         if (candidates.Count == 0) return null;
-        // Tempo is your own (ADR 0050): the sleepers keep their share of the ticks, so the one still up isn't handed everyone's turns.
         var resting = forced ? 0 : ClockPolicy.Resting(personas.Where(c => asleep.Contains(c.Id)).Select(c => c.Chattiness));
 
         var free = await Task.WhenAll(candidates.Select(c => AvailabilityAsync(c.Id)));
@@ -341,7 +322,6 @@ public sealed class WorldClockGrain(
         return ClockPolicy.Pick(weighed, ClockPolicy.LifeWeights(weighed, state.State.TickSeconds, cast.Count, now), Random.Shared.NextDouble(), resting);
     }
 
-    /// <summary>A planned Gathering came due: attendees join its Room and get a Life turn pointed at it.</summary>
     private async Task StartDueGatheringsAsync(DateTimeOffset now)
     {
         var due = await GrainFactory.GetGrain<ICalendarGrain>(PartyId).StartDueAsync(now.ToUnixTimeMilliseconds());
@@ -370,11 +350,9 @@ public sealed class WorldClockGrain(
         await state.WriteStateAsync();
     }
 
-    /// <summary>A Gathering at a Place: LLM attendees who are awake walk there and get a Life turn; humans come themselves.</summary>
     private async Task StartAtPlaceAsync(Gathering g, Guid placeId, DateTimeOffset now)
     {
         var places = GrainFactory.GetGrain<Places.IPlacesGrain>(PartyId);
-        // Planned somewhere offscreen: the get-together is what puts it on the map (ADR 0027).
         await places.OpenAsync(placeId, null, "gathering");
         await places.ExpectAsync(placeId, g.HostId, g.AttendeeIds.ToList());
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
@@ -382,7 +360,6 @@ public sealed class WorldClockGrain(
         var going = ClockPolicy.WalkToGathering(g.AttendeeIds, cast, asleep);
         foreach (var id in going)
             await places.MoveAsync(id, placeId, null);
-        // Humans come themselves; only personas who could have come and didn't count as no-shows.
         var personas = g.AttendeeIds.Where(id => cast.FirstOrDefault(c => c.Id == id)?.DefaultDriver == DriverKind.LLM).ToHashSet();
         await responsibilities.KeptAsync(PartyId, new Gathering { HostId = g.HostId, AttendeeIds = g.AttendeeIds.Where(personas.Contains).ToList() }, going);
 
@@ -395,7 +372,6 @@ public sealed class WorldClockGrain(
             StartLife(id, $"It's time for \"{g.Title}\" {g.Where}; you're on your way, you said you'd be there.");
     }
 
-    /// <summary>Jobs happen in time (ADR 0026): shifts start, end or get missed whether or not anyone picks them.</summary>
     private async Task StepShiftsAsync(DateTimeOffset now)
     {
         try
@@ -417,7 +393,6 @@ public sealed class WorldClockGrain(
         }
     }
 
-    /// <summary>Novelty against echo chambers: the Narrator lets something small happen at a real Place, likelier where people are.</summary>
     private async Task AmbientHappeningAsync()
     {
         try
@@ -449,7 +424,6 @@ public sealed class WorldClockGrain(
         }
     }
 
-    /// <summary>Something happens in one awake Persona's own life (ADR 0055): theirs alone, remembered by them.</summary>
     private async Task OwnHappeningAsync()
     {
         try
@@ -523,29 +497,20 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [AlwaysInterleave, Alias("GetStatusAsync")] Task<WorldStatus> GetStatusAsync();
     [Alias("UpdateAsync")] Task<WorldStatus> UpdateAsync(bool? running, int? tickSeconds, int? maxActionsPerHour, int? ambientMinutes = null);
     [Alias("PulseAsync")] Task PulseAsync();
-    /// <summary>Force one Life turn now (ignores pause and interval, respects busy).</summary>
     [Alias("TickNowAsync")] Task<bool> TickNowAsync(Guid? personaId, string? nudge);
     [Alias("GetActivitiesAsync")] Task<List<WorldActivity>> GetActivitiesAsync(int limit, Guid? personaId);
     [Alias("RecordAsync")] Task RecordAsync(WorldActivity activity);
-    /// <summary>The human's Participant (Driver = User), created on first use.</summary>
     [Alias("FindPlayerAsync")] Task<Guid?> FindPlayerAsync(string clerkUserId);
     [Alias("ClaimPlayerAsync")] Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name);
     [Alias("TakePersonaAsync")] Task<bool> TakePersonaAsync(string clerkUserId, Guid personaId);
     [Alias("IsClaimedAsync")] Task<bool> IsClaimedAsync(Guid participantId);
-    /// <summary>Every Participant a human owns, on auto or not.</summary>
     [AlwaysInterleave, Alias("GetClaimedAsync")] Task<List<Guid>> GetClaimedAsync();
-    /// <summary>Clerk user id to Participant, for every human here.</summary>
     [Alias("GetPlayersAsync")] Task<Dictionary<string, Guid>> GetPlayersAsync();
-    /// <summary>Humans moving in from another World keep their Participants; a Clerk id already here keeps its own.</summary>
     [Alias("AdoptPlayersAsync")] Task AdoptPlayersAsync(Dictionary<string, Guid> players);
     [Alias("ForgetPlayerAsync")] Task ForgetPlayerAsync(Guid participantId);
-    /// <summary>A Happening: logged and perceived by every Life; at a Place, news there and remembered around it, else by everyone.</summary>
     [Alias("AnnounceAsync")] Task<WorldActivity> AnnounceAsync(string text, Guid? placeId = null);
-    /// <summary>Something concerning these Personas landed outside a live chat: they're likelier to get the next turn.</summary>
     [Alias("NotifyAsync")] Task NotifyAsync(List<Guid> personaIds);
-    /// <summary>When to look at what this Persona put off; null clears it (ADR 0031).</summary>
     [Alias("RemindAsync")] Task RemindAsync(Guid personaId, long? at);
-    /// <summary>Spend one action on something Reflex says out loud; a human is never made to wait on the budget.</summary>
     [Alias("TrySpendAsync")] Task<bool> TrySpendAsync(bool forHuman);
 }
 
@@ -559,18 +524,13 @@ public sealed class WorldClockState
     [Id(4)] public List<long> ActionTimes { get; set; } = new();
     [Id(5)] public List<WorldActivity> Activities { get; set; } = new();
     [Id(6)] public Dictionary<Guid, long> LastActedAt { get; set; } = new();
-    /// <summary>Legacy: lull cursors now live in <see cref="LullCaptureGrain"/>; drained on first pulse.</summary>
     [Id(7)] public Dictionary<Guid, int> CaptureCursors { get; set; } = new();
     [Id(8)] public Guid? PlayerId { get; set; }
-    /// <summary>Minutes between Narrator-generated Happenings; 0 = off.</summary>
     [Id(9)] public int AmbientMinutes { get; set; } = 30;
     [Id(10)] public long? LastAmbientAt { get; set; }
     [Id(11)] public Dictionary<Guid, long> NotifiedAt { get; set; } = new();
-    /// <summary>Clerk user id → their Player. Players not listed here are unowned.</summary>
     [Id(12)] public Dictionary<string, Guid> PlayersByClerkId { get; set; } = new();
-    /// <summary>Who has something coming back to mind, and when.</summary>
     [Id(13)] public Dictionary<Guid, long> Reminders { get; set; } = new();
-    /// <summary>When each Persona's own life last brought them something (ADR 0055).</summary>
     [Id(14)] public Dictionary<Guid, long> OwnAt { get; set; } = new();
     [Id(15)] public long? LastOwnAt { get; set; }
 }

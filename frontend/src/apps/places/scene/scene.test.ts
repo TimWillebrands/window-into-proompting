@@ -24,7 +24,6 @@ import {
     sceneFor,
 } from './scenes';
 
-/** Spots and capacities as backend PlaceSeeds has them. */
 const SEEDED: Record<string, Record<string, number>> = {
     cafe: { counter: 3, 'window-table': 2, booth: 4, jukebox: 2 },
     lobby: { entrance: 4, sofas: 4, desk: 3, window: 2 },
@@ -68,7 +67,6 @@ describe('scenes', () => {
                 for (const slot of [...slots.stands, ...slots.seats]) {
                     const full = pathIn(s, door, slot.tile);
                     expect(full.at(-1)).toEqual(slot.tile);
-                    // A seat inside furniture is slid into from the last free tile.
                     const path =
                         slot.seat && s.blocked.has(key(slot.tile))
                             ? full.slice(0, -1)
@@ -217,7 +215,6 @@ describe('prefab catalogue', () => {
                 'utf8',
             ),
         );
-        // The data library is one file in two places; the backend's is the one the designer prompts with.
         expect(
             JSON.parse(
                 readFileSync(resolve(__dirname, 'library.json'), 'utf8'),

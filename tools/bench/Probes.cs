@@ -2,21 +2,11 @@ using System.Reflection;
 
 namespace PartyTown.Bench;
 
-/// <summary>
-/// Marks a static method as a Probe: a pointed runner of one subsystem slice whose
-/// deliverable is a Probe Artifact, not a pass/fail (ADR 0011). Signature:
-/// <c>static Task MyProbe(Bench bench)</c>.
-/// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ProbeAttribute(string description) : Attribute
 {
     public string Description { get; } = description;
 
-    /// <summary>
-    /// Declares this probe needs a real <c>MemoryRepository</c> over AGE (recall / Stance / the
-    /// union read behind #91). Only such probes start the bench's ephemeral Testcontainers AGE
-    /// (ADR 0011 amendment); prompt-composition probes stay Docker-free (tier-0). Default false.
-    /// </summary>
     public bool RequiresMemory { get; init; }
 }
 

@@ -5,11 +5,6 @@ using PartyTown.Grains.Generation;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// A persona's sheet distilled into lived background (ADR 0021), key = persona id. Modes, scripted lines,
-/// catchphrases and style instructions are what make personas perform; the authored original stays untouched
-/// in the library, prompts read the distilled version once it exists.
-/// </summary>
 public sealed class LivedSheetGrain(
     [PersistentState(stateName: "livedSheet", storageName: "parties")]
     IPersistentState<LivedSheetState> state,
@@ -30,7 +25,6 @@ public sealed class LivedSheetGrain(
         }
         if (DateTimeOffset.UtcNow - _lastAttempt < Retry) return null;
         _lastAttempt = DateTimeOffset.UtcNow;
-        // Detached: a stored sheet is awaited, a new one never is.
         _ = DistillAsync(name, source, hash);
         return null;
     }
@@ -57,7 +51,6 @@ public sealed class LivedSheetGrain(
     }
 }
 
-/// <summary>In-process cache the prompt builders read without awaiting a grain; filled by <see cref="LivedSheetGrain"/>.</summary>
 public static class LivedSheets
 {
     private static readonly ConcurrentDictionary<Guid, (string Hash, string Text)> Cache = new();
@@ -120,7 +113,6 @@ public static class LivedSheets
         date next month goes; the world owns it.
         """;
 
-    /// <summary>Bump to redo every distillation after a prompt change.</summary>
     private const int Version = 6;
 
     public static string Hash(string source)
@@ -128,26 +120,21 @@ public static class LivedSheets
 
     public static void Remember(Guid personaId, string hash, string text) => Cache[personaId] = (hash, text);
 
-    /// <summary>The distilled sheet, or null when there's none for this exact source yet.</summary>
     public static string? Lived(Guid personaId, string? source)
         => !string.IsNullOrWhiteSpace(source) && Cache.TryGetValue(personaId, out var lived) && lived.Hash == Hash(source) ? lived.Text : null;
 
-    /// <summary>A short bio from the distilled sheet's opening, for prompts that only take a one-liner.</summary>
     public static string? Bio(string lived)
         => Controllers.PersonaController.ExtractBioFromMarkdown(lived) is { Length: > 0 } bio ? bio : null;
 
-    /// <summary>The distilled sheet, loaded into the cache when it's stored; null while it's still being written.</summary>
     public static async Task<string?> WarmAsync(IGrainFactory grains, Model.CastMember who)
     {
         if (string.IsNullOrWhiteSpace(who.SystemPrompt)) return null;
         return Lived(who.Id, who.SystemPrompt) ?? await grains.GetGrain<ILivedSheetGrain>(who.Id).EnsureAsync(who.Name, who.SystemPrompt);
     }
 
-    /// <summary>What intrinsic distillers read: the lived sheet, or the bio for someone without a sheet; null while the lived one is pending.</summary>
     public static async Task<string?> SourceAsync(IGrainFactory grains, Model.CastMember who)
         => string.IsNullOrWhiteSpace(who.SystemPrompt) ? who.Bio is { Length: > 0 } bio ? bio : null : await WarmAsync(grains, who);
 
-    /// <summary>The distilled sheet if it was made from this exact source; otherwise the source itself.</summary>
     public static string? For(Guid personaId, string? source)
         => string.IsNullOrWhiteSpace(source) ? source
             : Cache.TryGetValue(personaId, out var lived) && lived.Hash == Hash(source) ? lived.Text
@@ -157,7 +144,6 @@ public static class LivedSheets
 [Alias("PartyTown.World.Self.ILivedSheetGrain")]
 public interface ILivedSheetGrain : IGrainWithGuidKey
 {
-    /// <summary>The stored sheet for this source (cached), or null while a detached distillation writes it.</summary>
     [Alias("EnsureAsync")] Task<string?> EnsureAsync(string name, string source);
 }
 

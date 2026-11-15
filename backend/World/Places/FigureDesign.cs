@@ -7,7 +7,6 @@ using System.Xml.Linq;
 
 namespace PartyTown.World.Places;
 
-/// <summary>The LLM-written half of a look (ADR 0028), cleaned so any output draws sanely. Mirrors frontend figure/doc.ts.</summary>
 public static partial class FigureDesign
 {
     public const int MaxExtras = 8;
@@ -34,7 +33,6 @@ public static partial class FigureDesign
         "wrist-l", "wrist-r", "forearm-l", "forearm-r", "hand-l", "hand-r", "ankle-l", "ankle-r",
     };
 
-    /// <summary>Design slots a palette pick replaces: buying a hoodie takes the designed top off.</summary>
     private static readonly Dictionary<string, string[]> Replaces = new()
     {
         ["hairStyle"] = new[] { "hair" },
@@ -56,7 +54,6 @@ public static partial class FigureDesign
     [GeneratedRegex("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")]
     private static partial Regex Hex();
 
-    /// <summary>Normalised design JSON, or null when nothing usable came back. Slots left out stay on the palette.</summary>
     public static string? Clean(JsonNode? raw)
     {
         if (raw is not JsonObject o) return null;
@@ -87,7 +84,6 @@ public static partial class FigureDesign
         return clean.Count == 0 ? null : clean.ToJsonString();
     }
 
-    /// <summary>A design with some slots laid over it; later slots win whole.</summary>
     public static string? Over(string? design, string? patch)
     {
         if (patch is null) return design;
@@ -97,14 +93,12 @@ public static partial class FigureDesign
         return current.ToJsonString();
     }
 
-    /// <summary>What's left of a design once these palette picks take over.</summary>
     public static string? Without(string? design, IEnumerable<string> picked)
     {
         var keys = picked.ToList();
         if (keys.Count == 0 || Parse(design) is not { } current) return design;
         foreach (var slot in keys.Where(Replaces.ContainsKey).SelectMany(k => Replaces[k]).Distinct())
             current.Remove(slot);
-        // A dye keeps the cut: the palette colour shows through.
         if (keys.Contains("hair") && current["hair"] is JsonObject hair)
         {
             hair.Remove("color");
@@ -118,7 +112,6 @@ public static partial class FigureDesign
         return current.Count == 0 ? null : current.ToJsonString();
     }
 
-    /// <summary>Prints still waiting to be drawn, as (slot, index, brief).</summary>
     public static List<(string Slot, int Index, string Brief)> Briefs(string? design)
     {
         var found = new List<(string, int, string)>();
@@ -133,7 +126,6 @@ public static partial class FigureDesign
         return found;
     }
 
-    /// <summary>Draws each print a design asked for; one that doesn't come out is left off.</summary>
     public static async Task<string?> DrawPrintsAsync(IWorldLlm llm, string? design)
     {
         var art = new Dictionary<(string, int), string>();
@@ -145,7 +137,6 @@ public static partial class FigureDesign
         return WithArtwork(design, art);
     }
 
-    /// <summary>Puts drawn artwork in; a print with no artwork is dropped.</summary>
     public static string? WithArtwork(string? design, IReadOnlyDictionary<(string Slot, int Index), string> art)
     {
         if (Parse(design) is not { } doc) return design;
@@ -173,8 +164,6 @@ public static partial class FigureDesign
         try { return JsonNode.Parse(json) as JsonObject; }
         catch (JsonException) { return null; }
     }
-
-    // ---- Slots ----
 
     private static JsonObject Body(JsonObject o) => new()
     {
@@ -428,8 +417,6 @@ public static partial class FigureDesign
         return keys.Count == 0 ? null : new JsonObject { ["loop"] = Number(o["loop"], 0.3, 12, 2), ["keys"] = keys };
     }
 
-    // ---- SVG ----
-
     private static readonly HashSet<string> SvgTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "text", "tspan",
@@ -444,7 +431,6 @@ public static partial class FigureDesign
         "dominant-baseline", "offset", "stop-color", "stop-opacity", "gradientUnits", "gradientTransform", "clip-path", "clip-rule",
     };
 
-    /// <summary>Plain drawing only: elements and attributes off a list, nothing that can fetch or run; null when it isn't SVG.</summary>
     public static string? Svg(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -462,11 +448,9 @@ public static partial class FigureDesign
             return null;
         }
         if (!Scrub(root)) return null;
-        // An img only rasterises SVG with this namespace, and the viewBox is what the painter sizes by.
         root.Name = XName.Get("svg", "http://www.w3.org/2000/svg");
         foreach (var e in root.Descendants()) e.Name = XName.Get(e.Name.LocalName, "http://www.w3.org/2000/svg");
         root.SetAttributeValue("viewBox", root.Attribute("viewBox")?.Value ?? "0 0 256 256");
-        // Firefox won't draw an SVG image that has no intrinsic size.
         root.SetAttributeValue("width", 256);
         root.SetAttributeValue("height", 256);
         var clean = root.ToString(SaveOptions.DisableFormatting);
@@ -484,8 +468,6 @@ public static partial class FigureDesign
         return true;
     }
 
-    // ---- Values ----
-
     private static string Slug(string s) => WorldStream.Clip(new string(s.ToLowerInvariant().Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray()), 24);
 
     private static string Pick(JsonNode? n, string[] options, string fallback) => PickOrNull(n, options) ?? fallback;
@@ -502,7 +484,6 @@ public static partial class FigureDesign
     private static string? OptionalColour(JsonNode? n)
     {
         if (n is not JsonValue || n.ToString().Trim() is not { } s || !Hex().IsMatch(s)) return null;
-        // The painter's shade maths wants six digits.
         return (s.Length == 4 ? $"#{s[1]}{s[1]}{s[2]}{s[2]}{s[3]}{s[3]}" : s).ToLowerInvariant();
     }
 

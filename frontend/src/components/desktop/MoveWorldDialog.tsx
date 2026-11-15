@@ -25,7 +25,6 @@ const toggled = (set: Set<string>, id: string) => {
     return next;
 };
 
-/** Where a Place came from, as the wizard says it. */
 function origin(p: MovablePlace): string {
     switch (p.origin) {
         case PlaceOrigin.Author:
@@ -70,7 +69,6 @@ function CheckRow({
     );
 }
 
-/** Admin wizard: who, which Relations and which Places wake up in a new World; this one stops. */
 export default function MoveWorldDialog({
     from,
     onCancel,
@@ -86,7 +84,6 @@ export default function MoveWorldDialog({
     const [name, setName] = useState('');
     const [left, setLeft] = useState<Set<string>>(new Set());
     const [kept, setKept] = useState<Set<string>>(new Set());
-    /** Places whose tick differs from the suggestion. */
     const [flipped, setFlipped] = useState<Set<string>>(new Set());
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);

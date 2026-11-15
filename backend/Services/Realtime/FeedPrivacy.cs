@@ -4,7 +4,6 @@ using PartyTown.World;
 
 namespace PartyTown.Services.Realtime;
 
-/// <summary>Decides per frame who on the shared party feed may receive it.</summary>
 public static class FeedPrivacy
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);

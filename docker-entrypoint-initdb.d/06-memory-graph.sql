@@ -1,10 +1,3 @@
--- Memory graph (Recollection capture).
--- Vertices and edges per ADR 0006/0007 + the shape reshape in ADR 0014. Single graph
--- `memory`; tenant scoping rides `party_id` *properties* on Participant and Event — there
--- is no Party stub vertex. Stubs (Persona/Participant) carry only ids mirroring the
--- grain-side source of truth; Event carries its anchor (room_id/party_id/anchor_message_id)
--- as properties rather than ANCHORED_TO edges to Message vertices.
-
 LOAD 'age';
 SET search_path = ag_catalog, "$user", public;
 
@@ -16,7 +9,6 @@ BEGIN
 END
 $$;
 
--- Vertex labels.
 DO $$
 DECLARE
   lbl text;
@@ -33,7 +25,6 @@ BEGIN
 END
 $$;
 
--- Edge labels. STANCE is included up front so later slices don't need a DDL change.
 DO $$
 DECLARE
   lbl text;
@@ -50,4 +41,3 @@ BEGIN
 END
 $$;
 
--- Indexes live in EF migrations (ADR 0008), so every DB gets them: backend/Data/Migrations.

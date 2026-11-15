@@ -5,12 +5,10 @@ using PartyTown.World.Work.Companies;
 
 namespace BackendTest;
 
-/// <summary>Reaching past the arena (ADR 0047): felt rarely, voiced plainly, and on the Cytheurgists' desk.</summary>
 public class LackTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
-    /// <summary>A steady judge: usual 0.35, spread 0.04, so a jump is 0.10 and up.</summary>
     private static readonly Lack.Baseline Usual = new(0.35, 8, 0.0016);
 
     [Theory]
@@ -33,7 +31,6 @@ public class LackTest
     public void Felt_AHighUsualIsNoLack()
         => Assert.False(Lack.Felt(0.6, new Lack.Baseline(0.55, 10, 0.0016), null, Now));
 
-    /// <summary>Production, 10 Nov: Jev sat at 0.17 ± 0.04 and never reached the old 0.4 floor; d1 sat at 0.38 ± 0.055.</summary>
     [Theory]
     [InlineData(0.17, 0.037, 0.28, true)]
     [InlineData(0.17, 0.037, 0.24, false)]

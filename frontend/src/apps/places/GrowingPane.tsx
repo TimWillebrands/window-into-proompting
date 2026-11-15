@@ -9,7 +9,6 @@ import {
 import { WORLD_ID } from '../../lib/world';
 import { growingSummary } from './places-lib';
 
-/** Author view (ADR 0027): Locales gathering footfall, what each still needs, and recent Openings to veto. */
 export default function GrowingPane() {
     const queryClient = useQueryClient();
     const report = useGetWorldsPartyIdGrowth(WORLD_ID, {

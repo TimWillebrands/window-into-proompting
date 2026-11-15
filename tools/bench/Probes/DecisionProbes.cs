@@ -4,11 +4,6 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// Probes over <see cref="PersonaDecisionService"/> — the per-persona "should I respond?" appraisal.
-/// They drive the real service (which routes through the real router → endpoint grains), so the
-/// artifact shows the exact composed decision prompt, the urge math, and the parsed decision.
-/// </summary>
 public static class DecisionProbes
 {
     [Probe("Cold-open: a statement lands in a quiet room. Vlad (low chattiness) and Denise (high) each decide whether to break the silence. Vlad carries fake recollections to exercise the '# What you remember' block.")]
@@ -18,8 +13,6 @@ public static class DecisionProbes
             "just got back from the worst offsite of my life, three hours of trust falls and we shipped nothing");
         bench.Observe("scenario", new { history[0].Content, totalAiRoundsInGroup = 0 });
 
-        // Two plausible past moments so the decision prompt's "# What you remember" block renders
-        // and we can watch whether Vlad picks one (memoryToReference) or declines.
         var vladMemories = new[]
         {
             "Sam once spent a whole evening ranting about a meeting that could have been an email.",
@@ -49,9 +42,6 @@ public static class DecisionProbes
         await RunDecision(bench, BenchCast.Vlad, history);
     }
 
-    /// <summary>Runs one persona's appraisal and records the urge, the parsed decision, and the
-    /// raw model stream. Urge is recomputed here only for visibility — Total is deterministic
-    /// (chaos is excluded from it); only the ChaosScore component re-rolls per call.</summary>
     private static async Task RunDecision(
         Bench bench,
         SelfView self,

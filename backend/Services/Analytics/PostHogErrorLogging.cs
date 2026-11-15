@@ -4,19 +4,15 @@ using PostHog.AspNetCore;
 
 namespace PartyTown.Services.Analytics;
 
-/// <summary>Each exception reaches PostHog error tracking once, however many layers log it.</summary>
 public static class PostHogExceptions
 {
     private static readonly ConditionalWeakTable<Exception, object> Captured = new();
 
-    /// <summary>True the first time for an exception, so only that caller captures it.</summary>
     public static bool Claim(Exception exception) => Captured.TryAdd(exception, Captured);
 }
 
-/// <summary>Error logs with an exception go to PostHog error tracking: grains, timers and hosted services, not only requests.</summary>
 public sealed class PostHogErrorLoggerProvider(IServiceProvider services) : ILoggerProvider
 {
-    // The grain filter logs every failed call, handled ones included; PostHog's own logs would loop.
     private static readonly string[] Skipped = { "PartyTown.Logging.GrainLoggingFilter", "PostHog" };
 
     private IPostHogClient? _client;
@@ -26,7 +22,6 @@ public sealed class PostHogErrorLoggerProvider(IServiceProvider services) : ILog
 
     public void Dispose() { }
 
-    // Resolved on first use: the client logs through this same factory.
     private IPostHogClient? Client => _client ??= services.GetService<IPostHogClient>();
 
     private sealed class ErrorLogger(string category, PostHogErrorLoggerProvider provider) : ILogger

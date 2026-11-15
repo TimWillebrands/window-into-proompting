@@ -1,9 +1,7 @@
 namespace PartyTown.Services.Memory;
 
-/// <summary>What a beat recalls from: who, where, which Party, the people present and the words in play.</summary>
 public sealed record BeatAnchors(Guid PersonaId, Guid PartyId, IReadOnlyList<Guid> PresentIds, string AnchorText, Guid? PlaceId = null);
 
-/// <summary>One beat's memory: Recollections (two-arm union, ADR 0015) and Stance lines (ADR 0016).</summary>
 public sealed record RecallBeat(IReadOnlyList<RecalledMemory> Memories, IReadOnlyList<StanceLine> Stances)
 {
     public static readonly RecallBeat Empty = new(Array.Empty<RecalledMemory>(), Array.Empty<StanceLine>());
@@ -11,10 +9,6 @@ public sealed record RecallBeat(IReadOnlyList<RecalledMemory> Memories, IReadOnl
 
 public static class RecallBeatExtensions
 {
-    /// <summary>
-    /// Recall + Stance floor for one beat. Each half is non-fatal on its own — a memory outage never mutes a
-    /// Persona, and a failed Recall no longer drops the Stances with it. Cancellation still propagates.
-    /// </summary>
     public static async Task<RecallBeat> RecallBeatAsync(
         this IMemoryRepository repository, BeatAnchors at, int memoryLimit, int stanceLimit, ILogger logger, CancellationToken ct)
     {

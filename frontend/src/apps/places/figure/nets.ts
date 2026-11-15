@@ -22,7 +22,6 @@ const EDGES = [
     [6, 7],
 ];
 
-/** Polygonises a field with surface nets: skips far blocks, then snaps vertices onto the surface. */
 export function surfaceNets(
     field: Field,
     min: [number, number, number],
@@ -35,7 +34,6 @@ export function surfaceNets(
     const grid = new Float32Array(nx * ny * nz);
     const sy = nx;
     const sz = nx * ny;
-    // A block whose centre is further from the surface than its half diagonal can't contain any.
     const reach = BLOCK * h * 0.87 * 1.8;
     for (let bz = 0; bz < nz; bz += BLOCK)
         for (let by = 0; by < ny; by += BLOCK)
@@ -64,7 +62,6 @@ export function surfaceNets(
     return netsFromGrid(grid, [nx, ny, nz], min, h, field);
 }
 
-/** Surface nets over a filled grid; field refines vertices and gives normals. */
 export function netsFromGrid(
     grid: Float32Array,
     [nx, ny, nz]: [number, number, number],

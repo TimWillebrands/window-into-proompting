@@ -12,15 +12,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Per-turn orchestration of a single persona's response to a triggering message:
-/// pre-gate → slot reservation → decision phase → speaking phase → terminal write,
-/// with race-cancel emote and external-cancel paths in the catch.
-///
-/// Stateless: the per-persona in-flight tracking lives in <see cref="InFlightStore"/>,
-/// passed in per call. One singleton serves every persona; the only state lives
-/// inside the store and on the chat group grain.
-/// </summary>
 public sealed class ResponsePipeline(
     IGrainFactory grainFactory,
     IMemoryRepository memoryRepository,
@@ -28,7 +19,8 @@ public sealed class ResponsePipeline(
     ILogger<ResponsePipeline> logger,
     World.Self.FollowThrough? followThrough = null,
     World.Work.Responsibilities? responsibilities = null,
-    World.Reflex.ReflexGate? reflex = null)
+    World.Reflex.ReflexGate? reflex = null,
+    SpeakingBackoff? backoff = null)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
@@ -41,18 +33,12 @@ public sealed class ResponsePipeline(
         InFlightStore store,
         CancellationToken ct)
     {
-        // Defense-in-depth: PersonaGrain already filters self-fan-out, but a stray
-        // direct call shouldn't make Vlad ruminate on Vlad's last line.
         if (triggeringMessage.SenderId == persona.Id)
             return;
 
-        // Self-as-User short-circuits here — the User-Effective rule lives in exactly one
-        // place rather than at every fan-out site (per ADR 0011).
         var partyId = await chatGroupGrain.GetPartyIdAsync();
         var roomCast = await chatGroupGrain.GetCastAsync();
 
-        // Only present, LLM-Effective Participants run the response pipeline. User-Effective
-        // is human-typed; System-Effective (Narrator) never auto-speaks (ADR 0012).
         if (roomCast.Speaker(persona.Id) is not { } self)
         {
             logger.LogDebug(
@@ -61,9 +47,6 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        // One root span per persona per triggering message. The fan-out at ChatGroupGrain
-        // does NOT wrap these in a parent span on purpose — each persona reaction is an
-        // independent root so the Aspire timeline shows them as siblings, mirroring reality.
         using var turnSpan = Tracing.Persona.StartActivity("persona.turn", ActivityKind.Internal);
         turnSpan?.SetTag("persona.id", persona.Id);
         turnSpan?.SetTag("persona.name", persona.Name);
@@ -76,8 +59,6 @@ public sealed class ResponsePipeline(
             "Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
-        // Pre-gate: snapshot history before reserving a slot so an obvious-skip persona
-        // leaves no trace in the chat (no message slot → no thought-log entry → no LLM call).
         var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue, listener: persona.Id);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
@@ -92,7 +73,6 @@ public sealed class ResponsePipeline(
         turnSpan?.SetTag("rounds.total_assistant", preRounds);
         turnSpan?.SetTag("rounds.recent_self", preRecentSelf);
 
-        // Two Personas DMing can't ping-pong forever: a long all-AI streak in one exchange ends it.
         var dmExhausted = isDirect && preRounds >= MaxDirectAiRounds;
         if (dmExhausted || UrgeMath.IsObviousSkip(preUrge, preRounds, preRecentSelf))
         {
@@ -107,8 +87,6 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        // Reflex (ADR 0031): whether this reaches them at all, and whether now is when they answer it.
-        // A human opening a quiet Room keeps its floor (see UrgeMath): nobody answering there reads as broken.
         var deliberate = false;
         var coldOpen = preUrge.ColdOpenScore > 0 && !isDirect;
         if (reflex is not null && !coldOpen && string.IsNullOrWhiteSpace(await chatGroupGrain.GetScenarioAsync()))
@@ -121,7 +99,6 @@ public sealed class ResponsePipeline(
                 await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, $"reflex: {verdict.Note}");
                 return;
             }
-            // A newer line while reading takes over: one reply to the burst, not one per line.
             if (verdict.LagMs > 0 && !await store.ReadAsync(chatGroupId, TimeSpan.FromMilliseconds(verdict.LagMs), ct))
             {
                 await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, "reflex: read on to a newer line");
@@ -134,7 +111,6 @@ public sealed class ResponsePipeline(
             preUrge.Total, deliberate, answer: false, ct);
     }
 
-    /// <summary>A human's line every listener let pass (ADR 0031): this Persona answers it, with no gate and no decline.</summary>
     public async Task AnswerAsync(
         Persona persona,
         Guid chatGroupId,
@@ -162,7 +138,6 @@ public sealed class ResponsePipeline(
             urge: null, deliberate: false, answer: true, ct);
     }
 
-    /// <summary>One turn on a line, slot to outcome: Decision phase, Speaking phase, race; <paramref name="answer"/> takes declining away.</summary>
     private async Task TurnAsync(
         Persona persona,
         Guid chatGroupId,
@@ -183,8 +158,6 @@ public sealed class ResponsePipeline(
         var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId, urge);
         turnSpan?.SetTag("result.message_id", messageId);
 
-        // Race-trigger state: register before any awaits so a concurrent NotifyMessageAsync
-        // can race against this one. Mutated in-place as decision → generation → done.
         var newCts = new CancellationTokenSource();
         var inFlight = store.Register(chatGroupId, messageId, newCts);
 
@@ -193,32 +166,18 @@ public sealed class ResponsePipeline(
 
         try
         {
-            // Single history snapshot, shared by decision + generation.
-            // Taking the snapshot at `messageId` includes any messages other personas
-            // committed between our slot reservation and our read.
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
             var scenario = await chatGroupGrain.GetScenarioAsync();
 
-            // Info-isolation is a property of ParticipantView (identity + Driver only),
-            // not a runtime contract — same roster is safe for both Decision and Speaking.
             var decisionParticipants = participantViews;
 
             await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                 MessageStreamEvent.PersonaEvaluatingResponse, persona.Id.ToString(), false);
 
-            // Consume any pending repair hint for this group — one-shot, cleared regardless
-            // of decision outcome so it can't double-fire.
             RepairHint? repairHint = store.ConsumeRepairHint(chatGroupId);
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
 
-            // ADR 0015 recall: two-arm quota union for this Persona scoped to the Party
-            // (cross-Room within one Party). The relevant arm graph-walks from the beat's
-            // anchors (present cast + Concepts named in the triggering message); the recency
-            // arm fills the remainder. Salience orders the candidates; the decision LLM
-            // still judges beat-relevance in context. Recall failure is non-fatal — log +
-            // continue with an empty list so a memory outage never blocks the persona from
-            // responding.
             var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
             var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
                 new BeatAnchors(persona.Id, partyId, presentPersonaIds, triggeringMessage.Content ?? string.Empty,
@@ -227,9 +186,6 @@ public sealed class ResponsePipeline(
             var recollections = beat.Memories;
             turnSpan?.SetTag("recall.candidate_count", recollections.Count);
 
-            // Observability (ADR 0015): the candidate set — with per-candidate arm
-            // attribution — is what makes recall misses visible; this is the
-            // embeddings-deferral contract's trigger instrument.
             if (recollections.Count > 0)
             {
                 logger.LogInformation(
@@ -239,7 +195,6 @@ public sealed class ResponsePipeline(
                         $"#{i + 1} {r.EdgeId:N}={r.Salience:F3} ({ArmTag(r.Arm)})")));
             }
 
-            // ADR 0016 stance floor for the ambient "# Where you stand" block — zero LLM calls on the beat path.
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
             var ambivalenceCount = beat.Stances.Count(s => !string.IsNullOrEmpty(s.Contrast));
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
@@ -255,11 +210,6 @@ public sealed class ResponsePipeline(
                 decision = Answering(decision);
             }
 
-            // Resolve the index pick (1-based into the numbered block; decision service
-            // already range-clamped) back to the recalled memory: snippet → speaking phase,
-            // edge id → strengthening write. When the model declined but a never-deployed
-            // relevant-arm memory sits at "they'd bring it up on their own" salience, the
-            // floor deploys it anyway (RecallDeployment — one-shot per memory).
             var (pickedMemory, autoDeployed) = RecallDeployment.ResolvePick(
                 decision.MemoryToReference, decision.Respond, recollections);
             var pickedIndex = pickedMemory is null
@@ -274,18 +224,12 @@ public sealed class ResponsePipeline(
                     persona.Name, autoDeployed ? "auto-deployed (salience floor)" : "picked",
                     pickedIndex, pickedMemory.EdgeId, pickedMemory.Salience);
 
-                // Strengthening fires on the pick, not mere surfacing (ADR 0015) — one DB
-                // write, off the beat path, so neither failure nor latency touches the reply.
                 if (pickedMemory.EdgeId != Guid.Empty)
                 {
                     _ = StrengthenPickedMemoryAsync(pickedMemory.EdgeId, persona.Name);
                 }
             }
 
-            // Candidate set + pick ride the appraisal JSON so the papertrail can show why
-            // this memory surfaced (and which surfaced-but-unpicked ones lost). Built as
-            // the same RecallSummary type the papertrail renderer deserializes, so the
-            // write and read sides share one schema.
             var recallLog = recollections.Count == 0 ? null : new RecallSummary
             {
                 Candidates = recollections.Select((r, i) => new RecallCandidateSummary
@@ -308,9 +252,6 @@ public sealed class ResponsePipeline(
                 turnSpan?.SetTag("decision.reason", decision.Reason);
                 logger.LogInformation(
                     "Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
-                // Mirror the success-path appraisal shape so the papertrail renderer can
-                // surface the gut reaction uniformly. Plain-string appraisal would fail
-                // TryParseAppraisal silently and drop the reason from the rendered output.
                 var declinedAppraisal = JsonSerializer.Serialize(new
                 {
                     personaId = persona.Id,
@@ -342,15 +283,8 @@ public sealed class ResponsePipeline(
                 }, WebOptions),
                 false);
 
-            // Decision committed to "speak". Promote the in-flight record so the race
-            // sees it as Speaking phase and has the gut/preview to feed salience.
             inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
 
-            // pickedMemory is the recollection the decision LLM picked (by index) to weave
-            // into this beat (null when nothing fit). The speaking phase receives the
-            // resolved snippet text — its contract is unchanged by the index-pick switch:
-            // decision phase selects, speaking phase executes. The gut reaction travels
-            // alongside so speaking refines a felt moment rather than re-deciding cold.
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 decision.Shortcut ? null : decision.Instruction, decision.Shortcut ? null : decision.Reason,
@@ -366,7 +300,6 @@ public sealed class ResponsePipeline(
                 recall = recallLog
             }, WebOptions);
 
-            // Nothing sayable came back (an error placeholder, only a planning note): the turn fails quietly, nothing is published.
             if (string.IsNullOrWhiteSpace(result.Message))
             {
                 turnSpan?.SetTag("decision", "unsayable");
@@ -389,9 +322,6 @@ public sealed class ResponsePipeline(
         }
         catch (OperationCanceledException)
         {
-            // Distinguish race-cancel (→ in-character emote) from external cancel via
-            // PartyGrain.CancelGenerationAsync (→ red error). The race sets RaceCancelled
-            // before tripping the CTS so this check is reliable.
             var snap = inFlight.Snapshot();
             if (snap.RaceCancelled)
             {
@@ -400,7 +330,6 @@ public sealed class ResponsePipeline(
                     "Persona {PersonaName} race-cancelled (msg {MessageId}, drafted {Chars} chars)",
                     persona.Name, messageId, snap.GeneratedText.Length);
 
-                // Cut off while still deciding: nobody saw them start, so no canned "*starts to speak*" line (ADR 0021).
                 if (string.IsNullOrWhiteSpace(snap.GeneratedText))
                 {
                     await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(JsonSerializer.Serialize(new
@@ -420,8 +349,6 @@ public sealed class ResponsePipeline(
                     var emoteService = new PersonaEmoteService(
                         grainFactory.GetGrain<ILlmRouterGrain>(0),
                         loggerFactory.CreateLogger<PersonaEmoteService>());
-                    // Use the parent ct (not linkedCt — linked is already cancelled by the race).
-                    // Stale draft, the race already paid the cost — we still want the emote.
                     emote = await emoteService.GenerateAbandonmentEmoteAsync(
                         self,
                         snap.GeneratedText,
@@ -435,8 +362,6 @@ public sealed class ResponsePipeline(
                     emote = PersonaEmoteService.GenerationFailureFallback;
                 }
 
-                // Synthesize an appraisal so the thought-log entry shows the gut reaction
-                // and notes the race outcome that produced this emote.
                 var emoteAppraisal = JsonSerializer.Serialize(new
                 {
                     personaId = persona.Id,
@@ -462,7 +387,6 @@ public sealed class ResponsePipeline(
             turnSpan?.SetStatus(ActivityStatusCode.Error, ex.Message);
             turnSpan?.SetTag("decision", "error");
             logger.LogError(ex, "Persona {PersonaName} generation failed", persona.Name);
-            // FIXME: If at some point we go public, don't send exceptions over the wire
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Failed(ex.ToString()));
         }
         finally
@@ -471,12 +395,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>
-    /// Initiative path (ADR 0018): the Persona opens their mouth unprompted — Life chose this
-    /// Room/DM and an intent. Skips the Decision phase (the choice was already made), runs the
-    /// Speaking phase with the intent as draft, and appends; the normal fan-out lets others react.
-    /// </summary>
-    /// <returns>The spoken line, or null when the Persona isn't LLM-Effective here or got cut off.</returns>
     public async Task<string?> InitiateAsync(
         Persona persona,
         Guid chatGroupId,
@@ -523,8 +441,6 @@ public sealed class ResponsePipeline(
             var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 0, stanceLimit: 5, logger, linkedCt);
-            // No memory pressed into the line: Life formed the intent with its memories in view, and a second,
-            // separately recalled one at the recency slot outranked the intent (Anne's "eaten?" grew a planner tail).
             string? memory = null;
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
@@ -534,7 +450,6 @@ public sealed class ResponsePipeline(
                 intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt,
                 roomCast.Kind == ChatGroupKinds.Place);
 
-            // Nothing sayable: the act fizzles instead of publishing a placeholder or a note.
             if (string.IsNullOrWhiteSpace(result.Message))
             {
                 logger.LogWarning("Persona {PersonaName} initiative in {ChatGroupId} produced no sayable line", persona.Name, chatGroupId);
@@ -566,7 +481,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>Decline off: their reaction stands, the silence doesn't; an unreadable decision speaks from nothing.</summary>
     internal static ShouldRespondResult Answering(ShouldRespondResult decision)
         => decision.Respond ? decision : decision with { Respond = true, Shortcut = decision.Reason.StartsWith("Fallback", StringComparison.Ordinal) };
 
@@ -582,7 +496,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>A chat line as Reflex sees it: DM, typed in a Room, or said out loud.</summary>
     private static World.Reflex.Percept PerceptOf(ChatMessage m, RoomCast cast, IReadOnlyList<ChatMessage> history, ResponseUrge urge, Guid roomId)
     {
         var views = cast.Views();
@@ -596,15 +509,9 @@ public sealed class ResponsePipeline(
             m.Content ?? string.Empty, roomId, Named: !cast.IsDirect && urge.MentionScore > 0, Context: context);
     }
 
-    // Arm attribution as logged/papertrailed (ADR 0015 two-arm union observability).
     private static string ArmTag(RecallArm arm)
         => arm == RecallArm.Relevant ? "relevant" : "recent";
 
-    /// <summary>
-    /// Fire-and-forget strengthening write (ADR 0015): a pick increments the edge's
-    /// recall_count and stamps last_recalled. Detached from the turn's cancellation scope
-    /// on purpose — a race-cancel after the pick shouldn't lose the attention signal.
-    /// </summary>
     private async Task StrengthenPickedMemoryAsync(Guid recollectionId, string? personaName)
     {
         try
@@ -642,12 +549,8 @@ public sealed class ResponsePipeline(
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
-        // Only the live exchange (or what they just scrolled back to) is in mind; older talk comes through recall.
         var held = ChatAttention.Window(history, await ReadFromAsync(chatGroupGrain, chatGroupId, self.Id)).Held;
 
-        // Wrap the streaming callback so each content chunk also feeds the in-flight
-        // record. The race-trigger snapshot reads token count + accumulated text from
-        // there to score salience and determine PNR.
         Task TrackingOnEvent(string eventType, string data, bool done)
         {
             if (eventType == LlmGenerationEvent.ContentChunk && !string.IsNullOrEmpty(data))
@@ -661,8 +564,6 @@ public sealed class ResponsePipeline(
         {
             try
             {
-                // Each retry restreams from scratch — reset the in-flight accumulator so
-                // the race sees only the current attempt's text, not the discarded one.
                 if (attempt > 0)
                     inFlight.ResetGeneratedText();
 
@@ -683,18 +584,17 @@ public sealed class ResponsePipeline(
             }
             catch (OperationCanceledException)
             {
-                throw; // manual cancel — don't retry, don't emit retry event
+                throw;
             }
             catch (Exception ex) when (attempt < maxRetries)
             {
                 logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", personaName, attempt + 1);
-                // Tell the frontend to clear any partial chunks it buffered during this attempt
-                // before the next attempt begins restreaming from scratch.
+                var wait = (backoff ?? SpeakingBackoff.Default).After(attempt + 1);
                 await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                     MessageStreamEvent.GenerationRetry,
-                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = 2 * (attempt + 1) }, WebOptions),
+                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = (int)wait.TotalSeconds }, WebOptions),
                     false);
-                await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)), ct);
+                await Task.Delay(wait, ct);
             }
         }
 
@@ -702,10 +602,8 @@ public sealed class ResponsePipeline(
         return result!;
     }
 
-    /// <summary>Lines of the live exchange a Skill has to be touched by to come to mind (ADR 0054).</summary>
     private const int SkillWindow = 4;
 
-    /// <summary>The Lived self block (ADR 0021): day, mood, battery, stale words, know-how in use, thermostat cue. Non-fatal; scenario Rooms own time and place, so no day there.</summary>
     private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
     {
         var knowHow = await KnowHowAsync(chatGroupGrain, self.Id, history);
@@ -718,7 +616,6 @@ public sealed class ResponsePipeline(
             var tiesTask = grainFactory.GetGrain<IPersonaTiesGrain>(key).RenderAsync(present.Select(p => p.Id).ToList());
             var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
             var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
-            // Money and fresh gifts (ADR 0024) only in the World, where there's a wallet to speak of.
             if (string.IsNullOrWhiteSpace(scenario))
             {
                 presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
@@ -738,7 +635,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>The one Skill the live exchange touches, as a block; both phases read the same (ADR 0054, like Stances).</summary>
     private async Task<string> KnowHowAsync(IChatGroupGrain chatGroupGrain, Guid personaId, IReadOnlyList<ChatMessage> history)
     {
         try
@@ -756,7 +652,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    /// <summary>A sleeping Body (ADR 0020) only wakes for a human; persona talk doesn't reach them.</summary>
     private async Task<bool> SleepsThroughAsync(
         IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ChatMessage> history, IReadOnlyList<ParticipantView> participants)
     {
@@ -817,7 +712,6 @@ public sealed class ResponsePipeline(
             var partyId = await chatGroupGrain.GetPartyIdAsync();
             var key = WorldKeys.Life(partyId, self.Id);
             await grainFactory.GetGrain<IPersonaSelfGrain>(key).NoteSpokeAsync(self.Chattiness);
-            // An exchange needs both sides: only people who spoke lately in this conversation count.
             var spoke = history.TakeLast(10).Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(m => m.SenderId).ToHashSet();
             var others = present.Where(p => p.Id != self.Id && p.Driver != DriverKind.System && spoke.Contains(p.Id)).Select(p => p.Id).ToList();
             if (others.Count > 0)
@@ -847,9 +741,6 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
-        // Derive from the same snapshot as `history` so the decision sees a consistent
-        // view — re-reading live grain state here could count a sibling persona's append
-        // that isn't in `history`.
         var totalAiRounds = UrgeMath.CountExchangeRounds(history);
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
@@ -891,8 +782,6 @@ public sealed class ResponsePipeline(
             Done = done
         });
 
-    /// <summary>A Place talk Room anchors recall on its Place; other Rooms don't.</summary>
-    /// <summary>The talk Room's Place as a recall anchor; non-fatal like recall itself.</summary>
     private async Task<Guid?> PlaceOfAsync(RoomCast roomCast, Guid partyId, Guid chatGroupId)
     {
         if (roomCast.Kind != ChatGroupKinds.Place) return null;
@@ -906,4 +795,10 @@ public sealed class ResponsePipeline(
             return null;
         }
     }
+}
+
+public sealed record SpeakingBackoff(Func<int, TimeSpan> After)
+{
+    public static readonly SpeakingBackoff Default = new(failed => TimeSpan.FromSeconds(2 * failed));
+    public static readonly SpeakingBackoff None = new(_ => TimeSpan.Zero);
 }

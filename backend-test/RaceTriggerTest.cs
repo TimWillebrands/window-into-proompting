@@ -8,27 +8,11 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="RaceTrigger"/> — the stop-signal race extracted from
-/// <c>PersonaGrain</c>. Covers the five race outcomes from the issue:
-///
-///   • cancel-decision   (Decision phase → always cancel)
-///   • past-pnr          (Speaking phase, tokens ≥ PnrTokens → repair hint, no cancel)
-///   • cancel-generation (Speaking pre-PNR, cancelScore &gt; 0.5 → cancel + race-cancelled flag)
-///   • continue          (Speaking pre-PNR, cancelScore ≤ 0.5 → repair hint, no cancel)
-///   • let-it-ride       (salience throws → behaves like SalienceScore.LetItRide → no cancel)
-///
-/// Strategy: real <see cref="InFlightStore"/>, mock <see cref="IChatGroupGrain"/> probe
-/// for participants + papertrail capture, mock <see cref="IGrainFactory"/> + mock
-/// <see cref="ISystemOneJudge"/> for salience (only exercised by the pre-PNR outcomes).
-/// </summary>
 public class RaceTriggerTest
 {
     private const string PersonaName = "Vlad";
     private static readonly Guid PersonaId = Guid.NewGuid();
 
-    // PNR threshold lives on RaceTrigger as a private const (80 tokens, ~4 chars/token).
-    // Generate enough chars to push past it deterministically (90 tokens worth = 360 chars).
     private const string PastPnrText =
         "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789" +
         "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789" +
@@ -55,12 +39,6 @@ public class RaceTriggerTest
 
     private static readonly Guid PartyId = Guid.NewGuid();
 
-    /// <summary>
-    /// Build a mocked <see cref="IChatGroupGrain"/> that:
-    ///   • returns the test PartyId from GetPartyIdAsync (so the sender-name resolution path
-    ///     routes through PartyGrain.GetCastAsync)
-    ///   • records every RecordRaceEvaluationAsync call into the provided outcomes list
-    /// </summary>
     private static Mock<IChatGroupGrain> MakeChatGroup(
         List<(string outcome, double? salience, double? cancelScore)> outcomes)
     {
@@ -79,7 +57,6 @@ public class RaceTriggerTest
         return mock;
     }
 
-    /// <summary>Grain factory whose party grain returns the test cast (used for sender-name resolution).</summary>
     private static Mock<IGrainFactory> MakeGrainFactory(Guid otherParticipantId, string otherParticipantName)
     {
         var partyGrain = new Mock<IPartyGrain>();
@@ -97,7 +74,6 @@ public class RaceTriggerTest
         return factory;
     }
 
-    /// <summary>System One answering the interrupt noul with <paramref name="salience"/>.</summary>
     private static Mock<ISystemOneJudge> MakeJudge(double salience, string kind)
     {
         var answers = new SystemOneAnswers();
@@ -112,13 +88,9 @@ public class RaceTriggerTest
     private static RaceTrigger MakeTrigger(Mock<IGrainFactory> factory, Mock<ISystemOneJudge> judge) =>
         new(factory.Object, NullLoggerFactory.Instance, judge.Object);
 
-    // ── outcomes ──────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task EvaluateAsync_DecisionPhase_AlwaysCancels()
     {
-        // Arrange: in-flight gen still in Decision phase. No salience call expected —
-        // the race shortcircuits to cancel.
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
@@ -131,18 +103,15 @@ public class RaceTriggerTest
         var factory = MakeGrainFactory(senderId, "Mira");
         var trigger = MakeTrigger(factory, judge);
 
-        // Act
         await trigger.EvaluateAsync(
             MakePersona(), chatGroupId, NewTrigger(senderId), chatGroup.Object, store,
             CancellationToken.None);
 
-        // Assert: gen cancelled, race-cancelled flag set, outcome recorded
         var snap = gen.Snapshot();
         Assert.True(snap.RaceCancelled);
         Assert.True(cts.IsCancellationRequested);
         Assert.Single(outcomes);
         Assert.Equal("cancel-decision", outcomes[0].Item1);
-        // Salience never consulted on decision-phase cancel.
         judge.Verify(
             j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -151,13 +120,12 @@ public class RaceTriggerTest
     [Fact]
     public async Task EvaluateAsync_SpeakingPastPnr_SetsRepairHintAndSkipsCancel()
     {
-        // Arrange: in-flight gen in Speaking phase with enough chars to push past PNR (80 tokens, ~320 chars).
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
         var gen = store.Register(chatGroupId, messageId: 7, cts);
         gen.MarkGenerationStarted("gut", "would say");
-        gen.AppendChunk(PastPnrText); // 360+ chars → 90+ tokens → past PnrTokens=80
+        gen.AppendChunk(PastPnrText);
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
@@ -166,12 +134,10 @@ public class RaceTriggerTest
         var factory = MakeGrainFactory(senderId, "Mira");
         var trigger = MakeTrigger(factory, judge);
 
-        // Act
         await trigger.EvaluateAsync(
             MakePersona(), chatGroupId, NewTrigger(senderId, "forget that"), chatGroup.Object, store,
             CancellationToken.None);
 
-        // Assert: no cancellation, repair hint stashed for next decision pass, salience never burned
         Assert.False(gen.Snapshot().RaceCancelled);
         Assert.False(cts.IsCancellationRequested);
         var hint = store.ConsumeRepairHint(chatGroupId);
@@ -187,8 +153,6 @@ public class RaceTriggerTest
     [Fact]
     public async Task EvaluateAsync_SpeakingPrePnr_HighSalience_CancelsGeneration()
     {
-        // Arrange: Speaking phase, no tokens yet (commitmentProgress=0), impulsivity=0.
-        // cancelScore = salience * (1 - 0) * (1 - 0) = salience. High salience → cancel.
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
@@ -202,13 +166,10 @@ public class RaceTriggerTest
         var factory = MakeGrainFactory(senderId, "Mira");
         var trigger = MakeTrigger(factory, judge);
 
-        // Act
         await trigger.EvaluateAsync(
             MakePersona(impulsivity: 0.0), chatGroupId, NewTrigger(senderId, "no it's broken"),
             chatGroup.Object, store, CancellationToken.None);
 
-        // Assert: race elected to cancel; race-cancelled flag set so the catch in PersonaGrain
-        // routes to the emote path instead of marking failed.
         var snap = gen.Snapshot();
         Assert.True(snap.RaceCancelled);
         Assert.True(cts.IsCancellationRequested);
@@ -221,7 +182,6 @@ public class RaceTriggerTest
     [Fact]
     public async Task EvaluateAsync_SpeakingPrePnr_LowSalience_ContinuesAndSetsRepairHint()
     {
-        // Arrange: low salience → cancelScore stays under threshold → continue branch.
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
@@ -235,12 +195,10 @@ public class RaceTriggerTest
         var factory = MakeGrainFactory(senderId, "Mira");
         var trigger = MakeTrigger(factory, judge);
 
-        // Act
         await trigger.EvaluateAsync(
             MakePersona(impulsivity: 0.5), chatGroupId, NewTrigger(senderId, "btw lunch"),
             chatGroup.Object, store, CancellationToken.None);
 
-        // Assert: no cancel, repair hint set for next decision pass, outcome "continue"
         Assert.False(gen.Snapshot().RaceCancelled);
         Assert.False(cts.IsCancellationRequested);
         var hint = store.ConsumeRepairHint(chatGroupId);
@@ -253,7 +211,6 @@ public class RaceTriggerTest
     [Fact]
     public async Task EvaluateAsync_SpeakingPrePnr_SalienceThrows_LetsItRide()
     {
-        // Arrange: the judge throws → SalienceScore.LetItRide, cancelScore 0, the draft survives.
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
@@ -270,16 +227,12 @@ public class RaceTriggerTest
         var factory = MakeGrainFactory(senderId, "Mira");
         var trigger = MakeTrigger(factory, judge);
 
-        // Act
         await trigger.EvaluateAsync(
             MakePersona(impulsivity: 0.0), chatGroupId, NewTrigger(senderId),
             chatGroup.Object, store, CancellationToken.None);
 
-        // Assert: in-flight survives. RaceCancelled stays false, CTS not tripped.
-        // Behavior matches SalienceScore.LetItRide (cancelScore=0 → continue branch).
         Assert.False(gen.Snapshot().RaceCancelled);
         Assert.False(cts.IsCancellationRequested);
-        // Outcome papertrail records "continue" with salience=0 — the LetItRide value.
         Assert.Single(outcomes);
         Assert.Equal("continue", outcomes[0].Item1);
         Assert.Equal(0.0, outcomes[0].Item2);

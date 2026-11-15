@@ -57,7 +57,6 @@ interface RealtimeStoreState {
 }
 
 export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
-    /** The handshake carries the session cookie, and a stale one would quietly mean anonymous. */
     const openWithFreshSession = async (partyId: string) => {
         await sessionToken();
         establishPartyRealtime(partyId);
@@ -127,9 +126,7 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
                     event.data,
                 ) as PartyRealtimeEnvelope;
                 handleEnvelope(partyId, envelope);
-            } catch {
-                // Ignore malformed payloads.
-            }
+            } catch {}
         });
 
         socket.addEventListener('close', () => {
@@ -272,7 +269,6 @@ export const useRealtimeConnectionStatus = (
         (state) => state.connections[partyId]?.status ?? 'disconnected',
     );
 
-/** Returns a single GenerationPhase for the most recent active generation (backward compat). */
 export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
     useStoreWithEqualityFn(
         useRealtimeStore,
@@ -290,7 +286,6 @@ export const useActiveGenerationInfo = (chatGroupId: string): GenerationPhase =>
         deepEqual,
     );
 
-/** Returns an array of GenerationPhases — one per active generation stream. */
 export const useActiveGenerationPhases = (
     chatGroupId: string,
 ): ActiveGenerationPhase[] =>

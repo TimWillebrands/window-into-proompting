@@ -2,14 +2,6 @@ using PartyTown.Grains.Generation;
 
 namespace PartyTown.Bench;
 
-/// <summary>
-/// Verifies a Bench Session end-to-end (ADR 0011): which providers are configured (from the
-/// seeded <see cref="ILlmProviderConfigGrain"/>), which models are actually reachable through
-/// the real <see cref="ILlmRouterGrain"/>, and which <see cref="JobComplexity"/> tiers have
-/// coverage. Reports "LIVE" vs "prompt-capture only" so an agent knows whether full probes
-/// will route to a model. Endpoint <c>GetModelsAsync</c> already swallows errors → empty list,
-/// so this never throws on an unreachable provider; a timeout guards a hung provider.
-/// </summary>
 public static class Doctor
 {
     public static async Task RunAsync(IGrainFactory grains, string memoryStatus)
@@ -18,8 +10,6 @@ public static class Doctor
 
         Console.WriteLine("\n=== bench doctor ===\n");
 
-        // Mirrors the LLM LIVE/tier-0 report below: Program already tried to bring up the bench's
-        // ephemeral AGE container and handed us the verdict.
         Console.WriteLine($"memory: {memoryStatus}\n");
 
         var config = grains.GetGrain<ILlmProviderConfigGrain>(0);

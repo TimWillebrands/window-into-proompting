@@ -1,6 +1,5 @@
 namespace PartyTown.Services.Memory;
 
-/// <summary>One raw STANCE edge as read back: a Participant target (TargetPersonaId) or a Concept (ConceptName).</summary>
 internal sealed record StanceEdgeRow(
     Guid Id,
     double Valence,
@@ -13,22 +12,15 @@ internal sealed record StanceEdgeRow(
     Guid? RunId,
     Guid? RetractsId);
 
-/// <summary>
-/// The Stance floor's read rules (ADR 0007/0016) as pure functions over append-only edges:
-/// latest-wins per target, retract masking, beat anchoring, ambivalence. No storage.
-/// </summary>
 internal static class StanceProjection
 {
-    /// <summary>At most this many ambivalence pairs render per beat; the rest stay plain latest-wins.</summary>
     public const int MaxAmbivalencePairs = 2;
 
-    /// <summary>Acquired + Intrinsic edges as one newest-first stream; latest-wins then spans both scopes.</summary>
     public static IReadOnlyList<StanceEdgeRow> Union(IReadOnlyList<StanceEdgeRow> acquired, IReadOnlyList<StanceEdgeRow> intrinsic)
         => acquired.Count == 0 ? intrinsic
             : intrinsic.Count == 0 ? acquired
             : acquired.Concat(intrinsic).OrderByDescending(r => r.Ts).ToList();
 
-    /// <summary>Each edge with whether it is its target's current belief (rows newest-first).</summary>
     public static IEnumerable<(StanceEdgeRow Row, bool IsCurrent)> WithCurrent(IEnumerable<StanceEdgeRow> newestFirst)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -36,10 +28,6 @@ internal static class StanceProjection
             yield return (row, seen.Add(TargetKey(row)));
     }
 
-    /// <summary>
-    /// The beat's "# Where you stand" lines: current belief per target, Participants only while present,
-    /// Concepts only when live in the anchor text, strongest first, capped; contrast for 1–2 ambivalent ones.
-    /// </summary>
     public static IReadOnlyList<StanceLine> Project(
         IReadOnlyList<StanceEdgeRow> newestFirst, IReadOnlySet<Guid> present, string? anchorText, int limit)
     {
@@ -50,7 +38,6 @@ internal static class StanceProjection
         foreach (var history in newestFirst.GroupBy(TargetKey).Select(g => g.ToList()))
         {
             var current = history[0];
-            // A retract-current target holds no belief; the neutralizing edge renders nothing.
             if (current.Origin == StanceOrigin.Retract) continue;
             var live = current.TargetPersonaId is Guid tp ? present.Contains(tp) : ConceptLive(current, words);
             if (live) anchored.Add((current, FindContradiction(current, history)));
@@ -66,10 +53,6 @@ internal static class StanceProjection
             .ToList();
     }
 
-    /// <summary>
-    /// A Concept is live when its name's (or display's) words occur consecutively in the anchor's words —
-    /// the same word stream Recall's anchors come from; whole words, never substrings ("lisp" ≠ "lisping").
-    /// </summary>
     public static bool ConceptLive(StanceEdgeRow row, IReadOnlyList<string> anchorWords)
         => (row.ConceptName is { Length: > 0 } name && ContainsRun(anchorWords, MemoryRepository.AnchorWords(name)))
             || (row.ConceptDisplay is { Length: > 0 } display && ContainsRun(anchorWords, MemoryRepository.AnchorWords(display)));
@@ -86,14 +69,9 @@ internal static class StanceProjection
         return false;
     }
 
-    /// <summary>Whole word, or its plural: "cytheurgists" cues "cytheurgist", "lisping" still doesn't cue "lisp".</summary>
     private static bool SameWord(string heard, string concept)
         => heard == concept || heard.Length == concept.Length + 1 && heard[^1] == 's' && heard.StartsWith(concept, StringComparison.Ordinal);
 
-    /// <summary>
-    /// The earlier edge that most sharply contradicts the current one (sign flip or |Δ| ≥ 1),
-    /// ties to the oldest ("you used to"); retracts never count. Null when the history is monotone.
-    /// </summary>
     public static string? FindContradiction(StanceEdgeRow current, IReadOnlyList<StanceEdgeRow> history)
     {
         StanceEdgeRow? best = null;
@@ -116,7 +94,6 @@ internal static class StanceProjection
         => (Math.Sign(current) != 0 && Math.Sign(past) != 0 && Math.Sign(current) != Math.Sign(past))
             || Math.Abs(current - past) >= 1.0;
 
-    /// <summary>Latest-wins key: Participant targets by persona id (self included), Concepts by name.</summary>
     public static string TargetKey(StanceEdgeRow row)
         => row.TargetPersonaId is Guid tp ? $"p:{tp}" : $"c:{row.ConceptName}";
 

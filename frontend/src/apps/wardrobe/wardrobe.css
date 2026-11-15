@@ -1,5 +1,3 @@
-/* Wardrobe: a boutique with a fitting room (XP gloss, Habbo catalogue, a bit of glitter). Classes are wr-*. */
-
 .wr-app {
     --wr-ink: #2d1b3d;
     --wr-muted: #7a6a8c;
@@ -17,7 +15,6 @@
     background: linear-gradient(180deg, #fdf4fb, #f1e8fb);
 }
 
-/* Striped awning */
 .wr-awning {
     position: relative;
     display: flex;
@@ -136,7 +133,6 @@
     }
 }
 
-/* Who */
 .wr-people {
     display: flex;
     gap: 6px;
@@ -207,7 +203,6 @@
     }
 }
 
-/* Fitting room and catalogue */
 .wr-body {
     display: grid;
     grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
@@ -628,7 +623,6 @@
     }
 }
 
-/* A till receipt */
 .wr-receipt {
     align-self: center;
     width: min(320px, 100%);

@@ -8,10 +8,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Places;
 
-/// <summary>
-/// The Places registry and body index of one Party (key = Party id). Single writer of "which Place
-/// is Body X in", so one-body-one-place has one owner. Plain persisted state, not event-sourced.
-/// </summary>
 public sealed partial class PlacesGrain(
     [PersistentState(stateName: "places", storageName: "parties")]
     IPersistentState<PlacesState> state,
@@ -25,9 +21,7 @@ public sealed partial class PlacesGrain(
 {
     private static readonly TimeSpan WithinPlace = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BetweenPlaces = TimeSpan.FromSeconds(15);
-    /// <summary>How long "you came over from" stays in the Situation.</summary>
     private static readonly TimeSpan JustArrived = TimeSpan.FromMinutes(30);
-    /// <summary>How soon after its arrival time a walking Body is settled; walks are short, so this is quick.</summary>
     private static readonly TimeSpan SettleEvery = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ActivityWearsOff = TimeSpan.FromMinutes(4);
     private static readonly TimeSpan BusyWithFurni = TimeSpan.FromMinutes(3);
@@ -37,7 +31,6 @@ public sealed partial class PlacesGrain(
     private readonly Dictionary<Guid, ChatGroupInfo> _rooms = new();
     private readonly HashSet<Guid> _dressing = new();
     private readonly Queue<CastMember> _dressQueue = new();
-    /// <summary>Looks brought from another World, worn by the Bodies made for them.</summary>
     private readonly Dictionary<Guid, Appearance> _adoptedLooks = new();
     private bool _dressingRuns;
     private readonly Dictionary<Guid, (int Bed, int Wake, long At)> _sleepWindows = new();
@@ -53,7 +46,6 @@ public sealed partial class PlacesGrain(
     private Guid PartyId => this.GetPrimaryKey();
     private readonly SemaphoreSlim _saving = new(1, 1);
 
-    /// <summary>Detached tasks (dressing, sleep) interleave with requests; one write at a time keeps the e-tag straight.</summary>
     private async Task SaveAsync()
     {
         await _saving.WaitAsync();
@@ -84,7 +76,6 @@ public sealed partial class PlacesGrain(
         await FollowMessagesAsync();
     }
 
-    /// <summary>Every message anyone sends shows on their Body: pipeline replies and humans typing included.</summary>
     private async Task FollowMessagesAsync()
     {
         var stream = this.GetStreamProvider(PartyStreamIds.Provider).GetStream<PartyStreamEvent>(
@@ -160,7 +151,6 @@ public sealed partial class PlacesGrain(
         if (!home.Guests.Contains(visitorId)) home.Guests.Add(visitorId);
         if (!knocked && !home.Keyholders.Contains(visitorId)) NoteDoorstep(home, visitorId);
         await SaveAsync();
-        // Someone at the door walks straight in; an invitation waits for them to come over.
         if (knocked) await MoveAsync(visitorId, home.Id, home.Spots.FirstOrDefault()?.Id);
         await PublishPlaceAsync(home);
         return true;
@@ -215,7 +205,6 @@ public sealed partial class PlacesGrain(
     public Task<bool> IsAsleepAsync(Guid participantId)
         => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var b) && b.Asleep);
 
-    /// <summary>Night walks Personas home to bed and asleep (Consolidation runs then); morning wakes them. Humans sleep on their own.</summary>
     private async Task SleepCycleAsync()
     {
         var now = Now();
@@ -259,7 +248,6 @@ public sealed partial class PlacesGrain(
     private (int Bed, int Wake) WindowFor(Guid id, long now)
     {
         if (_sleepWindows.TryGetValue(id, out var w) && now - w.At < WindowFresh.TotalMilliseconds) return (w.Bed, w.Wake);
-        // Detached: the Self grain may need an LLM call for today's day, and it calls back into us for the Situation.
         _ = RefreshWindowAsync(id);
         return _sleepWindows.TryGetValue(id, out var stale) ? (stale.Bed, stale.Wake) : Sleep.Window(id);
     }
@@ -279,7 +267,6 @@ public sealed partial class PlacesGrain(
         }
     }
 
-    /// <summary>A morning wake leaves the bed (else everyone spends the day "on the bed").</summary>
     private void GetUp(Body body)
     {
         if (body.SpotId != "bed" || state.State.Places.HomeOf(body.ParticipantId) is not { } home || body.PlaceId != home.Id) return;
@@ -297,7 +284,6 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
     }
 
-    /// <summary>A human's message wakes a sleeper; they stay up a while, groggy.</summary>
     private async Task WakeGroggyAsync(Guid participantId)
     {
         if (!state.State.Bodies.TryGetValue(participantId, out var body) || !body.Asleep) return;
@@ -305,7 +291,6 @@ public sealed partial class PlacesGrain(
         await WakeAsync(body, "woken by a message, groggy", GroggyFor);
     }
 
-    /// <summary>One at a time, so each sees how the others already dressed.</summary>
     private async Task DressInTurnAsync()
     {
         _dressingRuns = true;
@@ -323,12 +308,10 @@ public sealed partial class PlacesGrain(
     public const string AwayFromKeyboard = "away from the keyboard";
     private static readonly TimeSpan AfkAfter = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan AfkCheckEvery = TimeSpan.FromMinutes(1);
-    /// <summary>When each human was last at it; in memory, so a heartbeat costs no write.</summary>
     private readonly Dictionary<Guid, long> _seen = new();
     private long _activatedAt;
     private bool _goingAfk;
 
-    /// <param name="idle">False is also the heartbeat: they're at it.</param>
     public async Task SetIdleAsync(Guid participantId, bool idle)
     {
         if (!idle) _seen[participantId] = Now();
@@ -355,7 +338,6 @@ public sealed partial class PlacesGrain(
         return state.State.Bodies.Values.Where(b => b.Afk).Select(b => b.ParticipantId).ToList();
     }
 
-    /// <summary>Humans not at it for <see cref="AfkAfter"/> go AFK; nested settles skip it while that walks people about.</summary>
     private async Task GoneQuietAsync(long now)
     {
         if (_goingAfk) return;
@@ -374,7 +356,6 @@ public sealed partial class PlacesGrain(
         }
     }
 
-    /// <summary>Walks home and, with nobody else living there at it, closes up: guests out, knocks dropped.</summary>
     private async Task GoAfkAsync(Body body)
     {
         body.Afk = true;
@@ -395,7 +376,6 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
     }
 
-    /// <summary>A Player goes on auto: their look stays theirs, and nobody's left dozing at the screen.</summary>
     public async Task HandOverAsync(Guid participantId)
     {
         await SyncCastAsync();
@@ -460,13 +440,11 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
     }
 
-    /// <summary>Once per Persona: they pick their look from their bio. Detached; the default stands meanwhile.</summary>
     private async Task DressAsync(CastMember who)
     {
         try
         {
             if (state.State.Bodies.GetValueOrDefault(who.Id) is { } dressed && OwnLook(dressed) is { FromBio: true, Design: not null }) return;
-            // Others' looks so far: a small world reads better when people don't all pick the same hair.
             var others = state.State.Bodies.Values
                 .Where(b => b.ParticipantId != who.Id && OwnLook(b) is { FromBio: true })
                 .Select(b => (b.Name, Look: OwnLook(b)))
@@ -490,7 +468,6 @@ public sealed partial class PlacesGrain(
         }
     }
 
-    /// <summary>Palette picks and the design from one answer, laid over the look as it was.</summary>
     private static Appearance Dressed(Appearance before, System.Text.Json.Nodes.JsonObject answer, string? design)
     {
         var picks = answer["picks"] as System.Text.Json.Nodes.JsonObject ?? answer;
@@ -542,7 +519,6 @@ public sealed partial class PlacesGrain(
             .ToList());
     }
 
-    /// <summary>Those in the Place but out of Earshot notice the talk; System One reads tone and their name, never the words.</summary>
     private void NoteOverheard(Guid talkRoomId, ChatMessage m)
     {
         if (m.HeardBy is not { } heard) return;
@@ -648,7 +624,6 @@ public sealed partial class PlacesGrain(
         if (!state.State.Bodies.TryGetValue(participantId, out var body)) return null;
         if (Find(placeId) is not { } found) return null;
         var place = Resolved(found);
-        // Locales are reached by going away (GoAwayAsync), never by walking over.
         if (place.Kind == PlaceKinds.Locale) return null;
         return await WalkAsync(body, place, place == found ? spotId : null);
     }
@@ -702,7 +677,6 @@ public sealed partial class PlacesGrain(
         await SyncCastAsync();
         await SettleAsync();
         if (!state.State.Bodies.TryGetValue(otherId, out var other)) return null;
-        // Going to someone behind a closed door means knocking: "on my way" shouldn't just fizzle.
         if (Find(other.DestPlaceId ?? other.PlaceId) is { } behind && !MayEnter(behind, participantId))
         {
             await KnockAsync(participantId, behind.Id);
@@ -731,11 +705,9 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
     }
 
-    /// <summary>The activity is using a device (see <see cref="DeviceUse"/>).</summary>
     public static bool OnDevice(string? activity)
         => activity is not null && (activity.StartsWith("on their phone", StringComparison.Ordinal) || activity.StartsWith("at their laptop", StringComparison.Ordinal));
 
-    /// <summary>Online Apps are used on a device, and that shows on the Body. Phone unless at home.</summary>
     internal static string? DeviceUse(string app, bool atHome) => app switch
     {
         "messenger" => "on their phone, texting",
@@ -793,7 +765,6 @@ public sealed partial class PlacesGrain(
         return $"{Features.Third(what)} {AtName(place, Guid.Empty)}{(text.Length > 0 ? $": {text}" : string.Empty)}";
     }
 
-    /// <summary>Doing something with it means being next to it.</summary>
     private void StepTo(Body body, Place place, Furni furni)
     {
         if (body.SpotId == furni.SpotId || PickSpot(place, furni.SpotId, body.ParticipantId)?.Id != furni.SpotId) return;
@@ -801,7 +772,6 @@ public sealed partial class PlacesGrain(
         body.Posture = place.Spots.FirstOrDefault(s => s.Id == furni.SpotId)?.Seat == true ? Posture.Sitting : Posture.Standing;
     }
 
-    /// <summary>Rule-based mishaps: now and then a machine somewhere public breaks, announced as a Happening.</summary>
     private void MaybeMishap(long now)
     {
         if (state.State.NextMishapAt == 0)
@@ -844,7 +814,6 @@ public sealed partial class PlacesGrain(
     private void EnsureFurni(Place place)
     {
         if (place.Furni.Count == 0) place.Furni = FurniRules.SeedFor(place, Now());
-        // Things to do (ADR 0049) reach Places that were there before them: the seeded ones by name, designed ones from what's in their scene.
         foreach (var f in FurniRules.SeededFeatures(place, Now()))
             if (place.Furni.FirstOrDefault(x => x.Id == f.Id) is { } had) (had.Do, had.Gives, had.Leaves) = (f.Do, f.Gives, f.Leaves);
             else place.Furni.Add(f);
@@ -863,7 +832,6 @@ public sealed partial class PlacesGrain(
         }
     }
 
-    /// <summary>Spots stored before <see cref="Spot.At"/> existed get it from the seed templates.</summary>
     private void BackfillPrepositions()
     {
         var template = PlaceSeeds.Public().Concat(new[] { PlaceSeeds.Home(Guid.Empty, "x") })
@@ -872,7 +840,6 @@ public sealed partial class PlacesGrain(
             if (spot.At == "at" && template.TryGetValue(spot.Id, out var at)) spot.At = at;
     }
 
-    /// <summary>Worlds seeded before a public Place existed get it; older Places get their scene by name or kind.</summary>
     private bool AddNewPublicPlaces()
     {
         var seeds = PlaceSeeds.Public();
@@ -884,7 +851,6 @@ public sealed partial class PlacesGrain(
         return added.Count > 0 || unscened.Count > 0;
     }
 
-    /// <summary>One Body per Participant (Narrator excluded); a Home for each, created on demand.</summary>
     private async Task SyncCastAsync()
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(PartyId).GetCastAsync();
@@ -933,7 +899,6 @@ public sealed partial class PlacesGrain(
                 body.Appearance = AppearanceRules.Default(c.Id);
                 changed = true;
             }
-            // No Design yet is a look from before Figures: same person, drawn anew.
             var own = OwnLook(body);
             if ((!own.FromBio || own.Design is null) && !own.Kept && c.DefaultDriver == DriverKind.LLM && _dressing.Add(c.Id))
                 _dressQueue.Enqueue(c);
@@ -943,7 +908,6 @@ public sealed partial class PlacesGrain(
         foreach (var id in gone) state.State.Bodies.Remove(id);
         changed |= ReleaseHousemates(state.State.Bodies.Keys.ToHashSet());
         foreach (var place in state.State.Places) changed |= place.Keyholders.RemoveAll(id => !state.State.Bodies.ContainsKey(id)) > 0;
-        // A Home goes with its owner once nobody's in it.
         state.State.Places.RemoveAll(p => p.Kind == PlaceKinds.Home && p.OwnerId is { } owner
             && present.All(c => c.Id != owner) && !Occupants(p.Id).Any());
         if (!changed && gone.Count == 0) return;
@@ -952,12 +916,10 @@ public sealed partial class PlacesGrain(
             await SyncTalkRoomAsync(placeId);
     }
 
-    /// <summary>Bodies whose walk is over arrive: posture from the spot, Place talk cast follows.</summary>
     private Task<bool> StoppedAsync() => GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty).IsStoppedAsync(PartyId);
 
     private async Task SettleAsync()
     {
-        // A stopped World stays as it was left: no mishaps, nobody arrives.
         if (await StoppedAsync()) return;
         var now = Now();
         foreach (var b in state.State.Bodies.Values.Where(b => b.ActivityUntil <= now))
@@ -997,7 +959,6 @@ public sealed partial class PlacesGrain(
         foreach (var body in arrived) NoticeArrival(body);
     }
 
-    /// <summary>Those already here perceive who just came up; detached, since Reflex reads this grain.</summary>
     private void NoticeArrival(Body arrived)
     {
         var talkRoom = Find(arrived.PlaceId)?.TalkRoomId;
@@ -1032,7 +993,6 @@ public sealed partial class PlacesGrain(
         }, new GrainTimerCreationOptions(SettleEvery, SettleEvery) { KeepAlive = true });
     }
 
-    /// <summary>The Place talk Room's cast is whoever is there (not on their way out).</summary>
     private async Task SyncTalkRoomAsync(Guid placeId)
     {
         var place = Find(placeId);
@@ -1057,7 +1017,6 @@ public sealed partial class PlacesGrain(
         => !place.IsClosed() || place.Hosts().Contains(participantId) || place.Guests.Contains(participantId) || place.Keyholders.Contains(participantId)
             || place.Allowed.Contains(participantId);
 
-    /// <summary>The closed Place they're at and host, else their Home: where a knock or an invitation means.</summary>
     private Place? HostedBy(Guid host)
         => state.State.Bodies.TryGetValue(host, out var body) && Find(body.DestPlaceId ?? body.PlaceId) is { Kind: not PlaceKinds.Home } here
             && here.IsClosed() && here.Hosts().Contains(host)
@@ -1089,13 +1048,11 @@ public sealed partial class PlacesGrain(
         var place = Find(body.PlaceId);
         if (body.Asleep) return $"You're asleep in bed {AtName(place, body.ParticipantId)}.";
         if (place is { Kind: PlaceKinds.Locale }) return AwaySituation(body, place);
-        // Own Home's shape bounds "here", so a sheet's canal house can't add an upstairs.
         var home = place?.LivesIn(body.ParticipantId) == true;
         var shape = home && place!.Description is { Length: > 0 } about ? $" ({about})" : string.Empty;
         var sb = new StringBuilder($"You're {AtName(place, body.ParticipantId)}{shape}, {PostureAt(place, body)}");
         if (body.Activity is { Length: > 0 } activity) sb.Append($", {Yours(activity)}");
         sb.Append('.');
-        // Getting here is something you did: without it, what you said before you left reads as where you are.
         if (body.LeftFrom is { } left && left != body.PlaceId && Now() - body.ArrivedAt < JustArrived.TotalMilliseconds && Find(left) is { } leftPlace)
         {
             var ago = WorldStream.Ago(body.ArrivedAt, DateTimeOffset.FromUnixTimeMilliseconds(Now()));
@@ -1118,7 +1075,6 @@ public sealed partial class PlacesGrain(
         foreach (var (f, mark) in (place?.Furni ?? new()).SelectMany(f => Features.Marks(f, body.ParticipantId, Now()).Take(1).Select(m => (f, m))).Take(2))
             sb.Append($" Left at {f.Name} by {mark.ByName.Split(' ')[0]}: \"{WorldStream.Clip(mark.Text, 120)}\".");
         if (place is { Lately.Length: > 0 } && Now() - place.LatelyAt < HappeningRules.Fresh.TotalMilliseconds) sb.Append(" Just now here: ").Append(place.Lately);
-        // Someone else's Home shows who they are, and a Studio shows the work.
         if (place is { Kind: PlaceKinds.Home } && !place.LivesIn(body.ParticipantId) || place?.Archetype == Art.Studio)
         {
             var shown = place!.Furni.Where(f => f.Kind == FurniKinds.Decor).OrderByDescending(f => f.TendedAt).Take(2).Select(f => f.Name).ToList();
@@ -1182,92 +1138,61 @@ public interface IPlacesGrain : IGrainWithGuidKey
 {
     [Alias("GetSnapshotAsync")] Task<PlacesSnapshot> GetSnapshotAsync();
 
-    /// <summary>One line: where the Participant is and who's around. Null when they have no Body.</summary>
     [Alias("GetSituationAsync")] Task<string?> GetSituationAsync(Guid participantId);
 
-    /// <summary>Days before today, of the last week, they were at this Place (ADR 0057).</summary>
     [AlwaysInterleave, Alias("GetFamiliarityAsync")] Task<int> GetFamiliarityAsync(Guid participantId, Guid placeId);
 
-    /// <summary>Something happened at this Place: news to whoever's there while it's fresh.</summary>
     [Alias("NoteHappeningAsync")] Task NoteHappeningAsync(Guid placeId, string text);
 
-    /// <summary>Start walking to a spot (null = any free one). Null when not allowed or full.</summary>
     [Alias("MoveAsync")] Task<Body?> MoveAsync(Guid participantId, Guid placeId, string? spotId);
 
-    /// <summary>Walk over to another Body's spot.</summary>
     [Alias("JoinAsync")] Task<Body?> JoinAsync(Guid participantId, Guid otherId);
 
-    /// <summary>The Place a Body is settled in; null while walking or without a Body.</summary>
     [Alias("GetPlaceOfAsync")] Task<Guid?> GetPlaceOfAsync(Guid participantId);
 
-    /// <summary>Which Place a Place talk Room belongs to; null for any other Room.</summary>
     [Alias("GetPlaceOfTalkRoomAsync")] Task<Guid?> GetPlaceOfTalkRoomAsync(Guid talkRoomId);
 
-    /// <summary>Use or care for a furni where the Body is. Returns the activity line, null when not possible.</summary>
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
 
-    /// <summary>Put something up in your own Home, from your own words. Null when not home or over today's allowance.</summary>
-    /// <summary>Someone does a Feature's thing and this is what they came away with; the line for the feed, or null when they can't.</summary>
     [Alias("DoFeatureAsync")] Task<string?> DoFeatureAsync(Guid participantId, Guid placeId, string furniId, string take);
     [Alias("DecorateAsync")] Task<string?> DecorateAsync(Guid participantId, string description);
 
-    /// <summary>A human's tab went idle (their Body dozes off) or came back.</summary>
     [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);
-    /// <summary>Humans gone AFK: home, door shut, not available.</summary>
     [Alias("GetAfkAsync")] Task<List<Guid>> GetAfkAsync();
 
-    /// <summary>Choose a look by hand (a Player for themselves, or the author for anyone). Off-palette choices are ignored.</summary>
     [Alias("HandOverAsync")] Task HandOverAsync(Guid participantId);
     [Alias("SetAppearanceAsync")] Task<Appearance?> SetAppearanceAsync(Guid participantId, Dictionary<string, string?> picked);
-    /// <summary>Moving in from another World: Bodies wear the looks they had there, so nobody's drawn anew.</summary>
     [Alias("AdoptLooksAsync")] Task AdoptLooksAsync(Dictionary<Guid, Appearance> looks);
-    /// <summary>Moving in from another World: Places brought as made, Districts by name; a Home brought replaces one made meanwhile.</summary>
     [Alias("AdoptPlacesAsync")] Task AdoptPlacesAsync(List<Place> places, List<District> districts);
 
-    /// <summary>Author: have one Persona (or all) dress again from their bio, one at a time.</summary>
     [Alias("RedressAsync")] Task RedressAsync(Guid? participantId);
 
-    /// <summary>Knock on someone's Home; only when they're in and awake.</summary>
     [Alias("KnockAsync")] Task<bool> KnockAsync(Guid visitorId, Guid homeId);
 
-    /// <summary>The owner lets a knocker in (they walk in) or invites someone over (they may come).</summary>
     [Alias("LetInAsync")] Task<bool> LetInAsync(Guid ownerId, Guid visitorId);
 
-    /// <summary>Who's knocking at this owner's door (last 10 min).</summary>
     [Alias("GetKnocksAsync")] Task<List<Guid>> GetKnocksAsync(Guid ownerId);
 
-    /// <summary>Who's asleep right now (runs the night/morning cycle first). The World clock skips them.</summary>
     [Alias("GetAsleepAsync")] Task<List<Guid>> GetAsleepAsync();
 
-    /// <summary>Read-only; safe to call from grains Places itself calls (Self).</summary>
     [AlwaysInterleave, Alias("IsAsleepAsync")] Task<bool> IsAsleepAsync(Guid participantId);
-    /// <summary>One Body as it stands, with no settling: safe from anything Places itself calls.</summary>
     [AlwaysInterleave, Alias("GetBodyAsync")] Task<Body?> GetBodyAsync(Guid participantId);
 
-    /// <summary>The Participant's next utterance goes at this volume (to one addressee for a whisper). Holds 2 min.</summary>
     [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);
 
-    /// <summary>Who hears an utterance in a Place talk Room right now; null when not a Place or no settled Body. Read-only.</summary>
     [AlwaysInterleave, Alias("EarshotAsync")] Task<EarshotResult?> EarshotAsync(Guid talkRoomId, Guid speakerId);
 
-    /// <summary>Talk this Participant noticed but couldn't make out, in the Place they're in.</summary>
     [Alias("GetOverheardAsync")] Task<List<Overheard>> GetOverheardAsync(Guid participantId);
 
-    /// <summary>Someone used an online App; their Body shows the device for a few minutes.</summary>
     [Alias("NoteActivityAsync")] Task NoteActivityAsync(Guid participantId, string app);
 
-    /// <summary>A pose at the Body's spot (null ends it); pair poses take someone at the same spot. Returns what it reads as, or null when not afforded.</summary>
     [Alias("SetPoseAsync")] Task<string?> SetPoseAsync(Guid participantId, string? pose, Guid? with);
 
-    /// <summary>Change a look from words ("dye my hair pink"), within the palette.</summary>
     [Alias("RestyleAsync")] Task<RestyleResult?> RestyleAsync(Guid participantId, string intent);
-    /// <summary>Into work clothes over their own look, which waits on the Body; false when there's nothing to change into.</summary>
     [Alias("ChangeForWorkAsync")] Task<bool> ChangeForWorkAsync(Guid participantId, WorkClothes clothes);
-    /// <summary>Out of work clothes, back into their own look exactly; false when they weren't in any.</summary>
     [Alias("ChangeBackAsync")] Task<bool> ChangeBackAsync(Guid participantId);
     [Alias("DressAsync")] Task<RestyleResult?> DressAsync(Guid participantId, string look);
 
-    /// <summary>A new thing in a Place, with a generated model arriving shortly after.</summary>
     [Alias("AddThingAsync")] Task<FurniView?> AddThingAsync(Guid placeId, Guid? ownerId, string description);
     [Alias("AddMadeThingAsync")] Task<FurniView?> AddMadeThingAsync(Guid placeId, Guid? ownerId, string description, string model, Offer? offer = null);
 
@@ -1279,97 +1204,66 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     [Alias("SetPlaceStyleAsync")] Task<bool> SetPlaceStyleAsync(Guid participantId, Guid placeId, string? wall, string? floor);
 
-    /// <summary>A generated public Place from a description (validated scene); null when it couldn't be made.</summary>
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, PlaceDraft draft);
 
     [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
     [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
 
-    /// <summary>Thing descriptions the catalogue couldn't draw, newest first: the curation queue.</summary>
     [Alias("GetCatalogueMissesAsync")] Task<List<string>> GetCatalogueMissesAsync();
 
-    /// <summary>Resolve-or-create an offscreen Locale by name (ADR 0027); "work" for someone becomes their own. A Place by that name, or one System One judges it means, wins.</summary>
     [Alias("LocaleAsync")] Task<Guid> LocaleAsync(string name, Guid? forParticipant);
 
-    /// <summary>A Locale under exactly this name, never judged the same as another Place: a new Company's office.</summary>
     [Alias("NamedLocaleAsync")] Task<Guid> NamedLocaleAsync(string name);
 
-    /// <summary>Every Locale System One judges a drawn Place already there folds into it; "locale → place" for each.</summary>
     [Alias("SweepSameAsync")] Task<List<string>> SweepSameAsync();
 
-    /// <summary>Walk out to a Locale and be away there ("at work"); a drawn Place id just walks there, to a Staff spot if any.</summary>
     [Alias("GoAwayAsync")] Task<Body?> GoAwayAsync(Guid participantId, Guid localeId, string? activity);
 
-    /// <summary>Back from a Locale to the Place left, else home. A Body that isn't away stays put.</summary>
     [Alias("ReturnAsync")] Task<Body?> ReturnAsync(Guid participantId);
 
-    /// <summary>What the Body is busy with ("working"); null lasts until changed.</summary>
     [Alias("SetActivityAsync")] Task<Body?> SetActivityAsync(Guid participantId, string? activity, TimeSpan? lasts);
 
-    /// <summary>Resolve-or-create a Locale and, if it has no District yet, place it in this one ("Zuid").</summary>
     [Alias("LocaleInAsync")] Task<Guid> LocaleInAsync(string name, Guid? forParticipant, string? district);
 
-    /// <summary>Names for the Day prompt: Places in your District, Locales you've been to, and the busiest Locales. Read-only.</summary>
     [AlwaysInterleave, Alias("GetKnownPlacesAsync")] Task<List<string>> GetKnownPlacesAsync(Guid participantId);
 
-    /// <summary>Distinct local days in the last 7 the Participant spent time at each Place or Locale.</summary>
     [Alias("GetVisitDaysAsync")] Task<Dictionary<Guid, int>> GetVisitDaysAsync(Guid participantId);
 
-    /// <summary>Open a Locale as a drawn Place from a kit (null archetype = guess from its name); same id. Null when it can't.</summary>
     [Alias("OpenAsync")] Task<Place?> OpenAsync(Guid localeId, string? archetype, string reason);
 
-    /// <summary>Author veto: an opened Place goes back to being a Locale; anyone there is away there again.</summary>
     [Alias("CloseAsync")] Task<bool> CloseAsync(Guid placeId);
 
-    /// <summary>Resolve-or-create a District by name ("Zuid"); returns its slug id.</summary>
     [Alias("DistrictAsync")] Task<string> DistrictAsync(string name);
 
-    /// <summary>Concept tags from a captured moment: footfall for each speaker on Locales they name; wakes quiet opened Places.</summary>
     [Alias("NoteTopicsAsync")] Task NoteTopicsAsync(List<string> topics, List<Guid> speakers);
 
-    /// <summary>A host hands someone a key (ADR 0036); false unless it's theirs to give.</summary>
     [Alias("GiveKeyAsync")] Task<bool> GiveKeyAsync(Guid hostId, Guid toId, Guid placeId);
 
-    /// <summary>A key is gone, given back or taken back; false when they held none.</summary>
     [Alias("DropKeyAsync")] Task<bool> DropKeyAsync(Guid holderId, Guid placeId);
 
-    /// <summary>"# Keys": what this person holds and who holds theirs. Only the two involved see it.</summary>
     [AlwaysInterleave, Alias("GetKeyLinesAsync")] Task<string> GetKeyLinesAsync(Guid who);
 
-    /// <summary>Finish a Piece at the easel here; it joins the work on show. Null without an easel, or past today's allowance.</summary>
     [Alias("MakeArtAsync")] Task<string?> MakeArtAsync(Guid participantId, string description);
 
-    /// <summary>Author: this Place or Locale is someone's now, under a new name if given. Null for Homes.</summary>
-    /// <param name="closed">Theirs alone: guests by invitation, and anyone else there goes home.</param>
     [Alias("ClaimAsync")] Task<Place?> ClaimAsync(Guid placeId, Guid madeBy, string? name, bool closed = false);
 
-    /// <summary>Someone's Occupation is at this Place now (null = nowhere); they host its door (ADR 0041).</summary>
     [Alias("WorkAtAsync")] Task WorkAtAsync(Guid participantId, Guid? placeId);
 
-    /// <summary>Author: a workplace's door and its access list; whoever may no longer be there heads home. Null for Homes.</summary>
     [Alias("SetAccessAsync")] Task<Place?> SetAccessAsync(Guid placeId, string access, List<Guid> allowed);
 
-    /// <summary>A Session or Gathering at a workplace lets its people in as guests (until the last staffer leaves), if its host may enter.</summary>
     [Alias("ExpectAsync")] Task ExpectAsync(Guid placeId, Guid hostId, List<Guid> participantIds);
 
-    /// <summary>Design a Home for two (ADR 0035): they move in, the Homes they had are removed. Null when the design fails or someone else lives there.</summary>
     [Alias("BuildHomeAsync")] Task<Place?> BuildHomeAsync(Guid hostId, Guid mateId, string description);
     [Alias("RedesignPlaceAsync")] Task<Place?> RedesignPlaceAsync(Guid placeId, PlaceDraft draft, string? name);
 
-    /// <summary>The mover leaves their Home empty and shares the host's (ADR 0035); false when they share one already.</summary>
     [Alias("MoveInAsync")] Task<bool> MoveInAsync(Guid moverId, Guid hostId);
 
-    /// <summary>Whoever moved in goes back to their own Home; false when these two don't share one.</summary>
     [Alias("SeparateAsync")] Task<bool> SeparateAsync(Guid aId, Guid bId);
 
-    /// <summary>Where someone lives (ADR 0027): their Home moves into that District, made if new.</summary>
     [Alias("SetHomeDistrictAsync")] Task<bool> SetHomeDistrictAsync(Guid ownerId, string district);
-    /// <summary>A Home's new name and/or District, layout kept; null when it isn't a Home.</summary>
     [Alias("MoveHomeAsync")] Task<Place?> MoveHomeAsync(Guid placeId, string? name, string? district);
 
-    /// <summary>Every District's name, for prompts that should reuse them. Read-only.</summary>
     [AlwaysInterleave, Alias("GetDistrictNamesAsync")] Task<List<string>> GetDistrictNamesAsync();
 
-    /// <summary>Put a Place or Locale in a District; false when either is unknown.</summary>
     [Alias("SetDistrictAsync")] Task<bool> SetDistrictAsync(Guid placeId, string districtId);
 }

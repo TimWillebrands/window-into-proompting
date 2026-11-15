@@ -12,7 +12,6 @@ import {
     type V3,
 } from './sdf';
 
-/** [lonMin, lonMax, latMin, latMax] of each named patch of scalp, degrees. */
 const ZONES: Record<HairZoneName, [number, number, number, number]> = {
     crown: [-180, 180, 62, 90],
     top: [-110, 110, 40, 75],
@@ -48,7 +47,6 @@ const hexRgb = (hex: string): V3 => {
 
 const STEPS = 10;
 
-/** Blurs vertex colours over the mesh, so lock boundaries read as soft instead of speckled. */
 export function smoothColours(
     indices: Uint32Array,
     colors: Float32Array,
@@ -80,12 +78,10 @@ export function smoothColours(
 
 interface Lock {
     path: V3[];
-    /** Radius along the path. */
     radius: number[];
     colour: (f: number) => V3;
 }
 
-/** Grows locks from the scalp, then sculpts them into one chunky solid: gravity, sweep and curl, pushed clear of the skull. */
 export function growHair(
     a: Anatomy,
     doc: HairDoc,
@@ -111,7 +107,6 @@ export function growHair(
             p[1] += n[1] * push;
             p[2] += n[2] * push;
         }
-        // Lie on the clothes, not through them.
         const body = Math.min(
             a.trunk(p[0], p[1], p[2]),
             worn(p[0], p[1], p[2]),
@@ -139,7 +134,6 @@ export function growHair(
             Math.sin(la),
             Math.cos(lo) * Math.cos(la),
         ]);
-        // Walk out from inside the skull to find the scalp along this ray.
         const root: V3 = [c[0], c[1] + 0.07 * s, c[2] - 0.02 * s];
         for (let i = 0; i < 48; i++) {
             const d = a.skull(root[0], root[1], root[2]);
@@ -153,7 +147,6 @@ export function growHair(
         const fat = zone.width * s * 0.5 * (0.85 + r() * 0.3);
         const step = len / STEPS;
         const wob = (r() - 0.5) * 0.5;
-        // Down the scalp, as a comb would take it.
         const slide = norm([
             -out[0] * out[1],
             1 - out[1] * out[1] + 0.001,
@@ -218,14 +211,12 @@ export function growHair(
         const r = rng(zi * 977 + 13);
         const n = Math.round(clamp(zone.count, 1, 60));
         for (let i = 0; i < n; i++) {
-            // Even-ish scatter across the patch, front to back.
             const lon = mix(box[0], box[1], (i + 0.15 + r() * 0.7) / n);
             const lat = mix(box[2], box[3], r());
             locks.push(grow(zone, zi * 131 + i * 17 + 3, lon, lat));
         }
     });
 
-    // The sculpting grid: tight round the hair, not the whole Figure.
     const min: V3 = [c[0] - 0.56 * s, c[1] - 0.46 * s, c[2] - 0.6 * s];
     const max: V3 = [c[0] + 0.56 * s, c[1] + 0.68 * s, c[2] + 0.62 * s];
     for (const l of locks)

@@ -2,7 +2,6 @@ import type { Persona } from '../../../api/model';
 import { useIsAdmin } from '../../../lib/world';
 import { canMoveIn, useResidency, useResidents } from '../residence';
 
-/** Whether this Persona lives in the World, and the way in or out. */
 export default function Residence({
     persona,
     unsaved,
@@ -50,7 +49,6 @@ export default function Residence({
                 {isAdmin && !lives ? (
                     <button
                         type="button"
-                        // Name and look are fixed on arrival.
                         disabled={isPending || unsaved}
                         title={unsaved ? 'Save your changes first' : undefined}
                         onClick={() => moveIn(id)}

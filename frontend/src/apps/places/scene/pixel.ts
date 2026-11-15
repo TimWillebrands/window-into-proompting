@@ -30,11 +30,9 @@ import {
     type WebGPURenderer,
 } from 'three/webgpu';
 
-/** The house look (ADR 0023): one pixel per two CSS pixels, drawn low-res and scaled up by `Pixelate`. */
 export const PIXEL_DPR = 0.5;
 export const PIXEL_STYLE = { imageRendering: 'pixelated' } as const;
 
-/** The canvas's device pixel ratio, kept current across browser zoom and screen moves. */
 export function usePixelDpr(): number {
     const [dpr, setDpr] = useState(() => window.devicePixelRatio || 1);
     useEffect(() => {
@@ -46,18 +44,15 @@ export function usePixelDpr(): number {
     return dpr;
 }
 
-/** The pixel grid a canvas last drew on. */
 export interface PixelGrid {
     width: number;
     height: number;
-    /** World units per pixel; 0 under a perspective camera, where nothing snaps. */
     step: number;
     right: THREE.Vector3;
     up: THREE.Vector3;
     forward: THREE.Vector3;
 }
 
-/** Any renderer: R3F types its `gl` as WebGL's whatever it is. */
 type Gl = object;
 
 const grids = new WeakMap<Gl, PixelGrid>();
@@ -66,7 +61,6 @@ export const pixelGrid = (gl: Gl): PixelGrid | null => grids.get(gl) ?? null;
 
 const world = new THREE.Vector3();
 
-/** Puts an object's origin on a whole pixel, sliding along the view so its height stays. */
 export function snapToPixel(gl: Gl, o: THREE.Object3D) {
     const g = grids.get(gl);
     if (!g?.step || Math.abs(g.forward.y) < 0.1) return;
@@ -89,7 +83,6 @@ const OUTLINE = 0.45;
 const RIM = 0.3;
 const CREASE = 0.18;
 
-/** Skipped by the normal pass: what writes no depth would disagree with the depth it's read against. */
 function noDepth(o: THREE.Object3D): boolean {
     if ((o as THREE.Points).isPoints || (o as THREE.Line).isLine) return true;
     if ((o as THREE.Sprite).isSprite) return true;
@@ -102,13 +95,11 @@ function noDepth(o: THREE.Object3D): boolean {
 
 const unpack = (n: Node) => n.rgb.mul(2).sub(1).normalize();
 
-/** A pass material: no depth, no tone mapping, just the node's colour, alpha kept. */
 const pass = (colorNode: Node) => {
     const m = new MeshBasicNodeMaterial({
         depthTest: false,
         depthWrite: false,
         toneMapped: false,
-        // Opaque node materials write alpha 1; this keeps it without blending.
         transparent: true,
         blending: THREE.NoBlending,
     });
@@ -155,7 +146,6 @@ class Pixelator {
         forward: new THREE.Vector3(),
     };
 
-    /** Dark outlines where the far side drops away, a lit rim on convex corners, a shade in creases. */
     private edges(): Node {
         const colour = (q: Node) => texture(this.color.texture, q);
         const depth = (q: Node) =>
@@ -171,7 +161,6 @@ class Pixelator {
         const size = at(uv.add(vec2(px.x, 0)), d)
             .sub(p)
             .length();
-        // A surface seen edge-on steps far between pixels without being an edge.
         const slope = min(
             sqrt(max(n.z.mul(n.z).oneMinus(), 0)).div(max(n.z, 0.05)),
             8,
@@ -190,11 +179,9 @@ class Pixelator {
             const dq = depth(q);
             const pq = at(q, dq);
             const nq = normal(q);
-            // A face under two pixels wide (a floor seam's side) is detail, not a corner.
             const beyond = normal(q.add(o));
             const behind = p.z.sub(pq.z);
             const away = behind.greaterThan(reach);
-            // One side of the seam only, the one facing up and right, so lines stay one pixel wide.
             const corner = dq
                 .lessThan(1)
                 .and(abs(behind).lessThanEqual(reach))
@@ -216,9 +203,7 @@ class Pixelator {
         return d.greaterThanEqual(1).select(c, vec4(col, c.a));
     }
 
-    /** Whole pixels, blended only across the one screen pixel where two meet, so any scale and sub-pixel shift stays crisp. */
     private upscale(): Node {
-        // Screen pixels from the bottom left, the way the camera's up runs.
         const frag = vec2(
             screenCoordinate.x,
             screenSize.y.sub(screenCoordinate.y),
@@ -231,7 +216,6 @@ class Pixelator {
         return texture(this.edged.texture, vec2(at.x, at.y.oneMinus()));
     }
 
-    /** The low-res camera: the real one widened by the margin, and for ortho moved onto whole pixels. */
     private view(
         camera: THREE.Camera,
         w: number,
@@ -301,7 +285,6 @@ class Pixelator {
         gl.getDrawingBufferSize(this.buffer);
         const bw = this.buffer.x;
         const bh = this.buffer.y;
-        // Whole screen pixels per pixel, so none come out wider than the rest.
         const n = Math.max(1, Math.round(gl.getPixelRatio() / PIXEL_DPR));
         const w = Math.ceil(bw / n) + 2;
         const h = Math.ceil(bh / n) + 2;
@@ -323,7 +306,6 @@ class Pixelator {
         gl.setRenderTarget(this.color);
         gl.render(scene, view);
 
-        // Shadows draw once per frame: the normal material reads no lights, so none redraw here.
         scene.traverseVisible((o) => {
             if (noDepth(o)) {
                 o.visible = false;
@@ -347,7 +329,6 @@ class Pixelator {
         gl.setRenderTarget(this.edged);
         this.quad.render(gl);
 
-        // Where the low-res frame's corner lands, rounded so a still camera has seams on screen-pixel edges.
         this.origin.value.set(
             Math.round((bw - w * n) / 2),
             Math.round((bh - h * n) / 2),
@@ -370,7 +351,6 @@ class Pixelator {
     }
 }
 
-/** Takes over a canvas's drawing for the pixel look: low-res, edged, snapped, scaled up crisp. Use with `usePixelDpr`. */
 export function Pixelate() {
     const gl = useThree((s) => s.gl);
     const pixelator = useMemo(() => new Pixelator(), []);

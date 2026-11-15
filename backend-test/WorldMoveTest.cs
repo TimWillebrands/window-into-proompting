@@ -9,7 +9,6 @@ using PartyTown.World.Work.Companies;
 
 namespace BackendTest;
 
-/// <summary>Moving everyone to a fresh World: Nature, Players, looks, picked Relations and the CDU's staff come along; the old World stops.</summary>
 public partial class CduWorldTest
 {
     private IPartyRootGrain Root => _fx.GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);

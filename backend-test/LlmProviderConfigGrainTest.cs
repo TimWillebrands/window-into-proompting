@@ -6,7 +6,6 @@ using PartyTown.Grains.Generation;
 
 namespace BackendTest;
 
-/// <summary>Provider edits reach live endpoint grains instead of waiting for deactivation.</summary>
 public class LlmProviderConfigGrainTest : TestKitBase
 {
     [Fact]

@@ -15,11 +15,9 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Mcp;
 
-/// <summary>What an agent may read and change of a Player (ADR 0046): their own, or anyone's for an admin.</summary>
 [McpServerToolType]
 public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, PlayerAuto? auto = null)
 {
-    /// <summary>Set by Guard before each tool runs.</summary>
     private Guid World { get; set; }
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
     private const string Where = "Admins: a Place id from list_places, acted on as its author. Default: their Home.";
@@ -269,7 +267,6 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         return await Places.SetPlaceStyleAsync(who, home.Id, wall, floor) ? "Painted." : throw new McpException("Not theirs to restyle.");
     });
 
-    /// <summary>Reading is public, as on the site: anyone may look at anyone.</summary>
     private async Task<Guid> ReadAsync(ClaimsPrincipal user, Guid? participantId)
         => participantId ?? await actors.PlayerAsync(user, World);
 
@@ -290,7 +287,6 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         Pass the JSON as dress's look.
         """;
 
-    /// <summary>Their Home, or for an admin naming a Place, that Place with the author (<see cref="Guid.Empty"/>) acting.</summary>
     private async Task<(Guid Who, Place Place)> ActInAsync(ClaimsPrincipal user, Guid? participantId, Guid? placeId)
     {
         if (placeId is null) return await ActInHomeAsync(user, participantId);
@@ -311,7 +307,6 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
 
     private static string NameOf(PlacesSnapshot snapshot, Guid who) => snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == who)?.Name ?? "?";
 
-    /// <summary>Identity refusals as tool errors the agent can read, not opaque failures.</summary>
     private async Task<T> Guard<T>(Func<Task<T>> run)
     {
         var root = grains.GetGrain<IPartyRootGrain>(Guid.Empty);

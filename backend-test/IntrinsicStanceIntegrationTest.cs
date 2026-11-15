@@ -5,11 +5,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>
-/// Integration tests for Intrinsic Stance (ADR 0016, issue #91): Persona-scope STANCE edges,
-/// union read across Acquired + Intrinsic, Promotion with Participant→Persona re-targeting.
-/// Runs against a Testcontainers Postgres+AGE (AgeDb).
-/// </summary>
 public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
     : IClassFixture<MemoryGraphFixture>
 {
@@ -24,8 +19,6 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
                 $"Postgres+AGE unavailable: {fixture.UnavailableReason}. Is Docker running?");
         }
     }
-
-    // ─── Authoring and listing ─────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task AppendIntrinsic_AppearsInListIntrinsicStances()
@@ -76,8 +69,6 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         Assert.True(record.IsIntrinsic);
     }
 
-    // ─── Union read: Intrinsic renders in any Party ────────────────────────────────────────
-
     [Fact]
     public async Task IntrinsicStance_RendersInAnyPartyWhenTargetPresent()
     {
@@ -95,12 +86,10 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
             valence: 0.8, reasoning: "you trust Vlad's instincts", attribution: null,
             CancellationToken.None);
 
-        // Party 1: both present
         var lines1 = await repo.RecallStancesAsync(
             partyId1, personaA, new[] { personaA, personaB }, anchorText: "", limit: 10,
             CancellationToken.None);
 
-        // Party 2: both present
         var lines2 = await repo.RecallStancesAsync(
             partyId2, personaA, new[] { personaA, personaB }, anchorText: "", limit: 10,
             CancellationToken.None);
@@ -127,15 +116,12 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
             valence: 0.8, reasoning: "you trust Vlad's instincts", attribution: null,
             CancellationToken.None);
 
-        // personaB is NOT in presentPersonaIds
         var lines = await repo.RecallStancesAsync(
             partyId, personaA, new[] { personaA }, anchorText: "", limit: 10,
             CancellationToken.None);
 
         Assert.Empty(lines);
     }
-
-    // ─── Union read: Acquired overrides Intrinsic in the same Party ───────────────────────
 
     [Fact]
     public async Task AcquiredStance_OverridesIntrinsicInSameParty_NotInOther()
@@ -148,14 +134,12 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         var partyId2 = Guid.NewGuid();
         var repo = MakeRepo();
 
-        // Intrinsic first (older).
         await repo.AppendIntrinsicStanceAsync(
             personaA,
             new StanceTargetSpec(StanceTargetKind.Participant, personaB, null, null),
             valence: 0.3, reasoning: "old intrinsic baseline", attribution: null,
             CancellationToken.None);
 
-        // Acquired in Party 1 (newer — inserted after).
         await repo.AppendStanceAsync(
             partyId1, personaA,
             new StanceTargetSpec(StanceTargetKind.Participant, personaB, null, null),
@@ -164,12 +148,10 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
 
         var present = new[] { personaA, personaB };
 
-        // Party 1: the newer Acquired wins.
         var lines1 = await repo.RecallStancesAsync(
             partyId1, personaA, present, anchorText: "", limit: 10,
             CancellationToken.None);
 
-        // Party 2: only Intrinsic (no Acquired written there).
         var lines2 = await repo.RecallStancesAsync(
             partyId2, personaA, present, anchorText: "", limit: 10,
             CancellationToken.None);
@@ -179,8 +161,6 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         Assert.Single(lines2);
         Assert.Equal("old intrinsic baseline", lines2[0].Reasoning);
     }
-
-    // ─── Promotion ────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task Promote_ParticipantTarget_ReTargetsPersona_ResolvesInOtherParty()
@@ -194,18 +174,15 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         var partyId3 = Guid.NewGuid();
         var repo = MakeRepo();
 
-        // Acquire stance in Party 1: personaA toward personaB (Participant).
         var acquiredId = await repo.AppendStanceAsync(
             partyId1, personaA,
             new StanceTargetSpec(StanceTargetKind.Participant, personaB, null, null),
             valence: 0.6, reasoning: "promoted persona stance", attribution: null,
             CancellationToken.None);
 
-        // Promote to Intrinsic scope.
         var intrinsicId = await repo.PromoteStanceAsync(partyId1, personaA, acquiredId, CancellationToken.None);
         Assert.NotNull(intrinsicId);
 
-        // Intrinsic list now has one entry targeting personaB.
         var intrinsicList = await repo.ListIntrinsicStancesAsync(personaA, CancellationToken.None);
         var intrinsicRecord = Assert.Single(intrinsicList);
         Assert.Equal(intrinsicId.Value, intrinsicRecord.Id);
@@ -213,14 +190,12 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
         Assert.Equal("promoted persona stance", intrinsicRecord.Reasoning);
         Assert.True(intrinsicRecord.IsIntrinsic);
 
-        // Party 2: personaA and personaB present → intrinsic renders.
         var lines2 = await repo.RecallStancesAsync(
             partyId2, personaA, new[] { personaA, personaB }, anchorText: "", limit: 10,
             CancellationToken.None);
         Assert.Single(lines2);
         Assert.Equal("promoted persona stance", lines2[0].Reasoning);
 
-        // Party 3: only personaA present, personaB absent → renders nothing.
         var lines3 = await repo.RecallStancesAsync(
             partyId3, personaA, new[] { personaA }, anchorText: "", limit: 10,
             CancellationToken.None);
@@ -297,7 +272,6 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
 
         await repo.PromoteStanceAsync(partyId, personaA, acquiredId, CancellationToken.None);
 
-        // The Acquired Stance edge must still be present and unchanged.
         var acquiredList = await repo.ListStancesAsync(partyId, personaA, CancellationToken.None);
         var acquired = Assert.Single(acquiredList);
         Assert.Equal(acquiredId, acquired.Id);
@@ -318,8 +292,6 @@ public sealed class IntrinsicStanceIntegrationTest(MemoryGraphFixture fixture)
 
         Assert.Null(result);
     }
-
-    // ─── NullExtractor (re-used from parent test class pattern) ───────────────────────────
 
     private sealed class NullExtractor : IMemoryExtractor
     {

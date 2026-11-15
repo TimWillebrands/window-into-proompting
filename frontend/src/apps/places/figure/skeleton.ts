@@ -14,15 +14,11 @@ export interface BoneRest {
 export const BONES = bones as BoneRest[];
 export const boneIndex = new Map(BONES.map((b, i) => [b.name, i]));
 
-/** How far the arms are lowered in the bind pose: A-pose skins better than the T the clips rest in. */
 const ARM_DROP = 0.92;
-/** Height of a person with average sliders, in tiles. */
 export const BASE_HEIGHT = 1.32;
-/** The rig's own height, near enough. */
 const RIG_HEIGHT = 1.8;
 
 export interface Proportions {
-    /** Total height. */
     H: number;
     headH: number;
     hipY: number;
@@ -32,7 +28,6 @@ export interface Proportions {
     armLen: number;
 }
 
-/** How much of an hourglass the curve slider really draws: under about 0.2 it's none at all. */
 export const curveOf = (b: BodyDoc) => smooth(0.2, 0.95, b.curve);
 
 export function proportions(b: BodyDoc): Proportions {
@@ -50,16 +45,11 @@ export function proportions(b: BodyDoc): Proportions {
 }
 
 export interface Posed {
-    /** Local translation per bone. */
     t: V3[];
-    /** Local rotation per bone, bind pose. */
     q: THREE.Quaternion[];
-    /** World position per bone, bind pose. */
     world: V3[];
-    /** World rotation per bone, bind pose. */
     worldQ: THREE.Quaternion[];
     p: Proportions;
-    /** What the clip's pelvis translation is multiplied by. */
     pelvisScale: number;
 }
 
@@ -74,7 +64,6 @@ const chainOf = (
     return 'other';
 };
 
-/** The rig scaled to a body and lowered into the bind pose; rest rotations are untouched so clips apply as they are. */
 export function poseFor(b: BodyDoc): Posed {
     const p = proportions(b);
     const hipRig = 0.932;
@@ -99,7 +88,6 @@ export function poseFor(b: BodyDoc): Posed {
         }
         if (/^thigh/.test(bone.name)) v[0] = Math.sign(bone.t[0]) * p.hipX;
         if (/^upperarm/.test(bone.name)) {
-            // Clavicle length sets the shoulder line.
             const k = (p.shoulderX - 0.019 * spineScale) / 0.173;
             v[0] = bone.t[0] * k;
             v[1] = bone.t[1] * k;

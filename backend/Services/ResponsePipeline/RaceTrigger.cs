@@ -6,28 +6,11 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Stop-signal race: when a new message arrives, walk a persona's in-flight
-/// generations in a chat group and decide cancel-vs-continue per generation.
-///   • Decision phase → always cancel (cheap; no public artifact yet).
-///   • Speaking phase past PNR → cannot cancel; record a repair hint for next turn.
-///   • Speaking phase pre-PNR → score salience via LFM2; cancel if cancelScore &gt; 0.5,
-///     otherwise record a repair hint.
-/// Salience or routing failures default to "let it ride" (no cancel, no repair) —
-/// preserves current behavior rather than introducing a new failure surface.
-///
-/// Stateless: the per-persona in-flight tracking lives in <see cref="InFlightStore"/>,
-/// passed in per call. One singleton serves every persona.
-/// </summary>
 public sealed class RaceTrigger(
     IGrainFactory grainFactory,
     ILoggerFactory loggerFactory,
     PartyTown.Services.SystemOne.ISystemOneJudge judge)
 {
-    // PNR is the absolute generated-token count past which an in-flight generation
-    // cannot be cancelled (only repaired on the next turn). Cancel threshold is the
-    // cancelScore above which the race elects to cancel.
-    // See plans/well-i-controll-henk-eventual-stearns.md for derivation.
     private const int PnrTokens = 80;
     private const double CancelThreshold = 0.5;
 
@@ -89,12 +72,8 @@ public sealed class RaceTrigger(
                 continue;
             }
 
-            // Speaking phase
             if (snap.GeneratedTokens >= PnrTokens)
             {
-                // Past point of no return. Stash repair hint without burning a salience call —
-                // the message will ship regardless, and the next decision pass will see the
-                // hint and the new message in history.
                 raceSpan?.SetTag("race.outcome", "past-pnr");
                 store.SetRepairHint(chatGroupId, new RepairHint(
                     triggeringMessage.MessageId,
@@ -105,7 +84,6 @@ public sealed class RaceTrigger(
                 continue;
             }
 
-            // Pre-PNR: race
             SalienceScore salience;
             try
             {
@@ -165,9 +143,6 @@ public sealed class RaceTrigger(
         }
     }
 
-    /// <summary>Persist a race outcome to the chat group's thought-log papertrail. Wraps
-    /// the call so a transient persistence failure can't bring down the race itself —
-    /// the cancel/continue decision has already been applied by this point.</summary>
     private async Task RecordOutcomeAsync(
         IChatGroupGrain chatGroupGrain,
         Persona persona,

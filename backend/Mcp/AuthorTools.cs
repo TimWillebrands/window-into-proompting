@@ -11,11 +11,9 @@ using PartyTown.World.Relations;
 
 namespace PartyTown.Mcp;
 
-/// <summary>The author's side (ADR 0046): a Persona's sheet, as PersonaController has it, and who's what to whom (ADR 0035).</summary>
 [McpServerToolType]
 public sealed class AuthorTools(IGrainFactory grains, IOptions<McpOptions> mcp)
 {
-    /// <summary>Set by Guard before each tool runs.</summary>
     private Guid World { get; set; }
     private const string Whom = "Participant id from list_participants.";
     private const int MaxName = 60;

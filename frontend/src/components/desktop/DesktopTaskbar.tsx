@@ -47,7 +47,6 @@ export default function DesktopTaskbar({
 
     return (
         <div className="xp-taskbar fixed bottom-0 left-0 right-0 h-[30px] z-[99999] flex items-stretch text-white">
-            {/* Start button (spritesheet bg, real "start" text only for screen readers) */}
             <button
                 type="button"
                 data-start-button
@@ -61,7 +60,6 @@ export default function DesktopTaskbar({
                 start
             </button>
 
-            {/* Window tabs */}
             <ul className="flex-1 flex items-center gap-1 overflow-hidden py-[3px] px-[7px] m-0 list-none">
                 {windows.map((window) => {
                     const isFocused =
@@ -114,7 +112,6 @@ export default function DesktopTaskbar({
                 })}
             </ul>
 
-            {/* System tray */}
             <div className="xp-tray ml-auto">
                 <button
                     type="button"

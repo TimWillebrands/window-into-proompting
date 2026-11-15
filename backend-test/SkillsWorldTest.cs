@@ -10,7 +10,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Skills in a real cluster (ADR 0054): read off the lived sheet, learned by doing, grown with practice.</summary>
 public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
 {
     private readonly WorldLifeTest.Fixture _fx;
@@ -21,7 +20,6 @@ public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
         WorldLifeTest.ScriptedLlm.JsonWith = Answer;
     }
 
-    /// <summary>The World's answers about Skills; anything else falls through to the shared script.</summary>
     private static JsonObject? Answer(string system, string user)
     {
         if (system.Contains("2 to 4 of them"))
@@ -59,7 +57,6 @@ public class SkillsWorldTest : IClassFixture<WorldLifeTest.Fixture>
     {
         var (partyId, denise) = await _fx.CreateWorldAsync();
         var who = (await _fx.GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Single(c => c.Id == denise);
-        // No lived sheet yet: nothing is distilled from the raw one.
         Assert.Null(await LivedSheets.SourceAsync(_fx.GrainFactory, who));
         Assert.Empty(await Skills(partyId, denise).GetAsync());
 

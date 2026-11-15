@@ -3,10 +3,8 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.World.Self;
 
-/// <summary>The one recall every beat uses: Recall + Stances (ADR 0015, 0016), then one story per slot and stale-word habituation (ADR 0021).</summary>
 public static class PersonaRecall
 {
-    /// <summary>Filtering is non-fatal: a failed lookup returns the unfiltered beat.</summary>
     public static async Task<RecallBeat> ForBeatAsync(
         IMemoryRepository repository, IGrainFactory grains, BeatAnchors at, int memoryLimit, int stanceLimit, ILogger logger, CancellationToken ct)
     {

@@ -1,7 +1,6 @@
 import type { Persona } from '../../../api/model';
 import { useResidency } from '../residence';
 
-/** Asked once a new Persona has a name and bio worth arriving with. */
 export default function MoveInDialog({
     persona,
     onClose,

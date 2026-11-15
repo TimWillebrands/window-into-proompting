@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Bodies follow their Day (ADR 0027): a long stretch away from home sends them out to its Locale, and back after.</summary>
 public sealed partial class PlacesGrain
 {
     private static readonly TimeSpan MinErrand = TimeSpan.FromHours(2);
@@ -29,7 +28,6 @@ public sealed partial class PlacesGrain
                 case ErrandMove.Return:
                     await ReturnAsync(body.ParticipantId);
                     break;
-                // Drawn Places are Life's to walk to; the Day only sends Bodies offscreen.
                 case ErrandMove.Go when Find(stretch!.LocaleId!.Value) is { Kind: PlaceKinds.Locale } where:
                     body.AwayStretch = $"{today}:{stretch.Start}";
                     await SendAwayAsync(body, where, ErrandAs(where.Name), byDay: true);
@@ -40,7 +38,6 @@ public sealed partial class PlacesGrain
 
     internal enum ErrandMove { Stay, Go, Return }
 
-    /// <summary>Go once per stretch, not from company or at night; come back only from where the Day sent you (a shift that took over keeps you).</summary>
     internal static ErrandMove ErrandStep(Body body, Whereabout? stretch, string today, bool company, bool night)
     {
         if (body.AwayByDay) return stretch?.LocaleId == body.PlaceId ? ErrandMove.Stay : ErrandMove.Return;
@@ -48,7 +45,6 @@ public sealed partial class PlacesGrain
         return body.AwayStretch == $"{today}:{stretch.Start}" ? ErrandMove.Stay : ErrandMove.Go;
     }
 
-    /// <summary>Stretches long enough to leave for, resolved to a Locale.</summary>
     internal static IEnumerable<Whereabout> Errands(IEnumerable<Whereabout> plan)
         => plan.Where(w => w.LocaleId is not null && w.End - w.Start >= MinErrand.TotalMinutes);
 
@@ -60,7 +56,6 @@ public sealed partial class PlacesGrain
     private List<Whereabout> PlanFor(Guid id, long now)
     {
         if (_plans.TryGetValue(id, out var p) && now - p.At < PlanFresh.TotalMilliseconds) return p.Plan;
-        // Detached, like the sleep window: Self may call back into us while writing the Day.
         _ = RefreshPlanAsync(id);
         return p.Plan ?? new List<Whereabout>();
     }

@@ -7,7 +7,6 @@ using Testcontainers.PostgreSql;
 
 namespace BackendTest.Infrastructure;
 
-/// <summary>One throwaway Postgres+AGE per test run, from an image with the init scripts already applied: start is a plain boot.</summary>
 public static class AgeDb
 {
     private const string BaseImage = "apache/age:release_PG16_1.6.0";
@@ -15,7 +14,6 @@ public static class AgeDb
     private const string Password = "postgresPW";
     private const string Database = "partytown";
 
-    // initdb and docker-entrypoint-initdb.d run at build time, into a PGDATA outside the image's VOLUME so it's kept.
     private static readonly string Dockerfile = $$"""
         FROM {{BaseImage}}
         ENV POSTGRES_USER={{User}} POSTGRES_PASSWORD={{Password}} POSTGRES_DB={{Database}} PGDATA=/pgdata
@@ -29,7 +27,6 @@ public static class AgeDb
 
     private static readonly Lazy<Task<string>> Started = new(StartAsync);
 
-    /// <summary>Connection string of the shared container; started (and its image built, if the scripts changed) on first use.</summary>
     public static Task<string> ConnectionStringAsync() => Started.Value;
 
     private static async Task<string> StartAsync()
@@ -63,7 +60,6 @@ public static class AgeDb
         }
     }
 
-    /// <summary>Image tag from the Dockerfile and every script: a changed script builds a fresh image, else the cached one starts.</summary>
     private static string Hash(IEnumerable<string> scripts)
     {
         var all = new StringBuilder(Dockerfile);

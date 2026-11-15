@@ -3,7 +3,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Standing in a Place (ADR 0026): owner and staff at the centre, regulars, newcomers at the margin.</summary>
 public class RolesTest
 {
     private static readonly Guid Me = Guid.NewGuid();

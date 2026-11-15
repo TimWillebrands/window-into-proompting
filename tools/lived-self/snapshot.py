@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Append a lifelikeness snapshot (ADR 0021) of a running World to tools/lived-self/out/metrics.jsonl.
-
-Usage: tools/lived-self/snapshot.py [party-id] [base-url]
-"""
 import json, sys, time, urllib.request, pathlib, statistics
 
 party = sys.argv[1] if len(sys.argv) > 1 else "00000000-0000-0000-0000-000000000000"

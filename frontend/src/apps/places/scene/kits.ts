@@ -2,7 +2,6 @@ import { pick, rng } from './prefab';
 import { PREFABS } from './prefabs';
 import type { PropDef, SceneDef } from './scene';
 
-/** Kit scenes (ADR 0027): how a Locale looks once it opens, by archetype. Spot ids are backend kits.json's (a test checks). */
 const room = [
     '##ww####ww####',
     '#............#',
@@ -293,7 +292,6 @@ const FABRICS = [
     '#2f3136',
 ];
 
-/** One Place's take on its kit: floor, walls and fabrics picked from its id, so two offices don't look alike. */
 export function variedKit(
     def: Omit<SceneDef, 'id'>,
     placeId: string,

@@ -1,8 +1,6 @@
 import type { Hand, PoseDoc } from './pose';
 
-/** A looping gesture: keyed poses, the unit an LLM can author. t is 0..1 of the loop. */
 export interface MoveDoc {
-    /** Loop length in seconds. */
     loop: number;
     keys: ({ t: number } & PoseDoc)[];
 }
@@ -19,7 +17,6 @@ const hands = (h: Hand): Pick<PoseDoc, 'handL' | 'handR'> => ({
 
 const STAND: PoseDoc = {
     spine: [3, 0, 0],
-    // The camera sits high: a lifted chin keeps faces in view.
     head: [-7, 0, 0],
     armL: [3, 7, 0],
     armR: [3, 7, 0],
@@ -32,7 +29,6 @@ const STAND: PoseDoc = {
 
 const sway = (p: PoseDoc, over: PoseDoc = {}): PoseDoc => ({ ...p, ...over });
 
-/** Standing about: weight shifts, a glance round. A stance doc replaces the base pose. */
 export const standMove = (stance?: PoseDoc): MoveDoc => {
     const base = { ...STAND, ...stance };
     const [lean = 3, turn = 0, tilt = 0] = base.spine ?? [];
@@ -121,7 +117,6 @@ const PHONE: PoseDoc = sway(STAND, {
     spine: [5, 0, 0],
 });
 
-/** The IMVU-style hang-out poses (ADR 0025), now data. */
 export const MOVES: Record<string, MoveDoc> = {
     phone: still(PHONE),
     'sit-phone': still({
@@ -322,6 +317,5 @@ export const MOVES: Record<string, MoveDoc> = {
     }),
 };
 
-/** Hang-outs that take the weight off the feet. */
 export const SEATED = new Set(['lounge', 'perch', 'cross-legged']);
 export const PAIRED = new Set(['hug', 'slow-dance', 'high-five', 'hold-hands']);

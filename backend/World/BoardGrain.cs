@@ -1,9 +1,5 @@
 namespace PartyTown.World;
 
-/// <summary>
-/// Partyboard's store: the Party-wide social feed (posts, replies, Respect). Plain persisted state (ADR 0018) —
-/// posts are content, not conversational turn history.
-/// </summary>
 public sealed class BoardGrain(
     [PersistentState(stateName: "board", storageName: "parties")]
     IPersistentState<BoardState> state)
@@ -17,7 +13,6 @@ public sealed class BoardGrain(
     public Task<BoardThread?> GetThreadAsync(Guid threadId)
         => Task.FromResult(state.State.Threads.FirstOrDefault(t => t.Id == threadId));
 
-    /// <summary>Their posts go with everything under them; their replies and Respect elsewhere go too.</summary>
     public async Task RemoveParticipantAsync(Guid participantId)
     {
         state.State.Threads.RemoveAll(t => t.AuthorId == participantId);
@@ -90,7 +85,6 @@ public sealed class BoardGrain(
         return thread;
     }
 
-    /// <summary>Short label for a post (activity log, memory, notifications); posts have no titles.</summary>
     public static string Gist(string body) => WorldStream.Clip(body.Trim().Split('\n', 2)[0], 60);
 }
 
@@ -103,7 +97,6 @@ public interface IBoardGrain : IGrainWithGuidKey
     [Alias("RemoveParticipantAsync")] Task RemoveParticipantAsync(Guid participantId);
     [Alias("ReplyAsync")] Task<BoardThread?> ReplyAsync(Guid threadId, Guid authorId, string authorName, string body);
 
-    /// <summary>Give (or take back) Respect on a post, or on one of its replies; idempotent. Null when it's gone.</summary>
     [Alias("RespectAsync")] Task<BoardThread?> RespectAsync(Guid threadId, Guid? replyId, Guid giverId, string giverName, bool given);
 }
 
@@ -119,7 +112,6 @@ public sealed class BoardThread
     [Id(0)] public Guid Id { get; set; }
     [Id(1)] public Guid AuthorId { get; set; }
     [Id(2)] public string AuthorName { get; set; } = string.Empty;
-    /// <summary>Gist of the body; posts have no titles (forum-era ones keep theirs).</summary>
     [Id(3)] public string Title { get; set; } = string.Empty;
     [Id(4)] public string Body { get; set; } = string.Empty;
     [Id(5)] public long CreatedAt { get; set; }
@@ -139,7 +131,6 @@ public sealed class BoardReply
     [Id(5)] public List<BoardRespect> Respect { get; set; } = new();
 }
 
-/// <summary>Hyves-style Respect!: a like, from someone, at some time.</summary>
 [GenerateSerializer, Alias("PartyTown.World.BoardRespect")]
 public sealed class BoardRespect
 {

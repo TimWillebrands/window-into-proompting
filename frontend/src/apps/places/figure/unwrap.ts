@@ -3,7 +3,6 @@ import type { Surface } from './nets';
 import type { Field, Loft } from './sdf';
 import { clamp } from './sdf';
 
-/** Texture panels, Roblox-template style: [u, v, w, h] of the atlas, v up. */
 export const PANELS = {
     front: [0, 0.5, 0.5, 0.5],
     back: [0.5, 0.5, 0.5, 0.5],
@@ -15,7 +14,6 @@ export const PANELS = {
 export type Panel = keyof typeof PANELS;
 
 export interface PanelFrame {
-    /** Bind-pose heights the front and back panels span. */
     y0: number;
     y1: number;
 }
@@ -26,7 +24,6 @@ export interface Unwrapped extends Surface {
 
 const NAMES = Object.keys(PANELS) as Panel[];
 
-/** Gives a garment panel UVs, splitting vertices along panel edges so seams stay clean. */
 export function unwrap(a: Anatomy, s: Surface, frame: PanelFrame): Unwrapped {
     const n = s.positions.length / 3;
     const panel = new Uint8Array(n);
@@ -44,7 +41,6 @@ export function unwrap(a: Anatomy, s: Surface, frame: PanelFrame): Unwrapped {
         l.d(x, y, z);
         panel[i] = NAMES.indexOf(p);
         pu[i] = clamp(l.t, 0, 1);
-        // Legs: angle 0 is the back, so the seam goes there and the panel's middle is the front.
         const turn = l.angle / (Math.PI * 2);
         pv[i] = p === 'legL' || p === 'legR' ? (turn + 1) % 1 : turn + 0.5;
     };
@@ -78,7 +74,6 @@ export function unwrap(a: Anatomy, s: Surface, frame: PanelFrame): Unwrapped {
     const indices = new Uint32Array(s.indices.length);
     for (let t = 0; t < s.indices.length; t += 3) {
         const tri = [s.indices[t], s.indices[t + 1], s.indices[t + 2]];
-        // A triangle lives on its majority panel.
         const own =
             panel[tri[1]] === panel[tri[2]] ? panel[tri[1]] : panel[tri[0]];
         const rect = PANELS[NAMES[own]];
@@ -123,7 +118,6 @@ export function unwrap(a: Anatomy, s: Surface, frame: PanelFrame): Unwrapped {
     };
 }
 
-/** Soft occlusion, baked per vertex: how much of the air just off the surface something else is using. */
 export function occlusion(
     s: Surface,
     field: Field,
@@ -141,7 +135,6 @@ export function occlusion(
         const nz = s.normals[i * 3 + 2];
         let shade = 0;
         for (const k of [0.5, 1]) {
-            // Legs are closer in the bind pose than they ever stand: the other one casts nothing.
             if (y < crotchY && (x + nx * reach * k) * x < 0) continue;
             const d = field(
                 x + nx * reach * k,

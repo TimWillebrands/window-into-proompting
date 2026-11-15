@@ -6,29 +6,12 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Generates a short in-character "abandonment emote" for a generation that the
-/// stop-signal race elected to cancel. Replaces the bare red "cancelled" error
-/// with a single italic action line (e.g. "*Vlad sets the cup down, decides against it*"),
-/// shipped into the chat history with <c>ChatMessage.Kind = "emote"</c> so other
-/// personas can react to it and the frontend can render it distinctly.
-///
-/// Routes via <see cref="JobComplexity.CharacterThoughts"/> — same cheap/fast model
-/// contract as <see cref="PersonaSalienceService"/>. Failure mode is "literal fallback":
-/// on any routing or generation error, returns a generic <c>"*falls silent*"</c> rather
-/// than throwing — the cancel path must always produce a renderable line.
-/// </summary>
 public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
 {
-    /// <summary>Used when no draft exists (decision-phase cancel) — saves an LFM call
-    /// when there's nothing to summarize.</summary>
     public const string DecisionPhaseFallback = "*starts to speak, then doesn't*";
 
-    /// <summary>Used when the LFM call fails or returns garbage — never empty.</summary>
     public const string GenerationFailureFallback = "*falls silent*";
 
-    /// <summary>Hard cap on emote length. Models occasionally ignore the "one short
-    /// action" instruction and produce paragraphs; trim aggressively.</summary>
     private const int MaxEmoteChars = 160;
 
     public async Task<string> GenerateAbandonmentEmoteAsync(
@@ -85,9 +68,6 @@ public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
         return raw;
     }
 
-    /// <summary>Strip code fences, quotes, leading/trailing whitespace, and clamp length.
-    /// Does NOT enforce asterisk wrapping — the LLM is asked for it, and the frontend can
-    /// fall back to italic rendering even if the asterisks are missing.</summary>
     private static string Sanitize(string raw)
     {
         var s = raw.Trim();
@@ -100,11 +80,9 @@ public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
             s = s.Trim();
         }
 
-        // Models sometimes wrap output in quotes despite "no quotes" instruction.
         if (s.Length >= 2 && s[0] == '"' && s[^1] == '"')
             s = s[1..^1].Trim();
 
-        // Collapse multi-line emotes into a single line — they're meant to be one beat.
         s = s.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
 
         if (s.Length > MaxEmoteChars)

@@ -3,30 +3,14 @@ using System.Text.Json.Serialization;
 
 namespace PartyTown.Model;
 
-// Domain terminology:
-//   Party      = root-of-universe (top-level container for participants, chat groups, and state)
-//   Persona    = inhabitant-of-said-universe (AI character with name/bio/system prompt)
-//   ChatGroup  = app where personas and user(s) talk within a universe (named conversation thread)
-
-/// <summary>
-/// The thing currently operating a <see cref="PartyParticipant"/>. Lives on the Participant,
-/// not the Persona — so the same Persona can be User-driven in one Party and LLM-driven
-/// in another. See CONTEXT.md (Driver) and ADR 0012.
-/// </summary>
 [GenerateSerializer, Alias(nameof(DriverKind))]
 [JsonConverter(typeof(JsonStringEnumConverter<DriverKind>))]
 public enum DriverKind
 {
-    /// <summary>A human types the messages for this Participant.</summary>
     User = 0,
 
-    /// <summary>The agent stack generates messages for this Participant.</summary>
     LLM = 1,
 
-    /// <summary>
-    /// The system speaks on behalf of this Participant. Response pipeline never auto-generates
-    /// turns for <c>System</c>-driven Participants. Today only the singleton Narrator uses this.
-    /// </summary>
     System = 2,
 }
 
@@ -39,8 +23,6 @@ public sealed record class PartyParticipant
     [Id(1)]
     public string Name { get; set; } = string.Empty;
 
-    // [Id(2)] retired: was `bool IsUser` pre-ADR 0012. Do not reuse the slot — old
-    // serialized payloads may still carry it. New fields take [Id(3)] and above.
     [Id(3)]
     public DriverKind Driver { get; set; } = DriverKind.LLM;
 }
@@ -73,11 +55,9 @@ public sealed record class ChatGroupInfo
     [Id(3)]
     public string? Scenario { get; set; }
 
-    /// <summary>Which App owns this thread: <c>room</c> (D'Accord), <c>dm</c> (Messenger) or <c>place</c> (Places).</summary>
     [Id(4)]
     public string Kind { get; set; } = ChatGroupKinds.Room;
 
-    /// <summary>Fixed membership for <c>dm</c> threads; null for rooms.</summary>
     [Id(5)]
     public List<Guid>? MemberIds { get; set; }
 }
@@ -86,7 +66,6 @@ public static class ChatGroupKinds
 {
     public const string Room = "room";
     public const string Direct = "dm";
-    /// <summary>Place talk: speech between Bodies in one Place; cast follows the occupants.</summary>
     public const string Place = "place";
 }
 
@@ -121,19 +100,11 @@ public sealed record class UpdatePartyParticipantsRequest
     public List<PartyParticipant> Participants { get; set; } = [];
 }
 
-/// <summary>
-/// Replace the Room's membership (Personas present in this Room). Driver lives on the
-/// Participant (Party scope) or in the Room's Driver override map — not here.
-/// </summary>
 public sealed record class UpdateChatGroupParticipantIdsRequest
 {
     public List<Guid> ParticipantIds { get; set; } = [];
 }
 
-/// <summary>
-/// Replace the Room's Driver override map wholesale. Each entry says
-/// "in this Room, Persona X is driven by Y". Empty list clears all overrides.
-/// </summary>
 public sealed record class UpdateChatGroupDriverOverridesRequest
 {
     public List<DriverOverrideEntry> Overrides { get; set; } = [];

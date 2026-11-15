@@ -12,35 +12,10 @@ using PartyTown.Services.Streaming;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Per-persona decision service: each persona independently decides whether to respond.
-///
-/// Two axes are kept distinct:
-///   • Frequency control — how often a persona speaks (round penalty, self-dominance,
-///     chattiness-weighted chaos). Stays mathematical, prevents spam.
-///   • Engagement register — when the persona DOES engage, the prompt asks them to
-///     react in-character first ("gut reaction"), then judge whether it's worth airtime.
-///     This stops the "no signal / no clear prompt" assistant-restraint failure mode where
-///     personas decline cold-open user messages with bureaucratic justifications.
-/// </summary>
 public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logger)
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>
-    /// Appraises whether the persona should respond based on the conversation history,
-    /// participants, and (optionally) the scenario the chat is set in.
-    /// <paramref name="repairHint"/> carries a Levelt-style speech-repair cue: when the
-    /// persona shipped its previous message past the point of no return *and* a relevant
-    /// new message was missed, the hint nudges the next decision toward acknowledgment.
-    /// <paramref name="recollections"/> is the top-N salience-ranked Recollection snippets
-    /// for this persona in this party (ADR 0015 recall) — rendered as a numbered "what you
-    /// remember" block in the system prompt so the persona can naturally bring up past
-    /// moments and pick one by index. Empty list = no block rendered.
-    /// <paramref name="stances"/> is the anchor-scoped, latest-wins Stance lines (ADR 0016) —
-    /// rendered as the ambient "# Where you stand" block. Unlike recollections it carries no
-    /// selection mechanic: it is identity-adjacent orientation the persona speaks from.
-    /// </summary>
     public async Task<ShouldRespondResult> ShouldRespondAsync(
         SelfView self,
         IReadOnlyList<ChatMessage> history,
@@ -64,18 +39,8 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         var recentMessages = history
             .Where(m => participantIds.Contains(m.SenderId) && !string.IsNullOrWhiteSpace(m.Content))
             .TakeLast(8)
-            // TODO: Store SenderName directly on ChatMessage to avoid this lookup. See: Option 1 (denormalize sender name into message)
             .Select(m => new ChatMessageWithSenderName(m, participants.First(p => p.Id == m.SenderId).Name));
 
-        // Auto-respond threshold: if urge is very high (direct mention), skip LLM decision
-        // — UNLESS a repair hint is pending. The auto-respond shortcut returns canned text
-        // and bypasses the system-prompt repairBlock entirely, so a missed message would be
-        // ignored and the persona would barrel through name-mentions without acknowledging
-        // anything else that arrived during the in-flight generation. When repair is pending,
-        // pay the LFM call so the prompt-level repair stanza (and the "(They said your name.)"
-        // user-prompt cue below) both fire.
-        // A fizzling conversation (ADR 0021) goes through the LLM even when named: "still here" ping-pong ends.
-        // Likewise when Reflex was torn (ADR 0031): that's the cue for System Two, not a shortcut.
         if (urge.Total >= 0.9 && repairHint is null && !windingDown && !deliberate)
         {
             logger.LogInformation("Persona {PersonaName} auto-responding (urge={Urge:F2}, mention={Mention:F2})", self.Name, urge.Total, urge.MentionScore);
@@ -96,11 +61,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         };
 
 
-        // Schema field order drives generation order. gutReaction first → the model engages
-        // in-character before judging airtime. memoryToReference next — having just felt the
-        // moment, the model decides whether a past memory belongs in it (and which one),
-        // before drafting the literal reply. wouldSay then carries the sketch shaped by both;
-        // respond derives last from whether wouldSay is non-empty.
         var responseFormat = new JsonObject
         {
             ["type"] = "json_schema",
@@ -116,10 +76,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
                         ["gutReaction"] = new JsonObject { ["type"] = "string" },
                         ["memoryToReference"] = new JsonObject
                         {
-                            // ADR 0015: pick by index, not by copy — the integer is the
-                            // strengthening write's key. Strict mode requires every field in
-                            // `required`; the nullable type-array form lets the model
-                            // legitimately decline to pick.
                             ["type"] = new JsonArray("integer", "null")
                         },
                         ["wouldSay"] = new JsonObject { ["type"] = "string" },
@@ -157,9 +113,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             logger.LogInformation("Persona {PersonaName} decision urge={Urge:F2} respond={Respond} ({Chars} chars)",
                 self.Name, urge.Total, parsed.Respond, raw.Length);
 
-        // Fail closed: don't respond if we can't parse the decision. Embed a truncated
-        // raw payload in Reason so the thought-log papertrail preserves it past log
-        // rotation — without this, post-hoc forensics has nothing to work from.
         if (parsed is null)
         {
             var rawSnippet = raw.Length > 240 ? raw[..240] + "…" : raw;
@@ -171,8 +124,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             };
         }
 
-        // Coherence guard: model can emit respond=true with an empty wouldSay, or vice-versa.
-        // Trust the wouldSay payload — it's the actual text the persona would utter.
         if (parsed.Respond && string.IsNullOrWhiteSpace(parsed.Instruction))
         {
             parsed = parsed with { Respond = false };
@@ -182,8 +133,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
             parsed = parsed with { Respond = true };
         }
 
-        // Clamp the memory pick to the surfaced list: an out-of-range index — or any pick
-        // when nothing was surfaced — is model noise, not a usable strengthening key.
         if (parsed.MemoryToReference is int pick &&
             (pick < 1 || pick > (recollections?.Count ?? 0)))
         {
@@ -214,38 +163,20 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         string? presence = null,
         bool inPerson = false)
     {
-        // The trailing grounding line counters small-model scene drift: gut reactions were
-        // observed inventing a different time/place than the setting states ("another
-        // Monday morning" in a Thursday-afternoon scene).
         var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
             ? string.Empty
             : $"\n# Setting\n{scenario.Trim()}\nThis is where and when you are. React from inside this scene — don't invent a different time, place, or occasion.\n";
 
-        // Levelt-style speech repair cue. Set when this persona finished an utterance
-        // *after* a relevant new message arrived — they couldn't see it at the time.
-        // Surfacing it here lets the persona acknowledge the miss naturally; whether
-        // they actually do so is left to character (low-impulsivity = tends to repair).
         var repairBlock = repairHint is null
             ? string.Empty
             : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
 
-        // ADR 0015: top-N salience-ranked Recollection snippets for this Persona in this
-        // Party, across all Rooms. Numbered so the model picks by index (the strengthening
-        // key) instead of copying text; beat-relevance is still judged in-context. Block is
-        // omitted entirely when empty so it never reads as a void "you remember nothing".
-        // The trailing line frames the memories as live salience, not archive — without it
-        // weak models treat the list as reference material and never deploy it.
         var recollectionsBlock = recollections is null || recollections.Count == 0
             ? string.Empty
             : $"\n# What you remember\n{string.Join("\n", recollections.Select((s, i) => $"{i + 1}. {s}"))}\nThese are on your mind — part of how you walk into this moment, not a file you consult.\n";
 
-        // ADR 0016: ambient Stance block. Identity-adjacent — who you are relative to who's
-        // here and what's live in the message — so it sits right after the roster, no
-        // selection mechanic. Omitted when nothing is anchored.
         var stanceBlock = StanceBlock.Render(stances);
 
-        // The "big personal news is worth airtime" line below is a small-model engagement nudge
-        // (candidate to gate off for stronger models that judge bombshell beats unprompted).
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
@@ -294,7 +225,6 @@ is worse than letting the room breathe. Use judgement.
 """;
     }
 
-    /// <summary>Place talk (ADR 0041): the moment is somewhere real, so where and who belong in the reaction.</summary>
     private static string InPersonScene(string name) => $"""
         You're here in person with the people around you, and someone just said something
         out loud. Take it in the way YOU would — as {name}, with your tastes, hangups, and
@@ -310,8 +240,6 @@ is worse than letting the room breathe. Use judgement.
     {
         var net = UrgeMath.CalculateNetPressure(urge, totalAiRoundsInGroup, recentSelfMessageCount);
 
-        // Math nudge framed as a social cue (room-state) rather than a directive — so the
-        // model reads it as context, not as a command from the system that overrides character.
         var nudge = net switch
         {
             >= 0.7 => "(Room: people are looking at you — there's space and a pull to chime in.)",
@@ -321,10 +249,6 @@ is worse than letting the room breathe. Use judgement.
             _ => "(Room: you've been dominating, or it's clearly not your moment. Pass unless directly addressed.)"
         };
 
-        // Direct-address cue. Mention score isn't otherwise surfaced to the model: when
-        // the auto-respond shortcut is bypassed (because of a pending repair hint), this
-        // ensures the persona still feels the pull of being named and usually still speaks
-        // — just *aware* of whatever they missed during the in-flight generation.
         var mentionCue = urge.MentionScore > 0
             ? "(They said your name.)\n"
             : string.Empty;
@@ -356,13 +280,6 @@ public readonly record struct ResponseUrge(
     double ColdOpenScore,
     double ChaosScore);
 
-/// <summary>
-/// One-shot Levelt-style speech-repair cue. Set by the race in <c>PersonaGrain</c> when a
-/// persona shipped its message past the point of no return *and* a relevant new message
-/// arrived during the in-flight generation. Consumed by the next <see cref="PersonaDecisionService.ShouldRespondAsync"/>
-/// call (the call site clears it regardless of decision outcome — see <c>PersonaGrain</c>).
-/// In-memory only; not persisted across grain deactivation.
-/// </summary>
 public readonly record struct RepairHint(
     int MissedMessageId,
     string MissedSenderName,
@@ -375,49 +292,24 @@ public sealed record class ShouldRespondResult
     [JsonPropertyName("respond")]
     public bool Respond { get; init; }
 
-    /// <summary>
-    /// The literal text the persona would type into the chat — empty when declining.
-    /// Serialized as "wouldSay" in the LLM-facing JSON schema; field name retained as
-    /// Instruction so the downstream <c>turnInstruction</c> seed and frontend
-    /// <c>appraisal.instruction</c> consumer keep working.
-    /// </summary>
     [Id(1)]
     [JsonPropertyName("wouldSay")]
     public string Instruction { get; init; } = string.Empty;
 
-    /// <summary>
-    /// In-character first reaction — always written. Serialized as "gutReaction" in the
-    /// LLM-facing JSON schema; field name retained as Reason so the thought-log UI
-    /// (which reads <c>appraisal.reason</c>) keeps surfacing it without a frontend change.
-    /// </summary>
     [Id(2)]
     [JsonPropertyName("gutReaction")]
     public string Reason { get; init; } = string.Empty;
 
-    /// <summary>
-    /// The decision phase's pick — the 1-based index into the numbered "# What you
-    /// remember" block (ADR 0015: pick by index, not by copy) — or null when nothing fit.
-    /// The pipeline resolves it back to the recalled memory: the snippet travels to the
-    /// speaking phase, the edge id keys the strengthening write. Null on the auto-respond
-    /// shortcut (decision LLM never ran, so no memory was selected).
-    /// </summary>
     [Id(3)]
     [JsonPropertyName("memoryToReference")]
     [JsonConverter(typeof(LenientMemoryIndexConverter))]
     public int? MemoryToReference { get; init; }
 
-    /// <summary>Auto-respond shortcut: Instruction and Reason are log labels, not a draft or a gut reaction, so Speaking doesn't get them.</summary>
     [Id(4)]
     [JsonIgnore]
     public bool Shortcut { get; init; }
 }
 
-/// <summary>
-/// Lenient reader for the decision's memory index: accepts an integer, an integer-shaped
-/// string ("2"), or null. Anything else — typically a model pasting the memory text
-/// despite the integer schema — reads as null instead of failing the whole decision parse
-/// (which would fail closed and mute the persona).
-/// </summary>
 internal sealed class LenientMemoryIndexConverter : JsonConverter<int?>
 {
     public override int? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

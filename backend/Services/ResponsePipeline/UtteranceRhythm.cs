@@ -1,15 +1,9 @@
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Per-turn length target (ADR 0021): real chat is mostly short lines and tracks the other person's length.
-/// Sampled, so a persona sometimes goes long; never uniform.
-/// </summary>
 public static class UtteranceRhythm
 {
     public enum Length { Short, Medium, Long }
 
-    /// <param name="lastOtherWords">Words in the latest line from someone else; 0 when opening.</param>
-    /// <param name="roll">Uniform [0,1).</param>
     public static Length Pick(int lastOtherWords, double roll)
     {
         var (shortP, mediumP) = lastOtherWords switch

@@ -42,7 +42,6 @@ public class RouterGrainTest : TestKitBase
         return endpoints;
     }
 
-    // TestKit probes are Castle proxies — GetPrimaryKey() throws on them. Compare by reference.
     private static FakeEndpointGrain FindEndpoint(
         List<FakeEndpointGrain> endpoints,
         ILlmEndpointGrain routedGrain)
@@ -95,7 +94,6 @@ public class RouterGrainTest : TestKitBase
         Assert.NotEmpty(chunks);
         Assert.All(chunks, e => Assert.Equal(LlmGenerationEvent.ContentChunk, e.Type));
 
-        // Pressure released after generation completes
         Assert.Equal(0, await grain.PressureAsync());
         Assert.Equal(1, endpoints[0].TotalJobsReceived);
     }
@@ -203,7 +201,6 @@ public class RouterGrainTest : TestKitBase
         Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
 
         await router.ReportFailureAsync(endpoints[1].Id, "host down");
-        // Everyone benched: least-bad still routes rather than throwing.
         Assert.Same(endpoints[0].Reference, await router.RouteAsync(JobComplexity.General));
     }
 
@@ -216,7 +213,6 @@ public class RouterGrainTest : TestKitBase
         await router.ReportOfflineAsync(endpoints[0].Id, "connection refused");
         await router.ReportFailureAsync(endpoints[1].Id, "402 out of credit");
 
-        // Benched still beats nothing; Offline never routes, so the caller can try its next tier.
         Assert.Same(endpoints[1].Reference, await router.RouteAsync(JobComplexity.General));
         await router.ReportOfflineAsync(endpoints[1].Id, "connection refused");
         await Assert.ThrowsAsync<InvalidOperationException>(() => router.RouteAsync(JobComplexity.General));
@@ -300,7 +296,6 @@ public class RouterGrainTest : TestKitBase
         var router = await Silo.CreateGrainAsync<LlmRouterGrain>(0);
         var grain = await router.RouteAsync(JobComplexity.General);
 
-        // Start an enumeration but don't drain it — pressure stays elevated until disposal.
         var enumerator = grain
             .GenerateAsync(new LlmGenerationJob())
             .GetAsyncEnumerator();
@@ -351,7 +346,6 @@ public class RouterGrainTest : TestKitBase
         foreach (var p in personas.Where(p => !ReferenceEquals(before[p], endpoints[0].Reference)))
             Assert.Same(before[p], await router.RouteAsync(JobComplexity.General, p));
 
-        // And they come home when it's back, so their prompt cache is where they left it.
         await router.CheckAvailabilityAsync();
         foreach (var p in personas)
             Assert.Same(before[p], await router.RouteAsync(JobComplexity.General, p));
@@ -387,7 +381,6 @@ public class RouterGrainTest : TestKitBase
         for (var i = 0; i < 40; i++) picks.Add(await router.RouteAsync(JobComplexity.Decisions, persona));
 
         Assert.Equal(30, picks.Count(p => ReferenceEquals(p, endpoints[0].Reference)));
-        // Spread through the run, not thirty of one and then ten of the other.
         Assert.Contains(picks.Take(4), p => ReferenceEquals(p, endpoints[1].Reference));
     }
 
@@ -416,7 +409,6 @@ public class RouterGrainTest : TestKitBase
 
         var decisions = Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == JobComplexity.Decisions);
         Assert.Equal((null, true), (decisions.ProviderId, decisions.Balanced));
-        // Nothing handles General here, so there is nothing to balance or land on.
         var general = Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == JobComplexity.General);
         Assert.Equal((null, false), (general.ProviderId, general.Balanced));
     }
@@ -446,7 +438,6 @@ public class RouterGrainTest : TestKitBase
             => Assert.Single(assignments, a => a.PersonaId == persona && a.Tier == tier);
         Assert.Equal((reserved.Id, reserved.Id), (At(pinned, JobComplexity.General).ProviderId, At(pinned, JobComplexity.General).PinnedTo));
         Assert.Equal((pool.Id, null), (At(free, JobComplexity.General).ProviderId, At(free, JobComplexity.General).PinnedTo));
-        // Nobody handles Voice here, and Guid.Empty is the work nobody owns.
         Assert.Null(At(free, JobComplexity.CharacterVoice).ProviderId);
         Assert.Equal(pool.Id, At(Guid.Empty, JobComplexity.General).ProviderId);
     }
@@ -466,6 +457,5 @@ public class RouterGrainTest : TestKitBase
         Assert.Equal((pool.Id, reserved.Id), (general.ProviderId, general.PinnedTo));
     }
 
-    // Fixed ids, so a split test can't flake on an unlucky draw.
     private static Guid Persona(int i) => new(i + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }

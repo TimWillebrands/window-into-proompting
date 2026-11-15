@@ -9,17 +9,11 @@ using PartyTown.World.Self;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// Board modality + voice: replays real threads at real cut points through the real Board prompts and
-/// a fresh distillation of each persona's sheet. Fixture (cast sources + board) comes from BOARD_FIXTURE,
-/// kept outside the repo since it's a live world's content.
-/// </summary>
 public static partial class BoardProbes
 {
     private sealed record FixturePersona(Guid Id, string Name, string Source);
     private sealed record Fixture(List<FixturePersona> Personas, List<BoardThread> Threads);
 
-    /// <summary>A reply case: thread cut after <c>Cut</c> replies, who writes, what the Life loop intended, and whether a reply is warranted.</summary>
     private sealed record ReplyCase(string Thread, int Cut, string Author, string Intent, string Expect);
 
     private static readonly ReplyCase[] Replies =
@@ -63,7 +57,6 @@ public static partial class BoardProbes
             bench.Observe($"{p.Name} · how you talk", Section(lived, "## How you talk"));
         }
 
-        // A day built to tempt status talk: at the café, lunch coming, chores nagging.
         var day = new SelfState
         {
             Mood = "a bit tired", Energy = "low", Preoccupation = "a form due Friday",
@@ -143,7 +136,6 @@ public static partial class BoardProbes
     [GeneratedRegex(@"[\p{L}']+")]
     private static partial Regex Word();
 
-    /// <summary>Narrating your whereabouts or exit: "going to get soup", "I'm at the café", "logging off".</summary>
     [GeneratedRegex(@"(?i)\b(going to (get|grab|eat|head)|heading (off|home|out)|i'm at the|i'm off|off to (get|grab)|logging off|done for (now|today)|back later|gotta go|brb|soup now|before my (neck|back))\b")]
     private static partial Regex StatusTalk();
 }

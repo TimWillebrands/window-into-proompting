@@ -12,20 +12,6 @@ using PartyTown.Services.Streaming;
 
 namespace BackendTest;
 
-/// <summary>
-/// Orleans-specific invariants for <see cref="PersonaGrain"/>. After the
-/// <see cref="ResponsePipeline"/> extraction (issue #63), PersonaGrain is a thin
-/// shell over persisted state + <see cref="InFlightStore"/> + injected RaceTrigger
-/// and Pipeline. Per-turn orchestration behavior lives in <c>ResponsePipelineTest</c>;
-/// race-trigger behavior lives in <c>RaceTriggerTest</c>. What's left to verify here
-/// are properties that only exist at the grain boundary.
-///
-/// Coverage:
-///   • <c>CancelGenerationAsync</c> via the <see cref="IPersonaGrain"/> interface
-///     cancels in-flight work — the cancel routes through the per-grain
-///     <see cref="InFlightStore"/> and trips the linked CTS that <c>NotifyMessageAsync</c>
-///     is currently awaiting in the speaking phase.
-/// </summary>
 public class PersonaGrainFeedbackTest : TestKitBase
 {
     private readonly Guid _personaId = Guid.NewGuid();
@@ -35,11 +21,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
     [Fact]
     public async Task CancelGenerationAsync_CancelsInFlightSpeaking()
     {
-        // Arrange: drive PersonaGrain through to the speaking phase with a hanging endpoint.
-        // While speaking hangs, call CancelGenerationAsync via the grain interface — the
-        // grain must route through InFlightStore.CancelAllAsync to trip the speaking CTS,
-        // surfacing as a Failed("cancelled") outcome through the pipeline's external-
-        // cancel branch.
         var decisionJson = """{"gutReaction":"on it","memoryToReference":null,"wouldSay":"writing...","respond":true}""";
 
         var decisionEp = new Mock<ILlmEndpointGrain>();
@@ -66,9 +47,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
             new() { Id = _personaId, Name = PersonaName, SystemPrompt = $"You are {PersonaName}.", Bio = null }
         });
 
-        // Triggering content: no name mention, no trailing '?'. Combined with a non-zero
-        // round count this keeps urge under the 0.9 auto-respond cutoff so the decision
-        // LLM actually fires (we need that to reach speaking, where the cancel races).
         var triggering = new ChatMessage
         {
             MessageId = 1,
@@ -102,8 +80,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
             new HashSet<Guid> { _personaId },
             new Dictionary<Guid, DriverKind>(),
             ChatGroupKinds.Room));
-        // Two prior assistant rounds → no cold-open bump. Stays under the obvious-skip
-        // threshold too (no recent self-messages).
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(2);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
             .Returns(Task.CompletedTask);
@@ -133,14 +109,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
         var grain = await Silo.CreateGrainAsync<PersonaGrain>(_personaId);
         await grain.SetPersona(PersonaName, $"You are {PersonaName}.", null);
 
-        // Act: kick off NotifyMessageAsync in the background; once the speaking phase is
-        // streaming, call CancelGenerationAsync through the grain interface. The grain
-        // routes through its InFlightStore, which cancels the linked CTS the pipeline is
-        // awaiting on.
-        // TestKit dispatches grain calls on the test's synchronization context. To race
-        // CancelGenerationAsync against an in-flight NotifyMessageAsync we need to leave
-        // the test's awaiter free, so the grain proxy's continuation can fire while we
-        // sit on startedSpeaking. Task.Run hops to the threadpool for that.
         var cancelTask = Task.Run(async () =>
         {
             await startedSpeaking.Task.ConfigureAwait(false);
@@ -151,7 +119,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .WaitAsync(TimeSpan.FromSeconds(15));
         await cancelTask.WaitAsync(TimeSpan.FromSeconds(15));
 
-        // Assert: pipeline's external-cancel branch ran — exactly one Failed("cancelled") outcome.
         Assert.Equal("cancelled", Assert.IsType<TurnOutcome.Failed>(Assert.Single(outcomes)).Error);
     }
 

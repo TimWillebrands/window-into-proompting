@@ -7,12 +7,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>
-/// Integration test exercising <see cref="MemoryRepository.CaptureAsync"/> end-to-end
-/// against a Testcontainers Postgres+AGE instance (AgeDb).
-/// LLM is stubbed by <see cref="FakeMemoryExtractor"/> so the test is deterministic; only
-/// the persistence half is under test in slice 1.
-/// </summary>
 public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     : IClassFixture<MemoryGraphFixture>
 {
@@ -131,9 +125,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             """);
         Assert.Equal("you defended Lisp from Vlad's eye-roll", snippet);
 
-        // ADR 0015 salience substrate: every edge carries a stable uuid id, the weight the
-        // extractor emitted, and recall_count 0. last_recalled stays absent until the
-        // first pick (Cypher's null-is-absence).
         var (hanaEdgeId, hanaWeight, hanaRecallCount) = await QueryEdgeSubstrateAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {persona_id: '{{personaHana.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(e:Event {room_id: '{{roomId}}', anchor_message_id: {{messageId}}})
@@ -187,7 +178,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
         var graph = await repo.GetPartyMemoryGraphAsync(partyId, CancellationToken.None);
 
-        // No Room/Message vertices: the anchor rides as properties on the Event node.
         Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Room");
         Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Message");
         var eventNode = Assert.Single(graph.Nodes, n => n.Kind == "Event");
@@ -199,7 +189,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Contains(graph.Nodes, n => n.Id == $"part:{hana.Id}:{partyId}" && n.Kind == "Participant");
         Assert.DoesNotContain(graph.Nodes, n => n.Kind == "Persona");
 
-        // Silent user (no Recollections, not :ABOUT'd by any in-party Event) is invisible.
         Assert.DoesNotContain(graph.Nodes, n => n.Id.Contains(userBob.Id.ToString()));
 
         Assert.DoesNotContain(graph.Links, l => l.Kind == "ANCHORED_TO");
@@ -256,7 +245,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var repo = new MemoryRepository(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
         var graphB = await repo.GetPartyMemoryGraphAsync(partyB, CancellationToken.None);
 
-        // Party B's own Event is present; none of Party A's nodes leak across the party scope.
         Assert.Contains(graphB.Nodes, n => n.Kind == "Event" && n.RoomId == roomB.ToString());
         Assert.DoesNotContain(graphB.Nodes, n => n.Kind == "Event" && n.RoomId == roomA.ToString());
         Assert.DoesNotContain(graphB.Nodes, n => n.Id == $"part:{vladA.Id}:{partyA}");
@@ -413,8 +401,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.DoesNotContain(vladSnippet, hanaSnippets);
         Assert.DoesNotContain(hanaSnippet, vladSnippets);
 
-        // Recall carries the substrate through: weight round-trips, the edge id is the
-        // strengthening key, and a just-captured memory scores ≈ its weight (decay ≈ 1).
         var hanaMemory = hanaRecall.Single(m => m.Snippet == hanaSnippet);
         Assert.NotEqual(Guid.Empty, hanaMemory.EdgeId);
         Assert.Equal(0.7, hanaMemory.Weight, precision: 6);
@@ -434,40 +420,33 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Two captures for the same persona: a heavy one and a light one.
         var heavySnippet = $"heavy-{Guid.NewGuid():N}";
         var lightSnippet = $"light-{Guid.NewGuid():N}";
         await CaptureForAsync(repo, partyId, roomId, hana, heavySnippet, weight: 0.9);
         await CaptureForAsync(repo, partyId, roomId, hana, lightSnippet, weight: 0.2);
 
-        // Fresh + heavy outranks fresh + light: salience ≈ weight when decay ≈ 1.
         var ranked = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(heavySnippet, ranked[0].Snippet);
         Assert.Equal(lightSnippet, ranked[1].Snippet);
 
-        // Backdated 30 days it's past the recall horizon (RecallRanking.Horizon): it doesn't come to mind at all.
         var heavyEdgeId = ranked[0].EdgeId;
         await BackdateAsync(heavyEdgeId, DateTimeOffset.UtcNow.AddDays(-30));
         var gone = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(lightSnippet, Assert.Single(gone).Snippet);
 
-        // Inside the horizon it decays but still outranks the light one: 0.9 × 0.5^(2.5/7) ≈ 0.70 > 0.2.
         await BackdateAsync(heavyEdgeId, DateTimeOffset.UtcNow.AddDays(-2.5));
         var afterDecay = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.Equal(heavySnippet, afterDecay[0].Snippet);
         Assert.Equal(lightSnippet, afterDecay[1].Snippet);
 
-        // Strengthen it (several picks).
         for (var i = 0; i < 5; i++)
         {
             await repo.StrengthenRecollectionAsync(heavyEdgeId, CancellationToken.None);
         }
 
-        // Just picked: the refractory damping (ADR 0021) keeps a just-told story down for a few hours.
         var justPicked = await repo.RecallAsync(hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.True(justPicked.Single(m => m.Snippet == heavySnippet).Salience < afterDecay[0].Salience * 0.5);
 
-        // Once the refractory window has passed, the use bonus lifts it back above the fresh light one.
         var pastRefractoryIso = DateTimeOffset.UtcNow.AddHours(-(SalienceMath.RefractoryHours + 1)).ToString("o");
         await ExecuteCypherAsync($$"""
             SELECT * FROM cypher('memory', $cy$
@@ -537,22 +516,17 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var strengthened = after.Single(m => m.Snippet == pickedSnippet);
         var bystander = after.Single(m => m.Snippet == bystanderSnippet);
 
-        // The pick strengthened exactly one edge: count bumped, last_recalled stamped.
         Assert.Equal(1, strengthened.RecallCount);
         Assert.NotNull(strengthened.LastRecalled);
         Assert.InRange(
             strengthened.LastRecalled!.Value,
             DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(1));
 
-        // Mere surfacing (the recalls above) did NOT strengthen the bystander.
         Assert.Equal(0, bystander.RecallCount);
         Assert.Null(bystander.LastRecalled);
 
-        // Unknown id: silent no-op, not an exception.
         await repo.StrengthenRecollectionAsync(Guid.NewGuid(), CancellationToken.None);
     }
-
-    // ─── Two-arm recall: quota union of relevant + recent (ADR 0015, #88) ─────────────────
 
     [Fact]
     public async Task Recall_RelevantArm_SurfacesCastAnchoredMemory_BuriedUnderRecent()
@@ -566,8 +540,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // One memory whose Event is :ABOUT Vlad, then ten heavier unrelated memories on
-        // top — recency-only recall at limit 10 can never surface the buried one.
         var buriedSnippet = $"buried-about-vlad-{Guid.NewGuid():N}";
         await CaptureForAsync(repo, partyId, roomId, hana, buriedSnippet, weight: 0.5,
             aboutParticipantIds: new[] { vladId });
@@ -580,8 +552,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.DoesNotContain(buriedSnippet, withoutAnchors.Select(m => m.Snippet));
 
-        // Vlad enters the cast: the graph walk surfaces the buried memory through the
-        // relevant arm regardless of how deep recency buried it.
         var withCast = await repo.RecallAsync(
             hana.Id, partyId, new[] { hana.Id, vladId }, "completely unrelated chatter",
             limit: 10, CancellationToken.None);
@@ -601,8 +571,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Unique single-token concept name (normalised = lowercase) so the triggering
-        // message's token matches exactly one Concept anchor.
         var conceptDisplay = $"Zorblax{Guid.NewGuid():N}";
         var conceptName = conceptDisplay.ToLowerInvariant();
 
@@ -618,8 +586,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
         Assert.DoesNotContain(buriedSnippet, withoutAnchors.Select(m => m.Snippet));
 
-        // The triggering message names the concept (different casing — tokenisation
-        // lowercases to match the normalised Concept name).
         var withConcept = await repo.RecallAsync(
             hana.Id, partyId, new[] { hana.Id }, $"so what about {conceptDisplay} then?",
             limit: 10, CancellationToken.None);
@@ -680,7 +646,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         }, name => Assert.False(unique[name], name));
     }
 
-    // Seq scans off: a leg no index can serve still shows Seq Scan, so this fails on the Cypher shape, not on table size.
     [Fact]
     public async Task Recall_EveryLeg_ReachesAnIndex()
     {
@@ -703,7 +668,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         Assert.Contains(plan, line => line.Contains("memory_participant_props_idx"));
     }
 
-    // RecallBeatAsync swallows read failures, so equal-and-empty must not pass: content is asserted first.
     [Fact]
     public async Task RecallBeat_SameResult_IndexedOrSeqScanned()
     {
@@ -766,8 +730,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var recencyOnly = await repo.RecallAsync(
             hana.Id, partyId, Array.Empty<Guid>(), string.Empty, limit: 10, CancellationToken.None);
-        // Cast present + message text, but no Event is :ABOUT anyone and no Concept matches:
-        // the relevant arm comes back empty and recency fills all slots — identical output.
         var coldBeat = await repo.RecallAsync(
             hana.Id, partyId, new[] { hana.Id, Guid.NewGuid() }, "wholly unanchored rambling",
             limit: 10, CancellationToken.None);
@@ -792,8 +754,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var conceptDisplay = $"Zorblax{Guid.NewGuid():N}";
         var conceptName = conceptDisplay.ToLowerInvariant();
 
-        // Recent (only 2 memories, both inside the recency pool) AND anchored via BOTH
-        // relevant legs (cast member + concept) — the union must still surface it once.
         var doubleSnippet = $"double-{Guid.NewGuid():N}";
         await CaptureForAsync(repo, partyId, roomId, hana, doubleSnippet, weight: 0.5,
             aboutParticipantIds: new[] { vladId },
@@ -820,16 +780,12 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         Assert.Contains("common", tokens);
         Assert.Contains("lisp", tokens);
-        // Adjacent-pair bigram catches two-word normalised Concept names.
         Assert.Contains("common lisp", tokens);
-        // Single-letter noise is dropped from unigrams.
         Assert.DoesNotContain("a", tokens);
 
         Assert.Empty(MemoryRepository.TokenizeAnchorText(null));
         Assert.Empty(MemoryRepository.TokenizeAnchorText("   "));
     }
-
-    // ─── Stance floor (ADR 0016) ──────────────────────────────────────────────────────────
 
     [Fact]
     public async Task AppendStance_TowardParticipantConceptAndSelf_ListsAllWithKinds()
@@ -887,7 +843,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var firstId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
             valence: 0.7, reasoning: "you admire how Vlad tells a story", attribution: null, CancellationToken.None);
-        // ts is ISO-8601 with tick precision; a small gap guarantees a strict ordering.
         await Task.Delay(5);
         var secondId = await repo.AppendStanceAsync(
             partyId, author, new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
@@ -896,14 +851,12 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         Assert.NotEqual(firstId, secondId);
 
-        // History preserved: both edges queryable; only the latest flagged current.
         var all = await repo.ListStancesAsync(partyId, author, CancellationToken.None);
         var towardVlad = all.Where(s => s.TargetPersonaId == vlad).ToList();
         Assert.Equal(2, towardVlad.Count);
         Assert.True(towardVlad.Single(s => s.Id == secondId).IsCurrent);
         Assert.False(towardVlad.Single(s => s.Id == firstId).IsCurrent);
 
-        // Latest-wins read: the second reasoning is what surfaces; the first does not.
         var lines = await repo.RecallStancesAsync(
             partyId, author, present, anchorText: "anything", limit: 5, CancellationToken.None);
         var towardVladLine = Assert.Single(lines, l => l.Reasoning.Contains("Vlad", StringComparison.Ordinal));
@@ -938,7 +891,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             new StanceTargetSpec(StanceTargetKind.Concept, null, deadConcept.ToLowerInvariant(), deadConcept),
             0.5, "dead concept is clunky", attribution: null, CancellationToken.None);
 
-        // Present cast = author + present participant; triggering message names only liveConcept.
         var lines = await repo.RecallStancesAsync(
             partyId, author, new[] { author, present },
             anchorText: $"what do you think of {liveConcept} today?",
@@ -961,8 +913,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Seven distinct present participants, ascending |valence|, so the cap must keep the
-        // strongest-felt and drop the weakest.
         var present = new List<Guid> { author };
         for (var i = 1; i <= 7; i++)
         {
@@ -993,7 +943,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Author a flip: an earlier admiration, then a later sign-flipped contempt.
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
             valence: 0.7, reasoning: "you admired how Vlad tells a story", attribution: null, CancellationToken.None);
@@ -1007,8 +956,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             partyId, author, present, anchorText: "n/a", limit: 5, CancellationToken.None);
 
         var line = Assert.Single(lines);
-        // Latest-wins is still the current belief; the earlier contradicting one rides along
-        // as the ambivalence contrast.
         Assert.Contains("exaggerates", line.Reasoning);
         Assert.Equal(-0.7, line.Valence, precision: 6);
         Assert.NotNull(line.Contrast);
@@ -1027,7 +974,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Reinforcement, not a flip: same sign, |Δvalence| < 1.0 — no contradiction.
         await repo.AppendStanceAsync(partyId, author,
             new StanceTargetSpec(StanceTargetKind.Participant, vlad, null, null),
             valence: 0.5, reasoning: "you admire how Vlad tells a story", attribution: null, CancellationToken.None);
@@ -1055,8 +1001,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         var repo = MakeRepo();
 
-        // Four targets, each with a sign-flipped history — strongest current first so the cap
-        // keeps the two most-salient pairs and degrades the rest to plain latest-wins.
         var present = new List<Guid> { author };
         for (var i = 1; i <= 4; i++)
         {
@@ -1077,7 +1021,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
 
         Assert.Equal(4, lines.Count);
         Assert.Equal(2, lines.Count(l => l.Contrast is not null));
-        // The two that keep the contrast are the most-salient currents (strongest |valence|).
         Assert.All(lines.Where(l => l.Contrast is not null),
             l => Assert.True(Math.Abs(l.Valence) >= 0.3));
     }
@@ -1085,12 +1028,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
     private MemoryRepository MakeRepo()
         => new(fixture.Factory, NullExtractor.Instance, NullLogger<MemoryRepository>.Instance);
 
-    /// <summary>
-    /// Capture one Event whose sole Recollection lands on <paramref name="participant"/>
-    /// with the given snippet/weight — the minimal seed for recall-ranking tests.
-    /// Optional <paramref name="aboutParticipantIds"/> / <paramref name="concept"/> hang
-    /// :ABOUT anchors off the Event for the relevant-arm walk.
-    /// </summary>
     private async Task CaptureForAsync(
         MemoryRepository _, Guid partyId, Guid roomId, ParticipantView participant,
         string snippet, double weight,
@@ -1137,7 +1074,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var vlad = new ParticipantView(Guid.NewGuid(), "Vlad", Driver: DriverKind.LLM);
         var cast = new[] { denise, vlad };
 
-        // Capture 1: Denise's draft corrupts → substituted with the Event description.
         var messageId1 = unchecked((int)(DateTimeOffset.UtcNow.Ticks & 0x7FFFFFFF));
         var msg1 = new ChatMessage
         {
@@ -1159,7 +1095,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         var result1 = await repo1.CaptureAsync(Moment.FromMessages(partyId, MomentSources.Rooms, roomId, new[] { msg1 }, messageId1, cast), CancellationToken.None);
         Assert.Equal(1, result1.RecollectionsCreated);
 
-        // Capture 2, same arc: Denise's draft corrupts again → near-dup substitute skipped, but Vlad's clean draft still writes.
         var messageId2 = messageId1 + 1;
         var msg2 = new ChatMessage
         {
@@ -1194,7 +1129,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             await load.ExecuteNonQueryAsync();
         }
 
-        // Denise holds exactly her capture-1 memory; the near-duplicate substitute is gone.
         var deniseEdges = await QueryAgtypeIntAsync(conn, $$"""
             SELECT * FROM cypher('memory', $cy$
               MATCH (part:Participant {persona_id: '{{denise.Id}}', party_id: '{{partyId}}'})-[r:RECOLLECTS]->(:Event)
@@ -1226,10 +1160,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         await cmd.ExecuteNonQueryAsync();
     }
 
-    // Each caller types the cypher() output column as `int` / `text` (instead of `agtype`)
-    // so Postgres applies AGE's agtype output cast — unquoting/unescaping string scalars —
-    // and Npgsql reads through its built-in converters. Reading agtype directly throws
-    // InvalidCastException; no default reader is registered for ag_catalog.agtype.
     private static async Task<int> QueryAgtypeIntAsync(NpgsqlConnection conn, string sql)
     {
         await using var cmd = conn.CreateCommand();
@@ -1246,8 +1176,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
         return raw as string;
     }
 
-    // One round-trip for the ADR 0015 substrate triple (id, weight, recall_count) so the
-    // MATCH clause isn't repeated per property.
     private static async Task<(string? Id, string? Weight, int RecallCount)> QueryEdgeSubstrateAsync(
         NpgsqlConnection conn, string sql)
     {
@@ -1282,8 +1210,6 @@ public sealed class MemoryRepositoryIntegrationTest(MemoryGraphFixture fixture)
             Func<Guid, string> resolveAuthorName,
             CancellationToken cancellationToken)
         {
-            // Map the by-name fixture data back onto each target's PersonaId, mirroring the
-            // production extractor's name-keyed JSON → PersonaId resolution.
             var result = new Dictionary<Guid, RecollectionDraft>();
             foreach (var t in targets)
             {

@@ -2,25 +2,21 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Work.Markets;
 
-/// <summary>Pure reading of Yahoo's unofficial chart API: it has no bid or ask, so a set spread stands in.</summary>
 public static class YahooQuotes
 {
     private const string Prefix = "yh:";
-    /// <summary>Half the stand-in spread (ADR 0030), so round trips still cost money.</summary>
     public const double HalfSpread = 0.001;
 
     public static string Id(string symbol) => Prefix + symbol;
 
     public static string? SymbolOf(string id) => id.StartsWith(Prefix, StringComparison.Ordinal) ? id[Prefix.Length..] : null;
 
-    /// <summary>Equities and funds from a search; everything else Yahoo finds is noise here.</summary>
     public static List<string> Symbols(JsonNode? search)
         => (search?["quotes"] as JsonArray ?? new JsonArray())
             .Where(q => q?["quoteType"]?.ToString() is "EQUITY" or "ETF" && !string.IsNullOrEmpty(q?["symbol"]?.ToString()))
             .Select(q => q!["symbol"]!.ToString())
             .ToList();
 
-    /// <summary>One chart's meta; open only inside today's regular session.</summary>
     public static Quote? Read(JsonNode? chart, DateTimeOffset now)
     {
         var meta = chart?["chart"]?["result"]?[0]?["meta"];
@@ -41,7 +37,6 @@ public static class YahooQuotes
     }
 }
 
-/// <summary>Stocks through Yahoo's unofficial endpoints: keyless, no guarantees. A keyed vendor is one more feed.</summary>
 public sealed class YahooFeed(IHttpClientFactory http, TimeProvider time, ILogger<YahooFeed> logger) : IMarketFeed
 {
     private const string Base = "https://query1.finance.yahoo.com";
@@ -68,7 +63,6 @@ public sealed class YahooFeed(IHttpClientFactory http, TimeProvider time, ILogge
         try
         {
             using var client = http.CreateClient("markets");
-            // Yahoo turns away clients that don't look like browsers.
             using var request = new HttpRequestMessage(HttpMethod.Get, Base + path);
             request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
             using var response = await client.SendAsync(request, ct);

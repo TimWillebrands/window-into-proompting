@@ -30,7 +30,6 @@ const zone = (at: HairZone['at'], o: Partial<HairZone>): HairZone => ({
 
 type Style = (c: Hex) => Omit<HairDoc, 'color'>;
 
-/** Hairstyles as zone recipes; the same shape the LLM writes, and its few-shot examples. */
 export const HAIR: Record<string, Style> = {
     bald: () => ({ cap: 0, zones: [] }),
     buzz: () => ({ cap: 1, zones: [] }),
@@ -385,7 +384,6 @@ const top = (color: Hex, o: Partial<TopDoc>): TopDoc => ({
     ...o,
 });
 
-/** Palette garments as cuts. */
 const TOPS: Record<string, (c: Hex) => TopDoc> = {
     tshirt: (c) => top(c, {}),
     tank: (c) => top(c, { sleeve: 0, fit: 0.15 }),
@@ -437,7 +435,6 @@ const TOPS: Record<string, (c: Hex) => TopDoc> = {
             sleeveColor: c,
             trim: '#f2f2f2',
         }),
-    // Drawn as the outer layer; figureDoc puts a robe under it.
     'feather-cloak': (c) =>
         top(c, { sleeve: 1, hem: 2.1, fit: 0.7, neck: 'boat', open: true }),
 };
@@ -530,7 +527,6 @@ const face = (look: Look): FaceDoc => {
                 : 0.4,
         nose: 0.4,
         ears: 0.45,
-        // A near-black iris reads as a hole when small; brown does the same job.
         eyes: {
             shape: 'almond',
             size: 0.65,
@@ -557,7 +553,6 @@ const face = (look: Look): FaceDoc => {
     };
 };
 
-/** Body types as sliders: shape, plus how far they push the palette's build and height. */
 const BODY_TYPES: Record<
     string,
     Partial<BodyDoc> & { thicker?: number; taller?: number }
@@ -604,7 +599,6 @@ const SLIDER: Record<string, number> = {
     tall: 0.85,
 };
 
-/** A palette Look as a Figure doc, the LLM's Design laid over it slot by slot. */
 export function figureDoc(look: Look): FigureDoc {
     const hair = (HAIR[look.hairStyle] ?? HAIR.short)(look.hair);
     const cut = TOPS[look.topStyle] ?? TOPS.tshirt;
@@ -650,7 +644,6 @@ export function figureDoc(look: Look): FigureDoc {
             trim: blend(look.bottom, '#ffffff', 0.25),
         });
         base.extras.push(...cloakExtras(look.top));
-        // Tucked into the hood but for a few strands down the front; more would fan out over it.
         base.hair.zones = [1, -1].map((side) =>
             zone([side * 60, side * 75, -5, 15], {
                 count: 3,
@@ -671,9 +664,7 @@ export function figureDoc(look: Look): FigureDoc {
         ...d,
         stance: d?.stance ? { ...base.stance, ...d.stance } : base.stance,
         face: { ...base.face, ...d?.face },
-        // A dye over a designed cut: the cut stays, the palette colour shows.
         hair: { ...base.hair, ...d?.hair, color: d?.hair?.color ?? look.hair },
-        // The palette accessory is worn on top of whatever was made.
         extras: [...base.extras, ...(d?.extras ?? [])],
     };
 }
@@ -734,7 +725,6 @@ const frames = (lens: Hex, frame = '#17151c'): ExtraDoc[] => [
     },
 ];
 
-/** a toward b by t, as hex. */
 const blend = (a: Hex, b: Hex, t: number): Hex => {
     const ch = (h: Hex, i: number) =>
         Number.parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
@@ -747,12 +737,9 @@ const blend = (a: Hex, b: Hex, t: number): Hex => {
         .join('')}`;
 };
 
-/** Bind-pose direction that stands upright once the arm hangs and the elbow bends. */
 const STAFF_AXIS: V3 = [0.497, 0.845, 0.199];
-/** The palm, from the wrist, with the arm in its bind pose. */
 const STAFF_GRIP: V3 = [-0.21, -0.28, 0.05];
 
-/** Points on a pole: t along it, a across, b forward, from the grip; head heights. */
 const along = (u: V3, from: V3) => {
     const across: V3 = [u[1], -u[0], 0];
     const ahead: V3 = [
@@ -770,7 +757,6 @@ const WOOD = '#3b2e25';
 const LEATHER = '#5c4330';
 const RAVEN = '#15141a';
 
-/** The cloak's hood, up, and a mantle of feathers over the shoulders. */
 function cloakExtras(c: Hex): ExtraDoc[] {
     const sheen = blend(c, '#5f8794', 0.3);
     const feathers: BlobDoc[] = [];
@@ -779,7 +765,6 @@ function cloakExtras(c: Hex): ExtraDoc[] {
         [1, 14, 0.5, 0.92, 0.11],
     ] as const)
         for (let i = 0; i < n; i++) {
-            // Round the back and over the shoulders, open at the chest.
             const a = ((i + tier * 0.5) / (n - 1) - 0.5) * 2 * 1.95;
             const [sx, cz] = [Math.sin(a), Math.cos(a)];
             const y = 0.38 - tier * 0.15;
@@ -807,7 +792,6 @@ function cloakExtras(c: Hex): ExtraDoc[] {
                 ball(0, 0.18, -0.12, 0.5, c),
                 rod([0.5, 0.1, -0.05], [0.78, -0.75, -0.15], 0.22, c),
                 rod([-0.5, 0.1, -0.05], [-0.78, -0.75, -0.15], 0.22, c),
-                // Hair above its top stays inside the hood.
                 {
                     ...rod([0, -0.02, -0.4], [0, -0.8, -0.5], 0.4, c),
                     hat: true,
@@ -818,7 +802,6 @@ function cloakExtras(c: Hex): ExtraDoc[] {
     ];
 }
 
-/** Palette extras as blob recipes; the LLM's few-shot examples too. */
 export const EXTRAS: Record<string, () => ExtraDoc[]> = {
     none: () => [],
     glasses: () => frames('none'),
@@ -1090,7 +1073,6 @@ export const EXTRAS: Record<string, () => ExtraDoc[]> = {
     ],
 };
 
-/** What this file can draw, per backend palette list; a test keeps them in step. */
 export const paletteCovers = (): Record<string, string[]> => ({
     BodyTypes: Object.keys(BODY_TYPES),
     Styles: Object.keys(HAIR),

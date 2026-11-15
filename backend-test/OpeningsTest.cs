@@ -4,7 +4,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027 Openings: a Locale becomes a drawn Place from a kit, keeping its id.</summary>
 public partial class PlacesTest
 {
     [Theory]

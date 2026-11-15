@@ -4,10 +4,6 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Desires;
 
-/// <summary>
-/// A Persona's Intrinsic Desires (ADR 0026), key = persona id: part of who they are, so they travel into every Party.
-/// Authored, or distilled once from the lived sheet; a new sheet re-distils unless an author has set them.
-/// </summary>
 public sealed class IntrinsicDesiresGrain(
     [PersistentState(stateName: "intrinsicDesires", storageName: "parties")]
     IPersistentState<IntrinsicDesiresState> state,
@@ -16,7 +12,6 @@ public sealed class IntrinsicDesiresGrain(
     : Grain, IIntrinsicDesiresGrain
 {
     private static readonly TimeSpan Retry = TimeSpan.FromMinutes(30);
-    /// <summary>Bump to redo every distilled (never authored) desire after a prompt change.</summary>
     private const int DistillVersion = 2;
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
 
@@ -27,7 +22,6 @@ public sealed class IntrinsicDesiresGrain(
         var hash = Self.LivedSheets.Hash($"desires v{DistillVersion}\n{sheet}");
         if (state.State.Authored || state.State.SourceHash == hash || DateTimeOffset.UtcNow - _lastAttempt < Retry) return Task.CompletedTask;
         _lastAttempt = DateTimeOffset.UtcNow;
-        // Detached: callers never wait on the LLM.
         _ = DistillAsync(name, sheet, hash);
         return Task.CompletedTask;
     }
@@ -87,24 +81,16 @@ public sealed class IntrinsicDesiresGrain(
 public interface IIntrinsicDesiresGrain : IGrainWithGuidKey
 {
     [Alias("GetAsync")] Task<List<Desire>> GetAsync();
-    /// <summary>Distil from the sheet in the background when it's new and nobody authored them.</summary>
     [Alias("EnsureAsync")] Task EnsureAsync(string name, string sheet);
-    /// <summary>Author edit: replaces them, and the sheet no longer overrides.</summary>
     [Alias("SetAsync")] Task<List<Desire>> SetAsync(List<Desire> desires);
-    /// <summary>Promotion: an Acquired Desire becomes part of who they are.</summary>
     [Alias("AddAsync")] Task<List<Desire>> AddAsync(Desire desire);
 }
 
-/// <summary>
-/// A Participant's desires in one Party (ADR 0026), key = <c>party:participant</c>: their Acquired Desires, plus how
-/// their Intrinsic ones are going here (fulfilled, last touched).
-/// </summary>
 public sealed class DesiresGrain(
     [PersistentState(stateName: "desires", storageName: "parties")]
     IPersistentState<DesiresState> state)
     : Grain, IDesiresGrain
 {
-    /// <summary>Acquired ones crowd out who you are past this; the oldest active one fades.</summary>
     private const int MaxAcquired = 3;
     private const int MaxSpentPromises = 10;
 
@@ -113,7 +99,6 @@ public sealed class DesiresGrain(
         var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         var intrinsic = GrainFactory.GetGrain<IIntrinsicDesiresGrain>(participantId);
         var who = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == participantId);
-        // Read off the lived sheet only: distilling the raw one would be redone once it's written (ADR 0054).
         if (who is { DefaultDriver: DriverKind.LLM } && await Self.LivedSheets.SourceAsync(GrainFactory, who) is { Length: > 0 } sheet)
             await intrinsic.EnsureAsync(who.Name, sheet);
 
@@ -121,7 +106,6 @@ public sealed class DesiresGrain(
         var faded = state.State.Acquired.Where(d => DesireRules.Fades(d, intrinsic: false, now)).ToList();
         foreach (var d in faded) d.Status = DesireStatus.Faded;
         if (faded.Count > 0) await state.WriteStateAsync();
-        // A due promise left to lapse: whoever was owed it cools on them (ADR 0043). Detached: their Ties may be what's reading us.
         foreach (var d in faded.Where(d => Self.PromiseRules.LetDown(d, now.ToUnixTimeMilliseconds())))
             _ = CoolAsync(partyId, d.TargetId!.Value, participantId);
 
@@ -140,22 +124,19 @@ public sealed class DesiresGrain(
     private async Task CoolAsync(Guid partyId, Guid holder, Guid promiser)
     {
         try { await GrainFactory.GetGrain<Self.IPersonaTiesGrain>(WorldKeys.Life(partyId, holder)).ShiftWarmthAsync(promiser, Work.ResponsibilityRules.NoShow); }
-        catch (Exception) { /* a missed cooling is no harm */ }
+        catch (Exception) { }
     }
 
     public async Task<Desire> AddAsync(Desire desire)
     {
-        // Said again: the open promise to them is restated, not doubled (ADR 0043).
         if (DesireRules.IsPromise(desire) && Self.PromiseRules.Restate(state.State.Acquired, desire, DateTimeOffset.UtcNow))
         {
             await state.WriteStateAsync();
             return Self.PromiseRules.Open(state.State.Acquired, desire.TargetId!.Value, desire.Coming, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())!;
         }
         state.State.Acquired.Add(desire);
-        // Promises are owed, not wanted: they neither count toward the cap nor get crowded out by it.
         var active = state.State.Acquired.Where(d => d.Status == DesireStatus.Active && !DesireRules.IsPromise(d)).OrderBy(d => Math.Max(d.TouchedAt, d.Since)).ToList();
         foreach (var old in active.Take(Math.Max(0, active.Count - MaxAcquired))) old.Status = DesireStatus.Faded;
-        // Settled promises are spent; unlike a fulfilled want they're no candidate for Promotion, so only the latest few stay.
         var spent = state.State.Acquired.Where(d => DesireRules.IsPromise(d) && d.Status != DesireStatus.Active).OrderByDescending(d => d.TouchedAt).Skip(MaxSpentPromises).ToHashSet();
         state.State.Acquired.RemoveAll(spent.Contains);
         await state.WriteStateAsync();
@@ -180,7 +161,6 @@ public sealed class DesiresGrain(
             state.State.Marks[desireId] = new DesireMark { Status = status, TouchedAt = now };
         }
         await state.WriteStateAsync();
-        // Becoming someone who can: a being-want come true may be know-how now (ADR 0054).
         if (status == DesireStatus.Fulfilled && desire is { Kind: DesireKind.Being } && !DesireRules.IsPromise(desire))
             await Skills.Practising.NoteAsync(GrainFactory, partyId, participantId, Skills.Practising.Desire(desire.Id, desire.Text));
         return true;
@@ -214,15 +194,10 @@ public sealed class DesiresGrain(
 [Alias("PartyTown.World.Desires.IDesiresGrain")]
 public interface IDesiresGrain : IGrainWithStringKey
 {
-    /// <summary>Intrinsic (as they're going here) and Acquired desires; kicks off distilling the intrinsic ones.</summary>
     [Alias("GetAsync")] Task<DesiresView> GetAsync();
-    /// <summary>A promise said again restates the open one to that person and returns it (ADR 0043).</summary>
     [Alias("AddAsync")] Task<Desire> AddAsync(Desire desire);
-    /// <summary>Fulfilled, faded or abandoned; false when no such desire.</summary>
     [Alias("MarkAsync")] Task<bool> MarkAsync(Guid desireId, DesireStatus status);
-    /// <summary>Progress: keeps an Acquired Desire from fading and puts it back on top of the mind.</summary>
     [Alias("TouchAsync")] Task TouchAsync(Guid desireId);
-    /// <summary>True (and the clock reset) when a review is due.</summary>
     [Alias("TryReviewAsync")] Task<bool> TryReviewAsync();
     [Alias("RemoveAsync")] Task<bool> RemoveAsync(Guid desireId);
 }

@@ -24,7 +24,6 @@ interface CduFrame {
     lines?: CduLineSummary[];
 }
 
-/** The CDU's console: what's been logged so far, then whatever arrives live. */
 function Terminal() {
     const [lines, setLines] = useState<CduLineSummary[]>([]);
     const end = useRef<HTMLDivElement>(null);
@@ -66,7 +65,6 @@ function Terminal() {
     );
 }
 
-/** Its state, its trunk and its PR: facts from git and GitHub. */
 function State({ cdu }: { cdu: CduOverview }) {
     return (
         <>
@@ -121,7 +119,6 @@ function State({ cdu }: { cdu: CduOverview }) {
     );
 }
 
-/** Who said what to it, and what it said back: its words, not facts. */
 function Said({ cdu }: { cdu: CduOverview }) {
     if (cdu.exchanges.length === 0)
         return <p className="cd-state">Nobody has spoken to it yet.</p>;
@@ -146,7 +143,6 @@ function Said({ cdu }: { cdu: CduOverview }) {
     );
 }
 
-/** The Demiurge at work, live. Spectators see what only its Cytheurgists know. */
 export default function CduApp() {
     const queryClient = useQueryClient();
     const overview = useGetWorldsPartyIdCdu(WORLD_ID);

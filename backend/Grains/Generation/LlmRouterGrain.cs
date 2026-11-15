@@ -42,7 +42,6 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
                 continue;
             }
             if (!_offline.Remove(id)) continue;
-            // Whatever benched it while it was down no longer says anything about it.
             _benched.Remove(id);
             logger.LogInformation("Provider {ProviderId} is back online", id);
         }
@@ -109,7 +108,6 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
         var routes = await GetRoutesAsync();
         if (!routes.TryGetValue((personaId, tier), out var providerId)) return null;
 
-        // Disabled, benched or offline: the persona falls back to the pool rather than going mute.
         var assigned = Usable(await GetProvidersAsync(cancellationToken), providerId)?.Grain;
 
         using var span = Tracing.Persona.StartActivity("llm.route.assigned", ActivityKind.Internal);
@@ -164,10 +162,8 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             .ToList();
     }
 
-    /// <summary>The pool for a tier, best first: healthy, then Priority, then this key's Share order (ADR 0048).</summary>
     private List<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> Rank(
         IReadOnlyList<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> providers, JobComplexity tier, Guid? affinity)
-        // Offline is known unreachable, so it's left out entirely; the caller's next tier beats a dead box.
         => providers
             .Where(p => !p.Entry.Reserved && !IsOffline(p.Entry.Id) && p.Entry.SupportedComplexities.HasFlag(tier))
             .OrderBy(p => IsBenched(p.Entry.Id))
@@ -175,7 +171,6 @@ public sealed class LlmRouterGrain(ILogger<LlmRouterGrain> logger) : Grain, ILlm
             .ThenBy(p => Shares.Rank(affinity, p.Entry.Id, p.Entry.Share))
             .ToList();
 
-    /// <summary>Smooth weighted round-robin over the best step: each call the next provider, in proportion to Share.</summary>
     private (LlmProviderEntry Entry, ILlmEndpointGrain Grain) NextInTurn(List<(LlmProviderEntry Entry, ILlmEndpointGrain Grain)> ranked)
     {
         var step = ranked

@@ -3,7 +3,6 @@ using PartyTown.World.Apps;
 
 namespace BackendTest;
 
-/// <summary>The veto teaches (ADR 0050): what was thought better of pulls less for a while.</summary>
 public class SecondThoughtsTest
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeMilliseconds(10_000_000_000);

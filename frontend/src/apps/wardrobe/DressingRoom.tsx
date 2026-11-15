@@ -10,13 +10,11 @@ import { PIXEL_STYLE, Pixelate, usePixelDpr } from '../places/scene/pixel';
 interface Props {
     appearance: Appearance | null | undefined;
     fallbackColour: string;
-    /** A little dance after a purchase, a wave on arrival. */
     mood: 'idle' | 'dance' | 'wave';
 }
 
 const DRESSING_GL = canvasRenderer({ alpha: true, antialias: false });
 
-/** The fitting room: your figure on a slowly turning podium; drag to spin it. */
 export default function DressingRoom({
     appearance,
     fallbackColour,
@@ -89,7 +87,6 @@ export default function DressingRoom({
     );
 }
 
-/** Look at the figure's middle, not the floor. */
 function Aim({ y }: { y: number }) {
     const camera = useThree((s) => s.camera);
     useEffect(() => {

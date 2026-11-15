@@ -3,7 +3,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>ADR 0027 Locales: offscreen Places a Body is away at; plus ADR 0026's purpose, staff spots and visit days.</summary>
 public partial class PlacesTest
 {
     [Fact]
@@ -19,7 +18,6 @@ public partial class PlacesTest
         var office = await places.LocaleAsync("the office in Zuid", denise);
         Assert.Equal(office, await places.LocaleAsync("Office in Zuid", pieter));
         Assert.NotNull(await places.GoAwayAsync(denise, office, "at work"));
-        // "… in Zuid" puts the office in Zuid: a tram ride from the Café.
         _fx.Time.Advance(TimeSpan.FromMinutes(5));
 
         var snapshot = await places.GetSnapshotAsync();
@@ -30,7 +28,6 @@ public partial class PlacesTest
         Assert.StartsWith("You're at work at the office in Zuid. That's offscreen", await places.GetSituationAsync(denise));
         Assert.DoesNotContain("Denise", await places.GetSituationAsync(pieter));
 
-        // Nobody walks over to a Locale: not by moving, not by joining.
         Assert.Null(await places.MoveAsync(pieter, office, null));
         Assert.Null(await places.JoinAsync(pieter, denise));
 
@@ -53,7 +50,6 @@ public partial class PlacesTest
         Assert.Equal("Denise's work", (await places.GetSnapshotAsync()).Places.Single(p => p.Id == hers).Name);
         Assert.Equal(cafe.Id, await places.LocaleAsync("Café", null));
 
-        // A drawn workplace: just walk there, behind the counter, working.
         await places.GoAwayAsync(pieter, cafe.Id, "working");
         _fx.Time.Advance(TimeSpan.FromMinutes(2));
         var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter);

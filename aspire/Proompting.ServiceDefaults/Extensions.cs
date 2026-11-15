@@ -12,13 +12,6 @@ using OpenTelemetry.Trace;
 
 namespace Microsoft.Extensions.Hosting;
 
-// Service-defaults extensions for Aspire-aware apps.
-// AddServiceDefaults() wires OTel + service discovery + resilient HttpClient + health checks.
-// MapDefaultEndpoints() exposes /health and /alive (Development only by default).
-//
-// OTLP export is conditional on OTEL_EXPORTER_OTLP_ENDPOINT being set, so the same code
-// works locally (Aspire injects the dashboard endpoint) and in production (Kamal injects
-// http://proompting-dashboard:18889).
 public static class Extensions
 {
     private const string HealthEndpointPath = "/health";

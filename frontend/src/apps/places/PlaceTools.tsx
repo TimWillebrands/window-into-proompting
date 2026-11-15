@@ -30,7 +30,6 @@ const POSE_ICON: Record<string, [string, string]> = {
     'hold-hands': ['🤝', 'Hold hands'],
 };
 
-/** Hang-out poses at your spot (ADR 0025), as an IMVU-style dock over the view: the spot's own, think and wave, and pair ones with whoever's next to you. */
 export function PoseBar({
     place,
     me,
@@ -43,7 +42,6 @@ export function PoseBar({
     bottom?: number;
 }) {
     const pose = usePostWorldsPartyIdPlacesPose();
-    // Mid-walk across the room, the dock is already for where you're going.
     const spot = (place.spots ?? []).find(
         (s) => s.id === (me.destSpotId ?? me.spotId),
     );
@@ -141,7 +139,6 @@ const FLOORS = [
     '#7a2f3d',
 ];
 
-/** Your own Home (or anything, as the author): move and turn things, take decor down, pick wall and floor colours. */
 export function ArrangeTools({
     place,
     furni,
@@ -308,7 +305,6 @@ function Swatches({
     );
 }
 
-/** Author: have a new Place designed, or a thing made here. */
 export function MakerTools({
     place,
     playerId,
@@ -433,7 +429,6 @@ export function MakerTools({
     );
 }
 
-/** Author: design a Home or public Place anew, outdoors for a camp; same people, keys and things. */
 function Redesign({
     placeId,
     name,

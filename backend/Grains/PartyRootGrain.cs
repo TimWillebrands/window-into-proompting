@@ -116,7 +116,6 @@ public sealed class PartyRootGrain(
     }
 }
 
-/// <summary>A World as the login screen lists it.</summary>
 [GenerateSerializer, Alias("PartyTown.Grains.WorldEntry")]
 public sealed record WorldEntry(
     [property: Id(0)] Guid Id,
@@ -149,19 +148,15 @@ public interface IPartyRootGrain : IGrainWithGuidKey
     [Alias("GetWorldsAsync")]
     Task<List<WorldEntry>> GetWorldsAsync();
 
-    /// <summary>The World new visitors and MCP agents land in.</summary>
     [AlwaysInterleave, Alias("GetCurrentAsync")]
     Task<Guid> GetCurrentAsync();
 
-    /// <summary>False when no such World.</summary>
     [Alias("SetCurrentAsync")]
     Task<bool> SetCurrentAsync(Guid id);
 
-    /// <summary>Stopped Worlds keep everything but take no writes and no turns.</summary>
     [AlwaysInterleave, Alias("IsStoppedAsync")]
     Task<bool> IsStoppedAsync(Guid id);
 
-    /// <summary>False when no such World.</summary>
     [Alias("SetStoppedAsync")]
     Task<bool> SetStoppedAsync(Guid id, bool stopped);
 }
@@ -178,7 +173,6 @@ public sealed record class PartyRootState
     [Id(2)]
     public HashSet<Guid> Stopped { get; set; } = new();
 
-    /// <summary>Guid.Empty, the root, until someone moves the World.</summary>
     [Id(3)]
     public Guid Current { get; set; }
 }

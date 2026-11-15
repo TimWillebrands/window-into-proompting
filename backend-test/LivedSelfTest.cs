@@ -2,7 +2,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Lived self (ADR 0021): offscreen day, social battery, stale-word detection.</summary>
 public class LivedSelfTest
 {
     private static readonly Guid A = Guid.NewGuid();
@@ -217,7 +216,6 @@ public class OwnRecentTest
     }
 }
 
-/// <summary>Coherence (ADR 0042): a persona sees what they already said or wrote, and each Day draws its own small things.</summary>
 public class SaidStandsTest
 {
     [Fact]
@@ -267,7 +265,6 @@ public class SaidStandsTest
             Assert.True(m.Success, line);
             Assert.NotEqual(m.Groups[1].Value, m.Groups[2].Value);
         }
-        // Independent Days spread over the domains instead of converging on one default.
         Assert.True(people.Select(id => SelfMath.SmallThings(id, day)).Distinct().Count() > 20);
     }
 }

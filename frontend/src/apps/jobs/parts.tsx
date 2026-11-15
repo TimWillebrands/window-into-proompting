@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import type { ProblemDetails } from '../../api/model';
 import { refusal, type Tone } from './jobs-lib';
 
-/** The blue band at the top of every page. */
 export function PageHead({
     icon,
     title,
@@ -60,7 +59,6 @@ export function Stat({
     );
 }
 
-/** A label above its control; wrapping it keeps them tied without ids. */
 export function Field({
     label,
     grow,
@@ -79,7 +77,6 @@ export function Field({
     );
 }
 
-/** Looks like text, works like a link: how every page reaches the others. */
 export function Jump({
     onClick,
     children,

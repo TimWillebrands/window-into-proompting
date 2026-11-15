@@ -3,19 +3,8 @@ using JsonRepairSharp;
 
 namespace PartyTown.Services.Memory;
 
-/// <summary>
-/// Shared tolerance layer for the rest-path extractors (capture, consolidation): clip the
-/// model's output to its outermost JSON object and repair near-JSON drift. Null when no
-/// object can be salvaged — callers treat that as a declined extraction.
-/// </summary>
 internal static class LlmJson
 {
-    /// <summary>
-    /// Bounded diagnostic for parse-failure warnings. Model payloads are built from
-    /// recollection snippets, bios and user free-text — dumping them whole turns that
-    /// content into plain-text logs. A short prefix plus the total length keeps the
-    /// failure shape debuggable without persisting the payload.
-    /// </summary>
     internal static string LogPreview(string? raw)
     {
         const int max = 160;

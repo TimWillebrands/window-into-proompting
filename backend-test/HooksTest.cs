@@ -5,7 +5,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Every channel's options carry the persona's own material, so none wins on vividness alone.</summary>
 public class HooksTest
 {
     private const string Hat = "Floor sent me a photo of Mum's new church hat and I haven't stopped thinking about it, it's enormous and she's so proud";
@@ -56,7 +55,6 @@ public class HooksTest
     }
 }
 
-/// <summary>Someone in your vicinity is the natural thing to respond to.</summary>
 public partial class PlacesTest
 {
     private async Task<(Guid PartyId, Guid Denise, Guid Pieter, Place Cafe)> SideBySideAsync()
@@ -76,7 +74,6 @@ public partial class PlacesTest
         var (partyId, denise, pieter, cafe) = await SideBySideAsync();
         await _fx.GrainFactory.GetGrain<IChatGroupGrain>(cafe.TalkRoomId!.Value).SendNewMessageAsync(pieter, "the oat milk is gone again", null, null);
 
-        // Chat lines carry the wall clock; the world here runs on a manual one.
         var life = Life(partyId, denise, (denise, "Denise"), (pieter, "Pieter")) with { Now = DateTimeOffset.UtcNow };
         var seen = (await new PlacesApp(_fx.GrainFactory).PerceiveAsync(life, default))!;
 

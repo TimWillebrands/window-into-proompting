@@ -4,35 +4,8 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace PartyTown.Bench.Probes;
 
-/// <summary>
-/// End-to-end memory loop across two scenes — the "does recall actually carry across a gap?"
-/// review instrument. Unlike <see cref="DecisionProbes"/> (fake recollections handed straight
-/// to the decision service) these drive the real capture → store → recall → decide → speak
-/// path against the bench's ephemeral AGE (<c>RequiresMemory</c>), so the specifics they test
-/// for live ONLY in what was remembered, never in the Scene-2 prompt.
-/// <para>
-/// <b>The fiction (both probes).</b> Scene 1 is a phone call: mundane greetings, Denise
-/// announces a big life change (quitting her agency to open a bakery, <i>Rise &amp; Grind</i>),
-/// they agree to meet for coffee (the <i>Blue Mug</i>, Thursday). Scene 2 is that coffeeshop in
-/// the SAME Party (recall is Party-scoped → it reaches across Rooms): Vlad is waiting, Denise
-/// walks in covered in flour but names nothing specific. The bakery's name, the career leap, and
-/// the Thursday/Blue Mug plan exist only in memory — so a callback proves the loop closed.
-/// </para>
-/// <list type="bullet">
-/// <item><see cref="Recall_LifeChangeAcrossScenes"/> — <b>scripted control.</b> Both sides of
-/// Scene 1 are authored; only Vlad's single Scene-2 turn is model-driven. Cheapest, most
-/// deterministic; isolates the recall callback.</item>
-/// <item><see cref="Recall_LifeChangeAcrossScenes_Full"/> — <b>full live, minimal
-/// orchestration.</b> Only Denise's lines are pushed; Vlad's EVERY turn (both scenes) is
-/// model-generated through the real decision→speaking path. Swap the model and the whole
-/// exchange's quality moves — this is the by-model comparison instrument.</item>
-/// </list>
-/// </summary>
 public static class RecallScenarioProbes
 {
-    // Both personas are present in both scenes. Denise speaks the life change; Vlad observes it,
-    // then recalls in Scene 2 — so the relevant arm has a real chain to walk:
-    // (Vlad)-[RECOLLECTS]->(Event)-[ABOUT]->(Denise, present).
     private static readonly ParticipantView DeniseView = new(BenchCast.DeniseId, "Denise", DriverKind.LLM);
     private static readonly ParticipantView VladView = new(BenchCast.VladId, "Vlad", DriverKind.LLM);
     private static readonly ParticipantView[] Present = { DeniseView, VladView };
@@ -42,18 +15,13 @@ public static class RecallScenarioProbes
         "Thursday afternoon at the Blue Mug, a cramped coffeeshop on Almond Street. Vlad arrived "
         + "early and has been nursing a black coffee in the corner. The door just opened.";
 
-    // Denise's Scene-2 arrival, shared by both probes. Names no persona (no auto-respond shortcut)
-    // and hooks the bakery ("dough since five") WITHOUT naming it — the name, the career leap, and
-    // the Thursday/Blue Mug plan live only in memory.
     private const string WalkInLine =
         "*drops into the chair across from him, brushing something pale off her sleeve* sorry, "
         + "sorry — i've been up to my elbows in dough since five this morning and completely lost "
         + "track of the time.";
 
-    // ── Probe 1: scripted control ───────────────────────────────────────────────────────────
-
-    private const int LifeChangeMessageId = 5;    // Denise: "i'm opening a bakery … Rise & Grind"
-    private const int AgreeToMeetMessageId = 8;    // Vlad: "Fine. Thursday. … the Blue Mug."
+    private const int LifeChangeMessageId = 5;
+    private const int AgreeToMeetMessageId = 8;
 
     [Probe("Scripted-control recall loop (real AGE + live session): Scene 1 is a fully-authored phone call (both sides) — greetings, Denise announces she's quitting to open 'Rise & Grind', they agree to meet at the 'Blue Mug' Thursday; both salient beats are captured. Scene 2 is that coffeeshop in the SAME Party — Vlad waits, Denise walks in naming nothing specific, and ONLY Vlad's single turn runs the real recall→decide→speak path. Cheapest variant; isolates the callback. Read scene2.vlad.recalled (did it travel, via which arm), the decision prompt's '# What you remember', and whether Vlad's line surfaces a memory-only specific. For full by-model comparison use Recall_LifeChangeAcrossScenes_Full.", RequiresMemory = true)]
     public static async Task Recall_LifeChangeAcrossScenes(Bench bench)
@@ -61,19 +29,15 @@ public static class RecallScenarioProbes
         var ct = bench.Cancellation;
         var (party, callRoom, shopRoom) = NewScope(bench);
 
-        // ── Scene 1: the phone call (fully scripted) ──────────────────────────────────────
         var call = Scene1Transcript(callRoom);
         bench.Observe("scene1.transcript", call.Select(m => $"{Name(m.SenderId)}: {m.Content}").ToList());
 
-        // Production captures a moment when its message arrives, so each capture sees the
-        // conversation up to and including that message — mirror that with a prefix slice.
         await CaptureAsync(bench, party, callRoom,
             call.Take(LifeChangeMessageId).ToList(), LifeChangeMessageId, "scene1.capture.lifeChange", ct);
         await CaptureAsync(bench, party, callRoom,
             call, AgreeToMeetMessageId, "scene1.capture.agreeToMeet", ct);
         await ObserveStoredGraphAsync(bench, party, ct);
 
-        // ── Scene 2: the coffeeshop (only Vlad is live) ───────────────────────────────────
         bench.Observe("scene2.scenario", CoffeeshopScenario);
         bench.Observe("scene2.trigger (Denise walks in)", WalkInLine);
         var shopHistory = new List<ChatMessage> { UserLine(1, WalkInLine, shopRoom) };
@@ -85,15 +49,6 @@ public static class RecallScenarioProbes
         ObserveJudgeHint(bench);
     }
 
-    // ── Probe 2: full live, minimal orchestration ───────────────────────────────────────────
-
-    /// <summary>The only authored dialogue in the full probe: Denise's turns. Each is a
-    /// <c>user</c>-type statement with no "Vlad" and no trailing "?" — that keeps every beat
-    /// below the 0.9 auto-respond shortcut (so the decision LLM, and thus recall-pick, runs each
-    /// turn) while the cold-open floor keeps Vlad engaged in a 1:1. Specifics (Rise &amp; Grind,
-    /// Blue Mug, Thursday) live in Denise's lines so capture stays deterministic and they're
-    /// withheld from Scene 2. Lines react to Denise's own momentum, not to Vlad's exact words —
-    /// the "assumptions within reason" that let Vlad drift without derailing the script.</summary>
     private static readonly (string Line, bool Capture)[] DeniseScript =
     {
         ("hi hi — it's Denise! god, you actually picked up. i was all set to leave a voicemail you'd ignore for a week.", false),
@@ -108,7 +63,6 @@ public static class RecallScenarioProbes
         var ct = bench.Cancellation;
         var (party, callRoom, shopRoom) = NewScope(bench);
 
-        // ── Scene 1: the phone call (Denise scripted, Vlad live) ──────────────────────────
         var history = new List<ChatMessage>();
         var id = 0;
         var turn = 0;
@@ -118,14 +72,10 @@ public static class RecallScenarioProbes
             var denise = UserLine(++id, line, callRoom);
             history.Add(denise);
 
-            // Capture marks Denise's line the moment it "arrives" (before Vlad reacts), exactly
-            // as production does — recentContext is the lead-up, the marked message is hers.
             if (capture)
                 await CaptureAsync(bench, party, callRoom, history.ToList(), denise.MessageId,
                     $"scene1.t{turn}.capture", ct);
 
-            // Vlad's turn is fully live: recall (empty early, fills after the captures), decide,
-            // speak. His generated line is appended so the next beat sees a real exchange.
             var recalled = await RecallForVladAsync(bench, party, line, $"scene1.t{turn}.vlad", ct);
             var vlad = await RunVladTurnAsync(bench, history, recalled, scenario: null, callRoom,
                 ++id, $"scene1.t{turn}.vlad", ct);
@@ -137,7 +87,6 @@ public static class RecallScenarioProbes
             history.Select(m => $"{Name(m.SenderId)}: {m.Content}").ToList());
         await ObserveStoredGraphAsync(bench, party, ct);
 
-        // ── Scene 2: the coffeeshop (Denise scripted, Vlad live) ──────────────────────────
         bench.Observe("scene2.scenario", CoffeeshopScenario);
         bench.Observe("scene2.trigger (Denise walks in)", WalkInLine);
         var shopHistory = new List<ChatMessage> { UserLine(1, WalkInLine, shopRoom) };
@@ -155,25 +104,20 @@ public static class RecallScenarioProbes
         ObserveJudgeHint(bench);
     }
 
-    // ── Scene 1 transcript (scripted-control probe) ─────────────────────────────────────────
-
-    /// <summary>The fully-authored phone call for the control probe, oldest→newest. Both are
-    /// personas ("assistant"). The life change (msg 5) carries the bakery's name; the agreement
-    /// (msg 8) carries the place and day — the specifics Scene 2 withholds.</summary>
     private static IReadOnlyList<ChatMessage> Scene1Transcript(Guid room)
     {
         string[] lines =
         {
-            /* 1 Denise */ "Vlaaad! hi! it's Denise. you actually answered — i nearly fell off my chair.",
-            /* 2 Vlad   */ "Denise. It is the middle of the afternoon. I was asleep. ...Hello.",
-            /* 3 Denise */ "ok i'll be quick, i KNOW you hate the phone. but i have news. proper news.",
-            /* 4 Vlad   */ "You have my attention. Briefly.",
-            /* 5 Denise */ "i quit the agency. handed my notice in friday — fifteen years, done. i'm "
+            "Vlaaad! hi! it's Denise. you actually answered — i nearly fell off my chair.",
+            "Denise. It is the middle of the afternoon. I was asleep. ...Hello.",
+            "ok i'll be quick, i KNOW you hate the phone. but i have news. proper news.",
+            "You have my attention. Briefly.",
+            "i quit the agency. handed my notice in friday — fifteen years, done. i'm "
                 + "opening a bakery, my own, it's called Rise & Grind and i sign the lease monday.",
-            /* 6 Vlad   */ "...You're serious. Leaving the one thing you're good at, to sell croissants.",
-            /* 7 Denise */ "to sell EVERYTHING, thank you. and don't be like that, you'll hurt my "
+            "...You're serious. Leaving the one thing you're good at, to sell croissants.",
+            "to sell EVERYTHING, thank you. and don't be like that, you'll hurt my "
                 + "sourdough's feelings. look — i can't do this justice on the phone. coffee? thursday?",
-            /* 8 Vlad   */ "Fine. Thursday. There's a place on Almond Street, the Blue Mug. I'll be "
+            "Fine. Thursday. There's a place on Almond Street, the Blue Mug. I'll be "
                 + "in the corner, quietly regretting my own sociability.",
         };
 
@@ -196,14 +140,6 @@ public static class RecallScenarioProbes
         return messages;
     }
 
-    // ── Shared turn machinery ───────────────────────────────────────────────────────────────
-
-    /// <summary>Runs ONE live Vlad turn — decision over the recalled set, then (if he speaks) the
-    /// speaking phase with the resolved memory snippet — mirroring the ResponsePipeline handoff
-    /// (decision selects by index, speaking executes). Observes the decision and the utterance
-    /// under <paramref name="label"/>; returns Vlad's generated message (assistant, in
-    /// <paramref name="room"/>) or null when he declined. <paramref name="recalled"/> is passed in
-    /// so the caller can observe/warn on it; the composed prompts are captured automatically.</summary>
     private static async Task<ChatMessage?> RunVladTurnAsync(
         Bench bench,
         IReadOnlyList<ChatMessage> history,
@@ -217,9 +153,6 @@ public static class RecallScenarioProbes
         var self = BenchCast.Vlad;
         var decisionService = new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"));
 
-        // totalAiRoundsInGroup = 0: a 1:1 exchange, not a group cascade. Denise's lines are
-        // user-type so the trailing-assistant count is 0 anyway; passing it explicitly keeps the
-        // instrument focused on response quality rather than the group spam-throttle.
         var decision = await decisionService.ShouldRespondAsync(
             self,
             history,
@@ -230,8 +163,6 @@ public static class RecallScenarioProbes
             scenario: scenario,
             recollections: recalled.Select(r => r.Snippet).ToList());
 
-        // Same deployment policy as ResponsePipeline: model pick wins, salience floor
-        // fires on null (RecallDeployment) — the artifact records which one chose.
         var (picked, autoDeployed) = RecallDeployment.ResolvePick(
             decision.MemoryToReference, decision.Respond, recalled);
         bench.Observe($"{label}.decision", new
@@ -244,9 +175,6 @@ public static class RecallScenarioProbes
             pickedBy = picked is null ? null : autoDeployed ? "salience-floor" : "model",
         });
 
-        // Production parity: a pick (model or floor) fires the strengthening write, which
-        // increments recall_count — the very gate that makes floor-deployment one-shot.
-        // Awaited here (production fire-and-forgets) so the next turn's recall sees it.
         if (picked is not null && picked.EdgeId != Guid.Empty)
             await bench.Memory.StrengthenRecollectionAsync(picked.EdgeId, ct);
 
@@ -284,9 +212,6 @@ public static class RecallScenarioProbes
         };
     }
 
-    /// <summary>Recall for Vlad, wired exactly like ResponsePipeline (Party-scoped, anchored on
-    /// the present cast + the triggering line, limit 10), and observed under
-    /// <paramref name="label"/> with arm + salience. Pure DB read — no LLM.</summary>
     private static async Task<IReadOnlyList<RecalledMemory>> RecallForVladAsync(
         Bench bench, Guid party, string anchorText, string label, CancellationToken ct)
     {
@@ -313,10 +238,6 @@ public static class RecallScenarioProbes
                 + "decision below has nothing to call back; the loop is broken.");
     }
 
-    /// <summary>Captures one marked moment and records what the extractor produced — the Event
-    /// flag, the Recollection count, and which personas now carry a memory of it. Capture needs a
-    /// live session (the extractor routes LLM calls); a failure is observed, not thrown, so the
-    /// artifact still writes.</summary>
     private static async Task CaptureAsync(
         Bench bench,
         Guid party,
@@ -344,9 +265,6 @@ public static class RecallScenarioProbes
         }
     }
 
-    /// <summary>Dumps the per-Party subgraph after Scene 1 — Events (neutral descriptions),
-    /// Concepts (tags), and Recollection edges (who remembers what) — the reviewer's ground
-    /// truth for "what was remembered" before judging "what was recalled".</summary>
     private static async Task ObserveStoredGraphAsync(Bench bench, Guid party, CancellationToken ct)
     {
         var graph = await bench.Memory.GetPartyMemoryGraphAsync(party, ct);
@@ -370,10 +288,6 @@ public static class RecallScenarioProbes
         + "didn't land. In the _Full probe, also read every Vlad turn for in-character voice quality "
         + "across the model under test.");
 
-    // ── Small builders / lookups ────────────────────────────────────────────────────────────
-
-    /// <summary>Fresh Party + Room scopes per run keep the artifact clean against an accumulating
-    /// graph if the container is ever reused; the cast ids stay fixed so output diffs across runs.</summary>
     private static (Guid Party, Guid CallRoom, Guid ShopRoom) NewScope(Bench bench)
     {
         var party = Guid.NewGuid();
@@ -383,9 +297,6 @@ public static class RecallScenarioProbes
         return (party, callRoom, shopRoom);
     }
 
-    // Denise's pushed stimulus is "user"-type: it raises the cold-open floor (keeping Vlad engaged
-    // in a 1:1) and resets the trailing-assistant count each beat, while her Driver stays LLM in
-    // Present so capture/recall still treat her as a remembering persona.
     private static ChatMessage UserLine(int messageId, string content, Guid room) => new()
     {
         MessageId = messageId,
@@ -404,9 +315,6 @@ public static class RecallScenarioProbes
 
     private static string Name(Guid id) => NamesById.TryGetValue(id, out var n) ? n : id.ToString("N")[..8];
 
-    /// <summary>Recollection edges hang off a Participant node id shaped "part:{personaId}:{partyId}"
-    /// (see <c>MemoryRepository.GetPartyMemoryGraphAsync</c>) — pull the persona id back out to name
-    /// the rememberer.</summary>
     private static string PersonaNameFromNodeId(string nodeId)
     {
         var parts = nodeId.Split(':');

@@ -17,7 +17,6 @@ using PartyTown.World.Places;
 
 namespace PartyTown.Controllers;
 
-/// <summary>What the generator wrote: the sheet, plus the Card's fields when it filled them in.</summary>
 internal sealed record GeneratedPersona(string Name, string SystemPrompt, string Bio, double? Chattiness, double? Impulsivity);
 
 public sealed record GenerateBioRequest
@@ -44,9 +43,6 @@ public sealed record GeneratePersonaResponse
 
 [ApiController]
 [Route("[controller]")]
-/// <summary>
-/// HTTP API for creating, reading, updating, and deleting personas.
-/// </summary>
 public class PersonaController(
     IGrainFactory grains,
     IMemoryCache cache,
@@ -65,9 +61,6 @@ public class PersonaController(
         "No epithets, archetype labels, themes or metaphors, even if the description has them. " +
         "Output ONLY the bio: one line, no formatting, headings or commentary.";
 
-    /// <summary>
-    /// Returns all personas currently registered.
-    /// </summary>
     [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<Persona[]>> GetAll()
@@ -77,9 +70,6 @@ public class PersonaController(
         return Ok(personas);
     }
 
-    /// <summary>
-    /// Returns a single persona by id.
-    /// </summary>
     [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Persona>> GetById(Guid id)
@@ -101,9 +91,6 @@ public class PersonaController(
         return Ok(persona);
     }
 
-    /// <summary>
-    /// Creates or updates a persona based on the payload and optional route id.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPut("{id:guid?}")]
     public async Task<ActionResult<Persona>> Upsert(Guid? id, [FromBody] Persona persona)
@@ -168,9 +155,6 @@ public class PersonaController(
             : AcceptedAtAction(nameof(GetById), new { id = updated.Id }, updated);
     }
 
-    /// <summary>
-    /// Removes a persona by id.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Remove(Guid id)
@@ -193,13 +177,6 @@ public class PersonaController(
         return NoContent();
     }
 
-    /// <summary>
-    /// WebSocket endpoint for streaming persona generation.
-    /// Client sends one JSON request, server streams realtime envelope events back.
-    /// Request shapes:
-    ///   { "type": "generate-bio", "systemPrompt": "..." }
-    ///   { "type": "generate", "prompt": "..." }
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpGet("ws")]
     public async Task RealtimeGeneration()
@@ -213,7 +190,6 @@ public class PersonaController(
         using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
         var ct = HttpContext.RequestAborted;
 
-        // Read the initial request message (accumulate all frames)
         using var messageStream = new MemoryStream();
         var frameBuffer = new byte[64 * 1024];
         WebSocketReceiveResult receiveResult;
@@ -238,7 +214,6 @@ public class PersonaController(
             : null;
 
         var llm = new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger);
-        // Streams one routed call, forwarding each content chunk as a delta frame.
         async Task<string?> StreamToSocketAsync(string system, string user, double temperature)
         {
             try
@@ -293,7 +268,6 @@ public class PersonaController(
                     var generatorPrompt = await cache.GetOrCreateAsync("persona-generator-prompt", async entry =>
                     {
                         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
-                        // Source tree in dev (live edits), build output when published.
                         var relative = Path.Combine("Services", "ResponsePipeline", "Prompts", "PersonaGenerator.md");
                         var path = new[] { env.ContentRootPath, AppContext.BaseDirectory }
                             .Select(root => Path.Combine(root, relative))
@@ -326,7 +300,7 @@ public class PersonaController(
                     break;
             }
         }
-        catch (OperationCanceledException) { /* client disconnected */ }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             logger.LogError(ex, "Persona generation WebSocket stream failed");
@@ -359,7 +333,6 @@ public class PersonaController(
         await socket.SendAsync(payload, WebSocketMessageType.Text, true, ct);
     }
 
-    /// <summary>First sentences of the persona's "## Who you are".</summary>
     internal static string ExtractBioFromMarkdown(string content)
     {
         var section = Regex.Match(content,
@@ -380,7 +353,6 @@ public class PersonaController(
         return text.Length > 300 ? text[..300].TrimEnd() + "..." : text;
     }
 
-    /// <summary>The seed plus who and what the newcomer lands among, in the current World.</summary>
     private async Task<string> BriefAsync(string seed)
     {
         var world = await grains.GetGrain<IPartyRootGrain>(Guid.Empty).GetCurrentAsync();
@@ -391,7 +363,6 @@ public class PersonaController(
         return PersonaBrief.Compose(seed, Random.Shared, places, residents);
     }
 
-    /// <summary>Name from "# Full Name"; "## Card" feeds the fields and stays out of the sheet.</summary>
     internal static GeneratedPersona ParseGeneratedPersona(string raw)
     {
         var card = Regex.Match(raw, @"^##\s*Card\s*$(.*)\z", RegexOptions.Singleline | RegexOptions.Multiline | RegexOptions.IgnoreCase);
@@ -410,15 +381,8 @@ public class PersonaController(
         return new GeneratedPersona(name, sheet.Trim(), bio, Dial("chattiness"), Dial("impulsivity"));
     }
 
-    // ─── Intrinsic Stances (ADR 0016, issue #91) ──────────────────────────────────────────
-
     private const int MaxReasoningLength = 600;
 
-    /// <summary>
-    /// Every Intrinsic Stance authored at Persona (library) scope, newest first. The latest
-    /// edge per target is flagged <see cref="StanceRecord.IsCurrent"/>; superseded edges
-    /// remain for history.
-    /// </summary>
     [HttpGet("{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<StanceRecord>>> ListIntrinsicStances(
@@ -428,10 +392,6 @@ public class PersonaController(
         return Ok(stances);
     }
 
-    /// <summary>
-    /// Append an Intrinsic Stance at Persona (library) scope. The edge travels into every
-    /// Party the Persona joins. Append-only — prior edges are not mutated.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status201Created)]

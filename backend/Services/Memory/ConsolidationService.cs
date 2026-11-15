@@ -2,32 +2,13 @@ using System.Collections.Concurrent;
 
 namespace PartyTown.Services.Memory;
 
-/// <summary>
-/// Consolidation v1 orchestrator (ADR 0016): per-Participant, one LLM call, auto-append.
-/// Reads the unconsolidated pile, asks <see cref="IStanceConsolidator"/> what crystallised,
-/// appends the proposals as STANCE edges attributed to a run id, and marks the pile consumed. Runs in rest — triggered by the curator
-/// button or the gauge — never on the response path.
-/// </summary>
-/// <remarks>
-/// Callers hand in the subject + roster (built from the Party's cast); the memory layer
-/// stays grain-free and the whole loop is integration-testable against the AGE fixture
-/// with a fake consolidator.
-/// </remarks>
 public sealed class ConsolidationService(
     IMemoryRepository repository,
     IStanceConsolidator consolidator,
     ILogger<ConsolidationService> logger)
 {
-    /// <summary>
-    /// Gauge threshold (ADR 0016): Σ weight of unconsolidated Recollections at which a
-    /// Participant has "enough unprocessed experience to sleep on". Roughly five notable
-    /// (≈0.6) moments.
-    /// </summary>
     public const double GaugeThreshold = 3.0;
 
-    // One run per Participant at a time: the curator button racing the gauge (or itself)
-    // would double-append every proposal. Losers bow out with Skipped instead of queueing —
-    // the in-flight run is already consuming the same batch.
     private readonly ConcurrentDictionary<(Guid PartyId, Guid PersonaId), byte> inFlight = new();
 
     public Task<ConsolidationRunResult> RunAsync(
@@ -37,7 +18,6 @@ public sealed class ConsolidationService(
         CancellationToken ct)
         => RunAsync(partyId, subject, roster, null, ct);
 
-    /// <summary>Sleep on <paramref name="prefetched"/> when the gauge already read it, else read the pile now.</summary>
     private async Task<ConsolidationRunResult> RunAsync(
         Guid partyId,
         ConsolidationSubject subject,
@@ -57,8 +37,6 @@ public sealed class ConsolidationService(
             var batch = prefetched ?? await repository.GetUnconsolidatedRecollectionsAsync(partyId, subject.PersonaId, ct);
             if (batch.Items.Count == 0)
             {
-                // Idempotency over consumed Recollections: nothing past the watermark means
-                // no LLM call and no writes.
                 return new ConsolidationRunResult(runId, subject.PersonaId, 0, 0, batch.Watermark);
             }
 
@@ -66,8 +44,6 @@ public sealed class ConsolidationService(
                 .Where(s => s.IsCurrent && s.Origin != StanceOrigin.Retract)
                 .ToList();
 
-            // Callers may pass the whole cast as the roster; the subject themselves is not
-            // an "other" (self is its own target kind).
             var others = roster.Where(r => r.PersonaId != subject.PersonaId).ToList();
             var proposals = await consolidator.ProposeStancesAsync(
                 subject, others, batch.Items, currentStances, ct);
@@ -83,7 +59,6 @@ public sealed class ConsolidationService(
                 appended++;
             }
 
-            // Zero proposals still consumes the batch: it was slept on either way.
             await repository.MarkConsolidatedAsync(partyId, subject.PersonaId, batch, ct);
             var watermark = batch.Items[^1].Ts;
 
@@ -100,11 +75,6 @@ public sealed class ConsolidationService(
         }
     }
 
-    /// <summary>
-    /// Gauge pass over a set of Participants: run Consolidation for each whose Σ weight of
-    /// unconsolidated Recollections has reached <see cref="GaugeThreshold"/>. Awaitable for
-    /// tests; production capture fires it via <see cref="TriggerGaugedRuns"/>.
-    /// </summary>
     public async Task<IReadOnlyList<ConsolidationRunResult>> RunWhereGaugeExceededAsync(
         Guid partyId,
         IReadOnlyList<ConsolidationSubject> subjects,
@@ -134,9 +104,6 @@ public sealed class ConsolidationService(
             }
             catch (Exception ex)
             {
-                // Subjects are independent: one bad proposer response must not starve the
-                // rest of the pass. The failed subject keeps its watermark and gets retried
-                // next time the gauge trips.
                 logger.LogWarning(
                     ex,
                     "Consolidation gauge run failed for persona {PersonaId} in party {PartyId}",
@@ -146,12 +113,6 @@ public sealed class ConsolidationService(
         return results;
     }
 
-    /// <summary>
-    /// Fire-and-forget gauge pass for the capture path: the remember request returns
-    /// immediately and any tripped runs happen in rest. Detached from the request's
-    /// cancellation on purpose — a finished capture's consolidation shouldn't die with
-    /// the HTTP connection.
-    /// </summary>
     public void TriggerGaugedRuns(
         Guid partyId,
         IReadOnlyList<ConsolidationSubject> subjects,

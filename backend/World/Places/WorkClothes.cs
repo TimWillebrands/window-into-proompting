@@ -2,21 +2,14 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>What a job has you wear: a garment layer over your own look while on shift. Belongs to the Occupation.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.WorkClothes")]
 public sealed class WorkClothes
 {
-    /// <summary>The job asks nothing: they come in their own clothes.</summary>
     [Id(0)] public bool OwnClothes { get; set; }
-    /// <summary>Garment picks only (<see cref="WorkClothesRules.GarmentPicks"/>).</summary>
     [Id(1)] public Dictionary<string, string> Picks { get; set; } = new();
-    /// <summary>Garment slots only (<see cref="WorkClothesRules.GarmentSlots"/>); extras add to their own.</summary>
     [Id(2)] public string? Design { get; set; }
-    /// <summary>One plain line of how they look in them.</summary>
     [Id(3)] public string? Summary { get; set; }
-    /// <summary>The job title they were made for; a new title has them made again.</summary>
     [Id(4)] public string For { get; set; } = string.Empty;
-    /// <summary>How they were made; older ones are made again (<see cref="WorkClothesRules.Made"/>).</summary>
     [Id(5)] public int Made { get; set; }
 }
 
@@ -25,14 +18,11 @@ public static class WorkClothesRules
     public static readonly string[] GarmentPicks = { "topStyle", "top", "bottomStyle", "bottom", "shoeStyle", "shoes", "legwear", "accessory" };
     public static readonly string[] GarmentSlots = { "top", "under", "outer", "bottom", "legwear", "shoes", "extras" };
 
-    /// <summary>Bumped when a fault in making them means everyone's should be made again (2: schema'd out; 3: titles read as costumes).</summary>
     public const int Made = 3;
 
-    /// <summary>Same job, same clothes: a title edit or a new job has them made again.</summary>
     public static bool Fits(WorkClothes? clothes, string? title)
         => clothes is not null && clothes.Made == Made && string.Equals(clothes.For.Trim(), title?.Trim(), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>An answer as work clothes, garments only, so changing for work never changes who you are.</summary>
     public static WorkClothes Clean(JsonObject answer, string title)
     {
         var own = answer["code"]?.ToString().Trim().ToLowerInvariant() is "none" or "own";
@@ -47,7 +37,6 @@ public static class WorkClothesRules
         return new WorkClothes { Picks = picks, Design = design, Summary = summary, For = title, Made = Made };
     }
 
-    /// <summary>A design with only its garment slots.</summary>
     public static string? Garments(string? design)
     {
         if (string.IsNullOrWhiteSpace(design) || JsonNode.Parse(design) is not JsonObject doc) return null;
@@ -55,7 +44,6 @@ public static class WorkClothesRules
         return doc.Count == 0 ? null : doc.ToJsonString();
     }
 
-    /// <summary>Their own look with the work clothes on; work extras join theirs rather than replace them.</summary>
     public static Appearance Wear(Appearance own, WorkClothes clothes)
     {
         if (clothes.OwnClothes) return own.Copy();

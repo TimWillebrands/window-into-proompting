@@ -14,7 +14,6 @@ import {
     type Vec3,
 } from './prefab';
 
-/** Parts merged by how they're lit: plain, always glowing, glowing at night. Tagged parts stay separate for animation. */
 export interface Built {
     plain: THREE.BufferGeometry | null;
     glow: THREE.BufferGeometry | null;
@@ -28,10 +27,8 @@ export interface Built {
         tag: string;
         geometry: THREE.BufferGeometry;
         colour: string;
-        /** Its pivot in the world; the geometry is centred on it. */
         at: THREE.Vector3;
         glow: boolean;
-        /** A whole group in its own colours. */
         painted?: boolean;
     }[];
     signs: {
@@ -44,11 +41,9 @@ export interface Built {
     }[];
 }
 
-/** Flat-shading wants one vertex per face corner; already-flat geometry stays as it is. */
 export const unindexed = (g: THREE.BufferGeometry) =>
     g.index ? g.toNonIndexed() : g;
 
-/** Triangular prism, ridge along x. */
 function prism(w: number, h: number, d: number): THREE.BufferGeometry {
     const x0 = -w / 2;
     const x1 = w / 2;
@@ -80,14 +75,12 @@ function prism(w: number, h: number, d: number): THREE.BufferGeometry {
 
 const cache = new Map<string, THREE.BufferGeometry>();
 
-/** Catalogue material names that mean the same thing in every model. */
 const MATERIAL_DEFAULTS: Record<string, MaterialRule> = {
     window: { c: '#f3e2b0', glow: 'night' },
     glass: { glow: 'night' },
     light: { glow: true },
 };
 
-/** One leaf part's shape at the origin (bottom-centre convention); where it goes is the caller's matrix. */
 function shape(part: Part): THREE.BufferGeometry | null {
     let g: THREE.BufferGeometry;
     if ('box' in part) {
@@ -201,7 +194,6 @@ function shape(part: Part): THREE.BufferGeometry | null {
     return g;
 }
 
-/** Ramp: full height at -z, down to the floor at +z. */
 function ramp(w: number, h: number, d: number): THREE.BufferGeometry {
     const [x0, x1, z0, z1] = [-w / 2, w / 2, -d / 2, d / 2];
     const tri = (...p: number[][]) => p.flat();
@@ -230,7 +222,6 @@ const X = new THREE.Vector3(1, 0, 0);
 const Y = new THREE.Vector3(0, 1, 0);
 const Z = new THREE.Vector3(0, 0, 1);
 
-/** A part's own placement: stretched, turned (x, then z, then y), then moved. */
 function own(part: Part): THREE.Matrix4 {
     const [x, y, z] = part.at ?? [0, 0, 0];
     const q = new THREE.Quaternion();
@@ -248,7 +239,6 @@ function own(part: Part): THREE.Matrix4 {
     );
 }
 
-/** Every copy a part asks for (array, spin, mirror), as matrices in its parent's space. */
 function copies(part: Part): THREE.Matrix4[] {
     let ms = [own(part)];
     if (part.array && part.array.n > 1) {
@@ -299,13 +289,11 @@ interface Leaf {
     part: Part;
     matrix: THREE.Matrix4;
     colour: string;
-    /** Set under a tagged group: its leaves move as one. */
     unit?: { id: number; tag: string };
 }
 
 let units = 0;
 
-/** Groups, `use`d prefabs and repeats flattened to leaves, each with its matrix and colour. */
 function leavesOf(
     parts: Part[],
     prefab: Prefab,
@@ -357,7 +345,6 @@ function leavesOf(
     }
 }
 
-/** A mirrored copy turns its triangles inside out; turn them back. */
 function unflip(g: THREE.BufferGeometry) {
     for (const name of ['position', 'normal', 'uv', 'color']) {
         const a = g.getAttribute(name) as THREE.BufferAttribute | undefined;
@@ -374,7 +361,6 @@ function unflip(g: THREE.BufferGeometry) {
     return g;
 }
 
-/** Tags that move or light up a part, so it stays its own mesh. */
 const LIVE = new Set<string>(MOTION_TAGS);
 
 function paint(g: THREE.BufferGeometry, hex: string) {
@@ -404,14 +390,12 @@ const merge = (gs: THREE.BufferGeometry[]) =>
 export interface Placement {
     prefab: Prefab;
     variant: PrefabVariant;
-    /** Footprint centre in world units. */
     x: number;
     z: number;
     y: number;
     rot: number;
 }
 
-/** Bake placements into a handful of merged meshes. */
 export function build(placements: Placement[]): Built {
     const plain: THREE.BufferGeometry[] = [];
     const glow: THREE.BufferGeometry[] = [];
@@ -475,7 +459,6 @@ export function build(placements: Placement[]): Built {
                     .clone()
                     .multiply(new THREE.Matrix4().makeScale(s, s, s));
                 if (!mesh) {
-                    // Stand-in until the model lands (or for good, if it never does).
                     const [w, h, d] = part.fit;
                     const box = unindexed(
                         new THREE.BoxGeometry(
@@ -543,7 +526,6 @@ export function build(placements: Placement[]): Built {
                     placed.getAttribute('position') as THREE.BufferAttribute,
                 );
                 const at = box.getCenter(new THREE.Vector3());
-                // Sway and flames hinge at the foot; the rest turn about their middle.
                 if (part.tag === 'sway' || part.tag === 'flame')
                     at.y = box.min.y;
                 placed.translate(-at.x, -at.y, -at.z);
@@ -564,14 +546,12 @@ export function build(placements: Placement[]): Built {
             else if (part.glow) glow.push(placed);
             else plain.push(placed);
         }
-        // A tagged group is one mesh in its parts' own colours, turning about its middle.
         for (const g2 of grouped.values()) {
             const geometry = merge(g2.parts);
             if (!geometry) continue;
             geometry.computeBoundingBox();
             const box = geometry.boundingBox ?? new THREE.Box3();
             const at = box.getCenter(new THREE.Vector3());
-            // Hanging things swing from the top, standing ones from the foot.
             if (g2.tag === 'sway')
                 at.y = box.min.y > pl.y + 0.3 ? box.max.y : box.min.y;
             if (g2.tag === 'flame') at.y = box.min.y;
@@ -592,7 +572,6 @@ export function build(placements: Placement[]): Built {
     return out;
 }
 
-/** A box with its top painted differently from its sides (ground tiles, walls). */
 export function slab(
     w: number,
     h: number,
@@ -610,7 +589,6 @@ export function slab(
     const s = new THREE.Color(side);
     const n = g.getAttribute('position').count;
     const cols = new Float32Array(n * 3);
-    // BoxGeometry face order: +x, -x, +y, -y, +z, -z; six vertices per face once non-indexed.
     for (let i = 0; i < n; i++) {
         const face = Math.floor(i / 6);
         const c =

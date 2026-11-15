@@ -1,9 +1,7 @@
 import type { Pt } from './iso';
 
 export interface SpotLayout {
-    /** Where the spot's furni stand; not walkable. */
     anchor: Pt;
-    /** Tiles Bodies occupy at this spot, in slot order. */
     slots: Pt[];
 }
 
@@ -14,7 +12,6 @@ export interface RoomLayout {
     spots: Record<string, SpotLayout>;
 }
 
-/** Spot centres for up to six spots, spread around a 10×8 room. */
 const CENTRES: Pt[] = [
     { x: 2, y: 2 },
     { x: 7, y: 2 },
@@ -35,7 +32,6 @@ const RING: Pt[] = [
     { x: -1, y: -1 },
 ];
 
-/** Presentation only: spots are canonical, tiles are derived (spec § Decisions so far). */
 export function layoutFor(spotIds: string[], w = 10, h = 8): RoomLayout {
     const spots: Record<string, SpotLayout> = {};
     spotIds.slice(0, CENTRES.length).forEach((id, i) => {
@@ -51,7 +47,6 @@ export function layoutFor(spotIds: string[], w = 10, h = 8): RoomLayout {
     return { w, h, door: { x: 0, y: Math.floor(h / 2) }, spots };
 }
 
-/** Body tile: its slot at its spot, by stable order among the Bodies there. */
 export function slotTile(
     layout: RoomLayout,
     spotId: string | undefined,

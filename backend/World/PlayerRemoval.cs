@@ -4,10 +4,8 @@ using PartyTown.World.Places;
 
 namespace PartyTown.World;
 
-/// <summary>Takes a human out of a World with what's theirs; Personas keep their memories of them.</summary>
 public sealed class PlayerRemoval(IGrainFactory grains)
 {
-    /// <summary>False when that id isn't a human here.</summary>
     public async Task<bool> RemoveAsync(Guid partyId, Guid playerId)
     {
         var party = grains.GetGrain<IPartyGrain>(partyId);
@@ -21,7 +19,6 @@ public sealed class PlayerRemoval(IGrainFactory grains)
                 await RemoveMessagesAsync(group.Id, playerId);
         }
 
-        // Cast first: Places re-creates a Body for anyone still in it.
         if (await party.RemoveParticipantAsync(playerId) is null) return false;
         await grains.GetGrain<IPlacesGrain>(partyId).RemoveParticipantAsync(playerId);
         await grains.GetGrain<Relations.IRelationsGrain>(partyId).LeaveAsync(playerId);
@@ -32,7 +29,6 @@ public sealed class PlayerRemoval(IGrainFactory grains)
         return true;
     }
 
-    /// <summary>What they planned is called off; elsewhere they just stop coming.</summary>
     private async Task LeaveGatheringsAsync(Guid partyId, Guid playerId)
     {
         var calendar = grains.GetGrain<ICalendarGrain>(partyId);

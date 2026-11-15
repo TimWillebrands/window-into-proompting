@@ -2,12 +2,6 @@ using PartyTown.Services.Memory;
 
 namespace BackendTest;
 
-/// <summary>
-/// Pure-arithmetic checks for the ADR 0015 salience formula:
-/// <c>weight × decay(now − ts) + use_bonus(recall_count, last_recalled)</c>.
-/// The ranking-relevant properties live here so the integration test only needs to
-/// prove the substrate round-trips through AGE, not re-derive the math.
-/// </summary>
 public sealed class SalienceMathTest
 {
     private static readonly DateTimeOffset Now = new(2026, 6, 10, 12, 0, 0, TimeSpan.Zero);
@@ -24,7 +18,6 @@ public sealed class SalienceMathTest
     {
         Assert.Equal(0.5, SalienceMath.Decay(TimeSpan.FromDays(SalienceMath.DecayHalfLifeDays)), precision: 6);
         Assert.Equal(1.0, SalienceMath.Decay(TimeSpan.Zero), precision: 6);
-        // Clock skew (capture timestamp marginally in the future) must not inflate salience.
         Assert.Equal(1.0, SalienceMath.Decay(TimeSpan.FromDays(-1)), precision: 6);
     }
 
@@ -40,7 +33,6 @@ public sealed class SalienceMathTest
     [Fact]
     public void OftRecalledOldMemory_OutranksFreshLowWeightOne()
     {
-        // Same old memory, but the persona kept picking it — the use bonus keeps it warm.
         var oldButUsed = SalienceMath.Score(0.9, Now.AddDays(-30), recallCount: 5, lastRecalled: Now.AddDays(-1), Now);
         var freshLow = SalienceMath.Score(0.3, Now, 0, null, Now);
         Assert.True(oldButUsed > freshLow,

@@ -6,18 +6,14 @@ import { bumpedBy, fullDate, isNewLine, ms, relativeTime } from './board-lib';
 import Composer from './Composer';
 import RespectButton from './RespectButton';
 
-/** Replies shown before "show earlier replies". */
 const VISIBLE_REPLIES = 2;
 
 interface Props {
     thread: BoardThread;
     playerId: string | null;
     now: number;
-    /** Lines by others newer than this are highlighted as new. */
     since: number;
-    /** First names to highlight as mentions. */
     names: string[];
-    /** Deep-linked from a toast: scroll here, open everything, flash. */
     focused: boolean;
     onReply: (threadId: string, body: string) => Promise<unknown>;
     onRespect: (
@@ -27,7 +23,6 @@ interface Props {
     ) => void;
 }
 
-/** One post on the timeline with its replies underneath. */
 export default function PostCard({
     thread,
     playerId,
@@ -190,7 +185,6 @@ function ReplyLine({
     );
 }
 
-/** Avatar, name, time, text, then the actions row. */
 function Line({
     authorId,
     authorName,
@@ -246,7 +240,6 @@ function Line({
     );
 }
 
-/** Highlight first names of people in the World, like an @mention. */
 export function withMentions(text: string, names: string[]): ReactNode {
     const words = names.filter((n) => n.length > 1);
     if (words.length === 0) return text;

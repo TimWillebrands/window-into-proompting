@@ -7,7 +7,6 @@ import { joint, type Posed } from './skeleton';
 interface Mount {
     at: V3;
     bone: string;
-    /** The limb a band wraps, and where on it. */
     limb?: Loft;
     t?: number;
 }
@@ -107,7 +106,6 @@ const linear = (hex: Hex): V3 => {
     }) as V3;
 };
 
-/** One blob as a field in world space, and how far it reaches. */
 function blobField(
     b: BlobDoc,
     m: Mount,
@@ -189,7 +187,6 @@ function blobField(
     }
 }
 
-/** Accessories as blended solids hung on sockets: the LLM's way of making something new to wear. */
 export function buildExtra(
     e: ExtraDoc,
     a: Anatomy,
@@ -245,7 +242,6 @@ export function buildExtra(
     return out;
 }
 
-/** The lowest hat edge in a doc, in world height: hair above it stays under the hat. */
 export function hatLine(doc: FigureDoc, a: Anatomy): number {
     let y = Number.POSITIVE_INFINITY;
     for (const e of doc.extras)

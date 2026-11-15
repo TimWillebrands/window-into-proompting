@@ -15,7 +15,6 @@ export interface SplitStep {
     parts: { provider: LlmProviderEntry; fraction: number }[];
 }
 
-/** A tier's pool as the router walks it: one step per Priority, each split by Share (ADR 0048). */
 export function splitOf(
     providers: LlmProviderEntry[],
     tier: number,

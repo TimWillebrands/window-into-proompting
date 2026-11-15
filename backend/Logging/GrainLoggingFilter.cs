@@ -3,10 +3,6 @@ namespace PartyTown.Logging;
 using System.Diagnostics;
 using Orleans;
 
-/// <summary>
-/// Orleans grain call filter that automatically logs all grain method invocations.
-/// Logs method entry, exit (with timing), and any exceptions.
-/// </summary>
 public sealed class GrainLoggingFilter(ILogger<GrainLoggingFilter> logger) : IIncomingGrainCallFilter
 {
     public async Task Invoke(IIncomingGrainCallContext context)

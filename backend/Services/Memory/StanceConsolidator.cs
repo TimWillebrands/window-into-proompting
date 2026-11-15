@@ -4,20 +4,8 @@ using PartyTown.Grains.Generation;
 
 namespace PartyTown.Services.Memory;
 
-/// <summary>
-/// LLM side of Consolidation v1 (ADR 0016): one call per run that reads the Participant's
-/// unconsolidated Recollections against their bio and current latest-wins Stances, and
-/// proposes Stance appends where a belief has crystallised. Stateless and side-effect free —
-/// <see cref="ConsolidationService"/> owns persistence and the watermark.
-/// </summary>
 public interface IStanceConsolidator
 {
-    /// <summary>
-    /// Propose 0..N Stance appends for <paramref name="subject"/>. An empty list is a valid
-    /// outcome ("slept on it, nothing crystallised") and still consumes the batch. Proposals
-    /// come back fully resolved to write-shape: roster names mapped to persona ids, concept
-    /// names normalised, valence clamped, reasoning capped.
-    /// </summary>
     Task<IReadOnlyList<StanceProposal>> ProposeStancesAsync(
         ConsolidationSubject subject,
         IReadOnlyList<ConsolidationRosterEntry> roster,
@@ -26,14 +14,10 @@ public interface IStanceConsolidator
         CancellationToken cancellationToken);
 }
 
-/// <inheritdoc cref="IStanceConsolidator"/>
 public sealed class StanceConsolidator(IGrainFactory grains, ILogger<StanceConsolidator> logger)
     : IStanceConsolidator
 {
-    // A run distills up to ~50 Recollections; more than a handful of belief shifts out of
-    // one sleep is noise, not crystallisation.
     private const int MaxProposalsPerRun = 5;
-    // Matches MemoryController's stance-reasoning cap so a proposal is never un-author-able.
     private const int MaxReasoningChars = 600;
     private const int MaxBioChars = 1500;
 
@@ -141,8 +125,6 @@ New memories to sleep on (oldest first, weight = how much it stuck):
         ConsolidationSubject subject,
         IReadOnlyList<ConsolidationRosterEntry> roster)
     {
-        // First name wins on a duplicate, case-insensitive — same drift tolerance as the
-        // capture extractor's name-keyed output.
         var idByName = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in roster)
         {
@@ -198,8 +180,6 @@ New memories to sleep on (oldest first, weight = how much it stuck):
                         break;
 
                     case "participant":
-                        // The persona naming themselves is a self-stance wearing the wrong
-                        // kind; an unknown name is dropped — never mint Participants here.
                         if (target.Equals(subject.Name, StringComparison.OrdinalIgnoreCase))
                         {
                             proposals.Add(new StanceProposal(
@@ -249,7 +229,6 @@ New memories to sleep on (oldest first, weight = how much it stuck):
                 : "someone no longer around",
         };
 
-    /// <summary>Consolidation runs in rest, off the beat path: cheap tier, degrading to General.</summary>
     private Task<(ILlmEndpointGrain Endpoint, JobComplexity Served)> RouteAsync(Guid personaId, CancellationToken cancellationToken)
         => new LlmCall(grains.GetGrain<ILlmRouterGrain>(0), logger, personaId).RouteAsync(LlmTiers.Thoughts, cancellationToken);
 }

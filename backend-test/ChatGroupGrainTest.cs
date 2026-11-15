@@ -3,53 +3,11 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>
-/// Tests for <see cref="ChatGroupGrain"/> state machine — specifically the <c>Apply</c> methods on
-/// <see cref="ChatGroupState"/> that govern the durable message log.
-///
-/// Why we test <see cref="ChatGroupState"/> directly instead of through a TestKit silo:
-///   <see cref="ChatGroupGrain"/> extends <c>JournaledGrain</c> which requires a named
-///   <c>ILogConsistencyProvider</c> ("PartyStateStorage") registered in DI. Orleans TestKit v10
-///   does not wire this up automatically, causing a <see cref="NullReferenceException"/> in
-///   <c>JournaledGrain.PreActivateProtocolParticipant</c> before our grain code even runs.
-///   Configuring the real state-storage log consistency provider in the TestKit silo requires
-///   a non-trivial DI setup including a backing storage provider.
-///
-///   Because all business logic we care about lives in the <c>Apply</c> overloads (pure state
-///   transitions over plain C# objects), testing those directly gives us full coverage of the
-///   invariants without needing the Orleans runtime at all.
-///
-/// Coverage areas:
-///   • <see cref="ChatGroupState.Apply(ChatGroupInitializedEvent)"/> — sets PartyId,
-///     participants, and Initialized flag
-///   • <see cref="ChatGroupState.Apply(ChatGroupMessageSlotReservedEvent)"/> — monotonic
-///     NextMessageId increment, empty stub creation
-///   • <see cref="ChatGroupState.Apply(ChatGroupGenerationCompletedEvent)"/> — fills slot with
-///     content/reasoning/appraisal/senderId; silent no-op for unknown IDs
-///   • <see cref="ChatGroupState.Apply(ChatGroupGenerationStoppedEvent)"/> — clears SenderId to
-///     Guid.Empty, sets appraisal
-///   • <see cref="ChatGroupState.Apply(ChatGroupGenerationFailedEvent)"/> — records error on message
-///   • <see cref="ChatGroupState.Apply(ChatGroupMessageDeletedEvent)"/> — single message removal
-///   • <see cref="ChatGroupState.Apply(ChatGroupMessagesAfterDeletedEvent)"/> — bulk trim and
-///     NextMessageId reset (the reprompt path)
-///   • <see cref="ChatGroupState.Apply(ChatGroupParticipantIdsSetEvent)"/> — wholesale Room
-///     membership replacement
-///   • <see cref="ChatGroupState.Apply(ChatGroupDriverOverrideSetEvent)"/> and
-///     <see cref="ChatGroupState.Apply(ChatGroupDriverOverrideClearedEvent)"/> — sparse
-///     per-Persona Driver override map mutation
-///   • <see cref="ChatGroupState.Apply(ChatGroupUserMessageEvent)"/> — insert-or-update by MessageId
-///
-/// NOTE: Grain-level tests (fan-out to IPersonaGrain, stream event publication, reentrant
-/// cancellation) are deferred until the TestKit JournaledGrain DI setup is resolved.
-/// </summary>
 public class ChatGroupGrainTest
 {
     private readonly Guid _partyId = Guid.NewGuid();
     private readonly Guid _chatGroupId = Guid.NewGuid();
 
-    /// <summary>
-    /// Creates a freshly initialized state, equivalent to what OnActivateAsync does on first run.
-    /// </summary>
     private ChatGroupState NewState(IEnumerable<Guid>? participantIds = null)
     {
         var state = new ChatGroupState();
@@ -63,11 +21,6 @@ public class ChatGroupGrainTest
         return state;
     }
 
-    /// <summary>
-    /// Reserves a message slot on the state, returning the assigned MessageId.
-    /// Mirrors what BeginTurnAsync does: raises ChatGroupMessageSlotReservedEvent
-    /// then reads State.NextMessageId.
-    /// </summary>
     private int ReserveSlot(ChatGroupState state, Guid? senderId = null, string senderType = "assistant")
     {
         state.Apply(new ChatGroupMessageSlotReservedEvent
@@ -78,8 +31,6 @@ public class ChatGroupGrainTest
         });
         return state.NextMessageId;
     }
-
-    // ── Initialization ────────────────────────────────────────────────────────
 
     [Fact]
     public void Apply_InitializedEvent_SetsPartyIdAndMarkInitialized()
@@ -122,7 +73,6 @@ public class ChatGroupGrainTest
         state.Apply(new ChatGroupScenarioSetEvent { Scenario = "After-hours bar." });
 
         Assert.Equal("After-hours bar.", state.Scenario);
-        // Other state must be untouched.
         Assert.Equal(_partyId, state.PartyId);
         Assert.Single(state.ParticipantIds);
         Assert.Contains(existing, state.ParticipantIds);
@@ -139,8 +89,6 @@ public class ChatGroupGrainTest
 
         Assert.Null(state.Scenario);
     }
-
-    // ── Slot reservation / monotonic IDs ─────────────────────────────────────
 
     [Fact]
     public void Apply_SlotReserved_IncrementsNextMessageIdMonotonically()
@@ -159,8 +107,6 @@ public class ChatGroupGrainTest
     [Fact]
     public void Apply_SlotReserved_CreatesEmptyStubWithCorrectSenderType()
     {
-        // Slot reservation creates a placeholder so streaming clients can attach to the
-        // message ID before generation completes — Content must be empty string, not null.
         var senderId = Guid.NewGuid();
         var state = NewState();
 
@@ -172,8 +118,6 @@ public class ChatGroupGrainTest
         Assert.Equal(senderId, stub.SenderId);
         Assert.Equal(_chatGroupId, stub.ChatGroupId);
     }
-
-    // ── Generation completed ──────────────────────────────────────────────────
 
     [Fact]
     public void Apply_GenerationCompleted_FillsReservedSlotWithAllFields()
@@ -206,10 +150,6 @@ public class ChatGroupGrainTest
     [Fact]
     public void Apply_GenerationCompleted_LegacyEventWithoutMetadata_LeavesMetadataNull()
     {
-        // Replay-safety net: events persisted before the papertrail migration carry no
-        // Metadata field. Orleans tag-versioning makes [Id(6)] default to null on
-        // deserialization, so historical messages must round-trip with Metadata == null
-        // and never throw.
         var senderId = Guid.NewGuid();
         var state = NewState();
         var messageId = ReserveSlot(state, senderId);
@@ -220,7 +160,6 @@ public class ChatGroupGrainTest
             Content = "Pre-papertrail message",
             SenderId = senderId,
             SendAt = 1L
-            // Metadata intentionally omitted — mirrors a legacy on-disk event.
         });
 
         var msg = Assert.Single(state.Messages);
@@ -230,10 +169,8 @@ public class ChatGroupGrainTest
     [Fact]
     public void Apply_GenerationCompleted_OnUnknownMessageId_IsNoOp()
     {
-        // The Apply method returns silently when the target message is not found.
-        // This prevents a crash if an out-of-order event arrives after a delete.
         var state = NewState();
-        ReserveSlot(state); // slot 1
+        ReserveSlot(state);
 
         state.Apply(new ChatGroupGenerationCompletedEvent
         {
@@ -244,16 +181,12 @@ public class ChatGroupGrainTest
         });
 
         Assert.Single(state.Messages);
-        Assert.Equal(string.Empty, state.Messages[0].Content); // stub unchanged
+        Assert.Equal(string.Empty, state.Messages[0].Content);
     }
-
-    // ── Generation stopped ────────────────────────────────────────────────────
 
     [Fact]
     public void Apply_GenerationStopped_PreservesSenderIdAndSetsAppraisal()
     {
-        // Decline path: SenderId is preserved so the papertrail can resolve the persona
-        // name for the "declined" entry; Appraisal is recorded as the reason.
         var senderId = Guid.NewGuid();
         var state = NewState();
         var messageId = ReserveSlot(state, senderId);
@@ -269,8 +202,6 @@ public class ChatGroupGrainTest
         Assert.Equal(senderId, msg.SenderId);
         Assert.Equal("nothing worth saying", msg.Appraisal);
     }
-
-    // ── Generation failed ─────────────────────────────────────────────────────
 
     [Fact]
     public void Apply_GenerationFailed_SetsErrorFieldOnMessage()
@@ -288,8 +219,6 @@ public class ChatGroupGrainTest
         var msg = Assert.Single(state.Messages);
         Assert.Equal("upstream provider timeout", msg.Error);
     }
-
-    // ── Delete ────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Apply_MessageDeleted_RemovesOnlyTargetMessage()
@@ -310,8 +239,6 @@ public class ChatGroupGrainTest
     [Fact]
     public void Apply_MessagesAfterDeleted_TrimsLogAndResetsNextMessageId()
     {
-        // The reprompt path: all messages after a given ID are removed and NextMessageId
-        // resets to the max remaining ID so the next slot resumes without gaps.
         var state = NewState();
         for (var i = 0; i < 5; i++)
             ReserveSlot(state);
@@ -320,9 +247,8 @@ public class ChatGroupGrainTest
 
         Assert.Equal(2, state.Messages.Count);
         Assert.All(state.Messages, m => Assert.True(m.MessageId <= 2));
-        Assert.Equal(2, state.NextMessageId); // Reset to max remaining
+        Assert.Equal(2, state.NextMessageId);
 
-        // Verify the next slot starts from 3 (no gaps after reprompt)
         var nextId = ReserveSlot(state);
         Assert.Equal(3, nextId);
     }
@@ -331,19 +257,17 @@ public class ChatGroupGrainTest
     public void Apply_MessagesAfterDeleted_WhenAllDeleted_NextMessageIdResetsToZero()
     {
         var state = NewState();
-        ReserveSlot(state); // id 1
-        ReserveSlot(state); // id 2
+        ReserveSlot(state);
+        ReserveSlot(state);
 
-        state.Apply(new ChatGroupMessagesAfterDeletedEvent { MessageId = 0 }); // delete all
+        state.Apply(new ChatGroupMessagesAfterDeletedEvent { MessageId = 0 });
 
         Assert.Empty(state.Messages);
         Assert.Equal(0, state.NextMessageId);
 
         var nextId = ReserveSlot(state);
-        Assert.Equal(1, nextId); // Starts fresh from 1
+        Assert.Equal(1, nextId);
     }
-
-    // ── Participants ──────────────────────────────────────────────────────────
 
     [Fact]
     public void Apply_ParticipantIdsSet_ReplacesEntireSet()
@@ -412,8 +336,6 @@ public class ChatGroupGrainTest
         Assert.Empty(state.DriverOverrides);
     }
 
-    // ── User message ──────────────────────────────────────────────────────────
-
     [Fact]
     public void Apply_UserMessageEvent_InsertsMessageByIdWhenNotPresent()
     {
@@ -435,14 +357,12 @@ public class ChatGroupGrainTest
         var msg = Assert.Single(state.Messages);
         Assert.Equal("Hello!", msg.Content);
         Assert.Equal("user", msg.SenderType);
-        Assert.Equal(Math.Max(0, 1), state.NextMessageId); // tracks highest seen ID
+        Assert.Equal(Math.Max(0, 1), state.NextMessageId);
     }
 
     [Fact]
     public void Apply_UserMessageEvent_UpdatesExistingSlotWhenIdMatches()
     {
-        // SendNewMessageAsync first reserves a slot (user senderType), then raises
-        // ChatGroupUserMessageEvent to fill the real message content.
         var senderId = Guid.NewGuid();
         var state = NewState();
         var messageId = ReserveSlot(state, senderId, "user");
@@ -459,21 +379,17 @@ public class ChatGroupGrainTest
 
         state.Apply(new ChatGroupUserMessageEvent { SenderId = senderId, Message = message });
 
-        var msg = Assert.Single(state.Messages); // still one message, not two
+        var msg = Assert.Single(state.Messages);
         Assert.Equal("The real message", msg.Content);
     }
-
-    // ── Computed properties used by grain read methods ────────────────────────
 
     [Fact]
     public void Messages_OrderedByMessageId_ReturnsAscendingOrder()
     {
-        // GetMessagesAsync does OrderBy(m => m.MessageId) — verify the backing list
-        // can be sorted correctly even if Apply inserts in non-sequential order.
         var state = NewState();
-        ReserveSlot(state); // id 1
-        ReserveSlot(state); // id 2
-        ReserveSlot(state); // id 3
+        ReserveSlot(state);
+        ReserveSlot(state);
+        ReserveSlot(state);
 
         var ordered = state.Messages.OrderBy(m => m.MessageId).ToList();
         Assert.Equal(new[] { 1, 2, 3 }, ordered.Select(m => m.MessageId));
@@ -482,8 +398,6 @@ public class ChatGroupGrainTest
     [Fact]
     public void CountTrailingAssistantMessages_IgnoresEmptyStubs()
     {
-        // CountTrailingAssistantMessagesAsync walks backwards and skips stubs with
-        // empty content. Only filled (completed) messages count.
         var senderId = Guid.NewGuid();
         var state = NewState();
 
@@ -493,9 +407,8 @@ public class ChatGroupGrainTest
         var id2 = ReserveSlot(state, senderId);
         state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = id2, Content = "Response 2", SenderId = senderId, SendAt = 2 });
 
-        ReserveSlot(state, senderId); // slot 3: empty stub, should not count
+        ReserveSlot(state, senderId);
 
-        // Replicate CountTrailingAssistantMessagesAsync logic against the state
         var count = CountTrailingAssistant(state);
         Assert.Equal(2, count);
     }
@@ -507,7 +420,6 @@ public class ChatGroupGrainTest
         var personaId = Guid.NewGuid();
         var state = NewState();
 
-        // User message at slot 1
         ReserveSlot(state, userId, "user");
         state.Apply(new ChatGroupUserMessageEvent
         {
@@ -515,17 +427,15 @@ public class ChatGroupGrainTest
             Message = new ChatMessage { MessageId = 1, SenderId = userId, SenderType = "user", Content = "Hello", ChatGroupId = _chatGroupId }
         });
 
-        // Two filled assistant messages
         var id2 = ReserveSlot(state, personaId);
         state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = id2, Content = "R1", SenderId = personaId, SendAt = 2 });
         var id3 = ReserveSlot(state, personaId);
         state.Apply(new ChatGroupGenerationCompletedEvent { MessageId = id3, Content = "R2", SenderId = personaId, SendAt = 3 });
 
         var count = CountTrailingAssistant(state);
-        Assert.Equal(2, count); // Should NOT count the user message at slot 1
+        Assert.Equal(2, count);
     }
 
-    /// <summary>What <see cref="ChatGroupGrain.CountTrailingAssistantMessagesAsync"/> returns for this state.</summary>
     private static int CountTrailingAssistant(ChatGroupState state)
     {
         return PartyTown.Services.ResponsePipeline.UrgeMath.CountExchangeRounds(state.Messages);

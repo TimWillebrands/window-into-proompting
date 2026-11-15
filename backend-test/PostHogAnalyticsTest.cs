@@ -16,7 +16,6 @@ using PostHog;
 
 namespace BackendTest;
 
-/// <summary>Real SDK against a local stand-in for PostHog, so nothing reaches the real project.</summary>
 public sealed class PostHogAnalyticsTest
 {
     private const string Session = "01a18aaf-b6f4-77e8-a648-6f9ab82865d0";
@@ -305,7 +304,6 @@ public sealed class PostHogAnalyticsTest
         return app;
     }
 
-    /// <summary>Records every event POSTed to /batch, gzipped or not.</summary>
     private sealed class FakeIngest : IAsyncDisposable
     {
         private readonly WebApplication app;
@@ -338,7 +336,6 @@ public sealed class PostHogAnalyticsTest
     }
 }
 
-/// <summary>A write without its own event and one with; the analytics test's stand-in for real controllers.</summary>
 [Microsoft.AspNetCore.Mvc.ApiController]
 [Microsoft.AspNetCore.Mvc.Route("worlds/{partyId}/things")]
 public sealed class ThingsProbeController(IPostHogClient posthog) : Microsoft.AspNetCore.Mvc.ControllerBase

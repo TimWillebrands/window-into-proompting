@@ -4,7 +4,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>What a Persona owes (ADR 0026): who holds them to it, when, and how it reads.</summary>
 public class ResponsibilityTest
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 19, 12, 0, 0, TimeSpan.Zero);

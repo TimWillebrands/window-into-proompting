@@ -22,15 +22,8 @@ public sealed class MemoryController(
         return Ok(graph);
     }
 
-    // Reasoning is curator free-text and an untrusted boundary input (multi-user app) — cap
-    // it so a single Stance can't bloat the ambient block or a prompt.
     private const int MaxReasoningLength = 600;
 
-    /// <summary>
-    /// Append a Stance (ADR 0016) authored by a Participant toward another Participant, a
-    /// Concept, or themselves. Append-only — the new edge becomes the latest-wins current
-    /// stance; prior edges are never mutated. The curator is the floor's first writer.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -84,8 +77,6 @@ public sealed class MemoryController(
                     return BadRequest(
                         $"Concept name must be at most {MemoryExtractor.MaxConceptNameChars} characters.");
                 }
-                // Same normaliser as the Capture extractor — one dedup rule across both
-                // writers; display keeps the label as typed.
                 target = new StanceTargetSpec(
                     StanceTargetKind.Concept, null,
                     MemoryExtractor.NormaliseConceptName(display), display);
@@ -105,11 +96,6 @@ public sealed class MemoryController(
             nameof(ListStances), new { partyId, personaId }, new AppendStanceResponse(id));
     }
 
-    /// <summary>
-    /// One-click retract (ADR 0016): append a neutralizing edge over an earlier Stance.
-    /// Latest-wins makes the retract current immediately — the target stops rendering in
-    /// <c># Where you stand</c> — and the retracted edge stays in the log. Never deletes.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/retract")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -126,11 +112,6 @@ public sealed class MemoryController(
             nameof(ListStances), new { partyId, personaId }, new AppendStanceResponse(id.Value));
     }
 
-    /// <summary>
-    /// Curator button: run Consolidation v1 (ADR 0016) for one Participant — walk the
-    /// Recollections past their watermark, one LLM call, auto-append the proposed Stances,
-    /// advance the watermark. A run over nothing new is a cheap no-op (no LLM call).
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/consolidate")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -150,11 +131,6 @@ public sealed class MemoryController(
         return Ok(ToResponse(result));
     }
 
-    /// <summary>
-    /// Curator button, Party-wide: run Consolidation for every LLM-driven Participant.
-    /// Participants with nothing past their watermark come back with zero walked — only
-    /// those with unprocessed experience cost an LLM call.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("consolidate")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -175,8 +151,6 @@ public sealed class MemoryController(
     private static ConsolidationSubject ToSubject(CastMember member)
         => new(member.Id, member.Name, member.Bio);
 
-    // Roster = everyone else in the Party (User-driven included — a persona can absolutely
-    // form a stance toward the human), excluding the subject (self is its own target kind).
     private static List<ConsolidationRosterEntry> ToRoster(
         IReadOnlyList<CastMember> cast, Guid subjectPersonaId)
         => cast
@@ -188,10 +162,6 @@ public sealed class MemoryController(
         => new(result.RunId, result.PersonaId, result.RecollectionsWalked,
             result.StancesAppended, result.Watermark, result.Skipped);
 
-    /// <summary>
-    /// Every Stance authored by a Participant, newest first. The latest edge per target is
-    /// flagged <see cref="StanceRecord.IsCurrent"/>; superseded edges remain for history.
-    /// </summary>
     [HttpGet("participants/{personaId:guid}/stances")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<StanceRecord>>> ListStances(
@@ -201,12 +171,6 @@ public sealed class MemoryController(
         return Ok(stances);
     }
 
-    /// <summary>
-    /// Promote an Acquired Stance to Intrinsic (Persona) scope (ADR 0016): write a new
-    /// Persona-scope edge carrying the current projection. A Participant target is
-    /// re-pointed at the target's underlying Persona so the edge is meaningful across
-    /// Parties. The original Acquired edge is not touched.
-    /// </summary>
     [Authorize(Policy = ClerkAuth.AdminPolicy)]
     [HttpPost("participants/{personaId:guid}/stances/{stanceId:guid}/promote")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -224,12 +188,6 @@ public sealed class MemoryController(
     }
 }
 
-/// <summary>
-/// Request body for authoring a Stance. <see cref="TargetPersonaId"/> is required when
-/// <see cref="TargetKind"/> is <see cref="StanceTargetKind.Participant"/>;
-/// <see cref="TargetConceptName"/> when it is <see cref="StanceTargetKind.Concept"/>; neither
-/// for <see cref="StanceTargetKind.Self"/>.
-/// </summary>
 public sealed record AppendStanceRequest(
     double Valence,
     string? Reasoning,
@@ -237,13 +195,8 @@ public sealed record AppendStanceRequest(
     Guid? TargetPersonaId,
     string? TargetConceptName);
 
-/// <summary>The id of the freshly appended Stance edge.</summary>
 public sealed record AppendStanceResponse(Guid Id);
 
-/// <summary>
-/// Outcome of one Consolidation run for one Participant. <see cref="Skipped"/> means another
-/// run for the same Participant was already in flight and this one bowed out.
-/// </summary>
 public sealed record ConsolidationRunResponse(
     Guid RunId,
     Guid PersonaId,

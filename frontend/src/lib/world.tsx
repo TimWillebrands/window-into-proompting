@@ -29,22 +29,17 @@ import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
 
 const CHOSEN_WORLD = 'partytown.world';
 
-/** What this browser picked last time; the desktop waits for Clerk, so the server's null never shows. */
 const remembered =
     typeof window === 'undefined'
         ? null
         : window.localStorage.getItem(CHOSEN_WORLD);
 
-/** The World the desktop shows, picked at the login screen; the desktop remounts when it changes. */
 export let WORLD_ID: string = remembered ?? ROOT_PARTY_ID;
 
 interface WorldChoice {
-    /** Null until picked at the login screen. */
     id: string | null;
-    /** Picked in this tab, rather than remembered from last time. */
     pickedNow: boolean;
     choose: (id: string) => void;
-    /** Back to the login screen to pick another. */
     leave: () => void;
 }
 
@@ -62,7 +57,6 @@ export const useWorldChoice = create<WorldChoice>((set) => ({
     },
 }));
 
-/** A remembered World that has since stopped or gone sends this browser to the login screen; true while checking. */
 export function useForgetStoppedWorld(): boolean {
     const { id, pickedNow, leave } = useWorldChoice();
     const check = !!id && !pickedNow;
@@ -77,7 +71,6 @@ export function useForgetStoppedWorld(): boolean {
 
 const worldPrefix = (suffix = '') => `/api/worlds/${WORLD_ID}${suffix}`;
 
-/** Subscribe to raw World envelopes for the lifetime of the component. */
 export function useWorldEvents(handler: (envelope: WorldEnvelope) => void) {
     const ref = useRef(handler);
     ref.current = handler;
@@ -85,17 +78,13 @@ export function useWorldEvents(handler: (envelope: WorldEnvelope) => void) {
 }
 
 interface PlayerSession {
-    /** Clerk user id; null for a visitor. */
     userId: string | null;
-    /** False until Clerk has loaded; SSR and first paint agree on "unknown". */
     hydrated: boolean;
-    /** A visitor chose to look around without signing in. */
     visiting: boolean;
     sync: (userId: string | null) => void;
     visit: () => void;
 }
 
-/** Which human sits at this browser, as Clerk reports it. Several humans can share a World. */
 export const usePlayerSession = create<PlayerSession>((set) => ({
     userId: null,
     hydrated: false,
@@ -106,7 +95,6 @@ export const usePlayerSession = create<PlayerSession>((set) => ({
 
 const playerKey = (userId: string | null) => ['world-player', WORLD_ID, userId];
 
-/** This human's character here; playerId stays null until they've made one. */
 export function usePlayerAccount() {
     const userId = usePlayerSession((s) => s.userId);
     const { data, isLoading } = useQuery({
@@ -127,7 +115,6 @@ export function useCreatePlayer() {
     };
 }
 
-/** Plays as a Persona already here, from now on. */
 export function useTakePersona() {
     const queryClient = useQueryClient();
     const userId = usePlayerSession((s) => s.userId);
@@ -140,7 +127,6 @@ export function useTakePersona() {
     };
 }
 
-/** Hands the character to the agent, or takes it back. */
 export function useSetAuto() {
     const queryClient = useQueryClient();
     const userId = usePlayerSession((s) => s.userId);
@@ -153,10 +139,8 @@ export function useSetAuto() {
     };
 }
 
-/** Longest Aura, as the backend's Persona.MaxAura. */
 export const AURA_MAX = 64;
 
-/** Sets how this human's character comes across up close; empty clears it. */
 export function useSetAura() {
     const queryClient = useQueryClient();
     const userId = usePlayerSession((s) => s.userId);
@@ -168,27 +152,22 @@ export function useSetAura() {
     };
 }
 
-/** The agent is playing this human's character, so their own actions are refused. */
 export function usePlayerOnAuto(): boolean {
     return usePlayerAccount().account?.auto ?? false;
 }
 
-/** The signed-in human's Participant id in this World. */
 export function usePlayerId(): string | null {
     return (usePlayerAccount().account?.playerId as string | null) ?? null;
 }
 
-/** The name this human chose for their character. */
 export function usePlayerName(): string | null {
     return usePlayerAccount().account?.name ?? null;
 }
 
-/** Hides admin-only windows; the backend enforces it either way. */
 export function useIsAdmin(): boolean {
     return usePlayerAccount().account?.isAdmin ?? false;
 }
 
-/** Which desktop entries this human can open. */
 export function useCanOpen() {
     const signedIn = usePlayerSession((s) => !!s.userId);
     const isAdmin = useIsAdmin();
@@ -224,7 +203,6 @@ export const useWorldToasts = create<ToastStore>((set) => ({
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
-/** Any refused action says why, so no App needs its own on-auto or stopped-World handling. */
 export function toastOnAuto(error: unknown) {
     if (!(error instanceof ProblemDetailsError)) return;
     if (error.title === 'This World is stopped.')
@@ -241,10 +219,8 @@ export function toastOnAuto(error: unknown) {
         });
 }
 
-/** Respect! keys already toasted, so a re-published post doesn't toast twice. */
 const toastedRespect = new Set<string>();
 
-/** Respect! from others on the Player's own lines that just landed (last 30 s, not toasted yet). */
 function freshRespectFor(t: BoardThread, playerId: string | null) {
     if (!playerId) return [];
     const lines = [
@@ -274,7 +250,6 @@ function freshRespectFor(t: BoardThread, playerId: string | null) {
 const clip = (s: string | null | undefined, n: number) =>
     !s ? '' : s.length > n ? `${s.slice(0, n)}…` : s;
 
-/** Opens a Messenger conversation window for a DM thread. */
 export function useOpenDirectChat() {
     const { openWindow } = useDesktopContext();
     return (chatGroupId: string, withName: string) =>
@@ -285,10 +260,6 @@ export function useOpenDirectChat() {
         });
 }
 
-/**
- * Mounted once on the desktop: keeps the realtime socket open, turns World envelopes into
- * query invalidations, and raises MSN-style toasts when someone reaches the Player.
- */
 export function WorldRealtimeBridge() {
     const queryClient = useQueryClient();
     const { connectPartyRealtime, disconnectPartyRealtime } =
@@ -361,7 +332,6 @@ export function WorldRealtimeBridge() {
                 });
                 const a = payload as WorldActivity;
                 if (a.app === 'messenger' && a.action === 'dm') {
-                    // A brand-new DM thread to the Player isn't in the cached list yet.
                     invalidatePrefix(worldPrefix('/messenger'));
                 }
                 break;
@@ -370,7 +340,6 @@ export function WorldRealtimeBridge() {
                 invalidatePrefix(worldPrefix('/cdu'));
                 break;
             case 'body': {
-                // Moves are frequent, new looks rare: only a new look touches the cache.
                 const body = payload as Body;
                 const livesKey = getGetWorldsPartyIdLivesQueryKey(WORLD_ID);
                 const life = queryClient

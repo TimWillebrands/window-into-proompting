@@ -4,17 +4,13 @@ using PartyTown.World.Places;
 
 namespace PartyTown.World.Work;
 
-/// <summary>Something someone holds this Persona to (ADR 0026): always a holder, always a due time.</summary>
-/// <param name="HolderId">The Participant holding them to it; null when it's a workplace or someone offscreen.</param>
 public sealed record Owed(string Text, long DueAt, Guid? HolderId = null);
 
-/// <summary>Pure rules for responsibilities: what counts, and how it reads as facts in "Right now".</summary>
 public static class ResponsibilityRules
 {
     public const int MaxLines = 3;
     public static readonly TimeSpan Ahead = TimeSpan.FromHours(24);
 
-    /// <summary>Gatherings you said you'd come to or are hosting, in the next day; started ones are past owing.</summary>
     public static IEnumerable<Owed> FromGatherings(IEnumerable<Gathering> gatherings, Guid self, DateTimeOffset now)
         => gatherings
             .Where(g => g.Status == GatheringStatus.Planned && g.AttendeeIds.Contains(self))
@@ -23,7 +19,6 @@ public static class ResponsibilityRules
                 ? new Owed($"You're hosting \"{g.Title}\" {g.Where}, {When(g.StartsAt, now)} ({Going(g.AttendeeIds.Count - 1)}).", g.StartsAt)
                 : new Owed($"You said you'd be at \"{g.Title}\" {g.Where}, {When(g.StartsAt, now)}; {g.HostName} is hosting.", g.StartsAt, g.HostId));
 
-    /// <summary>Guests in your Home while you're there: you're the host.</summary>
     public static IEnumerable<Owed> FromGuests(PlacesSnapshot places, Guid self, Func<Guid, string> nameOf, DateTimeOffset now)
     {
         var home = places.Places.HomeOf(self);
@@ -32,7 +27,6 @@ public static class ResponsibilityRules
             yield return new Owed($"{nameOf(guest.ParticipantId)} is over at your place; you're the host.", now.ToUnixTimeMilliseconds(), guest.ParticipantId);
     }
 
-    /// <summary>"# What you owe": the work line first, then the soonest due. Empty when nothing is owed.</summary>
     public static string Render(string? work, IEnumerable<Owed> owed)
     {
         var lines = new List<string>();
@@ -41,7 +35,6 @@ public static class ResponsibilityRules
         return lines.Count == 0 ? string.Empty : $"# What you owe\n{string.Join("\n", lines.Select(l => $"- {l}"))}\n";
     }
 
-    /// <summary>Missed or late work weighs on the mood, as p(better) for the Self's valence; null when it doesn't.</summary>
     public static double? Weighs(ShiftChange change) => change switch
     {
         { Step: ShiftStep.Miss } => 0.25,
@@ -49,7 +42,6 @@ public static class ResponsibilityRules
         _ => null,
     };
 
-    /// <summary>Host ⇄ attendee warmth when a Gathering starts: showing up warms, not showing cools.</summary>
     public const double ShowedUp = 0.65;
     public const double NoShow = 0.3;
 
@@ -68,7 +60,6 @@ public static class ResponsibilityRules
     };
 }
 
-/// <summary>Collects what a Persona owes across Work, the Calendar, their Home and what they said they'd do. Non-fatal per source.</summary>
 public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilities> logger)
 {
     public async Task<string> RenderAsync(Guid partyId, Guid personaId, DateTimeOffset now)
@@ -100,7 +91,6 @@ public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilit
         return ResponsibilityRules.Render(work, owed);
     }
 
-    /// <summary>Your standing where you are (Owner, Staff, Regular) as one line; empty when it says nothing.</summary>
     public async Task<string> RoleAsync(Guid partyId, Guid personaId)
     {
         try
@@ -120,7 +110,6 @@ public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilit
         }
     }
 
-    /// <summary>Missed or late work weighs on the mood (ADR 0026); non-fatal.</summary>
     public async Task WeighShiftAsync(Guid partyId, Guid personaId, ShiftChange change)
     {
         if (ResponsibilityRules.Weighs(change) is not { } better) return;
@@ -132,7 +121,6 @@ public sealed class Responsibilities(IGrainFactory grains, ILogger<Responsibilit
         catch (Exception ex) { logger.LogDebug(ex, "Shift weighing failed for {Persona}", personaId); }
     }
 
-    /// <summary>A Gathering at a Place started: host and attendees warm to whoever came, cool on whoever didn't.</summary>
     public async Task KeptAsync(Guid partyId, Gathering gathering, IReadOnlyCollection<Guid> came)
     {
         foreach (var id in gathering.AttendeeIds.Where(id => id != gathering.HostId))

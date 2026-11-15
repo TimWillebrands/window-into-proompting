@@ -4,10 +4,6 @@ using PartyTown.World.Relations;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// A Persona's ties in one Party (key = <c>party:persona</c>): how much they've talked with each person and when last.
-/// Calibrates intimacy: confessions belong with people you know, not with everyone at once (ADR 0021).
-/// </summary>
 public sealed class PersonaTiesGrain(
     [PersistentState(stateName: "ties", storageName: "parties")]
     IPersistentState<TiesState> state)
@@ -71,7 +67,6 @@ public sealed class PersonaTiesGrain(
         return Ties.Render(people, DateTimeOffset.UtcNow);
     }
 
-    /// <summary>What they told this persona they'd do, read off their own Desires: one source of truth (ADR 0043).</summary>
     private async Task<List<string>> HeardAsync(Guid partyId, Guid promiser, Guid holder, string first)
     {
         try
@@ -82,12 +77,10 @@ public sealed class PersonaTiesGrain(
         catch (Exception) { return new List<string>(); }
     }
 
-    /// <summary>First use: reconstruct ties from who spoke in the same Rooms and DMs.</summary>
     private async Task EnsureSeededAsync()
     {
         if (state.State.Seeded && state.State.WarmthVersion < Ties.WarmthVersion)
         {
-            // Pre-saturation warmth pinned near 1 for everyone; halve it once.
             foreach (var tie in state.State.Ties.Values) tie.Warmth /= 2;
             state.State.WarmthVersion = Ties.WarmthVersion;
             await state.WriteStateAsync();
@@ -106,7 +99,6 @@ public sealed class PersonaTiesGrain(
     }
 }
 
-/// <summary>Pure tie math and rendering.</summary>
 public static class Ties
 {
     public const double RoomWeight = 0.3;
@@ -126,11 +118,9 @@ public static class Ties
 
     private const double WarmthHalfLifeDays = 2;
 
-    /// <summary>How warm things feel lately, fading back to neutral over days.</summary>
     public static double Warmth(Tie tie, DateTimeOffset now)
         => tie.WarmthAt == 0 ? 0 : tie.Warmth * Math.Pow(0.5, Math.Max(0, (now.ToUnixTimeMilliseconds() - tie.WarmthAt) / 86_400_000.0) / WarmthHalfLifeDays);
 
-    /// <summary>One appraisal (p closer) moves warmth by up to ±0.3 of the way to the limit, so it saturates instead of pinning at 1.</summary>
     public static double ShiftWarmth(double warmth, double closer)
     {
         var step = (closer - 0.5) * 0.6;
@@ -141,11 +131,9 @@ public static class Ties
 
     public static readonly TimeSpan WarmCooldown = TimeSpan.FromHours(3);
 
-    /// <summary>Getting closer counts once per few hours per pair (every chat reads as "closer"); friction always counts.</summary>
     public static bool MayWarm(Tie tie, double closer, DateTimeOffset now)
         => closer <= 0.5 || tie.WarmthAt == 0 || now.ToUnixTimeMilliseconds() - tie.WarmthAt >= WarmCooldown.TotalMilliseconds;
 
-    /// <summary>Who this person is closest to: how much they've talked, weighted by how warm it is.</summary>
     public static Guid? Closest(IEnumerable<KeyValuePair<Guid, Tie>> ties, DateTimeOffset now)
         => ties.Select(t => (t.Key, Score: t.Value.Exchanges * (1 + Warmth(t.Value, now))))
             .Where(t => t.Score > 0).OrderByDescending(t => t.Score).Select(t => (Guid?)t.Key).FirstOrDefault();
@@ -181,7 +169,6 @@ public static class Ties
         if (Lately(Warmth(tie, now)) is { } lately) yield return lately;
     }
 
-    /// <summary>Past history with barely a word since reads as that, not as strangers.</summary>
     private static string? Distance(Acquaintance p)
     {
         if (p.Current) return null;
@@ -198,7 +185,6 @@ public static class Ties
     }
 }
 
-/// <summary>Who a persona knows: anyone they've talked with, or have a Relation with, now or past. Nobody reaches out to a stranger.</summary>
 public static class Acquaintances
 {
     public static async Task<HashSet<Guid>> KnownAsync(IGrainFactory grains, Guid partyId, Guid selfId)
@@ -210,26 +196,16 @@ public static class Acquaintances
     }
 }
 
-/// <summary>Someone as one Persona sees them: the Tie, plus what Relations add (ADR 0035).</summary>
-/// <param name="Between">What the two of them are or were.</param>
-/// <param name="Current">They're something to each other now, so how much they've talked says nothing about distance.</param>
-/// <param name="Known">What anyone could know about them and others.</param>
-/// <param name="Promised">What they told this persona they'd do, still open (ADR 0043).</param>
 public sealed record Acquaintance(string Name, Tie? Tie, string? Between = null, bool Current = false, string? Known = null, IReadOnlyList<string>? Promised = null);
 
 [Alias("PartyTown.World.Self.IPersonaTiesGrain")]
 public interface IPersonaTiesGrain : IGrainWithStringKey
 {
     [Alias("NoteExchangeAsync")] Task NoteExchangeAsync(List<Guid> withIds, bool direct);
-    /// <param name="here">These people are actually around; false when it's everyone in the World.</param>
     [Alias("RenderAsync")] Task<string> RenderAsync(List<Guid> presentIds, bool here = true);
-    /// <summary>How well this persona knows one other, and how warm it feels now.</summary>
     [Alias("GetTieAsync")] Task<TieRead> GetTieAsync(Guid otherId);
-    /// <summary>The one person this persona is closest to, or null.</summary>
     [Alias("GetClosestAsync")] Task<Guid?> GetClosestAsync();
-    /// <summary>Everyone they've exchanged a word with, anywhere.</summary>
     [Alias("GetTalkedWithAsync")] Task<List<Guid>> GetTalkedWithAsync();
-    /// <summary>A closed Moment's appraisal toward one person: <paramref name="closer"/> = p(it brought them closer).</summary>
     [Alias("ShiftWarmthAsync")] Task ShiftWarmthAsync(Guid otherId, double closer);
 }
 

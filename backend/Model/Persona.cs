@@ -29,31 +29,17 @@ public sealed record class Persona : PersonaMetadata
     [Id(3)]
     public string? Bio { get; set; }
 
-    /// <summary>
-    /// 0..1 dial mixed into the chaos urge component in PersonaDecisionService.
-    /// 0 = brooding, only speaks when pulled; 1 = always wants to chime in.
-    /// Default 0.5 keeps existing personas behaviorally neutral on first run.
-    /// </summary>
     [Id(4)]
     public double Chattiness { get; set; } = 0.5;
 
-    /// <summary>
-    /// 0..1 dial controlling commitment-to-in-flight-utterance vs. responsiveness-to-new-info.
-    /// 0 = deliberative (easily interrupted by new info; cancels and re-decides; tends to repair
-    /// when ignored info turns out to matter). 1 = impulsive (commits hard once generation is
-    /// underway; barrels through; rarely repairs). Drives the stop-signal race in PersonaGrain
-    /// when a new message arrives during in-flight generation. Default 0.5.
-    /// </summary>
     [Id(5)]
     public double Impulsivity { get; set; } = 0.5;
 
-    /// <summary>How they come across to whoever stands right next to them; empty by default.</summary>
     [Id(6)]
     public string? Aura { get; set; }
 
     public const int MaxAura = 64;
 
-    /// <summary>One line, at most <see cref="MaxAura"/> characters; null when blank.</summary>
     public static string? CleanAura(string? aura)
     {
         var line = string.Join(' ', (aura ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

@@ -8,7 +8,6 @@ using PartyTown.World.Work;
 
 namespace PartyTown.Controllers;
 
-/// <summary>Jobs (ADR 0026): who works where and when, and how today's shift went. Authors set or clear them.</summary>
 [ApiController]
 [Route("worlds/{partyId:guid}")]
 public sealed class WorkController(IGrainFactory grains, Actors actors) : ControllerBase
@@ -19,14 +18,12 @@ public sealed class WorkController(IGrainFactory grains, Actors actors) : Contro
     {
         var cast = (await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync()).Where(c => c.Id != Narrator.PersonaId).ToList();
         var views = await Task.WhenAll(cast.Select(c => Occupation(partyId, c.Id).GetAsync()));
-        // Openings rename and move workplaces (ADR 0027); show them as they are now.
         var places = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places;
         foreach (var job in views.Select(v => v.Job).OfType<Occupation>())
             if (places.FirstOrDefault(p => p.Id == (job.PlaceId ?? job.LocaleId)) is { } place) WorkRules.Sync(job, place);
         return Ok(cast.Select((c, i) => Summary(c.Id, c.Name, views[i])).ToList());
     }
 
-    /// <summary>Give someone a job, or change it. Days like "Mon-Fri"; hours like "09:00-17:00", not past midnight.</summary>
     [HttpPut("jobs/{participantId:guid}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -53,13 +50,11 @@ public sealed class WorkController(IGrainFactory grains, Actors actors) : Contro
         return Ok(Summary(who.Id, who.Name, await Occupation(partyId, participantId).SetAsync(null)));
     }
 
-    /// <summary>What someone's job has them wear, and whether they're in it now.</summary>
     [AllowAnonymous]
     [HttpGet("jobs/{participantId:guid}/clothes")]
     public async Task<ActionResult<WorkClothesView>> GetClothes(Guid partyId, Guid participantId)
         => Ok(await ClothesAsync(partyId, participantId, await Occupation(partyId, participantId).GetAsync()));
 
-    /// <summary>Have work clothes designed from your own words ("chef whites and clogs"); you change into them on shift.</summary>
     [HttpPost("jobs/{participantId:guid}/clothes")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<WorkClothesView>> TailorClothes(Guid partyId, Guid participantId, [FromBody] WorkClothesRequest request)
@@ -71,7 +66,6 @@ public sealed class WorkController(IGrainFactory grains, Actors actors) : Contro
         return Ok(await ClothesAsync(partyId, participantId, await occupation.TailorAsync(request.Text.Trim())));
     }
 
-    /// <summary>Stop changing for work: come in your own clothes.</summary>
     [HttpDelete("jobs/{participantId:guid}/clothes")]
     public async Task<ActionResult<WorkClothesView>> ClearClothes(Guid partyId, Guid participantId)
     {
@@ -100,14 +94,8 @@ public sealed record JobRequest(string Title, string Workplace, string? Days, st
 
 public sealed record WorkClothesRequest(string Text);
 
-/// <param name="Title">Their job; null without one.</param>
-/// <param name="Designed">False until someone designs them; a Player's stay undesigned until they do.</param>
-/// <param name="OwnClothes">The job asks nothing: they come as they are.</param>
-/// <param name="Wearing">In them right now.</param>
 public sealed record WorkClothesView(string? Title, bool Designed, bool OwnClothes, string? Summary, bool Wearing, bool OnShift);
 
-/// <param name="Seeded">False while the job is still being read off the persona's sheet.</param>
-/// <param name="ShiftStatus">Last shift: On, Done, LeftEarly or Missed.</param>
 public sealed record JobSummary(
     Guid ParticipantId,
     string Name,

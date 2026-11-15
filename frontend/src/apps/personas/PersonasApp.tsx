@@ -17,7 +17,6 @@ export default function PersonasApp() {
     const [showGenerateDialog, setShowGenerateDialog] = useState(false);
     const residents = useResidents();
     const [askingId, setAskingId] = useState<string | null>(null);
-    // A blank Persona has no name or bio to arrive with yet: ask after its first save.
     const [askOnSaveId, setAskOnSaveId] = useState<string | null>(null);
 
     const selectedPersona = useMemo(
@@ -35,7 +34,6 @@ export default function PersonasApp() {
             className="app-surface flex h-full"
             style={{ background: 'transparent' }}
         >
-            {/* Sidebar */}
             <div
                 className="xp-glass-panel flex flex-col"
                 style={{
@@ -154,7 +152,6 @@ export default function PersonasApp() {
                 </div>
             </div>
 
-            {/* Editor pane */}
             <div className="flex-1 overflow-y-auto p-3">
                 {selectedPersona ? (
                     <PersonaEditor

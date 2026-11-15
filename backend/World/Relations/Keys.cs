@@ -8,10 +8,8 @@ using PartyTown.World.Self;
 
 namespace PartyTown.World.Relations;
 
-/// <summary>Someone dealt with a closed door: where, whose, and how often lately.</summary>
 public sealed record Door(Guid PlaceId, string PlaceName, Guid HostId, Guid VisitorId, int Moments);
 
-/// <summary>Pure key rules (ADR 0036): who's close enough for one to come up, and when it's turned sour.</summary>
 public static class KeyRules
 {
     public const int ToThinkOfIt = 2;
@@ -23,16 +21,13 @@ public static class KeyRules
     public static bool Exes(RelationBook book, Guid a, Guid b)
         => book.CurrentBetween(a, b) is null && book.Relations.Any(r => r.IsRomantic() && r.Involves(a) && r.Involves(b));
 
-    /// <summary>Things went wrong between them, so a key is a question that needs settling.</summary>
     public static bool Sour(RelationBook book, Guid me, Guid other, TieRead mine)
         => mine.Warmth <= RelationRules.Strained || Exes(book, me, other);
 
-    /// <summary>What they are, or how well they know each other both ways; strain rules it out.</summary>
     public static bool Close(RelationBook book, Guid me, Guid other, TieRead mine, TieRead theirs)
         => !Sour(book, me, other, mine) && theirs.Warmth > RelationRules.Strained
            && (book.CurrentBetween(me, other) is not null || (mine.Exchanges >= RelationRules.KnownAfter && theirs.Exchanges >= RelationRules.KnownAfter));
 
-    /// <summary>One live want about a door at a time, and no new one right after the last.</summary>
     public static bool MayWant(IEnumerable<Desire> acquired, long now)
         => !acquired.Any(d => d.PlaceId is not null && (d.Status == DesireStatus.Active || now - d.Since < WantEvery.TotalMilliseconds));
 
@@ -40,10 +35,6 @@ public static class KeyRules
         => acquired.Any(d => d.Status == DesireStatus.Active && d.PlaceId == placeId && d.TargetId == other);
 }
 
-/// <summary>
-/// Wanting a key forms at the door (ADR 0036), the way Mimesis forms in talk: System One judges each side in character,
-/// a hit is voiced once, and it's capped. Detached and non-fatal; humans are left out.
-/// </summary>
 public sealed class KeyWants(ISystemOneJudge judge, IGrainFactory grains, IWorldLlm llm, ILogger<KeyWants> logger)
 {
     private const string Key = "want";
@@ -79,7 +70,6 @@ public sealed class KeyWants(ISystemOneJudge judge, IGrainFactory grains, IWorld
     {
         var desires = grains.GetGrain<IDesiresGrain>(WorldKeys.Life(partyId, who.Id));
         var acquired = (await desires.GetAsync()).Acquired;
-        // Another round at the door keeps a want alive; that's what fading is measured against.
         if (acquired.FirstOrDefault(d => d.Status == DesireStatus.Active && d.PlaceId == door.PlaceId) is { } live)
         {
             await desires.TouchAsync(live.Id);

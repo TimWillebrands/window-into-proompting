@@ -36,7 +36,6 @@ const cellBase: React.CSSProperties = {
 
 const TAKES_TURNS = 'takes turns';
 
-/** What a tier without a model of its own falls back to. */
 const fallbackOf = (tier: number) =>
     tier === GENERAL
         ? 'no model'
@@ -44,7 +43,6 @@ const fallbackOf = (tier: number) =>
           ? 'emulation'
           : 'General';
 
-/** One persona's model for one kind of work: the split's pick, or a pin. */
 function PinCell({
     label,
     tier,
@@ -60,7 +58,6 @@ function PinCell({
     providers: LlmProviderEntry[];
     pinnedId?: string;
     lands?: LlmProviderEntry;
-    /** No one model: each call takes the next pool provider (Decisions). */
     balanced?: boolean;
     disabled: boolean;
     onPin: (providerId: string | undefined) => void;
@@ -72,7 +69,6 @@ function PinCell({
         : balanced
           ? TAKES_TURNS
           : fallbackOf(tier);
-    // A decisions-only model can't speak; a disabled one stays listed only while chosen.
     const options = providers.filter(
         (p) =>
             p.id === pinnedId ||
@@ -126,7 +122,6 @@ function PinCell({
     );
 }
 
-/** Who is on which model per kind of work; a cell pins that work to one model (a Persona Route). */
 export default function PersonaMatrix({
     personas,
     providers,

@@ -9,7 +9,6 @@ using PartyTown.Observability;
 
 namespace BackendTest;
 
-/// <summary>A local server's models can be picked whichever list it serves, so a decision model needs no typing in.</summary>
 public class LocalModelListTest : TestKitBase
 {
     private sealed class Server(Dictionary<string, string> paths) : HttpMessageHandler

@@ -9,7 +9,6 @@ import {
 } from '#lib/realtime-store';
 import { phaseByPersona } from './room-conversation';
 
-/** One Room as a chat window sees it: holds the party socket open and reads the live state. */
 export function useRoomConversation(partyId: string, chatGroupId: string) {
     const { connectPartyRealtime, disconnectPartyRealtime } =
         useRealtimeStoreActions();

@@ -3,7 +3,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Pair poses follow the Tie both ways (ADR 0021).</summary>
 public class TouchTest
 {
     private static readonly string[] All = Poses.Pair;

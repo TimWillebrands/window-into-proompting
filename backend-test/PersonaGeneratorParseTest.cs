@@ -3,7 +3,6 @@ using PartyTown.Services.ResponsePipeline;
 
 namespace BackendTest;
 
-/// <summary>Generated persona parsing: the lived format (ADR 0021).</summary>
 public class PersonaGeneratorParseTest
 {
     private const string Lived = """

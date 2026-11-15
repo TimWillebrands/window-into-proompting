@@ -5,10 +5,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.Services.ResponsePipeline;
 
-/// <summary>
-/// Stop-signal salience (ADR 0001): is a new message worth interrupting an in-flight reply for? Pure weighing,
-/// so System One answers it; any failure lets the draft ride.
-/// </summary>
 public sealed class PersonaSalienceService(ISystemOneJudge judge, ILogger logger)
 {
     private static readonly IReadOnlyDictionary<string, string?> Kinds = new Dictionary<string, string?>
@@ -19,7 +15,6 @@ public sealed class PersonaSalienceService(ISystemOneJudge judge, ILogger logger
         ["irrelevant"] = "unrelated to the reply in progress",
     };
 
-    /// <summary>0 (let it ride) to 1 (finishing now would look out of touch).</summary>
     public async Task<SalienceScore> ScoreAsync(
         SelfView self,
         string inFlightGutReaction,
@@ -86,9 +81,7 @@ Content: {Trim(newMessageContent)}
         string.IsNullOrWhiteSpace(s) ? "(empty)" : s.Trim();
 }
 
-/// <summary>Interruption salience: <see cref="Value"/> drives the race, <see cref="Kind"/> is telemetry.</summary>
 public readonly record struct SalienceScore(double Value, string Kind)
 {
-    /// <summary>Any failure: don't cancel.</summary>
     public static SalienceScore LetItRide { get; } = new(0.0, "irrelevant");
 }

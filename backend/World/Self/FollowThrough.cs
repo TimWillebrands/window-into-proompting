@@ -4,11 +4,6 @@ using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
-/// <summary>
-/// Words become deeds (ADR 0021 #29, ADR 0043): every persona line in a chat is read once for what it commits them to.
-/// "On my way" walks the Body over now; a meet-up on a set day goes on the Calendar; anything else they said they'd do
-/// becomes a Promise, a Desire of theirs that presses on later turns until it's kept, called off, settled off-screen or lapses. Detached and non-fatal.
-/// </summary>
 public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, ILogger<FollowThrough> logger, OffStage? offStage = null)
 {
     private const int Lines = 4;
@@ -16,7 +11,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
     private static readonly TimeSpan PendingFor = TimeSpan.FromMinutes(20);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _considered = new();
 
-    /// <summary>Start of a Life turn: a last word in a DM not read yet gets read (covers restarts), and promises are kept up.</summary>
     public async Task ConsiderPendingAsync(Guid partyId, Guid personaId)
     {
         try
@@ -34,7 +28,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         catch (Exception ex) { logger.LogDebug(ex, "Pending follow-through check failed for {Persona}", personaId); }
     }
 
-    /// <summary>Called after a persona's line lands in a Room or DM; fire-and-forget.</summary>
     public void Consider(Guid partyId, Guid roomId, Guid speakerId)
         => _ = Task.Run(async () =>
         {
@@ -55,7 +48,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         var direct = room.Kind == ChatGroupKinds.Direct;
         var otherId = direct ? room.MemberIds?.FirstOrDefault(id => id != speakerId) : PromiseRules.Addressee(recent, speakerId);
         if (otherId is not { } other || other == Narrator.PersonaId) return;
-        // Each message is weighed once, whichever path saw it first.
         if (!_considered.TryAdd($"{roomId:N}:{recent[^1].MessageId}", 0)) return;
 
         var cast = await grains.GetGrain<IPartyGrain>(partyId).GetCastAsync();
@@ -99,7 +91,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         if (direct && coming >= Coming.Threshold) await ComeOverAsync(partyId, speakerId, other, said, Name);
     }
 
-    /// <summary>A meet-up on a set day at one of their Homes is a Gathering both go to (ADR 0043); false when there's no Home to hold it.</summary>
     public async Task<bool> PlanMeetupAsync(Guid partyId, Guid speakerId, Guid otherId, long startsAt, string where, Func<Guid, string> name)
     {
         var hostId = where == PromiseRules.TheirHome ? speakerId : otherId;
@@ -123,7 +114,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         return true;
     }
 
-    /// <summary>A come-over due is kept by being there, one to do something is settled off-screen in time (ADR 0055); lapsing is the Desires grain's to notice.</summary>
     private async Task KeepUpAsync(Guid partyId, Guid personaId)
     {
         var desires = DesiresOf(partyId, personaId);
@@ -138,7 +128,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
             await desires.MarkAsync(c.Id, Desires.DesireStatus.Fulfilled);
     }
 
-    /// <summary>Kept by being there: the open come-over to them, if any, is fulfilled.</summary>
     private async Task ArrivedAsync(Guid partyId, Guid speakerId, Guid otherId)
     {
         var desires = DesiresOf(partyId, speakerId);
@@ -146,7 +135,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
             await desires.MarkAsync(kept.Id, Desires.DesireStatus.Fulfilled);
     }
 
-    /// <summary>"On my way": after a natural delay the Body walks over, and once there they get a turn to say hi.</summary>
     private async Task ComeOverAsync(Guid partyId, Guid speakerId, Guid otherId, string said, Func<Guid, string> name)
     {
         var places = grains.GetGrain<Places.IPlacesGrain>(partyId);
@@ -156,7 +144,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
         if (me is null || them is null || me.Asleep || them.IsWalking || Coming.AlreadyThere(me, them)) return;
 
         await Task.Delay(Coming.Delay(said));
-        // Things may have changed while they finished up: the other left, or they're already there.
         snapshot = await places.GetSnapshotAsync();
         me = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == speakerId);
         them = snapshot.Bodies.FirstOrDefault(b => b.ParticipantId == otherId);
@@ -174,7 +161,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
             Summary = $"heads over to {name(otherId)} {where}, like they said they would", WithPersonaId = otherId,
         });
 
-        // Once they've arrived, a Life turn to actually be there: say hello out loud, put the phone away.
         var until = DateTimeOffset.UtcNow + ArrivalWait;
         while (DateTimeOffset.UtcNow < until)
         {
@@ -186,7 +172,6 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
     }
 }
 
-/// <summary>Pure rules for coming over.</summary>
 public static class Coming
 {
     public const double Threshold = 0.6;
@@ -194,7 +179,6 @@ public static class Coming
     public static bool AlreadyThere(Places.Body me, Places.Body them)
         => (me.DestPlaceId ?? me.PlaceId) == them.PlaceId && (me.DestSpotId ?? me.SpotId) == them.SpotId;
 
-    /// <summary>"in a bit" is a minute or two of finishing up; "on my way" is now.</summary>
     public static TimeSpan Delay(string? said)
     {
         var t = (said ?? string.Empty).ToLowerInvariant();

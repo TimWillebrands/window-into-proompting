@@ -2,7 +2,6 @@ using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
-/// <summary>System One port (ADR 0019): Jev wire mapping and calibrated sampling.</summary>
 public class SystemOneTest
 {
     [Fact]

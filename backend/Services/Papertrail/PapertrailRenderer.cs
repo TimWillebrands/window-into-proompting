@@ -6,12 +6,6 @@ using PartyTown.Model;
 
 namespace PartyTown.Services.Papertrail;
 
-/// <summary>
-/// Builds an agent-readable causal trail of a chat group's persona turns.
-/// Reconstructs the "who reacted to what" tree from durable event-sourced state
-/// (messages + skipped-turn records) so the output is reproducible across silo
-/// restarts and OTel trace expiry.
-/// </summary>
 public static class PapertrailRenderer
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -29,8 +23,6 @@ public static class PapertrailRenderer
         var nameById = participants.ToDictionary(p => p.Id, p => p.Name);
         var ordered = messages.OrderBy(m => m.MessageId).ToList();
 
-        // Bucket reactions under their triggering message id. Reactions are messages with
-        // a non-null TriggeredByMessageId plus any skip records keyed to the same trigger.
         var reactionMessages = ordered
             .Where(m => m.TriggeredByMessageId is not null)
             .GroupBy(m => m.TriggeredByMessageId!.Value)
@@ -64,9 +56,6 @@ public static class PapertrailRenderer
 
         if (reactionMessages.TryGetValue(message.MessageId, out var children))
         {
-            // Legacy decline events (pre-slot-tracking) carry SenderId = Guid.Empty + empty
-            // content. They have no recoverable persona attribution so they read as noise.
-            // Suppress them here rather than letting the renderer print "00000000-… declined".
             foreach (var child in children)
             {
                 if (child.SenderId == Guid.Empty && string.IsNullOrEmpty(child.Content))
@@ -81,7 +70,6 @@ public static class PapertrailRenderer
                 reactions.Add(SkipEntry(skip));
         }
 
-        // Order siblings chronologically so the tree reads top-to-bottom in clock time.
         reactions.Sort((a, b) => Nullable.Compare(a.SendAt, b.SendAt));
 
         var senderName = nameById.GetValueOrDefault(message.SenderId, message.SenderId.ToString());
@@ -172,8 +160,6 @@ public static class PapertrailRenderer
                     _ => string.Empty
                 };
                 var gut = entry.Appraisal?.Reason is { Length: > 0 } r ? $"\n{indent}    gut: {Truncate(r, 200)}" : "";
-                // ADR 0015 observability: candidate set + pick per recall, so memory misses
-                // are diagnosable from the trail alone (the embeddings-deferral trigger).
                 var recall = entry.Appraisal?.Recall is { Candidates.Count: > 0 } rc
                     ? $"\n{indent}    recall: [{string.Join(", ", rc.Candidates.Select(RenderRecallCandidate))}] picked={(rc.Picked is int p ? $"#{p}" : "none")}"
                     : "";
@@ -199,8 +185,6 @@ public static class PapertrailRenderer
     public static string ToJson(PapertrailDocument doc)
         => JsonSerializer.Serialize(doc, JsonOptions);
 
-    // Arm attribution (ADR 0015 two-arm union) abbreviated to keep the line scannable:
-    // `(rel)` graph-walk arm, `(rec)` recency arm; pre-arm entries carry no suffix.
     private static string RenderRecallCandidate(RecallCandidateSummary c)
         => $"#{c.Index}={c.Score:F2}{(string.IsNullOrEmpty(c.Arm) ? "" : $"({c.Arm[..Math.Min(3, c.Arm.Length)]})")}";
 
@@ -252,22 +236,12 @@ public sealed class AppraisalSummary
     public RecallSummary? Recall { get; init; }
 }
 
-/// <summary>
-/// The turn's recall snapshot as the response pipeline logged it into the appraisal JSON
-/// (ADR 0015 observability): every surfaced candidate with its salience score, plus the
-/// Decision phase's pick (1-based index into the surfaced list, null = nothing fit).
-/// </summary>
 public sealed class RecallSummary
 {
     public List<RecallCandidateSummary> Candidates { get; init; } = [];
     public int? Picked { get; init; }
     public Guid? PickedId { get; init; }
 
-    /// <summary>
-    /// True when the salience floor, not the Decision model, deployed the pick
-    /// (<see cref="ResponsePipeline.RecallDeployment"/>). Null/absent = model pick or no
-    /// pick — keeps older appraisal entries deserializing unchanged.
-    /// </summary>
     public bool? AutoDeployed { get; init; }
 }
 
@@ -279,9 +253,5 @@ public sealed class RecallCandidateSummary
     public double Weight { get; init; }
     public int RecallCount { get; init; }
 
-    /// <summary>
-    /// Which arm's slot this candidate consumed: <c>"relevant"</c> (anchor graph-walk) or
-    /// <c>"recent"</c> (recency pool). Null on entries written before the two-arm union.
-    /// </summary>
     public string? Arm { get; init; }
 }

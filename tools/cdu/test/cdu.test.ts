@@ -9,7 +9,6 @@ import { Feed } from '../src/feed.ts';
 import { Tide } from '../src/tide.ts';
 import { FakeGitHub, git, world } from './fixture.ts';
 
-/** Does what the test says on each waking, and remembers what it heard. */
 class FakeMind implements Mind {
     readonly model = 'fake';
     heard: string[] = [];

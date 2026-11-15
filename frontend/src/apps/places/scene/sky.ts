@@ -11,13 +11,10 @@ export interface Sky {
     sunPower: number;
     sunAt: [number, number, number];
     ambient: number;
-    /** Lamps and lit windows on. */
     night: boolean;
-    /** Colour window panes show. */
     pane: string;
     water: [string, string];
     ambientColour: string;
-    /** CSS behind the canvas. */
     backdrop: string;
 }
 
@@ -33,7 +30,6 @@ const MOODS: Record<
     cold: { ambient: 1, sun: 1, colour: '#cfe2ff' },
 };
 
-/** Light and colour for an hour of the local day (the World runs on local time). */
 export function skyAt(hour: number, outdoor: boolean, mood?: string): Sky {
     const m = (mood && MOODS[mood]) || { ambient: 1, sun: 1 };
     const day = smooth(5.5, 8, hour) * (1 - smooth(18.5, 21, hour));

@@ -2,7 +2,6 @@ using System.Globalization;
 
 namespace PartyTown.World.Growth;
 
-/// <summary>Footfall ledger of one Party (key = Party id, ADR 0027); opens Locales past the gates when Auto is on, else only logs.</summary>
 public sealed class GrowthGrain(
     [PersistentState(stateName: "growth", storageName: "parties")]
     IPersistentState<GrowthState> state,
@@ -37,7 +36,6 @@ public sealed class GrowthGrain(
 
     public Task<bool> GetAutoAsync() => Task.FromResult(state.State.Auto);
 
-    /// <summary>Each Locale past all three gates is logged once a day; with Auto on, the strongest opens, one a day.</summary>
     private async Task EvaluateAsync(long now)
     {
         var today = DayKey();
@@ -48,7 +46,6 @@ public sealed class GrowthGrain(
             logger.LogInformation("World growth: {Locale} passed the gates: footfall {Footfall}, {People} people, {Days} days",
                 r.LocaleId, r.Footfall, r.People, r.Days);
             if (!state.State.Auto) continue;
-            // Places keeps the one-a-day budget for every kind of Opening.
             try
             {
                 await GrainFactory.GetGrain<Places.IPlacesGrain>(this.GetPrimaryKey()).OpenAsync(r.LocaleId, null, "footfall");
@@ -68,16 +65,12 @@ public sealed class GrowthGrain(
 [Alias("PartyTown.World.Growth.IGrowthGrain")]
 public interface IGrowthGrain : IGrainWithGuidKey
 {
-    /// <summary>One signal on a Locale from one Participant (<see cref="FootfallSources"/>); repeats within a day are ignored.</summary>
     [Alias("NoteAsync")] Task NoteAsync(Guid localeId, Guid participantId, string source);
 
-    /// <summary>Every Locale with live footfall, strongest first, with the gate it's still missing.</summary>
     [Alias("GetReadingsAsync")] Task<List<FootfallReading>> GetReadingsAsync();
 
-    /// <summary>Locales that passed all gates, with the day they last did (dry run).</summary>
     [Alias("GetWouldOpenAsync")] Task<Dictionary<Guid, string>> GetWouldOpenAsync();
 
-    /// <summary>Author switch: open Locales that pass the gates (one a day), or only log them.</summary>
     [Alias("SetAutoAsync")] Task SetAutoAsync(bool on);
 
     [Alias("GetAutoAsync")] Task<bool> GetAutoAsync();
@@ -87,8 +80,6 @@ public interface IGrowthGrain : IGrainWithGuidKey
 public sealed class GrowthState
 {
     [Id(0)] public List<FootfallSignal> Signals { get; set; } = new();
-    /// <summary>Locale id → last day it passed the gates.</summary>
     [Id(1)] public Dictionary<Guid, string> WouldOpen { get; set; } = new();
-    /// <summary>Open automatically; off until the thresholds are tuned on a live world.</summary>
     [Id(2)] public bool Auto { get; set; }
 }

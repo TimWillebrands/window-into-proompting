@@ -18,12 +18,10 @@ import {
 } from './constants';
 import { percent, shareOf, splitOf } from './split';
 
-/** Persona id the assignments use for work nobody owns. */
 export const NOBODY = '00000000-0000-0000-0000-000000000000';
 
 const STATE_ICONS = ['', '⚠', '✕'] as const;
 
-/** Dark ink on the light fills, white on the rest. */
 const inkOn = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     return r * 0.299 + g * 0.587 + b * 0.114 > 150 ? '#0b0b0b' : '#fff';
@@ -48,7 +46,6 @@ function Swatch({ color }: { color: string }) {
     );
 }
 
-/** How the pool is split per kind of work, and the Shares that decide it (ADR 0048). */
 export default function ModelSplit({
     providers,
     availability = [],
@@ -64,7 +61,6 @@ export default function ModelSplit({
     const [draft, setDraft] = useState<Record<string, number>>({});
 
     const pool = providers.filter((p) => p.isEnabled !== false && !p.reserved);
-    // Alone at its priority in every kind of work, a share decides nothing.
     const shares = (p: LlmProviderEntry) =>
         JOB_COMPLEXITIES.some((tier) =>
             splitOf(providers, tier.value).some(
@@ -109,7 +105,6 @@ export default function ModelSplit({
                 ),
             );
         } catch {
-            // save.isError says so; the draft stays for another try.
             return;
         }
         setDraft({});
@@ -275,7 +270,6 @@ export default function ModelSplit({
                         : tier.value === DECISIONS
                           ? 'LLM emulation on General'
                           : 'General';
-                // Decisions have nothing to cache, so calls take turns instead of personas staying put.
                 const perCall = tier.value === DECISIONS;
                 return (
                     <div

@@ -2,28 +2,22 @@ using PartyTown.World.Work.Markets;
 
 namespace PartyTown.World.Work.Companies;
 
-/// <summary>What a Company does all day: trades a Book (ADR 0030) or keeps the CDU (ADR 0039).</summary>
 public static class CompanyKinds
 {
     public const string Trading = "trading";
     public const string Cdu = "cdu";
-    /// <summary>What a CDU Company was called before the CDU.</summary>
     public const string LegacyWorks = "works";
 
     public static bool IsCdu(string? kind) => kind is Cdu or LegacyWorks;
 }
 
-/// <summary>An outfit in one Party with a workplace, staff and a Mandate (ADR 0030). Staff are Occupations that name it.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Work.Companies.Company")]
 public sealed class Company
 {
     [Id(0)] public Guid Id { get; set; }
     [Id(1)] public string Name { get; set; } = string.Empty;
-    /// <summary>What it's set up to do, in one line for prompts.</summary>
     [Id(2)] public string Mandate { get; set; } = string.Empty;
-    /// <summary>One of <see cref="MarketKinds"/>.</summary>
     [Id(3)] public string Market { get; set; } = MarketKinds.Predictions;
-    /// <summary>What to look for in that Market: a search term, or coins and tickers.</summary>
     [Id(4)] public string? Focus { get; set; }
     [Id(5)] public string Workplace { get; set; } = string.Empty;
     [Id(6)] public Book Book { get; set; } = new();
@@ -31,11 +25,9 @@ public sealed class Company
     [Id(8)] public long? MarkedAt { get; set; }
     [Id(9)] public long? WatchedAt { get; set; }
     [Id(10)] public long FoundedAt { get; set; }
-    /// <summary>One of <see cref="CompanyKinds"/>.</summary>
     [Id(11)] public string Kind { get; set; } = CompanyKinds.Trading;
 }
 
-/// <summary>The Party's Companies (key = Party id). Pure state: reading Markets happens in <see cref="Desks"/>, outside the grain.</summary>
 public sealed class CompaniesGrain(
     [PersistentState(stateName: "companies", storageName: "parties")]
     IPersistentState<CompaniesState> state)
@@ -56,7 +48,6 @@ public sealed class CompaniesGrain(
     public async Task<TradeResult> TradeAsync(Guid id, Quote quote, TradeOrder order, long now)
     {
         if (Find(id) is not { } company) return TradeResult.No("That Company is gone.");
-        // Feeds answering by id carry no name; the one from the Watchlist or Position stands.
         if (quote.Title.Length == 0) quote.Title = TitleOf(company, quote.Id);
         var result = BookRules.Apply(company.Book, quote, order, now);
         if (result.Trade is not null) await state.WriteStateAsync();
@@ -109,14 +100,10 @@ public interface ICompaniesGrain : IGrainWithGuidKey
 {
     [Alias("GetAllAsync")] Task<List<Company>> GetAllAsync();
     [Alias("GetAsync")] Task<Company?> GetAsync(Guid id);
-    /// <summary>Null when the name is taken.</summary>
     [Alias("FoundAsync")] Task<Company?> FoundAsync(Company company);
-    /// <summary>Fills an order at <paramref name="quote"/>; the one way into a Book, for Life and HTTP alike.</summary>
     [Alias("TradeAsync")] Task<TradeResult> TradeAsync(Guid id, Quote quote, TradeOrder order, long now);
     [Alias("WatchAsync")] Task WatchAsync(Guid id, List<Quote> watchlist, long now);
-    /// <summary>A new focus; the Watchlist is due again. Null unless it's a trading Company.</summary>
     [Alias("RefocusAsync")] Task<Company?> RefocusAsync(Guid id, string? focus);
-    /// <summary>Takes in a read of the Market; returns what's worth telling.</summary>
     [Alias("MarkAsync")] Task<BookNews> MarkAsync(Guid id, List<Quote> quotes, DateTimeOffset local, long now);
 }
 

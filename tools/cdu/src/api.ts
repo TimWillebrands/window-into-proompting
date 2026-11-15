@@ -21,7 +21,6 @@ async function readJson(req: http.IncomingMessage): Promise<Record<string, unkno
     }
 }
 
-/** The World's one door to the CDU. Tide calls return at once; what came of them is news. */
 export function createApi(cdu: Cdu, token: string) {
     return http.createServer(async (req, res) => {
         try {

@@ -3,7 +3,6 @@ using PartyTown.Grains.Generation;
 
 namespace PartyTown.World.Places;
 
-/// <summary>What the Muse needs to write one Take.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.TakeBrief")]
 public sealed record TakeBrief(
     [property: Id(0)] Guid Who, [property: Id(1)] string Name, [property: Id(2)] string? Identity,
@@ -12,7 +11,6 @@ public sealed record TakeBrief(
     [property: Id(9)] string? Why, [property: Id(10)] string When, [property: Id(11)] List<string> Earlier,
     [property: Id(12)] string? Knack = null);
 
-/// <summary>What doing something gave: the line for the feed, and the Take on its own.</summary>
 [GenerateSerializer, Alias("PartyTown.World.Places.Done")]
 public sealed record Done([property: Id(0)] string Summary, [property: Id(1)] string Take, [property: Id(2)] string Thing, [property: Id(3)] string Place);
 
@@ -22,7 +20,6 @@ public interface IPlaceMuseGrain : IGrainWithIntegerKey
     [Alias("TakeAsync")] Task<string?> TakeAsync(TakeBrief brief);
 }
 
-/// <summary>Writes Takes away from the Places grain (ADR 0049), so a slow model never holds the World up.</summary>
 [StatelessWorker]
 public sealed class PlaceMuseGrain(IWorldLlm llm, ILogger<PlaceMuseGrain> logger) : Grain, IPlaceMuseGrain
 {
@@ -68,10 +65,8 @@ public sealed class PlaceMuseGrain(IWorldLlm llm, ILogger<PlaceMuseGrain> logger
     }
 }
 
-/// <summary>Doing something at a Place (ADR 0049): read, let the Muse write the Take, then apply; never holding the Places grain.</summary>
 public static class Doing
 {
-    /// <param name="own">The doer's own words to leave, when they have them (a Player typing).</param>
     public static async Task<Done?> DoAsync(IGrainFactory grains, Guid partyId, Guid who, string? identity, Guid placeId, string furniId, string? why, string? own, DateTimeOffset now)
     {
         var places = grains.GetGrain<IPlacesGrain>(partyId);
@@ -93,7 +88,6 @@ public static class Doing
         return new Done(summary, take ?? string.Empty, furni.Name, place.Name);
     }
 
-    /// <summary>"reading the night sky (practised): …" when they know how to do this (ADR 0054); null for a first-timer.</summary>
     private static async Task<string?> KnackAsync(IGrainFactory grains, Guid partyId, Guid who, string doing)
     {
         try

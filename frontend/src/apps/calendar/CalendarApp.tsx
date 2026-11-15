@@ -21,7 +21,6 @@ const time = (ts: number | string | undefined) =>
               minute: '2-digit',
           });
 
-/** "#kitchen" for Room gatherings, "at the Café" for Place ones. */
 const whereOf = (g: Gathering) =>
     g.placeId ? `at ${g.roomName}` : `in #${g.roomName}`;
 
@@ -31,7 +30,6 @@ const panel = {
     borderColor: '#7f9db9 #fff #fff #7f9db9',
 } as const;
 
-/** Calendar: get-togethers planned in Rooms by personas and humans; RSVP as yourself. */
 export default function CalendarApp() {
     const playerId = usePlayerId();
     const lives = useGetWorldsPartyIdLivesSuspense(WORLD_ID).data.data ?? [];

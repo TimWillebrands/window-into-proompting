@@ -5,10 +5,6 @@ using PartyTown.World.Places;
 
 namespace PartyTown.World.Economy;
 
-/// <summary>
-/// Clothes and money in a Life (ADR 0024): change into something you own, buy something new, or get someone a
-/// present. Never pushed: buying is a low-priority option that money, mood and payday make more or less likely.
-/// </summary>
 public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystemOneJudge judge, ILogger<WardrobeApp> logger) : IWorldApp
 {
     public string Id => "wardrobe";
@@ -48,7 +44,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         var cheapest = shops.Count == 0 || !open ? int.MaxValue : shops.Min(i => i.Price);
         if (open && wanted is not null && wallet.Balance >= wanted.Price)
             affordances.Add(new Affordance(Id, $"Buy {wanted.Name}, the thing you've been wanting", 2, null, "buy-wanted"));
-        // Spending follows means: someone flush buys more readily than someone counting coins; saving up holds it back.
         if (wallet.Balance >= cheapest)
             affordances.Add(new Affordance(Id, "Buy something new to wear", (wallet.Balance >= wallet.DailyPay * 3 ? 1 : 0) - (wanted is not null && wallet.Balance < wanted.Price ? 1 : 0), null, "buy"));
         if (open && wallet.Balance >= cheapest * 2L
@@ -95,7 +90,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         return null;
     }
 
-    /// <summary>Put on something you own (free).</summary>
     public async Task<ActOutcome?> WearAsync(Guid partyId, Guid who, ShopItem item)
     {
         var wallet = await WalletOf(partyId, who).GetAsync();
@@ -105,7 +99,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         return new ActOutcome("wear", atWork is null ? $"changed into {item.Name}" : $"laid out {item.Name} for after work", null);
     }
 
-    /// <summary>Pay, own it (unless it's a service like a haircut) and put it on; null when they can't afford it.</summary>
     public async Task<ActOutcome?> BuyAsync(Guid partyId, Guid who, ShopItem item)
     {
         var wallet = WalletOf(partyId, who);
@@ -118,7 +111,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
             : $"bought {item.Name} ({item.Price} credits) and {(atWork is null ? "put it on" : "will wear it after work")}", null);
     }
 
-    /// <summary>Pay for something and put it in someone else's wardrobe; they'll feel a little warmer toward the giver.</summary>
     public async Task<ActOutcome?> GiftAsync(Guid partyId, Guid from, string fromName, Guid to, string toName, ShopItem item)
     {
         if (Catalog.IsService(item) || !await WalletOf(partyId, from).SpendAsync(item.Price, $"{item.Name} for {toName}")) return null;
@@ -129,7 +121,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         return new ActOutcome("gift", $"bought {toName} {item.Name} as a present", null, to);
     }
 
-    /// <summary>The option an intent that names no item most likely means (System One); null when there's nothing to pick.</summary>
     private async Task<ShopItem?> PickAsync(Guid who, string intent, IReadOnlyList<ShopItem> options)
     {
         var weigh = judge.For(who);
@@ -153,7 +144,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         }
     }
 
-    /// <summary>The catalog item a having-desire names (ADR 0026), when they don't own it yet.</summary>
     private async Task<ShopItem?> WantedAsync(Guid partyId, Guid who, IReadOnlyCollection<string> owned)
     {
         try
@@ -168,7 +158,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
         }
     }
 
-    /// <summary>Getting the thing you wanted, bought or given, fulfils the desire.</summary>
     private async Task FulfilAsync(Guid partyId, Guid who, ShopItem item)
     {
         try
@@ -182,7 +171,6 @@ public sealed class WardrobeApp(IGrainFactory grains, Services.SystemOne.ISystem
 
     private IWalletGrain WalletOf(Guid partyId, Guid who) => grains.GetGrain<IWalletGrain>(WorldKeys.Life(partyId, who));
 
-    /// <summary>Their own look (what the Wardrobe works on), and the work clothes they're in, if any.</summary>
     private async Task<(Appearance Own, WorkClothes? AtWork)> LookAsync(Guid partyId, Guid who)
     {
         var body = (await grains.GetGrain<IPlacesGrain>(partyId).GetSnapshotAsync()).Bodies.FirstOrDefault(b => b.ParticipantId == who);

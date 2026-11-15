@@ -13,7 +13,6 @@ const add = (w: Weights, bone: number, v: number) => {
 const AFFINITY = 0.016;
 
 export interface Skinner {
-    /** Fills four bones and weights for a point in bind pose. */
     weigh(
         x: number,
         y: number,
@@ -24,7 +23,6 @@ export interface Skinner {
     ): void;
 }
 
-/** Pins everything to one bone: heads, hair, hard accessories. */
 export const rigid = (bone: string): Skinner => {
     const i = idx(bone);
     return {
@@ -35,7 +33,6 @@ export const rigid = (bone: string): Skinner => {
     };
 };
 
-/** Smooth weights from the body's own parts, so clothes bend exactly as what's under them bends. */
 export function bodySkinner(a: Anatomy, posed: Posed): Skinner {
     const H = a.H;
     const tau = AFFINITY * H;
@@ -46,7 +43,6 @@ export function bodySkinner(a: Anatomy, posed: Posed): Skinner {
     const shoulderX = joint(posed, 'upperarm_l')[0];
 
     const spineWeights = (y: number, x: number, w: Weights, k: number) => {
-        // A vertex follows the bone it's on, easing into the next at mid-bone.
         for (let i = 0; i < spine.length - 1; i++) {
             const lo = spine[i];
             const hi = spine[i + 1];
@@ -58,7 +54,6 @@ export function bodySkinner(a: Anatomy, posed: Posed): Skinner {
                 break;
             }
         }
-        // The top corners of the chest ride the clavicles.
         const c =
             smooth(shoulderX * 0.35, shoulderX * 0.9, Math.abs(x)) *
             smooth(shoulderY - 0.09 * H, shoulderY - 0.01 * H, y);
@@ -139,7 +134,6 @@ export function bodySkinner(a: Anatomy, posed: Posed): Skinner {
     };
 }
 
-/** Weights for a hand: palm to the hand bone, each finger to its nearest joint. */
 export function handSkinner(posed: Posed, side: 'l' | 'r'): Skinner {
     const fingers = ['index', 'middle', 'ring', 'pinky', 'thumb'].flatMap((f) =>
         ['01', '02', '03'].map((n) => ({

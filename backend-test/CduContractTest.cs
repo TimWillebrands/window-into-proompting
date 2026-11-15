@@ -3,7 +3,6 @@ using PartyTown.World.Work.Cdu;
 
 namespace BackendTest;
 
-/// <summary>What the CDU service really sends (ADR 0039): the fake in CduWorldTest can't catch the two sides drifting apart.</summary>
 public class CduContractTest
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);

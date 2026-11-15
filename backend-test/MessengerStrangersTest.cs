@@ -7,7 +7,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Nobody messages a stranger: a new DM goes only to someone they've talked with or have a Relation with.</summary>
 public partial class WorldLifeTest
 {
     private async Task<AppPerception> MessengerSeenByAsync(Guid partyId, Guid who, IReadOnlySet<Guid> players)

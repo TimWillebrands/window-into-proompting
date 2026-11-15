@@ -4,13 +4,11 @@ import { hasRespectFrom, respectLabel } from './board-lib';
 interface Props {
     respect: BoardRespect[] | undefined;
     playerId: string | null;
-    /** Your own lines can't get your Respect!. */
     own: boolean;
     onToggle: (given: boolean) => void;
     small?: boolean;
 }
 
-/** Hyves' Respect!: a like with a name on it. */
 export default function RespectButton({
     respect,
     playerId,

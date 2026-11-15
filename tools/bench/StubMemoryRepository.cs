@@ -3,12 +3,6 @@ using PartyTown.Services.Memory;
 
 namespace PartyTown.Bench;
 
-/// <summary>
-/// No-op <see cref="IMemoryRepository"/> for the bench host. A registration is mandatory in any
-/// host that can activate <c>PersonaGrain</c> — without it, fanout/AddPersona hangs silently in
-/// WaitingForActivation (see memory <c>feedback_testcluster_persona_grain_dep.md</c>). Probes
-/// that target memory swap in the real <c>MemoryRepository</c>; everything else gets this stub.
-/// </summary>
 public sealed class StubMemoryRepository : IMemoryRepository
 {
     public Task<MemoryCaptureResult> CaptureAsync(Moment moment, CancellationToken ct)

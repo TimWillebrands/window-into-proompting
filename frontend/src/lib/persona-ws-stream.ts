@@ -5,10 +5,6 @@ type WsEnvelope = {
     data: unknown;
 };
 
-/**
- * Opens a WebSocket to /api/Persona/ws, sends `request` as the first message,
- * and yields incoming envelopes until the connection closes.
- */
 export async function* personaWsStream(
     request: { type: string; [key: string]: unknown },
     signal?: AbortSignal,
@@ -60,7 +56,6 @@ export async function* personaWsStream(
                 wakeUp = resolve;
             });
         }
-        // Drain any messages that arrived just before close
         while (queue.length > 0) {
             const next = queue.shift();
             if (next) yield next;

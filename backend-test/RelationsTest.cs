@@ -5,7 +5,6 @@ using PartyTown.World.Self;
 
 namespace BackendTest;
 
-/// <summary>Relations (ADR 0035): who may ask what, who knows what, and how it reads.</summary>
 public class RelationsTest
 {
     private static readonly Guid Justin = Guid.NewGuid();

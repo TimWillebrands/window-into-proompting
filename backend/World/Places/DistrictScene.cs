@@ -2,12 +2,10 @@ using System.Text.Json.Nodes;
 
 namespace PartyTown.World.Places;
 
-/// <summary>A District's own streets (ADR 0027), built not designed; checked by <see cref="PlaceDesign.Check"/> like any made scene.</summary>
 public static class DistrictScene
 {
     public const int MinVenues = 2;
     public const int MaxShown = 4;
-    /// <summary>Homes in a District that earn it streets without any venue (lives-in anchors).</summary>
     public const int MinResidents = 3;
     private const int Height = 12;
     private static readonly string[] Towers = { "k-office-block", "k-skyscraper", "k-small-building", "k-low-building" };
@@ -24,7 +22,6 @@ public static class DistrictScene
         return spots;
     }
 
-    /// <summary>The scene for these venues; the same District always gets the same towers.</summary>
     public static JsonObject Build(string districtId, IReadOnlyList<Place> venues)
     {
         var shown = venues.Take(MaxShown).ToList();
@@ -94,10 +91,8 @@ public static class DistrictScene
         };
     }
 
-    /// <summary>The client finds a door by the id of the Place a Body comes from (scene names are shared by every kit venue).</summary>
     public static string EntranceKey(Place venue) => venue.Id.ToString();
 
-    /// <summary>"the climbing gym" → GYM; long last words fall back to the archetype.</summary>
     public static string Sign(Place venue)
     {
         var last = venue.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? venue.Name;

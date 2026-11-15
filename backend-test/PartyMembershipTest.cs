@@ -4,7 +4,6 @@ using PartyTown.Model;
 
 namespace BackendTest;
 
-/// <summary>Membership intent commands and Room cast resolution through the real grains.</summary>
 public class PartyMembershipTest : IClassFixture<PartyClusterFixture>
 {
     private readonly PartyClusterFixture _fx;

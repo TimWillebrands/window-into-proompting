@@ -52,7 +52,6 @@ const time = (ts: number | string | undefined) =>
 
 type Page = 'shop' | 'closet' | 'receipt';
 
-/** Wardrobe (ADR 0024): a boutique with a fitting room. Try things on in 3D, buy the outfit, dress a friend and give it to them. */
 export default function WardrobeApp({
     participantId,
 }: {
@@ -125,7 +124,6 @@ export default function WardrobeApp({
     );
 }
 
-/** How you come across to whoever stands right next to you; saved on leaving the field. */
 function AuraField() {
     const saved = usePlayerAccount().account?.aura ?? '';
     const setAura = useSetAura();
@@ -176,7 +174,6 @@ function AuraField() {
     );
 }
 
-/** What your job has you wear: designed from your words, put on at the start of each shift. */
 function WorkClothesField({ participantId }: { participantId: string }) {
     const queryClient = useQueryClient();
     const view = useGetWorldsPartyIdJobsParticipantIdClothes(
@@ -280,7 +277,6 @@ function OpenSign() {
     );
 }
 
-/** Your purse; the number rolls when it changes and a −/+ floats up. */
 function Purse({ wallet }: { wallet: WalletSummary }) {
     const balance = Number(wallet.balance);
     const [shown, setShown] = useState(balance);
@@ -375,7 +371,6 @@ function Boutique({
 }) {
     const queryClient = useQueryClient();
     const mine = viewing.participantId === playerId;
-    // The Player pays, so it's their window display; without a Player, show whoever we're looking at.
     const shopOwner = me?.participantId ?? viewing.participantId;
     const shop =
         useGetWorldsPartyIdWalletsParticipantIdShop(WORLD_ID, shopOwner).data
@@ -434,7 +429,6 @@ function Boutique({
     const items = (page === 'closet' ? viewing.wardrobe : shop).filter((i) =>
         inTab(i, tab),
     );
-    // What the tried-on outfit would cost: shop items you don't own yet.
     const toBuy = tried.filter(
         (t) =>
             !owned.has(t.key) &&
@@ -683,7 +677,6 @@ function Boutique({
     );
 }
 
-/** Presents arrive wrapped; unwrap them one by one. */
 function Presents({ wallet }: { wallet: WalletSummary }) {
     const [opened, setOpened] = useState<string[]>([]);
     const key = (g: WalletSummary['newGifts'][number]) => `${g.fromId}:${g.at}`;

@@ -10,7 +10,6 @@ import {
 const CHOICE =
     'min-h-0 min-w-0 cursor-pointer border-0 bg-transparent p-0 text-[11px] text-[#0033cc] underline shadow-none';
 
-/** XP tray balloon: both answers weigh the same, and it opens on the client only. */
 export default function CookieBalloon() {
     const open = useConsentPrompt((s) => s.open);
 

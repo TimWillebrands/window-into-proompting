@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace PartyTown.World.Places;
 
-/// <summary>Work that leaves something behind: a Piece, finished at an easel, hangs in the Studio in its maker's words.</summary>
 public static class Art
 {
     public const string Studio = "studio";
@@ -16,11 +15,9 @@ public static class Art
 
     public static Furni? EaselIn(Place? place) => place?.Furni.FirstOrDefault(f => f.Kind == FurniKinds.Easel);
 
-    /// <summary>There's an easel here and they haven't used up today's allowance.</summary>
     public static bool CanMake(Place? place, Guid who, long now, long localMidnight)
         => EaselIn(place) is not null && Decor.PlacedToday(place!.Furni.Where(f => f.OwnerId == who), now, localMidnight) < PerDay;
 
-    /// <summary>"I'll paint a charcoal study of the canal. It's for Lena." → "a charcoal study of the canal".</summary>
     public static string Title(string intent)
     {
         var sentence = intent.Trim().Split(new[] { '.', '!', '?', ';', ':', '—', '\n' }, 2)[0];

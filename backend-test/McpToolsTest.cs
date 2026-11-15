@@ -10,7 +10,6 @@ using PartyTown.World.Places;
 
 namespace BackendTest;
 
-/// <summary>The Player tools an agent gets (ADR 0046): their own Player, anyone's for an admin.</summary>
 public partial class WorldLifeTest
 {
     private async Task<(Guid PartyId, Guid Player, Guid Denise, PlayerTools Tools)> PlayerWorldAsync()

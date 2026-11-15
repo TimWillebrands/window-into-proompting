@@ -10,7 +10,6 @@ using PartyTown.World.Work;
 
 namespace BackendTest;
 
-/// <summary>Built Homes (ADR 0035) and Studios: a Home from a description, and a job that leaves Pieces behind.</summary>
 public partial class PlacesTest
 {
     private const string Herenhuis = "een statig herenhuis";

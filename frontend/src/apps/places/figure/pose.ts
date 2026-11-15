@@ -2,24 +2,18 @@ import * as THREE from 'three';
 import type { MoveDoc } from './moves';
 import { BONES } from './skeleton';
 
-/** A posture in words a person (or LLM) would use; degrees, all optional. See ADR 0028. */
 export interface PoseDoc {
-    /** [lean forward, turn, tilt]. */
     spine?: [number, number, number];
     head?: [number, number, number];
-    /** [forward, out, twist], from hanging at the side. */
     armL?: [number, number, number];
     armR?: [number, number, number];
     elbowL?: number;
     elbowR?: number;
-    /** [forward, out], from straight down. */
     legL?: [number, number];
     legR?: [number, number];
     kneeL?: number;
     kneeR?: number;
-    /** Hips sink by this much of the leg (0..1). */
     sink?: number;
-    /** Hips shift toward their left (+) or right, in leg lengths. */
     shift?: number;
     handL?: Hand;
     handR?: Hand;
@@ -45,7 +39,6 @@ BONES.forEach((b, i) => {
 });
 const index = new Map(BONES.map((b, i) => [b.name, i]));
 
-/** Local rotation for a bone turned by r about world-aligned axes, relative to the T rest. */
 function turned(name: string, r: THREE.Quaternion): THREE.Quaternion {
     const i = index.get(name) as number;
     const w = restWorld[i];
@@ -61,7 +54,6 @@ const E = (x: number, y: number, z: number, order: THREE.EulerOrder = 'XYZ') =>
 
 const FINGERS = ['index', 'middle', 'ring', 'pinky'] as const;
 
-/** Curl per finger for each hand shape, 0..1, and the thumb. */
 const HANDS: Record<Hand, [number, number, number, number, number]> = {
     relaxed: [0.3, 0.35, 0.4, 0.45, 0.2],
     open: [0.02, 0.02, 0.02, 0.02, 0],
@@ -74,13 +66,11 @@ const HANDS: Record<Hand, [number, number, number, number, number]> = {
 
 export interface PoseTargets {
     q: Map<string, THREE.Quaternion>;
-    /** Pelvis offset in rig units: [side, up, forward]. */
     pelvis: [number, number, number];
 }
 
 const PELVIS_Z = 0.917;
 
-/** Pose words → bone rotations on the rig. */
 export function poseTargets(p: PoseDoc): PoseTargets {
     const q = new Map<string, THREE.Quaternion>();
     const [lean, turn, tilt] = p.spine ?? [0, 0, 0];
@@ -103,7 +93,6 @@ export function poseTargets(p: PoseDoc): PoseTargets {
     ] as const) {
         const up = side === 'l' ? p.armL : p.armR;
         const [fwd, out, twist] = up ?? [0, 8, 0];
-        // Down from the T, out by some, swung forward, then rolled along itself.
         const hang = E(0, 0, -sign * (90 - out));
         const swing = E(-fwd, 0, 0);
         const roll = new THREE.Quaternion().setFromAxisAngle(
@@ -155,14 +144,12 @@ export function poseTargets(p: PoseDoc): PoseTargets {
     return { q, pelvis: [(p.shift ?? 0) * 0.932, 0, -sink] };
 }
 
-/** A keyed move as a looping clip; pelvis translation scaled to the Figure. */
 export function moveClip(
     name: string,
     move: MoveDoc,
     pelvisScale: number,
 ): THREE.AnimationClip {
     const keys = move.keys.map((k) => ({ t: k.t, ...poseTargets(k) }));
-    // Close the loop back onto the first key.
     const times = [...keys.map((k) => k.t * move.loop), move.loop];
     const ring = [...keys, keys[0]];
     const tracks: THREE.KeyframeTrack[] = [...keys[0].q.keys()].map((bone) => {

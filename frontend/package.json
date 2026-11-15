@@ -31,7 +31,7 @@
         "test": "vitest run",
         "format": "biome format --write",
         "lint": "biome lint --write",
-        "check": "biome check",
+        "check": "biome check && node ../tools/lint/no-comments.mjs . && node ../tools/lint/no-markdown.mjs",
         "api-generate": "OPENAPI_GENERATE=1 dotnet build ../backend/backend.csproj --nologo -v quiet && orval",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build"

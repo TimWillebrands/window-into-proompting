@@ -1,9 +1,5 @@
 namespace PartyTown.World;
 
-/// <summary>
-/// The Calendar App's store (key = Party id): Gatherings planned in Rooms. When one comes due the
-/// World clock pulls its attendees into the Room — Initiative with a future-facing arm.
-/// </summary>
 public sealed class CalendarGrain(
     [PersistentState(stateName: "calendar", storageName: "parties")]
     IPersistentState<CalendarState> state)
@@ -80,9 +76,7 @@ public interface ICalendarGrain : IGrainWithGuidKey
     [Alias("GetGatheringsAsync")] Task<List<Gathering>> GetGatheringsAsync();
     [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null);
     [Alias("RsvpAsync")] Task<Gathering?> RsvpAsync(Guid gatheringId, Guid personaId, bool going);
-    /// <summary>Author: it's off, and nobody owes anything for it.</summary>
     [Alias("CancelAsync")] Task<bool> CancelAsync(Guid gatheringId);
-    /// <summary>Move every gathering along (start, miss, end) and return the ones that just started.</summary>
     [Alias("StartDueAsync")] Task<List<Gathering>> StartDueAsync(long now);
 }
 
@@ -98,13 +92,10 @@ public enum GatheringStatus
 {
     Planned = 0,
     Started = 1,
-    /// <summary>It ran its course.</summary>
     Over = 2,
-    /// <summary>Its time passed while the World wasn't running; nobody went, nobody owes anything.</summary>
     Missed = 3,
 }
 
-/// <summary>Feast time (ADR 0020): a gathering starts on time or not at all, ends, and fits the host's waking hours.</summary>
 public static class GatheringRules
 {
     public static readonly TimeSpan LateStart = TimeSpan.FromMinutes(30);
@@ -119,14 +110,11 @@ public static class GatheringRules
         _ => g.Status,
     };
 
-    /// <summary>Minutes until bedtime from a local minute of day; 0 at night.</summary>
     public static int MinutesToBed(int minute, int bed, int wake)
         => Places.Sleep.IsNight(minute, bed, wake) ? 0 : (bed - minute + Day) % Day;
 
-    /// <summary>Planning wants an evening left: at least 90 minutes before bed.</summary>
     public static bool MayPlan(int minute, int bed, int wake) => MinutesToBed(minute, bed, wake) >= 90;
 
-    /// <summary>Minutes from now it starts: 15–240, and at least an hour before the host's bedtime.</summary>
     public static int StartIn(int minutes, int minuteNow, int bed, int wake)
         => Math.Clamp(minutes, 15, Math.Min(240, Math.Max(15, MinutesToBed(minuteNow, bed, wake) - 60)));
 }
@@ -143,9 +131,7 @@ public sealed class Gathering
     [Id(6)] public long StartsAt { get; set; }
     [Id(7)] public List<Guid> AttendeeIds { get; set; } = new();
     [Id(8)] public GatheringStatus Status { get; set; }
-    /// <summary>Set when it's at a physical Place (RoomName then holds the Place's name); null for Room gatherings.</summary>
     [Id(9)] public Guid? PlaceId { get; set; }
 
-    /// <summary>"in #kitchen" or "at the Café".</summary>
     public string Where => PlaceId is null ? $"in #{RoomName}" : $"at {RoomName}";
 }

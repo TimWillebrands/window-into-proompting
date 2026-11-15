@@ -5,10 +5,6 @@ using PartyTown.Model;
 
 namespace PartyTown.World.Skills;
 
-/// <summary>
-/// A Persona's Intrinsic Skills (ADR 0054), key = persona id: what they've known how to do for years, in every Party.
-/// Authored, or distilled once from the lived sheet; a new sheet re-distils unless an author has set them.
-/// </summary>
 public sealed class IntrinsicSkillsGrain(
     [PersistentState(stateName: "intrinsicSkills", storageName: "parties")]
     IPersistentState<IntrinsicSkillsState> state,
@@ -17,13 +13,11 @@ public sealed class IntrinsicSkillsGrain(
     : Grain, IIntrinsicSkillsGrain
 {
     private static readonly TimeSpan Retry = TimeSpan.FromMinutes(30);
-    /// <summary>Bump to redo every distilled (never authored) skill after a prompt change.</summary>
     private const int DistillVersion = 1;
     private const int MaxDistilled = 4;
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
     private Task _saving = Task.CompletedTask;
 
-    /// <summary>One write at a time: a detached distillation can land while an author edits.</summary>
     private Task SaveAsync() => _saving = AfterAsync(_saving);
 
     private async Task AfterAsync(Task before)
@@ -40,7 +34,6 @@ public sealed class IntrinsicSkillsGrain(
         var hash = Self.LivedSheets.Hash($"skills v{DistillVersion}\n{sheet}");
         if (state.State.Authored || state.State.SourceHash == hash || DateTimeOffset.UtcNow - _lastAttempt < Retry) return Task.CompletedTask;
         _lastAttempt = DateTimeOffset.UtcNow;
-        // Detached: callers never wait on the LLM.
         _ = DistillAsync(name, sheet, hash);
         return Task.CompletedTask;
     }
@@ -87,18 +80,11 @@ public sealed class IntrinsicSkillsGrain(
 public interface IIntrinsicSkillsGrain : IGrainWithGuidKey
 {
     [Alias("GetAsync")] Task<List<Skill>> GetAsync();
-    /// <summary>Distil from the sheet in the background when it's new and nobody authored them.</summary>
     [Alias("EnsureAsync")] Task EnsureAsync(string name, string sheet);
-    /// <summary>Author edit: replaces them, and the sheet no longer overrides.</summary>
     [Alias("SetAsync")] Task<List<Skill>> SetAsync(List<Skill> skills);
-    /// <summary>Promotion: an Acquired Skill becomes part of who they are.</summary>
     [Alias("AddAsync")] Task<List<Skill>> AddAsync(Skill skill);
 }
 
-/// <summary>
-/// A Participant's Skills in one Party (ADR 0054), key = <c>party:participant</c>: the Acquired ones, what they've been
-/// doing toward one (a count per key), and how often they used their Intrinsic ones here.
-/// </summary>
 public sealed class SkillsGrain(
     [PersistentState(stateName: "skills", storageName: "parties")]
     IPersistentState<SkillsState> state,
@@ -109,7 +95,6 @@ public sealed class SkillsGrain(
     private const int KeptRecent = 5;
     private Task _saving = Task.CompletedTask;
 
-    /// <summary>One write at a time: detached learning writes too, and storage refuses overlapping ones.</summary>
     private Task SaveAsync() => _saving = AfterAsync(_saving);
 
     private async Task AfterAsync(Task before)
@@ -163,7 +148,6 @@ public sealed class SkillsGrain(
                 await SaveAsync();
                 return SkillRules.View(Marked(own), intrinsic: true, DateTimeOffset.UtcNow);
             }
-            // Forgotten since: the key is free to teach something again.
             tally.SkillId = null;
         }
         if (!tally.Closed && tally.Count >= SkillRules.Learns && now - tally.AskedAt >= SkillRules.AskAgain.TotalMilliseconds)
@@ -193,7 +177,6 @@ public sealed class SkillsGrain(
         return skill;
     }
 
-    /// <summary>The third time: is there know-how here? Joins one they have, writes a new one, or closes the key.</summary>
     private async Task LearnAsync(string key)
     {
         var (partyId, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -246,7 +229,6 @@ public sealed class SkillsGrain(
         }
     }
 
-    /// <summary>A level crossed: the how grows with them.</summary>
     private async Task RewriteAsync(Guid skillId, List<string> recent)
     {
         var (_, participantId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -270,7 +252,6 @@ public sealed class SkillsGrain(
         }
     }
 
-    /// <summary>Past the cap the least practised, longest untouched one goes, and nothing points at it any more.</summary>
     private void Cap()
     {
         while (state.State.Acquired.Count > SkillRules.MaxAcquired)
@@ -301,16 +282,12 @@ public sealed class SkillsGrain(
 [Alias("PartyTown.World.Skills.ISkillsGrain")]
 public interface ISkillsGrain : IGrainWithStringKey
 {
-    /// <summary>Intrinsic then Acquired; kicks off distilling the intrinsic ones.</summary>
     [Alias("GetAsync")] Task<List<SkillView>> GetAsync();
-    /// <summary>Count one time doing something; returns the Skill it practised, or null while it teaches nothing yet.</summary>
     [Alias("PractiseAsync")] Task<SkillView?> PractiseAsync(SkillPractice practice);
     [Alias("AddAsync")] Task<SkillView> AddAsync(Skill skill);
-    /// <summary>Forget an Acquired Skill; returns it, or null when there's no such one.</summary>
     [Alias("RemoveAsync")] Task<Skill?> RemoveAsync(Guid skillId);
 }
 
-/// <summary>What the World writes about Skills; plain, no imagery, never example lines (ADR 0021).</summary>
 public static class SkillPrompts
 {
     private const string Fields = """
@@ -382,9 +359,7 @@ public sealed class IntrinsicSkillsState
 public sealed class SkillsState
 {
     [Id(0)] public List<Skill> Acquired { get; set; } = new();
-    /// <summary>Per practice key: how often, lately what, and the Skill it teaches once known.</summary>
     [Id(1)] public Dictionary<string, SkillTally> Tallies { get; set; } = new();
-    /// <summary>Intrinsic Skills practised in this Party.</summary>
     [Id(2)] public Dictionary<Guid, SkillMark> Marks { get; set; } = new();
 }
 
@@ -394,7 +369,6 @@ public sealed class SkillTally
     [Id(0)] public int Count { get; set; }
     [Id(1)] public long Last { get; set; }
     [Id(2)] public Guid? SkillId { get; set; }
-    /// <summary>Looked at, and there's nothing to learn in it.</summary>
     [Id(3)] public bool Closed { get; set; }
     [Id(4)] public List<string> Recent { get; set; } = new();
     [Id(5)] public SkillSource Source { get; set; }
