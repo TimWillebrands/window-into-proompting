@@ -26,6 +26,7 @@ export * from './cduLineSummary';
 export * from './cduModelSummary';
 export * from './cduOverview';
 export * from './cduPrSummary';
+export * from './cduResetSummary';
 export * from './chatGroupInfo';
 export * from './claimPlaceRequest';
 export * from './companySummary';

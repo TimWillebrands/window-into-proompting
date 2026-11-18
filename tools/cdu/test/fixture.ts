@@ -48,7 +48,7 @@ export class FakeGitHub implements GitHub {
 
     async create(branch: string, base: string, title: string, body: string): Promise<Pr> {
         const number = ++this.n;
-        this.prs.set(number, { number, url: `https://example.com/pull/${number}`, title, state: 'OPEN', head: 'h', checks: 'pending', body, base, branch });
+        this.prs.set(number, { number, url: `https://example.com/pull/${number}`, title, state: 'OPEN', head: 'h', checks: 'pending', actor: null, body, base, branch });
         return this.view(number);
     }
 
@@ -61,8 +61,8 @@ export class FakeGitHub implements GitHub {
         if (pr) pr.body = body;
     }
 
-    judge(number: number, state: Pr['state']) {
+    judge(number: number, state: Pr['state'], actor?: string | null) {
         const pr = this.prs.get(number);
-        if (pr) pr.state = state;
+        if (pr) { pr.state = state; if (actor !== undefined) pr.actor = actor; }
     }
 }

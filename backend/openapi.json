@@ -10000,6 +10000,7 @@
           "model",
           "trunk",
           "pr",
+          "resets",
           "allowance",
           "exchanges",
           "models"
@@ -10042,6 +10043,12 @@
                 "$ref": "#/components/schemas/CduPrSummary"
               }
             ]
+          },
+          "resets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CduResetSummary"
+            }
           },
           "allowance": {
             "oneOf": [
@@ -10096,6 +10103,42 @@
           },
           "checks": {
             "type": "string"
+          }
+        }
+      },
+      "CduResetSummary": {
+        "required": [
+          "pr",
+          "state",
+          "actor",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "pr": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {
+            "type": "string"
+          },
+          "actor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },

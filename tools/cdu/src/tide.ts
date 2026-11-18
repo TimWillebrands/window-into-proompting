@@ -11,6 +11,7 @@ export interface Pr {
     state: 'OPEN' | 'MERGED' | 'CLOSED';
     head: string;
     checks: Checks;
+    actor?: string | null;
 }
 
 export interface GitHub {
@@ -202,8 +203,8 @@ export class GhCli implements GitHub {
     }
 
     async view(number: number): Promise<Pr> {
-        const raw = JSON.parse(await this.gh('pr', 'view', String(number), '--json', 'number,url,title,state,headRefOid,statusCheckRollup'));
-        return { number: raw.number, url: raw.url, title: raw.title, state: raw.state, head: raw.headRefOid, checks: checksOf(raw.statusCheckRollup) };
+        const raw = JSON.parse(await this.gh('pr', 'view', String(number), '--json', 'number,url,title,state,headRefOid,statusCheckRollup,mergedBy,closedBy'));
+        return { number: raw.number, url: raw.url, title: raw.title, state: raw.state, head: raw.headRefOid, checks: checksOf(raw.statusCheckRollup), actor: raw.mergedBy?.login ?? raw.closedBy?.login ?? null };
     }
 
     async create(head: string, base: string, title: string, body: string): Promise<Pr> {

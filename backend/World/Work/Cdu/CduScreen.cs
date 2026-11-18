@@ -129,8 +129,20 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
         sb.AppendLine(Trunk(cdu));
+        sb.AppendLine(Queue(cdu));
         if (cdu.Pr is { } pr) sb.AppendLine($"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.");
         return sb.ToString().TrimEnd();
+    }
+
+    public static string Queue(CduStatus cdu)
+    {
+        var queue = cdu.Pr is { } pr
+            ? $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}"
+            : "The Agora queue is empty: nothing is out for review.";
+        var last = cdu.Resets is { Count: > 0 } resets ? resets[^1] : null;
+        return last is null
+            ? queue
+            : $"{queue}. Last trunk reset: PR #{last.Pr} {last.State.ToLowerInvariant()}, by {last.Actor ?? "actor unknown"}, {DateTimeOffset.FromUnixTimeMilliseconds(last.At):yyyy-MM-dd HH:mm 'UTC'}.";
     }
 
     public static List<Affordance> Affordances(CduDesk desk)
