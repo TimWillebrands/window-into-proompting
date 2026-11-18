@@ -8,6 +8,7 @@ import {
     mindLine,
     money,
     prLine,
+    resetLine,
     shortSha,
 } from './cdu-lib';
 
@@ -126,5 +127,9 @@ describe('words', () => {
 
     it('shortens a sha', () => {
         expect(shortSha('9f92336abcdef')).toBe('9f92336');
+    });
+
+    it('prints a reset timestamp in UTC', () => {
+        expect(resetLine(1765050986000)).toBe('2025-12-06 19:56 UTC');
     });
 });

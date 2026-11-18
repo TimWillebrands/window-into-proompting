@@ -71,3 +71,6 @@ export const mindLine = (m: CduModelSummary) =>
     Number(m.in) === 0 && Number(m.out) === 0
         ? `${m.id} · ${m.tier ?? '?'} · free`
         : `${m.id} · ${m.tier ?? '?'} · ${money(m.in)}/${money(m.out)}`;
+
+export const resetLine = (at: number) =>
+    `${new Date(Number(at)).toISOString().slice(0, 16).replace('T', ' ')} UTC`;

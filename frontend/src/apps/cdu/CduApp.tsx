@@ -15,6 +15,7 @@ import {
     mergeLines,
     mindLine,
     prLine,
+    resetLine,
     SAID,
     shortSha,
 } from './cdu-lib';
@@ -115,6 +116,18 @@ function State({ cdu }: { cdu: CduOverview }) {
             ) : (
                 <p className="cd-state">No PR open.</p>
             )}
+            {cdu.resets?.length ? (
+                <ul className="cd-resets">
+                    {cdu.resets.map((r) => (
+                        <li key={`${r.pr}-${r.at}`}>
+                            <span className="cd-sub">
+                                reset after #{r.pr} {r.state.toLowerCase()},{' '}
+                                {r.actor ?? 'actor unknown'}, {resetLine(r.at)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
         </>
     );
 }

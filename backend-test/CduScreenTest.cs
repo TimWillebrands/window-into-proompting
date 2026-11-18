@@ -15,7 +15,9 @@ public class CduScreenTest
     private static CduStatus Up(int ahead = 0, CduPr? pr = null, bool awake = false) => new(
         awake, awake ? "Justin" : null, 0, "careful",
         new CduTrunk("abc", Enumerable.Range(1, ahead).Select(i => new CduCommit($"s{i}", $"fix: thing {i}", "Denise")).ToList()),
-        pr, new CduAllowance(1.25, 5), 10, 3, null, Minds);
+        pr, new CduAllowance(1.25, 5), 10, 3, null, Resets: Resets, Models: Minds);
+
+    private static readonly List<CduReset> Resets = new() { new(126, "MERGED", "TimWillebrands", 1765050986000) };
 
     private static readonly List<CduModel> Minds = new() { new("beam-free", "free preview", "free", 0, 0), new("kimi-k2.7-code", "the best coder", "capable", 0.95, 4) };
 
@@ -36,6 +38,16 @@ public class CduScreenTest
     [Fact]
     public void Affordances_CommitsOnTheTrunk_OfferALook()
         => Assert.Equal("ask,talk,look", Verbs(Desk(Up(ahead: 1))));
+
+    [Fact]
+    public void Queue_ShowsLastReset_WithActorOrUnknown()
+    {
+        var text = CduScreen.Queue(Up());
+        Assert.Contains("The Agora queue is empty", text);
+        Assert.Contains("Last trunk reset: PR #126 merged, by TimWillebrands", text);
+        var unknown = Up() with { Resets = new List<CduReset> { new(126, "MERGED", null, 1765050986000) } };
+        Assert.Contains("by actor unknown", CduScreen.Queue(unknown));
+    }
 
     [Fact]
     public void Affordances_AllowanceSpent_TheyCanStillWriteOnce_ThenOnlyLook()
