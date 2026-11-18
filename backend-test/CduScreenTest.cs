@@ -44,6 +44,7 @@ public class CduScreenTest
     {
         var text = CduScreen.Queue(Up());
         Assert.Contains("The Agora queue is empty on purpose: nothing pushed since the last merge", text);
+        Assert.Contains("Last tide: abc on origin/master; no push time is recorded.", text);
         Assert.Contains("Last trunk reset: PR #126 merged, by TimWillebrands", text);
         var unknown = Up() with { Resets = new List<CduReset> { new(126, "MERGED", null, 1765050986000) } };
         Assert.Contains("by actor unknown", CduScreen.Queue(unknown));
@@ -54,8 +55,8 @@ public class CduScreenTest
     {
         var text = CduScreen.Queue(Up(ahead: 2));
         Assert.Contains("the trunk holds 2 unpushed commits waiting for end of shift", text);
-        Assert.Contains("- fix: thing 1 (asked by Denise)", text);
-        Assert.Contains("- fix: thing 2 (asked by Denise)", text);
+        Assert.Contains("- s1 fix: thing 1 (asked by Denise)", text);
+        Assert.Contains("- s2 fix: thing 2 (asked by Denise)", text);
     }
 
     [Fact]

@@ -125,13 +125,21 @@ function State({ cdu }: { cdu: CduOverview }) {
                     <ul>
                         {cdu.trunk.map((c) => (
                             <li key={c.sha}>
-                                {c.subject} ({c.author})
+                                {shortSha(c.sha)} {c.subject} ({c.author})
                             </li>
                         ))}
                     </ul>
                 </div>
             ) : (
                 <p className="cd-state">Nothing pushed since the last merge.</p>
+            )}
+            {!cdu.pr && (
+                <p className="cd-sub">
+                    Last tide:{' '}
+                    {cdu.trunkHead
+                        ? `${shortSha(cdu.trunkHead)} on origin/master, no push time recorded.`
+                        : 'origin/master hash unavailable, no push time recorded.'}
+                </p>
             )}
             {cdu.resets?.length ? (
                 <ul className="cd-resets">
