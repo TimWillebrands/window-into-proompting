@@ -19,6 +19,8 @@ export interface CduOverview {
     hearing: string | null;
     /** @nullable */
     model: string | null;
+    /** @nullable */
+    trunkHead: string | null;
     trunk: CduCommitSummary[];
     pr: null | CduPrSummary;
     resets: CduResetSummary[];

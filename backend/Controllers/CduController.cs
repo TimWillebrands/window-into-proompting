@@ -18,7 +18,7 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
         var status = await site.StatusAsync(ct);
         var state = await grains.GetGrain<ICduGrain>(partyId).GetAsync();
         return Ok(new CduOverview(
-            site.Enabled, status is not null, status?.Awake ?? false, status?.Hearing, status?.Model,
+            site.Enabled, status is not null, status?.Awake ?? false, status?.Hearing, status?.Model, status?.Trunk?.Head,
             status?.Trunk?.Ahead.Select(c => new CduCommitSummary(c.Sha, c.Subject, c.Author)).ToList() ?? new List<CduCommitSummary>(),
             status?.Pr is { } pr ? new CduPrSummary(pr.Number, pr.Url, pr.Title, pr.State, pr.Checks) : null,
             status?.Resets?.Select(r => new CduResetSummary(r.Pr, r.State, r.Actor, r.At)).ToList() ?? new List<CduResetSummary>(),
@@ -44,7 +44,7 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
 }
 
 public sealed record CduOverview(
-    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, List<CduCommitSummary> Trunk, CduPrSummary? Pr,
+    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, string? TrunkHead, List<CduCommitSummary> Trunk, CduPrSummary? Pr,
     List<CduResetSummary> Resets, CduAllowanceSummary? Allowance, List<CduExchangeSummary> Exchanges, List<CduModelSummary> Models);
 
 public sealed record CduModelSummary(string Id, string Label, string? Tier, double In, double Out);

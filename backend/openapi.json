@@ -9998,6 +9998,7 @@
           "awake",
           "hearing",
           "model",
+          "trunkHead",
           "trunk",
           "pr",
           "resets",
@@ -10023,6 +10024,12 @@
             ]
           },
           "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trunkHead": {
             "type": [
               "null",
               "string"
