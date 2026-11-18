@@ -16,6 +16,7 @@ import {
     mindLine,
     prLine,
     resetLine,
+    reviewWord,
     SAID,
     shortSha,
 } from './cdu-lib';
@@ -111,14 +112,26 @@ function State({ cdu }: { cdu: CduOverview }) {
                     <a href={cdu.pr.url} target="_blank" rel="noreferrer">
                         {cdu.pr.title}
                     </a>
-                    <span className="cd-sub">{prLine(cdu.pr)}</span>
+                    <span className="cd-sub">
+                        {prLine(cdu.pr)}, {reviewWord(cdu.pr.state)}
+                    </span>
                 </p>
+            ) : cdu.trunk.length > 0 ? (
+                <div className="cd-state">
+                    Nothing out for review yet. The trunk holds{' '}
+                    {cdu.trunk.length} unpushed{' '}
+                    {cdu.trunk.length === 1 ? 'commit' : 'commits'} waiting for
+                    end of shift:
+                    <ul>
+                        {cdu.trunk.map((c) => (
+                            <li key={c.sha}>
+                                {c.subject} ({c.author})
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             ) : (
-                <p className="cd-state">
-                    {cdu.trunk.length === 0
-                        ? 'Nothing pushed since the last merge.'
-                        : 'No PR open.'}
-                </p>
+                <p className="cd-state">Nothing pushed since the last merge.</p>
             )}
             {cdu.resets?.length ? (
                 <ul className="cd-resets">
