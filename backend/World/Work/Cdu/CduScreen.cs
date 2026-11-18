@@ -109,7 +109,9 @@ You choose the mind you wake it with, and its allowance has to last the day for 
     {
         var queue = cdu.Pr is { } pr
             ? $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}"
-            : "The Agora queue is empty: nothing is out for review.";
+            : cdu.Trunk is { Ahead.Count: 0 }
+                ? "The Agora queue is empty on purpose: nothing pushed since the last merge."
+                : "The Agora queue is empty: nothing is out for review.";
         var last = cdu.Resets is { Count: > 0 } resets ? resets[^1] : null;
         return last is null
             ? queue
