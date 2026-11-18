@@ -114,7 +114,11 @@ function State({ cdu }: { cdu: CduOverview }) {
                     <span className="cd-sub">{prLine(cdu.pr)}</span>
                 </p>
             ) : (
-                <p className="cd-state">No PR open.</p>
+                <p className="cd-state">
+                    {cdu.trunk.length === 0
+                        ? 'Nothing pushed since the last merge.'
+                        : 'No PR open.'}
+                </p>
             )}
             {cdu.resets?.length ? (
                 <ul className="cd-resets">
