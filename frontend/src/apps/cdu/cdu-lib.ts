@@ -74,3 +74,10 @@ export const mindLine = (m: CduModelSummary) =>
 
 export const resetLine = (at: number) =>
     `${new Date(Number(at)).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
+export const reviewWord = (state: string) =>
+    state === 'MERGED'
+        ? 'review decided: merged'
+        : state === 'CLOSED'
+          ? 'review decided: closed without merging'
+          : 'awaiting review';

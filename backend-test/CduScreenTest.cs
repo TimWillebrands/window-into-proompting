@@ -50,11 +50,25 @@ public class CduScreenTest
     }
 
     [Fact]
-    public void Queue_CommitsAheadWithNoPr_KeepsThePlainEmptyWording()
+    public void Queue_CommitsAheadWithNoPr_ListsThemWaitingForEndOfShift()
     {
-        var text = CduScreen.Queue(Up(ahead: 1));
-        Assert.Contains("The Agora queue is empty: nothing is out for review", text);
-        Assert.DoesNotContain("on purpose", text);
+        var text = CduScreen.Queue(Up(ahead: 2));
+        Assert.Contains("the trunk holds 2 unpushed commits waiting for end of shift", text);
+        Assert.Contains("- fix: thing 1 (asked by Denise)", text);
+        Assert.Contains("- fix: thing 2 (asked by Denise)", text);
+    }
+
+    [Fact]
+    public void Queue_QueuedPr_ShowsChecksAndReviewDecision()
+    {
+        var open = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing")));
+        Assert.Contains("its checks pass", open);
+        Assert.Contains("awaiting review", open);
+        var merged = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "MERGED", "h", "failing")));
+        Assert.Contains("its checks fail", merged);
+        Assert.Contains("review decided: merged", merged);
+        var closed = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "CLOSED", "h", "none")));
+        Assert.Contains("review decided: closed without merging", closed);
     }
 
     [Fact]

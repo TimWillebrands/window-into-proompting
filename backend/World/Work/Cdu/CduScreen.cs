@@ -136,11 +136,24 @@ You choose the mind you wake it with, and its allowance has to last the day for 
 
     public static string Queue(CduStatus cdu)
     {
-        var queue = cdu.Pr is { } pr
-            ? $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}"
-            : cdu.Trunk is { Ahead.Count: 0 }
-                ? "The Agora queue is empty on purpose: nothing pushed since the last merge."
-                : "The Agora queue is empty: nothing is out for review.";
+        string queue;
+        if (cdu.Pr is { } pr)
+        {
+            var decision = pr.State switch
+            {
+                "MERGED" => "review decided: merged",
+                "CLOSED" => "review decided: closed without merging",
+                _ => "awaiting review",
+            };
+            queue = $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" — {ChecksWord(pr.Checks)}, {decision}.";
+        }
+        else if (cdu.Trunk is null)
+            queue = "The Agora queue is empty: nothing is out for review.";
+        else if (cdu.Trunk.Ahead.Count > 0)
+            queue = $"The Agora queue is empty, but the trunk holds {cdu.Trunk.Ahead.Count} unpushed commit{(cdu.Trunk.Ahead.Count == 1 ? "" : "s")} waiting for end of shift:\n"
+                    + string.Join("\n", cdu.Trunk.Ahead.Select(c => $"- {c.Subject} (asked by {c.Author})"));
+        else
+            queue = "The Agora queue is empty on purpose: nothing pushed since the last merge.";
         var last = cdu.Resets is { Count: > 0 } resets ? resets[^1] : null;
         return last is null
             ? queue

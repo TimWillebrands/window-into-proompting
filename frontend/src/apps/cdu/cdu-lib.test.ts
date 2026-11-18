@@ -9,6 +9,7 @@ import {
     money,
     prLine,
     resetLine,
+    reviewWord,
     shortSha,
 } from './cdu-lib';
 
@@ -131,5 +132,13 @@ describe('words', () => {
 
     it('prints a reset timestamp in UTC', () => {
         expect(resetLine(1765050986000)).toBe('2025-12-06 19:56 UTC');
+    });
+
+    it('words the review decision per PR state', () => {
+        expect(reviewWord('OPEN')).toBe('awaiting review');
+        expect(reviewWord('MERGED')).toBe('review decided: merged');
+        expect(reviewWord('CLOSED')).toBe(
+            'review decided: closed without merging',
+        );
     });
 });
