@@ -72,7 +72,7 @@ export const mindLine = (m: CduModelSummary) =>
         ? `${m.id} · ${m.tier ?? '?'} · free`
         : `${m.id} · ${m.tier ?? '?'} · ${money(m.in)}/${money(m.out)}`;
 
-export const resetLine = (at: number) =>
+export const resetLine = (at: number | string) =>
     `${new Date(Number(at)).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 
 export const reviewWord = (state: string) =>
