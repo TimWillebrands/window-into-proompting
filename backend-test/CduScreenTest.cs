@@ -51,12 +51,17 @@ public class CduScreenTest
     }
 
     [Fact]
-    public void Queue_CommitsAheadWithNoPr_ListsThemWaitingForEndOfShift()
+    public void Queue_CommitsAheadWithNoPr_ShowsTheCountAndNeverTheCalmWording()
     {
-        var text = CduScreen.Queue(Up(ahead: 2));
-        Assert.Contains("the trunk holds 2 unpushed commits waiting for end of shift", text);
+        var text = CduScreen.Queue(Up(ahead: 6));
+        Assert.Contains("nothing is out for review; 6 commits on the trunk not yet pushed", text);
         Assert.Contains("- s1 fix: thing 1 (asked by Denise)", text);
-        Assert.Contains("- s2 fix: thing 2 (asked by Denise)", text);
+        Assert.Contains("- s6 fix: thing 6 (asked by Denise)", text);
+        Assert.DoesNotContain("the trunk was pushed", text);
+        Assert.DoesNotContain("nothing new is waiting for review", text);
+        var calm = CduScreen.Queue(Up(ahead: 0));
+        Assert.Contains("the trunk was pushed to abc on origin/master", calm);
+        Assert.DoesNotContain("not yet pushed", calm);
     }
 
     [Fact]
