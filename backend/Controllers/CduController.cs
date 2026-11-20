@@ -18,9 +18,10 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
         var status = await site.StatusAsync(ct);
         var state = await grains.GetGrain<ICduGrain>(partyId).GetAsync();
         return Ok(new CduOverview(
-            site.Enabled, status is not null, status?.Awake ?? false, status?.Hearing, status?.Model,
+            site.Enabled, status is not null, status?.Awake ?? false, status?.Hearing, status?.Model, status?.Trunk?.Head,
             status?.Trunk?.Ahead.Select(c => new CduCommitSummary(c.Sha, c.Subject, c.Author)).ToList() ?? new List<CduCommitSummary>(),
             status?.Pr is { } pr ? new CduPrSummary(pr.Number, pr.Url, pr.Title, pr.State, pr.Checks) : null,
+            status?.Resets?.Select(r => new CduResetSummary(r.Pr, r.State, r.Actor, r.At)).ToList() ?? new List<CduResetSummary>(),
             status?.Allowance is { } a ? new CduAllowanceSummary(a.Usd, a.CapUsd) : null,
             state.Exchanges.AsEnumerable().Reverse().Select(e => new CduExchangeSummary(
                 e.TurnId, e.SpeakerId, e.SpeakerName, e.Kind, e.Text, e.Status, e.Reply, e.Asked, e.Answered, e.Commits, e.At, e.DoneAt, e.Model)).ToList(),
@@ -43,14 +44,16 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
 }
 
 public sealed record CduOverview(
-    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, List<CduCommitSummary> Trunk, CduPrSummary? Pr,
-    CduAllowanceSummary? Allowance, List<CduExchangeSummary> Exchanges, List<CduModelSummary> Models);
+    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, string? TrunkHead, List<CduCommitSummary> Trunk, CduPrSummary? Pr,
+    List<CduResetSummary> Resets, CduAllowanceSummary? Allowance, List<CduExchangeSummary> Exchanges, List<CduModelSummary> Models);
 
 public sealed record CduModelSummary(string Id, string Label, string? Tier, double In, double Out);
 
 public sealed record CduCommitSummary(string Sha, string Subject, string Author);
 
 public sealed record CduPrSummary(int Number, string Url, string Title, string State, string Checks);
+
+public sealed record CduResetSummary(int Pr, string State, string? Actor, long At);
 
 public sealed record CduAllowanceSummary(double Usd, double CapUsd);
 

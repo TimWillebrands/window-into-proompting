@@ -21,9 +21,11 @@ public sealed record CduTurn(
     string Id, CduSpeaker From, string Text, string Kind, string Status, long At, long? DoneAt,
     string? Reply, bool? Asked, List<CduCommit> Commits, double? Usd, string? Error);
 
+public sealed record CduReset(int Pr, string State, string? Actor, long At);
+
 public sealed record CduStatus(
     bool Awake, string? Hearing, int Queued, string Model, CduTrunk? Trunk, CduPr? Pr, CduAllowance? Allowance,
-    long Lines, long News, CduTurn? Last, List<CduModel>? Models = null);
+    long Lines, long News, CduTurn? Last, List<CduReset>? Resets = null, List<CduModel>? Models = null);
 
 public sealed record CduEntry(long N, long At, string Kind, string Text, JsonElement? Data)
 {

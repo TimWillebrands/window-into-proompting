@@ -100,8 +100,44 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
         sb.AppendLine(Trunk(cdu));
+        sb.AppendLine(Queue(cdu));
         if (cdu.Pr is { } pr) sb.AppendLine($"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.");
         return sb.ToString().TrimEnd();
+    }
+
+    public static string Queue(CduStatus cdu)
+    {
+        string queue;
+        if (cdu.Pr is { } pr)
+        {
+            var decision = pr.State switch
+            {
+                "MERGED" => "review decided: merged",
+                "CLOSED" => "review decided: closed without merging",
+                _ => "awaiting review",
+            };
+            queue = $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" — {ChecksWord(pr.Checks)}, {decision}.";
+        }
+        else if (cdu.Trunk is null)
+            queue = "The Agora queue's unpushed state could not be read.";
+        else if (cdu.Trunk.Ahead.Count > 0)
+        {
+            var n = cdu.Trunk.Ahead.Count;
+            queue = $"The Agora queue is empty: nothing is out for review; {n} commit{(n == 1 ? "" : "s")} on the trunk not yet pushed, waiting for end of shift:\n"
+                    + string.Join("\n", cdu.Trunk.Ahead.Select(c => $"- {c.Sha[..Math.Min(7, c.Sha.Length)]} {c.Subject} (asked by {c.Author})"));
+        }
+        else if (cdu.Trunk.Head is { Length: > 0 } headSha)
+            queue = $"The Agora queue is empty: the trunk was pushed to {headSha[..Math.Min(7, headSha.Length)]} on origin/master, and nothing new is waiting for review.";
+        else
+            queue = "The Agora queue is empty: nothing new is waiting for review.";
+        var tide = cdu.Trunk?.Head is { Length: > 0 } head
+            ? $" Last tide: {head[..Math.Min(7, head.Length)]} on origin/master; no push time is recorded."
+            : " Last tide: origin/master hash unavailable; no push time is recorded.";
+        var last = cdu.Resets is { Count: > 0 } resets ? resets[^1] : null;
+        var reset = last is null
+            ? ""
+            : $" Last trunk reset: PR #{last.Pr} {last.State.ToLowerInvariant()}, by {last.Actor ?? "actor unknown"}, {DateTimeOffset.FromUnixTimeMilliseconds(last.At):yyyy-MM-dd HH:mm 'UTC'}.";
+        return $"{queue}{tide}{reset}".TrimEnd();
     }
 
     public static List<Affordance> Affordances(CduDesk desk)

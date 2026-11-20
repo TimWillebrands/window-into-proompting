@@ -15,6 +15,8 @@ import {
     mergeLines,
     mindLine,
     prLine,
+    resetLine,
+    reviewWord,
     SAID,
     shortSha,
 } from './cdu-lib';
@@ -110,11 +112,54 @@ function State({ cdu }: { cdu: CduOverview }) {
                     <a href={cdu.pr.url} target="_blank" rel="noreferrer">
                         {cdu.pr.title}
                     </a>
-                    <span className="cd-sub">{prLine(cdu.pr)}</span>
+                    <span className="cd-sub">
+                        {prLine(cdu.pr)}, {reviewWord(cdu.pr.state)}
+                    </span>
                 </p>
+            ) : cdu.trunk === null ? (
+                <p className="cd-state">
+                    The trunk's unpushed state could not be read.
+                </p>
+            ) : cdu.trunk.length > 0 ? (
+                <div className="cd-state">
+                    Nothing is out for review; {cdu.trunk.length}{' '}
+                    {cdu.trunk.length === 1 ? 'commit' : 'commits'} on the trunk
+                    not yet pushed, waiting for end of shift:
+                    <ul>
+                        {cdu.trunk.map((c) => (
+                            <li key={c.sha}>
+                                {shortSha(c.sha)} {c.subject} ({c.author})
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             ) : (
-                <p className="cd-state">No PR open.</p>
+                <p className="cd-state">
+                    {cdu.trunkHead
+                        ? `Pushed to ${shortSha(cdu.trunkHead)} on origin/master; nothing new waiting for review.`
+                        : 'Nothing new waiting for review.'}
+                </p>
             )}
+            {!cdu.pr && (
+                <p className="cd-sub">
+                    Last tide:{' '}
+                    {cdu.trunkHead
+                        ? `${shortSha(cdu.trunkHead)} on origin/master, no push time recorded.`
+                        : 'origin/master hash unavailable, no push time recorded.'}
+                </p>
+            )}
+            {cdu.resets?.length ? (
+                <ul className="cd-resets">
+                    {cdu.resets.map((r) => (
+                        <li key={`${r.pr}-${r.at}`}>
+                            <span className="cd-sub">
+                                reset after #{r.pr} {r.state.toLowerCase()},{' '}
+                                {r.actor ?? 'actor unknown'}, {resetLine(r.at)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
         </>
     );
 }

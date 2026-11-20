@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { Book } from '../src/book.ts';
@@ -142,6 +142,28 @@ test('a verdict is news once, journaled, and the trunk is master again', async (
     assert.equal(verdicts[0].data?.number, 1);
     assert.match(await git(s.book.dir, 'log', '-1', '--format=%s'), /^journal: The One merged PR #1/);
     assert.deepEqual(await s.tide.ahead(), []);
+});
+
+test('a reset leaves a reset-event record in state.json', async () => {
+    const statePath = path.join((await import('node:os')).tmpdir(), `state-${Date.now()}.json`);
+    const s = await setup(statePath);
+    s.mind.next = async (repo) => {
+        writeFileSync(path.join(repo, 'a.txt'), 'a');
+        await git(repo, 'add', '-A');
+        await must('git', ['-C', repo, 'commit', '-q', '-m', 'feat: a']);
+        return 'ok';
+    };
+    await done(s.cdu, s.cdu.talk(denise, 'make a'));
+    await s.cdu.tideOut();
+    await s.merge('cdu/tide');
+    s.github.judge(1, 'MERGED', 'TimWillebrands');
+    await s.cdu.watch();
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.equal(state.resets.length, 1);
+    assert.equal(state.resets[0].pr, 1);
+    assert.equal(state.resets[0].state, 'MERGED');
+    assert.equal(state.resets[0].actor, 'TimWillebrands');
+    assert.equal(typeof state.resets[0].at, 'number');
 });
 
 test('checks are told once per head commit', async () => {

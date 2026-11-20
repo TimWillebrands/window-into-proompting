@@ -377,7 +377,7 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         {
             Reachable();
             return Task.FromResult(new CduStatus(false, null, 0, "careful", new CduTrunk("h", Ahead), Pr, new CduAllowance(Spent, 5), 0, _news.Count, null,
-                new List<CduModel> { new("free-one", "free preview", "free", 0, 0), new("big-one", "capable", "capable", 1, 4) }));
+                Resets: new List<CduReset>(), Models: new List<CduModel> { new("free-one", "free preview", "free", 0, 0), new("big-one", "capable", "capable", 1, 4) }));
         }
 
         public Task<CduTurn> TalkAsync(CduSpeaker from, string text, string kind, string? model, CancellationToken ct)
