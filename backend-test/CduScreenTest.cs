@@ -43,7 +43,7 @@ public class CduScreenTest
     public void Queue_ShowsLastReset_WithActorOrUnknown()
     {
         var text = CduScreen.Queue(Up());
-        Assert.Contains("The Agora queue is empty on purpose: nothing pushed since the last merge", text);
+        Assert.Contains("The Agora queue is empty: the trunk was pushed to abc on origin/master, and nothing new is waiting for review", text);
         Assert.Contains("Last tide: abc on origin/master; no push time is recorded.", text);
         Assert.Contains("Last trunk reset: PR #126 merged, by TimWillebrands", text);
         var unknown = Up() with { Resets = new List<CduReset> { new(126, "MERGED", null, 1765050986000) } };

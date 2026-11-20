@@ -131,7 +131,11 @@ function State({ cdu }: { cdu: CduOverview }) {
                     </ul>
                 </div>
             ) : (
-                <p className="cd-state">Nothing pushed since the last merge.</p>
+                <p className="cd-state">
+                    {cdu.trunkHead
+                        ? `Pushed to ${shortSha(cdu.trunkHead)} on origin/master; nothing new waiting for review.`
+                        : 'Nothing new waiting for review.'}
+                </p>
             )}
             {!cdu.pr && (
                 <p className="cd-sub">
