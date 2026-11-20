@@ -152,8 +152,10 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         else if (cdu.Trunk.Ahead.Count > 0)
             queue = $"The Agora queue is empty, but the trunk holds {cdu.Trunk.Ahead.Count} unpushed commit{(cdu.Trunk.Ahead.Count == 1 ? "" : "s")} waiting for end of shift:\n"
                     + string.Join("\n", cdu.Trunk.Ahead.Select(c => $"- {c.Sha[..Math.Min(7, c.Sha.Length)]} {c.Subject} (asked by {c.Author})"));
+        else if (cdu.Trunk.Head is { Length: > 0 } headSha)
+            queue = $"The Agora queue is empty: the trunk was pushed to {headSha[..Math.Min(7, headSha.Length)]} on origin/master, and nothing new is waiting for review.";
         else
-            queue = "The Agora queue is empty on purpose: nothing pushed since the last merge.";
+            queue = "The Agora queue is empty: nothing new is waiting for review.";
         var tide = cdu.Trunk?.Head is { Length: > 0 } head
             ? $" Last tide: {head[..Math.Min(7, head.Length)]} on origin/master; no push time is recorded."
             : " Last tide: origin/master hash unavailable; no push time is recorded.";
