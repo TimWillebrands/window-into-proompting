@@ -116,6 +116,10 @@ function State({ cdu }: { cdu: CduOverview }) {
                         {prLine(cdu.pr)}, {reviewWord(cdu.pr.state)}
                     </span>
                 </p>
+            ) : cdu.trunk === null ? (
+                <p className="cd-state">
+                    The trunk's unpushed state could not be read.
+                </p>
             ) : cdu.trunk.length > 0 ? (
                 <div className="cd-state">
                     Nothing is out for review; {cdu.trunk.length}{' '}
