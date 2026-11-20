@@ -148,7 +148,7 @@ You choose the mind you wake it with, and its allowance has to last the day for 
             queue = $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" — {ChecksWord(pr.Checks)}, {decision}.";
         }
         else if (cdu.Trunk is null)
-            queue = "The Agora queue is empty: nothing is out for review.";
+            queue = "The Agora queue's unpushed state could not be read.";
         else if (cdu.Trunk.Ahead.Count > 0)
         {
             var n = cdu.Trunk.Ahead.Count;

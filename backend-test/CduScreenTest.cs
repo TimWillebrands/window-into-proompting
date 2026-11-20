@@ -40,6 +40,15 @@ public class CduScreenTest
         => Assert.Equal("ask,talk,look", Verbs(Desk(Up(ahead: 1))));
 
     [Fact]
+    public void Queue_TrunkUnreadable_ShowsDistinctMessageNotTheCalmWording()
+    {
+        var text = CduScreen.Queue(Up() with { Trunk = null });
+        Assert.Contains("The Agora queue's unpushed state could not be read", text);
+        Assert.DoesNotContain("nothing is out for review", text);
+        Assert.DoesNotContain("the trunk was pushed", text);
+    }
+
+    [Fact]
     public void Queue_ShowsLastReset_WithActorOrUnknown()
     {
         var text = CduScreen.Queue(Up());
