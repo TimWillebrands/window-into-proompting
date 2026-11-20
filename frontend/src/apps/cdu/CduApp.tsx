@@ -118,10 +118,9 @@ function State({ cdu }: { cdu: CduOverview }) {
                 </p>
             ) : cdu.trunk.length > 0 ? (
                 <div className="cd-state">
-                    Nothing out for review yet. The trunk holds{' '}
-                    {cdu.trunk.length} unpushed{' '}
-                    {cdu.trunk.length === 1 ? 'commit' : 'commits'} waiting for
-                    end of shift:
+                    Nothing is out for review; {cdu.trunk.length}{' '}
+                    {cdu.trunk.length === 1 ? 'commit' : 'commits'} on the trunk
+                    not yet pushed, waiting for end of shift:
                     <ul>
                         {cdu.trunk.map((c) => (
                             <li key={c.sha}>
