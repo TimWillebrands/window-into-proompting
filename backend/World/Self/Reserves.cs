@@ -28,9 +28,10 @@ public readonly record struct Reserves(
     [property: Id(4)] bool Perked,
     [property: Id(5)] bool Felt,
     [property: Id(6)] bool Napped,
-    [property: Id(7)] bool Ailing = false)
+    [property: Id(7)] bool Ailing = false,
+    [property: Id(8)] double Battery = 1)
 {
-    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false, false);
+    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false, false, 1);
 
     public Hunger Hunger => Felt ? Bio.HungerOf(Fed) : Hunger.None;
 
@@ -113,7 +114,7 @@ public static class Bio
         var ailing = Ailing(s, ms);
         var rested = Math.Min(1, s.Rested + (perked ? Perk : 0));
         return new Reserves(s.Fed, ailing ? Math.Min(rested, AilingRested) : rested, s.AteAt, s.UpSince, perked,
-            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0, ailing);
+            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0, ailing, SelfMath.Battery(s, now));
     }
 
     public static bool Ailing(SelfState s, long ms) => s.AilingSince != 0 && ms - s.AilingSince < AilsAtMost.TotalMilliseconds;

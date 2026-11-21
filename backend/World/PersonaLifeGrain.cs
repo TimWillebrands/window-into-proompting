@@ -32,6 +32,7 @@ public sealed class PersonaLifeGrain(
     private readonly Dictionary<string, Desires.Lack.Baseline> _lackUsual = new();
     private readonly Dictionary<Guid, (string Signature, long ArrivedAt)> _felt = new();
     private Places.PlaceFit? _fit;
+    private int _company = SelfMath.Alone;
     private const string IntentShape = """{"thought": "<one sentence, first person, what's on your mind>", "intent": "<what exactly you want to say or do, concrete, 1-2 sentences: the substance, not how to word it (no length, language or words to avoid)>", "decline": <true if you wouldn't actually do this after all, else false>}""";
 
     public async Task<WorldActivity> LiveAsync(string? nudge)
@@ -39,6 +40,7 @@ public sealed class PersonaLifeGrain(
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
         if (followThrough is not null) await followThrough.ConsiderPendingAsync(partyId, personaId);
         using var turnCts = new CancellationTokenSource(TurnBudget);
+        _company = SelfMath.Alone;
         var (activity, looked) = await LiveCoreAsync(nudge, turnCts.Token);
         if (looked)
         {
@@ -48,7 +50,7 @@ public sealed class PersonaLifeGrain(
         if (activity.Action is "rest" or "diary" or "nap")
         {
             _ = ReviewAtRestAsync(partyId, personaId, wrote: activity.Action == "diary");
-            try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
+            try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.RestRecharge(_company)); }
             catch (Exception ex) { logger.LogDebug(ex, "Recharge failed for {Persona}", personaId); }
         }
         return activity;
@@ -89,7 +91,7 @@ public sealed class PersonaLifeGrain(
             .Select(a => HappeningRules.Relate(a, me, snapshot?.Places ?? new List<Places.Place>(), personaId))
             .ToList();
         var own = await clock.GetActivitiesAsync(SecondThoughts.Memory, personaId);
-        var reserves = await ReservesAsync(partyId, personaId, self.Name, me);
+        var reserves = await ReservesAsync(partyId, personaId, self.Name, me, snapshot);
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
@@ -280,12 +282,13 @@ public sealed class PersonaLifeGrain(
         }
     }
 
-    private async Task<Reserves?> ReservesAsync(Guid partyId, Guid personaId, string name, Places.Body? me)
+    private async Task<Reserves?> ReservesAsync(Guid partyId, Guid personaId, string name, Places.Body? me, Places.PlacesSnapshot? snapshot)
     {
         if (me is null or { Asleep: true }) return null;
         try
         {
-            var reserves = await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).LiveBodyAsync(away: me.AwayAs is not null);
+            _company = SelfMath.Company(me, snapshot?.Bodies ?? new List<Places.Body>());
+            var reserves = await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).LiveBodyAsync(away: me.AwayAs is not null, company: _company);
             if (Bio.Distress(reserves) is { } distress)
                 logger.LogInformation("Distress {Persona}: {What} (fed {Fed:F2}, rested {Rested:F2})", name, distress, reserves.Fed, reserves.Rested);
             return reserves;

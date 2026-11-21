@@ -29,6 +29,81 @@ public class LivedSelfTest
         Assert.Equal(1, SelfMath.Battery(new SelfState(), now));
     }
 
+    private static SelfState LivedJustNow(DateTimeOffset now, double rate) => new()
+    {
+        Battery = 0.1, BatteryAt = now.ToUnixTimeMilliseconds(), LivedAt = now.ToUnixTimeMilliseconds(), BatteryRate = rate,
+    };
+
+    [Fact]
+    public void Battery_ComesBackFastestAlone_SlowerAmongOthers_SlowestWithSomeoneBeside()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var later = now.AddHours(1);
+
+        Assert.Equal(0.35, SelfMath.Battery(LivedJustNow(now, SelfMath.RateFor(SelfMath.Alone)), later), 6);
+        Assert.Equal(0.22, SelfMath.Battery(LivedJustNow(now, SelfMath.RateFor(SelfMath.AmongOthers)), later), 6);
+        Assert.Equal(0.14, SelfMath.Battery(LivedJustNow(now, SelfMath.RateFor(SelfMath.WithSomeone)), later), 6);
+        Assert.Equal(SelfMath.AlonePerHour, new SelfState().BatteryRate);
+    }
+
+    [Fact]
+    public void Battery_IsBankedAtTheOldRate_BeforeTheNewOneCounts()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var state = LivedJustNow(now, SelfMath.RateFor(SelfMath.Alone));
+        var later = now.AddHours(1);
+
+        state.Battery = SelfMath.Battery(state, later);
+        state.BatteryAt = later.ToUnixTimeMilliseconds();
+        state.LivedAt = later.ToUnixTimeMilliseconds();
+        state.BatteryRate = SelfMath.RateFor(SelfMath.WithSomeone);
+
+        Assert.Equal(0.35, state.Battery, 6);
+        Assert.Equal(0.39, SelfMath.Battery(state, later.AddHours(1)), 6);
+    }
+
+    [Fact]
+    public void Battery_OfABodyNotLivedLately_RechargesAsItAlwaysDid()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var pressed = LivedJustNow(now, SelfMath.RateFor(SelfMath.WithSomeone));
+        var felt = Bio.FeltFor.TotalHours;
+
+        Assert.Equal(0.1 + felt * SelfMath.WithSomeonePerHour + 1 * SelfMath.AlonePerHour, SelfMath.Battery(pressed, now.AddHours(felt + 1)), 6);
+        pressed.BatteryAt = now.AddHours(felt + 1).ToUnixTimeMilliseconds();
+        Assert.Equal(0.35, SelfMath.Battery(pressed, now.AddHours(felt + 2)), 6);
+
+        var neverLived = new SelfState { Battery = 0.2, BatteryAt = now.AddHours(-2).ToUnixTimeMilliseconds(), BatteryRate = SelfMath.WithSomeonePerHour };
+        Assert.Equal(0.7, SelfMath.Battery(neverLived, now), 6);
+    }
+
+    [Fact]
+    public void RestingAlone_GivesTheFullSolitudeBonus_AndInCompanyLess()
+    {
+        Assert.Equal(SelfMath.SolitudeRecharge, SelfMath.RestRecharge(SelfMath.Alone));
+        Assert.Equal(SelfMath.RestAmongOthers, SelfMath.RestRecharge(SelfMath.AmongOthers));
+        Assert.Equal(SelfMath.RestAmongOthers, SelfMath.RestRecharge(SelfMath.WithSomeone));
+        Assert.True(SelfMath.RestAmongOthers < SelfMath.SolitudeRecharge);
+    }
+
+    [Fact]
+    public void Company_CountsWhoIsAwakeAndStaying_AndASharedSpotMost()
+    {
+        var place = Guid.NewGuid();
+        PartyTown.World.Places.Body At(Guid who, string spot, bool asleep = false, Guid? walkingTo = null, string? away = null, Guid? elsewhere = null)
+            => new() { ParticipantId = who, PlaceId = elsewhere ?? place, SpotId = spot, Asleep = asleep, DestPlaceId = walkingTo, AwayAs = away };
+        var me = At(A, "sofas");
+
+        Assert.Equal(SelfMath.Alone, SelfMath.Company(me, new[] { me }));
+        Assert.Equal(SelfMath.Alone, SelfMath.Company(me, new[] { me, At(B, "sofas", asleep: true) }));
+        Assert.Equal(SelfMath.Alone, SelfMath.Company(me, new[] { me, At(B, "sofas", walkingTo: Guid.NewGuid()) }));
+        Assert.Equal(SelfMath.Alone, SelfMath.Company(me, new[] { me, At(B, "sofas", elsewhere: Guid.NewGuid()) }));
+        Assert.Equal(SelfMath.AmongOthers, SelfMath.Company(me, new[] { me, At(B, "desk") }));
+        Assert.Equal(SelfMath.WithSomeone, SelfMath.Company(me, new[] { me, At(B, "desk"), At(C, "sofas") }));
+        var atWork = At(A, "desk", away: "at work");
+        Assert.Equal(SelfMath.AmongOthers, SelfMath.Company(atWork, new[] { atWork }));
+    }
+
     [Fact]
     public void Presence_PlacesNowInTheDay()
     {

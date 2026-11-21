@@ -117,10 +117,14 @@ public sealed partial class PersonaSelfGrain(
         await state.WriteStateAsync();
     }
 
-    public async Task<Reserves> LiveBodyAsync(bool away)
+    public async Task<Reserves> LiveBodyAsync(bool away, int company)
     {
         var ailing = state.State.AilingSince != 0;
-        var reserves = Bio.Settle(state.State, DateTimeOffset.Now, away);
+        var now = DateTimeOffset.Now;
+        state.State.Battery = SelfMath.Battery(state.State, now);
+        state.State.BatteryAt = now.ToUnixTimeMilliseconds();
+        state.State.BatteryRate = SelfMath.RateFor(company);
+        var reserves = Bio.Settle(state.State, now, away);
         await state.WriteStateAsync();
         if (ailing) await LogWellAsync();
         return reserves;
@@ -445,8 +449,15 @@ public sealed partial class PersonaSelfGrain(
 
 public static partial class SelfMath
 {
-    private const double RechargePerHour = 0.25;
+    public const double AlonePerHour = 0.25;
+    public const double AmongOthersPerHour = 0.12;
+    public const double WithSomeonePerHour = 0.04;
+    public const int Alone = 0;
+    public const int AmongOthers = 1;
+    public const int WithSomeone = 2;
     public const double SolitudeRecharge = 0.25;
+    public const double RestAmongOthers = 0.1;
+    public const double PeopledOut = 0.25;
     public const double Asleep = 0.02;
 
     [GeneratedRegex(@"^\s*[-*•]?\s*(\d{1,2})[:.h](\d{2})\s*([AaPp]\.?[Mm]\.?)?\s*[-—–:]?\s*(.+)$")]
@@ -458,8 +469,27 @@ public static partial class SelfMath
     public static double Battery(SelfState s, DateTimeOffset now)
     {
         if (s.BatteryAt == 0) return 1;
-        var hours = Math.Max(0, (now.ToUnixTimeMilliseconds() - s.BatteryAt) / 3_600_000.0);
-        return Math.Clamp(s.Battery + hours * RechargePerHour, 0, 1);
+        var ms = now.ToUnixTimeMilliseconds();
+        var hours = Math.Max(0, (ms - s.BatteryAt) / 3_600_000.0);
+        var rated = s.LivedAt == 0 ? 0
+            : Math.Clamp((Math.Min(ms, s.LivedAt + (long)Bio.FeltFor.TotalMilliseconds) - s.BatteryAt) / 3_600_000.0, 0, hours);
+        return Math.Clamp(s.Battery + rated * s.BatteryRate + (hours - rated) * AlonePerHour, 0, 1);
+    }
+
+    public static double RateFor(int company) => company switch
+    {
+        >= WithSomeone => WithSomeonePerHour,
+        AmongOthers => AmongOthersPerHour,
+        _ => AlonePerHour,
+    };
+
+    public static double RestRecharge(int company) => company == Alone ? SolitudeRecharge : RestAmongOthers;
+
+    public static int Company(Places.Body me, IEnumerable<Places.Body> bodies)
+    {
+        var around = bodies.Where(b => b.ParticipantId != me.ParticipantId && b.PlaceId == me.PlaceId && !b.Asleep && !b.IsWalking).ToList();
+        if (around.Any(b => b.SpotId == me.SpotId)) return WithSomeone;
+        return around.Count > 0 || me.AwayAs is not null ? AmongOthers : Alone;
     }
 
     public const int DraggingDays = 4;
@@ -659,7 +689,7 @@ public static class SelfRender
         }
         lines.Add(battery switch
         {
-            < 0.25 => "You're peopled out: you've talked a lot today. You'd keep it very short, or drift off.",
+            < SelfMath.PeopledOut => "You're peopled out: you've talked a lot today. You'd keep it very short, or drift off.",
             < 0.5 => "You've done a fair bit of talking today. Shorter answers, less to prove.",
             _ => string.Empty,
         });
@@ -712,7 +742,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
     [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
 
-    [Alias("LiveBodyAsync")] Task<Reserves> LiveBodyAsync(bool away);
+    [Alias("LiveBodyAsync")] Task<Reserves> LiveBodyAsync(bool away, int company);
     [Alias("EatAsync")] Task<double> EatAsync(double amount);
     [Alias("RiseAsync")] Task RiseAsync(double sleptHours);
     [Alias("ExertAsync")] Task ExertAsync(double cost);
@@ -766,6 +796,7 @@ public sealed class SelfState
     [Id(33)] public double Strain { get; set; }
     [Id(34)] public long AilingSince { get; set; }
     [Id(35)] public long AiledAt { get; set; }
+    [Id(39)] public double BatteryRate { get; set; } = SelfMath.AlonePerHour;
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

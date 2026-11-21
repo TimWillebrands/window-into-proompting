@@ -21,9 +21,9 @@ public partial class PlacesTest
 
     private async Task<Reserves> WakeHungryAsync(Guid partyId, Guid who)
     {
-        await SelfOf(partyId, who).LiveBodyAsync(false);
+        await SelfOf(partyId, who).LiveBodyAsync(false, SelfMath.Alone);
         await SelfOf(partyId, who).RiseAsync(8);
-        return await SelfOf(partyId, who).LiveBodyAsync(false);
+        return await SelfOf(partyId, who).LiveBodyAsync(false, SelfMath.Alone);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public partial class PlacesTest
         Assert.Equal(("eat", "makes lunch at home"), (done!.Action, done.Summary));
         var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
         Assert.Equal(("kitchen", "making lunch"), (body.SpotId, body.Activity));
-        var fed = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        var fed = await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
         Assert.Equal(Hunger.None, fed.Hunger);
         Assert.True(fed.AteAt > 0);
         Assert.DoesNotContain((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", fed), default))!.Affordances, a => a.Meets == Bio.Food);
@@ -94,6 +94,31 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task PeopledOut_InCompany_HomePullsHarder_AndAloneItDoesNot()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var app = new PlacesApp(_fx.GrainFactory);
+        var lobby = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Lobby");
+        await places.MoveAsync(denise, lobby.Id, "sofas");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        Affordance Home(IReadOnlyList<Affordance> seen) => seen.Single(a => a.Label.StartsWith("Head home"));
+        async Task<Affordance> HomeWith(double battery)
+            => Home((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt() with { Battery = battery }, (pieter, "Pieter")), default))!.Affordances);
+
+        Assert.Equal("Head home", (await HomeWith(0.1)).Label);
+
+        await places.MoveAsync(pieter, lobby.Id, null);
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        var fine = await HomeWith(1);
+        var drained = await HomeWith(0.1);
+
+        Assert.Equal(("Head home", null), (fine.Label, fine.Meets));
+        Assert.Equal(("Head home (you're peopled out)", null, fine.Priority + 1), (drained.Label, drained.Meets, drained.Priority));
+    }
+
+    [Fact]
     public async Task AilAsync_OnABodyNobodyLivedIn_DoesNothing_AndOnALivedOneItShows()
     {
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
@@ -103,10 +128,10 @@ public partial class PlacesTest
         Assert.Equal((0L, 0L), (never.AilingSince, never.LivedAt));
         Assert.False(await SelfOf(partyId, pieter).BreakingAsync());
 
-        await SelfOf(partyId, denise).LiveBodyAsync(false);
+        await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
         Assert.NotNull(await SelfOf(partyId, denise).AilAsync());
         Assert.Null(await SelfOf(partyId, denise).AilAsync());
-        var body = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        var body = await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
         Assert.True(body.Ailing);
         Assert.True(body.Rested <= Bio.AilingRested);
         Assert.Contains(Bio.Lines(body, DateTimeOffset.Now), l => l.StartsWith("You're not well today"));
@@ -145,7 +170,7 @@ public partial class PlacesTest
         var walk = await app.ActAsync(LifeOf(partyId, denise, "Denise", hungry), new Affordance("places", "Go to the Café", 0, cafe.Id, "go"), "go", null, default);
         _fx.Time.Advance(TimeSpan.FromMinutes(2));
         Assert.Equal("walk", walk!.Action);
-        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false)).Rested < hungry.Rested);
+        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone)).Rested < hungry.Rested);
 
         var ctx = LifeOf(partyId, denise, "Denise", hungry);
         var order = Assert.Single((await app.PerceiveAsync(ctx, default))!.Affordances, a => a.Meets == Bio.Food);
@@ -156,7 +181,7 @@ public partial class PlacesTest
         Assert.Equal("has lunch at the Café (6 credits)", done!.Summary);
         Assert.Equal(before - Sustenance.LightMealCosts, (await wallet.GetAsync()).Balance);
         Assert.Equal("having lunch", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise).Activity);
-        Assert.Equal(Hunger.None, (await SelfOf(partyId, denise).LiveBodyAsync(false)).Hunger);
+        Assert.Equal(Hunger.None, (await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone)).Hunger);
     }
 
     [Fact]
@@ -179,7 +204,7 @@ public partial class PlacesTest
         var done = await app.ActAsync(ctx, cook, "soup", null, default);
 
         Assert.Equal(("makes lunch at home, for Pieter too", pieter), (done!.Summary, done.WithPersonaId));
-        Assert.Equal(Hunger.None, (await SelfOf(partyId, pieter).LiveBodyAsync(false)).Hunger);
+        Assert.Equal(Hunger.None, (await SelfOf(partyId, pieter).LiveBodyAsync(false, SelfMath.Alone)).Hunger);
         Assert.Equal("eating", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter).Activity);
         var theirs = await _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId).GetActivitiesAsync(5, pieter);
         Assert.Contains(theirs, a => a.Action == "eat" && a.Summary == "eats what Denise made at Denise's place");
@@ -192,7 +217,7 @@ public partial class PlacesTest
         var places = _fx.Places(partyId);
         var app = new PlacesApp(_fx.GrainFactory);
         await places.GetSnapshotAsync();
-        await SelfOf(partyId, denise).LiveBodyAsync(false);
+        await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
 
         var ctx = LifeOf(partyId, denise, "Denise", Felt(rested: 0.1));
         var nap = Assert.Single((await app.PerceiveAsync(ctx, default))!.Affordances, a => a.Verb == "nap");
@@ -204,7 +229,7 @@ public partial class PlacesTest
         Assert.Equal(("nap", "lies down for a bit on the sofa"), (done!.Action, done.Summary));
         var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
         Assert.Equal(("sofa", Poses.Lie, "having a lie-down"), (body.SpotId, body.Pose, body.Activity));
-        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false)).Napped);
+        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone)).Napped);
         Assert.DoesNotContain((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.1, napped: true)), default))!.Affordances, a => a.Verb == "nap");
         Assert.Null(await app.ActAsync(ctx, nap, "again", null, default));
     }
@@ -216,7 +241,7 @@ public partial class PlacesTest
         var places = _fx.Places(partyId);
         var app = new PlacesApp(_fx.GrainFactory);
         await places.GetSnapshotAsync();
-        await SelfOf(partyId, denise).LiveBodyAsync(false);
+        await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
 
         var fresh = (await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt()), default))!.Affordances;
         var ctx = LifeOf(partyId, denise, "Denise", Felt(rested: 0.3));
@@ -227,7 +252,7 @@ public partial class PlacesTest
 
         await app.ActAsync(ctx, coffee, "coffee", null, default);
 
-        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false)).Perked);
+        Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone)).Perked);
     }
 
     [Fact]
@@ -250,7 +275,7 @@ public partial class PlacesTest
         var done = await app.ActAsync(ctx, herring, "a herring", null, default);
 
         Assert.Equal("do", done!.Action);
-        var fed = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        var fed = await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
         Assert.True(fed.Fed > hungry.Fed + 0.3);
         await places.DoFeatureAsync(denise, centre.Id, "herring", "onions, by the tail, and a nod from the herring man");
         var again = (await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(fed: 0.25)), default))!.Affordances;
@@ -287,7 +312,7 @@ public partial class PlacesTest
         var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
         var places = _fx.Places(partyId);
         await places.GetSnapshotAsync();
-        var lived = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        var lived = await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
 
         var slept = await ADayAndANightAsync(places);
 
@@ -307,7 +332,7 @@ public partial class PlacesTest
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var places = _fx.Places(partyId);
         var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
-        var lived = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        var lived = await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
         var (bed, wake) = Sleep.Window(denise);
         _fx.Time.Advance(UntilLocal(bed + 5));
         await places.GetAsleepAsync();

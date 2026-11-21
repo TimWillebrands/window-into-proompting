@@ -141,4 +141,4 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 - Others seeing it: "looks worn out" at the same Spot.
 - Designers saying what their own things feed; counters with someone behind them who earns.
 - Attachment to the Place where you eat (ADR 0057's open end).
-- The Social battery recharging by where you are and with whom.
+- The Social battery recharging by who is around: see ADR 0063.

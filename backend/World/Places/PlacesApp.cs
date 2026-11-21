@@ -171,6 +171,7 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var elsewhere = new List<string>();
         var myDistrict = here?.DistrictId ?? snapshot.Places.FirstOrDefault(p => p.Id == self.CameFrom)?.DistrictId ?? Districts.Centre;
         var further = new List<(Place Place, List<string> There)>();
+        var peopledOut = !self.IsWalking && reserves.Battery < Self.SelfMath.PeopledOut && others.Any(o => !o.IsWalking && !o.Asleep);
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
             if (place.Kind == PlaceKinds.Locale || place.Dormant || place.Vacated) continue;
@@ -237,6 +238,11 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 label += " (you're not well)";
                 pull += 2;
                 meets ??= Self.Bio.Rest;
+            }
+            else if (mine && peopledOut)
+            {
+                label += " (you're peopled out)";
+                pull += 1;
             }
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go", Meets: meets));
         }

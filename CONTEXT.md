@@ -304,11 +304,11 @@ A **Player** gets theirs in the tray: DMs waiting, replies and mentions on the B
 _Avoid_: alert, ping, event.
 
 **Lived self**:
-What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), their **Reserves**, the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by sleep and by time: at full rate alone, slower in company; [ADR 0063](docs/adr/0063-solitude-recharges.md)), their **Reserves**, the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
 _Avoid_: persona state, stats, needs.
 
 **Reserve**:
-Something a Persona's **Body** runs down by living and a **Place** fills back up: being fed, being rested. Only time lived in **Life** turns counts; between them nothing drains. It reaches a prompt as a fact ("nothing since 08:10") and only once it has left the comfortable middle; a body that works goes unsaid. The **Social battery** is the oldest one. Together they are the bio-economy (Vervaeke's term): being finite forces trade-offs. See [ADR 0060](docs/adr/0060-the-lived-body.md).
+Something a Persona's **Body** runs down by living and a **Place** fills back up: being fed, being rested. Only time lived in **Life** turns counts; between them nothing drains. It reaches a prompt as a fact ("nothing since 08:10") and only once it has left the comfortable middle; a body that works goes unsaid. The **Social battery** is the oldest one, and solitude is what fills it. Together they are the bio-economy (Vervaeke's term): being finite forces trade-offs. See [ADR 0060](docs/adr/0060-the-lived-body.md).
 _Avoid_: need, stat, hunger bar, meter.
 
 **Distress**:
