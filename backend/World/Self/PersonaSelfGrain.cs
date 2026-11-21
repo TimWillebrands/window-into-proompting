@@ -119,9 +119,31 @@ public sealed partial class PersonaSelfGrain(
 
     public async Task<Reserves> LiveBodyAsync(bool away)
     {
+        var ailing = state.State.AilingSince != 0;
         var reserves = Bio.Settle(state.State, DateTimeOffset.Now, away);
         await state.WriteStateAsync();
+        if (ailing) await LogWellAsync();
         return reserves;
+    }
+
+    public Task<bool> BreakingAsync() => Task.FromResult(Bio.Breaking(state.State, DateTimeOffset.Now));
+
+    public async Task<double?> AilAsync()
+    {
+        var strain = state.State.Strain;
+        if (!Bio.Ail(state.State, DateTimeOffset.Now)) return null;
+        await state.WriteStateAsync();
+        return strain;
+    }
+
+    private async Task LogWellAsync()
+    {
+        if (state.State.AilingSince != 0) return;
+        var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
+        string? name = null;
+        try { name = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).FirstOrDefault(c => c.Id == personaId)?.Name; }
+        catch (Exception ex) { logger.LogDebug(ex, "Cast lookup failed for {Persona}", personaId); }
+        logger.LogInformation("Well again {Persona}", name ?? personaId.ToString());
     }
 
     public async Task<double> EatAsync(double amount)
@@ -133,8 +155,10 @@ public sealed partial class PersonaSelfGrain(
 
     public async Task RiseAsync(double sleptHours)
     {
+        var ailing = state.State.AilingSince != 0;
         Bio.Rise(state.State, sleptHours, DateTimeOffset.Now);
         await state.WriteStateAsync();
+        if (ailing) await LogWellAsync();
     }
 
     public async Task ExertAsync(double cost)
@@ -694,6 +718,8 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("ExertAsync")] Task ExertAsync(double cost);
     [Alias("LieDownAsync")] Task<bool> LieDownAsync();
     [Alias("PerkUpAsync")] Task PerkUpAsync();
+    [AlwaysInterleave, Alias("BreakingAsync")] Task<bool> BreakingAsync();
+    [Alias("AilAsync")] Task<double?> AilAsync();
 
     [AlwaysInterleave, Alias("GetWhereaboutsAsync")] Task<List<Whereabout>> GetWhereaboutsAsync();
 }
@@ -737,6 +763,9 @@ public sealed class SelfState
     [Id(30)] public long PerkUntil { get; set; }
     [Id(31)] public long NappedAt { get; set; }
     [Id(32)] public long LivedAt { get; set; }
+    [Id(33)] public double Strain { get; set; }
+    [Id(34)] public long AilingSince { get; set; }
+    [Id(35)] public long AiledAt { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

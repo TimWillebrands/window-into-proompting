@@ -275,11 +275,13 @@ public class BioEconomyTest
     {
         DateTimeOffset At(int hour) => new(2026, 11, 21, hour, 0, 0, TimeSpan.FromHours(1));
 
-        Assert.True(Bio.Helps(Tiredness.Flagging, At(14)));
-        Assert.False(Bio.Helps(Tiredness.Flagging, At(21)));
-        Assert.False(Bio.Helps(Tiredness.Flagging, At(2)));
-        Assert.True(Bio.Helps(Tiredness.Spent, At(21)));
-        Assert.False(Bio.Helps(Tiredness.Fine, At(14)));
+        Reserves Felt(double rested) => new(1, rested, 0, 0, false, true, false);
+
+        Assert.True(Bio.Helps(Felt(0.3), At(14)));
+        Assert.False(Bio.Helps(Felt(0.3), At(21)));
+        Assert.False(Bio.Helps(Felt(0.3), At(2)));
+        Assert.True(Bio.Helps(Felt(0.1), At(21)));
+        Assert.False(Bio.Helps(Felt(0.5), At(14)));
     }
 
     [Fact]

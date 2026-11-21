@@ -8,6 +8,7 @@ public static class OwnHappenings
     public static readonly TimeSpan Lingers = TimeSpan.FromHours(12);
     public static readonly TimeSpan Carried = TimeSpan.FromHours(36);
     public const int KindMemory = 3;
+    public const int Body = 4;
 
     public static readonly string[] Kinds =
     {
@@ -21,12 +22,16 @@ public static class OwnHappenings
         "something small and good comes their way out of the blue",
     };
 
-    public static Guid? Pick(IReadOnlyList<(Guid Id, long LastAt)> awake, long now, Random random)
+    public static List<Guid> Due(IReadOnlyList<(Guid Id, long LastAt)> awake, long now)
+        => awake.Where(a => now - a.LastAt >= Rest.TotalMilliseconds).Select(a => a.Id).ToList();
+
+    public static Guid? Pick(IReadOnlyList<(Guid Id, long LastAt)> awake, long now, Random random, IReadOnlyCollection<Guid>? breaking = null)
     {
         var due = awake.Where(a => now - a.LastAt >= Rest.TotalMilliseconds).ToList();
         if (due.Count == 0) return null;
+        var broken = breaking is null ? new List<(Guid Id, long LastAt)>() : due.Where(a => breaking.Contains(a.Id)).ToList();
         var never = due.Where(a => a.LastAt == 0).ToList();
-        var from = never.Count > 0 ? never : due;
+        var from = broken.Count > 0 ? broken : never.Count > 0 ? never : due;
         return from[random.Next(from.Count)].Id;
     }
 
@@ -35,6 +40,9 @@ public static class OwnHappenings
         var fresh = Enumerable.Range(0, Kinds.Length).Where(i => !lately.Contains(i)).ToList();
         return fresh.Count == 0 ? random.Next(Kinds.Length) : fresh[random.Next(fresh.Count)];
     }
+
+    public static int KindFor(bool breaking, IReadOnlyCollection<int> lately, Random random)
+        => breaking ? Body : PickKind(lately, random);
 
     public static string Brief(string name, string kind) => $$"""
 You are the narrator of {{name}}'s life away from the screen: their family, home, work, body and the people in their life outside the people they chat with. Let ONE thing happen to them now.
@@ -45,7 +53,7 @@ Stop at the thing itself: don't say what they do, think or feel about it. Plain 
 Output ONLY JSON: {"happening": "<one or two sentences to them, second person, present tense: 'Your sister calls: …'>", "summary": "<the same in under 15 words, a past-tense verb phrase about them without their name: 'got a call from their sister: …'>"}
 """;
 
-    public static string Material(string name, string sheet, SelfState day, DateTimeOffset local)
+    public static string Material(string name, string sheet, SelfState day, DateTimeOffset local, string? body = null)
     {
         var minute = local.Hour * 60 + local.Minute;
         var lines = new List<string> { $"Who {name} is:\n{sheet.Trim()}", string.Empty, $"It is {local:dddd HH:mm}: {HappeningRules.DayPart(local)}." };
@@ -54,6 +62,7 @@ Output ONLY JSON: {"happening": "<one or two sentences to them, second person, p
         if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at them today: {day.Preoccupation}");
         if (day.Threads.Count > 0) lines.Add($"Going on in their life lately: {string.Join("; ", day.Threads)}");
         if (!string.IsNullOrWhiteSpace(day.Own)) lines.Add($"Last thing that happened to them (not this again): {day.Own}");
+        if (!string.IsNullOrWhiteSpace(body)) lines.Add($"How they've treated their body lately: {body}.");
         return string.Join("\n", lines);
     }
 

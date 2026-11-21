@@ -31,7 +31,7 @@ Vocabulary, not knobs: name what you're building in these terms before touching 
 - **Agent–arena**: a Persona's view lives on edges to shared entities, never on the entities. Affordances are relational too: what an App offers *this* Persona *now*.
 - **Consolidation in rest**: Capture writes facts and recollections; beliefs (Stances) form later.
 - **Having ⇄ being**: having-desires want a thing; being-desires want to become someone.
-- **Bio-economy**: a Body is finite, so living costs something a Place has to give back (Reserves, ADR 0060). A working body is absent: say a Reserve only once it has left its middle. Distress is loss of agency: it narrows the menu, it never chooses.
+- **Bio-economy**: a Body is finite, so living costs something a Place has to give back (Reserves, ADR 0060). A working body is absent: say a Reserve only once it has left its middle. Distress is loss of agency: it narrows the menu, it never chooses. Neglect leaves Strain, and a strained body breaks down (Ailing, ADR 0061).
 
 **Four kinds of knowing (4P)** map onto memory layers:
 

@@ -27,9 +27,10 @@ public readonly record struct Reserves(
     [property: Id(3)] long UpSince,
     [property: Id(4)] bool Perked,
     [property: Id(5)] bool Felt,
-    [property: Id(6)] bool Napped)
+    [property: Id(6)] bool Napped,
+    [property: Id(7)] bool Ailing = false)
 {
-    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false);
+    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false, false);
 
     public Hunger Hunger => Felt ? Bio.HungerOf(Fed) : Hunger.None;
 
@@ -57,6 +58,17 @@ public static class Bio
     public const int Narrowed = 6;
     public const int Seated = 5;
     public const int SiestaBefore = 17;
+    public const double Distressed = 0.15;
+    public const double StrainPerHour = 0.25;
+    public const double StrainEasesPerHour = 0.02;
+    public const double ShortNight = 6;
+    public const double FullNight = 7;
+    public const double StrainPerHourShort = 0.08;
+    public const double Breaks = 0.5;
+    public const double Wearing = 0.3;
+    public const double AfterAiling = 0.2;
+    public const double AilingRested = 0.38;
+    public const double AilingTires = 1.5;
 
     public static readonly TimeSpan Lived = TimeSpan.FromMinutes(75);
     public static readonly TimeSpan FeltFor = TimeSpan.FromHours(2);
@@ -65,6 +77,9 @@ public static class Bio
     public static readonly TimeSpan JustUp = TimeSpan.FromHours(3);
     public static readonly TimeSpan MealTakes = TimeSpan.FromMinutes(12);
     public static readonly TimeSpan NapTakes = TimeSpan.FromMinutes(30);
+    public static readonly TimeSpan AilsAtLeast = TimeSpan.FromHours(12);
+    public static readonly TimeSpan AilsAtMost = TimeSpan.FromDays(3);
+    public static readonly TimeSpan Mended = TimeSpan.FromDays(3);
 
     public static Hunger HungerOf(double fed) => fed switch
     {
@@ -95,9 +110,13 @@ public static class Bio
         if (s.LivedAt == 0) return Reserves.Unfelt;
         var ms = now.ToUnixTimeMilliseconds();
         var perked = s.PerkUntil > ms && TirednessOf(s.Rested) != Tiredness.Spent;
-        return new Reserves(s.Fed, Math.Min(1, s.Rested + (perked ? Perk : 0)), s.AteAt, s.UpSince, perked,
-            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0);
+        var ailing = Ailing(s, ms);
+        var rested = Math.Min(1, s.Rested + (perked ? Perk : 0));
+        return new Reserves(s.Fed, ailing ? Math.Min(rested, AilingRested) : rested, s.AteAt, s.UpSince, perked,
+            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0, ailing);
     }
+
+    public static bool Ailing(SelfState s, long ms) => s.AilingSince != 0 && ms - s.AilingSince < AilsAtMost.TotalMilliseconds;
 
     public static Reserves Settle(SelfState s, DateTimeOffset now, bool away)
     {
@@ -105,9 +124,11 @@ public static class Bio
         if (s.LivedAt == 0 || ms - s.LivedAt > ADay.TotalMilliseconds) Begin(s, now);
         else
         {
-            Advance(s, ms);
+            var lived = Advance(s, ms);
+            Strain(s, lived, ms);
             if (ms - s.UpSince > ADay.TotalMilliseconds) Recover(s, 8, now);
         }
+        if (s.AilingSince != 0 && !Ailing(s, ms)) Well(s, ms);
         s.LivedAt = ms;
         if (away && s.Fed < AwayFed)
         {
@@ -131,8 +152,53 @@ public static class Bio
     public static void Rise(SelfState s, double sleptHours, DateTimeOffset now)
     {
         if (s.LivedAt == 0) return;
+        var ms = now.ToUnixTimeMilliseconds();
         Recover(s, sleptHours, now);
         s.Fed = Math.Clamp(s.Fed, WakesAtLeast, WakesAtMost);
+        if (ms - s.LivedAt > ADay.TotalMilliseconds) return;
+        var slept = Math.Max(0, sleptHours);
+        if (slept < ShortNight) s.Strain = Math.Clamp(s.Strain + (ShortNight - slept) * StrainPerHourShort, 0, 1);
+        else if (slept >= FullNight) s.Strain /= 2;
+        if (s.AilingSince != 0 && slept >= FullNight && ms - s.AilingSince >= AilsAtLeast.TotalMilliseconds) Well(s, ms);
+    }
+
+    public static bool Breaking(SelfState s, DateTimeOffset now)
+    {
+        var ms = now.ToUnixTimeMilliseconds();
+        return s.LivedAt != 0 && s.Strain >= Breaks && !Ailing(s, ms)
+            && (s.AiledAt == 0 || ms - s.AiledAt >= Mended.TotalMilliseconds);
+    }
+
+    public static bool Ail(SelfState s, DateTimeOffset now)
+    {
+        var ms = now.ToUnixTimeMilliseconds();
+        if (s.LivedAt == 0 || Ailing(s, ms)) return false;
+        s.AilingSince = ms;
+        s.Strain = Math.Min(s.Strain, AfterAiling);
+        return true;
+    }
+
+    public static string? Lately(SelfState s)
+    {
+        if (s.LivedAt == 0 || s.Strain < Wearing) return null;
+        var how = new List<string>();
+        if (HungerOf(s.Fed) >= Hunger.VeryHungry) how.Add("going hungry for hours");
+        if (TirednessOf(s.Rested) >= Tiredness.Flagging) how.Add("short on sleep");
+        var worn = s.Strain >= Breaks ? "they've been running themselves down" : "they've been wearing themselves thin";
+        return how.Count == 0 ? worn : $"{worn}: {string.Join(" and ", how)}";
+    }
+
+    private static void Strain(SelfState s, double lived, long ms)
+    {
+        if (s.Fed < Distressed || s.Rested < Distressed) s.Strain += lived * StrainPerHour;
+        else if (!Ailing(s, ms)) s.Strain -= lived * StrainEasesPerHour;
+        s.Strain = Math.Clamp(s.Strain, 0, 1);
+    }
+
+    private static void Well(SelfState s, long ms)
+    {
+        s.AilingSince = 0;
+        s.AiledAt = ms;
     }
 
     private static void Recover(SelfState s, double sleptHours, DateTimeOffset now)
@@ -174,8 +240,8 @@ public static class Bio
         s.PerkUntil = now.ToUnixTimeMilliseconds() + (long)PerkLasts.TotalMilliseconds;
     }
 
-    public static bool Helps(Tiredness tiredness, DateTimeOffset local)
-        => tiredness == Tiredness.Spent || (tiredness == Tiredness.Flagging && local.Hour is >= 6 and < SiestaBefore);
+    public static bool Helps(Reserves r, DateTimeOffset local)
+        => (r.Felt && r.Ailing) || r.Tiredness == Tiredness.Spent || (r.Tiredness == Tiredness.Flagging && local.Hour is >= 6 and < SiestaBefore);
 
     public static string? Distress(Reserves r)
         => !r.Felt ? null
@@ -245,6 +311,7 @@ public static class Bio
         }
         if (r.Tiredness == Tiredness.Spent)
             lines.Add($"You're dead on your feet{(r.UpSince == 0 ? string.Empty : $", up since {Clock(r.UpSince, now)}")}. You'd keep anything short; what you want is to lie down.");
+        if (r.Ailing) lines.Add("You're not well today: everything takes more out of you.");
         return lines;
     }
 
@@ -261,16 +328,14 @@ public static class Bio
         return then.Date == now.Date ? then.ToString("HH:mm", CultureInfo.InvariantCulture) : "yesterday";
     }
 
-    private static (double Fed, double Rested) Drained(SelfState s, long ms)
+    private static double Advance(SelfState s, long ms)
     {
         var lived = Math.Clamp(ms - s.BodyAt, 0, Lived.TotalMilliseconds) / 3_600_000.0;
-        return (Math.Clamp(s.Fed - lived * HungerPerHour, 0, 1), Math.Clamp(s.Rested - lived * TiringPerHour, 0, 1));
-    }
-
-    private static void Advance(SelfState s, long ms)
-    {
-        (s.Fed, s.Rested) = Drained(s, ms);
+        var tiring = TiringPerHour * (Ailing(s, ms) ? AilingTires : 1);
+        s.Fed = Math.Clamp(s.Fed - lived * HungerPerHour, 0, 1);
+        s.Rested = Math.Clamp(s.Rested - lived * tiring, 0, 1);
         s.BodyAt = ms;
+        return lived;
     }
 
     private static void Begin(SelfState s, DateTimeOffset now)

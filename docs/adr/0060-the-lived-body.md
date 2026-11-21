@@ -136,8 +136,7 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 
 ## Not yet
 
-- **Breaking down.** An own Happening of the body (ADR 0055) that takes a Reserve for a day: precariousness beyond a
-  bad afternoon.
+- Breaking down: see ADR 0061.
 - Tiredness moving bedtime, or turning in early.
 - Others seeing it: "looks worn out" at the same Spot.
 - Designers saying what their own things feed; counters with someone behind them who earns.

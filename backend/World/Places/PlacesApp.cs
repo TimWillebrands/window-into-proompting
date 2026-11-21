@@ -122,8 +122,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                     + (mark is null ? string.Empty : $" ({mark.ByName.Split(' ')[0]} left: \"{WorldStream.Clip(mark.Text, 70)}\")");
                 affordances.Add(new Affordance(Id, label, close ? 1 : 0, here!.Id, $"do:{f.Id}"));
             }
-            var rests = Self.Bio.Helps(tired, ctx.Now.ToLocalTime());
-            var perks = rests && !reserves.Perked;
+            var rests = Self.Bio.Helps(reserves, ctx.Now.ToLocalTime());
+            var perks = rests && !reserves.Perked && !reserves.Ailing;
             if (here?.Furni.Where(f => f.Do is null).Select(f => (Furni: f, Use: FurniRules.UseOf(f, nowMs)))
                     .Where(x => x.Use is not null)
                     .OrderByDescending(x => perks && x.Furni.Kind == FurniKinds.Coffee)
@@ -230,6 +230,12 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             {
                 label += " (you're dead on your feet)";
                 pull += Self.Bio.Pull(tired) - 1;
+                meets ??= Self.Bio.Rest;
+            }
+            else if (mine && reserves is { Felt: true, Ailing: true } && !self.IsWalking)
+            {
+                label += " (you're not well)";
+                pull += 2;
                 meets ??= Self.Bio.Rest;
             }
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go", Meets: meets));

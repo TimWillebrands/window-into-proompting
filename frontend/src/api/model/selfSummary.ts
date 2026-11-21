@@ -31,4 +31,5 @@ export interface SelfSummary {
      * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
      */
     rested?: number | string | null;
+    ailing?: boolean;
 }

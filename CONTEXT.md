@@ -315,6 +315,14 @@ _Avoid_: need, stat, hunger bar, meter.
 A **Reserve** nearly empty: famished, or dead on their feet. The **Body** takes over: **Initiative** seats what would relieve it first, and shrinks the menu when something does; **Reflex** notices less. Suffering as loss of agency; the Persona still chooses.
 _Avoid_: pain (nothing hurts), critical, starving.
 
+**Strain**:
+What neglect leaves in a **Body**: it builds while they live in **Distress** and with short nights, and eases with lived time looked after and a full night's sleep. Never said in a prompt; past a point it lets the body break down. See [ADR 0061](docs/adr/0061-a-body-that-can-break-down.md).
+_Avoid_: damage, fatigue, health.
+
+**Ailing**:
+A **Body** broken down for a day or so, by a bodily **own Happening** after **Strain**: everything tires them faster and they never feel more than flagging. It ends with a full night after twelve hours, or by itself after three days, and then it can't happen again for three days.
+_Avoid_: sick (status), ill, debuff, condition.
+
 **Wallet**:
 A participant's money in a Party: a balance in credits paid once a day by their **Means** (tight, getting by, comfortable), a ledger, and a **Wardrobe** of clothes they own or were given. Buying, changing clothes and giving presents happen through the Wardrobe app. See [ADR 0024](docs/adr/0024-micro-economy.md).
 _Avoid_: account, inventory, currency (the unit is just "credits").
@@ -328,7 +336,7 @@ The fast, calibrated *weighing* half of a Relevance Realization call: state + ty
 _Avoid_: classifier, scorer, router.
 
 **Happening**:
-Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. The Narrator's have a kind and a stake: something to deal with, take up or do without; one kind makes real, or ends, something people keep talking about. An **own Happening** happens in one Persona's offscreen life (family, home, work, body), theirs alone: in their Right now for a while, then in their next **Day**. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md), [ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md) and [ADR 0055](docs/adr/0055-loops-close-and-lives-happen.md).
+Something small that happens in the World, announced by the Narrator or an author, or a mishap. At a **Place** it's news there for a while and remembered around its **District**; without one, everyone lives through it. How close you were decides how much it pulls. The Narrator's have a kind and a stake: something to deal with, take up or do without; one kind makes real, or ends, something people keep talking about. An **own Happening** happens in one Persona's offscreen life (family, home, work, body), theirs alone: in their Right now for a while, then in their next **Day**. One about the body leaves them **Ailing**, and a body under **Strain** gets one first. See [ADR 0043](docs/adr/0043-promises-and-placed-happenings.md), [ADR 0050](docs/adr/0050-own-tempo-and-second-thoughts.md) and [ADR 0055](docs/adr/0055-loops-close-and-lives-happen.md).
 _Avoid_: event (taken — see **Event**), news item.
 
 **Activity**:

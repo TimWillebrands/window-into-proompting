@@ -32,7 +32,8 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
                 x.s.Beats.Select(b => $"{b.Minute / 60:00}:{b.Minute % 60:00} {b.Text}").ToList(),
                 x.s.Threads,
                 x.body.Felt && !x.sleeping ? Math.Round(x.body.Fed, 2) : null,
-                x.body.Felt && !x.sleeping ? Math.Round(x.body.Rested, 2) : null))
+                x.body.Felt && !x.sleeping ? Math.Round(x.body.Rested, 2) : null,
+                x.body.Felt && !x.sleeping && x.body.Ailing))
             .ToList());
     }
 
@@ -61,4 +62,5 @@ public sealed record SelfSummary(
     List<string> Day,
     List<string> Threads,
     double? Fed = null,
-    double? Rested = null);
+    double? Rested = null,
+    bool Ailing = false);

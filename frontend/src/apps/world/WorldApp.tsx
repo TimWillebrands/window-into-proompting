@@ -581,6 +581,7 @@ function SelfLines({ self }: { self: SelfSummary }) {
                 {self.energy ? ` · energy ${self.energy}` : null}
                 {battery < 0.5 ? ' · talked out' : null}
                 {hunger ? ` · ${hunger}` : null}
+                {self.ailing ? ' · unwell' : null}
             </div>
             {self.threads && self.threads.length > 0 ? (
                 <details>

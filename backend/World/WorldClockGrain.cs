@@ -437,22 +437,29 @@ public sealed class WorldClockGrain(
                     && snapshot.Bodies.Any(b => b.ParticipantId == c.Id && !b.Asleep && b.Activity != Places.PlacesGrain.Dozing))
                 .Select(c => (c.Id, state.State.OwnAt.GetValueOrDefault(c.Id)))
                 .ToList();
-            if (Self.OwnHappenings.Pick(awake, nowMs, Random.Shared) is not { } id || cast.FirstOrDefault(c => c.Id == id) is not { } who) return;
+            var due = Self.OwnHappenings.Due(awake, nowMs);
+            var breaks = await Task.WhenAll(due.Select(d => GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, d)).BreakingAsync()));
+            var breaking = due.Where((_, i) => breaks[i]).ToHashSet();
+            if (Self.OwnHappenings.Pick(awake, nowMs, Random.Shared, breaking) is not { } id || cast.FirstOrDefault(c => c.Id == id) is not { } who) return;
             state.State.OwnAt[id] = nowMs;
-            var kind = Self.OwnHappenings.PickKind(_ownKindsLately, Random.Shared);
+            var forced = breaking.Contains(id);
+            var kind = Self.OwnHappenings.KindFor(forced, _ownKindsLately, Random.Shared);
             _ownKindsLately.Enqueue(kind);
             if (_ownKindsLately.Count > Self.OwnHappenings.KindMemory) _ownKindsLately.Dequeue();
 
             var self = GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, id));
             var sheet = await Self.LivedSheets.SourceAsync(GrainFactory, who) ?? $"{who.SystemPrompt}\n{who.Bio}";
+            var day = await self.GetStateAsync();
             var json = await llm.For(id).CompleteJsonAsync(Grains.Generation.JobComplexity.General,
                 Self.OwnHappenings.Brief(who.Name, Self.OwnHappenings.Kinds[kind]),
-                Self.OwnHappenings.Material(who.Name, sheet, await self.GetStateAsync(), DateTimeOffset.Now),
+                Self.OwnHappenings.Material(who.Name, sheet, day, DateTimeOffset.Now, forced ? Self.Bio.Lately(day) : null),
                 CancellationToken.None, 1.0, ["happening", "summary"]);
             if (Self.OwnHappenings.Clean(json?["happening"]?.ToString(), 300) is not { } text) return;
             var summary = Self.OwnHappenings.Clean(json?["summary"]?.ToString(), 160) ?? text;
 
             await self.HappenAsync(text);
+            if (kind == Self.OwnHappenings.Body && await self.AilAsync() is { } strain)
+                logger.LogInformation("Ailing {Persona} (strain {Strain:F2})", who.Name, strain);
             var activity = new WorldActivity { PersonaId = id, PersonaName = who.Name, App = "life", Action = Self.OwnHappenings.Action, Summary = summary };
             await RecordAsync(activity);
             _ = memory.CaptureAsync(new Moment(PartyId, MomentSources.World, activity.Id,

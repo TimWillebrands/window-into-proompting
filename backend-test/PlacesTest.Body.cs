@@ -74,6 +74,45 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task Ailing_AwayFromHome_HomePulls_AndSpentSaysOnlyThat()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var app = new PlacesApp(_fx.GrainFactory);
+        var lobby = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Lobby");
+        await places.MoveAsync(denise, lobby.Id, "sofas");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        Affordance Home(IReadOnlyList<Affordance> seen) => seen.Single(a => a.Label.StartsWith("Head home"));
+        var fine = Home((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.38)), default))!.Affordances);
+        var ill = Home((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.38) with { Ailing = true }), default))!.Affordances);
+        var spent = Home((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.1) with { Ailing = true }), default))!.Affordances);
+
+        Assert.Equal(("Head home", null), (fine.Label, fine.Meets));
+        Assert.Equal(("Head home (you're not well)", Bio.Rest, fine.Priority + 2), (ill.Label, ill.Meets, ill.Priority));
+        Assert.Equal("Head home (you're dead on your feet)", spent.Label);
+    }
+
+    [Fact]
+    public async Task AilAsync_OnABodyNobodyLivedIn_DoesNothing_AndOnALivedOneItShows()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+
+        Assert.Null(await SelfOf(partyId, pieter).AilAsync());
+        var never = await SelfOf(partyId, pieter).GetStateAsync();
+        Assert.Equal((0L, 0L), (never.AilingSince, never.LivedAt));
+        Assert.False(await SelfOf(partyId, pieter).BreakingAsync());
+
+        await SelfOf(partyId, denise).LiveBodyAsync(false);
+        Assert.NotNull(await SelfOf(partyId, denise).AilAsync());
+        Assert.Null(await SelfOf(partyId, denise).AilAsync());
+        var body = await SelfOf(partyId, denise).LiveBodyAsync(false);
+        Assert.True(body.Ailing);
+        Assert.True(body.Rested <= Bio.AilingRested);
+        Assert.Contains(Bio.Lines(body, DateTimeOffset.Now), l => l.StartsWith("You're not well today"));
+    }
+
+    [Fact]
     public async Task ATiredBody_IsNoLongerRestless()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
