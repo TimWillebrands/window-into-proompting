@@ -23,7 +23,8 @@ public sealed partial class PlacesGrain
             var stretch = Errands(PlanFor(body.ParticipantId, now)).FirstOrDefault(w => w.Start <= minute && minute < w.End);
             var company = Occupants(body.PlaceId).Any(o => o.ParticipantId != body.ParticipantId && o.SpotId == body.SpotId);
             var (bed, wake) = WindowFor(body.ParticipantId, now);
-            switch (ErrandStep(body, stretch, today, company, Sleep.IsNight(minute, bed, wake)))
+            var night = Sleep.IsNight(minute, bed, wake) || Sleep.TurnedIn(body.TurnedInUntil, now, minute, bed, wake);
+            switch (ErrandStep(body, stretch, today, company, night))
             {
                 case ErrandMove.Return:
                     await ReturnAsync(body.ParticipantId);

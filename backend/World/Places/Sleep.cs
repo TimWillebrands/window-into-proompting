@@ -28,5 +28,20 @@ public static class Sleep
     public static bool IsNight(int minute, int bed, int wake)
         => bed > wake ? minute >= bed || minute < wake : minute >= bed && minute < wake;
 
+    public const int TurnInPast = 15;
+    public static readonly TimeSpan TurnInAtMost = TimeSpan.FromHours(6);
+
+    public static long TurnInUntil(long now, int minute, int bed, int wake)
+    {
+        var untilBed = IsNight(minute, bed, wake) ? 0 : (bed - minute + Day) % Day;
+        return now + (long)Math.Min(TimeSpan.FromMinutes(untilBed + TurnInPast).TotalMilliseconds, TurnInAtMost.TotalMilliseconds);
+    }
+
+    public static bool Evening(int minute, int bed, int wake)
+        => !IsNight(minute, bed, wake) && (bed - minute + Day) % Day < (minute - wake + Day) % Day;
+
+    public static bool TurnedIn(long? until, long now, int minute, int bed, int wake)
+        => until is { } u && (u > now || (now - u < TurnInAtMost.TotalMilliseconds && Evening(minute, bed, wake)));
+
     private static int Later(int minute, int wake) => minute < wake ? minute + Day : minute;
 }

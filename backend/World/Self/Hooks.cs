@@ -29,6 +29,8 @@ public static class Hooks
     public static string Ask(string who, string? theyreDoing)
         => theyreDoing is null ? $"Talk to {who}, right here" : $"Ask {who} what they're up to, right here ({theyreDoing})";
 
+    public static string AllRight(string who, string bearing) => $"Ask {who} if they're all right, right here ({bearing})";
+
     public static string Diary(string? onYourMind)
         => onYourMind is null ? "Write in your diary and take some time to reflect" : $"Write in your diary about what's on your mind (like: {Like(onYourMind)})";
 

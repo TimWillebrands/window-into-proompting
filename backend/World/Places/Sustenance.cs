@@ -103,10 +103,11 @@ public static class Sustenance
         return notes.Count == 0 ? what : $"{what} ({string.Join("; ", notes)})";
     }
 
-    public static string Summary(Fare fare, Place place, Guid who, DateTimeOffset local, IReadOnlyList<string> company)
+    public static string Summary(Fare fare, Place place, Guid who, DateTimeOffset local, IReadOnlyList<string> company, bool forThem = false)
     {
         var meal = Meal(local);
         var at = PlacesGrain.AtName(place, who);
+        if (fare.Cooked && forThem && company.Count > 0) return $"makes {meal} for {And(company)} {at}";
         if (fare.Cooked) return $"makes {meal} {at}{(company.Count > 0 ? $", for {And(company)} too" : string.Empty)}";
         if (fare.Key == Order)
             return $"has {(fare.Feeds >= Self.Bio.LightMeal ? meal : "something small to eat")} {at} ({Credits(fare.Cost)})";

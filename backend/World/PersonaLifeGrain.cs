@@ -291,6 +291,9 @@ public sealed class PersonaLifeGrain(
             var reserves = await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).LiveBodyAsync(away: me.AwayAs is not null, company: _company);
             if (Bio.Distress(reserves) is { } distress)
                 logger.LogInformation("Distress {Persona}: {What} (fed {Fed:F2}, rested {Rested:F2})", name, distress, reserves.Fed, reserves.Rested);
+            var bearing = Places.Bearing.Of(reserves);
+            if (Places.Bearing.Due(me, bearing, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+                await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).SetBearingAsync(personaId, bearing);
             return reserves;
         }
         catch (Exception ex)

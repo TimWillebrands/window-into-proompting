@@ -49,6 +49,10 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 affordances.Add(new Affordance(Id, Sustenance.Label(fare, ctx.Now.ToLocalTime(), Guests(fare, here, others, ctx.Self.Id).Select(g => g.Name).ToList(), since),
                     Self.Bio.Pull(hunger), here.Id, $"eat:{fare.Key}", Meets: Self.Bio.Food));
         }
+        else if (!self.IsWalking && here is not null && here.LivesIn(ctx.Self.Id)
+                 && others.FirstOrDefault(o => o is { IsWalking: false, Asleep: false } && Bearing.Shown(o, ctx.Now.ToUnixTimeMilliseconds()) == Bearing.Famished) is { } famished
+                 && Sustenance.Of(here, ctx.Self.Id).FirstOrDefault(f => f.Key == Sustenance.Cook) is { } cooking)
+            affordances.Add(new Affordance(Id, $"Make something to eat for {famished.Name.Split(' ')[0]} (they look like they haven't eaten all day)", 2, here.Id, $"eat:{cooking.Key}"));
         if (!self.IsWalking && here?.TalkRoomId is { } talkRoomId && others.Count > 0)
         {
             var recent = await grains.GetGrain<IChatGroupGrain>(talkRoomId).GetRecentMessagesAsync(8);
@@ -136,6 +140,9 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             }
             if (rests && !reserves.Napped && here?.LivesIn(ctx.Self.Id) == true && LieSpot(here, self) is { } couch)
                 affordances.Add(new Affordance(Id, $"Lie down for a bit {couch.At} {couch.Name}", Self.Bio.Pull(tired), here.Id, "nap", Meets: Self.Bio.Rest));
+            var spent = tired == Self.Tiredness.Spent;
+            if (!self.Asleep && here?.LivesIn(ctx.Self.Id) == true && (spent || reserves is { Felt: true, Ailing: true }) && Late(ctx.Now.ToLocalTime()))
+                affordances.Add(new Affordance(Id, "Turn in early", spent ? Self.Bio.Seated : 3, here.Id, "bed", Meets: Self.Bio.Rest));
         }
 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
@@ -287,6 +294,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         if (HappeningRules.Witnessed(ctx.Happenings, ctx.RecentOwn, Id, "say", ctx.Now) is { } saw) return Self.Hooks.Saw(who, saw.Text);
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         if (Self.Hooks.Pick(openers) is { } story) return Self.Hooks.Tell(who, story);
+        var nowMs = ctx.Now.ToUnixTimeMilliseconds();
+        if (nearby.FirstOrDefault(o => Bearing.Shown(o, nowMs) is not null) is { } worn) return Self.Hooks.AllRight(worn.Name, Bearing.Shown(worn, nowMs)!);
         return nearby.FirstOrDefault(o => o.Activity is { Length: > 0 }) is { } busy
             ? Self.Hooks.Ask(busy.Name, busy.Activity)
             : Self.Hooks.Ask(who, null);
@@ -369,6 +378,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 return await EatAsync(ctx, places, target, verb[4..]);
             case "nap":
                 return await NapAsync(ctx, places, target);
+            case "bed":
+                return await places.TurnInAsync(ctx.Self.Id) ? new ActOutcome("bed", "turns in early", null) : null;
             case { } verb when verb.StartsWith("do:", StringComparison.Ordinal):
             {
                 var done = await Doing.DoAsync(grains, ctx.PartyId, ctx.Self.Id, WorldLlm.Identity(ctx.Self), target, verb[3..], thought ?? intent, null, ctx.Now);
@@ -450,7 +461,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 Summary = $"eats what {cook} made {PlacesGrain.AtName(place, guest.ParticipantId)}", WithPersonaId = ctx.Self.Id,
             });
         }
-        return new ActOutcome("eat", Sustenance.Summary(fare, place, ctx.Self.Id, local, names), null, guests.FirstOrDefault()?.ParticipantId);
+        var forThem = (ctx.Reserves ?? Self.Reserves.Unfelt).Hunger == Self.Hunger.None;
+        return new ActOutcome("eat", Sustenance.Summary(fare, place, ctx.Self.Id, local, names, forThem), null, guests.FirstOrDefault()?.ParticipantId);
     }
 
     private async Task<ActOutcome?> NapAsync(LifeContext ctx, IPlacesGrain places, Guid placeId)
@@ -472,6 +484,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
 
     internal static List<Body> Guests(Fare fare, Place place, IEnumerable<Body> others, Guid who)
         => fare.Cooked && place.LivesIn(who) ? others.Where(o => !o.IsWalking && !o.Asleep).ToList() : new List<Body>();
+
+    internal static bool Late(DateTimeOffset local) => local.Hour is >= 20 or < 5;
 
     internal static Spot? LieSpot(Place home, Body self)
     {

@@ -428,7 +428,7 @@ Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the 
 _Avoid_: range, radius, audience.
 
 **Asleep**:
-A Body in bed at night. The World clock skips it and persona talk doesn't wake it; a human's message does (groggy for a while). Falling asleep runs **Consolidation**.
+A Body in bed at night. The World clock skips it and persona talk doesn't wake it; a human's message does (groggy for a while). Falling asleep runs **Consolidation**. A Persona who is spent or unwell late in the evening can turn in early: for them it is night from then on, and they get up at their usual time, having slept longer. See [ADR 0064](docs/adr/0064-bodies-read-each-other.md).
 
 **Appearance**:
 How a Body looks: named picks from a fixed palette (skin, hair, style, clothes, accessory), plus a **Design** laid over them. Personas dress themselves once from their bio; Players pick theirs.
@@ -437,6 +437,10 @@ _Avoid_: avatar, sprite, skin (as a whole).
 **Aura**:
 How a Persona comes across to whoever stands right next to them: one line of up to 64 characters, empty by default. Players set theirs in the Wardrobe, admins any Persona's in the editor. It reaches others only at the same Spot, never in chats. See [ADR 0045](docs/adr/0045-aura.md).
 _Avoid_: vibe, presence, reputation (that's earned, an Aura is declared).
+
+**Bearing**:
+What a **Body** gives away about itself to whoever stands right next to them: "looks unwell", "looks dead on their feet", "looks like they haven't eaten all day". An **Aura** is declared, a Bearing is given away; both reach only the same Spot. Only **Distress** and Ailing show, and a Bearing fades after two hours unless a Life turn finds it still true. See [ADR 0064](docs/adr/0064-bodies-read-each-other.md).
+_Avoid_: status, condition, health bar.
 
 **Figure**:
 How a Body is drawn in 3D: a doll compiled from a document of numbers, names, colours, SVG and blobs. See [ADR 0028](docs/adr/0028-figures-as-documents.md).

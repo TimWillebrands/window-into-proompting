@@ -205,6 +205,30 @@ public sealed partial class PlacesGrain(
     public Task<bool> IsAsleepAsync(Guid participantId)
         => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var b) && b.Asleep);
 
+    public async Task<bool> TurnInAsync(Guid participantId)
+    {
+        await SettleAsync();
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsHuman || body.IsWalking || body.Asleep) return false;
+        if (state.State.Places.HomeOf(participantId) is not { } home || body.PlaceId != home.Id) return false;
+        var now = Now();
+        var local = time.GetLocalNow();
+        var (bed, wake) = WindowFor(participantId, now);
+        body.TurnedInUntil = Sleep.TurnInUntil(now, local.Hour * 60 + local.Minute, bed, wake);
+        body.WokenUntil = null;
+        await SaveAsync();
+        if (body.SpotId != "bed") await MoveAsync(participantId, home.Id, "bed");
+        return true;
+    }
+
+    public async Task SetBearingAsync(Guid participantId, string? bearing)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body)) return;
+        body.Bearing = string.IsNullOrWhiteSpace(bearing) ? null : bearing;
+        body.BearingUntil = body.Bearing is null ? null : Now() + (long)Self.Bio.FeltFor.TotalMilliseconds;
+        await SaveAsync();
+        await PublishAsync(body);
+    }
+
     private async Task SleepCycleAsync()
     {
         var now = Now();
@@ -215,11 +239,12 @@ public sealed partial class PlacesGrain(
         foreach (var body in state.State.Bodies.Values.Where(b => !b.IsHuman).ToList())
         {
             var (bed, wake) = WindowFor(body.ParticipantId, now);
-            var night = Sleep.IsNight(minute, bed, wake);
+            var night = Sleep.IsNight(minute, bed, wake) || Sleep.TurnedIn(body.TurnedInUntil, now, minute, bed, wake);
             if (!night && (body.Asleep || body.AsleepSince is not null))
             {
                 var slept = body.AsleepSince is { } since ? Math.Clamp((now - since) / 3_600_000.0, 0, 12) : 8;
                 body.AsleepSince = null;
+                body.TurnedInUntil = null;
                 if (body.Asleep)
                 {
                     GetUp(body);
@@ -227,6 +252,12 @@ public sealed partial class PlacesGrain(
                 }
                 else await SaveAsync();
                 _ = RiseAsync(body.ParticipantId, slept);
+                continue;
+            }
+            if (!night && body.TurnedInUntil is not null)
+            {
+                body.TurnedInUntil = null;
+                await SaveAsync();
                 continue;
             }
             if (body.Asleep || !night || body.WokenUntil > now) continue;
@@ -1096,7 +1127,7 @@ public sealed partial class PlacesGrain(
             sb.Append(home ? " Nobody else is home." : " Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
-                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)})"
+                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)}{(Bearing.Shown(o, Now()) is { } bearing ? $"; {bearing}" : string.Empty)})"
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
@@ -1209,6 +1240,10 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("GetAsleepAsync")] Task<List<Guid>> GetAsleepAsync();
 
     [AlwaysInterleave, Alias("IsAsleepAsync")] Task<bool> IsAsleepAsync(Guid participantId);
+
+    [Alias("TurnInAsync")] Task<bool> TurnInAsync(Guid participantId);
+
+    [Alias("SetBearingAsync")] Task SetBearingAsync(Guid participantId, string? bearing);
     [AlwaysInterleave, Alias("GetBodyAsync")] Task<Body?> GetBodyAsync(Guid participantId);
 
     [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);

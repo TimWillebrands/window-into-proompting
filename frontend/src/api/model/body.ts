@@ -73,5 +73,17 @@ export interface Body {
      * @pattern ^-?(?:0|[1-9]\d*)$
      */
     asleepSince?: number | string | null;
+    /** @nullable */
+    bearing?: string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    bearingUntil?: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    turnedInUntil?: number | string | null;
     isWalking?: boolean;
 }

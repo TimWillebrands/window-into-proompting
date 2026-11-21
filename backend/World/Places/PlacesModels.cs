@@ -199,6 +199,9 @@ public sealed class Body
     [Id(26)] public WorkClothes? WorkClothes { get; set; }
     [Id(27)] public Appearance? OwnLook { get; set; }
     [Id(28)] public long? AsleepSince { get; set; }
+    [Id(29)] public string? Bearing { get; set; }
+    [Id(30)] public long? BearingUntil { get; set; }
+    [Id(31)] public long? TurnedInUntil { get; set; }
 
     public bool IsWalking => DestPlaceId is not null;
 }

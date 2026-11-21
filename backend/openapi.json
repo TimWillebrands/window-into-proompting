@@ -9687,6 +9687,30 @@
             ],
             "format": "int64"
           },
+          "bearing": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bearingUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "turnedInUntil": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
           "isWalking": {
             "type": "boolean"
           }

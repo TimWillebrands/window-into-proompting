@@ -138,8 +138,7 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 ## Not yet
 
 - Breaking down: see ADR 0061.
-- Tiredness moving bedtime, or turning in early.
-- Others seeing it: "looks worn out" at the same Spot.
+- Others seeing it, and turning in early: see ADR 0064.
 - Counters with someone behind them who earns.
 - Attachment to the Place where you eat (ADR 0057's open end).
 - The Social battery recharging by who is around: see ADR 0063.
